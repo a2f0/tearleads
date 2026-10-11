@@ -121,16 +121,22 @@ export class WorkersPostgresSocket extends EventEmitter {
 
   write(
     data: Uint8Array | string,
-    encoding: BufferEncoding = "utf8",
+    encoding: BufferEncoding | WriteCallback = "utf8",
     callback: WriteCallback = () => {},
   ): true {
+    // Node streams accept `write(data, callback)`; pg uses that form when it
+    // terminates a connection, and that callback is what closes the socket.
+    const resolvedEncoding: BufferEncoding =
+      typeof encoding === "function" ? "utf8" : encoding;
+    const resolvedCallback: WriteCallback =
+      typeof encoding === "function" ? encoding : callback;
     const bytes =
       typeof data === "string"
-        ? Buffer.from(data, encoding)
+        ? Buffer.from(data, resolvedEncoding)
         : Buffer.isBuffer(data)
           ? data
           : Buffer.from(data);
-    this.pending.push({ callback, data: bytes });
+    this.pending.push({ callback: resolvedCallback, data: bytes });
     if (!this.flushScheduled) {
       this.flushScheduled = true;
       queueMicrotask(() => this.flush());
@@ -140,12 +146,15 @@ export class WorkersPostgresSocket extends EventEmitter {
 
   end(
     data: Uint8Array | string = Buffer.alloc(0),
-    encoding: BufferEncoding = "utf8",
+    encoding: BufferEncoding | WriteCallback = "utf8",
     callback: WriteCallback = () => {},
   ): this {
-    this.write(data, encoding, (error) => {
+    const resolvedCallback =
+      typeof encoding === "function" ? encoding : callback;
+    const resolvedEncoding = typeof encoding === "function" ? "utf8" : encoding;
+    this.write(data, resolvedEncoding, (error) => {
       void this.socket?.close().catch(() => {});
-      callback(error);
+      resolvedCallback(error);
     });
     return this;
   }

@@ -138,17 +138,22 @@ export class KeyValueStore extends DurableObject implements KeyValueStoreRpc {
     }
   }
 
-  /** One page of a live set's members, ordered so paging is stable. */
-  smembers(key: string, offset: number): string[] {
+  /**
+   * One page of a live set's members after a cursor, in member order. A
+   * cursor rather than an offset keeps paging exact when the caller removes
+   * members between pages, as session listing does with expired sessions.
+   */
+  smembers(key: string, after: string | null): string[] {
     if (!this.isLiveSet(key)) {
       return [];
     }
     return this.ctx.storage.sql
       .exec<MemberRow>(
-        "SELECT member FROM set_members WHERE key = ? ORDER BY member LIMIT ? OFFSET ?",
+        "SELECT member FROM set_members WHERE key = ? AND (? IS NULL OR member > ?) ORDER BY member LIMIT ?",
         key,
+        after,
+        after,
         KEY_VALUE_SET_PAGE_SIZE,
-        offset,
       )
       .toArray()
       .map((row) => row.member);

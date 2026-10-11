@@ -5,10 +5,13 @@
 #   1. Prepare the environment's independent S3 storage
 #   2. Terraform apply (independent PlanetScale Postgres stack)
 #   3. API deploy (migrations, Worker secrets, Worker publish)
-#   4. Terraform apply (edge stack: API, app, and demo hostnames)
-#   5. API verification over the public hostname
-#   6. Website deploy (build, Wrangler, independent domain Terraform)
-#   7. App-web deploy (build, upload Sentry maps, Workers Static Assets)
+#   4. App-web deploy (build, upload Sentry maps, Workers Static Assets)
+#   5. Terraform apply (edge stack: API, app, and demo hostnames)
+#   6. API verification over the public hostname
+#   7. Website deploy (build, Wrangler, independent domain Terraform)
+#
+# The edge stack attaches hostnames to Workers that must already exist, so the
+# API and app Workers publish before it runs.
 #
 # Pass --skip-terraform when a caller already prepared storage, the database,
 # and the edge hostnames; --skip-infra is its alias now that no server exists.
@@ -68,6 +71,7 @@ else
 fi
 
 step_timings_run "api" "${REPO_ROOT}/packages/api/scripts/deployApi.sh" staging
+step_timings_run "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployStagingAppWeb.sh"
 if [[ "$SKIP_TERRAFORM" == true ]]; then
   step_timings_skip "edge" --skip-terraform
 else
@@ -79,7 +83,6 @@ if [[ "$SKIP_TERRAFORM" == true ]]; then
 else
   step_timings_run "website" "${REPO_ROOT}/scripts/deployStagingWebsite.sh"
 fi
-step_timings_run "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployStagingAppWeb.sh"
 
 echo "=== Deployment finished ==="
 echo "All steps succeeded."

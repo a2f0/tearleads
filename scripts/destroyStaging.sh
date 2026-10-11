@@ -21,6 +21,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 "$REPO_ROOT/terraform/scripts/run-edge-stack.sh" staging destroy "$@"
 "$REPO_ROOT/packages/api/scripts/destroyStagingApi.sh"
 "$REPO_ROOT/packages/app-web/scripts/destroyStagingAppWeb.sh"
+# PlanetScale refuses to delete a role that still owns objects.
+"$REPO_ROOT/terraform/scripts/drop-postgres-owned.sh" staging
 "$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" staging destroy "$@"
 "$REPO_ROOT/terraform/scripts/run-storage-stack.sh" staging destroy "$@"
 exec "$REPO_ROOT/packages/website/scripts/destroyStagingWebsite.sh" "$@"

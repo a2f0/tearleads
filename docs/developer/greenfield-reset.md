@@ -131,7 +131,9 @@ Both tiers have an independent PlanetScale database stack:
 2. Run the documented `DROP OWNED BY CURRENT_USER CASCADE` through that migration
    connection. PlanetScale will not delete a role that still owns objects.
    This SQL belongs only to the authorized complete teardown. Check that the
-   old application tables are gone.
+   old application tables are gone. For staging,
+   `terraform/scripts/drop-postgres-owned.sh staging` runs it from the stack's
+   connection output; `scripts/destroyStaging.sh` includes that step.
 3. With the temporary overrides in place for production, prepare and inspect
    the database destruction plan, then apply it:
 

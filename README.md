@@ -49,8 +49,8 @@ Each tier is four Cloudflare Workers plus three independent Terraform stacks:
   domain stack.
 
 `scripts/deployStaging.sh` and `scripts/deployProduction.sh` run the whole
-sequence: storage, database, API migrations and Worker, edge hostnames, API
-verification, website, then app bundles. `packages/api/scripts/deployApi.sh`
+sequence: storage, database, API migrations and Worker, app bundles, edge
+hostnames (which need the Workers to exist), API verification, then website. `packages/api/scripts/deployApi.sh`
 migrates with the PlanetScale migration login, syncs the Worker secrets from
 the Terraform outputs and `.secrets/<tier>.env`, and publishes with the build
 constants from `packages/api/scripts/workerDefines.ts`. The document sync

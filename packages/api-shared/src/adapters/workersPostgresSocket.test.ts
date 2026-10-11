@@ -71,3 +71,19 @@ test("ending the stream flushes queued writes before closing the socket", async 
   expect(fake.writes.map(String)).toEqual(["terminate"]);
   expect(fake.isClosed()).toBe(true);
 });
+
+test("write and end accept a callback in place of the encoding", async () => {
+  const fake = fakeSocket();
+  const stream = new WorkersPostgresSocket(
+    false,
+    async () => () => fake.socket,
+  );
+  await stream.connect(5432, "db.example.test");
+  const order: string[] = [];
+  stream.write("X", () => order.push("terminate-written"));
+  const closed = new Promise<void>((resolve) => stream.once("close", resolve));
+  stream.end(Buffer.alloc(0), () => order.push("ended"));
+  await closed;
+  expect(fake.writes.map(String)).toEqual(["X"]);
+  expect(order).toEqual(["terminate-written", "ended"]);
+});

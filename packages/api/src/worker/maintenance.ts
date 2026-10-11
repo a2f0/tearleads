@@ -6,10 +6,12 @@ import { expireOrganizationTrials } from "../services/billing/organizationTrialE
 import { runStripeSeatSynchronization } from "../services/billing/stripeSeatSync";
 import { runBlobMaintenance } from "../services/blobs/blobMaintenance";
 import { getDefaultApiServiceRuntime } from "../services/runtime";
+import { withHealthcheck } from "./healthchecks";
 
 /** Cron expressions registered in `wrangler.jsonc`, matched by `scheduled`. */
 const BILLING_MAINTENANCE_CRON = "* * * * *";
 const BLOB_MAINTENANCE_CRON = "0 * * * *";
+const blobGcHealthcheckUrlEnvKey = "BLOB_GC_HEALTHCHECK_URL";
 
 async function runPhase<T>(
   name: string,
@@ -50,13 +52,20 @@ async function runBillingMaintenance(): Promise<void> {
   );
 }
 
-/** Replaces the hourly `tearleads-blob-gc` systemd timer. */
+/**
+ * Replaces the hourly `tearleads-blob-gc` systemd timer, including its
+ * Healthchecks start, success, and failure pings.
+ */
 async function runBlobGarbageCollection(): Promise<void> {
   try {
-    const summary = await runBlobMaintenance(getDefaultApiServiceRuntime(), {
-      dereferencedBlobs: {},
-      expiredStages: {},
-    });
+    const summary = await withHealthcheck(
+      process.env[blobGcHealthcheckUrlEnvKey],
+      () =>
+        runBlobMaintenance(getDefaultApiServiceRuntime(), {
+          dereferencedBlobs: {},
+          expiredStages: {},
+        }),
+    );
     console.log(JSON.stringify(summary));
   } catch (error) {
     console.error("Blob GC maintenance failed:", error);

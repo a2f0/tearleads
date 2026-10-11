@@ -182,19 +182,32 @@ export async function srem(key: string, member: string): Promise<void> {
   await activeClient.sRem(key, member);
 }
 
-async function* workerSetMembers(
+/** The page reader the Durable Object exposes over RPC. */
+export interface WorkerSetMemberPages {
+  smembers(key: string, after: string | null): Promise<string[]>;
+}
+
+/**
+ * Page a set by member cursor. Callers prune members while iterating (session
+ * listing drops expired sessions), so an offset would skip live members.
+ */
+export async function* collectWorkerSetMembers(
+  store: WorkerSetMemberPages,
   key: string,
+  pageSize = KEY_VALUE_SET_PAGE_SIZE,
 ): AsyncGenerator<string[], void, unknown> {
-  const store = keyValueStoreStub();
-  for (let offset = 0; ; offset += KEY_VALUE_SET_PAGE_SIZE) {
-    const page = await store.smembers(key, offset);
+  let after: string | null = null;
+  for (;;) {
+    const page = await store.smembers(key, after);
     if (page.length === 0) {
       return;
     }
     yield page;
-    if (page.length < KEY_VALUE_SET_PAGE_SIZE) {
+    const last = page[page.length - 1];
+    if (page.length < pageSize || last === undefined) {
       return;
     }
+    after = last;
   }
 }
 
@@ -208,7 +221,7 @@ export async function* sscanMembers(
     return;
   }
   if (isWorkerEnvironment()) {
-    yield* workerSetMembers(key);
+    yield* collectWorkerSetMembers(keyValueStoreStub(), key);
     return;
   }
 

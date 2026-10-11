@@ -105,10 +105,10 @@ for (const fixture of fixtures) {
             ? []
             : [`storage|${fixture.tier}`, `postgres|${fixture.tier}`]),
           `api|${fixture.tier}`,
+          "app-web|",
           ...(flag ? [] : [`edge|${fixture.tier} apply -auto-approve`]),
           `api-verify|${fixture.tier}`,
           `website|${flag ? "--skip-terraform" : ""}`,
-          "app-web|",
         ]);
       } finally {
         await rm(root, { recursive: true, force: true });

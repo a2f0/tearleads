@@ -4,6 +4,7 @@ import {
   realtimeHubStub,
   type WorkerBindings,
 } from "./environment";
+import { boundRequestBody } from "./requestBody";
 
 export { KeyValueStore } from "./keyValueStoreObject";
 export { RealtimeHub } from "./realtimeHubObject";
@@ -38,20 +39,6 @@ function loadApp(): Promise<LoadedApp> {
   return app;
 }
 
-/**
- * nginx rejected oversized bodies before Bun buffered them; the equivalent
- * here is the declared length, with the zone's own request-size ceiling as
- * the hard bound behind it. Route-level limits still apply below this one.
- */
-function declaredBodyTooLarge(request: Request): boolean {
-  const declared = request.headers.get("content-length");
-  if (declared === null) {
-    return false;
-  }
-  const length = Number(declared);
-  return Number.isSafeInteger(length) && length > MAX_MULTIPART_BLOB_PART_BYTES;
-}
-
 function isWebSocketUpgrade(request: Request): boolean {
   return request.headers.get("upgrade")?.toLowerCase() === "websocket";
 }
@@ -68,7 +55,12 @@ async function handleRequest(
     }
     return realtimeHubStub().fetch(request);
   }
-  if (declaredBodyTooLarge(request)) {
+  // Route-level limits still apply below this ceiling.
+  const bounded = await boundRequestBody(
+    request,
+    MAX_MULTIPART_BLOB_PART_BYTES,
+  );
+  if (bounded.kind === "too-large") {
     return Response.json({ error: "Request body too large" }, { status: 413 });
   }
   const { fetch, withRequestDatabase } = await loadApp();
@@ -77,7 +69,7 @@ async function handleRequest(
   return withRequestDatabase(
     async () =>
       fetch(
-        request,
+        bounded.request,
         {
           ...env,
           // Cloudflare sets this from the connecting socket; proxies cannot

@@ -11,7 +11,8 @@ export interface KeyValueStoreRpc {
   sadd(key: string, member: string): void;
   set(key: string, value: string, ttlSeconds?: number): void;
   setKeepTtl(key: string, value: string): void;
-  smembers(key: string, offset: number): string[];
+  /** One page of members greater than `after`, in member order. */
+  smembers(key: string, after: string | null): string[];
   srem(key: string, member: string): void;
 }
 

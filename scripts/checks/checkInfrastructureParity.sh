@@ -91,10 +91,10 @@ assert_tier_deploy_ordering() {
   local deploy_file="$1"
   local previous=0
   local step line
-  for step in prepare-storage.sh prepare-postgres.sh deployApi.sh run-edge-stack.sh verifyApi.sh Website.sh AppWeb.sh; do
+  for step in prepare-storage.sh prepare-postgres.sh deployApi.sh AppWeb.sh run-edge-stack.sh verifyApi.sh Website.sh; do
     line="$(awk -v needle="$step" 'index($0, needle) && index($0, "step_timings_run") { print NR; exit }' "$deploy_file")"
     if [ -z "$line" ] || [ "$line" -le "$previous" ]; then
-      echo "ERROR: Tier deploy must run storage, database, API, edge, verification, website, then app-web: $deploy_file" >&2
+      echo "ERROR: Tier deploy must run storage, database, API, app-web, edge, verification, then website: $deploy_file" >&2
       return 1
     fi
     previous="$line"

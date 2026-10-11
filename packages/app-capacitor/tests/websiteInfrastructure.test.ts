@@ -40,7 +40,7 @@ test("edge domains attach the API, app, and demo hostnames to their Workers", as
   const api = Bun.JSON5.parse(await read("packages/api/wrangler.jsonc"));
   expect(api).toHaveProperty("main", "./src/worker/index.ts");
   expect(api).toHaveProperty("workers_dev", false);
-  expect(api).toHaveProperty("placement", { mode: "smart" });
+  expect(api).toHaveProperty("placement", { region: "aws:us-east-1" });
   expect(api).toHaveProperty("triggers.crons", ["* * * * *", "0 * * * *"]);
   expect(api).not.toHaveProperty("routes");
   for (const tier of ["prod", "staging"]) {

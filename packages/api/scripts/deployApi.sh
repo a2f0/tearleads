@@ -91,6 +91,10 @@ echo "Syncing $TIER Worker secrets..."
 SECRETS_FILE="$CONNECTION_DIR/secrets.json"
 API_SENTRY_DSN="${!SENTRY_DSN_VARIABLE:-}"
 export API_SENTRY_DSN
+# The sandbox flag is written on every deploy so a tier that stops opting in
+# cannot keep an earlier "true" secret.
+export REVENUECAT_ALLOW_SANDBOX_EVENTS="${REVENUECAT_ALLOW_SANDBOX_EVENTS:-}"
+export BLOB_GC_HEALTHCHECK_URL="${BLOB_GC_HEALTHCHECK_URL:-}"
 jq -n \
   --slurpfile postgres "$CONNECTION_DIR/postgres.json" \
   --slurpfile storage "$CONNECTION_DIR/storage.json" \
@@ -113,6 +117,7 @@ jq -n \
      else {} end)
   + ([
       "API_SENTRY_DSN",
+      "BLOB_GC_HEALTHCHECK_URL",
       "REVENUECAT_WEBHOOK_AUTH_HEADER",
       "REVENUECAT_V2_SECRET_KEY",
       "REVENUECAT_PROJECT_ID",
@@ -123,8 +128,9 @@ jq -n \
       "STRIPE_SYNC_TEAM_5_PRICE_ID",
       "STRIPE_SYNC_TEAM_10_PRICE_ID"
     ] | map(optional(.)) | add)
-  + (if ((env.REVENUECAT_ALLOW_SANDBOX_EVENTS // "") | ascii_downcase) == "true"
-     then { REVENUECAT_ALLOW_SANDBOX_EVENTS: "true" } else {} end)
+  + { REVENUECAT_ALLOW_SANDBOX_EVENTS:
+        (if ((env.REVENUECAT_ALLOW_SANDBOX_EVENTS // "") | ascii_downcase) == "true"
+         then "true" else "false" end) }
   ' >"$SECRETS_FILE"
 if ! jq -e 'type == "object" and (to_entries | all(.value | type == "string"))' "$SECRETS_FILE" >/dev/null; then
   echo "ERROR: The Worker secrets file is not a flat object of strings." >&2

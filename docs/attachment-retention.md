@@ -121,15 +121,13 @@ The API Worker's hourly Cron Trigger (`0 * * * *` in
 `packages/api/wrangler.jsonc`) runs blob maintenance through
 `worker/maintenance.ts`; the trigger deploys with the Worker, so there is no
 separate timer to verify. Each tier loads its secret `BLOB_GC_HEALTHCHECK_URL` from
-`.secrets/<tier>.healthchecks.env`; the project management API key is not
-deployed. The service sends Healthchecks start and success signals, while timer
-or service failure sends a failure signal through
-`tearleads-maintenance-alert@.service`. Missing success signals also detect a
-disabled timer, unreachable host, or terminated run. Healthchecks requests are
-best-effort so an unavailable monitoring provider cannot prevent reclamation,
-and carry no blob identifiers or application data. A local helper passes the
-secret ping endpoint to curl over standard input so it is not exposed in the
-process command line.
+`.secrets/<tier>.healthchecks.env`, the API deploy syncs it as a Worker secret,
+and `worker/healthchecks.ts` sends the start, success, and failure pings around
+each run; the project management API key is not deployed. A run that throws
+sends the failure signal; a missing success signal also detects a disabled
+trigger or a terminated run. Healthchecks requests are best-effort so an
+unavailable monitoring provider cannot prevent reclamation, and carry no blob
+identifiers or application data.
 
 The failure service also writes a local `daemon.alert` journal entry tagged
 `tearleads-maintenance-alert` with the failed unit name. Object-store cleanup

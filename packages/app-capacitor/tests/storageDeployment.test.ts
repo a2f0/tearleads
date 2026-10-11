@@ -53,6 +53,10 @@ async function runStorageScript(
       ].join("\n"),
     );
     await executable(
+      resolve(root, "terraform/scripts/drop-postgres-owned.sh"),
+      '#!/bin/sh\nprintf "drop-owned %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
+    );
+    await executable(
       resolve(root, "terraform/scripts/run-postgres-stack.sh"),
       '#!/bin/sh\nprintf "postgres %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
     );
@@ -140,6 +144,7 @@ test("staging teardown detaches hostnames and deletes Workers before emptying st
     "edge staging destroy --auto-approve",
     "api ",
     "app-web ",
+    "drop-owned staging",
     "postgres staging destroy --auto-approve",
     "storage staging destroy --auto-approve",
     "website --auto-approve",
@@ -163,6 +168,7 @@ test("staging teardown without arguments preserves interactive confirmation", as
     "edge staging destroy",
     "api ",
     "app-web ",
+    "drop-owned staging",
     "postgres staging destroy",
     "storage staging destroy",
     "website",
