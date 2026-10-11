@@ -10,6 +10,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { createRegistrationRequestBody } from "../../test/helpers/api/submitRegistration";
+import { startFakeStartTlsPostgres } from "../../test/helpers/fakeStartTlsPostgres";
 
 /**
  * Runs the deployed entry in workerd through `wrangler dev`: the real
@@ -42,7 +43,7 @@ const postgresPartKeys = [
   "POSTGRES_DATABASE",
 ] as const;
 
-function databaseVars(): string[] {
+function databaseVars(): Record<string, string> {
   const url = process.env[databaseUrlKey] ?? process.env[postgresUrlKey];
   const vars = new Map<string, string>();
   if (url) {
@@ -69,7 +70,7 @@ function databaseVars(): string[] {
       }
     }
   }
-  return [...vars].flatMap(([key, value]) => ["--var", `${key}:${value}`]);
+  return Object.fromEntries(vars);
 }
 
 async function freePort(): Promise<number> {
@@ -82,7 +83,9 @@ async function freePort(): Promise<number> {
   return port;
 }
 
-async function startLocalWorker(): Promise<LocalWorker> {
+async function startLocalWorker(
+  overrides: Readonly<Record<string, string>> = {},
+): Promise<LocalWorker> {
   const [port, inspectorPort] = await Promise.all([freePort(), freePort()]);
   const persist = await mkdtemp(resolve(tmpdir(), "tearleads-worker-state-"));
   const child = Bun.spawn(
@@ -102,15 +105,14 @@ async function startLocalWorker(): Promise<LocalWorker> {
       "--log-level",
       "log",
       "--test-scheduled",
-      ...databaseVars(),
-      "--var",
-      "POSTGRES_SSL:false",
-      "--var",
-      "POSTGRES_SSL_REJECT_UNAUTHORIZED:false",
-      "--var",
-      "API_CORS_ORIGINS:http://app.localhost",
-      "--var",
-      `DOCUMENT_SYNC_CURSOR_HMAC_KEY:${"workerd-cursor-key-".repeat(3)}`,
+      ...Object.entries({
+        ...databaseVars(),
+        POSTGRES_SSL: "false",
+        POSTGRES_SSL_REJECT_UNAUTHORIZED: "false",
+        API_CORS_ORIGINS: "http://app.localhost",
+        DOCUMENT_SYNC_CURSOR_HMAC_KEY: "workerd-cursor-key-".repeat(3),
+        ...overrides,
+      }).flatMap(([key, value]) => ["--var", `${key}:${value}`]),
       "--define",
       `API_BUILD_VERSION:${BUILD_VERSION}`,
       "--define",
@@ -353,3 +355,43 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
     );
   }, 60_000);
 });
+
+describe.skipIf(databaseKind !== "postgres")(
+  "Worker runtime over STARTTLS",
+  () => {
+    test(
+      "refuses an untrusted certificate before sending credentials",
+      async () => {
+        const fake = await startFakeStartTlsPostgres();
+        const worker = await startLocalWorker({
+          POSTGRES_HOST: "127.0.0.1",
+          POSTGRES_PORT: String(fake.port),
+          POSTGRES_USER: "impostor",
+          POSTGRES_PASSWORD: "never-sent",
+          POSTGRES_DATABASE: "impostor",
+          POSTGRES_SSL: "true",
+          POSTGRES_SSL_REJECT_UNAUTHORIZED: "true",
+        });
+        try {
+          const response = await postJson(`${worker.origin}/auth/challenge`, {
+            fingerprint: "0".repeat(64),
+          });
+          expect(response.status).toBeGreaterThanOrEqual(500);
+          await Bun.sleep(1_500);
+          // The transport asked for TLS first, the runtime refused the
+          // certificate, and no startup message (with its credentials) followed.
+          expect(fake.events()).toContain("ssl request");
+          expect(fake.events()).not.toContain("plaintext startup");
+          expect(fake.events()).not.toContain("startup over tls");
+          expect(worker.logs()).toContain(
+            "TLS negotiation with the database failed",
+          );
+        } finally {
+          await worker.stop();
+          await fake.stop();
+        }
+      },
+      START_TIMEOUT_MS + 30_000,
+    );
+  },
+);

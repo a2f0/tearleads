@@ -59,6 +59,7 @@ export class WorkersPostgresSocket extends EventEmitter {
   private reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
   private upgrading = false;
   private upgraded = false;
+  private secureDataSeen = false;
   private pending: PendingWrite[] = [];
   private flushScheduled = false;
 
@@ -235,6 +236,9 @@ export class WorkersPostgresSocket extends EventEmitter {
       if (done) {
         return;
       }
+      if (this.upgraded) {
+        this.secureDataSeen = true;
+      }
       this.emit("data", Buffer.from(value));
     }
   }
@@ -248,6 +252,17 @@ export class WorkersPostgresSocket extends EventEmitter {
           return;
         }
         this.socket = null;
+        // The runtime reports a refused certificate only by closing the
+        // upgraded socket; a server that accepted the handshake always
+        // answers the startup message, so a silent close means TLS failed.
+        if (this.upgraded && !this.secureDataSeen) {
+          this.emit(
+            "error",
+            new Error(
+              "TLS negotiation with the database failed: the server's certificate was not accepted or the connection closed during the handshake",
+            ),
+          );
+        }
         this.emit("close");
       })
       .catch((error: unknown) => this.emit("error", error));

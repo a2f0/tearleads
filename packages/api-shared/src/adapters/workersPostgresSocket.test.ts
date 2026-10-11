@@ -163,7 +163,7 @@ test("STARTTLS reads one byte on the plain socket, then moves to the TLS socket"
 });
 
 test("a second TLS upgrade is reported instead of applied", async () => {
-  const plain = plainSocket();
+  const plain = fakeSocket({ initialData: "S", tls: fakeSocket() });
   const stream = new WorkersPostgresSocket(
     true,
     async () => () => plain.socket,
@@ -187,6 +187,48 @@ test("a refused connection is reported through the error event", async () => {
   expect(await stream.connect(5432, "db.example.test")).toBeUndefined();
   expect(errors).toEqual(["connection refused"]);
   expect(stream.writable).toBe(false);
+});
+
+test("a TLS socket that closes before any data names the failed negotiation", async () => {
+  const tls = fakeSocket();
+  const plain = fakeSocket({ initialData: "S", tls });
+  const stream = new WorkersPostgresSocket(
+    true,
+    async () => () => plain.socket,
+  );
+  const events: string[] = [];
+  stream.on("error", (error: Error) => events.push(`error:${error.message}`));
+  stream.on("close", () => events.push("close"));
+  await stream.connect(5432, "db.example.test");
+  stream.startTls({ expectedServerHostname: "db.example.test" });
+  await settled();
+  await tls.socket.close();
+  await settled();
+  expect(events).toEqual([
+    "error:TLS negotiation with the database failed: the server's certificate was not accepted or the connection closed during the handshake",
+    "close",
+  ]);
+});
+
+test("a TLS socket that answered before closing closes quietly", async () => {
+  const tls = fakeSocket();
+  const plain = fakeSocket({ initialData: "S", tls });
+  const stream = new WorkersPostgresSocket(
+    true,
+    async () => () => plain.socket,
+  );
+  const events: string[] = [];
+  stream.on("error", (error: Error) => events.push(`error:${error.message}`));
+  stream.on("close", () => events.push("close"));
+  stream.on("data", (chunk: Buffer) => events.push(`data:${String(chunk)}`));
+  await stream.connect(5432, "db.example.test");
+  stream.startTls({ expectedServerHostname: "db.example.test" });
+  await settled();
+  tls.push("R");
+  await settled();
+  await tls.socket.close();
+  await settled();
+  expect(events).toEqual(["data:S", "data:R", "close"]);
 });
 
 test("a TLS failure after the upgrade surfaces as a stream error", async () => {
