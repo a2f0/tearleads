@@ -141,32 +141,39 @@ export async function startLocalWorker(
   void collect(child.stdout);
   void collect(child.stderr);
   const origin = `http://127.0.0.1:${port}`;
+  const stop = async () => {
+    child.kill();
+    await child.exited;
+    await rm(persist, { recursive: true, force: true });
+  };
+  // Neither an early exit nor a timeout hands back a handle: the child is
+  // stopped, its state removed, and the failure quotes the bounded output.
+  const fail = async (reason: string): Promise<never> => {
+    await stop();
+    throw new Error(`${reason}\nwrangler dev output:\n${output.slice(-6000)}`);
+  };
   const deadline = Date.now() + START_TIMEOUT_MS;
-  while (Date.now() < deadline) {
+  let ready = false;
+  while (!ready && Date.now() < deadline) {
     if (child.exitCode !== null) {
-      throw new Error(`wrangler dev exited early:\n${output}`);
+      return fail(`wrangler dev exited early with code ${child.exitCode}`);
     }
     try {
       const response = await fetch(`${origin}/`, {
         signal: AbortSignal.timeout(5_000),
       });
-      if (response.status === 200) {
-        break;
-      }
+      ready = response.status === 200;
     } catch {
       // Not listening yet.
     }
-    await Bun.sleep(500);
+    if (!ready) {
+      await Bun.sleep(500);
+    }
   }
-  return {
-    origin,
-    logs: () => output,
-    stop: async () => {
-      child.kill();
-      await child.exited;
-      await rm(persist, { recursive: true, force: true });
-    },
-  };
+  if (!ready) {
+    return fail(`wrangler dev was not ready within ${START_TIMEOUT_MS} ms`);
+  }
+  return { origin, logs: () => output, stop };
 }
 
 let workerLogs: () => string = () => "";
