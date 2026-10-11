@@ -55,12 +55,9 @@ test("edge domains attach the API, app, and demo hostnames to their Workers", as
       { name: "KEY_VALUE_STORE", class_name: "KeyValueStore" },
       { name: "REALTIME_HUB", class_name: "RealtimeHub" },
     ]);
-    expect(api).toHaveProperty(
-      `env.${tier}.vars.API_PUBLIC_ORIGIN`,
-      tier === "prod"
-        ? "https://api.tearleads.com"
-        : "https://api-staging.tearleads.com",
-    );
+    // The origins follow TF_VAR_domain at deploy time, not a name here.
+    expect(api).not.toHaveProperty(`env.${tier}.vars.API_PUBLIC_ORIGIN`);
+    expect(api).not.toHaveProperty(`env.${tier}.vars.API_CORS_ORIGINS`);
     expect(variables).toContain(`default     = "${tier}"`);
     expect(versions).toContain(`key = "${tier}/edge/terraform.tfstate"`);
     expect(main).toContain(

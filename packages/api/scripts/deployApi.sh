@@ -73,6 +73,9 @@ read_connection() {
 
 echo "Running $TIER database migrations..."
 (
+  # The shared database module prefers a connection URL over the parts, so an
+  # inherited development URL must not steer the migration elsewhere.
+  unset DATABASE_URL POSTGRES_URL PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
   export NODE_ENV=production
   export API_DATABASE=postgres
   export POSTGRES_HOST POSTGRES_PORT POSTGRES_USER POSTGRES_PASSWORD POSTGRES_DATABASE
@@ -156,6 +159,13 @@ DEFINE_ARGS=()
 while IFS= read -r define; do
   [[ -n "$define" ]] && DEFINE_ARGS+=(--define "$define")
 done < <(cd "$API_DIR" && bun scripts/workerDefines.ts)
-(cd "$API_DIR" && bunx --no-install wrangler deploy --env "$TIER" "${DEFINE_ARGS[@]}")
+# The public origin and browser origins follow TF_VAR_domain, like the
+# Terraform stacks and the app builds, rather than a name in wrangler.jsonc.
+# Native releases fetch the API from Capacitor and Electrobun loopback origins.
+API_PUBLIC_ORIGIN="https://$(tier_api_hostname "$TIER")"
+API_CORS_ORIGINS="https://$(tier_app_hostname "$TIER"),https://$(tier_demo_hostname "$TIER"),https://localhost,http://127.0.0.1:3002"
+(cd "$API_DIR" && bunx --no-install wrangler deploy --env "$TIER" "${DEFINE_ARGS[@]}" \
+  --var "API_PUBLIC_ORIGIN:$API_PUBLIC_ORIGIN" \
+  --var "API_CORS_ORIGINS:$API_CORS_ORIGINS")
 
 echo "API Worker deployed ($TIER)."

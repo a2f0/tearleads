@@ -1,5 +1,4 @@
 import { DurableObject } from "cloudflare:workers";
-import { MAX_WS_CLIENT_MESSAGE_BYTES } from "@tearleads/validators/realtime";
 import type { GatewaySocket } from "../realtime/wsConnection";
 import type { WebSocketTicketIdentity } from "../realtime/wsIdentity";
 import type { RealtimeHubRpc } from "./contracts";
@@ -8,6 +7,7 @@ import {
   setLocalRealtimePublisher,
   type WorkerBindings,
 } from "./environment";
+import { exceedsClientMessageLimit } from "./socketMessageLimit";
 
 type EventListener = (message: string) => void;
 
@@ -119,7 +119,7 @@ export class RealtimeHub
         server.close(CLOSE_UNSUPPORTED_DATA, "Text frames only");
         return;
       }
-      if (data.length > MAX_WS_CLIENT_MESSAGE_BYTES) {
+      if (exceedsClientMessageLimit(data)) {
         server.close(CLOSE_MESSAGE_TOO_BIG, "Message too large");
         return;
       }

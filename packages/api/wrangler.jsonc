@@ -35,12 +35,12 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["KeyValueStore", "RealtimeHub"] }
   ],
+  // API_PUBLIC_ORIGIN and API_CORS_ORIGINS are passed by
+  // packages/api/scripts/deployApi.sh from TF_VAR_domain.
   "env": {
     "staging": {
       "name": "tearleads-platform-api-staging",
       "vars": {
-        "API_CORS_ORIGINS": "https://app-staging.tearleads.com,https://demo-staging.tearleads.com,https://localhost,http://127.0.0.1:3002",
-        "API_PUBLIC_ORIGIN": "https://api-staging.tearleads.com",
         "API_SENTRY_ENVIRONMENT": "staging",
         "BLOB_OBJECT_STORE": "s3",
         "BLOB_OBJECT_STORE_S3_BUCKET": "tearleads-staging",
@@ -65,8 +65,6 @@
     "prod": {
       "name": "tearleads-platform-api-prod",
       "vars": {
-        "API_CORS_ORIGINS": "https://app.tearleads.com,https://demo.tearleads.com,https://localhost,http://127.0.0.1:3002",
-        "API_PUBLIC_ORIGIN": "https://api.tearleads.com",
         "API_SENTRY_ENVIRONMENT": "production",
         "BLOB_OBJECT_STORE": "s3",
         "BLOB_OBJECT_STORE_S3_BUCKET": "tearleads-prod",
