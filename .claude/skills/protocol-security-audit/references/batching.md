@@ -63,8 +63,9 @@ starts as pending coverage.
 Create an audit directory under `~/.claude/audits/tearleads/<full-SHA>/`.
 Use a distinct subdirectory for a different scope or a fresh audit of the
 same revision. Store the absolute path in project memory and the final
-response. Do not rely on a session scratchpad or temporary directory surviving
-a usage reset. A concise `checkpoint.md` indexes these files:
+response as `<audit-directory>/checkpoint.md`, not just the directory path.
+Do not rely on a session scratchpad or temporary directory surviving a usage
+reset. A concise `checkpoint.md` indexes these files:
 
 - `baseline.md`: repository and clean checkout paths, full audited SHA,
   focus, exclusions, guarantee references, known-issue dispositions with
@@ -96,7 +97,10 @@ work partial, regardless of whether it returned a final message.
 2. Confirm the repository, pinned SHA, focus, exclusions, checkout cleanliness,
    and referenced artifacts. Do not merge findings from different revisions
    into one supposedly current audit. If the user's checkout has moved, use
-   a separate clean checkout at the saved SHA. A request to audit the new head
+   a separate clean checkout at the saved SHA, outside the repository tree:
+   `git worktree add --detach <audit-directory>/checkout <saved-SHA>`.
+   Reuse an existing checkout only after verifying its revision and status.
+   A request to audit the new head
    starts a new checkpoint; old findings are leads to revalidate.
 3. Check SDK build freshness before API/SDK probes. Reuse formal results only
    for the same clean revision, commands, and toolchain; missing logs or

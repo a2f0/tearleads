@@ -7,7 +7,8 @@ description: Audit the client-sdk ↔ API trust boundary in both directions in s
 
 This batching policy is specific to Claude usage windows. The Codex copy in
 `.agents/skills/protocol-security-audit` intentionally retains its existing
-execution flow; the two copies share security criteria, not execution budgets.
+execution flow. The two trust invariants, no-brick rule, and severity rubric
+remain unchanged.
 
 Audit the Tearleads protocol boundary between `packages/client-sdk` and
 `packages/api`, including `packages/crypto`, `packages/api-client`, and the
