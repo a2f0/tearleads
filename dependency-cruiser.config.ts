@@ -23,6 +23,8 @@ const noOrphanPathExemptionPattern = [
   "^packages/(api-cli|api-shared)/src/index\\.ts$",
   "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
   "^packages/app-web/src/index\\.tsx$",
+  // Wrangler aliases the development-only database drivers to these stubs.
+  "^packages/api/src/worker/stubs/[^/]+\\.ts$",
   "^packages/app/src/test/",
   "^packages/sqlite-instance/src/(assets|index)\\.ts$",
   "^packages/sqlite-worker/src/assets\\.ts$",
