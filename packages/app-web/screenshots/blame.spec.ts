@@ -2,7 +2,11 @@ import { mkdir } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { disableAnimations, waitForBooted } from "./appShell";
+import {
+  closeDefaultExplorerWindows,
+  disableAnimations,
+  waitForBooted,
+} from "./appShell";
 
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -449,6 +453,8 @@ test("capture two-peer note blame", async ({ page }, testInfo) => {
   if (layout !== "web") {
     await page.setViewportSize(SETUP_VIEWPORT);
   }
+  await expect(activePane(page, "right")).toBeVisible();
+  await closeDefaultExplorerWindows(page);
 
   const { ownerPane, ownerWindow, peerWindow } =
     await openAuthenticatedExplorers(page);

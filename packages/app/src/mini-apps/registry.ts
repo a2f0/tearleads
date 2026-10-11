@@ -64,10 +64,10 @@ export const MINI_APPS: Readonly<Record<MiniAppId, MiniAppDefinition>> = {
   },
 };
 
-// The launcher the panes run: every mini-app, in menu order, with Explorer at
-// the routed shell's root route.
+// Explorer is both the routed home and the default for an empty desktop.
 export const MINI_APP_LAUNCHER: LauncherDefinition<MiniAppId> = {
   apps: MINI_APPS,
+  defaultWindowAppId: HOME_MINI_APP_ID,
   homeAppId: HOME_MINI_APP_ID,
   order: MINI_APP_ORDER,
 };

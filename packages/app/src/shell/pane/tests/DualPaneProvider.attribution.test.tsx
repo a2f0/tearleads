@@ -6,7 +6,6 @@ import {
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import {
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getExplorerSidebarItem,
   getPaneRoot,
   getPaneUserId,
@@ -37,6 +36,9 @@ const appOrigin = "http://localhost:3000";
 const originalPageUrl = window.location.href;
 const corsOriginsEnvKey = "API_CORS_ORIGINS";
 const originalCorsOrigins = process.env[corsOriginsEnvKey];
+// Two peers verify paged attribution across three edit rounds. This takes
+// about 45 seconds locally; allow slower CI CPUs to finish the same assertions.
+const ATTRIBUTION_WORKFLOW_TIMEOUT_MS = 120_000;
 
 afterEach(async () => {
   if (originalCorsOrigins === undefined) delete process.env[corsOriginsEnvKey];
@@ -226,5 +228,5 @@ test(
       refreshedAttribution,
     );
   },
-  DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
+  ATTRIBUTION_WORKFLOW_TIMEOUT_MS,
 );

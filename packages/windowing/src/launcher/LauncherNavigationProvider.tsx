@@ -35,6 +35,7 @@ import {
   type LauncherRoute,
   parseLauncherRoute,
 } from "./routePaths";
+import { useDefaultWindow } from "./useDefaultWindow";
 
 /** Where a new window opens when a request names no position. */
 export const DEFAULT_MINI_APP_POSITION = { x: 200, y: 160 };
@@ -75,6 +76,8 @@ export interface LauncherNavigationState<AppId extends string = string> {
 }
 
 interface LauncherNavigationProviderProps extends PropsWithChildren {
+  /** Defers the default window while false, for example in a hidden workspace. */
+  defaultWindowEnabled?: boolean | undefined;
   definition: LauncherDefinition;
   mode: NavigationMode;
 }
@@ -120,12 +123,16 @@ function ensureWindowHistoryCursor(): NavigationHistoryCursor {
 }
 
 function LauncherNavigationWindowRuntimeBridge({
+  defaultWindowEnabled,
   definition,
   mode,
+  openMiniApp,
   runtimeRef,
 }: {
+  defaultWindowEnabled: boolean;
   definition: LauncherDefinition;
   mode: NavigationMode;
+  openMiniApp: LauncherNavigationActions["openMiniApp"];
   runtimeRef: MutableRefObject<LauncherNavigationRuntime>;
 }) {
   const { bringToFront, create, restore, updateRoute } = useWindowActions();
@@ -148,6 +155,14 @@ function LauncherNavigationWindowRuntimeBridge({
     updateRoute,
     windows,
   ]);
+
+  useDefaultWindow({
+    definition,
+    enabled: defaultWindowEnabled,
+    mode,
+    openMiniApp,
+    windowCount: windows.length,
+  });
 
   return null;
 }
@@ -347,6 +362,7 @@ function useLauncherNavigationActionValue(
  */
 export function LauncherNavigationProvider({
   children,
+  defaultWindowEnabled = true,
   definition,
   mode,
 }: LauncherNavigationProviderProps) {
@@ -389,8 +405,10 @@ export function LauncherNavigationProvider({
     <launcherNavigationActionsContext.context.Provider value={actions}>
       <launcherNavigationStateContext.context.Provider value={state}>
         <LauncherNavigationWindowRuntimeBridge
+          defaultWindowEnabled={defaultWindowEnabled}
           definition={definition}
           mode={mode}
+          openMiniApp={actions.openMiniApp}
           runtimeRef={runtimeRef}
         />
         {children}

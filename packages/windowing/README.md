@@ -211,6 +211,7 @@ const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
       title: "Notes",
     },
   },
+  defaultWindowAppId: "notes",
   homeAppId: "notes",
   order: ["notes", "contacts"],
 };
@@ -223,6 +224,13 @@ or raises the one already open; in `routed` mode it pushes the app's route,
 `/app/<app id>/…`, onto browser history, and Back and Forward walk it. Render
 each window with `MiniAppWindow`, whose `AppBoundary` slot wraps the app (for
 example in an error boundary).
+
+Optional `defaultWindowAppId` opens on entering an empty windowed desktop,
+including mount. Minimized windows count as open. Closing the last window
+leaves it empty until the next mode entry. The provider's `defaultWindowEnabled`
+defers that entry while false (e.g. hidden workspaces). Hiding and showing an
+already initialized desktop preserves it, even if empty. Omit the app id to
+manage startup yourself; `homeAppId` only sets the routed home.
 
 A mini-app reads and sets its own route with `useMiniAppRouteSegments(appId)`,
 or `useMiniAppRouteState` for a parsed route: the browser route in the routed

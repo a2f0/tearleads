@@ -3,7 +3,6 @@ import {
   act,
   cleanup,
   fireEvent,
-  render,
   screen,
   waitFor,
   within,
@@ -23,6 +22,7 @@ import {
   createTestHostConfig,
   flattenPaneStatusText,
 } from "../../../../test/helpers/paneTestUtils";
+import { renderEmptyDesktop } from "../../../../test/helpers/renderEmptyDesktop";
 import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import { useRegisterCurrentIdentity } from "../../../identity/useRegisterCurrentIdentity";
 import { ORG_MANAGER_LABELS } from "../../../mini-apps/org-manager/labels";
@@ -106,7 +106,7 @@ function renderSinglePane() {
 
   // Mirrors production composition: Layout mounts the developer-mode provider
   // above every Pane.
-  return render(
+  return renderEmptyDesktop(
     <SystemMonitorDeveloperModeProvider>
       <DualPaneProvider>
         <PaneSideProvider side="left">

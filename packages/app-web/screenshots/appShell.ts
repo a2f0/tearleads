@@ -1,4 +1,4 @@
-import type { Locator, Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 // Shared helpers for driving the booted app shell in the screenshot run, used by
 // both the capture spec and the seed-restore step.
@@ -21,6 +21,19 @@ export function preferWindowedScreenshotLayout(page: Page): void {
 
 export function visiblePane(page: Page): Locator {
   return page.locator(".pane:not(.pane-hidden)").first();
+}
+
+// Screenshot setup opens one app at a time and assumes an empty desktop.
+// Call only after boot or the initial layout switch, preserving later windows.
+export async function closeDefaultExplorerWindows(page: Page): Promise<void> {
+  const explorers = page.getByRole("region", { name: "Explorer", exact: true });
+  while (await explorers.count()) {
+    await explorers
+      .first()
+      .getByRole("button", { name: "Close window" })
+      .click();
+  }
+  await expect(explorers).toHaveCount(0);
 }
 
 export async function waitForBooted(page: Page): Promise<void> {
@@ -58,6 +71,7 @@ export async function waitForBooted(page: Page): Promise<void> {
 
   // Small settle for the SQLite worker boot + first paint of mini-app content.
   await page.waitForTimeout(1_500);
+  await closeDefaultExplorerWindows(page);
 }
 
 export async function disableAnimations(page: Page): Promise<void> {

@@ -20,4 +20,10 @@ export async function switchToWindowedDesktop(page: Page): Promise<void> {
 export async function openWindowedDesktop(page: Page): Promise<void> {
   await page.goto("/");
   await switchToWindowedDesktop(page);
+  // These tests open their own windows, starting from an empty desktop.
+  const pane = page.locator(".pane:not(.pane-hidden)").first();
+  const explorer = pane.getByRole("region", { name: "Explorer", exact: true });
+  await expect(explorer).toBeVisible();
+  await explorer.getByRole("button", { name: "Close window" }).click();
+  await expect(pane.locator(".window")).toHaveCount(0);
 }
