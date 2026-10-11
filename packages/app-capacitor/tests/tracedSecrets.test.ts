@@ -7,6 +7,7 @@ import { dirname, resolve } from "node:path";
 // credential through a shell variable suspends tracing around it, so a traced
 // run can be pasted into an issue without leaking the tier's secrets.
 
+const pathKey = "PATH";
 const S3_SECRET = "s3-secret-sentinel";
 const MIGRATION_PASSWORD = "migration-password-sentinel";
 
@@ -48,7 +49,7 @@ async function tracedRun(scriptPath: string, args: readonly string[]) {
     const child = Bun.spawn(["bash", "-x", script, ...args], {
       cwd: root,
       env: {
-        PATH: `${bin}:${process.env.PATH ?? ""}`,
+        PATH: `${bin}:${process.env[pathKey] ?? ""}`,
         TRACED_TEST_ROOT: root,
         TRACED_TEST_LOG: log,
       },

@@ -17,7 +17,10 @@ async function executable(path: string, source: string) {
  */
 async function deployFixture(
   extraEnv: Readonly<Record<string, string>> = {},
-  options: { readonly trace?: boolean; readonly healthcheckUrl?: string } = {},
+  options: {
+    readonly trace?: boolean;
+    readonly healthcheckUrl?: string | undefined;
+  } = {},
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-api-deploy-"));
   const log = resolve(root, "calls.log");
