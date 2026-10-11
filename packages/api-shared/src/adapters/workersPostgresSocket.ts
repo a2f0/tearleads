@@ -35,9 +35,9 @@ interface PendingWrite {
 const cloudflareSocketsModule = "cloudflare:sockets";
 
 async function loadCloudflareConnect(): Promise<ConnectSocket> {
-  const sockets = (await import(cloudflareSocketsModule)) as {
-    readonly connect: ConnectSocket;
-  };
+  const sockets: { readonly connect: ConnectSocket } = await import(
+    cloudflareSocketsModule
+  );
   return sockets.connect;
 }
 

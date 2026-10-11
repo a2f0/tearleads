@@ -282,15 +282,11 @@ function isEnabled(value: string | undefined): boolean {
  * Workers sockets cannot set TCP_NODELAY; see workersPostgresSocket.ts.
  * Enabled per deployment because the stream type is Workers-only.
  */
-function readPostgresStreamConfig(
-  env: ApiDatabaseEnv,
-): Pick<PoolConfig, "stream"> {
+function readPostgresStreamConfig(env: ApiDatabaseEnv): {
+  readonly stream?: typeof createWorkersPostgresStream;
+} {
   return isEnabled(env.POSTGRES_COALESCE_WRITES)
-    ? {
-        stream: createWorkersPostgresStream as unknown as NonNullable<
-          PoolConfig["stream"]
-        >,
-      }
+    ? { stream: createWorkersPostgresStream }
     : {};
 }
 
@@ -299,10 +295,7 @@ export function createPostgresPoolConfig(
   options: { readonly requestScoped?: boolean } = {},
 ): PoolConfig {
   const ssl = readPostgresSslConfig(env);
-  const poolSizing = {
-    ...readPostgresPoolSizing(env, options),
-    ...readPostgresStreamConfig(env),
-  };
+  const poolSizing = readPostgresPoolSizing(env, options);
   const databaseUrl = getEnvValue(env, databaseUrlKeys);
   if (databaseUrl) {
     return {
@@ -380,7 +373,14 @@ function createPostgresApiDatabase(
   env: ApiDatabaseEnv,
   options: { readonly requestScoped?: boolean } = {},
 ): ManagedApiDatabase {
-  const pool = new Pool(createPostgresPoolConfig(env, options));
+  // pg types its stream factory as a Node Duplex; the Workers socket is a
+  // structural stand-in, so it joins the config outside the typed literal.
+  const pool = new Pool(
+    Object.assign(
+      createPostgresPoolConfig(env, options),
+      readPostgresStreamConfig(env),
+    ),
+  );
   const db = drizzleNodePostgres({
     client: pool,
     schema,
@@ -463,11 +463,15 @@ export async function withRequestScopedApiDatabase<T>(
   }
 }
 
-/** A stable database handle that forwards each access to `current()`. */
+/**
+ * A stable database handle that forwards each access to `current()`. The
+ * fallback only gives the proxy its shape; every access resolves afresh.
+ */
 export function createRequestScopedDatabaseProxy(
+  fallback: ApiDatabase,
   current: () => ApiDatabase,
 ): ApiDatabase {
-  return new Proxy({} as ApiDatabase, {
+  return new Proxy(fallback, {
     get(_target, property) {
       const target = current();
       const value = Reflect.get(target, property, target);
@@ -489,6 +493,7 @@ export function initializeApiDatabase(
 
 export const db: ApiDatabase = isRequestScopedPostgres()
   ? createRequestScopedDatabaseProxy(
+      defaultDatabase.db,
       () => (requestScopedDatabases.getStore() ?? defaultDatabase).db,
     )
   : defaultDatabase.db;
