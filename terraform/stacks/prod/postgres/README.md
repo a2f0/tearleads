@@ -37,9 +37,9 @@ credentials from `.secrets/root.env` and provider settings from
 
 ```sh
 umask 077
-bash terraform/scripts/run-postgres-stack.sh plan -out="$PWD/.secrets/planetscale-prod.tfplan"
-bash terraform/scripts/run-postgres-stack.sh apply "$PWD/.secrets/planetscale-prod.tfplan"
-bash terraform/scripts/run-postgres-stack.sh output -json database
+bash terraform/scripts/run-postgres-stack.sh prod plan -out="$PWD/.secrets/planetscale-prod.tfplan"
+bash terraform/scripts/run-postgres-stack.sh prod apply "$PWD/.secrets/planetscale-prod.tfplan"
+bash terraform/scripts/run-postgres-stack.sh prod output -json database
 ```
 
 A fresh apply creates the database, configures protection, waits for readiness,

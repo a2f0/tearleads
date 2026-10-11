@@ -3,7 +3,7 @@ import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { SessionEnv } from "../middleware/session";
 import { isTransientDatabaseFailure } from "../utils/databaseErrors";
-import { RequestBodyTooLargeError } from "../worker/requestBody";
+import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import { OrganizationSyncDisabledError } from "../workflows/billing/organizationSyncEligibility";
 import { captureApiError } from "./sentry";
 

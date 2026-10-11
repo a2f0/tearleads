@@ -18,6 +18,7 @@ import {
 } from "../../services/billing/stripeCheckout";
 import { getStripeCheckoutOptions } from "../../services/billing/stripeCheckoutOptions";
 import { pathParamsValidator } from "../../validators/pathParams";
+import { RequestBodyTooLargeError } from "../../validators/requestBodyTooLarge";
 import type { SafeParseSchema } from "../../validators/schema";
 import {
   type OrganizationsRouterDeps,
@@ -72,7 +73,10 @@ function returnUrlRequestValidator<Output extends { returnUrl: string }>(
     let body: unknown;
     try {
       body = await c.req.json();
-    } catch {
+    } catch (error) {
+      if (error instanceof RequestBodyTooLargeError) {
+        throw error;
+      }
       return c.json({ error: "Invalid JSON body" }, 400);
     }
     const result = schema.safeParse(body);

@@ -56,6 +56,12 @@ export function jsonRequestValidator<Output>(schema: SafeParseSchema<Output>) {
     return result.data;
   });
   const normalizeMalformedJson: typeof validate = async (context, next) => {
+    // Hono reports any failed body read as malformed JSON. Reading the body
+    // first (Hono reuses the cached bytes) lets a stream that overran the
+    // ingress ceiling reach the error handler as 413 instead.
+    if (context.req.raw.body !== null) {
+      await context.req.arrayBuffer();
+    }
     try {
       return await validate(context, next);
     } catch (error) {

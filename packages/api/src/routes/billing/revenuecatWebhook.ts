@@ -12,6 +12,7 @@ import type { SessionEnv } from "../../middleware/session";
 import { processRevenueCatWebhook } from "../../services/billing/revenuecatWebhook";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { headersValidator } from "../../validators/headers";
+import { RequestBodyTooLargeError } from "../../validators/requestBodyTooLarge";
 
 /**
  * Constant-time comparison of the presented `Authorization` header against the
@@ -67,7 +68,10 @@ function revenueCatWebhookRequestValidator(): MiddlewareHandler<
     let body: unknown;
     try {
       body = await c.req.json();
-    } catch {
+    } catch (error) {
+      if (error instanceof RequestBodyTooLargeError) {
+        throw error;
+      }
       return c.json({ error: "Invalid JSON body" }, 400);
     }
     const result = receiveRevenueCatWebhookOperation.body.safeParse(body);

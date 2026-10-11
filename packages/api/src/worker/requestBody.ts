@@ -1,3 +1,5 @@
+import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
+
 /**
  * nginx rejected oversized bodies before Bun buffered them. The Worker keeps
  * that guarantee without buffering ahead of the routes: a declared length
@@ -9,14 +11,6 @@
 export type BoundedRequest =
   | { readonly kind: "request"; readonly request: Request }
   | { readonly kind: "too-large" };
-
-/** Thrown from a body read once the ceiling passes; mapped to 413. */
-export class RequestBodyTooLargeError extends Error {
-  constructor(readonly maxBytes: number) {
-    super(`Request body exceeds ${maxBytes} bytes`);
-    this.name = "RequestBodyTooLargeError";
-  }
-}
 
 function declaredLength(request: Request): number | null {
   const header = request.headers.get("content-length");

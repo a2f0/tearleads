@@ -220,6 +220,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/validators/jsonRequest.ts`,
       `${api}/validators/pathParams.ts`,
       `${api}/validators/queryParams.ts`,
+      `${api}/validators/requestBodyTooLarge.ts`,
       `${api}/validators/schema.ts`,
     ],
   },

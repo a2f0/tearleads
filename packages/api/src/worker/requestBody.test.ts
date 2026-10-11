@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
-import { boundRequestBody, RequestBodyTooLargeError } from "./requestBody";
+import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
+import { boundRequestBody } from "./requestBody";
 
 function chunkedRequest(chunks: readonly string[]): Request {
   const encoder = new TextEncoder();
