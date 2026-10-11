@@ -4,9 +4,11 @@ export const MAX_DOCUMENT_SYNC_REQUEST_BYTES = 16 * 1024 * 1024;
 
 // A response page must be able to carry the largest accepted atomic rotation
 // baseline (the 32 MiB route ceiling) plus its signed metadata and key-bundle
-// envelope. Ordinary sync updates remain constrained by the smaller request
-// ceiling above.
-export const MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES = 128 * 1024 * 1024;
+// envelope, and no more: the API materializes a page and then serializes it,
+// so the page and its JSON copy must both fit the 128 MB Workers isolate.
+// Ordinary sync updates remain constrained by the smaller request ceiling
+// above.
+export const MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES = 48 * 1024 * 1024;
 export const MAX_DOCUMENT_SYNC_RESPONSE_ENVELOPE_BYTES = 16 * 1024 * 1024;
 export const MAX_DOCUMENT_SYNC_RESPONSE_UPDATE_PAGE_BYTES =
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES -

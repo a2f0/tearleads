@@ -98,10 +98,12 @@ export API_SENTRY_DSN
 # cannot keep an earlier "true" secret.
 export REVENUECAT_ALLOW_SANDBOX_EVENTS="${REVENUECAT_ALLOW_SANDBOX_EVENTS:-}"
 export BLOB_GC_HEALTHCHECK_URL="${BLOB_GC_HEALTHCHECK_URL:-}"
+# Secrets reach jq through its environment, never its argument list, which
+# any process on the host can read.
+export DOCUMENT_SYNC_CURSOR_HMAC_KEY
 jq -n \
   --slurpfile postgres "$CONNECTION_DIR/postgres.json" \
   --slurpfile storage "$CONNECTION_DIR/storage.json" \
-  --arg cursorKey "$DOCUMENT_SYNC_CURSOR_HMAC_KEY" \
   '
   def optional($name):
     if ((env[$name] // "") | length) > 0 then { ($name): env[$name] } else {} end;
@@ -111,7 +113,7 @@ jq -n \
     POSTGRES_USER: $postgres[0].postgres_user,
     POSTGRES_PASSWORD: $postgres[0].postgres_password,
     POSTGRES_DATABASE: $postgres[0].postgres_db,
-    DOCUMENT_SYNC_CURSOR_HMAC_KEY: $cursorKey,
+    DOCUMENT_SYNC_CURSOR_HMAC_KEY: env.DOCUMENT_SYNC_CURSOR_HMAC_KEY,
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: $storage[0].blob_s3_access_key_id,
     BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: $storage[0].blob_s3_secret_access_key
   }
