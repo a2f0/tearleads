@@ -184,7 +184,12 @@ done <<<"$DEFINES_OUTPUT"
 # Terraform stacks and the app builds, rather than a name in wrangler.jsonc.
 # Native releases fetch the API from Capacitor and Electrobun loopback origins.
 API_PUBLIC_ORIGIN="https://$(tier_api_hostname "$TIER")"
-API_CORS_ORIGINS="https://$(tier_app_hostname "$TIER"),https://$(tier_demo_hostname "$TIER"),https://localhost,http://127.0.0.1:3002"
+# An explicit API_CORS_ORIGINS in the tier's secrets replaces the computed
+# list outright, as it did for the retired server, so an operator-added
+# origin survives every deploy.
+if [[ -z "${API_CORS_ORIGINS:-}" ]]; then
+  API_CORS_ORIGINS="https://$(tier_app_hostname "$TIER"),https://$(tier_demo_hostname "$TIER"),https://localhost,http://127.0.0.1:3002"
+fi
 if [[ "$XTRACE_WAS_ENABLED" -eq 1 ]]; then
   set -x
 fi

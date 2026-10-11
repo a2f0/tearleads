@@ -230,3 +230,18 @@ test("a traced run never prints a secret", async () => {
     expect(run.stderr).not.toContain(secret);
   }
 });
+
+test("an explicit API_CORS_ORIGINS replaces the computed origin list", async () => {
+  const run = await deployFixture({
+    API_CORS_ORIGINS: "https://app.example.test,https://partner.example.test",
+  });
+  expect(run.exitCode, run.stderr).toBe(0);
+  const deploy = run.calls.find((call) => call.startsWith("deploy|"));
+  expect(deploy).toContain(
+    "--var API_CORS_ORIGINS:https://app.example.test,https://partner.example.test",
+  );
+  expect(deploy).not.toContain("demo-staging.example.test");
+  expect(deploy).toContain(
+    "--var API_PUBLIC_ORIGIN:https://api-staging.example.test",
+  );
+});
