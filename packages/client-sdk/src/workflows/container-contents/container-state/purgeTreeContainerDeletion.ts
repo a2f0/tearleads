@@ -26,8 +26,8 @@ interface DeleteSubtreeContainersInput {
   readonly subtreeStates: readonly ContainerState[];
 }
 
-// Descendants stay under the selected root; the root itself stays under the
-// parent it was selected from, so a settled restore survives.
+// Descendants stay under the selected root. A root with a captured parent must
+// retain that ancestor; parentless roots have no parent constraint to send.
 function requiredDeletionAncestor(
   root: SubtreePurgeRoot,
   containerId: string,
