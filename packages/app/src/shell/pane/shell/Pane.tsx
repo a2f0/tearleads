@@ -116,6 +116,7 @@ export function Pane({
   // In routed mode only the single active pane shows the routed shell; the
   // other (always-mounted, runtime-bearing) panes render no surface.
   routedVisible?: boolean | undefined;
+  // Defers the default window until the workspace or split peer is visible.
   windowedVisible?: boolean | undefined;
 }) {
   // Swap only the leaf surface by mode; the provider stack above stays mounted

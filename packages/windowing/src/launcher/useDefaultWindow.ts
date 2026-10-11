@@ -16,19 +16,18 @@ export function useDefaultWindow({
   openMiniApp: (request: { appId: string }) => string | null;
   windowCount: number;
 }) {
-  const wasWindowed = useRef(false);
+  const handledWindowedEntry = useRef(false);
 
   useEffect(() => {
-    const windowed = enabled && mode === "windowed";
-    const enteredWindowed = windowed && !wasWindowed.current;
+    if (mode !== "windowed") {
+      handledWindowedEntry.current = false;
+      return;
+    }
+    if (!enabled || handledWindowedEntry.current) return;
     // Record the entry before opening, including across StrictMode effects.
-    wasWindowed.current = windowed;
+    handledWindowedEntry.current = true;
     const { defaultWindowAppId } = definition;
-    if (
-      enteredWindowed &&
-      windowCount === 0 &&
-      isLauncherAppId(definition, defaultWindowAppId)
-    ) {
+    if (windowCount === 0 && isLauncherAppId(definition, defaultWindowAppId)) {
       openMiniApp({ appId: defaultWindowAppId });
     }
   }, [definition, enabled, mode, openMiniApp, windowCount]);

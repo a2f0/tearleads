@@ -322,6 +322,10 @@
       "lines": 587,
       "bytes": 17549
     },
+    "packages/windowing/README.md": {
+      "lines": 465,
+      "bytes": 20435
+    },
     "scripts/architecture/subsystems.ts": {
       "lines": 787,
       "bytes": 29764

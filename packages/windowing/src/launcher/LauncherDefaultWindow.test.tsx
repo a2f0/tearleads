@@ -151,6 +151,10 @@ test("disabled defaults wait until enabled and preserve existing windows", () =>
   fireEvent.click(view.getByRole("button", { name: "Toggle default window" }));
   fireEvent.click(view.getByRole("button", { name: "Toggle default window" }));
   expect(view.getByTestId("windows").textContent).toBe(opened);
+  fireEvent.click(view.getByRole("button", { name: "Close all" }));
+  fireEvent.click(view.getByRole("button", { name: "Toggle default window" }));
+  fireEvent.click(view.getByRole("button", { name: "Toggle default window" }));
+  expect(view.getByTestId("windows").textContent).toBe("[]");
 });
 
 test.each([false, true])(

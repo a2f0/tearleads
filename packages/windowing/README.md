@@ -189,8 +189,10 @@ and a `close` callback. Tearleads' footer does this in
 
 ## Launching mini-apps
 
-`LauncherDefinition` lists mini-apps by id, their launcher order, routed home,
-and optional default window:
+A launcher application is a set of mini-apps, defined once and shown either in
+windows on a desktop or one at a time in the routed shell. A
+`LauncherDefinition` lists the apps by id, the order the launchers show them in,
+and the app the routed shell shows at the root route:
 
 ```tsx
 import type { LauncherDefinition } from "@tearleads/windowing";
@@ -215,21 +217,25 @@ const LAUNCHER: LauncherDefinition<"notes" | "contacts"> = {
 };
 ```
 
-`LauncherNavigationProvider` takes the definition and `NavigationMode` inside a
-`WindowStateProvider`. `useLauncherNavigationActions().openMiniApp({ appId })`
-opens or raises a window in `windowed` mode, or navigates to `/app/<app id>/…`
-in `routed` mode. Back/Forward walk browser history. `MiniAppWindow` renders
-each window; `AppBoundary` wraps its app.
+`LauncherNavigationProvider` takes the definition and a `NavigationMode`, and
+goes inside a `WindowStateProvider`. In `windowed` mode
+`useLauncherNavigationActions().openMiniApp({ appId })` opens the app's window,
+or raises the one already open; in `routed` mode it pushes the app's route,
+`/app/<app id>/…`, onto browser history, and Back and Forward walk it. Render
+each window with `MiniAppWindow`, whose `AppBoundary` slot wraps the app (for
+example in an error boundary).
 
-`defaultWindowAppId` opts into opening an app on entering an empty windowed
-desktop, including mount. Minimized windows count as open. Closing the last
-window leaves it empty until reentry. The provider's `defaultWindowEnabled`
-defers this while false (e.g. hidden workspaces); enabling it counts as entry.
-`homeAppId` only sets the routed home.
+Optional `defaultWindowAppId` opens on entering an empty windowed desktop,
+including mount. Minimized windows count as open. Closing the last window
+leaves it empty until the next mode entry. The provider's `defaultWindowEnabled`
+defers that entry while false (e.g. hidden workspaces). Hiding and showing an
+already initialized desktop preserves it, even if empty. Omit the app id to
+manage startup yourself; `homeAppId` only sets the routed home.
 
-`useMiniAppRouteSegments(appId)` reads/sets the browser route in the routed
-shell or the window's route and Back stack; `useMiniAppRouteState` parses it.
-Window hooks register sidebar and toolbar actions for both shells.
+A mini-app reads and sets its own route with `useMiniAppRouteSegments(appId)`,
+or `useMiniAppRouteState` for a parsed route: the browser route in the routed
+shell, its window's own route and Back stack in a window. It registers its
+sidebar and toolbar actions with the window hooks, and both shells show them.
 
 `useNavigationMode` picks the mode: the user's choice from
 `NavigationModeOverrideProvider` (which persists it under a `storageKey`)

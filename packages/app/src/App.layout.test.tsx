@@ -97,6 +97,12 @@ test("hidden workspaces defer Explorer until shown", () => {
   expect(hiddenPane.querySelector(".window-titlebar-title")?.textContent).toBe(
     "Explorer",
   );
+  fireEvent.click(
+    within(hiddenPane).getByRole("button", { name: "Close window" }),
+  );
+  fireEvent.click(within(hiddenPane).getByRole("button", { name: "1" }));
+  fireEvent.click(within(visiblePane).getByRole("button", { name: "2" }));
+  expect(hiddenPane.querySelectorAll(".window")).toHaveLength(0);
   view.unmount();
 });
 
