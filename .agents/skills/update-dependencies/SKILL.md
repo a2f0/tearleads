@@ -14,6 +14,15 @@ changing global tools; use existing user authorization and `ship-pr` when shippi
 is requested. Default dependency-update merge subject: `chore: update dependencies`,
 subject to repository title policy and any explicit user subject.
 
+Run noisy installs, checks, tests, and builds with
+`agent-tool run --label <check> -- <command> [args...]` to retain full private
+logs and return the original status with compact output. Inspect bounded excerpts
+using `agent-tool logs <log>` and targeted searches for warnings and evidence;
+a successful receipt does not establish a warning-free upgrade. Keep structured
+audit/plan results, deployment previews, and review findings directly visible
+when they drive a safety decision. Do not dump full suite logs into context,
+silence warnings at their source, or change check scope to reduce output.
+
 ## Safety before execution
 
 **Always dry-run before any infrastructure apply or deployment. Never destroy,

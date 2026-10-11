@@ -27,6 +27,8 @@
     }
   },
   "scripts": {
+    "agent:logs": "agent-tool logs",
+    "agent:run": "agent-tool run",
     "agent-tool": "agent-tool",
     "agents:check": "bun run agent-tool skills check",
     "agents:sync": "bun run agent-tool skills install --apply",
@@ -134,7 +136,7 @@
     "@tsconfig/strictest": "2.0.8",
     "@types/bun": "1.4.2",
     "@types/invariant": "catalog:",
-    "agent-tool": "github:a2f0/agent-tool#1ddee340e4d6e9a62fed9e02580610439f9e88b1",
+    "agent-tool": "github:a2f0/agent-tool#ecebb252c5f29ad639f8e38f1ba89ad45c9e30cd",
     "dependency-cruiser": "18.5.0",
     "invariant": "catalog:",
     "knip": "6.40.0",
