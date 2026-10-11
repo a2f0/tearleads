@@ -5,6 +5,7 @@ import { fixture } from "./fixture.testUtils";
 
 const repoRoot = resolve(import.meta.dir, "../../..");
 const hookPath = "scripts/git/hooks/pre-push";
+const lintCommand = "scripts/checks/lintBranchName.ts --";
 
 function pushFixture(failingCommand: string) {
   const repo = fixture();
@@ -91,10 +92,93 @@ test("CI and the installed hook run the same fast checks in order", () => {
 
     expect(repo.push().exitCode).not.toBe(0);
     const pushCommands = readFileSync(repo.log, "utf8").trim().split("\n");
-    expect(pushCommands).toEqual(["run lint:branch-name", ...ciCommands]);
+    expect(pushCommands).toEqual([
+      "scripts/checks/lintBranchName.ts -- probe",
+      ...ciCommands,
+    ]);
     expect(readFileSync(repo.timings, "utf8")).toContain(
       "\tunfinished=markdown\tstatus=failed\t",
     );
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("the gate lints the branch a push creates, not the checked-out one", () => {
+  const branch = "claude/epic-wright-l1f75j";
+  const repo = pushFixture(`${lintCommand} ${branch}`);
+  try {
+    // The checkout keeps the fixture's own branch; only the destination names
+    // the branch the remote would gain.
+    const result = repo.run(
+      "git",
+      "push",
+      "./remote.git",
+      `HEAD:refs/heads/${branch}`,
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(readFileSync(repo.log, "utf8").split("\n")[0]).toBe(
+      `${lintCommand} ${branch}`,
+    );
+    expect(
+      repo.run(
+        "git",
+        "--git-dir=remote.git",
+        "show-ref",
+        "--verify",
+        `refs/heads/${branch}`,
+      ).exitCode,
+    ).not.toBe(0);
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+// The stub checks the hook's arguments; branchName.test.ts separately proves
+// real Bun passes a literal `--` through to the linter.
+test("every pushed branch reaches the linter, even one named --", () => {
+  const repo = pushFixture("");
+  try {
+    const result = repo.run(
+      "git",
+      "push",
+      "./remote.git",
+      "HEAD:refs/heads/feat/one",
+      "HEAD:refs/heads/--",
+    );
+    expect(result.exitCode, result.stderr.toString()).toBe(0);
+    const [lint = ""] = readFileSync(repo.log, "utf8").split("\n");
+    expect(lint).toStartWith(`${lintCommand} `);
+    const names = lint.slice(lintCommand.length + 1).split(" ");
+    expect(names.toSorted()).toEqual(["--", "feat/one"]);
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("deleting a branch or pushing a tag lints no branch name", () => {
+  const repo = pushFixture("");
+  try {
+    expect(repo.push().exitCode).toBe(0);
+    repo.write("commands.log", "");
+    repo.git("tag", "v1");
+    for (const refspec of [":refs/heads/probe", "refs/tags/v1"]) {
+      const result = repo.run("git", "push", "./remote.git", refspec);
+      expect(result.exitCode, result.stderr.toString()).toBe(0);
+      expect(`${result.stdout}${result.stderr}`).toContain(
+        "--- [branch-name] skipped (no branch created or updated) ---",
+      );
+    }
+    expect(readFileSync(repo.log, "utf8")).not.toContain(lintCommand);
+    expect(
+      repo.run(
+        "git",
+        "--git-dir=remote.git",
+        "show-ref",
+        "--verify",
+        "refs/heads/probe",
+      ).exitCode,
+    ).not.toBe(0);
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }

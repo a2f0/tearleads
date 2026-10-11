@@ -100,6 +100,17 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # Pre-push lints a pushed branch only where hooks are installed, so a
+      # pull request opened from any other clone is checked here. The name is
+      # untrusted input: it reaches the shell only through the environment.
+      # Bun drops the leading `--`, so even a branch named `--` is linted
+      # rather than leaving the script to lint the detached checkout.
+      - name: Check branch name
+        if: github.event_name == 'pull_request'
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: bun scripts/checks/lintBranchName.ts -- "$BRANCH_NAME"
+
       - name: Run lint checks
         env:
           OPENAPI_BASE_REF: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
