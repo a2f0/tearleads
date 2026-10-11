@@ -7,29 +7,56 @@ checksums are checked in with their owning packages.
 
 ## Current constraints
 
-- TypeScript stays on 6.0.3 while the repository's lint scripts use its
-  JavaScript compiler API.
+The compatibility decisions come from [#2225](https://github.com/a2f0/tearleads/pull/2225)
+and [#2474](https://github.com/a2f0/tearleads/pull/2474); those PRs retain migration
+and validation history. Revisit these constraints when updating their owning
+package or runtime, and remove them when the stated checks pass without the pin.
+
+- TypeScript stays on 6.0.3 while the lint scripts use its JavaScript compiler
+  API. Move beyond that line only after those consumers and the static gates
+  work with the replacement API; a passing compiler alone is insufficient.
+- MSW stays on 2.15.0: 3.0.2 bypasses request handlers under pinned Bun 1.4.2.
+  Revisit when MSW/Bun changes, proving interception and strict unhandled-request
+  rejection under the pinned Bun runtime, not only Node.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
-  `prepare:devkit` prepares the ignored SDK output before standalone checks.
-  Electrobun 2.0.2 pairs with Hutch 0.27.1 and includes the Windows
-  host-transport listener fix. Validate macOS, Linux, and Windows when updating
-  this pair.
-- Redis uses RESP2, explicit keepalive settings, and disabled command timeouts
-  for session and realtime connections.
-- Zod schemas define runtime validation; OpenAPI generation preserves the
-  registered wire contracts and their tested runtime refinements.
-- Recovery-key test vectors pin BIP39 phrases and complete identity key hashes.
-  Crypto dependency updates must preserve deterministic identity derivation.
+  `prepare:devkit` prepares ignored SDK output before standalone checks.
+  Keep the paired toolchain and Windows host-transport fix; validate macOS,
+  Linux, and Windows when changing the pair. See [desktop setup](../packages/app-electrobun/README.md).
 - RevenueCat native SDK pins follow the Capacitor purchase bridge's dependency
-  chain. Android uses the built-in Kotlin support in AGP 9.
-- Android uses compile SDK 36 and AndroidX Core 1.18.0. Its biometric plugin
-  still depends on `FingerprintManager`, which prevents using SDK 37.
-- LocalStack 4.14.0 supports the repository's local workflow without account
-  credentials.
+  chain, including the direct Xcode package pin. Align those pins before
+  rebuilding both native platforms; do not update transitive SDKs independently.
+- Android uses AGP 9's built-in Kotlin support, compile SDK 36, AndroidX Core
+  1.18.0, and the Capacitor template's Cordova 14.0.1. The biometric plugin's
+  `FingerprintManager` dependency prevents SDK 37 and therefore Core 1.19.
+  Revisit together when the plugin supports SDK 37 and native builds pass.
+- Java 25 LTS supports the pinned Gradle 9.8.0; Java 27 does not. Change the
+  pair only after upstream compatibility and the Android build are verified.
+- LocalStack 4.14.0 supports the local workflow without account credentials.
+  Preserve that workflow when considering a newer release.
 - CI uses PostgreSQL 18.6; staging uses distribution-managed PostgreSQL 16.
-  Production uses the independent PlanetScale PostgreSQL stack.
-- Knip's production-entry patch and its removal condition are documented in
-  [dependency patches](../patches/README.md).
+  Production uses the independent PlanetScale PostgreSQL stack. Validate each
+  affected deployment's supported database version when changing this matrix.
+- The Knip production-entry and Capacitor Swift-manifest patches retain their
+  rationale and removal checks in [dependency patches](../patches/README.md).
+  Security overrides and the Markdownlint patch are maintained with the
+  [current advisory exceptions](developer/dependency-audit.md).
+
+## Behavior to preserve
+
+Use the regression checks identified in [#2474](https://github.com/a2f0/tearleads/pull/2474)
+when changing these integrations:
+
+- Redis uses RESP2, explicit keepalive, and disabled command timeouts for
+  session and realtime connections; validate those connections after upgrades.
+- Zod/OpenAPI changes preserve registered wire contracts and tested runtime
+  refinements. Crypto changes preserve recovery-key BIP39 phrases and complete
+  identity key hashes in the deterministic test vectors.
+- Sentry uses explicit `dataCollection` exclusions and server-only exports;
+  preserve diagnostics allowlists and privacy regression tests.
+- Loro cursor attribution uses each code point's first UTF-16 unit; retain
+  astral-character and snapshot checks of operation identity.
+- Stripe's client and server version contracts and live-test limits remain in
+  the [payment compatibility notes](developer/dependency-audit.md#stripe-client-and-server-compatibility).
 
 ## Update workflow
 
@@ -52,32 +79,10 @@ wasm artifact. Native updates require their platform builds in addition to the
 workspace checks. Deployments use the reviewed source and lockfiles; dependency
 updates do not implicitly reset application databases.
 
-## October 2026 migrations
-
-Sentry 11 uses explicit `dataCollection` exclusions and server-only exports;
-retain the diagnostics allowlists and privacy regression tests. MSW stays on
-2.15.0: 3.0.2 bypasses request handlers under pinned Bun 1.4.2, although the
-same minimal request works under Node 24. Preserve strict unhandled-request
-rejection until upstream interception supports this Bun runtime.
-Dependency-cruiser tests use
-its installed `depcruise` command alias rather than an internal filename.
-Biome's official migration updates both configuration schemas and presets.
-The [mise-action v5.1.1 inputs](https://github.com/jdx/mise-action/blob/v5.1.1/action.yml)
-retain `version`, `install_args`, and `cache` for the existing CI setup.
-Loro 1.16.4 cursor attribution uses each code point's first UTF-16 unit; the
-existing astral-character and snapshot tests preserve operation identity.
-Stripe.js 10 selects Endive; the removed APIs are absent from our Payment
-Element flow. The [audit notes](developer/dependency-audit.md#stripejs-10-migration)
-record its release review, confirmation behavior, and live-test limit.
-
-Capacitor 8.5.3 regenerates Android settings and Swift package references.
-The resolved transitive `ion-ios-filesystem` and `ion-ios-fileviewer` Swift
-packages move from 1.1.4 and 1.0.4 to 2.0.0; native regeneration and simulator
-builds cover these pins.
-RevenueCat 13.7.0 selects hybrid-common 19.5.0, Android SDK 10.24.0, and iOS SDK
-5.92.0; keep the Xcode direct package pin aligned too. Java 25 LTS supports Gradle
-9.8.0, while Java 27 does not. Keep the Capacitor template's Cordova 14.0.1 and
-SDK 36; AndroidX Core 1.19 requires SDK 37. Ruby 4.0.7 and Bundler 4.0.22 produce
-the Fastlane 2.240.1 lockfile. Gradle scripts use explicit property assignment and
-project extension references; remaining AGP/Capacitor plugin deprecations are
-upstream warnings rather than suppressed repository errors.
+Keep this document and the linked audit notes current: reconcile constraints
+against the final dependency graph, update rationale and removal checks in
+place, and remove resolved entries. Keep per-run inventories, old/new version
+tables, audit results, validation and preview receipts, and skipped-work ledgers
+in the upgrade PR. Use an existing sweep issue only when requested; do not
+create one just to store evidence. README and AGENTS.md need only concise links.
+Keep credentials, raw logs, state, and plans out of public records.

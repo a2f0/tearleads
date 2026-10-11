@@ -284,6 +284,12 @@ Do not edit generated or build output directly:
 
 ## Agent Tooling And Shipping
 
+Read and reconcile [dependency maintenance](docs/dependency-upgrades.md) and its
+linked audit notes when upgrading dependencies. Keep current constraints there,
+with provenance and removal checks; remove resolved entries. Put each run's
+inventory and validation evidence in the PR, keeping README and this file to
+concise links. Create tracking issues only when explicitly requested.
+
 Review, PR, merge, and version helpers come from the commit-pinned
 [`a2f0/agent-tool`](https://github.com/a2f0/agent-tool) dev dependency; run it
 with `bun run agent-tool`. Title, required-check, base-freshness, and version

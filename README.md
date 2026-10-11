@@ -91,6 +91,7 @@ outside its package declares them in that package's `turbo.json`.
 
 ## Developer Docs
 
+- [Dependency Maintenance](./docs/dependency-upgrades.md)
 - [API Persistence](./docs/developer/api-persistence.md)
 - [Client SDK](./docs/developer/client-sdk.md)
 - [Payment Provider MCP and CLI Operations](./docs/developer/payment-provider-mcp.md)
