@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "files": {
-    ".agents/skills/cross-agent-review/SKILL.md": "7941aa79e36237281883f91e044e4da6b8149bcaec484150a3c78bfe28c00474",
+    ".agents/skills/cross-agent-review/SKILL.md": "5a5a24fcc19f0cdd9057721d5694088e499d860c856214193b0140c91acc68e8",
     ".agents/skills/open-pr/SKILL.md": "65ed48598f9183e531c5a6301c8a597269a2587f38ce204c4eea9c59f7233e79",
     ".agents/skills/reset/SKILL.md": "cc6c732b4b96d3013988e94828e79e5b13b34cf1acb12f53a6f2d90cfbe9f8a2",
-    ".agents/skills/ship-pr/SKILL.md": "e8cb83b3dda3e35376f017c05143e57ae63e20c4d854d5d97a1e25487c4bcf8c",
+    ".agents/skills/ship-pr/SKILL.md": "7ab70f1f17f68c4dd3c1022dbfe6611d915a8e9875fd526a45f8656c4d6c35ca",
     ".agents/skills/squash-merge/SKILL.md": "c1b2bf90c2796f2440071e1b6f32ece3b6390d314363b326594d75003a82c696",
-    ".claude/skills/cross-agent-review/SKILL.md": "7941aa79e36237281883f91e044e4da6b8149bcaec484150a3c78bfe28c00474",
+    ".claude/skills/cross-agent-review/SKILL.md": "5a5a24fcc19f0cdd9057721d5694088e499d860c856214193b0140c91acc68e8",
     ".claude/skills/open-pr/SKILL.md": "65ed48598f9183e531c5a6301c8a597269a2587f38ce204c4eea9c59f7233e79",
     ".claude/skills/reset/SKILL.md": "cc6c732b4b96d3013988e94828e79e5b13b34cf1acb12f53a6f2d90cfbe9f8a2",
-    ".claude/skills/ship-pr/SKILL.md": "e8cb83b3dda3e35376f017c05143e57ae63e20c4d854d5d97a1e25487c4bcf8c",
+    ".claude/skills/ship-pr/SKILL.md": "7ab70f1f17f68c4dd3c1022dbfe6611d915a8e9875fd526a45f8656c4d6c35ca",
     ".claude/skills/squash-merge/SKILL.md": "c1b2bf90c2796f2440071e1b6f32ece3b6390d314363b326594d75003a82c696",
-    ".agents/skills/update-dependencies/SKILL.md": "1a4fa39bae5ddef88c67711b48052d83dbd2a5bb1f291170fb15bb29a97d6f02",
-    ".claude/skills/update-dependencies/SKILL.md": "1a4fa39bae5ddef88c67711b48052d83dbd2a5bb1f291170fb15bb29a97d6f02"
+    ".agents/skills/update-dependencies/SKILL.md": "9dfb31f7e9aa20a20a95c2b35d612072bd2cd8d9ec36ab9f71145771c8f1b834",
+    ".claude/skills/update-dependencies/SKILL.md": "9dfb31f7e9aa20a20a95c2b35d612072bd2cd8d9ec36ab9f71145771c8f1b834"
   }
 }

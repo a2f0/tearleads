@@ -11,6 +11,18 @@ concerns. Shipping authorizes this workflow within the user's stated scope.
 Preserve unrelated edits and honor requested stopping points such as open-PR
 only, report-only review, or keeping the feature branch.
 
+Use `agent-tool run --label <check> -- <command> [args...]` for noisy setup,
+validation, builds, and hook-running Git commands. It preserves exit status and
+complete private logs, prints one success receipt, and shows a bounded failure
+tail. Inspect more with `agent-tool logs <log> --max-bytes 8192 --tail-lines 80`
+or a targeted search; never dump an entire suite log or pipe checks into `tail`.
+The receipt proves process completion, not absence of warnings: inspect required
+warning, coverage, timing, or artifact evidence before accepting a check. Keep
+machine-readable receipts and review findings visible by running `versions
+prepare`, `review`, and other commands whose output drives a decision directly.
+Prefer documented compact test reporters when they preserve required evidence;
+do not reduce test scope, skip checks, silence warnings, or mask failures.
+
 1. Finish the requested change on a feature branch. Create it with
    `git switch --no-track -c <branch>`; settings such as
    `branch.autosetupmerge=always` otherwise make it track a local branch.

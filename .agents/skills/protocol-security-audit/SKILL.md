@@ -59,6 +59,12 @@ exploitable paths.
 
 ## 1. Establish the baseline
 
+Run noisy builds, checks, and probes through `agent-tool run -- <command>`.
+Use the checkout's `node_modules/.bin/agent-tool`; from a package directory,
+invoke that binary by its absolute path to preserve the probe's working
+directory. Keep receipt log paths with the audit notes and inspect bounded
+excerpts with `agent-tool logs <path>` instead of loading successful logs.
+
 1. Record the audited revision with `git rev-parse HEAD` and note any dirty
    paths. Audit committed code only.
 2. Create a scratch directory outside the checkout with
@@ -70,7 +76,8 @@ exploitable paths.
    it; otherwise run them now, before the slices, so their results are ready
    for verification.
 4. If `packages/client-sdk/dist` is older than the SDK source, rebuild it once
-   with `bun run --filter='@tearleads/client-sdk' build`. `packages/api`
+   with `bun run agent:run -- bun run --filter='@tearleads/client-sdk' build`.
+   `packages/api`
    resolves the SDK from `dist`, so API probes otherwise test stale code. Do
    not rebuild it again mid-audit while other probes may be running.
 5. Read `docs/security-guarantees.md` and `formal/README.md` in full.
@@ -117,8 +124,9 @@ report without a second look.
   guard gap is reachable by honest use only if the SDK never avoids it. For
   example, the SDK delete path does not revoke grants first.
 - Prefer a runtime probe. Write it in the scratch directory, import repository
-  modules by absolute path, and run `bun test <absolute path>` from the owning
-  package directory so workspace imports resolve. Reuse
+  modules by absolute path, and run
+  `<repo-root>/node_modules/.bin/agent-tool run -- bun test <absolute path>`
+  from the owning package directory so workspace imports resolve. Reuse
   `packages/crypto/src/keying/testFixtures.ts` and
   `packages/client-sdk/test/helpers/`. Never add probe files to the checkout.
   Read what a probe asserts: one that calls a helper directly proves less than

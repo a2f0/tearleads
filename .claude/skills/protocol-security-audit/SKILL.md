@@ -77,6 +77,13 @@ an expected setup-only batch, and `resume` continues with the queued audit work.
 
 ## 1. Establish the baseline
 
+Run noisy builds, checks, and probes through `agent-tool run -- <command>`.
+Use the checkout's `node_modules/.bin/agent-tool`; from a package directory,
+invoke that binary by its absolute path to preserve the probe's working
+directory. Copy retained raw logs into the durable audit directory before
+checkpointing, and inspect bounded excerpts with `agent-tool logs <path>`
+instead of loading successful logs.
+
 1. Create or load the checkpoint as described in `references/batching.md`.
    Record `git rev-parse HEAD` and dirty paths. Audit committed code only;
    use a separate clean checkout when the requested revision or dirty paths
@@ -87,7 +94,8 @@ an expected setup-only batch, and `resume` continues with the queued audit work.
    Reuse completed logs only after resume validation; do not stream full
    passing logs into context or restart checks already running.
 3. If `packages/client-sdk/dist` is older than the SDK source, rebuild it once
-   with `bun run --filter='@tearleads/client-sdk' build`. `packages/api`
+   with `bun run agent:run -- bun run --filter='@tearleads/client-sdk' build`.
+   `packages/api`
    resolves the SDK from `dist`, so API probes otherwise test stale code. The
    brief tells auditors not to rebuild it themselves.
 4. On the first batch, read `docs/security-guarantees.md` and `formal/README.md`
@@ -143,7 +151,8 @@ root causes per default batch; preserve the rest as pending for resume.
   guard gap is reachable by honest use only if the SDK never avoids it. For
   example, the SDK delete path does not revoke grants first.
 - Prefer a runtime probe. Write it in the durable per-work-item audit directory,
-  import repository modules by absolute path, and run `bun test <absolute path>`
+  import repository modules by absolute path, and run
+  `<repo-root>/node_modules/.bin/agent-tool run -- bun test <absolute path>`
   from the owning package directory so workspace imports resolve. Reuse
   `packages/crypto/src/keying/testFixtures.ts` and
   `packages/client-sdk/test/helpers/`. Never add probe files to the checkout.

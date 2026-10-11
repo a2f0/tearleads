@@ -59,16 +59,18 @@ Use the mise-pinned Java and TLA+ tools for checks relevant to the audited
 scope, without changing model inputs or registering new cases:
 
 ```sh
-bun run check:protocol-models             # registered model/config pairs
-bun run check:protocol-negative-controls  # existing expected violations
-bun run lint:formal-maps                  # model tokens and production seams
-bun run check:no-brick-projection         # verifier runs vs NoBrickedDevice
-bun run check:protocol-traces             # trace fixture drift, no generation
-bun run check:protocol-projection         # implementation trace projection
+bun run agent:run -- bun run check:protocol-models
+bun run agent:run -- bun run check:protocol-negative-controls
+bun run agent:run -- bun run lint:formal-maps
+bun run agent:run -- bun run check:no-brick-projection
+bun run agent:run -- bun run check:protocol-traces
+bun run agent:run -- bun run check:protocol-projection
 ```
 
 Run these once per clean audited revision while establishing the baseline,
-logging each command's output and exit code to the durable audit directory.
+logging each command's receipt and exit code to the durable audit directory.
+Copy the retained raw logs there before checkpointing; inspect bounded excerpts
+with `bun run agent:logs <path>`.
 Record running checks in the checkpoint; resumes inspect their status and
 reuse completed results after the validation in
 [`batching.md`](batching.md). Auditors read relevant summaries instead of
