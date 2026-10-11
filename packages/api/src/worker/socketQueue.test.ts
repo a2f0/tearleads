@@ -53,7 +53,7 @@ test("closing discards queued frames and closes right after the running event", 
   expect(events).toEqual(["open", "close"]);
 });
 
-test("a flood beyond the frame count bound overflows before it is queued", async () => {
+test("a flood beyond the frame count bound overflows, closes, and discards the queue", async () => {
   const { events, handlers, releaseOpen } = harness({ holdOpen: true });
   const queue = new SocketQueue(handlers, {
     maxQueuedMessages: 2,
@@ -63,6 +63,8 @@ test("a flood beyond the frame count bound overflows before it is queued", async
   expect(queue.enqueue("b", 1)).toBe(true);
   expect(queue.enqueue("c", 1)).toBe(false);
   expect(events).toEqual(["open", "overflow:Too many pending messages"]);
+  // Already closed: later frames, including the peer's close, are no-ops.
+  expect(queue.enqueue("d", 1)).toBe(false);
   releaseOpen();
   await queue.settled();
   queue.close();
@@ -70,8 +72,6 @@ test("a flood beyond the frame count bound overflows before it is queued", async
   expect(events).toEqual([
     "open",
     "overflow:Too many pending messages",
-    "message:a",
-    "message:b",
     "close",
   ]);
 });
@@ -85,6 +85,7 @@ test("a flood beyond the byte bound overflows even under the frame count", async
   expect(queue.enqueue("x".repeat(60), 60)).toBe(true);
   expect(queue.enqueue("y".repeat(60), 60)).toBe(false);
   expect(events).toContain("overflow:Too many pending messages");
+  expect(queue.enqueue("z", 1)).toBe(false);
 });
 
 test("a failing handler is reported and later events still run", async () => {

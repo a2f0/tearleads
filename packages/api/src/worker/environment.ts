@@ -13,6 +13,7 @@ export interface WorkerBindings {
 }
 
 const apiDatabaseEnvKey = "API_DATABASE";
+const nodeEnvKey = "NODE_ENV";
 const KEY_VALUE_STORE_NAME = "default";
 const REALTIME_HUB_NAME = "hub";
 const DEFAULT_LOCATION_HINT = "enam";
@@ -35,7 +36,12 @@ export function bindWorkerEnvironment(env: WorkerBindings): void {
       process.env[name] = value;
     }
   }
-  // Wrangler replaces process.env.NODE_ENV with "production" at build time.
+  // Wrangler replaces the literal `process.env.NODE_ENV` at build time, but
+  // readers that take an environment object see the real `process.env`; a
+  // Worker is always a production deployment, so the strict settings (no
+  // development HMAC key, origins required, https) apply here too. A binding
+  // can still set it explicitly.
+  process.env[nodeEnvKey] ??= "production";
   process.env[apiDatabaseEnvKey] ??= "postgres";
   boundEnvironment = env;
 }
