@@ -12,6 +12,35 @@ export type BoundedRequest =
   | { readonly kind: "request"; readonly request: Request }
   | { readonly kind: "too-large" };
 
+/**
+ * Ingress ceilings per route, as nginx applied them. Only blob parts and
+ * document payloads (initial content, rotation baselines, sync batches, each
+ * already bounded by its own validator) are large. Every other route carries
+ * small JSON, so a client that has not authenticated cannot make the isolate
+ * buffer or parse more than this before the route refuses it.
+ */
+export const MAX_JSON_REQUEST_BYTES = 2 * 1024 * 1024;
+
+const BLOB_PART_PATH =
+  /^\/blobs\/stages\/multipart\/[^/]+\/parts\/[^/]+\/bytes$/;
+const DOCUMENT_PAYLOAD_PATHS = [
+  /^\/documents(\/|$)/,
+  /^\/containers\/with-metadata-document$/,
+];
+
+export function requestBodyCeiling(
+  pathname: string,
+  partCeiling: number,
+): number {
+  if (BLOB_PART_PATH.test(pathname)) {
+    return partCeiling;
+  }
+  if (DOCUMENT_PAYLOAD_PATHS.some((pattern) => pattern.test(pathname))) {
+    return partCeiling;
+  }
+  return MAX_JSON_REQUEST_BYTES;
+}
+
 function declaredLength(request: Request): number | null {
   const header = request.headers.get("content-length");
   if (header === null) {

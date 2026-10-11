@@ -4,7 +4,7 @@ import {
   realtimeHubStub,
   type WorkerBindings,
 } from "./environment";
-import { boundRequestBody } from "./requestBody";
+import { boundRequestBody, requestBodyCeiling } from "./requestBody";
 
 export { KeyValueStore } from "./keyValueStoreObject";
 export { RealtimeHub } from "./realtimeHubObject";
@@ -94,7 +94,13 @@ async function handleRequest(
   const { corsOrigins, fetch, flushDiagnostics, withRequestDatabase } =
     await loadApp();
   // Route-level limits still apply below this ceiling.
-  const bounded = boundRequestBody(request, MAX_MULTIPART_BLOB_PART_BYTES);
+  const bounded = boundRequestBody(
+    request,
+    requestBodyCeiling(
+      new URL(request.url).pathname,
+      MAX_MULTIPART_BLOB_PART_BYTES,
+    ),
+  );
   if (bounded.kind === "too-large") {
     return refuse(
       request,

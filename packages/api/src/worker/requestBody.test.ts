@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
-import { boundRequestBody } from "./requestBody";
+import {
+  boundRequestBody,
+  MAX_JSON_REQUEST_BYTES,
+  requestBodyCeiling,
+} from "./requestBody";
 
 function chunkedRequest(chunks: readonly string[]): Request {
   const encoder = new TextEncoder();
@@ -50,4 +54,31 @@ test("a body past the ceiling fails the route's read, not the ingress", async ()
 test("a request without a body passes through", () => {
   const request = new Request("https://api.example.test/");
   expect(boundRequestBody(request, 10)).toEqual({ kind: "request", request });
+});
+
+test("only blob parts and document payloads get the part ceiling", () => {
+  const part = 32;
+  for (const path of [
+    "/blobs/stages/multipart/stage-1/parts/3/bytes",
+    "/documents",
+    "/documents/doc-1/link",
+    "/documents/doc-1/sync",
+    "/containers/with-metadata-document",
+  ]) {
+    expect(requestBodyCeiling(path, part)).toBe(part);
+  }
+  for (const path of [
+    "/",
+    "/auth/register",
+    "/auth/challenge",
+    "/blobs/stages/multipart",
+    "/blobs/blob-1/bytes",
+    "/documentsx",
+    "/documents%2Fdoc-1%2Flink",
+    "/containers",
+    "/containers/with-metadata-document/x",
+    "/organizations/org-1/billing/stripe/checkout",
+  ]) {
+    expect(requestBodyCeiling(path, part)).toBe(MAX_JSON_REQUEST_BYTES);
+  }
 });
