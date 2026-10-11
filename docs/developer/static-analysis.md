@@ -9,8 +9,13 @@ and pre-push.
 
 CI's `check:fast` and pre-push run the same check list in
 `scripts/checks/fastChecks.sh`. Add checks there so both gates pick them up.
-Pre-push also checks the branch name, Terraform, TypeScript, affected tests,
-and the pushed commit ranges. Each check retains its own push timing row.
+Pre-push also checks the names of the branches a push creates or updates,
+Terraform, TypeScript, affected tests, and the pushed commit ranges. Each check
+retains its own push timing row. The branch check reads the pushed refs, not
+the checked-out branch, so `git push origin HEAD:<name>` and detached pushes
+are covered while deletions and tags are skipped. Hooks act only in a clone
+where `install-hooks.sh` ran, so CI's `Lint` job checks every pull request's
+branch name as well.
 
 Both gates need the mise-pinned Java, TLA+, oasdiff, and Ansible tools listed in
 `AGENTS.md`, plus a fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`).

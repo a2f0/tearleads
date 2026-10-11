@@ -314,7 +314,10 @@ Shipping rules on top of the shared skills:
 - **Titles**: PR titles and squash subjects follow `commitlint.config.mts`. The
   helper checks type and length only, so also run
   `printf '%s\n' "$TITLE" | bunx --no-install commitlint --config commitlint.config.mts`.
-  Check a new branch name with `bun run lint:branch-name <name>`.
+  Check a new branch name with `bun run lint:branch-name <name>`. Pre-push
+  lints each branch a push creates or updates, and CI's `Lint` job lints every
+  pull request's branch. If a session starts on a nonconforming branch, move
+  the work to a conforming branch before the first commit.
 - **Push**: the pre-push gate takes over ten minutes, so run it in the
   background. It rejects `Co-authored-by` trailers. A rewrite that only removes
   them needs no re-review if the tree and the merge base with the PR base are

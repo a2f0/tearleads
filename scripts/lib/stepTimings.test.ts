@@ -137,10 +137,11 @@ test("a run that dies mid-step records the step it stopped in", async () => {
 });
 
 test("a failing check stops the gate, and is recorded as the last step", async () => {
-  // The real hook, with `bun` stubbed to fail: its first check runs `bun run
-  // lint:branch-name`, so the gate dies in its first step. Everything the
-  // recording depends on — errexit, the EXIT trap, the refs file — is the
-  // hook's own wiring, which is only worth asserting against the hook itself.
+  // The real hook, with `bun` stubbed to fail: its first check lints the pushed
+  // branch through `bun`, so the gate dies in its first step.
+  // Everything the recording depends on — errexit, the EXIT trap, the refs
+  // file — is the hook's own wiring, which is only worth asserting against the
+  // hook itself.
   const stubDirectory = mkdtempSync(join(tmpdir(), "stepTimings-bin-"));
   await Bun.write(join(stubDirectory, "bun"), "#!/bin/sh\nexit 3\n");
   chmodSync(join(stubDirectory, "bun"), 0o755);
@@ -161,7 +162,9 @@ test("a failing check stops the gate, and is recorded as the last step", async (
   // The check's own status reaches git, so a failed gate still refuses the push.
   expect(result.exitCode).toBe(3);
   const output = result.stdout.toString();
-  expect(output).toContain("--- [branch-name] bun run lint:branch-name ---");
+  expect(output).toContain(
+    "--- [branch-name] bun scripts/checks/lintBranchName.ts -- x ---",
+  );
   expect(output).not.toContain("[shellcheck]");
   expect(output).not.toContain("All checks passed.");
 
