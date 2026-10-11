@@ -100,7 +100,7 @@ for the exact-length rule.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Request body on every other route | 2 MiB (`MAX_JSON_REQUEST_BYTES`, `packages/api/src/worker/requestBody.ts`) | The Worker entry, before any route or authentication runs; only blob parts, `/documents` routes, and container creation with a metadata document get the part ceiling below. | Refusal. Bounds what an unauthenticated request can make the isolate buffer or parse. |
+| Request body on the unauthenticated surface (`/`, `/auth/*`, `/billing/*`) | 2 MiB (`MAX_UNAUTHENTICATED_REQUEST_BYTES`, `packages/api/src/worker/requestBody.ts`) | The Worker entry, before any route runs; every session route keeps the ceiling below, since container rotations and document payloads legitimately carry megabytes of keyrings and baselines. | Refusal. Bounds what a client without a session can make the isolate buffer or parse. |
 | Request body and multipart part | 32 MiB (`MAX_MULTIPART_BLOB_PART_BYTES`, `MAX_UPLOAD_PART_BYTES`) | The Worker entry refuses a larger declared length; the Bun development listener sets it as `maxRequestBodySize`; the object store enforces it again. A part is buffered whole, and the Workers isolate has 128 MB. | Refusal. This is the route ceiling every other request-size limit sits under. |
 | Chunk size | 5 MiB, fixed (`BLOB_CHUNK_SIZE_BYTES`, `crypto/src/blobEnvelopeV2.ts`) | Crypto envelope format. | Not a tunable. |
 | Chunks per blob | 10,000 (`MAX_BLOB_CHUNK_COUNT`), so a blob is at most about 48.8 GiB | Crypto envelope parser; SDK `workflows/blobs/multipartUpload.ts` refuses before uploading. | Refusal. |

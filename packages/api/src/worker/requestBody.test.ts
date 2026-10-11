@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import {
   boundRequestBody,
-  MAX_JSON_REQUEST_BYTES,
+  MAX_UNAUTHENTICATED_REQUEST_BYTES,
   requestBodyCeiling,
 } from "./requestBody";
 
@@ -56,29 +56,33 @@ test("a request without a body passes through", () => {
   expect(boundRequestBody(request, 10)).toEqual({ kind: "request", request });
 });
 
-test("only blob parts and document payloads get the part ceiling", () => {
-  const part = 32;
+test("the unauthenticated surface gets the small ceiling, every session route the route ceiling", () => {
+  const route = 32;
+  for (const path of [
+    "/",
+    "/auth/register",
+    "/auth/challenge",
+    "/auth/verify",
+    "/billing/stripe/webhook",
+    "/billing/revenuecat/webhook",
+  ]) {
+    expect(requestBodyCeiling(path, route)).toBe(
+      MAX_UNAUTHENTICATED_REQUEST_BYTES,
+    );
+  }
   for (const path of [
     "/blobs/stages/multipart/stage-1/parts/3/bytes",
     "/documents",
     "/documents/doc-1/link",
     "/documents/doc-1/sync",
     "/containers/with-metadata-document",
-  ]) {
-    expect(requestBodyCeiling(path, part)).toBe(part);
-  }
-  for (const path of [
-    "/",
-    "/auth/register",
-    "/auth/challenge",
-    "/blobs/stages/multipart",
-    "/blobs/blob-1/bytes",
-    "/documentsx",
-    "/documents%2Fdoc-1%2Flink",
-    "/containers",
-    "/containers/with-metadata-document/x",
+    // Rotations carry a keyring entry per member and can exceed 5 MiB.
+    "/containers/c-1/revoke",
+    "/containers/c-1/rekey",
+    "/containers/c-1/move",
     "/organizations/org-1/billing/stripe/checkout",
+    "/authx",
   ]) {
-    expect(requestBodyCeiling(path, part)).toBe(MAX_JSON_REQUEST_BYTES);
+    expect(requestBodyCeiling(path, route)).toBe(route);
   }
 });

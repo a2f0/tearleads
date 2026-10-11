@@ -13,32 +13,25 @@ export type BoundedRequest =
   | { readonly kind: "too-large" };
 
 /**
- * Ingress ceilings per route, as nginx applied them. Only blob parts and
- * document payloads (initial content, rotation baselines, sync batches, each
- * already bounded by its own validator) are large. Every other route carries
- * small JSON, so a client that has not authenticated cannot make the isolate
- * buffer or parse more than this before the route refuses it.
+ * Ingress ceilings per route. Authenticated routes keep the route ceiling
+ * nginx gave them: blob parts, document payloads, and container rotations
+ * carry keyrings and baselines that their validators bound. The surface a
+ * client reaches without a session (registration and login, the billing
+ * webhooks, and the health probe) only ever carries small JSON, so this
+ * ceiling keeps an unauthenticated request from making the isolate buffer or
+ * parse more than that before the route refuses it.
  */
-export const MAX_JSON_REQUEST_BYTES = 2 * 1024 * 1024;
+export const MAX_UNAUTHENTICATED_REQUEST_BYTES = 2 * 1024 * 1024;
 
-const BLOB_PART_PATH =
-  /^\/blobs\/stages\/multipart\/[^/]+\/parts\/[^/]+\/bytes$/;
-const DOCUMENT_PAYLOAD_PATHS = [
-  /^\/documents(\/|$)/,
-  /^\/containers\/with-metadata-document$/,
-];
+const UNAUTHENTICATED_PATHS = [/^\/$/, /^\/auth(\/|$)/, /^\/billing(\/|$)/];
 
 export function requestBodyCeiling(
   pathname: string,
-  partCeiling: number,
+  routeCeiling: number,
 ): number {
-  if (BLOB_PART_PATH.test(pathname)) {
-    return partCeiling;
-  }
-  if (DOCUMENT_PAYLOAD_PATHS.some((pattern) => pattern.test(pathname))) {
-    return partCeiling;
-  }
-  return MAX_JSON_REQUEST_BYTES;
+  return UNAUTHENTICATED_PATHS.some((pattern) => pattern.test(pathname))
+    ? MAX_UNAUTHENTICATED_REQUEST_BYTES
+    : routeCeiling;
 }
 
 function declaredLength(request: Request): number | null {

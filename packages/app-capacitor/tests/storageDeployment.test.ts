@@ -7,6 +7,7 @@ async function runStorageScript(
   scriptPath: string,
   args: string[],
   failure = "",
+  input = "",
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-storage-deploy-"));
   async function executable(path: string, source: string) {
@@ -80,6 +81,7 @@ async function runStorageScript(
         STORAGE_TEST_LOG: log,
         STORAGE_TEST_FAILURE: failure,
       },
+      stdin: input === "" ? "ignore" : new TextEncoder().encode(input),
       stdout: "ignore",
       stderr: "pipe",
     });
@@ -161,19 +163,41 @@ test("failed edge teardown retains the staging Workers and storage", async () =>
   expect(result.calls).toEqual(["edge staging destroy --auto-approve"]);
 });
 
-test("staging teardown without arguments preserves interactive confirmation", async () => {
-  const result = await runStorageScript("scripts/destroyStaging.sh", []);
+test("staging teardown asks once, up front, and then runs every stack unattended", async () => {
+  const result = await runStorageScript(
+    "scripts/destroyStaging.sh",
+    [],
+    "",
+    "staging\n",
+  );
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual([
-    "edge staging destroy",
+    "edge staging destroy --auto-approve",
     "api ",
     "app-web ",
     "drop-owned staging",
-    "postgres staging destroy",
-    "storage staging destroy",
-    "website",
+    "postgres staging destroy --auto-approve",
+    "storage staging destroy --auto-approve",
+    "website --auto-approve",
   ]);
 });
+
+for (const [label, input] of [
+  ["a declined confirmation", "no\n"],
+  ["no input", ""],
+]) {
+  test(`staging teardown with ${label} changes nothing`, async () => {
+    const result = await runStorageScript(
+      "scripts/destroyStaging.sh",
+      [],
+      "",
+      input,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Teardown cancelled");
+    expect(result.calls).toEqual([]);
+  });
+}
 
 for (const args of [[], ["prod"], ["prod", "destroy"], ["unknown", "apply"]]) {
   test(`storage wrapper rejects ${args.join(" ")} before loading credentials`, async () => {
