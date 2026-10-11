@@ -9,6 +9,10 @@ classify each finding. Run the full audit so build, deploy, and test tools remai
 visible. A development dependency can still process hostile input or run with
 deployment credentials.
 
+For the Ruby graph, run `bundle-audit check --update` from
+`packages/app-capacitor` against its `Gemfile.lock`, and keep those results
+with the review too.
+
 Prioritize reachable production findings and high/critical findings in every
 environment. Fix or mitigate those before release; any exception needs a named
 owner, advisory/version, input and call-path evidence, review date, and removal
@@ -82,7 +86,8 @@ collection is disabled only when we supply that email in confirmation's
 Review the [Endive changes](https://docs.stripe.com/changelog/endive) against
 that flow when changing its integration.
 When upgrading, compile the checkout and retain its injected-loader tests for
-application lifecycle and error handling; they do not exercise Stripe's remote SDK.
+application lifecycle and error handling; they do not exercise Stripe's
+remote SDK.
 Live payment validation remains unavailable without a test account.
 
 The server's explicit REST API version remains 2024-06-20. Stripe.js uses its own

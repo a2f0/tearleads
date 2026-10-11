@@ -21,7 +21,8 @@ package or runtime, and remove them when the stated checks pass without the pin.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
   `prepare:devkit` prepares ignored SDK output before standalone checks.
   Keep the paired toolchain and Windows host-transport fix; validate macOS,
-  Linux, and Windows when changing the pair. See [desktop setup](../packages/app-electrobun/README.md).
+  Linux, and Windows when changing the pair, including the
+  [Windows port-conflict regression](../packages/app-electrobun/README.md#native-persistence-checks).
 - RevenueCat native SDK pins follow the Capacitor purchase bridge's dependency
   chain, including the direct Xcode package pin. Align those pins before
   rebuilding both native platforms; do not update transitive SDKs independently.
@@ -43,18 +44,21 @@ package or runtime, and remove them when the stated checks pass without the pin.
 
 ## Behavior to preserve
 
-Use the regression checks identified in [#2474](https://github.com/a2f0/tearleads/pull/2474)
-when changing these integrations:
+Run the relevant regressions and validate the affected integrations when
+upgrading these dependencies:
 
 - Redis uses RESP2, explicit keepalive, and disabled command timeouts for
-  session and realtime connections; validate those connections after upgrades.
+  session and realtime connections; validate those connections and the
+  [pub/sub regressions](../packages/api/src/adapters/redisPubSub.test.ts).
 - Zod/OpenAPI changes preserve registered wire contracts and tested runtime
   refinements. Crypto changes preserve recovery-key BIP39 phrases and complete
   identity key hashes in the deterministic test vectors.
 - Sentry uses explicit `dataCollection` exclusions and server-only exports;
-  preserve diagnostics allowlists and privacy regression tests.
+  preserve diagnostics allowlists and the
+  [privacy regressions](../packages/diagnostics/src/collectionPolicy.test.ts).
 - Loro cursor attribution uses each code point's first UTF-16 unit; retain
-  astral-character and snapshot checks of operation identity.
+  the [astral-character and snapshot checks](../packages/loro/src/loro.test.ts)
+  of operation identity.
 - Stripe's client and server version contracts and live-test limits remain in
   the [payment compatibility notes](developer/dependency-audit.md#stripe-client-and-server-compatibility).
 
