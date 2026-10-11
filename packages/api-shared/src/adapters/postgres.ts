@@ -1,15 +1,21 @@
 import { AsyncLocalStorage } from "node:async_hooks";
-import os from "node:os";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
 import { migrate as migrateNodePostgres } from "drizzle-orm/node-postgres/migrator";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import pg, { type PoolConfig } from "pg";
+import pg from "pg";
 import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
 import { databaseStatementLogger } from "./databaseStatementCounter";
+import {
+  type ApiDatabaseEnv,
+  createPostgresPoolConfig,
+  isEnabled,
+  readPostgresStreamConfig,
+  readSqlitePath,
+} from "./postgresConfig";
 import { createSqliteApiDatabase } from "./sqliteAdapter";
 import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import { createTursoApiDatabase } from "./tursoAdapter";
@@ -19,12 +25,12 @@ import type {
   ManagedApiDatabase,
   MigrationOptions,
 } from "./types";
-import { createWorkersPostgresStream } from "./workersPostgresSocket";
 
 const { Pool } = pg;
 
 export { withDatabaseStatementCounter } from "./databaseStatementCounter";
 export { gatherWithExecutor, isDatabaseTransaction } from "./executor";
+export { createPostgresPoolConfig } from "./postgresConfig";
 export { databaseTransactionCompletion } from "./transactionCompletion";
 
 export type {
@@ -39,38 +45,6 @@ export type {
   TransactionCallback,
 } from "./types";
 
-interface ApiDatabaseEnv {
-  readonly API_DATABASE?: string | undefined;
-  readonly DATABASE_URL?: string | undefined;
-  readonly NODE_ENV?: string | undefined;
-  readonly PGDATABASE?: string | undefined;
-  readonly PGHOST?: string | undefined;
-  readonly PGPASSWORD?: string | undefined;
-  readonly PGPORT?: string | undefined;
-  readonly PGUSER?: string | undefined;
-  readonly POSTGRES_DATABASE?: string | undefined;
-  readonly POSTGRES_HOST?: string | undefined;
-  readonly POSTGRES_COALESCE_WRITES?: string | undefined;
-  readonly POSTGRES_PASSWORD?: string | undefined;
-  readonly POSTGRES_POOL_IDLE_TIMEOUT_MS?: string | undefined;
-  readonly POSTGRES_POOL_MAX?: string | undefined;
-  readonly POSTGRES_POOL_MAX_USES?: string | undefined;
-  readonly POSTGRES_PORT?: string | undefined;
-  readonly POSTGRES_REQUEST_SCOPED?: string | undefined;
-  readonly POSTGRES_SSL?: string | undefined;
-  readonly POSTGRES_SSL_REJECT_UNAUTHORIZED?: string | undefined;
-  readonly POSTGRES_URL?: string | undefined;
-  readonly POSTGRES_USER?: string | undefined;
-  readonly API_SQLITE_PATH?: string | undefined;
-  readonly SQLITE_PATH?: string | undefined;
-  readonly TURSO_AUTH_TOKEN?: string | undefined;
-  readonly TURSO_DATABASE_URL?: string | undefined;
-  readonly TURSO_PRIMARY_INSTANCE_ID?: string | undefined;
-  readonly USER?: string | undefined;
-  readonly LOGNAME?: string | undefined;
-  readonly [key: string]: string | undefined;
-}
-
 // Resolved on demand: the Workers bundle has no file URL for this module, and
 // it never migrates, so resolving at import time would throw there.
 function postgresMigrationsFolder(): string {
@@ -78,279 +52,6 @@ function postgresMigrationsFolder(): string {
 }
 function sqliteMigrationsFolder(): string {
   return fileURLToPath(new URL("../../drizzle-sqlite", import.meta.url));
-}
-
-const databaseUrlKeys = ["DATABASE_URL", "POSTGRES_URL"] as const;
-const hostKeys = ["POSTGRES_HOST", "PGHOST"] as const;
-const portKeys = ["POSTGRES_PORT", "PGPORT"] as const;
-const userKeys = ["POSTGRES_USER", "PGUSER"] as const;
-const passwordKeys = ["POSTGRES_PASSWORD", "PGPASSWORD"] as const;
-const databaseKeys = ["POSTGRES_DATABASE", "PGDATABASE"] as const;
-const sqlitePathKeys = ["API_SQLITE_PATH", "SQLITE_PATH"] as const;
-const defaultPostgresPoolSizing = {
-  max: 15,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 5_000,
-};
-
-function parsePositiveInteger(value: string | undefined): number | undefined {
-  if (!value) {
-    return undefined;
-  }
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : undefined;
-}
-
-/**
- * The Bun process keeps a long-lived pool. A Workers isolate is limited to a
- * handful of simultaneous outbound connections, and a socket opened by one
- * request cannot be used by another: a pooled connection checked out again in
- * a later request never resolves. The deployment therefore caps the pool,
- * closes idle clients quickly, and retires each client after one checkout
- * (`maxUses`), which a transaction holds for all of its statements.
- */
-function readPostgresPoolSizing(
-  env: ApiDatabaseEnv,
-  options: { readonly requestScoped?: boolean } = {},
-) {
-  const maxUses = options.requestScoped
-    ? undefined
-    : parsePositiveInteger(env.POSTGRES_POOL_MAX_USES);
-  return {
-    ...defaultPostgresPoolSizing,
-    max:
-      parsePositiveInteger(env.POSTGRES_POOL_MAX) ??
-      defaultPostgresPoolSizing.max,
-    idleTimeoutMillis:
-      parsePositiveInteger(env.POSTGRES_POOL_IDLE_TIMEOUT_MS) ??
-      defaultPostgresPoolSizing.idleTimeoutMillis,
-    ...(maxUses === undefined ? {} : { maxUses }),
-  };
-}
-
-function getEnvValue(
-  env: ApiDatabaseEnv,
-  keys: readonly string[],
-): string | undefined {
-  for (const key of keys) {
-    const value = env[key];
-    if (value && value.trim().length > 0) {
-      return value.trim();
-    }
-  }
-  return undefined;
-}
-
-function parsePort(value: string | undefined): number | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 65_535
-    ? parsed
-    : undefined;
-}
-
-function isDevMode(env: ApiDatabaseEnv): boolean {
-  return env.NODE_ENV === undefined || env.NODE_ENV === "development";
-}
-
-function getCurrentUser(env: ApiDatabaseEnv): string | undefined {
-  const envUser = getEnvValue(env, ["USER", "LOGNAME"]);
-  if (envUser) {
-    return envUser;
-  }
-
-  try {
-    const osUser = os.userInfo().username;
-    return osUser.trim().length > 0 ? osUser : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function getPostgresDevDefaults(env: ApiDatabaseEnv): {
-  readonly database: string;
-  readonly host: string;
-  readonly port: number;
-  readonly user?: string;
-} {
-  const user = getCurrentUser(env);
-  const defaults = {
-    database: "tearleads_development",
-    host: process.platform === "linux" ? "/var/run/postgresql" : "localhost",
-    port: 5432,
-  };
-
-  return user ? { ...defaults, user } : defaults;
-}
-
-function isNonPersistentSqlitePath(sqlitePath: string): boolean {
-  if (sqlitePath.toLowerCase() === ":memory:") {
-    return true;
-  }
-  if (!sqlitePath.toLowerCase().startsWith("file:")) {
-    return false;
-  }
-  const fileUriPath = sqlitePath.slice("file:".length).split(/[?#]/u, 1)[0];
-  if (!fileUriPath) {
-    return true;
-  }
-
-  try {
-    const parsed = new URL(sqlitePath);
-    const pathname = decodeURIComponent(parsed.pathname).toLowerCase();
-    if (pathname.length === 0) {
-      return true;
-    }
-    if (pathname === "/:memory:" || pathname === ":memory:") {
-      return true;
-    }
-    return [...parsed.searchParams].some(([key, value]) => {
-      const normalizedKey = key.toLowerCase();
-      const normalizedValue = value.toLowerCase();
-      return (
-        (normalizedKey === "mode" && normalizedValue === "memory") ||
-        (normalizedKey === "vfs" && normalizedValue === "memdb")
-      );
-    });
-  } catch {
-    return true;
-  }
-}
-
-function readSqlitePath(env: ApiDatabaseEnv): string {
-  const sqlitePath = getEnvValue(env, sqlitePathKeys);
-  if (sqlitePath) {
-    if (
-      env.NODE_ENV?.trim() === "production" &&
-      isNonPersistentSqlitePath(sqlitePath)
-    ) {
-      throw new Error(
-        "API_SQLITE_PATH or SQLITE_PATH must reference persistent storage in production",
-      );
-    }
-    return sqlitePath;
-  }
-
-  if (env.NODE_ENV?.trim() === "production") {
-    throw new Error(
-      "API_SQLITE_PATH or SQLITE_PATH is required when API_DATABASE=sqlite in production",
-    );
-  }
-
-  return ":memory:";
-}
-
-function readPostgresSslConfig(
-  env: ApiDatabaseEnv,
-): PoolConfig["ssl"] | undefined {
-  const ssl = env.POSTGRES_SSL?.trim().toLowerCase();
-  if (!ssl || ssl === "0" || ssl === "false") {
-    return undefined;
-  }
-
-  const rejectUnauthorized =
-    env.POSTGRES_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase();
-  if (rejectUnauthorized === "0" || rejectUnauthorized === "false") {
-    return { rejectUnauthorized: false };
-  }
-
-  return { rejectUnauthorized: true };
-}
-
-function requirePostgresEnv(
-  env: ApiDatabaseEnv,
-  key: string,
-  missing: string[],
-): string {
-  const value = getEnvValue(env, [key]);
-  if (value) {
-    return value;
-  }
-
-  missing.push(String(key));
-  return "";
-}
-
-function isEnabled(value: string | undefined): boolean {
-  return value?.trim().toLowerCase() === "true";
-}
-
-/**
- * Workers sockets cannot set TCP_NODELAY; see workersPostgresSocket.ts.
- * Enabled per deployment because the stream type is Workers-only.
- */
-function readPostgresStreamConfig(env: ApiDatabaseEnv): {
-  readonly stream?: typeof createWorkersPostgresStream;
-} {
-  return isEnabled(env.POSTGRES_COALESCE_WRITES)
-    ? { stream: createWorkersPostgresStream }
-    : {};
-}
-
-export function createPostgresPoolConfig(
-  env: ApiDatabaseEnv = process.env,
-  options: { readonly requestScoped?: boolean } = {},
-): PoolConfig {
-  const ssl = readPostgresSslConfig(env);
-  const poolSizing = readPostgresPoolSizing(env, options);
-  const databaseUrl = getEnvValue(env, databaseUrlKeys);
-  if (databaseUrl) {
-    return {
-      connectionString: databaseUrl,
-      ...poolSizing,
-      ...(ssl ? { ssl } : {}),
-    };
-  }
-
-  if (!isDevMode(env)) {
-    const missing: string[] = [];
-    const host = requirePostgresEnv(env, "POSTGRES_HOST", missing);
-    const portValue = requirePostgresEnv(env, "POSTGRES_PORT", missing);
-    const user = requirePostgresEnv(env, "POSTGRES_USER", missing);
-    const password = requirePostgresEnv(env, "POSTGRES_PASSWORD", missing);
-    const database = requirePostgresEnv(env, "POSTGRES_DATABASE", missing);
-
-    if (missing.length > 0) {
-      throw new Error(
-        `Missing required Postgres environment variables: ${missing.join(", ")}`,
-      );
-    }
-
-    const port = parsePort(portValue);
-    if (port === undefined) {
-      throw new Error("POSTGRES_PORT must be a valid number");
-    }
-
-    return {
-      database,
-      host,
-      password,
-      port,
-      user,
-      ...poolSizing,
-      ...(ssl ? { ssl } : {}),
-    };
-  }
-
-  const defaults = getPostgresDevDefaults(env);
-  const host = getEnvValue(env, hostKeys) ?? defaults.host;
-  const port = parsePort(getEnvValue(env, portKeys)) ?? defaults.port;
-  const user = getEnvValue(env, userKeys) ?? defaults.user;
-  const password = getEnvValue(env, passwordKeys);
-  const database = getEnvValue(env, databaseKeys) ?? defaults.database;
-
-  return {
-    ...(host ? { host } : {}),
-    ...(port ? { port } : {}),
-    ...(user ? { user } : {}),
-    ...(password ? { password } : {}),
-    ...(database ? { database } : {}),
-    ...poolSizing,
-    ...(ssl ? { ssl } : {}),
-  };
 }
 
 function createMemoryApiDatabase(): ManagedApiDatabase {

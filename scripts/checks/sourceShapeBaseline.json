@@ -1,5 +1,7 @@
 {
   "approvedStarExports": {
+    "packages/api-shared/src/schema.ts": ["./schema/index"],
+    "packages/api/src/worker/loro/index.ts": ["loro-crdt/web"],
     "packages/client-sdk/src/documents.ts": [
       "./data/blobContracts",
       "./data/documents/documentSummary",
@@ -30,8 +32,7 @@
       "./types",
       "./writeHeader"
     ],
-    "packages/loro/src/index.ts": ["./shared"],
-    "packages/api-shared/src/schema.ts": ["./schema/index"]
+    "packages/loro/src/index.ts": ["./shared"]
   },
   "fileSizes": {
     "dependency-cruiser.config.ts": {
