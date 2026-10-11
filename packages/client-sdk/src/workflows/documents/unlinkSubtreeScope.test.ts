@@ -60,8 +60,8 @@ async function createLinkedFixture() {
   };
 }
 
-for (const scenario of ["outside", "inside", "late-refusal"]) {
-  const inside = scenario !== "outside";
+for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
+  const inside = scenario === "inside" || scenario === "late-refusal";
   const allowed = scenario === "inside";
   test(`subtree unlink checks the exact signed target path (${scenario})`, async () => {
     const fixture = await createLinkedFixture();
@@ -86,9 +86,13 @@ for (const scenario of ["outside", "inside", "late-refusal"]) {
           return allowed;
         },
         documentId: fixture.writerProjection.documentId,
-        expectedSubtreeRootId: inside
-          ? fixture.parent.containerId
-          : crypto.randomUUID(),
+        expectedSubtreeRoot: {
+          id:
+            scenario === "outside"
+              ? crypto.randomUUID()
+              : fixture.parent.containerId,
+          parentId: scenario === "restored-root" ? "trash" : null,
+        },
         execSql,
         operation: "unlink",
         resolveProjectionUserKey: fixture.resolveProjectionUserKey,

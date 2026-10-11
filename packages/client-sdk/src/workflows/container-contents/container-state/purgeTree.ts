@@ -3,6 +3,7 @@ import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { listDocumentsByContainerIdsOrDocumentIds } from "../../../data/persistence/documents/documentsPersistence";
+import type { SubtreePurgeRoot } from "../../documents/subtreePurgeScope";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import { unlinkRemoteContainerDocument } from "../documentLinks";
 import {
@@ -179,8 +180,9 @@ async function planSubtreeDocuments(input: {
 }
 
 async function unlinkSubtreeDocument(input: {
-  readonly beforeSubmit: () => Promise<boolean>;
-  readonly expectedSubtreeRootId: string;
+  /** Rechecks the document and this exact unlink target before dispatch. */
+  readonly beforeSubmit: (targetContainerId: string) => Promise<boolean>;
+  readonly expectedSubtreeRoot: SubtreePurgeRoot;
   readonly stillCurrent?: (() => boolean) | undefined;
   readonly containerIds: readonly string[];
   readonly document: DocumentSummary;
@@ -205,9 +207,9 @@ async function unlinkSubtreeDocument(input: {
   }
   for (const containerId of input.containerIds) {
     const result = await unlinkRemoteContainerDocument({
-      beforeSubmit: input.beforeSubmit,
+      beforeSubmit: () => input.beforeSubmit(containerId),
       documentId,
-      expectedSubtreeRootId: input.expectedSubtreeRootId,
+      expectedSubtreeRoot: input.expectedSubtreeRoot,
       isCurrent: input.stillCurrent,
       noteId: input.document.id,
       resolveProjectionUserKey: input.resolveProjectionUserKey,
@@ -235,6 +237,7 @@ function resolveSubtreeDocumentOperations(
   input: PurgeContainerTreeInput,
   scope: ReturnType<typeof createSubtreePurgeScope>,
 ): SubtreeDocumentOperations {
+  const expectedSubtreeRoot = selectedSubtreeRoot(input);
   const operations: SubtreeDocumentOperations = input.documentOperations ?? {
     purgeLocal: async (document) =>
       (await purgeLocalContainerDocument({
@@ -254,7 +257,7 @@ function resolveSubtreeDocumentOperations(
           (await purgeRemoteContainerDocument({
             beforeSubmit: () => scope.allowsDocument(document),
             documentId: document.documentId,
-            expectedSubtreeRootId: input.rootContainerId,
+            expectedSubtreeRoot,
             stillCurrent: input.stillCurrent,
             documentKind: document.documentKind ?? DEFAULT_DOCUMENT_KIND,
             noteId: document.id,
@@ -264,10 +267,13 @@ function resolveSubtreeDocumentOperations(
       ),
     unlink: (document, containerIds) =>
       unlinkSubtreeDocument({
-        beforeSubmit: () => scope.allowsDocument(document),
+        // Target preparation and signing can outlast the upfront checks.
+        beforeSubmit: async (containerId) =>
+          (await scope.allowsDocument(document)) &&
+          (await scope.allowsContainer(containerId)),
         containerIds,
         document,
-        expectedSubtreeRootId: input.rootContainerId,
+        expectedSubtreeRoot,
         stillCurrent: input.stillCurrent,
         prepareDocumentRotationSnapshot: input.prepareDocumentRotationSnapshot,
         resolveProjectionUserKey: input.resolveProjectionUserKey,
@@ -293,6 +299,19 @@ function resolveSubtreeDocumentOperations(
 
 interface SubtreeTeardownResult {
   readonly aborted: boolean;
+}
+
+// Signed request paths must keep the root under the parent it was selected
+// from; a settled restore elsewhere preserves the root's own documents too.
+function selectedSubtreeRoot(
+  input: Pick<PurgeContainerTreeInput, "containersById" | "rootContainerId">,
+): SubtreePurgeRoot {
+  return {
+    id: input.rootContainerId,
+    parentId:
+      input.containersById.get(input.rootContainerId)?.container.parentId ??
+      null,
+  };
 }
 
 function purgeWasCancelled(input: {
@@ -445,7 +464,7 @@ export async function purgeContainerTree(
     const deletion = await deleteSubtreeContainers({
       allowsContainer: scope.allowsContainer,
       allowsLocalScopeInTransaction: scope.allowsLocalScopeInTransaction,
-      rootContainerId: input.rootContainerId,
+      root: selectedSubtreeRoot(input),
       persistence: input.persistence,
       reportStep,
       runtime: input.runtime,

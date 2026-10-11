@@ -4,8 +4,8 @@ import { createMaterializedSyncFixture } from "../../../test/helpers/documentFix
 import { createDocumentPurgeProof } from "../../../test/helpers/documentPurge";
 import { purgeRemoteDocument } from "./purge";
 
-for (const scenario of ["outside", "inside", "late-refusal"]) {
-  const inside = scenario !== "outside";
+for (const scenario of ["outside", "restored-root", "inside", "late-refusal"]) {
+  const inside = scenario === "inside" || scenario === "late-refusal";
   const allowed = scenario === "inside";
   test(`document purge checks its signed authorization path (${scenario})`, async () => {
     const fixture = await createMaterializedSyncFixture();
@@ -37,7 +37,12 @@ for (const scenario of ["outside", "inside", "late-refusal"]) {
           return allowed;
         },
         documentId: writerProjection.documentId,
-        expectedSubtreeRootId: inside ? containerId : crypto.randomUUID(),
+        // The fixture container is a signed top-level root. A root restored
+        // from the parent it was selected under must not authorize its document.
+        expectedSubtreeRoot: {
+          id: scenario === "outside" ? crypto.randomUUID() : containerId,
+          parentId: scenario === "restored-root" ? "trash" : null,
+        },
         execSql,
         onVerifiedPurge: async ({ commitPurgeProof }) => {
           await commitPurgeProof(execSql);

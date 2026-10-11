@@ -13,6 +13,7 @@ import {
   resolveDocumentCreateAuthor,
 } from "../documents";
 import { ensureDocumentClientProjectionTables } from "../documents/persistence";
+import type { SubtreePurgeRoot } from "../documents/subtreePurgeScope";
 import { createRuntimePrincipalPolicyWarmer } from "../principals/runtimePolicyWarmer";
 import type { ContainerContentsWorkflowRuntime } from "./runtime";
 
@@ -49,7 +50,7 @@ interface ContainerDocumentPurgeRuntime
 interface PurgeRemoteContainerDocumentInput {
   beforeSubmit?: (() => Promise<boolean>) | undefined;
   documentId: string;
-  expectedSubtreeRootId?: string | undefined;
+  expectedSubtreeRoot?: SubtreePurgeRoot | undefined;
   stillCurrent?: (() => boolean) | undefined;
   documentKind: StoredDocumentKind;
   noteId: string;
@@ -146,7 +147,7 @@ export async function purgeRemoteContainerDocument(
       beforeSubmit: input.beforeSubmit,
       author,
       documentId,
-      expectedSubtreeRootId: input.expectedSubtreeRootId,
+      expectedSubtreeRoot: input.expectedSubtreeRoot,
       stillCurrent: input.stillCurrent,
       execSql: runtime.infra.execSql,
       onVerifiedPurge: async ({ commitPurgeProof }) => {
