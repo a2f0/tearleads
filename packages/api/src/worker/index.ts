@@ -23,6 +23,8 @@ interface LoadedApp {
     run: () => Promise<T>,
     settle: (closing: Promise<void>) => void,
   ) => Promise<T>;
+  /** Drain pending diagnostics; Workers cancel fetches after the response. */
+  readonly flushDiagnostics: () => Promise<void>;
 }
 
 let app: Promise<LoadedApp> | undefined;
@@ -34,15 +36,18 @@ function loadApp(): Promise<LoadedApp> {
   app ??= Promise.all([
     import("../routeApp"),
     import("../corsOrigins"),
+    import("../diagnostics/sentry"),
     import("@tearleads/api-shared/postgres"),
   ]).then(
     ([
       { routeApp },
       { readApiCorsOrigins },
+      { flushApiDiagnostics },
       { withRequestScopedApiDatabase },
     ]) => ({
       corsOrigins: readApiCorsOrigins(),
       fetch: (request, bindings, ctx) => routeApp.fetch(request, bindings, ctx),
+      flushDiagnostics: flushApiDiagnostics,
       withRequestDatabase: withRequestScopedApiDatabase,
     }),
   );
@@ -86,12 +91,10 @@ async function handleRequest(
     }
     return realtimeHubStub().fetch(request);
   }
-  const { corsOrigins, fetch, withRequestDatabase } = await loadApp();
+  const { corsOrigins, fetch, flushDiagnostics, withRequestDatabase } =
+    await loadApp();
   // Route-level limits still apply below this ceiling.
-  const bounded = await boundRequestBody(
-    request,
-    MAX_MULTIPART_BLOB_PART_BYTES,
-  );
+  const bounded = boundRequestBody(request, MAX_MULTIPART_BLOB_PART_BYTES);
   if (bounded.kind === "too-large") {
     return refuse(
       request,
@@ -118,7 +121,10 @@ async function handleRequest(
         ctx,
       ),
     (closing) => ctx.waitUntil(closing),
-  );
+  ).finally(() => {
+    // Sentry sends after the response would be canceled with the request.
+    ctx.waitUntil(flushDiagnostics());
+  });
 }
 
 async function handleScheduled(

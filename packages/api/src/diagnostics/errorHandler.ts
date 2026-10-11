@@ -3,6 +3,7 @@ import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { SessionEnv } from "../middleware/session";
 import { isTransientDatabaseFailure } from "../utils/databaseErrors";
+import { RequestBodyTooLargeError } from "../worker/requestBody";
 import { OrganizationSyncDisabledError } from "../workflows/billing/organizationSyncEligibility";
 import { captureApiError } from "./sentry";
 
@@ -26,6 +27,10 @@ export function createApiErrorHandler(
     }
     if (error instanceof HTTPException && error.status < 500) {
       return error.getResponse();
+    }
+    // The Worker ingress bounds streamed bodies as the route reads them.
+    if (error instanceof RequestBodyTooLargeError) {
+      return c.json({ error: "Request body too large" }, 413);
     }
     capture(error, "request-error");
     if (error instanceof HTTPException) return error.getResponse();

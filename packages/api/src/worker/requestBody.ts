@@ -1,13 +1,22 @@
 /**
  * nginx rejected oversized bodies before Bun buffered them. The Worker keeps
- * that guarantee itself: a declared length above the ceiling is refused
- * outright, and a body without a declared length (chunked, or a browser
- * stream) is read only up to the ceiling before the route sees it, so no
- * request can grow the isolate's memory past the limit the routes assume.
+ * that guarantee without buffering ahead of the routes: a declared length
+ * above the ceiling is refused outright, and any other body is wrapped in a
+ * stream that counts bytes as the route consumes it and fails the read once
+ * the ceiling passes. Routes read bodies after their authentication, so an
+ * unauthenticated client cannot make the isolate hold a body at all.
  */
 export type BoundedRequest =
   | { readonly kind: "request"; readonly request: Request }
   | { readonly kind: "too-large" };
+
+/** Thrown from a body read once the ceiling passes; mapped to 413. */
+export class RequestBodyTooLargeError extends Error {
+  constructor(readonly maxBytes: number) {
+    super(`Request body exceeds ${maxBytes} bytes`);
+    this.name = "RequestBodyTooLargeError";
+  }
+}
 
 function declaredLength(request: Request): number | null {
   const header = request.headers.get("content-length");
@@ -18,59 +27,36 @@ function declaredLength(request: Request): number | null {
   return Number.isSafeInteger(length) && length >= 0 ? length : null;
 }
 
-async function readBounded(
-  body: ReadableStream<Uint8Array>,
-  maxBytes: number,
-): Promise<Uint8Array<ArrayBuffer> | null> {
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
+function limitBytes(maxBytes: number): TransformStream<Uint8Array, Uint8Array> {
   let total = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-      total += value.byteLength;
+  return new TransformStream({
+    transform(chunk, controller) {
+      total += chunk.byteLength;
       if (total > maxBytes) {
-        await reader.cancel();
-        return null;
+        controller.error(new RequestBodyTooLargeError(maxBytes));
+        return;
       }
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const bytes = new Uint8Array(new ArrayBuffer(total));
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
+      controller.enqueue(chunk);
+    },
+  });
 }
 
-export async function boundRequestBody(
+export function boundRequestBody(
   request: Request,
   maxBytes: number,
-): Promise<BoundedRequest> {
+): BoundedRequest {
   if (request.body === null) {
     return { kind: "request", request };
   }
   const declared = declaredLength(request);
-  if (declared !== null) {
-    return declared > maxBytes
-      ? { kind: "too-large" }
-      : { kind: "request", request };
-  }
-  const bytes = await readBounded(request.body, maxBytes);
-  if (bytes === null) {
+  if (declared !== null && declared > maxBytes) {
     return { kind: "too-large" };
   }
-  const headers = new Headers(request.headers);
-  headers.set("content-length", String(bytes.byteLength));
-  return {
-    kind: "request",
-    request: new Request(request, { body: bytes, headers }),
+  // Bun's RequestInit type omits the standard duplex field a streamed body
+  // needs; workerd ignores it.
+  const init: RequestInit & { readonly duplex: "half" } = {
+    body: request.body.pipeThrough(limitBytes(maxBytes)),
+    duplex: "half",
   };
+  return { kind: "request", request: new Request(request, init) };
 }

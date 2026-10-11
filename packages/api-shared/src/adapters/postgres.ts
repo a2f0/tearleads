@@ -1,4 +1,3 @@
-import { AsyncLocalStorage } from "node:async_hooks";
 import { fileURLToPath } from "node:url";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
@@ -16,6 +15,7 @@ import {
   readPostgresStreamConfig,
   readSqlitePath,
 } from "./postgresConfig";
+import { createRequestScopedDatabaseRuntime } from "./requestScopedDatabase";
 import { createSqliteApiDatabase } from "./sqliteAdapter";
 import { withDatabaseTransactionCompletion } from "./transactionCompletion";
 import { createTursoApiDatabase } from "./tursoAdapter";
@@ -123,17 +123,6 @@ export function createDefaultManagedApiDatabase(
 const defaultDatabase = createDefaultManagedApiDatabase();
 let defaultDatabaseMigration: Promise<void> | undefined;
 
-/**
- * On Workers a socket belongs to the request that opened it, so a pooled
- * connection reused by a later request never answers. With
- * `POSTGRES_REQUEST_SCOPED=true` each request runs against its own pool,
- * created by `withRequestScopedApiDatabase` and closed after the request;
- * `db` resolves to the current request's pool. Work outside a request scope
- * (the realtime hub's timers) falls back to the process-wide default, whose
- * clients retire after one checkout.
- */
-const requestScopedDatabases = new AsyncLocalStorage<ManagedApiDatabase>();
-
 export function isRequestScopedPostgres(
   env: ApiDatabaseEnv = process.env,
 ): boolean {
@@ -143,42 +132,23 @@ export function isRequestScopedPostgres(
   );
 }
 
+// See requestScopedDatabase.ts: with `POSTGRES_REQUEST_SCOPED=true` each
+// request runs against its own pool and `db` resolves to it, while work
+// outside a request scope (the realtime hub's timers) falls back to the
+// process-wide default, whose clients retire after one checkout.
+const requestScope = isRequestScopedPostgres()
+  ? createRequestScopedDatabaseRuntime({
+      create: () =>
+        createPostgresApiDatabase(process.env, { requestScoped: true }),
+      fallback: defaultDatabase,
+    })
+  : undefined;
+
 export async function withRequestScopedApiDatabase<T>(
   run: () => Promise<T>,
   settle: (closing: Promise<void>) => void = () => {},
 ): Promise<T> {
-  if (!isRequestScopedPostgres()) {
-    return run();
-  }
-  const database = createPostgresApiDatabase(process.env, {
-    requestScoped: true,
-  });
-  try {
-    return await requestScopedDatabases.run(database, run);
-  } finally {
-    settle(
-      database.close().catch((error: unknown) => {
-        console.error("Failed to close the request database:", error);
-      }),
-    );
-  }
-}
-
-/**
- * A stable database handle that forwards each access to `current()`. The
- * fallback only gives the proxy its shape; every access resolves afresh.
- */
-export function createRequestScopedDatabaseProxy(
-  fallback: ApiDatabase,
-  current: () => ApiDatabase,
-): ApiDatabase {
-  return new Proxy(fallback, {
-    get(_target, property) {
-      const target = current();
-      const value = Reflect.get(target, property, target);
-      return typeof value === "function" ? value.bind(target) : value;
-    },
-  });
+  return requestScope ? requestScope.run(run, settle) : run();
 }
 
 export function getDefaultApiDatabaseKind(): ApiDatabaseKind {
@@ -192,12 +162,7 @@ export function initializeApiDatabase(
   return defaultDatabaseMigration;
 }
 
-export const db: ApiDatabase = isRequestScopedPostgres()
-  ? createRequestScopedDatabaseProxy(
-      defaultDatabase.db,
-      () => (requestScopedDatabases.getStore() ?? defaultDatabase).db,
-    )
-  : defaultDatabase.db;
+export const db: ApiDatabase = requestScope?.db ?? defaultDatabase.db;
 
 export async function closeApiDatabase(): Promise<void> {
   try {
