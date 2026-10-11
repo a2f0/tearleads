@@ -20,7 +20,6 @@ const DEFAULT_LOCATION_HINT = "enam";
 export const KEY_VALUE_SET_PAGE_SIZE = 100;
 
 let boundEnvironment: WorkerBindings | undefined;
-let localRealtimePublisher: ((message: string) => void) | undefined;
 
 /**
  * Bind this isolate to its Wrangler environment. Idempotent per environment
@@ -73,15 +72,12 @@ function locationHint(bindings: WorkerBindings): string {
 }
 
 /**
- * Inside the realtime hub, publishing is a local call; a Durable Object must
- * not call its own stub. Everywhere else it is an RPC to the hub.
+ * Every publish is an RPC into the hub, even when the hub shares this
+ * isolate: only the hub's own request context may drive its sockets, so a
+ * module-level shortcut that called into the hub instance directly closed
+ * nothing. Nothing inside the hub publishes, so the hub never calls its own
+ * stub.
  */
-export function setLocalRealtimePublisher(
-  publisher: (message: string) => void,
-): void {
-  localRealtimePublisher = publisher;
-}
-
 export function workerRealtimePublisher():
   | ((message: string) => Promise<void>)
   | undefined {
@@ -89,10 +85,6 @@ export function workerRealtimePublisher():
     return undefined;
   }
   return async (message) => {
-    if (localRealtimePublisher) {
-      localRealtimePublisher(message);
-      return;
-    }
     await realtimeHubStub().publish(message);
   };
 }

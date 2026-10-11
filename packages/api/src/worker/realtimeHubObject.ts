@@ -3,11 +3,7 @@ import { MAX_WS_CLIENT_MESSAGE_BYTES } from "@tearleads/validators/realtime";
 import type { GatewaySocket } from "../realtime/wsConnection";
 import type { WebSocketTicketIdentity } from "../realtime/wsIdentity";
 import type { RealtimeHubRpc } from "./contracts";
-import {
-  bindWorkerEnvironment,
-  setLocalRealtimePublisher,
-  type WorkerBindings,
-} from "./environment";
+import { bindWorkerEnvironment, type WorkerBindings } from "./environment";
 import { clientMessageByteLength } from "./socketMessageLimit";
 import { SocketQueue } from "./socketQueue";
 
@@ -50,7 +46,6 @@ export class RealtimeHub
   constructor(ctx: DurableObjectState, env: WorkerBindings) {
     super(ctx, env);
     bindWorkerEnvironment(env);
-    setLocalRealtimePublisher((message) => this.publish(message));
   }
 
   /** Fan an HTTP-side event to the gateway, as the Redis subscriber did. */

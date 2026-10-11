@@ -198,23 +198,34 @@ function postJson(
   });
 }
 
-async function openSocket(url: string): Promise<{ readonly code: number }> {
-  return new Promise((resolve, reject) => {
-    const socket = new WebSocket(url);
+interface OpenSocket {
+  readonly socket: WebSocket;
+  /** Settles when the server closes the socket. */
+  readonly closed: Promise<{ readonly code: number; readonly reason: string }>;
+}
+
+async function openSocket(url: string): Promise<OpenSocket> {
+  const socket = new WebSocket(url);
+  const closed = new Promise<{ code: number; reason: string }>((resolve) => {
+    socket.addEventListener("close", (event) =>
+      resolve({ code: event.code, reason: event.reason }),
+    );
+  });
+  await new Promise<void>((resolve, reject) => {
     const timer = setTimeout(
       () => reject(new Error("WebSocket open timed out")),
       15_000,
     );
-    socket.addEventListener("open", () => socket.close(1000, "done"));
+    socket.addEventListener("open", () => {
+      clearTimeout(timer);
+      resolve();
+    });
     socket.addEventListener("error", () => {
       clearTimeout(timer);
       reject(new Error("WebSocket failed to open"));
     });
-    socket.addEventListener("close", (event) => {
-      clearTimeout(timer);
-      resolve({ code: event.code });
-    });
   });
+  return { socket, closed };
 }
 
 describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
@@ -239,7 +250,7 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
     );
   });
 
-  test("registers, logs in, serves concurrent reads, opens one socket per ticket, and logs out", async () => {
+  test("registers, logs in, serves concurrent reads, opens one socket per ticket, and closes it on logout", async () => {
     const base = worker.origin;
     const user = createTestUser();
     const fingerprint = await toFingerprint(user.signing.signingPublicKey);
@@ -299,9 +310,7 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
       200,
     );
     const eventsUrl = `${base}/events?ticket=${stringField(ticket, "ticket")}`;
-    expect(await openSocket(eventsUrl.replace(/^http/, "ws"))).toEqual({
-      code: 1000,
-    });
+    const live = await openSocket(eventsUrl.replace(/^http/, "ws"));
     const replay = await fetch(eventsUrl, {
       headers: { upgrade: "websocket", connection: "upgrade" },
     });
@@ -320,6 +329,19 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
       headers: authorized,
     });
     expect(afterLogout.status).toBe(401);
+    // Logout publishes the revocation to the hub, which closes the session's
+    // socket itself; the client never asked for it.
+    const closure = await Promise.race([
+      live.closed,
+      Bun.sleep(15_000).then(() => "still open"),
+    ]);
+    if (closure === "still open") {
+      throw new Error(
+        `Socket stayed open after logout\nWorker output:\n${workerLogs().slice(-6000)}`,
+      );
+    }
+    expect(closure).toEqual({ code: 1008, reason: "Session revoked" });
+    expect(live.socket.readyState).toBe(WebSocket.CLOSED);
   }, 120_000);
 
   test("dispatches the billing Cron to the maintenance phases", async () => {
