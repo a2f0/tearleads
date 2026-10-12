@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { diagnosticsBuild } from "../../scripts/diagnosticsBuild";
+import {
+  diagnosticsBuild,
+  workerDiagnosticsBuild,
+} from "../../scripts/diagnosticsBuild";
 
 const root = resolve(import.meta.dirname, "../../../..");
 const scripts = join(root, "packages/api/scripts");
@@ -35,8 +38,8 @@ test("the Worker deploy passes the diagnostics build to the bundle", async () =>
     "API_DIAGNOSTICS_BUILD",
   ]);
   const build = JSON.parse(defines.get("API_DIAGNOSTICS_BUILD") ?? "null");
-  expect(build).toEqual(diagnosticsBuild(root));
-  expect(build.sourcePaths).toContain("/packages/api/src/worker/index.ts");
+  expect(build).toEqual(workerDiagnosticsBuild(root));
+  expect(build.sourcePaths).toEqual(["/index.js"]);
   expect(JSON.parse(defines.get("API_BUILD_VERSION") ?? "null")).toSatisfy(
     (value: unknown) => value === null || typeof value === "number",
   );
