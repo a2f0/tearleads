@@ -54,10 +54,20 @@ export class HubAlarmScheduler {
     const running: Array<void | Promise<void>> = [];
     for (const work of due) {
       if (!this.pending.delete(work)) continue;
-      running.push(work.callback());
+      try {
+        running.push(work.callback());
+      } catch (error) {
+        running.push(Promise.reject(error));
+      }
     }
     this.refreshActiveTimer();
-    return Promise.all(running).then(() => undefined);
+    return Promise.allSettled(running).then((results) => {
+      const failures = results.flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      if (failures.length)
+        throw new AggregateError(failures, "Realtime alarm callbacks failed");
+    });
   }
 
   private nextAt(): number | null {

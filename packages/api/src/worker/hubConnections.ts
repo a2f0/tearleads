@@ -1,5 +1,5 @@
 import type { GatewaySocketSnapshot } from "../realtime/gatewayHibernation";
-import type { GatewaySocket } from "../realtime/wsConnection";
+import { type GatewaySocket, socketSessionKey } from "../realtime/wsConnection";
 import type { LoadedHubGateway } from "./hubGateway";
 import type { HubSocketAttachment, HubSocketStore } from "./hubSocketStore";
 import {
@@ -20,6 +20,8 @@ export class HubConnections {
     CloudflareServerWebSocket,
     Connection
   >();
+  private readonly dirty = new Set<CloudflareServerWebSocket>();
+  private readonly sessionCounts = new Map<string, number>();
   private readonly budget = new SharedQueueBudget(32 * 1024 * 1024);
 
   constructor(
@@ -28,10 +30,7 @@ export class HubConnections {
   ) {}
 
   countSession(userId: string, sessionId: string): number {
-    return [...this.connections.values()].filter(
-      ({ socket }) =>
-        socket.data.userId === userId && socket.data.sessionId === sessionId,
-    ).length;
+    return this.sessionCounts.get(`${userId}:${sessionId}`) ?? 0;
   }
 
   attach(
@@ -42,6 +41,9 @@ export class HubConnections {
     const { gateway, report } = this.loaded;
     const socket: GatewaySocket = {
       data: attachment.identity,
+      stateChanged: () => {
+        if (this.connections.has(server)) this.dirty.add(server);
+      },
       send: (message) => {
         if (!this.connections.has(server)) return;
         // Persist routing before exposing an acknowledgement. SQLite's output
@@ -53,10 +55,12 @@ export class HubConnections {
     };
     const queue = new SocketQueue(
       {
-        open: () =>
-          saved
-            ? gateway.hibernation.restore(socket, saved)
-            : gateway.websocket.open(socket),
+        open: async () => {
+          // Register the connection before restoration can expire and close it.
+          await Promise.resolve();
+          if (saved) await gateway.hibernation.restore(socket, saved);
+          else await gateway.websocket.open(socket);
+        },
         message: (data) => gateway.websocket.message(socket, data),
         close: () => gateway.websocket.close(socket),
         report: (error) => {
@@ -69,6 +73,9 @@ export class HubConnections {
       this.budget,
     );
     this.connections.set(server, { attachment, socket, queue });
+    const key = socketSessionKey(socket);
+    this.sessionCounts.set(key, (this.sessionCounts.get(key) ?? 0) + 1);
+    if (!saved) this.dirty.add(server);
     return queue.settled();
   }
 
@@ -87,6 +94,11 @@ export class HubConnections {
     const connection = this.connections.get(server);
     if (connection) {
       this.connections.delete(server);
+      this.dirty.delete(server);
+      const key = socketSessionKey(connection.socket);
+      const count = (this.sessionCounts.get(key) ?? 1) - 1;
+      if (count === 0) this.sessionCounts.delete(key);
+      else this.sessionCounts.set(key, count);
       this.store.remove(connection.attachment.id);
       // Remove routing immediately, including while authorization is pending.
       this.loaded.gateway.websocket.close(connection.socket);
@@ -99,11 +111,12 @@ export class HubConnections {
     }
   }
 
-  saveAll(): void {
-    for (const server of this.connections.keys()) this.save(server);
+  saveDirty(): void {
+    for (const server of this.dirty) this.save(server);
   }
 
   private save(server: CloudflareServerWebSocket): void {
+    if (!this.dirty.has(server)) return;
     const connection = this.connections.get(server);
     if (!connection) return;
     const snapshot = this.loaded.gateway.hibernation.snapshot(
@@ -111,5 +124,6 @@ export class HubConnections {
     );
     if (snapshot) this.store.save(connection.attachment.id, snapshot);
     else this.store.remove(connection.attachment.id);
+    this.dirty.delete(server);
   }
 }

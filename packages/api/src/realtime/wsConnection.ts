@@ -3,6 +3,8 @@ import type { WebSocketTicketIdentity } from "./wsIdentity";
 /** The authenticated websocket subset required by the pure routers. */
 export interface WsConnection {
   readonly data: WebSocketTicketIdentity;
+  /** Notify a durable host when server-owned routing or deadlines change. */
+  stateChanged?(): void;
   close?(code?: number, reason?: string): unknown;
   send(message: string): unknown;
 }

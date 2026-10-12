@@ -92,6 +92,7 @@ export class RevalidationSchedule<Key> {
   constructor(
     private readonly revalidate: (key: Key) => Promise<void>,
     options: RevalidationScheduleOptions = {},
+    private readonly scheduled?: (key: Key) => void,
   ) {
     this.now = options.now ?? Date.now;
     this.intervalMs = options.intervalMs ?? DEFAULT_REVALIDATION_INTERVAL_MS;
@@ -130,6 +131,7 @@ export class RevalidationSchedule<Key> {
     const delay = Math.round(this.intervalMs * (0.5 + 0.5 * this.random()));
     const at = dueAt ?? this.now() + delay;
     this.due.set(key, at);
+    this.scheduled?.(key);
     const cancel = this.scheduleTimer(
       () => {
         // Only a still-tracked key re-arms.

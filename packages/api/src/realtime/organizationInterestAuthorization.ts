@@ -49,6 +49,7 @@ export class OrganizationInterestAuthorizer {
     this.router.applyAuthorizedOrganizationInterest(ws, null);
     if (declaration.organizationId === null) {
       this.states.delete(ws);
+      ws.stateChanged?.();
       this.sendAcknowledgement(ws, declaration, true);
       return;
     }
@@ -59,6 +60,7 @@ export class OrganizationInterestAuthorizer {
       organizationId: declaration.organizationId,
     };
     this.states.set(ws, state);
+    ws.stateChanged?.();
     const authorization = this.authorize(ws.data.userId, state.organizationId);
     state.authorization = authorization;
     const authorized = await authorization;

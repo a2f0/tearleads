@@ -167,6 +167,7 @@ export class ContainerInterestAuthorizer {
   /** A completed verification re-dates the proofs and re-arms their deadline. */
   private confirm(ws: WsConnection, state: SocketState): void {
     state.verifiedAt = this.proofAge.now();
+    ws.stateChanged?.();
     this.armDeadline(ws, state);
   }
 

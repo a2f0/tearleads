@@ -10,10 +10,10 @@ import type { WsSessionLiveness } from "./wsSessionLiveness";
 export interface GatewaySocketSnapshot {
   readonly proofs: VerifiedContainerInterest[];
   readonly verifiedAt: number;
-  readonly nextCheckAt: number | undefined;
+  readonly nextCheckAt?: number | undefined;
   readonly session: {
     readonly confirmedAt: number;
-    readonly nextCheckAt: number | undefined;
+    readonly nextCheckAt?: number | undefined;
   };
   readonly organization: {
     readonly organizationId: string;

@@ -58,8 +58,11 @@ One durable alarm schedules the earliest periodic check or expiry. While an
 event is awaiting I/O, a temporary timer also enforces deadlines independently
 of that event; the last completed event cancels it. No idle JavaScript timer or
 database pool keeps the hub resident. Event completion drains ordered interest
-writes, saves socket state, updates the alarm, and closes its database pool.
-Closing a socket removes its state, and a restored hub prunes abandoned rows.
+writes, saves changed socket state, updates the alarm, and closes its database
+pool. Ordinary hints do not serialize unchanged snapshots. HTTP publications
+acknowledge completed routing while `waitUntil` owns trailing checks and cleanup,
+so unrelated slow rechecks do not delay the caller. Closing a socket removes its
+state, and a restored hub prunes abandoned rows.
 
 The Postgres concurrency lane runs `workerRuntime.hibernation.pg.test.ts` against
 the real Worker configuration through Wrangler's test harness. It evicts the

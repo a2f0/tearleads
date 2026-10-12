@@ -73,3 +73,18 @@ test("deadlines still wake while an alarm's asynchronous work is outstanding", a
   await f.scheduler.flush();
   expect(f.alarm()).toBeNull();
 });
+
+test("a synchronous callback failure does not skip other due deadlines", async () => {
+  const f = fixture();
+  let expired = false;
+  f.scheduler.schedule(() => {
+    throw new Error("check failed");
+  }, 0);
+  f.scheduler.schedule(() => {
+    expired = true;
+  }, 0);
+  await expect(f.scheduler.runDue()).rejects.toThrow(
+    "Realtime alarm callbacks failed",
+  );
+  expect(expired).toBe(true);
+});

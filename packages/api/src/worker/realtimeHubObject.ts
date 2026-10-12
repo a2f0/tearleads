@@ -9,6 +9,11 @@ import { HubSocketAttachmentSchema } from "./hubSocketState";
 import { type HubSocketAttachment, HubSocketStore } from "./hubSocketStore";
 import { clientMessageByteLength } from "./socketMessageLimit";
 
+const MAX_SOCKETS_PER_SESSION = 8;
+const CLOSE_UNSUPPORTED_DATA = 1003;
+const CLOSE_MESSAGE_TOO_BIG = 1009;
+const CLOSE_STATE_UNAVAILABLE = 1011;
+
 interface LoadedHub extends LoadedHubGateway {
   readonly connections: HubConnections;
 }
@@ -35,9 +40,20 @@ export class RealtimeHub
   }
 
   async publish(message: string): Promise<void> {
-    await this.run(async (hub) => {
-      await hub.gateway.publish(message);
-    });
+    const routed = Promise.withResolvers<void>();
+    const completed = this.run(
+      async (hub) => {
+        await hub.gateway.publish(message);
+      },
+      () => routed.resolve(),
+    );
+    this.ctx.waitUntil(
+      completed.catch((error: unknown) => {
+        routed.reject(error);
+        console.error("Realtime publication background work failed:", error);
+      }),
+    );
+    await routed.promise;
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -54,7 +70,8 @@ export class RealtimeHub
       if (!identity)
         return new Response("WebSocket ticket required", { status: 401 });
       if (
-        hub.connections.countSession(identity.userId, identity.sessionId) >= 8
+        hub.connections.countSession(identity.userId, identity.sessionId) >=
+        MAX_SOCKETS_PER_SESSION
       ) {
         return new Response("Too many sockets for this session", {
           status: 429,
@@ -78,12 +95,20 @@ export class RealtimeHub
   ): Promise<void> {
     await this.run(async (hub) => {
       if (typeof message !== "string") {
-        hub.connections.close(server, 1003, "Text frames only");
+        hub.connections.close(
+          server,
+          CLOSE_UNSUPPORTED_DATA,
+          "Text frames only",
+        );
         return;
       }
       const bytes = clientMessageByteLength(message);
       if (bytes > MAX_WS_CLIENT_MESSAGE_BYTES) {
-        hub.connections.close(server, 1009, "Message too large");
+        hub.connections.close(
+          server,
+          CLOSE_MESSAGE_TOO_BIG,
+          "Message too large",
+        );
         return;
       }
       await hub.connections.message(server, message, bytes);
@@ -102,7 +127,7 @@ export class RealtimeHub
     server: CloudflareServerWebSocket,
   ): Promise<void> {
     await this.run(async (hub) => {
-      hub.connections.close(server, 1011, "Socket error");
+      hub.connections.close(server, CLOSE_STATE_UNAVAILABLE, "Socket error");
     });
   }
 
@@ -110,12 +135,20 @@ export class RealtimeHub
     await this.run(async () => undefined);
   }
 
-  private async run<T>(operation: (hub: LoadedHub) => Promise<T>): Promise<T> {
-    this.hub ??= this.restore();
+  private async run<T>(
+    operation: (hub: LoadedHub) => Promise<T>,
+    routed?: () => void,
+  ): Promise<T> {
+    this.hub ??= this.restore().catch((error: unknown) => {
+      this.hub = undefined;
+      throw error;
+    });
     const hub = await this.hub;
     const leave = this.scheduler.enter(() => this.ctx.waitUntil(this.alarm()));
     try {
-      return await hub.withDatabase(async () => this.runEvent(hub, operation));
+      return await hub.withDatabase(async () =>
+        this.runEvent(hub, operation, routed),
+      );
     } finally {
       leave();
     }
@@ -124,18 +157,34 @@ export class RealtimeHub
   private async runEvent<T>(
     hub: LoadedHub,
     operation: (hub: LoadedHub) => Promise<T>,
+    routed?: () => void,
   ): Promise<T> {
     // runDue invokes expired deadline callbacks before yielding. Keep periodic
     // reads beside the event so a slow store cannot delay a revocation RPC.
-    const checks = this.scheduler.runDue();
-    try {
-      return await operation(hub);
-    } finally {
-      await checks;
-      await hub.gateway.flush();
-      hub.connections.saveAll();
-      await this.scheduler.flush();
+    const failures: unknown[] = [];
+    const checks = this.scheduler.runDue().catch((error: unknown) => {
+      failures.push(error);
+    });
+    const [outcome] = await Promise.allSettled([
+      Promise.resolve().then(() => operation(hub)),
+    ]);
+    if (outcome.status === "fulfilled") routed?.();
+    else failures.push(outcome.reason);
+    for (const complete of [
+      () => checks,
+      () => hub.gateway.flush(),
+      () => hub.connections.saveDirty(),
+      () => this.scheduler.flush(),
+    ]) {
+      try {
+        await complete();
+      } catch (error) {
+        failures.push(error);
+      }
     }
+    if (outcome.status === "fulfilled" && failures.length === 0)
+      return outcome.value;
+    throw new AggregateError(failures, "Realtime event failed");
   }
 
   private async restore(): Promise<LoadedHub> {
@@ -150,7 +199,11 @@ export class RealtimeHub
       const attachment = parsed.success ? parsed.data : null;
       const saved = attachment ? this.store.load(attachment.id) : null;
       if (!attachment || !saved || server.readyState !== WebSocket.OPEN) {
-        connections.close(server, 1011, "Socket state unavailable");
+        connections.close(
+          server,
+          CLOSE_STATE_UNAVAILABLE,
+          "Socket state unavailable",
+        );
         continue;
       }
       liveIds.add(attachment.id);

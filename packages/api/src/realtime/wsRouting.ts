@@ -207,6 +207,7 @@ export class WsEventRouter {
     // was lost. Remove requested additions before installing the verified set.
     if (action.kind === "add") this.removeInterest(ws, action.containerIds);
     for (const proof of proofs) this.dependencies.set(ws, proof);
+    ws.stateChanged?.();
     const verifiedIds = proofs.map((proof) => proof.containerId);
     switch (action.kind) {
       case "replace":
@@ -231,6 +232,7 @@ export class WsEventRouter {
     organizationId: string | null,
   ): void {
     this.organizationRouter.applyAuthorizedInterest(ws, organizationId);
+    ws.stateChanged?.();
   }
 
   /**
@@ -450,6 +452,7 @@ export class WsEventRouter {
     for (const containerId of containerIds) {
       this.dependencies.remove(ws, containerId);
       if (interest.delete(containerId)) {
+        ws.stateChanged?.();
         removeFromIndex(this.socketsByContainerId, containerId, ws);
       }
     }

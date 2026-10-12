@@ -2,7 +2,10 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { authenticate } from "../../test/helpers/authenticate";
 import { startHibernatingWorker } from "../../test/helpers/hibernatingWorker";
-import { bootstrapRoot } from "../../test/helpers/keyingWriterProjectionKit";
+import {
+  bootstrapRoot,
+  buildRootGrantRequest,
+} from "../../test/helpers/keyingWriterProjectionKit";
 import {
   attachWorkerLogs,
   databaseKind,
@@ -16,6 +19,24 @@ import {
   waitForFrame,
 } from "../../test/helpers/localWorker";
 import { registerUser } from "../../test/helpers/registerUser";
+
+async function barrier(
+  socket: Awaited<ReturnType<typeof openRealtimeSocket>>,
+  declarationId: string,
+) {
+  socket.socket.send(
+    JSON.stringify({
+      type: "known_containers.add",
+      declarationId,
+      containerIds: [],
+    }),
+  );
+  await waitForFrame(
+    socket.frames,
+    (frame) => field(frame, "declarationId") === declarationId,
+    "publication barrier",
+  );
+}
 
 describe.skipIf(databaseKind !== "postgres")(
   "Worker runtime hibernation",
@@ -35,19 +56,39 @@ describe.skipIf(databaseKind !== "postgres")(
       await authenticate(user);
       const firstRoot = await bootstrapRoot(user);
       const firstId = firstRoot.kekState.containerId;
-      const secondId = firstId;
+      const owner = createTestUser();
+      await registerUser(owner);
+      await authenticate(owner);
+      const secondRoot = await bootstrapRoot(owner);
+      const secondId = secondRoot.kekState.containerId;
+      expect(secondId).not.toBe(firstId);
+      await expectJson(
+        await postJson(
+          `${worker.origin}/containers/${secondId}/share`,
+          await buildRootGrantRequest({
+            previous: secondRoot.bundle,
+            previousKekState: secondRoot.kekState,
+            recipient: user,
+            signer: owner,
+          }),
+          {
+            authorization: `Bearer ${await loginThroughWorker(worker.origin, owner)}`,
+          },
+        ),
+        200,
+      );
       const token = await loginThroughWorker(worker.origin, user);
       const a = await openRealtimeSocket(worker.origin, token);
       const b = await openRealtimeSocket(worker.origin, token);
       for (const [socket, id] of [
         [a, firstId],
-        [b, "empty"],
+        [b, secondId],
       ] as const) {
         socket.socket.send(
           JSON.stringify({
             type: "known_containers",
             declarationId: id,
-            containerIds: id === "empty" ? [] : [id],
+            containerIds: [id],
           }),
         );
         const ack = await waitForFrame(
@@ -55,13 +96,13 @@ describe.skipIf(databaseKind !== "postgres")(
           (frame) => field(frame, "declarationId") === id,
           "declaration acknowledgement",
         );
-        expect(field(ack, "containerIds")).toEqual(id === "empty" ? [] : [id]);
+        expect(field(ack, "containerIds")).toEqual([id]);
       }
       await worker.command({ kind: "hibernate" });
       expect(a.socket.readyState).toBe(WebSocket.OPEN);
       expect(b.socket.readyState).toBe(WebSocket.OPEN);
       // The server event is the first event after eviction. No client message
-      // reconstructs the routing, and the shared session cache contains b's empty set.
+      // reconstructs routing; the session cache contains only b's distinct interest.
       await worker.command({
         kind: "publish",
         message: JSON.stringify({
@@ -76,23 +117,13 @@ describe.skipIf(databaseKind !== "postgres")(
           "restored interest invalidation",
         ),
       ).toEqual({ type: "resync_required", containerIds: [firstId] });
+      // An acknowledgement is an ordering barrier for the negative assertion.
+      await barrier(b, "after-first");
       expect(
         b
           .frames()
           .some((frame) => JSON.stringify(frame).includes("resync_required")),
       ).toBe(false);
-      b.socket.send(
-        JSON.stringify({
-          type: "known_containers",
-          declarationId: "second",
-          containerIds: [secondId],
-        }),
-      );
-      await waitForFrame(
-        b.frames,
-        (frame) => field(frame, "declarationId") === "second",
-        "second declaration",
-      );
       await worker.command({ kind: "hibernate" });
       await worker.command({
         kind: "publish",
@@ -179,6 +210,7 @@ describe.skipIf(databaseKind !== "postgres")(
           "expired proof invalidation",
         ),
       ).toEqual({ type: "resync_required", containerIds: [id] });
+      await barrier(socket, "after-expired-proof");
       expect(
         socket
           .frames()

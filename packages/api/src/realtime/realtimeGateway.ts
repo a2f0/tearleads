@@ -161,6 +161,7 @@ function createRevalidationPasses(
     revalidation: new RevalidationSchedule<WsConnection>(
       (ws) => containerInterest.revalidate(ws),
       deps.revalidation,
+      (ws) => ws.stateChanged?.(),
     ),
   };
 }

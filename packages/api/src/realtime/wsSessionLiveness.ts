@@ -79,6 +79,10 @@ export class WsSessionLiveness {
     this.schedule = new RevalidationSchedule(
       (key) => this.checkSessions([key]),
       options.revalidation,
+      (key) => {
+        for (const ws of this.sessions.get(key)?.sockets ?? [])
+          ws.stateChanged?.();
+      },
     );
   }
 
@@ -97,7 +101,7 @@ export class WsSessionLiveness {
   /** New tickets confirm now; restored sockets retain their original age. */
   open(
     ws: WsConnection,
-    restored?: { confirmedAt: number; nextCheckAt: number | undefined },
+    restored?: { confirmedAt: number; nextCheckAt?: number | undefined },
   ): void {
     if (this.stopped) return;
     const key = socketSessionKey(ws);
@@ -211,6 +215,7 @@ export class WsSessionLiveness {
   private confirm(key: string, session: TrackedSession, at: number): void {
     if (at <= session.confirmedAt) return;
     session.confirmedAt = at;
+    for (const ws of session.sockets) ws.stateChanged?.();
     session.cancelDeadline();
     const { maxProofAgeMs, now, schedule } = this.options.policy;
     // Without rechecks only a reconnect could confirm it; no deadline then.

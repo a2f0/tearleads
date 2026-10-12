@@ -17,8 +17,11 @@ const SnapshotSchema = z.object({
     }),
   ),
   verifiedAt: timestamp,
-  nextCheckAt: timestamp,
-  session: z.object({ confirmedAt: timestamp, nextCheckAt: timestamp }),
+  nextCheckAt: timestamp.optional(),
+  session: z.object({
+    confirmedAt: timestamp,
+    nextCheckAt: timestamp.optional(),
+  }),
   organization: z
     .object({ organizationId: identifier, authorized: z.boolean() })
     .nullable(),
