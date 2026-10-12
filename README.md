@@ -24,36 +24,50 @@ the same bundle. Realtime events share each tier's API hostname at `/events`.
 
 ## Infrastructure Lifecycle
 
-Terraform and Ansible provision and maintain current Tearleads deployments.
-They do not migrate retired deployment names, services, directories, or
-Terraform resource addresses. Replace retired hosts instead of running the
-current playbook alongside their old services and maintenance timers.
+Terraform provisions each tier's persistent resources and Wrangler publishes
+its Workers. Neither migrates retired deployment names or Terraform resource
+addresses. Retire old resources using their owning configuration and state
+before fresh provisioning. Preserve any needed data offline, and never discard
+state for live resources or point a populated stack at an empty backend.
 
-Retire old resources using their owning configuration and state before fresh
-provisioning. Preserve any needed data offline, and never discard state for
-live resources or point a populated stack at an empty backend. Bootstrap the
-current state bucket, provision the intended tier, and run its full Ansible
-deployment. Current Tearleads resources with current state remain maintainable;
-this does not require recreating them on every deploy.
+Each tier is four Cloudflare Workers plus three independent Terraform stacks:
 
-Production defaults to a Hetzner CPX11 in Ashburn (`ash`), near its PlanetScale
-Postgres database in `us-east-1`. Staging defaults to a CX23 in Helsinki (`hel1`)
-with Postgres on the same server. Registration performs many sequential database
-queries inside one transaction; placing the API across the Atlantic from the
-database can exceed Cloudflare's response timeout even though the write commits.
-The resulting edge error can appear in the browser as a missing CORS header.
+- `packages/api` deploys `tearleads-platform-api-<tier>`: the Hono API, two
+  SQLite Durable Objects (the session and ticket key/value store that replaced
+  Redis, and the realtime hub that owns every WebSocket), and the Cron Triggers
+  that run blob garbage collection hourly and billing maintenance every minute.
+  Smart Placement runs it near PlanetScale Postgres in `us-east-1`, because
+  registration performs many sequential database queries inside one
+  transaction and cross-region round trips exceed Cloudflare's response
+  timeout even though the write commits.
+- `packages/app-web` deploys `tearleads-app-<tier>` and `tearleads-demo-<tier>`
+  as Workers Static Assets, and `packages/website` deploys the marketing site.
+- `terraform/stacks/<tier>/postgres` owns the tier's PlanetScale Postgres,
+  `terraform/stacks/<tier>/storage` its S3 blob bucket and API credentials,
+  and `terraform/stacks/<tier>/edge` the custom domains that attach the API,
+  app, and demo hostnames to the published Workers. The website keeps its own
+  domain stack.
 
-`TF_VAR_server_location` and `TF_VAR_server_type` override those tier defaults.
-Keep production near its database when changing placement. Moving the server
-replaces it and clears Redis sessions; the independently managed PlanetScale,
-S3, and Cloudflare website stacks survive the replacement.
+`scripts/deployStaging.sh` and `scripts/deployProduction.sh` run the whole
+sequence: storage, database, API migrations and Worker, app bundles, edge
+hostnames (which need the Workers to exist), API verification, then website. `packages/api/scripts/deployApi.sh`
+migrates with the PlanetScale migration login, syncs the Worker secrets from
+the Terraform outputs and `.secrets/<tier>.env`, and publishes with the build
+constants from `packages/api/scripts/workerDefines.ts`. The document sync
+cursor HMAC key is generated once per tier into `.secrets/<tier>.worker.env`.
+`scripts/destroyStaging.sh` removes every staging resource; production stacks
+refuse destruction through their wrappers.
 
-Production retirement is still open as of the 2026-09-05 audit: its live
-resources remain owned by `symcrypt-terraform-state`, while the production
-server state in `tearleads-terraform-state` is empty. Do not use that empty
-state to provision over the existing resources or deploy onto the unverified
-production host. Retire them using their owning state before fresh provisioning;
-remove this notice only after that retirement is verified.
+The Worker reaches PlanetScale directly over its pooled port, pinned to AWS
+us-east-1 beside the database. Two Workers-only settings in
+`packages/api/wrangler.jsonc` keep that path fast and safe:
+`POSTGRES_COALESCE_WRITES` gathers each query's protocol messages into one
+write (Workers sockets cannot set TCP_NODELAY, and the delayed ACK otherwise
+costs about 40 ms per statement), and `POSTGRES_REQUEST_SCOPED` gives every
+request its own connection pool, because a socket opened by one request cannot
+serve another. Hyperdrive would remove the per-request connection cost and
+needs an API token with Hyperdrive Edit, which the current deployment token
+lacks.
 
 ## Running Tests
 

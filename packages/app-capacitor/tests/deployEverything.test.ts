@@ -19,20 +19,14 @@ const commonScript = resolve(
   import.meta.dir,
   "../../../terraform/scripts/common.sh",
 );
-// Full promotion forks ten stub commands plus the shell preflight. On macOS,
-// the parallel workspace gate can exceed Bun's five-second default.
-const FULL_PROMOTION_TIMEOUT_MS = 15_000;
 
 const commandPaths = [
-  "terraform/scripts/prepare-storage.sh",
-  "terraform/stacks/staging/server/scripts/apply.sh",
-  "terraform/stacks/prod/server/scripts/apply.sh",
-  "scripts/uploadIosStagingRelease.sh",
-  "scripts/uploadIosRelease.sh",
-  "scripts/uploadAndroidStagingRelease.sh",
-  "scripts/uploadAndroidRelease.sh",
   "scripts/deployStaging.sh",
+  "scripts/uploadIosStagingRelease.sh",
+  "scripts/uploadAndroidStagingRelease.sh",
   "scripts/deployProduction.sh",
+  "scripts/uploadIosRelease.sh",
+  "scripts/uploadAndroidRelease.sh",
 ] as const;
 
 interface HarnessRun {
@@ -52,20 +46,10 @@ async function writeExecutable(path: string, source: string) {
   await chmod(path, 0o755);
 }
 
-async function runHarness(
-  options: {
-    readonly environment?: Readonly<Record<string, string>>;
-    readonly failAt?: string;
-    readonly failReadyTarget?: string;
-    readonly preExistingProduction?: boolean;
-    readonly secretStagingTarget?: string;
-    readonly secretProductionTarget?: string;
-  } = {},
-): Promise<HarnessRun> {
+async function runHarness(failAt?: string): Promise<HarnessRun> {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-deploy-everything-"));
   const script = resolve(root, "scripts/deployEverything.sh");
   const logPath = resolve(root, "calls.log");
-  const binDirectory = resolve(root, "bin");
 
   await mkdir(resolve(root, "scripts/lib"), { recursive: true });
   await cp(sourceScript, script);
@@ -74,105 +58,15 @@ async function runHarness(
     resolve(root, "scripts/lib/stepTimings.sh"),
   );
   await chmod(script, 0o755);
-  await writeExecutable(
-    resolve(root, "terraform/scripts/common.sh"),
-    [
-      "#!/usr/bin/env bash",
-      "load_secrets_env() {",
-      '  case "$1" in',
-      `    staging) SSH_TARGET="\${STUB_STAGING_SECRET_TARGET:-}" ;;`,
-      `    prod) SSH_TARGET="\${STUB_PRODUCTION_SECRET_TARGET:-}" ;;`,
-      "  esac",
-      "  export SSH_TARGET",
-      "}",
-      "validate_aws_env() { :; }",
-      "wait_for_ssh_ready() {",
-      `  [ "$1" != "\${STUB_FAIL_READY_TARGET:-}" ] || return 1`,
-      `  printf '%s\\n' "$1" >> "$DEPLOY_EVERYTHING_READY_LOG"`,
-      "}",
-      "get_backend_config() { printf '/dev/null\\n'; }",
-      "read_stack_ssh_target() {",
-      '  case "$1" in',
-      "    */staging/*) [ -f \"$DEPLOY_EVERYTHING_TEST_ROOT/staging.applied\" ] || return 2; printf 'staging-user@staging-host\\n' ;;",
-      "    */prod/*) [ -f \"$DEPLOY_EVERYTHING_TEST_ROOT/production.applied\" ] || return 2; printf 'prod-user@prod-host\\n' ;;",
-      "  esac",
-      "}",
-      "resolve_stack_ssh_target() {",
-      '  read_stack_ssh_target "$1"',
-      "}",
-    ].join("\n"),
-  );
-  await writeExecutable(
-    resolve(binDirectory, "terraform"),
-    [
-      "#!/bin/sh",
-      'case " $* " in',
-      '  *" init -reconfigure "*) exit 0 ;;',
-      "  *) printf 'Terraform preflight must reconfigure the backend: %s\\n' \"$*\" >&2; exit 42 ;;",
-      "esac",
-    ].join("\n"),
-  );
-  await writeExecutable(
-    resolve(binDirectory, "ssh"),
-    [
-      "#!/bin/sh",
-      'if [ "$1" = "-G" ]; then',
-      '  target="$2"',
-      `  host="\${target##*@}"`,
-      `  printf 'hostname %s\\n' "$host"`,
-      "  exit 0",
-      "fi",
-      'while [ "$#" -gt 0 ]; do',
-      '  case "$1" in',
-      "    -o) shift 2 ;;",
-      '    "cat /etc/machine-id") shift ;;',
-      '    *) target="$1"; shift ;;',
-      "  esac",
-      "done",
-      `grep -Fqx "$target" "$DEPLOY_EVERYTHING_READY_LOG" || exit 88`,
-      'case "$target" in',
-      `  *staging*) printf '%s\\n' "$STUB_STAGING_MACHINE_ID" ;;`,
-      `  *) printf '%s\\n' "$STUB_PRODUCTION_MACHINE_ID" ;;`,
-      "esac",
-    ].join("\n"),
-  );
-  await writeExecutable(
-    resolve(binDirectory, "bun"),
-    [
-      "#!/bin/sh",
-      'case "$DEPLOY_EVERYTHING_RESOLVE_HOST" in',
-      "  staging-dns-alias|production-dns-alias) printf '100.64.0.9\\n' ;;",
-      `  *) printf '%s\\n' "$DEPLOY_EVERYTHING_RESOLVE_HOST" ;;`,
-      "esac",
-    ].join("\n"),
-  );
-
-  const commandStub = [
-    "#!/bin/sh",
-    'name="$(basename "$0")"',
-    'case "$0" in',
-    '  */prepare-storage.sh) case "$1" in staging) name=storage-staging ;; prod) name=storage-production ;; esac ;;',
-    '  */terraform/stacks/staging/*) name="terraform-staging" ;;',
-    '  */terraform/stacks/prod/*) name="terraform-production" ;;',
-    "esac",
-    'case "$name" in',
-    '  terraform-staging) touch "$DEPLOY_EVERYTHING_TEST_ROOT/staging.applied" ;;',
-    '  terraform-production) touch "$DEPLOY_EVERYTHING_TEST_ROOT/production.applied" ;;',
-    `  deployStaging.sh|deployProduction.sh) [ "\${1:-}" = "--skip-terraform" ] || exit 24 ;;`,
-    "esac",
-    'case "$name" in',
-    `  deployStaging.sh) target="\${STAGING_SSH_TARGET:-}" ;;`,
-    `  deployProduction.sh) target="\${PRODUCTION_SSH_TARGET:-}" ;;`,
-    `  *) target="\${SSH_TARGET:-}" ;;`,
-    "esac",
-    `printf '%s|%s|%s\\n' "$name" "$target" "$PWD" >> "$DEPLOY_EVERYTHING_TEST_LOG"`,
-    `if [ "$name" = "\${DEPLOY_EVERYTHING_FAIL_AT:-}" ]; then exit 23; fi`,
-  ].join("\n");
   for (const path of commandPaths) {
-    await writeExecutable(resolve(root, path), commandStub);
-  }
-  if (options.preExistingProduction) {
-    await Bun.write(resolve(root, "production.applied"), "");
+    await writeExecutable(
+      resolve(root, path),
+      [
+        "#!/bin/sh",
+        `printf '%s|%s\\n' "$(basename "$0")" "$PWD" >> "$DEPLOY_EVERYTHING_LOG"`,
+        `[ "$(basename "$0")" != "\${DEPLOY_EVERYTHING_FAIL_AT:-}" ] || exit 9`,
+      ].join("\n"),
+    );
   }
 
   try {
@@ -180,22 +74,11 @@ async function runHarness(
       cwd: tmpdir(),
       env: {
         ...process.env,
-        PATH: `${binDirectory}:${environmentValue("PATH") ?? ""}`,
-        SSH_TARGET: "",
-        STAGING_SSH_TARGET: "",
-        PRODUCTION_SSH_TARGET: "",
-        STUB_STAGING_SECRET_TARGET: options.secretStagingTarget ?? "",
-        STUB_PRODUCTION_SECRET_TARGET: options.secretProductionTarget ?? "",
-        DEPLOY_EVERYTHING_TEST_LOG: logPath,
-        DEPLOY_EVERYTHING_READY_LOG: resolve(root, "ready.log"),
-        DEPLOY_EVERYTHING_TEST_ROOT: root,
-        DEPLOY_EVERYTHING_FAIL_AT: options.failAt ?? "",
-        STUB_FAIL_READY_TARGET: options.failReadyTarget ?? "",
-        STUB_STAGING_MACHINE_ID: "11111111111111111111111111111111",
-        STUB_PRODUCTION_MACHINE_ID: "22222222222222222222222222222222",
-        ...options.environment,
+        PATH: environmentValue("PATH") ?? "",
+        DEPLOY_EVERYTHING_LOG: logPath,
+        DEPLOY_EVERYTHING_FAIL_AT: failAt ?? "",
       },
-      stdout: "ignore",
+      stdout: "pipe",
       stderr: "pipe",
     });
     const [exitCode, stderr] = await Promise.all([
@@ -211,144 +94,47 @@ async function runHarness(
   }
 }
 
-test(
-  "runs every release in promotion order from the repository root",
-  async () => {
-    const run = await runHarness();
-    expect(run.exitCode, run.stderr).toBe(0);
-    expect(run.calls.map((call) => call.split("|").slice(0, 2))).toEqual([
-      ["storage-staging", ""],
-      ["terraform-staging", ""],
-      ["deployStaging.sh", "staging-user@staging-host"],
-      ["uploadIosStagingRelease.sh", ""],
-      ["uploadAndroidStagingRelease.sh", ""],
-      ["storage-production", ""],
-      ["terraform-production", ""],
-      ["deployProduction.sh", "prod-user@prod-host"],
-      ["uploadIosRelease.sh", ""],
-      ["uploadAndroidRelease.sh", ""],
-    ]);
-    const workingDirectories = new Set(
-      run.calls.map((call) => call.split("|").slice(2).join("|")),
-    );
-    expect(workingDirectories).toEqual(new Set([run.root]));
-  },
-  FULL_PROMOTION_TIMEOUT_MS,
-);
+test("runs every release in promotion order from the repository root", async () => {
+  const run = await runHarness();
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
+    "deployStaging.sh",
+    "uploadIosStagingRelease.sh",
+    "uploadAndroidStagingRelease.sh",
+    "deployProduction.sh",
+    "uploadIosRelease.sh",
+    "uploadAndroidRelease.sh",
+  ]);
+  const workingDirectories = new Set(
+    run.calls.map((call) => call.split("|").slice(1).join("|")),
+  );
+  expect(workingDirectories).toEqual(new Set([run.root]));
+});
 
 test("stops at the first failing release command", async () => {
-  const run = await runHarness({ failAt: "uploadAndroidStagingRelease.sh" });
-  expect(run.exitCode).toBe(23);
+  const run = await runHarness("uploadAndroidStagingRelease.sh");
+  expect(run.exitCode).not.toBe(0);
   expect(run.calls.map((call) => call.split("|")[0])).toEqual([
-    "storage-staging",
-    "terraform-staging",
     "deployStaging.sh",
     "uploadIosStagingRelease.sh",
     "uploadAndroidStagingRelease.sh",
   ]);
 });
 
-test("stops before Terraform when identity readiness fails", async () => {
-  const run = await runHarness({
-    environment: {
-      STAGING_SSH_TARGET: "staging-user@unready-staging",
-      PRODUCTION_SSH_TARGET: "prod-user@prod-host",
-    },
-    failReadyTarget: "staging-user@unready-staging",
-  });
-  expect(run.exitCode).toBe(1);
-  expect(run.calls).toEqual([]);
-});
-
-test(
-  "keeps distinct tier overrides isolated",
-  async () => {
-    const run = await runHarness({
-      environment: {
-        STAGING_SSH_TARGET: "staging-user@explicit-staging",
-        PRODUCTION_SSH_TARGET: "prod-user@explicit-production",
-      },
-      secretStagingTarget: "wrong-secret-target",
-      secretProductionTarget: "wrong-secret-target",
-    });
-    expect(run.exitCode, run.stderr).toBe(0);
-    expect(run.calls.map((call) => call.split("|")[1]).filter(Boolean)).toEqual(
-      ["staging-user@explicit-staging", "prod-user@explicit-production"],
-    );
-  },
-  FULL_PROMOTION_TIMEOUT_MS,
-);
-
-test("rejects explicit targets on the same host before applying", async () => {
-  const run = await runHarness({
-    environment: {
-      STAGING_SSH_TARGET: "user@same-host",
-      PRODUCTION_SSH_TARGET: "user@same-host",
-    },
-  });
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain("resolve to the same SSH host");
-  expect(run.calls).toEqual([]);
-});
-
-test("rejects different SSH users on the same explicit host", async () => {
-  const run = await runHarness({
-    environment: {
-      STAGING_SSH_TARGET: "staging@shared-host",
-      PRODUCTION_SSH_TARGET: "prod@SHARED-HOST.",
-    },
-  });
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain("same SSH host");
-  expect(run.calls).toEqual([]);
-});
-
-test("rejects a staging override matching the existing production tier", async () => {
-  const run = await runHarness({
-    environment: { STAGING_SSH_TARGET: "prod-user@prod-host" },
-    preExistingProduction: true,
-  });
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain("prod-user@prod-host");
-  expect(run.calls).toEqual([]);
-});
-
-test("rejects different hostnames that resolve to one address", async () => {
-  const run = await runHarness({
-    environment: {
-      STAGING_SSH_TARGET: "staging@staging-dns-alias",
-      PRODUCTION_SSH_TARGET: "prod@production-dns-alias",
-    },
-  });
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain("resolve to the same address");
-  expect(run.calls).toEqual([]);
-});
-
-test("rejects separate addresses that identify the same machine", async () => {
-  const run = await runHarness({
-    environment: {
-      STAGING_SSH_TARGET: "staging@tailscale-staging",
-      PRODUCTION_SSH_TARGET: "prod@public-production",
-      STUB_PRODUCTION_MACHINE_ID: "11111111111111111111111111111111",
-    },
-  });
-  expect(run.exitCode).toBe(1);
-  expect(run.stderr).toContain("same machine identity");
-  expect(run.calls).toEqual([]);
-});
-
-test("secret loading rejects a generic target and preserves a tier override", async () => {
+test("secret loading layers tier files and rejects broken sources", async () => {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-common-env-"));
   await mkdir(resolve(root, ".secrets"), { recursive: true });
-  await Bun.write(resolve(root, ".secrets/root.env"), "TF_VAR_shared=value\n");
   await Bun.write(
-    resolve(root, ".secrets/staging.env"),
-    "SSH_TARGET=staging-target\n",
+    resolve(root, ".secrets/root.env"),
+    "unset TF_VAR_stale\nTF_VAR_shared=value\n",
   );
   await Bun.write(
-    resolve(root, ".secrets/prod.env"),
-    "SSH_TARGET=production-target\n",
+    resolve(root, ".secrets/staging.env"),
+    "TF_VAR_tier=staging\n",
+  );
+  await Bun.write(
+    resolve(root, ".secrets/staging.worker.env"),
+    "export DOCUMENT_SYNC_CURSOR_HMAC_KEY=generated-worker-secret\n",
   );
   try {
     const child = Bun.spawn(
@@ -358,24 +144,14 @@ test("secret loading rejects a generic target and preserves a tier override", as
         [
           'source "$1"',
           "get_repo_root() { printf '%s\\n' \"$COMMON_TEST_ROOT\"; }",
-          "export SSH_TARGET=stale-staging-target",
-          "unset PRODUCTION_SSH_TARGET",
-          "if load_secrets_env prod; then exit 91; fi",
-          "printf '%s\\n' generic-rejected",
-          "unset SSH_TARGET",
-          "unset STAGING_SSH_TARGET PRODUCTION_SSH_TARGET",
-          "printf '%s\\n' SSH_TARGET=root-target > \"$COMMON_TEST_ROOT/.secrets/root.env\"",
-          "if load_secrets_env prod; then exit 92; fi",
-          "printf '%s\\n' root-generic-rejected",
-          "printf '%s\\n' 'unset TF_VAR_stale' TF_VAR_shared=value > \"$COMMON_TEST_ROOT/.secrets/root.env\"",
-          "export SSH_TARGET=explicit-target",
-          "export STAGING_SSH_TARGET=explicit-target",
           "export TF_VAR_stale=stale",
           "load_secrets_env staging",
           `if [[ -n "\${TF_VAR_stale+x}" ]]; then exit 98; fi`,
-          "printf '%s\\n' \"$SSH_TARGET\"",
+          'printf \'%s|%s|%s\\n\' "$TF_VAR_shared" "$TF_VAR_tier" "$DOCUMENT_SYNC_CURSOR_HMAC_KEY"',
+          "if load_secrets_env unknown; then exit 91; fi",
+          "printf '%s\\n' unknown-tier-rejected",
           "printf '%s\\n' false TF_VAR_after=loaded > \"$COMMON_TEST_ROOT/.secrets/root.env\"",
-          "unset SSH_TARGET STAGING_SSH_TARGET PRODUCTION_SSH_TARGET TF_VAR_after",
+          "unset TF_VAR_after",
           "if load_secrets_env staging; then exit 93; fi",
           `if [[ -n "\${TF_VAR_after:-}" ]]; then exit 97; fi`,
           "printf '%s\\n' source-command-failure-rejected",
@@ -399,27 +175,8 @@ test("secret loading rejects a generic target and preserves a tier override", as
           "printf 'path-snapshot:%s\\n' \"$path_snapshot_value\"",
           'rm "$COMMON_TEST_ROOT/.secrets/root.env"',
           'mkdir "$COMMON_TEST_ROOT/.secrets/root.env"',
-          "unset SSH_TARGET STAGING_SSH_TARGET PRODUCTION_SSH_TARGET",
           "if load_secrets_env staging; then exit 94; fi",
           "printf '%s\\n' source-failure-rejected",
-          "terraform() {",
-          '  case "$*" in',
-          "    *\"output -raw server_username\") printf '%s\\n' state-user ;;",
-          "    *\"output -raw ssh_hostname\") printf '%s\\n' state-host ;;",
-          "    *) return 95 ;;",
-          "  esac",
-          "}",
-          "read_stack_ssh_target /unused",
-          "terraform() {",
-          '  case "$*" in',
-          "    *\"state list\") printf '%s\\n' 'No state file was found!' >&2; return 1 ;;",
-          "    *) return 1 ;;",
-          "  esac",
-          "}",
-          "read_status=0",
-          "read_stack_ssh_target /unused || read_status=$?",
-          "printf 'no-state-status:%s\\n' \"$read_status\"",
-          'if [[ "$read_status" -ne 2 ]]; then exit 96; fi',
         ].join("\n"),
         "bash",
         commonScript,
@@ -437,19 +194,15 @@ test("secret loading rejects a generic target and preserves a tier override", as
     ]);
     expect(exitCode, stderr).toBe(0);
     expect(stdout.trim().split("\n")).toEqual([
-      "generic-rejected",
-      "root-generic-rejected",
-      "explicit-target",
+      "value|staging|generated-worker-secret",
+      "unknown-tier-rejected",
       "source-command-failure-rejected",
       "nounset-failure-rejected",
       "pipeline-failure-rejected",
       "path-snapshot:loaded",
       "source-failure-rejected",
-      "state-user@state-host",
-      "no-state-status:2",
     ]);
-    expect(stderr).toContain("PRODUCTION_SSH_TARGET");
-    expect(stderr).toContain("root.env must not define SSH_TARGET");
+    expect(stderr).toContain("Unknown deployment tier: unknown");
     expect(stderr).toContain("exists but is not a regular file");
   } finally {
     await rm(root, { recursive: true, force: true });

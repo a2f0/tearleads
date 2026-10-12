@@ -34,8 +34,8 @@ The hourly deduplication includes these safe fields and locations, so unrelated
 operations or recognized error codes do not collapse into one frameless error.
 The five-per-minute and twenty-per-hour budgets still apply; event counts are
 bounded diagnostic samples rather than total failure counts. Existing events
-cannot regain information omitted by an older executable; deploy a new API
-build to receive the richer reports.
+cannot regain information omitted by an older build; deploy a new API
+Worker to receive the richer reports.
 
 Failures the API logged and deliberately swallowed — a realtime publish after
 the write already committed, read-model notification verification, session
@@ -45,8 +45,9 @@ request 5xx signal. They are fire-and-forget: reporting cannot change the
 response, and the committed write stays committed. Process and native crashes
 remain outside this integration.
 
-The blob-GC and Stripe-seat-sync executables build with the same diagnostics
-configuration and report their own swallowed maintenance failures: blob
+The blob-GC and billing maintenance runs, scheduled by the Worker's Cron
+Triggers, use the same diagnostics configuration and report their own swallowed
+maintenance failures: blob
 reclamation reports the aggregate carrying every per-object failure, and each
 billing phase reports independently so one failure does not hide the others.
 Per-item failures, which the sweeps count and drop rather than raise, report

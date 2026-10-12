@@ -13702,7 +13702,7 @@
         ],
         "x-tearleads-runtime-refinements": [
           {
-            "description": "Declared multipart part byte length is at most 104857600",
+            "description": "Declared multipart part byte length is at most 33554432",
             "id": "blobs.multipartPart.declaredByteLengthMax"
           }
         ]

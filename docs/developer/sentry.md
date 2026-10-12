@@ -44,12 +44,14 @@ The DSNs above are placeholders. The DSN is public; the upload token is private.
 
 ## Deployment and releases
 
-`scripts/deployStaging.sh` and `scripts/deployProduction.sh` apply Ansible's API
-configuration and deploy the compiled API and web app. Ansible writes only
-`API_SENTRY_DSN` and `API_SENTRY_ENVIRONMENT` to the protected API environment
-file; the executable embeds its commit, exact source-path allowlist, and build
-number. Run the full scripts the first time so the server environment is
-updated. Subsequent `--skip-infra` deploys reuse that environment.
+`scripts/deployStaging.sh` and `scripts/deployProduction.sh` publish the API
+Worker and the web app. The API deploy syncs `API_SENTRY_DSN` as a Worker
+secret and sets `API_SENTRY_ENVIRONMENT` from `packages/api/wrangler.jsonc`;
+the bundle receives its commit, exact source-path allowlist, and build number
+through `wrangler deploy --define` (see `packages/api/scripts/workerDefines.ts`).
+Wrangler also uploads the bundle's source map. Frames in the deployed bundle
+resolve against that map rather than the repository paths the allowlist names,
+so API frame admission under Workers is a known gap to close.
 
 The build number is `git rev-list --count HEAD` at build time. The default
 branch only gains squash-merged commits, so every deploy from it counts higher
@@ -310,16 +312,10 @@ directory and, before publishing, uploads it via `uploadDeferredSourceMaps.ts`
 the `linux-x64` dist).
 
 API releases use `tearleads-api@<git-sha>`
-and `staging` / `production`. Bun embeds maps in the executable and resolves
-stacks to source positions before filtering; only allowlisted
-repository-relative paths and positions leave the server, without source text or
-machine paths.
+and `staging` / `production`. Only allowlisted repository-relative paths and
+positions leave the server, without source text or machine paths.
 
-API source archives without Git still build, with remote diagnostics disabled.
-
-Executable tests remove the build directory and run only the copied binary.
-They exercise the API's injected build configuration and real reporter for both
-tiers, asserting mapped application frames without raw error text or host paths.
+API source archives without Git still deploy, with remote diagnostics disabled.
 
 Run the tests in `packages/diagnostics/src`, both native and API diagnostics
 folders, `packages/app-electrobun/scripts/sentry*.test.ts`,

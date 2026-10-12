@@ -48,7 +48,6 @@
     "clean:local-caches:dry-run": "bun scripts/cleanLocalCaches.ts --dry-run",
     "generate:openapi": "bun run --cwd packages/validators generate:openapi",
     "generate:protocol-traces": "bun scripts/protocol/generateBaselineDominanceTraces.ts",
-    "lint:ansible": "ansible-lint ansible/",
     "lint:architecture": "bun scripts/architecture/lintArchitecture.ts",
     "lint:binary-files": "sh scripts/checks/checkBinaryFiles.sh",
     "lint:biome": "biome check --error-on-warnings && bun scripts/checks/checkRuntimeScopedMemoDependencies.ts && bun run lint:biome:promises",

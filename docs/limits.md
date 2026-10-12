@@ -88,11 +88,11 @@ for the exact-length rule.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Sync request body | 16 MiB (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`, `validators/src/util/documentSyncLimits.ts`) | SDK applies the exact serialized-byte ceiling after encryption and trims the batch; API rejects. | Pagination for a batch. A single update that cannot fit abandons with `document_sync_request_too_large`. |
+| Sync request body | 16 MiB (`MAX_DOCUMENT_SYNC_REQUEST_BYTES`, `validators/src/util/documentSyncLimits.ts`) | SDK applies the exact serialized-byte ceiling after encryption and trims the batch; the Worker entry bounds the stream at this ceiling before the route buffers it; API rejects. | Pagination for a batch. A single update that cannot fit abandons with `document_sync_request_too_large`. |
 | Outgoing updates per request | 64 (`MAX_DOCUMENT_SYNC_OUTGOING_UPDATES`) | SDK: `data/sync/documentSyncOutgoingBatch.ts`. | Pagination. |
 | Authorization paths per request | 64 (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS`), each at most 100 deep, so 6,400 path refs (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS`) | Validators; derived from the structural limits so every valid link set stays syncable after later moves deepen its paths. | Refusal. |
 | Content-key targets per document | 64 (`MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS`) | API create and link validation; SDK link preflight in `workflows/documents/linkSet.ts`. | Refusal at link time, so no document can be created that does not fit the sync contract. |
-| Response page | 128 MiB (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES`), of which 16 MiB is envelope (`MAX_DOCUMENT_SYNC_RESPONSE_ENVELOPE_BYTES`) | API. Sized to carry the largest accepted atomic rotation baseline plus its signed metadata. | Pagination. |
+| Response page | 48 MiB (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES`), of which 16 MiB is envelope (`MAX_DOCUMENT_SYNC_RESPONSE_ENVELOPE_BYTES`) | API. Sized to carry the largest accepted atomic rotation baseline plus its signed metadata, while the page and its serialized copy both fit the 128 MB Workers isolate. | Pagination. |
 | Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`) | API. | Pagination via the pull cursor. |
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
 
@@ -100,7 +100,9 @@ for the exact-length rule.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Request body and multipart part | 100 MiB (`MAX_MULTIPART_BLOB_PART_BYTES`, `MAX_UPLOAD_PART_BYTES`) | API `index.ts` sets it as the server-wide `maxRequestBodySize`; the object store enforces it again. | Refusal. This is the route ceiling every other request-size limit sits under. |
+| Request body on the unauthenticated surface (`/`, `/auth/*`, `/billing/*`) | 2 MiB (`MAX_UNAUTHENTICATED_REQUEST_BYTES`, `packages/api/src/worker/requestBody.ts`) | The Worker entry, before any route runs; every session route keeps the ceiling below, since container rotations and document payloads legitimately carry megabytes of keyrings and baselines. | Refusal. Bounds what a client without a session can make the isolate buffer or parse. |
+| Request memory per isolate | 96 MiB across concurrent requests (`BODY_ADMISSION_BYTES`, `packages/api/src/worker/requestBody.ts`) | The Worker entry admits each body's declared length, or its route ceiling when undeclared, plus the 48 MiB response page a document sync pull may build, against the isolate's budget before any route runs. | Refusal with 503 and `Retry-After: 1`; the admitted requests continue. |
+| Request body and multipart part | 32 MiB (`MAX_MULTIPART_BLOB_PART_BYTES`, `MAX_UPLOAD_PART_BYTES`) | The Worker entry refuses a larger declared length; the Bun development listener sets it as `maxRequestBodySize`; the object store enforces it again. A part is buffered whole, and the Workers isolate has 128 MB. | Refusal. This is the route ceiling every other request-size limit sits under. |
 | Chunk size | 5 MiB, fixed (`BLOB_CHUNK_SIZE_BYTES`, `crypto/src/blobEnvelopeV2.ts`) | Crypto envelope format. | Not a tunable. |
 | Chunks per blob | 10,000 (`MAX_BLOB_CHUNK_COUNT`), so a blob is at most about 48.8 GiB | Crypto envelope parser; SDK `workflows/blobs/multipartUpload.ts` refuses before uploading. | Refusal. |
 | Envelope header | 64 KiB (`MAX_BLOB_ENVELOPE_HEADER_BYTES`, `crypto/src/blobEnvelopeReader.ts`) | Crypto reader, before parsing. | Refusal. |
@@ -110,6 +112,10 @@ for the exact-length rule.
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
 | WebSocket client message | 1,000,000 bytes (`MAX_WS_CLIENT_MESSAGE_BYTES`, `validators/src/realtime/wsClientDeclarations.ts`) | Transport payload bound and a pre-parse length check. | Refusal before JSON parsing. |
+| Pending frames per socket | 32 frames or 4,000,000 bytes (`DEFAULT_SOCKET_QUEUE_LIMITS`, `packages/api/src/worker/socketQueue.ts`) | The realtime hub queues each socket's frames behind its authorization. | The socket closes with 1013 and its queue is discarded. |
+| Pending bytes per hub | 32 MiB across every socket (`HUB_QUEUE_BUDGET_BYTES`, `packages/api/src/worker/realtimeHubObject.ts`) | The hub's shared queue budget, so many flooding sockets cannot exhaust its isolate. | The socket that would overrun the budget closes with 1013; the others continue. |
+| Sockets per session | 8 (`MAX_SOCKETS_PER_SESSION`) | The hub counts open sockets per session at upgrade. | Refusal with 429 until one closes. |
+| Pending interest writes per session | 16 (`MAX_PENDING_INTEREST_WRITES`, `packages/api/src/realtime/wsInterestStore.ts`) | The gateway holds a session's next frame, still counted by its socket's queue, until its queued interest writes settle. | Backpressure; the frame waits rather than growing an unbounded chain. |
 | Interest container ids per declaration | 10,000 (`MAX_WS_INTEREST_CONTAINER_IDS`) | Validators. | Refusal. Interest is an invalidation subscription, not an authorization grant. |
 
 ## Principals

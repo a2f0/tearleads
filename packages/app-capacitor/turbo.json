@@ -3,7 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "test": {
-      "description": "Release and deploy suites read repository scripts, Terraform, Ansible, and other packages' deploy scripts by path. Explicit globs bypass .gitignore, so the negations keep local state and secrets out of the hash.",
+      "description": "Release and deploy suites read repository scripts, Terraform, Wrangler configurations, and other packages' deploy scripts by path. Explicit globs bypass .gitignore, so the negations keep local state and secrets out of the hash.",
       "inputs": [
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/scripts/**",
@@ -12,12 +12,13 @@
         "$TURBO_ROOT$/terraform/stacks/**/*.tf",
         "$TURBO_ROOT$/terraform/stacks/**/scripts/**",
         "!$TURBO_ROOT$/terraform/**/.terraform/**",
-        "$TURBO_ROOT$/ansible/**",
-        "!$TURBO_ROOT$/ansible/**/.*",
         "$TURBO_ROOT$/packages/api/scripts/**",
         "$TURBO_ROOT$/packages/api-cli/scripts/**",
         "$TURBO_ROOT$/packages/website/scripts/**",
-        "$TURBO_ROOT$/packages/website/wrangler.jsonc"
+        "$TURBO_ROOT$/packages/website/wrangler.jsonc",
+        "$TURBO_ROOT$/packages/api/wrangler.jsonc",
+        "$TURBO_ROOT$/packages/app-web/wrangler.*.jsonc",
+        "$TURBO_ROOT$/packages/app-web/scripts/**"
       ]
     }
   }

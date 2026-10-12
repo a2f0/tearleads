@@ -1,4 +1,5 @@
 import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
+import { workerRealtimePublisher } from "../worker/environment";
 import {
   clearInMemoryRedisPubSub,
   inMemoryRedisAddListener,
@@ -227,8 +228,15 @@ const redisPubSub = createRedisPubSub({
   inMemory: isInMemoryRedisEnabled,
 });
 
-export const publish = (event: PublishedRealtimeEvent): Promise<void> =>
-  redisPubSub.publish(event);
+// On Workers the realtime hub Durable Object is the bus: HTTP isolates publish
+// to it over RPC, and inside it the call is local. Redis stays the bus for the
+// Bun process.
+export const publish = (event: PublishedRealtimeEvent): Promise<void> => {
+  const publishToHub = workerRealtimePublisher();
+  return publishToHub
+    ? publishToHub(JSON.stringify(event))
+    : redisPubSub.publish(event);
+};
 export const addListener = (listener: EventListener): (() => void) =>
   redisPubSub.addListener(listener);
 export const addSubscriberReconnectListener = (

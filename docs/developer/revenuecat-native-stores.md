@@ -186,9 +186,10 @@ export explicitly. Add any future root `VITE_*` setting that staging must
 inherit intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is
 stripped from staging dotenv imports.
 
-The staging server must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` during
-its Ansible deploy. This controls webhook application only; it is separate from
-the public SDK keys bundled into the native clients.
+The staging tier must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` in
+`.secrets/staging.env` when its API Worker deploys. This controls webhook
+application only; it is separate from the public SDK keys bundled into the
+native clients.
 
 The wrappers set their public API default before Fastlane loads dotenv files.
 Export `VITE_API_BASE_URL` explicitly when overriding the default; the release
@@ -333,10 +334,9 @@ sandbox testing there will look like a webhook that silently does nothing.
 - An event with **no** `environment` is treated as production: RevenueCat has not
   always sent the field, and a redelivered old event must keep its paid meaning.
 
-Because this is a tier-level policy rendered by ansible
-([`api.env.j2`](../../ansible/playbooks/templates/etc/tearleads/api.env.j2)), it
-only reaches a deployed server through the **ansible** deploy step, like the
-webhook secret.
+Because this is a tier-level policy synced as a Worker secret by
+`packages/api/scripts/deployApi.sh`, it only reaches a deployed tier through
+the API deploy step, like the webhook secret.
 
 ## Product and organization policy
 

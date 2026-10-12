@@ -206,14 +206,6 @@ url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0
 checksum = "sha256:61979887f7506a24a57439ff99adb8b3a7fc89977d9cfe3b8984f58a981b7b9d"
 url = "https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25.0.4.1%2B1/OpenJDK25U-jdk_aarch64_mac_hotspot_25.0.4.1_1.tar.gz"
 
-[[tools."pipx:ansible-core"]]
-version = "2.21.3"
-backend = "pipx:ansible-core"
-
-[[tools."pipx:ansible-lint"]]
-version = "26.9.0"
-backend = "pipx:ansible-lint"
-
 [[tools.ruby]]
 version = "4.0.7"
 backend = "core:ruby"

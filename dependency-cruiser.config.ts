@@ -23,6 +23,8 @@ const noOrphanPathExemptionPattern = [
   "^packages/(api-cli|api-shared)/src/index\\.ts$",
   "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
   "^packages/app-web/src/index\\.tsx$",
+  // Wrangler aliases the development-only database drivers to these stubs.
+  "^packages/api/src/worker/stubs/[^/]+\\.ts$",
   "^packages/app/src/test/",
   "^packages/sqlite-instance/src/(assets|index)\\.ts$",
   "^packages/sqlite-worker/src/assets\\.ts$",
@@ -100,6 +102,9 @@ const standardRules = [
       // this resolver rule also permits generated declaration references (for
       // example Astro's `.astro/types.d.ts`) before their build has run.
       preCompilationOnly: false,
+      // The Workers runtime provides `cloudflare:workers` to the bundle; it is
+      // declared ambiently in packages/api/src/worker/cloudflare.d.ts.
+      pathNot: "^cloudflare:",
     },
   },
   {

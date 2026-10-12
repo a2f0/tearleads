@@ -1,8 +1,8 @@
 # @tearleads/api-cli
 
-Server-side operations CLI for the Tearleads API, shipped as a standalone Bun
-executable (`tearleads-api-cli`) deployed to `/opt/tearleads/bin` alongside the
-API server.
+Server-side operations CLI for the Tearleads API. The deploy scripts run it
+from source against each tier's PlanetScale database and S3 bucket; it can also
+be compiled to a standalone Bun executable (`tearleads-api-cli`).
 
 It is a separate deployable entry package: it depends on `@tearleads/api-shared`
 for server infrastructure and **must not** import `packages/api` (enforced by the
@@ -55,20 +55,16 @@ is available, and no server answers on the local socket or `localhost:5432`:
 sh scripts/postgres/runPostgresMigration.sh
 ```
 
-On deploy, `packages/api/scripts/deployStagingApi.sh` and its production sibling
-run it over SSH through the operator wrapper:
+On deploy, `packages/api/scripts/deployApi.sh` runs it from source before
+publishing the API Worker, with the tier's PlanetScale migration login on the
+direct port 5432 read from the `postgres` Terraform stack output:
 
 ```bash
-sudo /usr/local/bin/tearleads-api-cli migrate
+bun src/index.ts migrate
 ```
 
-Run the tier's Ansible playbook before deploying API artifacts for the first
-time. It installs the wrapper
-and root-owned `/etc/tearleads/migrations.env`. The full
-`scripts/deployProduction.sh` and `scripts/deployStaging.sh` do this in order;
-`--skip-infra` requires that configuration to exist already. Production migrations
-use a dedicated PlanetScale login on direct port 5432, while runtime traffic
-uses the read/write login on pooled port 6432.
+Runtime traffic uses the read/write login on pooled port 6432; the migration
+login never reaches the Worker.
 
 ### `blob-store:list-keys`
 
@@ -103,9 +99,8 @@ Requires these environment variables (read at command time, all validated):
 
 With neither credential set, the AWS SDK's default credential chain applies.
 
-For the deployed S3 buckets, use the repo wrapper — it resolves the server
-over Tailscale SSH, sources `/etc/tearleads/api.env`, and invokes this command
-remotely:
+For the deployed S3 buckets, use the repo wrapper — it reads the tier's
+`storage` Terraform stack output and invokes this command locally:
 
 ```bash
 scripts/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
@@ -131,31 +126,14 @@ The command reads the database the same way `migrate` does (`API_DATABASE`
 defaults to `postgres`, connection variables from the environment). It prints
 whether the identity `is now root` or `was already root`, and fails with a
 non-zero exit when the fingerprint is malformed, extra arguments are passed, or
-no identity is registered under that fingerprint. In an SSH session on a
-deployed server the operator wrapper (see below) supplies the environment:
+no identity is registered under that fingerprint. Against a deployed tier,
+export the runtime connection from the `postgres` Terraform stack output
+(`terraform/scripts/run-postgres-stack.sh <tier> output -json api_connection`)
+in a private shell, then run the command from source:
 
 ```bash
-tearleads-api-cli make-admin <fingerprint>
+bun src/index.ts make-admin <fingerprint>
 ```
-
-## Running on a deployed server
-
-Ansible installs two conveniences for SSH sessions (`ansible/playbooks/server.yml`):
-
-- `/etc/profile.d/tearleads.sh` appends `/opt/tearleads/bin` to the login
-  shell `PATH`, so every deployed executable resolves by name.
-- `/usr/local/bin/tearleads-api-cli` is a wrapper that sources
-  `/etc/tearleads/api.env` for ordinary commands and the root-only
-  `/etc/tearleads/migrations.env` for `migrate`, then execs the real CLI. It
-  precedes `/opt/tearleads/bin` on `PATH`: `tearleads-api-cli <command>`
-  then runs with the server's database and object-store settings while those
-  secrets reach only the CLI process, not the interactive shell. Runtime settings
-  are readable by root and the deploy user; migration settings require root.
-  The wrapper fails closed when the selected file is not readable.
-
-The deploy scripts use `sudo /usr/local/bin/tearleads-api-cli migrate`, so the
-Ansible-installed wrapper and migration environment must exist first. Do not
-source the runtime environment to run production migrations.
 
 ## Local development
 
@@ -166,7 +144,7 @@ bun run migrate                              # bun src/index.ts migrate
 bun run test                                 # bun test src
 ```
 
-## Build and deploy
+## Build
 
 ```bash
 bun run build                                # packages/api-cli/dist/tearleads-api-cli
@@ -174,22 +152,11 @@ bun run build                                # packages/api-cli/dist/tearleads-a
 
 `scripts/buildApiCliExecutable.ts` compiles from the repo root to a single
 executable. The target defaults to `bun-linux-x64` and can be overridden with
-`BUN_COMPILE_TARGET`: Linux x64/arm64/aarch64 for servers, or Darwin x64/arm64
-for local executable tests. `BUN_COMPILE_OUTFILE` selects an isolated output
-path; it defaults to `packages/api-cli/dist/tearleads-api-cli`.
+`BUN_COMPILE_TARGET`: Linux x64/arm64/aarch64, or Darwin x64/arm64 for local
+executable tests. `BUN_COMPILE_OUTFILE` selects an isolated output path; it
+defaults to `packages/api-cli/dist/tearleads-api-cli`.
 
 The explicit repository build root preserves the embedded schema asset paths.
 The compiled CLI test runs from outside the checkout and initializes a fresh
 SQLite database twice, so it exercises packaging and idempotent initialization.
-
-Deploy scripts build and `rsync` the executable to `/opt/tearleads/bin` on the
-selected server (both are on `PATH` after sourcing `scripts/session.sh`):
-
-```bash
-deployStagingApiCli.sh
-deployProductionApiCli.sh
-```
-
-Deploying the API server already runs the matching CLI deploy first, so the
-migrations that run after it are the ones built from the same commit — deploy the
-CLI on its own only when you want a CLI-only update.
+Nothing deploys the executable; the Workers deployment runs the CLI from source.

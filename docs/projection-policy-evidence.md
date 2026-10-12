@@ -192,10 +192,10 @@ sending bytes. Authentication creates a request-local capability to opt out of
 that timer; the shared principal-policy workflows invoke it when they begin
 loading or verifying history. This covers indirect authorization reads as well
 as policy commits, without depending on a route allowlist. Requests that never
-reach policy verification keep the default deadline. The loopback-only listener
-sits behind nginx's request-body limits; its existing 24-hour proxy response
-timeout is not a short work budget. Both deployment stacks also route the API
-through a proxied Cloudflare Tunnel. Cloudflare's
+reach policy verification keep the default deadline. The Bun listener is loopback-only
+in development; the deployed Worker enforces the request-body ceiling itself
+and imposes no idle response timeout. Both deployment tiers serve the API
+through Cloudflare. Cloudflare's
 [documented default proxy read timeout](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-524/)
 is 125 seconds; opting out of Bun's idle timer does not remove that external
 deadline. Live Cloudflare plan overrides are not established by this repository.

@@ -103,72 +103,26 @@ _source_optional_env_file() {
   _source_env_file "$env_file"
 }
 
-validate_tier_ssh_target_override() {
-  local tier="$1"
-  local tier_variable
-  local tier_target
-
-  case "$tier" in
-    staging)
-      tier_variable="STAGING_SSH_TARGET"
-      tier_target="${STAGING_SSH_TARGET:-}"
-      ;;
-    prod)
-      tier_variable="PRODUCTION_SSH_TARGET"
-      tier_target="${PRODUCTION_SSH_TARGET:-}"
-      ;;
-    *)
-      echo "ERROR: Unknown deployment tier: $tier" >&2
-      return 1
-      ;;
-  esac
-
-  if [[ -z "${SSH_TARGET:-}" ]]; then
-    return 0
-  fi
-
-  if [[ -z "$tier_target" ]]; then
-    echo "ERROR: SSH_TARGET is unsupported for tiered deployments." >&2
-    echo "Use $tier_variable for the $tier deployment." >&2
-    return 1
-  fi
-
-  if [[ "$SSH_TARGET" != "$tier_target" ]]; then
-    echo "ERROR: SSH_TARGET conflicts with $tier_variable." >&2
-    echo "Unset SSH_TARGET and use only $tier_variable for the $tier deployment." >&2
-    return 1
-  fi
-}
-
+# Layer the tier's secrets over the shared root file. The optional
+# `<tier>.worker.env` holds values generated for the Workers deployment, such
+# as the document sync cursor HMAC key, which must persist across deploys.
 load_secrets_env() {
   local tier="${1:-}"
   local secrets_dir
-  local ssh_target_override=""
-  case "$tier" in
-    staging) ssh_target_override="${STAGING_SSH_TARGET:-}" ;;
-    prod) ssh_target_override="${PRODUCTION_SSH_TARGET:-}" ;;
-  esac
   secrets_dir="$(get_repo_root)/.secrets"
-
-  if [[ -n "$tier" ]]; then
-    validate_tier_ssh_target_override "$tier" || return 1
-    unset SSH_TARGET
-  fi
 
   _source_env_file "$secrets_dir/root.env" || return 1
 
   if [[ -n "$tier" ]]; then
-    if [[ -n "${SSH_TARGET:-}" ]]; then
-      unset SSH_TARGET
-      echo "ERROR: $secrets_dir/root.env must not define SSH_TARGET." >&2
-      echo "Set the target in $secrets_dir/${tier}.env or use the tier-specific override." >&2
-      return 1
-    fi
+    case "$tier" in
+      staging | prod) ;;
+      *)
+        echo "ERROR: Unknown deployment tier: $tier" >&2
+        return 1
+        ;;
+    esac
     _source_env_file "$secrets_dir/${tier}.env" || return 1
     _source_optional_env_file "$secrets_dir/${tier}.healthchecks.env" || return 1
-  fi
-
-  if [[ -n "$ssh_target_override" ]]; then
-    export SSH_TARGET="$ssh_target_override"
+    _source_optional_env_file "$secrets_dir/${tier}.worker.env" || return 1
   fi
 }

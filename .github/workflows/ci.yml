@@ -75,7 +75,7 @@ jobs:
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: 2026.10.3
-          install_args: java shellcheck github:oasdiff/oasdiff github:tlaplus/tlaplus pipx:ansible-core
+          install_args: java shellcheck github:oasdiff/oasdiff github:tlaplus/tlaplus
           cache: true
 
       - name: Set up Bun
@@ -277,13 +277,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Ansible for deployment checks
-        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
-        with:
-          version: 2026.10.3
-          install_args: pipx:ansible-core
-          cache: true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1

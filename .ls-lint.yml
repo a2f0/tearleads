@@ -105,6 +105,9 @@ ignore:
   - packages/*/node_modules
   - dist
   - packages/*/dist
+  # Wrangler Static Assets staging copies of the app and demo bundles.
+  - packages/app-web/dist-app
+  - packages/app-web/dist-demo
   - build
   - packages/*/build
   - .turbo

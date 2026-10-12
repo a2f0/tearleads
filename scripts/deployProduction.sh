@@ -1,52 +1,45 @@
 #!/usr/bin/env bash
-# Full production deployment for Tearleads
+# Full prod deployment for Tearleads
 #
 # Runs in order:
 #   1. Prepare the environment's independent S3 storage
-#   2. terraform apply (production server stack)
-#   3. ansible playbook (server configuration)
-#   4. API deploy (embedded source maps, migrations, service restart)
-#   5. Website deploy (build, Wrangler, independent domain Terraform)
-#   6. App-web deploy (build, upload Sentry maps, sync, nginx reload)
+#   2. Terraform apply (independent PlanetScale Postgres stack)
+#   3. API deploy (migrations, Worker secrets, Worker publish)
+#   4. App-web deploy (build, upload Sentry maps, Workers Static Assets)
+#   5. Terraform apply (edge stack: API, app, and demo hostnames)
+#   6. API verification over the public hostname
+#   7. Website deploy (build, Wrangler, independent domain Terraform)
 #
-# Pass --skip-terraform when a caller already prepared storage and applied the
-# server stack, or --skip-infra to deploy only the application artifacts.
+# The edge stack attaches hostnames to Workers that must already exist, so the
+# API and app Workers publish before it runs.
+#
+# Pass --skip-terraform when a caller already prepared storage, the database,
+# the edge hostnames, and the website domains; --skip-infra is its alias now
+# that no server exists.
 
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 
-SKIP_INFRA=false
 SKIP_TERRAFORM=false
 
 usage() {
-  cat <<EOF
+  cat <<USAGE
 Usage: $(basename "$0") [--skip-terraform] [--skip-infra]
 
 Options:
-  --skip-terraform  Skip server/storage Terraform; website domains still reconcile.
-  --skip-infra  Skip all Terraform and Ansible; publish application artifacts only.
-  -h, --help    Show this help and exit.
-
-Environment:
-  PRODUCTION_SSH_TARGET  Optional explicit production SSH target.
+  --skip-terraform  Skip every Terraform apply (storage, database, edge, and website domains); Workers and assets still deploy.
+  --skip-infra      Alias of --skip-terraform.
+  -h, --help        Show this help and exit.
 
 Configured Sentry source maps are handled by the API and app-web deploy steps.
-Web map upload failures stop publication; API maps stay in the executable.
-
-SSH_TARGET is unsupported; use PRODUCTION_SSH_TARGET so the deployment tier is
-explicit.
-EOF
+Web map upload failures stop publication; API maps upload with the Worker.
+USAGE
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --skip-terraform)
-      SKIP_TERRAFORM=true
-      shift
-      ;;
-    --skip-infra)
-      SKIP_INFRA=true
+    --skip-terraform | --skip-infra)
       SKIP_TERRAFORM=true
       shift
       ;;
@@ -62,12 +55,6 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Reject an ambiguous generic target before Terraform changes infrastructure.
-# shellcheck source=../terraform/scripts/common.sh
-# shellcheck disable=SC1091
-. "$REPO_ROOT/terraform/scripts/common.sh"
-validate_tier_ssh_target_override prod
-
 # shellcheck source=scripts/lib/stepTimings.sh
 # shellcheck disable=SC1091
 . "$REPO_ROOT/scripts/lib/stepTimings.sh"
@@ -77,45 +64,26 @@ echo "=== Tearleads Production Deployment ==="
 echo ""
 
 if [[ "$SKIP_TERRAFORM" == true ]]; then
-  if [[ "$SKIP_INFRA" == true ]]; then
-    step_timings_skip "terraform" --skip-infra
-  else
-    step_timings_skip "terraform" --skip-terraform
-  fi
+  step_timings_skip "storage" --skip-terraform
+  step_timings_skip "postgres" --skip-terraform
 else
   step_timings_run "storage" "${REPO_ROOT}/terraform/scripts/prepare-storage.sh" prod
-  step_timings_run "terraform" \
-    "${REPO_ROOT}/terraform/stacks/prod/server/scripts/apply.sh" \
-    --auto-approve
+  step_timings_run "postgres" "${REPO_ROOT}/terraform/scripts/prepare-postgres.sh" prod
 fi
 
-# Resolve SSH_TARGET once so sub-scripts reuse it.
-load_secrets_env prod
-validate_aws_env
-validate_stripe_env prod
-if [ -z "${SSH_TARGET:-}" ]; then
-  STACK_DIR="$REPO_ROOT/terraform/stacks/prod/server"
-  BACKEND_CONFIG="$(get_backend_config)"
-  terraform -chdir="$STACK_DIR" init -backend-config="$BACKEND_CONFIG" >&2
-  SSH_TARGET="$(resolve_stack_ssh_target "$STACK_DIR")"
-fi
-export SSH_TARGET
-PRODUCTION_SSH_TARGET="$SSH_TARGET"
-export PRODUCTION_SSH_TARGET
-
-if [[ "$SKIP_INFRA" == true ]]; then
-  step_timings_skip "ansible" --skip-infra
+step_timings_run "api" "${REPO_ROOT}/packages/api/scripts/deployApi.sh" prod
+step_timings_run "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployProductionAppWeb.sh"
+if [[ "$SKIP_TERRAFORM" == true ]]; then
+  step_timings_skip "edge" --skip-terraform
 else
-  step_timings_run "ansible" "${REPO_ROOT}/ansible/scripts/run-server-prod.sh"
+  step_timings_run "edge" "${REPO_ROOT}/terraform/scripts/run-edge-stack.sh" prod apply -auto-approve
 fi
-
-step_timings_run "api" "${REPO_ROOT}/packages/api/scripts/deployProductionApi.sh"
-if [[ "$SKIP_INFRA" == true ]]; then
+step_timings_run "api-verify" "${REPO_ROOT}/packages/api/scripts/verifyApi.sh" prod
+if [[ "$SKIP_TERRAFORM" == true ]]; then
   step_timings_run "website" "${REPO_ROOT}/scripts/deployProductionWebsite.sh" --skip-terraform
 else
   step_timings_run "website" "${REPO_ROOT}/scripts/deployProductionWebsite.sh"
 fi
-step_timings_run "app-web" "${REPO_ROOT}/packages/app-web/scripts/deployProductionAppWeb.sh"
 
 echo "=== Deployment finished ==="
 echo "All steps succeeded."

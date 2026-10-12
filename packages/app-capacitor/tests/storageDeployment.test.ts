@@ -7,6 +7,7 @@ async function runStorageScript(
   scriptPath: string,
   args: string[],
   failure = "",
+  input = "",
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-storage-deploy-"));
   async function executable(path: string, source: string) {
@@ -45,12 +46,28 @@ async function runStorageScript(
       '#!/bin/sh\nprintf "terraform %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
     );
     await executable(
-      resolve(root, "terraform/stacks/staging/server/scripts/destroy.sh"),
+      resolve(root, "terraform/scripts/run-edge-stack.sh"),
       [
         "#!/bin/sh",
-        'printf "server %s\\n" "$*" >> "$STORAGE_TEST_LOG"',
-        '[ "$STORAGE_TEST_FAILURE" != server ] || exit 9',
+        'printf "edge %s\\n" "$*" >> "$STORAGE_TEST_LOG"',
+        '[ "$STORAGE_TEST_FAILURE" != edge ] || exit 9',
       ].join("\n"),
+    );
+    await executable(
+      resolve(root, "terraform/scripts/drop-postgres-owned.sh"),
+      '#!/bin/sh\nprintf "drop-owned %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
+    );
+    await executable(
+      resolve(root, "terraform/scripts/run-postgres-stack.sh"),
+      '#!/bin/sh\nprintf "postgres %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
+    );
+    await executable(
+      resolve(root, "packages/api/scripts/destroyStagingApi.sh"),
+      '#!/bin/sh\nprintf "api %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
+    );
+    await executable(
+      resolve(root, "packages/app-web/scripts/destroyStagingAppWeb.sh"),
+      '#!/bin/sh\nprintf "app-web %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
     );
     await executable(
       resolve(root, "packages/website/scripts/destroyStagingWebsite.sh"),
@@ -64,6 +81,7 @@ async function runStorageScript(
         STORAGE_TEST_LOG: log,
         STORAGE_TEST_FAILURE: failure,
       },
+      stdin: input === "" ? "ignore" : new TextEncoder().encode(input),
       stdout: "ignore",
       stderr: "pipe",
     });
@@ -119,37 +137,67 @@ for (const args of [[], ["unknown"]]) {
   });
 }
 
-test("staging teardown removes its server before emptying storage", async () => {
+test("staging teardown detaches hostnames and deletes Workers before emptying storage", async () => {
   const result = await runStorageScript("scripts/destroyStaging.sh", [
     "--auto-approve",
   ]);
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual([
-    "server --auto-approve",
+    "edge staging destroy --auto-approve",
+    "api ",
+    "app-web ",
+    "drop-owned staging",
+    "postgres staging destroy --auto-approve",
     "storage staging destroy --auto-approve",
     "website --auto-approve",
   ]);
 });
 
-test("failed server teardown retains staging storage", async () => {
+test("failed edge teardown retains the staging Workers and storage", async () => {
   const result = await runStorageScript(
     "scripts/destroyStaging.sh",
     ["--auto-approve"],
-    "server",
+    "edge",
   );
   expect(result.exitCode).toBe(9);
-  expect(result.calls).toEqual(["server --auto-approve"]);
+  expect(result.calls).toEqual(["edge staging destroy --auto-approve"]);
 });
 
-test("staging teardown without arguments preserves interactive confirmation", async () => {
-  const result = await runStorageScript("scripts/destroyStaging.sh", []);
+test("staging teardown asks once, up front, and then runs every stack unattended", async () => {
+  const result = await runStorageScript(
+    "scripts/destroyStaging.sh",
+    [],
+    "",
+    "staging\n",
+  );
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual([
-    "server ",
-    "storage staging destroy",
-    "website",
+    "edge staging destroy --auto-approve",
+    "api ",
+    "app-web ",
+    "drop-owned staging",
+    "postgres staging destroy --auto-approve",
+    "storage staging destroy --auto-approve",
+    "website --auto-approve",
   ]);
 });
+
+for (const [label, input] of [
+  ["a declined confirmation", "no\n"],
+  ["no input", ""],
+]) {
+  test(`staging teardown with ${label} changes nothing`, async () => {
+    const result = await runStorageScript(
+      "scripts/destroyStaging.sh",
+      [],
+      "",
+      input,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("Teardown cancelled");
+    expect(result.calls).toEqual([]);
+  });
+}
 
 for (const args of [[], ["prod"], ["prod", "destroy"], ["unknown", "apply"]]) {
   test(`storage wrapper rejects ${args.join(" ")} before loading credentials`, async () => {

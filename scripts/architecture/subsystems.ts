@@ -160,11 +160,12 @@ export const subsystems: readonly Subsystem[] = [
     name: "Realtime Sync",
     package: "api",
     responsibility:
-      "Process-local fan-out of Redis pub/sub events to interested sockets: the WS lifecycle, interest index, Redis interest mirror, and upgrade tickets.",
-    seam: "createRealtimeGateway, assembled and started by index.ts",
+      "Process-local fan-out of published realtime events to interested sockets: the WS lifecycle, interest index, persisted interest mirror, and upgrade tickets.",
+    seam: "createRealtimeGateway, assembled and started by index.ts and the realtime hub Durable Object",
     paths: [
       `${api}/realtime/publishedRealtimeEvents.ts`,
       `${api}/realtime/realtimeGateway.ts`,
+      `${api}/realtime/organizationInterestAuthorization.ts`,
       `${api}/realtime/containerInterestAccess.ts`,
       `${api}/realtime/containerInterestAuthorization.ts`,
       `${api}/realtime/containerInterestDependencies.ts`,
@@ -202,7 +203,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Service Runtime & Composition Root",
     package: "api",
     responsibility:
-      "The HTTP composition root: Hono app assembly, the ApiServiceRuntime dependency object, the test override seam, and the server entry point.",
+      "The HTTP composition root: Hono app assembly, the ApiServiceRuntime dependency object, the test override seam, and the Bun development server entry point.",
     seam: "routeApp.ts / routeAppDeps.ts; ApiServiceRuntime from services/runtime.ts",
     paths: [
       `${api}/routeApp.ts`,
@@ -220,6 +221,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/validators/jsonRequest.ts`,
       `${api}/validators/pathParams.ts`,
       `${api}/validators/queryParams.ts`,
+      `${api}/validators/requestBodyTooLarge.ts`,
       `${api}/validators/schema.ts`,
     ],
   },
@@ -227,7 +229,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Infrastructure Adapters",
     package: "api",
     responsibility:
-      "Effectful infrastructure boundaries other than blob storage: Redis key/value and pub/sub, plus the in-memory Redis used for tests and dev.",
+      "Effectful infrastructure boundaries other than blob storage: the key/value and pub/sub surface backed by Redis, the Workers Durable Objects, or the in-memory fake used for tests and dev.",
     seam: "adapters/redis.ts, adapters/redisPubSub.ts (closed over by factories)",
     paths: [
       `${api}/adapters/redis.ts`,
@@ -235,6 +237,14 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/adapters/redisPubSub.ts`,
       `${api}/adapters/inMemoryRedis.ts`,
     ],
+  },
+  {
+    name: "Workers Runtime",
+    package: "api",
+    responsibility:
+      "The Cloudflare Workers composition root: the fetch and scheduled entry, environment binding into process.env, the SQLite Durable Object that replaces Redis, the realtime hub Durable Object that hosts the gateway, scheduled maintenance, and the Loro WebAssembly alias.",
+    seam: "worker/index.ts (Wrangler main); adapters reach it through worker/environment.ts",
+    paths: [`${api}/worker/`],
   },
   {
     name: "Shared Utilities",

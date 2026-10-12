@@ -1,8 +1,8 @@
 # Production PlanetScale Postgres
 
 This stack owns `tearleads/tearleads-prod`, branch `main`, and its API roles.
-Its independent S3 state key is `prod/postgres/terraform.tfstate`. Server
-rebuilds preserve the database; production Ansible reads its connection output.
+Its independent S3 state key is `prod/postgres/terraform.tfstate`. Worker
+redeploys preserve the database; the API deploy reads its connection output.
 
 ## Provisioning
 
@@ -37,9 +37,9 @@ credentials from `.secrets/root.env` and provider settings from
 
 ```sh
 umask 077
-bash terraform/scripts/run-postgres-stack.sh plan -out="$PWD/.secrets/planetscale-prod.tfplan"
-bash terraform/scripts/run-postgres-stack.sh apply "$PWD/.secrets/planetscale-prod.tfplan"
-bash terraform/scripts/run-postgres-stack.sh output -json database
+bash terraform/scripts/run-postgres-stack.sh prod plan -out="$PWD/.secrets/planetscale-prod.tfplan"
+bash terraform/scripts/run-postgres-stack.sh prod apply "$PWD/.secrets/planetscale-prod.tfplan"
+bash terraform/scripts/run-postgres-stack.sh prod output -json database
 ```
 
 A fresh apply creates the database, configures protection, waits for readiness,
@@ -52,32 +52,25 @@ storage. The wrapper disables interactive variable prompts.
 This stack owns the database and its non-expiring `tearleads-runtime` and
 `tearleads-migrations` logins. The database, protection setting, and roles use
 `prevent_destroy`; the main branch also has PlanetScale deletion protection.
-Keep this stack and its S3 state when rebuilding the server. Deletion protection
+Keep this stack and its S3 state when redeploying the Workers. Deletion protection
 is a guard against accidents, not a substitute for retaining state and backups.
 
-`ansible/scripts/run-server-prod.sh` reads the sensitive `api_connection`
-Terraform output into a mode-0600 temporary file, passes it to Ansible, and
-removes it on exit. Reading the output needs backend access; it does not apply
-this stack or need a PlanetScale API call. Credentials stay out of the server
-Terraform state and cloud-init. The server never receives the PlanetScale
-service token or AWS state credentials.
+`packages/api/scripts/deployApi.sh prod` reads the sensitive `api_connection`
+Terraform output into a mode-0600 temporary directory and removes it on exit.
+Reading the output needs backend access; it does not apply this stack or need
+a PlanetScale API call. The deploy runs the migrations itself through the
+API CLI with the migration login, then uploads the runtime login as Worker
+secrets (`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`,
+`POSTGRES_PASSWORD`, `POSTGRES_DATABASE`). The Worker never receives the
+migration login, the PlanetScale service token, or AWS state credentials.
 
-Ansible writes the application connection to `/etc/tearleads/api.env` with mode
-0640 and configures the API and maintenance services to use the external
-database. Production skips local PostgreSQL installation and requires TLS with
-certificate verification. Staging keeps its local PostgreSQL setup.
-
-The runtime login inherits `pg_read_all_data` and `pg_write_all_data`. API and
-maintenance traffic uses the included PgBouncer on port 6432. The migration
-login inherits `postgres` and connects directly on port 5432; Ansible stores
-its connection separately in root-owned `/etc/tearleads/migrations.env`, mode
-0600. Deploy scripts run `sudo tearleads-api-cli migrate` through the operator
-wrapper, which selects that file only for migrations. The runtime environment
-contains no migration credentials. The deploy account retains its existing
-administrative sudo access; these file permissions do not isolate credentials
-from an administrator or a compromised deploy account. API and maintenance
-services run with `ProtectSystem=strict` and no writable application directory,
-so they cannot replace executables later invoked by the deployment operator.
+The runtime login inherits `pg_read_all_data` and `pg_write_all_data` and
+connects through the included PgBouncer on port 6432 with TLS and certificate
+verification (`POSTGRES_SSL=true`, `POSTGRES_SSL_REJECT_UNAUTHORIZED=true` in
+`packages/api/wrangler.jsonc`). The migration login inherits `postgres` and
+connects directly on port 5432 for the duration of the deploy only. Staging
+has its own copy of this stack under `terraform/stacks/staging/postgres`
+without `prevent_destroy`; `scripts/destroyStaging.sh` empties and destroys it.
 Staging writes its
 existing local login to both files. See [PlanetScale roles] and
 [connection options].
@@ -86,10 +79,11 @@ existing local login to both files. See [PlanetScale roles] and
 
 1. Apply this database stack.
 2. Apply the independent [S3 storage stack](../../../modules/s3-blob-storage/README.md).
-3. Run `scripts/deployProduction.sh` to provision the server, configure Ansible,
-   initialize the current API schema, and deploy the applications.
+3. Run `scripts/deployProduction.sh` to migrate the database, deploy the API
+   Worker with the runtime login as its secrets, publish the app and demo
+   Workers, and attach the hostnames.
 
-Staging uses its local PostgreSQL server and independent S3 storage stack.
+Staging has its own copies of this stack and the S3 storage stack.
 Neither environment has a data conversion or backfill step. The API baseline
 initializes a fresh database; schema resets replace the database and client
 caches together.

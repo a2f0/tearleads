@@ -190,6 +190,25 @@ test("serialized response byte trimming preserves the next unserved sequence", a
   ).toEqual(entries.slice(0, 1));
 });
 
+test("a large history is served in pages that fit the default byte budget", async () => {
+  // Each update carries just under 8 MiB; the 32 MiB default budget admits
+  // four of them and stops before the fifth without materializing beyond it.
+  const payload = "x".repeat(8 * 1024 * 1024 - 1024);
+  const materialized: number[] = [];
+  const entries = await materializeSyncResponseEntriesToBytes(
+    [1, 2, 3, 4, 5, 6],
+    async (sequence) => {
+      materialized.push(sequence);
+      return {
+        sequence,
+        update: { encryptedData: payload, id: `update-${sequence}` },
+      };
+    },
+  );
+  expect(entries.map((entry) => entry.sequence)).toEqual([1, 2, 3, 4]);
+  expect(materialized).toEqual([1, 2, 3, 4, 5]);
+});
+
 test("metadata entries materialize only through the first byte overflow", async () => {
   const loaded: number[] = [];
   const first = { sequence: 1, update: { id: "first" } };

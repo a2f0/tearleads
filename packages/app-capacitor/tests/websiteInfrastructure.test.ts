@@ -32,17 +32,56 @@ test("website domains and Workers agree across the two independent stacks", asyn
     );
     expect(versions).toContain(`key = "${tier}/website/terraform.tfstate"`);
     expect(main).not.toContain("terraform_remote_state");
-    expect(main).not.toContain("server");
-    const server = await read(`terraform/stacks/${tier}/server/main.tf`);
-    expect(server).not.toContain("website");
-    expect(server).toContain("local.api_hostname");
-    expect(server).toContain("local.app_hostname");
+    expect(main).not.toContain("edge");
   }
 });
 
-test("Ansible configures application and demo hosting", async () => {
-  const tasks = await read("ansible/playbooks/tasks/staticSites.yml");
-  expect(tasks).toContain("path: /var/www/app-web");
-  expect(tasks).toContain("path: /var/www/app-demo");
-  expect(tasks).toContain("src: etc/nginx/sites-available/app.conf.j2");
+test("edge domains attach the API, app, and demo hostnames to their Workers", async () => {
+  const api = Bun.JSON5.parse(await read("packages/api/wrangler.jsonc"));
+  expect(api).toHaveProperty("main", "./src/worker/index.ts");
+  expect(api).toHaveProperty("workers_dev", false);
+  expect(api).toHaveProperty("placement", { region: "aws:us-east-1" });
+  expect(api).toHaveProperty("triggers.crons", ["* * * * *", "0 * * * *"]);
+  expect(api).not.toHaveProperty("routes");
+  for (const tier of ["prod", "staging"]) {
+    const main = await read(`terraform/stacks/${tier}/edge/main.tf`);
+    const versions = await read(`terraform/stacks/${tier}/edge/versions.tf`);
+    const variables = await read(`terraform/stacks/${tier}/edge/variables.tf`);
+    expect(api).toHaveProperty(
+      `env.${tier}.name`,
+      `tearleads-platform-api-${tier}`,
+    );
+    expect(api).toHaveProperty(`env.${tier}.durable_objects.bindings`, [
+      { name: "KEY_VALUE_STORE", class_name: "KeyValueStore" },
+      { name: "REALTIME_HUB", class_name: "RealtimeHub" },
+    ]);
+    // The origins follow TF_VAR_domain at deploy time, not a name here.
+    expect(api).not.toHaveProperty(`env.${tier}.vars.API_PUBLIC_ORIGIN`);
+    expect(api).not.toHaveProperty(`env.${tier}.vars.API_CORS_ORIGINS`);
+    expect(variables).toContain(`default     = "${tier}"`);
+    expect(versions).toContain(`key = "${tier}/edge/terraform.tfstate"`);
+    expect(main).toContain(
+      `worker_name           = "tearleads-platform-api-\${var.deployment_tier}"`,
+    );
+    expect(main).not.toContain("tearleads-website");
+    for (const variant of ["app", "demo"]) {
+      const assets = Bun.JSON5.parse(
+        await read(`packages/app-web/wrangler.${variant}.jsonc`),
+      );
+      expect(assets).toHaveProperty("workers_dev", false);
+      expect(assets).toHaveProperty("assets", {
+        directory: `./dist-${variant}`,
+        html_handling: "auto-trailing-slash",
+        not_found_handling: "single-page-application",
+      });
+      expect(assets).not.toHaveProperty("main");
+      expect(assets).toHaveProperty(
+        `env.${tier}.name`,
+        `tearleads-${variant}-${tier}`,
+      );
+      expect(main).toContain(
+        `worker_name           = "tearleads-${variant}-\${var.deployment_tier}"`,
+      );
+    }
+  }
 });

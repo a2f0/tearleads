@@ -74,7 +74,7 @@ Always run a complete preview before infrastructure apply or deployment; skip
 upgrades that destroy, replace, recreate, or cannot establish safety. The current
 state must own the live resources, and previews must use authenticated target
 accounts. If ownership or credentials are unavailable, hold the affected
-Terraform, Wrangler, and Ansible upgrades and record the reason in the PR.
+Terraform and Wrangler upgrades and record the reason in the PR.
 Bundle builds and mocked Terraform tests validate code only.
 
 Terraform provider updates require reviewed plans and lockfiles for Linux amd64

@@ -20,22 +20,6 @@ COMMON_SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd 
 . "$COMMON_SCRIPT_DIR/stripeEnv.sh"
 unset COMMON_SCRIPT_DIR
 
-# Validate required environment variables for Hetzner stacks (base)
-validate_hetzner_env() {
-  setup_ssh_host_keys
-  local missing=()
-
-  [[ -z "${TF_VAR_hcloud_token:-}" ]] && missing+=("TF_VAR_hcloud_token")
-  [[ -z "${TF_VAR_ssh_key_name:-}" ]] && missing+=("TF_VAR_ssh_key_name")
-  [[ -z "${TF_VAR_server_username:-}" ]] && missing+=("TF_VAR_server_username")
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "ERROR: Missing required environment variables:" >&2
-    printf '  - %s\n' "${missing[@]}" >&2
-    return 1
-  fi
-}
-
 # Validate domain
 validate_domain_env() {
   local missing=()
@@ -65,7 +49,6 @@ validate_azure_env() {
   fi
 }
 
-# Validate AWS credentials for S3 backend
 validate_aws_env() {
   if [[ -n "${AWS_PROFILE:-}" || -n "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" || -n "${AWS_CONTAINER_CREDENTIALS_RELATIVE_URI:-}" ]]; then
     return 0
@@ -73,8 +56,17 @@ validate_aws_env() {
 
   local missing=()
 
+  # A traced run would otherwise print the secret key in the test's expansion.
+  local xtrace_was_enabled=0
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
   [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && missing+=("AWS_ACCESS_KEY_ID")
   [[ -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && missing+=("AWS_SECRET_ACCESS_KEY")
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
+  fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables for S3 backend:" >&2
@@ -87,13 +79,46 @@ validate_aws_env() {
 validate_cloudflare_env() {
   local missing=()
 
+  # A traced run would otherwise print the token in the test's expansion.
+  local xtrace_was_enabled=0
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
   [[ -z "${TF_VAR_cloudflare_api_token:-}" ]] && missing+=("TF_VAR_cloudflare_api_token")
   [[ -z "${TF_VAR_cloudflare_account_id:-}" ]] && missing+=("TF_VAR_cloudflare_account_id")
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
+  fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2
     printf '  - %s\n' "${missing[@]}" >&2
     return 1
+  fi
+}
+
+# Export the Cloudflare credentials Wrangler reads, from the Terraform ones.
+export_wrangler_env() {
+  local xtrace_was_enabled=0
+  # Neither the validation's expansions nor the token assignment may appear
+  # in a traced run.
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
+  if ! validate_cloudflare_env; then
+    if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+      set -x
+    fi
+    return 1
+  fi
+  export CLOUDFLARE_API_TOKEN="${TF_VAR_cloudflare_api_token:?}"
+  export CLOUDFLARE_ACCOUNT_ID="${TF_VAR_cloudflare_account_id:?}"
+  export WRANGLER_SEND_METRICS=false
+  export CI=true
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
   fi
 }
 
@@ -109,35 +134,6 @@ validate_cloudflare_env() {
 # shellcheck source=./cloudflareCache.sh
 # shellcheck disable=SC1091
 . "$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/cloudflareCache.sh"
-
-# Validate required environment variables for Tailscale stacks
-validate_tailscale_env() {
-  local missing=()
-
-  [[ -z "${TF_VAR_tailscale_tailnet_id:-}" ]] && missing+=("TF_VAR_tailscale_tailnet_id")
-  [[ -z "${TF_VAR_tailscale_api_token:-}" ]] && missing+=("TF_VAR_tailscale_api_token")
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "ERROR: Missing required environment variables:" >&2
-    printf '  - %s\n' "${missing[@]}" >&2
-    return 1
-  fi
-
-  export TAILSCALE_API_TOKEN="${TAILSCALE_API_TOKEN:-$TF_VAR_tailscale_api_token}"
-}
-
-# Validate Tailscale auth key for server registration
-validate_tailscale_auth_key_env() {
-  local missing=()
-
-  [[ -z "${TF_VAR_tailscale_auth_key:-}" ]] && missing+=("TF_VAR_tailscale_auth_key")
-
-  if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "ERROR: Missing required environment variables:" >&2
-    printf '  - %s\n' "${missing[@]}" >&2
-    return 1
-  fi
-}
 
 # Load VAULT_TOKEN from .secrets/vault-keys.json at runtime.
 # Skips if VAULT_TOKEN is already set in the environment.
@@ -169,156 +165,27 @@ get_github_repo() {
   git -C "$(get_repo_root)" remote get-url origin | sed 's|.*github.com[:/]||;s|\.git$||'
 }
 
-# Setup SSH host keys for persistent identity
-setup_ssh_host_keys() {
-  local secrets_dir
-  secrets_dir="$(get_repo_root)/.secrets"
-  local key_file="$secrets_dir/persistent_ssh_host_ed25519_key"
-
-  mkdir -p "$secrets_dir"
-  if [[ ! -f "$key_file" ]]; then
-    ssh-keygen -t ed25519 -f "$key_file" -N "" -C "persistent_ssh_host_ed25519_key" > /dev/null
-  fi
-
-  TF_VAR_ssh_host_private_key="$(cat "$key_file")"
-  export TF_VAR_ssh_host_private_key
-  TF_VAR_ssh_host_public_key="$(cat "$key_file.pub")"
-  export TF_VAR_ssh_host_public_key
+# Public hostnames for a deployment tier, from the configured domain.
+tier_api_hostname() {
+  case "$1" in
+    staging) echo "api-staging.${TF_VAR_domain:?}" ;;
+    prod) echo "api.${TF_VAR_domain:?}" ;;
+    *) echo "ERROR: Unknown deployment tier: $1" >&2; return 1 ;;
+  esac
 }
 
-# Ensure known_hosts has the persistent ed25519 host key for a host.
-# This avoids stale host key conflicts after server recreation.
-sync_known_host_key() {
-  local host="$1"
-  local secrets_dir
-  local key_file
-  local key_material
-  local known_hosts_file
-
-  secrets_dir="$(get_repo_root)/.secrets"
-  key_file="$secrets_dir/persistent_ssh_host_ed25519_key.pub"
-  known_hosts_file="$HOME/.ssh/known_hosts"
-
-  if [[ ! -f "$key_file" ]]; then
-    return 0
-  fi
-
-  key_material="$(awk '{print $1 " " $2}' "$key_file")"
-  if [[ -z "$key_material" ]]; then
-    echo "ERROR: Could not parse SSH public key from $key_file" >&2
-    return 1
-  fi
-
-  mkdir -p "$HOME/.ssh"
-  chmod 700 "$HOME/.ssh"
-  touch "$known_hosts_file"
-  chmod 600 "$known_hosts_file"
-
-  ssh-keygen -R "$host" -f "$known_hosts_file" >/dev/null 2>&1 || true
-  if ! grep -Fq "$host $key_material" "$known_hosts_file"; then
-    echo "$host $key_material" >> "$known_hosts_file"
-  fi
+tier_app_hostname() {
+  case "$1" in
+    staging) echo "app-staging.${TF_VAR_domain:?}" ;;
+    prod) echo "app.${TF_VAR_domain:?}" ;;
+    *) echo "ERROR: Unknown deployment tier: $1" >&2; return 1 ;;
+  esac
 }
 
-# Wait until SSH is reachable on a host, with retries and surfaced failure output.
-wait_for_ssh_ready() {
-  local ssh_target="$1"
-  local ssh_retries="${2:-30}"
-  local ssh_retry_delay_seconds="${3:-10}"
-  local ssh_connect_timeout_seconds="${4:-10}"
-  local ssh_host="${ssh_target#*@}"
-
-  sync_known_host_key "$ssh_host"
-
-  local attempt=1
-  local ssh_output=""
-  while (( attempt <= ssh_retries )); do
-    ssh_output=""
-    if ssh_output="$(ssh -o BatchMode=yes -o ConnectTimeout="$ssh_connect_timeout_seconds" "$ssh_target" true 2>&1)"; then
-      return 0
-    fi
-
-    if (( attempt == ssh_retries )); then
-      break
-    fi
-
-    echo "SSH not ready yet (attempt $attempt/$ssh_retries). Retrying in ${ssh_retry_delay_seconds}s..."
-    if [[ -n "$ssh_output" ]]; then
-      echo "$ssh_output"
-    fi
-    sleep "$ssh_retry_delay_seconds"
-    ((attempt++))
-  done
-
-  echo "ERROR: Unable to connect to $ssh_target over SSH after $ssh_retries attempts."
-  return 1
-}
-
-# Read the Tailscale-only SSH target from Terraform state without contacting it.
-# Returns 2 when the stack has no server outputs yet.
-read_stack_ssh_target() {
-  local stack_dir="$1"
-  local username_status=0
-  local hostname_status=0
-  local state_list_status=0
-  local state_list_error
-  local state_resources
-  local username hostname
-
-  username="$(terraform -chdir="$stack_dir" output -raw server_username 2>/dev/null)" || username_status=$?
-  hostname="$(terraform -chdir="$stack_dir" output -raw ssh_hostname 2>/dev/null)" || hostname_status=$?
-
-  if [[ "$username_status" -ne 0 && "$hostname_status" -ne 0 ]]; then
-    state_list_error="$(mktemp "${TMPDIR:-/tmp}/tearleads-terraform-state.XXXXXX")" || return 1
-    state_resources="$(terraform -chdir="$stack_dir" state list 2>"$state_list_error")" || state_list_status=$?
-    if [[ "$state_list_status" -ne 0 ]]; then
-      if grep -q "No state file was found" "$state_list_error"; then
-        rm -f -- "$state_list_error"
-        return 2
-      fi
-      cat "$state_list_error" >&2
-      rm -f -- "$state_list_error"
-      return 1
-    fi
-    rm -f -- "$state_list_error"
-    if [[ -z "$state_resources" ]]; then
-      return 2
-    fi
-    echo "ERROR: Terraform state exists but server SSH outputs are unavailable." >&2
-    return 1
-  fi
-
-  if [[ "$username_status" -ne 0 || -z "$username" ]]; then
-    echo "ERROR: Could not resolve server username from terraform outputs." >&2
-    echo "       Run 'terraform apply' in $stack_dir first." >&2
-    return 1
-  fi
-
-  if [[ "$hostname_status" -ne 0 || -z "$hostname" ]]; then
-    echo "ERROR: Could not resolve the Tailscale ssh_hostname from terraform outputs." >&2
-    echo "       Run 'terraform apply' in $stack_dir first." >&2
-    return 1
-  fi
-
-  echo "$username@$hostname"
-}
-
-# Resolve the Tailscale-only SSH target from a Terraform stack.
-resolve_stack_ssh_target() {
-  local stack_dir="$1"
-  local read_status=0
-  local ssh_target
-
-  ssh_target="$(read_stack_ssh_target "$stack_dir")" || read_status=$?
-  if [[ "$read_status" -eq 2 ]]; then
-    echo "ERROR: Could not resolve server SSH details from terraform outputs." >&2
-    echo "       Run 'terraform apply' in $stack_dir first." >&2
-    return 1
-  fi
-  if [[ "$read_status" -ne 0 ]]; then
-    return "$read_status"
-  fi
-
-  wait_for_ssh_ready "$ssh_target" >&2 || return 1
-  echo "$ssh_target"
+tier_demo_hostname() {
+  case "$1" in
+    staging) echo "demo-staging.${TF_VAR_domain:?}" ;;
+    prod) echo "demo.${TF_VAR_domain:?}" ;;
+    *) echo "ERROR: Unknown deployment tier: $1" >&2; return 1 ;;
+  esac
 }

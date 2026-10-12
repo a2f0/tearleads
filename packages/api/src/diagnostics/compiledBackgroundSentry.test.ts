@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { copyFile, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { copyFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { diagnosticsBuild } from "../../scripts/diagnosticsBuild";
@@ -7,18 +7,39 @@ import { diagnosticsBuild } from "../../scripts/diagnosticsBuild";
 const root = resolve(import.meta.dirname, "../../../..");
 const scripts = join(root, "packages/api/scripts");
 
-test("every compiled API binary embeds the diagnostics build, or its reporter is dead code", async () => {
-  const builders = (await readdir(scripts)).filter((name) =>
-    /^build.+Executable\.ts$/u.test(name),
+test("the Worker deploy passes the diagnostics build to the bundle", async () => {
+  // The retired blob GC and Stripe seat sync binaries once shipped without
+  // these defines, which made `captureApiError` a permanent no-op; the Worker
+  // receives them through `wrangler deploy --define`, one per printed line.
+  const printer = Bun.spawn(
+    [process.execPath, join(scripts, "workerDefines.ts")],
+    {
+      cwd: root,
+      stdout: "pipe",
+      stderr: "pipe",
+    },
   );
-  // Blob GC and Stripe seat sync shipped without these defines, which made
-  // `captureApiError` a permanent no-op inside those binaries.
-  expect(builders).toContain("buildBlobGcExecutable.ts");
-  expect(builders).toContain("buildStripeSeatSyncExecutable.ts");
-  for (const builder of builders) {
-    const source = await readFile(join(scripts, builder), "utf8");
-    expect(source).toContain("...apiDiagnosticsBuildOptions(repoRoot),");
-  }
+  const output = await new Response(printer.stdout).text();
+  expect(await printer.exited).toBe(0);
+  const defines = new Map(
+    output
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const separator = line.indexOf(":");
+        return [line.slice(0, separator), line.slice(separator + 1)] as const;
+      }),
+  );
+  expect([...defines.keys()].sort()).toEqual([
+    "API_BUILD_VERSION",
+    "API_DIAGNOSTICS_BUILD",
+  ]);
+  const build = JSON.parse(defines.get("API_DIAGNOSTICS_BUILD") ?? "null");
+  expect(build).toEqual(diagnosticsBuild(root));
+  expect(build.sourcePaths).toContain("/packages/api/src/worker/index.ts");
+  expect(JSON.parse(defines.get("API_BUILD_VERSION") ?? "null")).toSatisfy(
+    (value: unknown) => value === null || typeof value === "number",
+  );
 });
 
 test("a compiled binary reports a swallowed background failure as a handled, sanitized event", async () => {
