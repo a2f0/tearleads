@@ -8,10 +8,10 @@ for (const [tier, channel, bucket, api] of [
   [
     "staging",
     "canary",
-    "downloads-staging.tearleads.com",
+    "tearleads-downloads-staging",
     "api-staging.tearleads.com",
   ],
-  ["production", "stable", "downloads.tearleads.com", "api.tearleads.com"],
+  ["production", "stable", "tearleads-downloads-prod", "api.tearleads.com"],
 ] as const) {
   test(`${tier} publishes verified payloads before its channel metadata`, async () => {
     const result = await runMacosRelease(["upload", tier]);
@@ -26,7 +26,13 @@ for (const [tier, channel, bucket, api] of [
     ]);
     const uploads = result.calls.slice(6);
     expect(uploads).toHaveLength(5);
-    for (const upload of uploads) expect(upload).toContain(`s3://${bucket}/`);
+    for (const upload of uploads) {
+      expect(upload).toContain(`s3://${bucket}/`);
+      expect(upload).toContain("--region auto");
+      expect(upload).toContain(
+        "--endpoint-url https://11111111111111111111111111111111.r2.cloudflarestorage.com",
+      );
+    }
     expect(uploads[0]).toContain(".dmg ");
     expect(uploads[1]).toContain(".dmg.sha256 ");
     expect(uploads[1]).toContain("--content-type text/plain");
@@ -46,12 +52,12 @@ for (const [tier, channel, bucket, api] of [
       `  ${discovery.installer}\n`,
     );
     expect(result.stdout).toContain(
-      `Download: https://s3.us-east-1.amazonaws.com/${bucket}/`,
+      `Download: https://${tier === "production" ? "downloads" : "downloads-staging"}.tearleads.com/`,
     );
   });
 }
 
-test("build mode verifies artifacts without AWS credentials or publication", async () => {
+test("build mode verifies artifacts without storage credentials or publication", async () => {
   const result = await runMacosRelease(["build", "production"]);
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toContain("stapler");

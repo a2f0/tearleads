@@ -107,6 +107,9 @@ describe("prepareBlobEncryption", () => {
       chunkSize,
       chunkSize + 1,
       chunkSize * 2,
+      chunkSize * 2 + 1,
+      chunkSize * 3,
+      chunkSize * 3 + 1,
     ]) {
       const bytes = Uint8Array.from(
         { length: plaintextByteLength },
@@ -123,7 +126,11 @@ describe("prepareBlobEncryption", () => {
         Math.ceil(plaintextByteLength / chunkSize),
       );
 
-      expect(plan.partCount).toBe(expectedPartCount);
+      expect(plan.partCount).toBeLessThanOrEqual(expectedPartCount);
+      for (let index = 0; index < plan.partCount - 1; index += 1) {
+        expect(plan.getPartByteLength(index)).toBe(plan.getPartByteLength(0));
+        expect(plan.getPartByteLength(index)).toBeGreaterThanOrEqual(chunkSize);
+      }
       expect(parsed.chunkCount).toBe(expectedPartCount);
       expect(parsed.byteLength).toBe(plaintextByteLength);
       expect(parsed.encryptedByteLength).toBe(plan.byteLength);

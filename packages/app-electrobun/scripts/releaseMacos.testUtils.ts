@@ -9,6 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { r2ReleaseStorageStub } from "./r2Release.testUtils";
 
 export const bunLaunchVariables = [
   "BUN_OPTIONS",
@@ -62,6 +63,7 @@ export async function runMacosRelease(
       "macosSigning.sh",
       "publishMacosRelease.ts",
       "publishDesktopRelease.ts",
+      "desktopReleaseStorage.ts",
     ]) {
       mkdirSync(join(packageDir, "scripts"), { recursive: true });
       cpSync(
@@ -82,6 +84,10 @@ export async function runMacosRelease(
       ].join("\n"),
     );
     await write("key.p8", "test-only-key");
+    await write(
+      "terraform/scripts/run-downloads-stack.sh",
+      r2ReleaseStorageStub,
+    );
     await write(
       "terraform/scripts/common.sh",
       [

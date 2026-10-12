@@ -59,14 +59,14 @@ if [[ "$ACTION" == upload ]]; then validate_aws_env; fi
 export ELECTROBUN_RELEASE_TIER="$TIER"
 if [[ "$TIER" == staging ]]; then
   CHANNEL=canary
-  BUCKET=downloads-staging.tearleads.com
+  BUCKET=tearleads-downloads-staging
   APP_NAME=TLStaging-canary
   INSTALLER=canary-macos-arm64-TLStaging-canary.dmg
   export BUN_PUBLIC_API_BASE_URL=https://api-staging.tearleads.com
   export BUN_PUBLIC_WS_URL=wss://api-staging.tearleads.com/events
 else
   CHANNEL=stable
-  BUCKET=downloads.tearleads.com
+  BUCKET=tearleads-downloads-prod
   APP_NAME=Tearleads
   INSTALLER=macos-arm64-Tearleads.dmg
   export BUN_PUBLIC_API_BASE_URL=https://api.tearleads.com

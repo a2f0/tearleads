@@ -44,6 +44,7 @@ async function deployFixture(
       "load_secrets_env() {",
       '  local traced=0; if [[ "$-" == *x* ]]; then traced=1; set +x; fi',
       "  TF_VAR_domain=example.test",
+      `  TF_VAR_cloudflare_account_id=${"b".repeat(32)}`,
       '  DOCUMENT_SYNC_CURSOR_HMAC_KEY="fixture-cursor-key-with-at-least-32-bytes"',
       `  BLOB_GC_HEALTHCHECK_URL=${options.healthcheckUrl ?? "https://hc.example.test/ping/fixture"}`,
       "  SENTRY_API_STAGING_DSN=https://staging-dsn.example.test/1",
@@ -77,7 +78,7 @@ async function deployFixture(
     resolve(root, "terraform/scripts/run-storage-stack.sh"),
     [
       "#!/bin/sh",
-      'printf \'{"blob_s3_access_key_id":"fixture-key","blob_s3_secret_access_key":"fixture-secret","blob_s3_key_prefix":""}\\n\'',
+      'printf \'{"blob_object_store":"s3","blob_s3_bucket":"tearleads-blobs-%s","blob_s3_region":"auto","blob_s3_endpoint":"https://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.r2.cloudflarestorage.com","blob_s3_force_path_style":true,"blob_s3_access_key_id":"fixture-key","blob_s3_secret_access_key":"fixture-secret","blob_s3_key_prefix":""}\\n\' "$1"',
     ].join("\n"),
   );
   await executable(
@@ -207,6 +208,13 @@ test("the Worker receives Hyperdrive, derived origins, and only managed secrets"
   const deploy = run.calls.find((call) => call.startsWith("deploy|"));
   expect(deploy).toContain("wrangler deploy --env staging");
   expect(deploy).toContain("--define API_BUILD_VERSION:123");
+  expect(deploy).toContain(
+    "--var BLOB_OBJECT_STORE_S3_BUCKET:tearleads-blobs-staging",
+  );
+  expect(deploy).toContain("--var BLOB_OBJECT_STORE_S3_REGION:auto");
+  expect(deploy).toContain(
+    "--var BLOB_OBJECT_STORE_S3_ENDPOINT:https://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.r2.cloudflarestorage.com",
+  );
   expect(deploy).toContain(
     "--var API_PUBLIC_ORIGIN:https://api-staging.example.test",
   );

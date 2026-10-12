@@ -62,7 +62,7 @@ environment file and select its API, WebSocket, Sentry, and download bucket.
 scripts/buildMacosStagingRelease.sh
 scripts/buildMacosRelease.sh
 
-# Build, sign, notarize, verify, and upload to the matching S3 bucket:
+# Build, sign, notarize, verify, and upload to the matching R2 bucket:
 scripts/uploadMacosStagingRelease.sh
 scripts/uploadMacosRelease.sh
 ```
@@ -112,13 +112,17 @@ The compressed update archive is still generated and published by Hutch.
 Artifacts and SHA-256 checksums are written to the
 ignored `build/artifacts/` directory. Uploads publish DMGs, matching checksums,
 and full update archives under
-immutable filenames containing their SHA-256 digests. Update and download
-discovery documents are replaced only after all payloads succeed, so a failed
-upload preserves previously published releases. Discovery uses revalidating
+immutable filenames containing their SHA-256 digests. Publication reads the tier's
+`release_storage` Terraform output and uses bucket-scoped R2 credentials with the
+AWS CLI's S3 protocol. Apply `terraform/stacks/<tier>/downloads` first. Public
+origins are `https://downloads.tearleads.com` and
+`https://downloads-staging.tearleads.com`; historical S3 URLs are retired. Update
+and download discovery documents are replaced only after all payloads succeed,
+so a failed upload preserves previously published releases. Discovery uses revalidating
 cache headers; immutable artifacts may be cached for a year.
 Delta patches are disabled; full update archives are published with each build.
 
-| Tier | Bucket | Local installer |
+| Tier | Public origin hostname | Local installer |
 | --- | --- | --- |
 | Production | `downloads.tearleads.com` | `macos-arm64-Tearleads.dmg` |
 | Staging | `downloads-staging.tearleads.com` | `canary-macos-arm64-TLStaging-canary.dmg` |
@@ -126,8 +130,8 @@ Delta patches are disabled; full update archives are published with each build.
 Redeploy the website after publishing: its build resolves the environment's
 `<channel>-macos-arm64-download.json` into a matched pair of immutable installer
 and checksum links. An unavailable discovery document falls back to the verified
-first release. Existing legacy filenames are retained and never overwritten by
-this publisher. The macOS scripts publish macOS ARM64. See
+first release. Published immutable artifacts are never overwritten by this
+publisher. The macOS scripts publish macOS ARM64. See
 [Electrobun distribution](https://framework.blackboard.sh/electrobun/guides/bundling-and-distribution/)
 for platform packaging and native runner requirements.
 
@@ -157,7 +161,7 @@ Run these commands from a checkout with Docker running:
 scripts/buildLinuxStagingRelease.sh
 scripts/buildLinuxRelease.sh
 
-# Build, verify, and upload to the matching S3 bucket:
+# Build, verify, and upload to the matching R2 bucket:
 scripts/uploadLinuxStagingRelease.sh
 scripts/uploadLinuxRelease.sh
 ```
@@ -205,14 +209,14 @@ temporary directory and runs `scripts/uploadDeferredSourceMaps.ts`, which requir
 the source commit to be the clean checkout's `HEAD`, accepts exactly the
 renderer and main-process pairs as regular files under the `linux-x64` dist
 that `releaseLinux.sh` names (never the host's own platform), and uploads them
-with the token from `.secrets`. A failed or partial upload stops before S3.
+with the token from `.secrets`. A failed or partial upload stops before R2.
 Build mode uploads no maps. The artifact check refuses any `.map` in the
 artifacts.
 
 Artifacts are copied to `build/linux-x64/<production|staging>/`, separate from
 macOS artifacts. The reusable Docker image is `tearleads-linux-release:<tier>`.
 The installer is a `.tar.gz` containing Electrobun's setup executable; the
-updater uses a separate `.tar.zst`. Both use the same immutable S3 publication
+updater uses a separate `.tar.zst`. Both use the same immutable R2 publication
 and matched checksum/discovery scheme as macOS, with the prefix
 `stable-linux-x64` or `canary-linux-x64`.
 
@@ -221,7 +225,7 @@ The public `/downloads/linux` page explains desktop dependencies and installatio
 
 The build checks the installer contents, the updater's archive hash, and the
 renderer/database assets. Upload also installs the archive and verifies CEF
-persistence before touching S3. To install the archive and reopen the installed
+persistence before touching R2. To install the archive and reopen the installed
 CEF app twice in an isolated container, run:
 
 ```sh

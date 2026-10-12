@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { r2ReleaseStorageStub } from "./r2Release.testUtils";
 import {
   windowsArtifactDigest,
   windowsReleaseNames,
@@ -86,6 +87,7 @@ export async function runWindowsRelease(
       "releaseWindows.ts",
       "publishWindowsRelease.ts",
       "publishDesktopRelease.ts",
+      "desktopReleaseStorage.ts",
       "windowsReleaseArtifacts.ts",
       "sentryReleaseSource.ts",
     ])
@@ -103,6 +105,10 @@ export async function runWindowsRelease(
       await Bun.file(
         resolve(import.meta.dirname, "../../../scripts/windowsRelease.sh"),
       ).text(),
+    );
+    await write(
+      "terraform/scripts/run-downloads-stack.sh",
+      r2ReleaseStorageStub,
     );
     await write(
       "terraform/scripts/common.sh",

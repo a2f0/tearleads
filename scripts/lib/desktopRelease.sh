@@ -9,7 +9,7 @@ Usage: $(basename "$0")
 Runs the ${desktop_tier} ${desktop_platform} release ${desktop_action}.
 EOF
   if [ "$desktop_action" = upload ]; then
-    echo "Builds and verifies fresh artifacts before publishing to S3."
+    echo "Builds and verifies fresh artifacts before publishing to R2."
   fi
 }
 

@@ -4,16 +4,12 @@ terraform {
     key = "prod/downloads/terraform.tfstate"
   }
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.63"
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.24"
     }
   }
 }
-
-provider "aws" {
-  region = "us-east-1"
-  default_tags {
-    tags = { Project = "tearleads", ManagedBy = "terraform", Stack = "prod/downloads" }
-  }
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }

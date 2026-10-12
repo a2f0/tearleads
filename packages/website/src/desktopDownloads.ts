@@ -27,7 +27,7 @@ export async function resolveDesktopDownload(
   const bucket = staging
     ? "downloads-staging.tearleads.com"
     : "downloads.tearleads.com";
-  const base = `https://s3.us-east-1.amazonaws.com/${bucket}`;
+  const base = `https://${bucket}`;
   const prefix = `${staging ? "canary" : "stable"}-${target}`;
   const appName = staging
     ? target === "macos-arm64"

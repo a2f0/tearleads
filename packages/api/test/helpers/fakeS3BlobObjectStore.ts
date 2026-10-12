@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { createHash } from "node:crypto";
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -11,7 +12,6 @@ import {
 } from "@aws-sdk/client-s3";
 import type { BlobObjectPart } from "../../src/adapters/blobObjectStore";
 import { createS3BlobObjectStore } from "../../src/adapters/s3BlobObjectStore";
-import { sha256Hex } from "../../src/utils/sha256";
 
 export interface CommandWithInput {
   readonly input: S3CommandInput;
@@ -23,16 +23,13 @@ interface S3CommandInput {
   readonly ChecksumSHA256?: unknown;
   readonly ChecksumType?: unknown;
   readonly ContentLength?: unknown;
+  readonly ContentMD5?: unknown;
   readonly Key?: unknown;
   readonly MultipartUpload?: unknown;
   readonly MpuObjectSize?: unknown;
   readonly PartNumber?: unknown;
   readonly PartNumberMarker?: unknown;
   readonly UploadId?: unknown;
-}
-
-async function sha256Base64(value: Uint8Array): Promise<string> {
-  return Buffer.from(await sha256Hex(value), "hex").toString("base64");
 }
 
 function isAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
@@ -126,8 +123,11 @@ class FakeS3Client {
       const upload = this.requireUpload(input);
       const partNumber = Number(input.PartNumber);
       const bytes = await bodyToBytes(input.Body);
-      expect(input.ChecksumAlgorithm).toBe("SHA256");
-      expect(input.ChecksumSHA256).toBe(await sha256Base64(bytes));
+      expect(input.ChecksumAlgorithm).toBeUndefined();
+      expect(input.ChecksumSHA256).toBeUndefined();
+      expect(input.ContentMD5).toBe(
+        createHash("md5").update(bytes).digest("base64"),
+      );
       expect(input.ContentLength).toBe(bytes.byteLength);
       const etag = `"etag-${partNumber}"`;
       upload.parts.set(partNumber, {
@@ -162,7 +162,7 @@ class FakeS3Client {
     }
     if (command instanceof CompleteMultipartUploadCommand) {
       const upload = this.requireUpload(input);
-      // Portable S3/Garage completion: validate by part ETag only. The
+      // R2 completion: validate by part ETag only. The
       // proprietary FULL_OBJECT whole-object checksum + MpuObjectSize flow is
       // not used; per-part integrity was already validated at upload time.
       const parts =

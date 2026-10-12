@@ -2,7 +2,7 @@
 # Full prod deployment for Tearleads
 #
 # Runs in order:
-#   1. Prepare the environment's independent S3 storage
+#   1. Prepare the environment's independent R2 storage
 #   2. Terraform apply (independent PlanetScale Postgres stack)
 #   3. API deploy (migrations, Worker secrets, Worker publish)
 #   4. App-web deploy (build, upload Sentry maps, Workers Static Assets)

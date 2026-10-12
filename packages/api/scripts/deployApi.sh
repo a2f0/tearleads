@@ -84,6 +84,16 @@ trap 'exit 143' TERM
 echo "Reading $TIER database and storage connection outputs..."
 "$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" "$TIER" output -json api_connection >"$CONNECTION_DIR/postgres.json"
 "$REPO_ROOT/terraform/scripts/run-storage-stack.sh" "$TIER" output -json api_storage >"$CONNECTION_DIR/storage.json"
+if ! jq -e --arg bucket "tearleads-blobs-$TIER" \
+  --arg endpoint "https://${TF_VAR_cloudflare_account_id:?}.r2.cloudflarestorage.com" '
+  .blob_object_store == "s3" and .blob_s3_bucket == $bucket and
+  .blob_s3_region == "auto" and .blob_s3_endpoint == $endpoint and
+  .blob_s3_force_path_style == true and
+  ([.blob_s3_access_key_id, .blob_s3_secret_access_key] | all(type == "string" and length > 0))
+  ' "$CONNECTION_DIR/storage.json" >/dev/null; then
+  echo "ERROR: Apply the $TIER R2 storage stack before deploying the API." >&2
+  exit 1
+fi
 HYPERDRIVE_ID="$("$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" "$TIER" output -raw hyperdrive_id)"
 if [[ ! "$HYPERDRIVE_ID" =~ ^[a-f0-9]{32}$ ]]; then
   echo "ERROR: Apply the $TIER Postgres stack before deploying: hyperdrive_id must be a configuration ID." >&2
@@ -188,6 +198,9 @@ if [[ "$XTRACE_WAS_ENABLED" -eq 1 ]]; then
   set -x
 fi
 (cd "$API_DIR" && bunx --no-install wrangler deploy --env "$TIER" --config "$DEPLOY_CONFIG" "${DEFINE_ARGS[@]}" \
+  --var "BLOB_OBJECT_STORE_S3_BUCKET:$(read_connection storage blob_s3_bucket)" \
+  --var "BLOB_OBJECT_STORE_S3_REGION:$(read_connection storage blob_s3_region)" \
+  --var "BLOB_OBJECT_STORE_S3_ENDPOINT:$(read_connection storage blob_s3_endpoint)" \
   --var "API_PUBLIC_ORIGIN:$API_PUBLIC_ORIGIN" \
   --var "API_CORS_ORIGINS:$API_CORS_ORIGINS")
 

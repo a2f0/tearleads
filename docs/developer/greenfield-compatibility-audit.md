@@ -53,15 +53,16 @@ reconciliation behavior.
 
 ## Release scope
 
-The production reset targets the application server, PlanetScale application
-database, and `tearleads-prod` blob bucket with its runtime credentials.
-Staging also starts fresh by replacing its server (including local PostgreSQL)
-and independent blob storage stack.
+Each tier's reset targets its API Worker and Durable Objects, independent
+PlanetScale database, and `tearleads-blobs-prod` or `tearleads-blobs-staging`
+R2 bucket with its runtime credentials.
 
 Terraform backend state, downloadable release buckets, store registrations,
 payment-provider configuration, and signing credentials remain dependencies of
-the rebuild. Production database and storage stacks must be provisioned before
-running `scripts/deployProduction.sh`.
+the rebuild. The initial R2 cutover explicitly replaces the AWS download buckets
+with fresh releases; subsequent application resets retain R2 downloads.
+Production database and storage stacks must be provisioned before running
+`scripts/deployProduction.sh`.
 
 `scripts/deployEverything.sh` deploys both tiers and uploads iOS and Android.
 macOS and Linux uploads additionally require their staging and production root

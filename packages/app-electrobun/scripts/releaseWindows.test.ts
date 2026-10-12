@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { runWindowsRelease } from "./releaseWindows.testUtils";
 
 for (const tier of ["staging", "production"]) {
-  test(`the ${tier} operator command uploads maps before all S3 publication`, async () => {
+  test(`the ${tier} operator command uploads maps before all R2 publication`, async () => {
     const result = await runWindowsRelease("upload", tier);
     expect(result.code, result.output).toBe(0);
     const sentry = result.calls.indexOf(`sentry ${tier} win-x64`);
@@ -29,7 +29,7 @@ for (const failure of [
   "missing-maps",
   "sentry",
 ]) {
-  test(`the operator command refuses ${failure} before any S3 write`, async () => {
+  test(`the operator command refuses ${failure} before any R2 write`, async () => {
     const result = await runWindowsRelease("upload", "staging", failure);
     expect(result.code, result.output).not.toBe(0);
     expect(result.calls.filter((call) => call.startsWith("aws "))).toEqual([]);

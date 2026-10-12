@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 /**
  * An S3 impostor for Worker tests: path-style multipart uploads, object reads
  * and deletes, with the XML answers the SDK parses. Requests are not
@@ -67,6 +69,21 @@ export function startFakeS3(): FakeS3 {
       }
       if (upload && request.method === "PUT") {
         const bytes = new Uint8Array(await request.arrayBuffer());
+        if (
+          [...request.headers.keys()].some(
+            (name) =>
+              name.startsWith("x-amz-checksum-") ||
+              name === "x-amz-sdk-checksum-algorithm",
+          )
+        ) {
+          return s3Error("NotImplemented", 501);
+        }
+        if (
+          request.headers.get("content-md5") !==
+          createHash("md5").update(bytes).digest("base64")
+        ) {
+          return s3Error("BadDigest", 400);
+        }
         upload.parts.set(Number(params.get("partNumber")), bytes);
         return new Response(null, {
           status: 200,

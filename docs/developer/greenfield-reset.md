@@ -11,22 +11,24 @@ versions, credentials, build numbers, or Terraform plans from a previous run.
 | --- | --- |
 | Production database | Replace the independent PlanetScale database and its runtime/migration roles. |
 | Staging database | Replace the staging PlanetScale database and its roles, then initialize the current baseline. |
-| Encrypted blobs | Empty and replace only the selected application bucket and its runtime IAM credentials. |
+| Encrypted blobs | Empty and replace only the selected application bucket and its bucket-scoped R2 credentials. |
 | Worker state | Delete the API Worker (`wrangler delete --env <tier>`) before redeploying it: sessions, tickets, and interest live in its Durable Objects' SQLite storage, which a plain redeploy keeps. Deleting the Worker drops both objects; the redeploy recreates them empty. |
 | Website, web app, demos | Redeploy; retain their domain/account identities. |
 | Desktop/mobile releases | Build and publish selected tiers using the release matrix. |
 | Terraform backend and release buckets | Retain, including historical immutable downloads. |
 | Signing, store and payment-provider resources | Retain; reconcile external records separately when requested. |
 
-The current application buckets are `tearleads-prod` and `tearleads-staging`.
-The `downloads*.tearleads.com` buckets are release dependencies. Resolve and
-compare bucket identities from the selected stack before any object deletion.
+The current application buckets are `tearleads-blobs-prod` and
+`tearleads-blobs-staging`.
+The `tearleads-downloads-prod` and `tearleads-downloads-staging` buckets are release
+dependencies. Resolve and compare bucket identities from the selected stack
+before any object deletion.
 Never broaden an application reset into account-wide bucket or resource cleanup.
 
 Authoritative details:
 [API persistence](api-persistence.md),
 [production Postgres](../../terraform/stacks/prod/postgres/README.md),
-[blob storage](../../terraform/modules/s3-blob-storage/README.md), and
+[blob storage](../../terraform/modules/r2-object-storage/README.md), and
 [the compatibility audit](greenfield-compatibility-audit.md).
 
 ## Preflight before downtime
@@ -44,7 +46,7 @@ Check these before teardown:
   the deploy scripts also export for Wrangler), and PlanetScale access. Do not
   print tokens while checking.
 - Each stack's state key and resource identities; current database branch ID,
-  connection metadata, blob count, bucket versioning, multipart uploads, and
+  connection metadata, blob count, multipart uploads, and
   relevant external billing state. Preserve the production
   migration connection privately until the old database has been removed.
 - Old API/app/demo/site health and current download manifests/store numbers.
@@ -75,7 +77,7 @@ current configuration. The current protected addresses are:
 - Postgres: `restapi_object.database`, `restapi_object.main_protection`,
   `planetscale_postgres_branch_role.runtime`, and
   `planetscale_postgres_branch_role.migrations`.
-- Storage: `aws_s3_bucket.blobs`.
+- Storage: `cloudflare_r2_bucket.blobs`.
 
 Each override restates only the exact resource type/name and
 `lifecycle { prevent_destroy = false }`. Do not change tracked protections,
@@ -149,8 +151,8 @@ Both tiers have an independent PlanetScale database stack:
 
 ### 3. Remove application blob storage
 
-Enumerate only the verified application's bucket, including all pages. Empty
-objects, and, if versioning was ever enabled, all versions and delete markers.
+Enumerate only the verified application's R2 bucket, including all pages. Empty
+objects through its S3 API endpoint using the stack's bucket-scoped credentials.
 Inspect and abort remaining multipart uploads. Check deletion API results for
 per-object errors and verify emptiness; a successful HTTP response alone does
 not prove every object was deleted. Do not bypass an unexpected retention or
@@ -167,9 +169,10 @@ terraform/scripts/run-storage-stack.sh "$TIER" apply \
   "$RUN_DIR/$TIER-storage-destroy.tfplan"
 ```
 
-Production needs the temporary bucket override described above; staging has
-its own `force_destroy` behavior. Verify removal of the bucket and runtime IAM
-resources, then remove any storage override. `scripts/destroyStaging.sh` also
+Production needs the temporary bucket override described above. R2 refuses
+nonempty bucket deletion in either tier; `empty-staging-blobs.sh` handles staging
+after its Worker is removed. Verify removal of the bucket and account token,
+then remove any storage override. `scripts/destroyStaging.sh` also
 destroys the staging Workers and the independently hosted website; use
 individual stacks for this workflow's database/blob/Worker boundary.
 
@@ -205,7 +208,7 @@ tier before long store uploads.
 ## External and operational state to address
 
 - **Sessions and credentials:** verify the replacement key/value store contains
-  no old sessions, replacement database/S3 runtime credentials are deployed, and
+  no old sessions, replacement database/R2 runtime credentials are deployed, and
   old roles/keys are gone. If an old test session is available securely, verify
   it is refused. Keep account-level API tokens and signing keys unless rotation
   is separately requested. Inventory retained application secrets such as

@@ -34,6 +34,8 @@ async function runScript(
       [
         'load_secrets_env() { echo secrets >> "$DOWNLOADS_TEST_LOG"; }',
         "validate_aws_env() { :; }",
+        "validate_cloudflare_env() { :; }",
+        "validate_domain_env() { :; }",
         "get_backend_config() { echo /dev/null; }",
       ].join("\n"),
     );
@@ -130,9 +132,9 @@ test("downloads lifecycle policy accepts the production and staging roots", asyn
 
 for (const [tier, before, after] of [
   ["prod", "prevent_destroy = true", "prevent_destroy = false"],
-  ["prod", "force_destroy = false", "force_destroy = true"],
-  ["staging", "force_destroy = true", "force_destroy = false"],
-  ["staging", "downloads-staging.tearleads.com", "downloads.tearleads.com"],
+  ["prod", 'location   = "enam"', 'location   = "wnam"'],
+  ["staging", "account_id = var.cloudflare_account_id", 'account_id = "other"'],
+  ["staging", "tearleads-downloads-staging", "tearleads-downloads-prod"],
 ]) {
   test(`downloads lifecycle policy rejects ${tier} ${after}`, async () => {
     const result = await runScript(lifecycleCheck, [], { tier, before, after });

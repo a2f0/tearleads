@@ -51,12 +51,12 @@ unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
 if [[ "$ACTION" == upload ]]; then validate_aws_env; fi
 if [[ "$TIER" == staging ]]; then
   CHANNEL=canary
-  BUCKET=downloads-staging.tearleads.com
+  BUCKET=tearleads-downloads-staging
   APP_NAME=Tearleads-canary
   INSTALLER=canary-linux-x64-Tearleads-canary-Setup.tar.gz
 else
   CHANNEL=stable
-  BUCKET=downloads.tearleads.com
+  BUCKET=tearleads-downloads-prod
   APP_NAME=Tearleads
   INSTALLER=linux-x64-Tearleads-Setup.tar.gz
 fi

@@ -5,7 +5,6 @@ import {
   BLOB_CHUNK_SIZE_BYTES,
   BLOB_ENCRYPTED_BYTES_FORMAT,
   BLOB_ENCRYPTED_BYTES_VERSION,
-  blobChunkPlaintextByteLength,
   bytesToHex,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeBlobChunkCount,
@@ -15,7 +14,6 @@ import {
   createIncrementalSha256,
   deriveBlobChunkIv,
   encodeBlobEnvelopeV2Header,
-  joinBlobPartBytes,
   normalizeBlobChunkSize,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -33,6 +31,7 @@ import {
   inspectBlobSource,
   readVerifiedBlobSourceChunk,
 } from "./blobSourceSnapshot";
+import { createEncryptedUploadParts } from "./encryptedUploadParts";
 import type { BlobEncryptionPlan } from "./types";
 
 export const DEFAULT_BLOB_CHUNK_SIZE_BYTES = BLOB_CHUNK_SIZE_BYTES;
@@ -46,12 +45,6 @@ interface PrepareBlobEncryptionInput {
   readonly organizationId: string;
   readonly source: BlobByteSource;
   readonly sourceSnapshot?: BlobSourceSnapshot | undefined;
-}
-
-function assertPartIndex(index: number, partCount: number): void {
-  if (!Number.isInteger(index) || index < 0 || index >= partCount) {
-    throw new Error("Blob encryption part index is out of range");
-  }
 }
 
 interface BlobEncryptionContext {
@@ -191,24 +184,6 @@ async function runEncryptionHashPass(
   return bytesToHex(objectHash.digest());
 }
 
-function planPartByteLength(
-  context: BlobEncryptionContext,
-  index: number,
-): number {
-  assertPartIndex(index, context.partCount);
-  const plaintextLength = blobChunkPlaintextByteLength({
-    chunkCount: context.partCount,
-    chunkIndex: index,
-    chunkSize: context.chunkSize,
-    plaintextByteLength: context.plaintextByteLength,
-  });
-  return (
-    plaintextLength +
-    AES_GCM_TAG_BYTES +
-    (index === 0 ? context.headerBytes.byteLength : 0)
-  );
-}
-
 function createBlobEncryptionPlan(input: {
   readonly context: BlobEncryptionContext;
   readonly sha256: string;
@@ -216,34 +191,31 @@ function createBlobEncryptionPlan(input: {
   readonly source: BlobByteSource;
 }): BlobEncryptionPlan {
   const { context, sha256, snapshot, source } = input;
+  const byteLength = computeBlobEncryptedByteLength({
+    chunkCount: context.partCount,
+    headerByteLength: context.headerBytes.byteLength,
+    plaintextByteLength: context.plaintextByteLength,
+  });
   return {
-    byteLength: computeBlobEncryptedByteLength({
-      chunkCount: context.partCount,
-      headerByteLength: context.headerBytes.byteLength,
-      plaintextByteLength: context.plaintextByteLength,
-    }),
+    byteLength,
     chunkSize: context.chunkSize,
     metadataHash: context.metadataHash,
-    partCount: context.partCount,
     plaintextByteLength: context.plaintextByteLength,
     plaintextSha256: snapshot.sha256,
     sha256,
-    getPartByteLength(index) {
-      return planPartByteLength(context, index);
-    },
-    async encryptPart(index) {
-      assertPartIndex(index, context.partCount);
-      const plaintext = await readVerifiedBlobSourceChunk({
-        chunkIndex: index,
-        snapshot,
-        source,
-      });
-      const ciphertext = await encryptBlobChunk(context, index, plaintext);
-      return joinBlobPartBytes(
-        index === 0 ? context.headerBytes : null,
-        ciphertext,
-      );
-    },
+    ...createEncryptedUploadParts({
+      byteLength,
+      chunkSize: context.chunkSize + AES_GCM_TAG_BYTES,
+      header: context.headerBytes,
+      async encryptChunk(chunkIndex) {
+        const plaintext = await readVerifiedBlobSourceChunk({
+          chunkIndex,
+          snapshot,
+          source,
+        });
+        return encryptBlobChunk(context, chunkIndex, plaintext);
+      },
+    }),
   };
 }
 

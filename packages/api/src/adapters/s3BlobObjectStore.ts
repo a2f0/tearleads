@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -9,7 +10,7 @@ import {
   UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { isSha256HexString } from "@tearleads/validators/util";
-import { summarizeSha256Stream } from "../utils/sha256";
+import { sha256Hex, summarizeSha256Stream } from "../utils/sha256";
 import {
   type BlobObjectPart,
   type BlobObjectReadStream,
@@ -30,12 +31,19 @@ interface S3BlobObjectStoreInput {
 
 const MAX_S3_PART_NUMBER = 10_000;
 
-function sha256HexToBase64(value: string): string {
-  if (!isSha256HexString(value)) {
+function partContentMd5(bytes: Uint8Array, sha256: string): string {
+  if (!isSha256HexString(sha256)) {
     throw new BlobObjectStoreError("Invalid SHA-256 digest", "invalid_part");
   }
-
-  return Buffer.from(value, "hex").toString("base64");
+  if (sha256Hex(bytes) !== sha256) {
+    throw new BlobObjectStoreError(
+      "Multipart upload part sha256 mismatch",
+      "invalid_part",
+    );
+  }
+  // R2 supports Content-MD5, but rejects flexible checksum headers on UploadPart.
+  // SHA-256 remains the application integrity check, above and after assembly.
+  return createHash("md5").update(bytes).digest("base64");
 }
 
 function errorName(error: unknown): string | undefined {
@@ -142,9 +150,7 @@ function logRawS3Error(operationName: string, error: unknown): void {
     return;
   }
 
-  // The object store may be Garage or another S3 clone whose error names/codes
-  // differ from AWS. Surface the raw fields so the underlying rejection is
-  // visible instead of the lossy "Multipart upload part not found" mapping.
+  // Preserve provider diagnostics alongside the application error mapping.
   console.error(`S3 blob object store ${operationName} failed`, {
     name: errorName(error),
     code: errorCode(error),
@@ -272,11 +278,9 @@ function createCompleteMultipartUpload({
       );
     }
 
-    // Complete by part ETag only. Garage (and AWS for SHA-256) do not accept
-    // FULL_OBJECT whole-object checksums for multipart uploads, and MpuObjectSize
-    // is part of that same proprietary flexible-checksum flow. Per-part integrity
-    // is still validated at upload time via each part's ChecksumSHA256; after
-    // assembly, the exact object is streamed and summarized below.
+    // R2 supports composite SHA-256, not FULL_OBJECT SHA-256. Complete by
+    // part ETag, then stream the assembled object for its flat application
+    // digest. Each UploadPart supplies Content-MD5.
     return mapS3Errors("completeMultipartUpload", async () => {
       await client.send(
         new CompleteMultipartUploadCommand({
@@ -315,11 +319,8 @@ function createMultipartUpload({
 }: S3BlobObjectStoreInput): BlobObjectStore["createMultipartUpload"] {
   return ({ key }) =>
     mapS3Errors("createMultipartUpload", async () => {
-      // Do not declare a checksum algorithm at create time. Doing so (with
-      // SHA-256) makes S3/Garage require every part's checksum to be echoed in
-      // CompleteMultipartUpload, which we don't carry there. Parts still send
-      // their own ChecksumSHA256 on UploadPart for in-transit validation, and
-      // completion is by ETag.
+      // Completion uses ETags and verifies the flat application SHA-256
+      // from the assembled stream, independently of transport checksums.
       const upload = await client.send(
         new CreateMultipartUploadCommand({
           Bucket: bucket,
@@ -404,19 +405,12 @@ function createUploadPart({
           "invalid_part",
         );
       }
-      const uploadBody = {
-        body: partBytes,
-        byteLength: partBytes.byteLength,
-        sha256: input.body.sha256,
-      };
-
       const part = await client.send(
         new UploadPartCommand({
-          Body: uploadBody.body,
+          Body: partBytes,
           Bucket: bucket,
-          ChecksumAlgorithm: "SHA256",
-          ChecksumSHA256: sha256HexToBase64(uploadBody.sha256),
-          ContentLength: uploadBody.byteLength,
+          ContentMD5: partContentMd5(partBytes, input.body.sha256),
+          ContentLength: partBytes.byteLength,
           Key: input.key,
           PartNumber: input.partNumber,
           UploadId: input.uploadId,
@@ -424,7 +418,7 @@ function createUploadPart({
       );
 
       return {
-        byteLength: uploadBody.byteLength,
+        byteLength: partBytes.byteLength,
         etag: requireString(part.ETag, "S3 multipart part ETag is missing"),
         partNumber: input.partNumber,
       };

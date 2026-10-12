@@ -154,6 +154,9 @@ export function createDefaultBlobObjectStore(
     "BLOB_OBJECT_STORE_S3_BUCKET is required when BLOB_OBJECT_STORE=s3",
   );
   const clientConfig: S3ClientConfig = {
+    // R2's multipart API accepts Content-MD5, not SDK-added flexible checksums.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     region: requireBlobObjectStoreEnv(
       env,
       "BLOB_OBJECT_STORE_S3_REGION",

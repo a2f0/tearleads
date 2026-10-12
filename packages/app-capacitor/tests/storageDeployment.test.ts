@@ -38,6 +38,8 @@ async function runStorageScript(
       [
         'load_secrets_env() { echo secrets >> "$STORAGE_TEST_LOG"; }',
         "validate_aws_env() { :; }",
+        "validate_cloudflare_env() { :; }",
+        "validate_domain_env() { :; }",
         "get_backend_config() { echo /dev/null; }",
       ].join("\n"),
     );
@@ -52,6 +54,10 @@ async function runStorageScript(
         'printf "edge %s\\n" "$*" >> "$STORAGE_TEST_LOG"',
         '[ "$STORAGE_TEST_FAILURE" != edge ] || exit 9',
       ].join("\n"),
+    );
+    await executable(
+      resolve(root, "terraform/scripts/empty-staging-blobs.sh"),
+      '#!/bin/sh\nprintf "empty-blobs\\n" >> "$STORAGE_TEST_LOG"\n',
     );
     await executable(
       resolve(root, "terraform/scripts/drop-postgres-owned.sh"),
@@ -148,6 +154,7 @@ test("staging teardown detaches hostnames and deletes Workers before emptying st
     "app-web ",
     "drop-owned staging",
     "postgres staging destroy --auto-approve",
+    "empty-blobs",
     "storage staging destroy --auto-approve",
     "website --auto-approve",
   ]);
@@ -177,6 +184,7 @@ test("staging teardown asks once, up front, and then runs every stack unattended
     "app-web ",
     "drop-owned staging",
     "postgres staging destroy --auto-approve",
+    "empty-blobs",
     "storage staging destroy --auto-approve",
     "website --auto-approve",
   ]);

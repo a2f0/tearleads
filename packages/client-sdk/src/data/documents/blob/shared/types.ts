@@ -203,7 +203,7 @@ export interface UploadDocumentAttachmentInput {
 }
 
 export interface MultipartBlobUploadOptions {
-  /** Exactly 5 MiB of plaintext per independently encrypted multipart chunk. */
+  /** Exactly 5 MiB per plaintext encryption chunk; transport parts include envelope overhead. */
   readonly partSize: number;
   // The id of a previously opened stage to resume. When set, the upload refetches
   // that stage and skips parts the server already has instead of opening a new

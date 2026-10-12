@@ -1,13 +1,17 @@
 output "bucket" {
-  description = "Electrobun download bucket identity and region"
+  description = "Cloudflare R2 bucket identity"
   value = {
-    name   = aws_s3_bucket.downloads.id
-    arn    = aws_s3_bucket.downloads.arn
-    region = aws_s3_bucket.downloads.region
+    name       = cloudflare_r2_bucket.downloads.name
+    account_id = var.cloudflare_account_id
   }
 }
 
 output "download_base_url" {
-  description = "Public HTTPS S3 URL for Electrobun release downloads"
+  description = "Public HTTPS origin for Electrobun release downloads"
   value       = module.downloads.download_base_url
+}
+output "release_storage" {
+  description = "Private R2 credentials for desktop release publication"
+  sensitive   = true
+  value       = module.downloads.connection
 }
