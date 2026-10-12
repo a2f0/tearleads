@@ -45,6 +45,33 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
     );
   });
 
+  test("serves SDK preflights and auth failures from arbitrary origins", async () => {
+    const origin = "https://external-sdk.example";
+    const preflight = await fetch(`${worker.origin}/auth/ws-ticket`, {
+      method: "OPTIONS",
+      headers: {
+        Origin: origin,
+        "Access-Control-Request-Method": "POST",
+        "Access-Control-Request-Headers": "authorization,content-type",
+      },
+    });
+    expect(preflight.status).toBe(204);
+    expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(
+      preflight.headers.get("Access-Control-Allow-Headers")?.toLowerCase(),
+    ).toContain("authorization");
+    expect(
+      preflight.headers.get("Access-Control-Allow-Credentials"),
+    ).toBeNull();
+    const protectedResponse = await fetch(`${worker.origin}/auth/sessions`, {
+      headers: { Origin: origin },
+    });
+    expect(protectedResponse.status).toBe(401);
+    expect(protectedResponse.headers.get("Access-Control-Allow-Origin")).toBe(
+      "*",
+    );
+  });
+
   test("registers, logs in, serves concurrent reads, opens one socket per ticket, and closes it on logout", async () => {
     const base = worker.origin;
     const user = createTestUser();

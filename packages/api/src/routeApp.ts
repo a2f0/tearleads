@@ -7,6 +7,7 @@ import {
 import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { readApiPublicOrigin } from "./apiPublicOrigin";
+import { readBillingReturnOrigins } from "./billing/returnOrigins";
 import { type ApiCorsOrigins, readApiCorsOrigins } from "./corsOrigins";
 import {
   createApiVersionMiddleware,
@@ -42,6 +43,7 @@ interface RouteAppOptions {
   /** The build stamped on every response; null omits the header. */
   readonly apiVersion?: number | null | undefined;
   readonly corsOrigins?: ApiCorsOrigins | undefined;
+  readonly billingReturnOrigins?: readonly string[] | undefined;
   /** The origin login challenges must be signed for; see `apiPublicOrigin`. */
   readonly publicOrigin?: string | null | undefined;
 }
@@ -161,7 +163,7 @@ function createApiRouteApp(): Hono<SessionEnv> {
 function mountRouters(
   routeApp: Hono<SessionEnv>,
   deps: ResolvedRouteAppDeps,
-  corsOrigins: ApiCorsOrigins,
+  billingReturnOrigins: readonly string[],
   publicOrigin: string | null,
 ): void {
   routeApp.route(
@@ -202,7 +204,7 @@ function mountRouters(
   routeApp.route(
     "/",
     createBillingRouter({
-      corsOrigins,
+      billingReturnOrigins,
       requireAuth: deps.requireAuth,
       runtime: deps.runtime,
     }),
@@ -255,7 +257,7 @@ export function createRouteApp(
   mountRouters(
     routeApp,
     deps,
-    corsOrigins,
+    options.billingReturnOrigins ?? readBillingReturnOrigins(),
     options.publicOrigin === undefined
       ? readApiPublicOrigin()
       : options.publicOrigin,

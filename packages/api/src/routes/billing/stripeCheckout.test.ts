@@ -10,7 +10,14 @@ import {
   addEffectiveOrganizationMember,
   addSyntheticEffectiveOrganizationMembers,
 } from "../../../test/helpers/revenuecatWebhook";
-import { createRouteApp, routeApp } from "../../routeApp";
+import { createRouteApp } from "../../routeApp";
+
+const routeApp = createRouteApp(
+  {},
+  {
+    billingReturnOrigins: ["https://app.example"],
+  },
+);
 
 /**
  * Route-level coverage for the direct Stripe checkout endpoints. The test
@@ -394,27 +401,38 @@ test("the portal validates its return url", async () => {
   expect(response.status).toBe(400);
 });
 
-test("the portal refuses return urls outside the app's origins", async () => {
+test("wildcard CORS does not widen Stripe return origins", async () => {
   const admin = createTestUser();
   const organizationId = await registerAndAuthenticate(admin);
   // The route resolves its allowlist from the composition root, so build an
   // app with explicit origins — exactly how production wires it.
   const app = createRouteApp(
     {},
-    { corsOrigins: ["https://app.tearleads.example"] },
+    {
+      corsOrigins: "*",
+      billingReturnOrigins: ["https://app.tearleads.example"],
+    },
   );
 
   // billing.stripe.com redirects to returnUrl verbatim; a foreign origin
   // would turn the portal into an open redirect.
-  const rejected = await app.request(
-    `/organizations/${organizationId}/billing/stripe/portal`,
-    {
-      method: "POST",
-      headers: { ...authHeader(admin), "Content-Type": "application/json" },
-      body: JSON.stringify({ returnUrl: "https://evil.example/phish" }),
-    },
-  );
-  expect(rejected.status).toBe(400);
+  for (const suffix of ["portal", "checkout-session"]) {
+    const rejected = await app.request(
+      `/organizations/${organizationId}/billing/stripe/${suffix}`,
+      {
+        method: "POST",
+        headers: {
+          ...authHeader(admin),
+          "Content-Type": "application/json",
+          Origin: "https://sdk.example",
+        },
+        body: JSON.stringify({ returnUrl: "https://evil.example/phish" }),
+      },
+    );
+    expect(rejected.status).toBe(400);
+    expect(await rejected.json()).toEqual({ error: "Invalid returnUrl" });
+    expect(rejected.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  }
 
   // An allowlisted origin passes URL validation (and then answers a null
   // portal, since the org has no Stripe subscription).
