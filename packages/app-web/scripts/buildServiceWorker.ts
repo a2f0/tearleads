@@ -57,6 +57,8 @@ export async function listPrecacheFiles(
   // directories; the extension filter below keeps only the asset files.
   const relativePaths = await readdir(distDir, { recursive: true });
 
+  // Cloudflare redirects /index.html to /. Cache the canonical response so
+  // offline navigations do not receive a response with redirected=true.
   return relativePaths
     .map((relative) => `/${relative.replaceAll("\\", "/")}`)
     .filter((urlPath) => {
@@ -65,6 +67,7 @@ export async function listPrecacheFiles(
       }
       return PRECACHE_EXTENSIONS.has(fileExtension(urlPath));
     })
+    .map((urlPath) => (urlPath === "/index.html" ? "/" : urlPath))
     .sort();
 }
 
@@ -78,8 +81,9 @@ export async function computeCacheVersion(
   // byte-different sw.js, which is how the browser detects an update).
   const fileHashes = await Promise.all(
     urlPaths.map(async (urlPath) => {
+      const relativePath = urlPath === "/" ? "./index.html" : `.${urlPath}`;
       const bytes = await Bun.file(
-        new URL(`.${urlPath}`, normalizedDistUrl),
+        new URL(relativePath, normalizedDistUrl),
       ).bytes();
       return `${urlPath}:${Bun.hash(bytes)}`;
     }),
@@ -108,7 +112,7 @@ function createServiceWorkerSource(params: {
 const CACHE_NAME = ${JSON.stringify(params.cacheName)};
 const CACHE_PREFIX = ${JSON.stringify(CACHE_PREFIX)};
 const PRECACHE_URLS = ${JSON.stringify(params.precacheUrls)};
-const APP_SHELL_URL = "/index.html";
+const APP_SHELL_URL = "/";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

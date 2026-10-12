@@ -45,9 +45,9 @@ test("buildServiceWorker generates the offline precache contract", async () => {
 
   try {
     expect(await listPrecacheFiles(distUrl)).toEqual([
+      "/",
       "/index-abc123.css",
       "/index-abc123.js",
-      "/index.html",
       `${pdfRoot}/cmaps/UniJIS-UCS2-H.bcmap`,
       `${pdfRoot}/pdf.worker.js`,
       `${pdfRoot}/standard_fonts/FoxitSerif.pfb`,
@@ -69,9 +69,7 @@ test("buildServiceWorker generates the offline precache contract", async () => {
     expect(result.serviceWorkerSource).toContain(
       "key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME",
     );
-    expect(result.serviceWorkerSource).toContain(
-      'const APP_SHELL_URL = "/index.html";',
-    );
+    expect(result.serviceWorkerSource).toContain('const APP_SHELL_URL = "/";');
     expect(result.serviceWorkerSource).toContain("self.skipWaiting();");
     expect(result.serviceWorkerSource).toContain("self.clients.claim()");
     expect(result.serviceWorkerSource).toContain(

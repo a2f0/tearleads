@@ -40,31 +40,41 @@ async function assertDemoLayout(page: Page): Promise<void> {
   }
 }
 
+// Serve deployment output without Bun's development bundler, which selects a
+// different Loro entrypoint and masks missing WASM assets.
+function createProductionServer() {
+  return createServer((request, response) => {
+    const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+    // Cloudflare Static Assets redirects this filename to its canonical URL.
+    if (pathname === "/index.html") {
+      response.writeHead(308, { Location: "/" });
+      response.end();
+      return;
+    }
+    const filename = pathname === "/" ? "index.html" : `.${pathname}`;
+    void readFile(join(appDir, "dist", filename)).then(
+      (bytes) => {
+        response.writeHead(200, {
+          "Content-Type":
+            contentTypes[extname(filename)] ?? "application/octet-stream",
+        });
+        response.end(bytes);
+      },
+      () => {
+        response.writeHead(404);
+        response.end();
+      },
+    );
+  });
+}
+
 for (const variant of ["app", "demo"]) {
   test(`production ${variant} starts and reloads offline`, async ({
     context,
     page,
   }) => {
     test.setTimeout(90_000);
-    // Serve the exact deployment output without Bun's development bundler,
-    // which selects a different Loro entrypoint and masks missing WASM assets.
-    const server = createServer((request, response) => {
-      const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
-      const filename = pathname === "/" ? "index.html" : `.${pathname}`;
-      void readFile(join(appDir, "dist", filename)).then(
-        (bytes) => {
-          response.writeHead(200, {
-            "Content-Type":
-              contentTypes[extname(filename)] ?? "application/octet-stream",
-          });
-          response.end(bytes);
-        },
-        () => {
-          response.writeHead(404);
-          response.end();
-        },
-      );
-    });
+    const server = createProductionServer();
 
     try {
       await new Promise<void>((resolve) =>
