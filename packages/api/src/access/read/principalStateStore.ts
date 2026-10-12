@@ -1,5 +1,4 @@
 export type {
-  StoredPrincipalContainerGrant,
   StoredPrincipalProjectionMember,
   StoredPrincipalState,
 } from "../shared/internal/principalStateStore";

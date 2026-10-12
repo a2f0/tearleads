@@ -244,27 +244,11 @@ export async function getAccessManifestBundle(
   manifestHash: string,
   executor: DatabaseSession,
 ): Promise<StoredAccessManifestBundle | null> {
-  const [manifest] = await executor
-    .select()
-    .from(accessManifests)
-    .where(eq(accessManifests.manifestHash, manifestHash))
-    .limit(1);
-
-  if (!manifest) {
-    return null;
-  }
-
-  const event = await loadAccessEventRow(manifest.eventHash, executor);
-
-  return {
-    event: toStoredAccessEvent(event),
-    manifest: toStoredAccessManifest(manifest),
-    manifestHash: manifest.manifestHash,
-    state: readKeyingCanonicalJson(
-      manifest.state,
-      "stored access manifest state",
-    ),
-  };
+  return (
+    (await getAccessManifestBundles([manifestHash], executor)).get(
+      manifestHash,
+    ) ?? null
+  );
 }
 
 export async function getAccessManifestBundles(
@@ -276,27 +260,18 @@ export async function getAccessManifestBundles(
     return new Map<string, StoredAccessManifestBundle>();
   }
 
-  const manifests = await executor
-    .select()
+  // Both hashes are unique, so this join cannot multiply rows. Keep missing
+  // events visible: an incomplete bundle is corruption, not an absent manifest.
+  const rows = await executor
+    .select({ manifest: accessManifests, event: accessEvents })
     .from(accessManifests)
+    .leftJoin(
+      accessEvents,
+      eq(accessEvents.eventHash, accessManifests.eventHash),
+    )
     .where(inArray(accessManifests.manifestHash, uniqueManifestHashes));
-  if (manifests.length === 0) {
-    return new Map<string, StoredAccessManifestBundle>();
-  }
-
-  const events = await executor
-    .select()
-    .from(accessEvents)
-    .where(
-      inArray(
-        accessEvents.eventHash,
-        unique(manifests.map(({ eventHash }) => eventHash)),
-      ),
-    );
-  const eventByHash = new Map(events.map((event) => [event.eventHash, event]));
   const bundles = new Map<string, StoredAccessManifestBundle>();
-  for (const manifest of manifests) {
-    const event = eventByHash.get(manifest.eventHash);
+  for (const { manifest, event } of rows) {
     if (!event) {
       throw new Error("Access event not found");
     }

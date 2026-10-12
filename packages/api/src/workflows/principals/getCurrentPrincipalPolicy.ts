@@ -72,6 +72,7 @@ async function verifyCurrent(
   const bundle = await buildPrincipalPolicyCurrentForStateWithExecutor(
     executor,
     currentState,
+    history,
   );
   const verified = await verifyPrincipalPolicyCurrent({
     current: bundle,
@@ -95,10 +96,16 @@ export async function getPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
 ): Promise<PrincipalPolicyBundleResponse> {
-  const { history } = await verifyCurrent(executor, currentState, [], "policy");
+  const { history, bundle: current } = await verifyCurrent(
+    executor,
+    currentState,
+    [],
+    "policy",
+  );
   const bundle = await buildPrincipalPolicyForStateWithExecutor(
     executor,
     currentState,
+    current,
   );
   const verified = await verifyPrincipalPolicyBundleAgainstHistory({
     bundle,

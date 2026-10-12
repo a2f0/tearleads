@@ -58,6 +58,9 @@ test("the current-policy caller rejects future and conflicting references as sta
     [{ ...first, version: 4 }],
     [{ ...first, stateHash: "0".repeat(64) }],
     [first, { ...first, stateHash: "0".repeat(64) }],
+    [{ ...head, stateHash: "0".repeat(64) }],
+    [{ ...head, keyEpoch: head.keyEpoch + 1 }],
+    [{ ...head, keyFingerprint: "0".repeat(64) }],
   ])
     await expect(
       getVerifiedPrincipalPolicyForStateWithExecutor(db, stored, references),
