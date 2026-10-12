@@ -62,8 +62,8 @@ for (const full of [false, true]) {
     const result = await withDatabaseStatementCounter(counter, () =>
       registerUser(createServiceTestRuntime(), request),
     );
-    // Baseline: 646 / 1,570 on PGlite. Leave room for transaction controls
-    // and dialect differences while rejecting the old repeated-read behavior.
+    // PGlite: 646 / 1,570 before, 536 / 1,274 after. Leave room for transaction
+    // controls and dialect differences while rejecting the old repeated reads.
     expect(counter.statements).toBeLessThanOrEqual(full ? 1300 : 560);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
@@ -111,9 +111,13 @@ test("a corrupt final registration update rolls back provisioning and permits a 
     request.initialAdminGroup.groupId,
     request.initialMemberGroup.groupId,
   ];
-  const documentIds = updates.map((update) =>
-    String(Reflect.get(update.writeHeader, "objectId")),
-  );
+  const documentIds = updates.map((update) => {
+    const objectId: unknown = Reflect.get(update.writeHeader, "objectId");
+    if (typeof objectId !== "string" || objectId.length === 0) {
+      throw new Error("Missing document ID in initial update fixture");
+    }
+    return objectId;
+  });
   const updateIds = updates.map(({ id }) => id);
   const remnants = await Promise.all([
     db.select().from(users).where(eq(users.id, request.userId)),
