@@ -141,3 +141,29 @@ test("the persister pauses a session whose writes lag behind the bound", async (
   expect(drained).toBe(true);
   expect(persister.pending("user", "session")).toBe(0);
 });
+
+test("flush settles its captured writes even while another event queues more", async () => {
+  const first = Promise.withResolvers<void>();
+  const second = Promise.withResolvers<void>();
+  const persister = createOrderedInterestPersister({
+    apply: (_user, session) =>
+      session === "first" ? first.promise : second.promise,
+  });
+  persister("user", "first", { kind: "add", containerIds: ["a"] });
+  const flushing = persister.flush();
+  persister("user", "second", { kind: "add", containerIds: ["b"] });
+  try {
+    first.resolve();
+    const result = await Promise.race([
+      flushing.then(() => "flushed"),
+      Bun.sleep(0).then(() => "blocked"),
+    ]);
+    expect(result).toBe("flushed");
+    expect(persister.pending("user", "second")).toBe(1);
+  } finally {
+    first.resolve();
+    second.resolve();
+    await flushing;
+    await persister.flush();
+  }
+});

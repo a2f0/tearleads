@@ -39,11 +39,17 @@ function createStore() {
           };
         },
       },
+      deleteAlarm: async () => {
+        alarm = null;
+      },
       getAlarm: async () => alarm,
       setAlarm: async (scheduledTime: number) => {
         alarm = scheduledTime;
       },
     },
+    acceptWebSocket: () => undefined,
+    getWebSockets: () => [],
+    waitUntil: () => undefined,
     blockConcurrencyWhile: async <T>(callback: () => Promise<T>) => callback(),
   };
   return { store: new KeyValueStore(ctx, {}), alarmAt: () => alarm };

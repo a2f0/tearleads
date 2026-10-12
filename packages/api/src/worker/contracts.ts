@@ -18,5 +18,5 @@ export interface KeyValueStoreRpc {
 
 /** The event bus surface of `RealtimeHub`. */
 export interface RealtimeHubRpc {
-  publish(message: string): void;
+  publish(message: string): Promise<void>;
 }

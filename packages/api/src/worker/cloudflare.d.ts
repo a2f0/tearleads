@@ -11,6 +11,20 @@ declare module "cloudflare:workers" {
     constructor(ctx: DurableObjectState, env: Env);
     fetch?(request: Request): Response | Promise<Response>;
     alarm?(): void | Promise<void>;
+    webSocketMessage?(
+      ws: CloudflareServerWebSocket,
+      message: string | ArrayBuffer,
+    ): void | Promise<void>;
+    webSocketClose?(
+      ws: CloudflareServerWebSocket,
+      code: number,
+      reason: string,
+      wasClean: boolean,
+    ): void | Promise<void>;
+    webSocketError?(
+      ws: CloudflareServerWebSocket,
+      error: unknown,
+    ): void | Promise<void>;
   }
 
   export { DurableObject };
@@ -36,10 +50,14 @@ interface DurableObjectStorage {
   readonly sql: SqlStorage;
   getAlarm(): Promise<number | null>;
   setAlarm(scheduledTime: number): Promise<void>;
+  deleteAlarm(): Promise<void>;
 }
 
 interface DurableObjectState {
   readonly storage: DurableObjectStorage;
+  acceptWebSocket(ws: CloudflareServerWebSocket): void;
+  getWebSockets(): CloudflareServerWebSocket[];
+  waitUntil(promise: Promise<unknown>): void;
   blockConcurrencyWhile<T>(callback: () => Promise<T>): Promise<T>;
 }
 
@@ -85,6 +103,8 @@ interface ScheduledController {
 /** The server half of a `WebSocketPair`, before and after `accept()`. */
 interface CloudflareServerWebSocket extends WebSocket {
   accept(): void;
+  serializeAttachment(value: unknown): void;
+  deserializeAttachment(): unknown;
 }
 
 interface CloudflareWebSocketPair {

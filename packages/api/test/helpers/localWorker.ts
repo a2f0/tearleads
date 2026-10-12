@@ -43,7 +43,7 @@ const postgresPartKeys = [
   "POSTGRES_DATABASE",
 ] as const;
 
-function databaseVars(): Record<string, string> {
+export function databaseVars(): Record<string, string> {
   const url = process.env[databaseUrlKey] ?? process.env[postgresUrlKey];
   const vars = new Map<string, string>();
   if (url) {

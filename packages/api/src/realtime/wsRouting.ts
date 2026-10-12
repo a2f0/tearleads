@@ -207,6 +207,7 @@ export class WsEventRouter {
     // was lost. Remove requested additions before installing the verified set.
     if (action.kind === "add") this.removeInterest(ws, action.containerIds);
     for (const proof of proofs) this.dependencies.set(ws, proof);
+    ws.stateChanged?.();
     const verifiedIds = proofs.map((proof) => proof.containerId);
     switch (action.kind) {
       case "replace":
@@ -231,6 +232,7 @@ export class WsEventRouter {
     organizationId: string | null,
   ): void {
     this.organizationRouter.applyAuthorizedInterest(ws, organizationId);
+    ws.stateChanged?.();
   }
 
   /**
@@ -385,6 +387,11 @@ export class WsEventRouter {
     return [...(this.interestBySocket.get(ws) ?? [])];
   }
 
+  /** Server-verified dependency paths, retained across a hub hibernation. */
+  snapshotProofs(ws: WsConnection): VerifiedContainerInterest[] {
+    return this.dependencies.snapshot(ws);
+  }
+
   /** Every socket currently open on this process. */
   openSockets(): WsConnection[] {
     return [...this.interestBySocket.keys()];
@@ -445,6 +452,7 @@ export class WsEventRouter {
     for (const containerId of containerIds) {
       this.dependencies.remove(ws, containerId);
       if (interest.delete(containerId)) {
+        ws.stateChanged?.();
         removeFromIndex(this.socketsByContainerId, containerId, ws);
       }
     }

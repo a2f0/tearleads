@@ -1,72 +1,61 @@
 import { DurableObject } from "cloudflare:workers";
 import { MAX_WS_CLIENT_MESSAGE_BYTES } from "@tearleads/validators/realtime";
-import type { GatewaySocket } from "../realtime/wsConnection";
-import type { WebSocketTicketIdentity } from "../realtime/wsIdentity";
 import type { RealtimeHubRpc } from "./contracts";
 import { bindWorkerEnvironment, type WorkerBindings } from "./environment";
+import { HubAlarmScheduler } from "./hubAlarmScheduler";
+import { HubConnections } from "./hubConnections";
+import { type LoadedHubGateway, loadHubGateway } from "./hubGateway";
+import { HubSocketAttachmentSchema } from "./hubSocketState";
+import { type HubSocketAttachment, HubSocketStore } from "./hubSocketStore";
 import { clientMessageByteLength } from "./socketMessageLimit";
-import {
-  DEFAULT_SOCKET_QUEUE_LIMITS,
-  SharedQueueBudget,
-  SocketQueue,
-} from "./socketQueue";
 
-type EventListener = (message: string) => void;
+const MAX_SOCKETS_PER_SESSION = 8;
+const CLOSE_UNSUPPORTED_DATA = 1003;
+const CLOSE_MESSAGE_TOO_BIG = 1009;
+const CLOSE_STATE_UNAVAILABLE = 1011;
 
-interface LoadedGateway {
-  readonly consumeTicket: (
-    ticket: string,
-  ) => Promise<WebSocketTicketIdentity | null>;
-  readonly report: (error: unknown) => void;
-  readonly websocket: {
-    open(ws: GatewaySocket): Promise<void>;
-    close(ws: GatewaySocket): void;
-    message(ws: GatewaySocket, message: string): Promise<void>;
-  };
+interface LoadedHub extends LoadedHubGateway {
+  readonly connections: HubConnections;
 }
 
-const EVENTS_PATH = "/events";
-/** Pending client bytes the whole hub may hold; see SharedQueueBudget. */
-const HUB_QUEUE_BUDGET_BYTES = 32 * 1024 * 1024;
-/** Open sockets one session may hold; a client needs one, a few for tabs. */
-const MAX_SOCKETS_PER_SESSION = 8;
-const CLOSE_MESSAGE_TOO_BIG = 1009;
-const CLOSE_UNSUPPORTED_DATA = 1003;
-const CLOSE_TRY_AGAIN_LATER = 1013;
-
 /**
- * One Durable Object hosts the realtime gateway exactly as the Bun process
- * did: it owns every live socket, the in-memory interest router, and the
- * revalidation timers. HTTP Workers publish events to it over RPC instead of
- * Redis pub/sub, so the gateway's own routing and authorization code runs
- * unchanged. Sockets are accepted without the hibernation API because the
- * gateway keeps per-socket state and timers in memory; that keeps the object
- * resident while clients are connected, which is the intended trade at the
- * current connection count. Hibernation is a follow-up, not a prerequisite.
+ * Sockets survive eviction. SQLite retains each socket's verified routing and
+ * absolute authorization deadlines; a durable alarm replaces idle timers.
+ * Every entry restores all sockets before routing, including an HTTP publish
+ * that wakes the hub without any client sending a message.
  */
 export class RealtimeHub
   extends DurableObject<WorkerBindings>
   implements RealtimeHubRpc
 {
-  private readonly listeners = new Set<EventListener>();
-  private readonly budget = new SharedQueueBudget(HUB_QUEUE_BUDGET_BYTES);
-  private readonly socketsBySession = new Map<string, number>();
-  private gateway: Promise<LoadedGateway> | undefined;
+  private readonly scheduler: HubAlarmScheduler;
+  private readonly store: HubSocketStore;
+  private hub: Promise<LoadedHub> | undefined;
 
   constructor(ctx: DurableObjectState, env: WorkerBindings) {
     super(ctx, env);
     bindWorkerEnvironment(env);
+    this.scheduler = new HubAlarmScheduler(ctx.storage);
+    this.store = new HubSocketStore(ctx.storage.sql);
   }
 
-  /** Fan an HTTP-side event to the gateway, as the Redis subscriber did. */
-  publish(message: string): void {
-    for (const listener of this.listeners) {
-      try {
-        listener(message);
-      } catch (error) {
-        console.error("Realtime hub listener error:", error);
-      }
-    }
+  async publish(message: string): Promise<void> {
+    const routed = Promise.withResolvers<void>();
+    const completed = this.run(
+      async (hub) => {
+        await hub.gateway.publish(message);
+      },
+      () => routed.resolve(),
+    );
+    this.ctx.waitUntil(
+      completed.catch((error: unknown) => {
+        // Hints are best effort, as with the previous listener-based hub.
+        // A failed wake-up must not fail an already committed HTTP mutation.
+        console.error("Realtime publication background work failed:", error);
+        routed.resolve();
+      }),
+    );
+    await routed.promise;
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -74,119 +63,167 @@ export class RealtimeHub
       return new Response("WebSocket upgrade required", { status: 426 });
     }
     const url = new URL(request.url);
-    if (url.pathname !== EVENTS_PATH) {
+    if (url.pathname !== "/events")
       return new Response("WebSocket endpoint not found", { status: 404 });
-    }
-    const gateway = await this.loadGateway();
-    const identity = await gateway.consumeTicket(
-      url.searchParams.get("ticket") ?? "",
-    );
-    if (!identity) {
-      return new Response("WebSocket ticket required", { status: 401 });
-    }
-    const sessionKey = `${identity.userId}:${identity.sessionId}`;
-    if (
-      (this.socketsBySession.get(sessionKey) ?? 0) >= MAX_SOCKETS_PER_SESSION
-    ) {
-      return new Response("Too many sockets for this session", { status: 429 });
-    }
-    this.socketsBySession.set(
-      sessionKey,
-      (this.socketsBySession.get(sessionKey) ?? 0) + 1,
-    );
-
-    const pair = new WebSocketPair();
-    const server = pair[1];
-    server.accept();
-    this.attach(gateway, server, identity);
-    return new Response(null, { status: 101, webSocket: pair[0] });
+    let accepted:
+      | { hub: LoadedHub; server: CloudflareServerWebSocket }
+      | undefined;
+    return this.run(async (hub) => {
+      const identity = await hub.consumeTicket(
+        url.searchParams.get("ticket") ?? "",
+      );
+      if (!identity)
+        return new Response("WebSocket ticket required", { status: 401 });
+      if (
+        hub.connections.countSession(identity.userId, identity.sessionId) >=
+        MAX_SOCKETS_PER_SESSION
+      ) {
+        return new Response("Too many sockets for this session", {
+          status: 429,
+        });
+      }
+      const pair = new WebSocketPair();
+      const attachment: HubSocketAttachment = {
+        id: crypto.randomUUID(),
+        identity,
+      };
+      pair[1].serializeAttachment(attachment);
+      this.ctx.acceptWebSocket(pair[1]);
+      accepted = { hub, server: pair[1] };
+      await hub.connections.attach(pair[1], attachment);
+      return new Response(null, { status: 101, webSocket: pair[0] });
+    }).catch((error: unknown) => {
+      accepted?.hub.connections.close(
+        accepted.server,
+        CLOSE_STATE_UNAVAILABLE,
+        "Socket setup failed",
+      );
+      throw error;
+    });
   }
 
-  private attach(
-    gateway: LoadedGateway,
+  override async webSocketMessage(
     server: CloudflareServerWebSocket,
-    identity: WebSocketTicketIdentity,
-  ): void {
-    const socket: GatewaySocket = {
-      data: identity,
-      send: (message) => server.send(message),
-      close: (code, reason) => server.close(code, reason),
-    };
-    const sessionKey = `${identity.userId}:${identity.sessionId}`;
-    let counted = true;
-    const release = () => {
-      if (!counted) {
+    message: string | ArrayBuffer,
+  ): Promise<void> {
+    await this.run(async (hub) => {
+      if (typeof message !== "string") {
+        hub.connections.close(
+          server,
+          CLOSE_UNSUPPORTED_DATA,
+          "Text frames only",
+        );
         return;
       }
-      counted = false;
-      const remaining = (this.socketsBySession.get(sessionKey) ?? 1) - 1;
-      if (remaining <= 0) {
-        this.socketsBySession.delete(sessionKey);
-      } else {
-        this.socketsBySession.set(sessionKey, remaining);
-      }
-    };
-    const queue = new SocketQueue(
-      {
-        open: () => gateway.websocket.open(socket),
-        message: (data) => gateway.websocket.message(socket, data),
-        close: () => {
-          release();
-          gateway.websocket.close(socket);
-        },
-        report: gateway.report,
-        overflow: (reason) => server.close(CLOSE_TRY_AGAIN_LATER, reason),
-      },
-      DEFAULT_SOCKET_QUEUE_LIMITS,
-      this.budget,
-    );
-    server.addEventListener("message", (event) => {
-      const { data } = event;
-      if (typeof data !== "string") {
-        server.close(CLOSE_UNSUPPORTED_DATA, "Text frames only");
+      const bytes = clientMessageByteLength(message);
+      if (bytes > MAX_WS_CLIENT_MESSAGE_BYTES) {
+        hub.connections.close(
+          server,
+          CLOSE_MESSAGE_TOO_BIG,
+          "Message too large",
+        );
         return;
       }
-      const byteLength = clientMessageByteLength(data);
-      if (byteLength > MAX_WS_CLIENT_MESSAGE_BYTES) {
-        server.close(CLOSE_MESSAGE_TOO_BIG, "Message too large");
-        return;
-      }
-      queue.enqueue(data, byteLength);
+      await hub.connections.message(server, message, bytes);
     });
-    server.addEventListener("close", () => queue.close());
-    server.addEventListener("error", () => queue.close());
   }
 
-  private loadGateway(): Promise<LoadedGateway> {
-    this.gateway ??= this.createGateway();
-    return this.gateway;
+  override async webSocketClose(
+    server: CloudflareServerWebSocket,
+  ): Promise<void> {
+    await this.run(async (hub) => {
+      hub.connections.close(server);
+    });
   }
 
-  // The gateway and its dependencies read configuration at import time, so
-  // they load only after the constructor has bound the environment.
-  private async createGateway(): Promise<LoadedGateway> {
-    const [gatewayModule, ticketModule, diagnosticsModule] = await Promise.all([
-      import("../realtime/realtimeGateway"),
-      import("../realtime/wsTicket"),
-      import("../diagnostics/reportBackgroundFailure"),
+  override async webSocketError(
+    server: CloudflareServerWebSocket,
+  ): Promise<void> {
+    await this.run(async (hub) => {
+      hub.connections.close(server, CLOSE_STATE_UNAVAILABLE, "Socket error");
+    });
+  }
+
+  override async alarm(): Promise<void> {
+    await this.run(async () => undefined);
+  }
+
+  private async run<T>(
+    operation: (hub: LoadedHub) => Promise<T>,
+    routed?: () => void,
+  ): Promise<T> {
+    this.hub ??= this.restore().catch((error: unknown) => {
+      this.hub = undefined;
+      throw error;
+    });
+    const hub = await this.hub;
+    const leave = this.scheduler.enter(() => this.ctx.waitUntil(this.alarm()));
+    try {
+      return await hub.withDatabase(async () =>
+        this.runEvent(hub, operation, routed),
+      );
+    } finally {
+      leave();
+    }
+  }
+
+  private async runEvent<T>(
+    hub: LoadedHub,
+    operation: (hub: LoadedHub) => Promise<T>,
+    routed?: () => void,
+  ): Promise<T> {
+    // runDue invokes expired deadline callbacks before yielding. Keep periodic
+    // reads beside the event so a slow store cannot delay a revocation RPC.
+    const failures: unknown[] = [];
+    const checks = this.scheduler.runDue().catch((error: unknown) => {
+      failures.push(error);
+    });
+    const [outcome] = await Promise.allSettled([
+      Promise.resolve().then(() => operation(hub)),
     ]);
-    const gateway = gatewayModule.createRealtimeGateway({
-      subscribe: (listener) => {
-        this.listeners.add(listener);
-        return () => {
-          this.listeners.delete(listener);
-        };
-      },
-      // Publishing is an in-process call here, so there are no delivery gaps
-      // for a reconnect pass to repair.
-      subscribeReconnect: () => () => {},
-    });
-    gateway.start();
-    return {
-      consumeTicket: ticketModule.consumeWebSocketTicket,
-      report: (error) =>
-        diagnosticsModule.reportBackgroundFailure(error, "websocket.event"),
-      websocket: gateway.websocket,
-    };
+    if (outcome.status === "fulfilled") routed?.();
+    else failures.push(outcome.reason);
+    for (const complete of [
+      () => checks,
+      () => hub.gateway.flush(),
+      () => hub.connections.saveDirty(),
+      () => this.scheduler.flush(),
+    ]) {
+      try {
+        await complete();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    if (outcome.status === "fulfilled" && failures.length === 0)
+      return outcome.value;
+    throw new AggregateError(failures, "Realtime event failed");
+  }
+
+  private async restore(): Promise<LoadedHub> {
+    const loaded = await loadHubGateway(this.scheduler);
+    const connections = new HubConnections(loaded, this.store);
+    const liveIds = new Set<string>();
+    const restores: Promise<void>[] = [];
+    for (const server of this.ctx.getWebSockets()) {
+      const parsed = HubSocketAttachmentSchema.safeParse(
+        server.deserializeAttachment(),
+      );
+      const attachment = parsed.success ? parsed.data : null;
+      const saved = attachment ? this.store.load(attachment.id) : null;
+      if (!attachment || !saved || server.readyState !== WebSocket.OPEN) {
+        connections.close(
+          server,
+          CLOSE_STATE_UNAVAILABLE,
+          "Socket state unavailable",
+        );
+        continue;
+      }
+      liveIds.add(attachment.id);
+      restores.push(connections.attach(server, attachment, saved));
+    }
+    this.store.prune(liveIds);
+    await Promise.all(restores);
+    return { ...loaded, connections };
   }
 }
