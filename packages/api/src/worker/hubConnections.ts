@@ -8,6 +8,9 @@ import {
   SocketQueue,
 } from "./socketQueue";
 
+/** Pending client bytes the whole hub may hold; see SharedQueueBudget. */
+const HUB_QUEUE_BUDGET_BYTES = 32 * 1024 * 1024;
+
 interface Connection {
   readonly attachment: HubSocketAttachment;
   readonly socket: GatewaySocket;
@@ -22,7 +25,7 @@ export class HubConnections {
   >();
   private readonly dirty = new Set<CloudflareServerWebSocket>();
   private readonly sessionCounts = new Map<string, number>();
-  private readonly budget = new SharedQueueBudget(32 * 1024 * 1024);
+  private readonly budget = new SharedQueueBudget(HUB_QUEUE_BUDGET_BYTES);
 
   constructor(
     private readonly loaded: LoadedHubGateway,

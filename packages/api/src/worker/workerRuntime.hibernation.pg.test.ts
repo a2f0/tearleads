@@ -160,6 +160,9 @@ describe.skipIf(databaseKind !== "postgres")(
       await worker.command({ kind: "schedule-session-check" });
       await worker.command({ kind: "hibernate" });
       await worker.command({ kind: "publish", message: "{}" });
+      // Persist the earlier check, then evict again: only the durable alarm
+      // can wake the object, with no intervening request or resident timer.
+      await worker.command({ kind: "hibernate" });
       expect(socket.socket.readyState).toBe(WebSocket.OPEN);
       const closed = await Promise.race([
         socket.closed,

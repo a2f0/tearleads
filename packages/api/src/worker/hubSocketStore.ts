@@ -57,9 +57,10 @@ export class HubSocketStore {
   }
 
   prune(liveIds: ReadonlySet<string>): void {
-    for (const row of this.sql.exec<{ id: string }>(
-      "SELECT DISTINCT id FROM realtime_socket_chunks",
-    )) {
+    const rows = this.sql
+      .exec<{ id: string }>("SELECT DISTINCT id FROM realtime_socket_chunks")
+      .toArray();
+    for (const row of rows) {
       if (!liveIds.has(row.id)) this.remove(row.id);
     }
   }

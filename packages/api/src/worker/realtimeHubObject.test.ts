@@ -1,4 +1,4 @@
-import { expect, mock, test } from "bun:test";
+import { expect, mock, spyOn, test } from "bun:test";
 
 mock.module("cloudflare:workers", () => ({
   DurableObject: class {
@@ -127,4 +127,29 @@ test("a failed restoration can retry on the next event", async () => {
   await expect(hub.alarm()).rejects.toThrow("restore failed");
   await hub.alarm();
   expect(attempts).toBe(2);
+});
+
+test("hub restoration failure does not fail an already committed HTTP mutation", async () => {
+  const background: Promise<unknown>[] = [];
+  const report = spyOn(console, "error").mockImplementation(() => {});
+  const hub: InstanceType<typeof RealtimeHub> = Object.assign(
+    Object.create(RealtimeHub.prototype),
+    {
+      ctx: {
+        waitUntil: (pending: Promise<unknown>) => background.push(pending),
+      },
+      restore: async () => {
+        throw new Error("restore unavailable");
+      },
+    },
+  );
+  try {
+    await hub.publish(
+      JSON.stringify({ type: "user_registered", userId: "user" }),
+    );
+    await Promise.all(background);
+    expect(report).toHaveBeenCalled();
+  } finally {
+    report.mockRestore();
+  }
 });

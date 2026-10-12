@@ -62,7 +62,13 @@ writes, saves changed socket state, updates the alarm, and closes its database
 pool. Ordinary hints do not serialize unchanged snapshots. HTTP publications
 acknowledge completed routing while `waitUntil` owns trailing checks and cleanup,
 so unrelated slow rechecks do not delay the caller. Closing a socket removes its
-state, and a restored hub prunes abandoned rows.
+state, and a restored hub prunes abandoned rows. Publication failures are reported
+but remain best effort, so a failed wake-up cannot fail a committed mutation.
+
+A new connection waits for its initial interest hydration before the upgrade
+response completes. This can add the authorization timeout during an outage;
+a failed hydration uses the gateway's empty baseline for client redeclaration.
+Fatal socket setup errors close the accepted connection for a fresh retry.
 
 The Postgres concurrency lane runs `workerRuntime.hibernation.pg.test.ts` against
 the real Worker configuration through Wrangler's test harness. It evicts the

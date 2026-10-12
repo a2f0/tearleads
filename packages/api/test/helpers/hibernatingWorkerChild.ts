@@ -1,11 +1,12 @@
 import { createServer } from "node:http";
-import { createTestHarness } from "wrangler";
+import { createTestHarness, unstable_readConfig } from "wrangler";
 import type { GatewaySocketSnapshot } from "../../src/realtime/gatewayHibernation";
 
 // Node hosts Wrangler: Bun's implementation cannot serve its proxy reliably.
 // This controller exists only in the test process, never in the Worker bundle.
 const varsKey = "HIBERNATION_TEST_VARS";
 const vars: Record<string, string> = JSON.parse(process.env[varsKey] ?? "{}");
+const config = unstable_readConfig({ config: "wrangler.jsonc", env: "local" });
 const harness = createTestHarness({
   workers: [
     { configPath: "wrangler.jsonc", env: "local", vars },
@@ -13,18 +14,18 @@ const harness = createTestHarness({
       config: {
         name: "hibernation-control",
         main: "test/helpers/hibernationControlWorker.ts",
-        compatibility_date: "2026-08-17",
+        compatibility_date: config.compatibility_date,
         durable_objects: {
           bindings: [
             {
               name: "REALTIME_HUB",
               class_name: "RealtimeHub",
-              script_name: "tearleads-platform-api-local",
+              script_name: config.name,
             },
             {
               name: "KEY_VALUE_STORE",
               class_name: "KeyValueStore",
-              script_name: "tearleads-platform-api-local",
+              script_name: config.name,
             },
           ],
         },

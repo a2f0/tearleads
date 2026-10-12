@@ -49,8 +49,10 @@ export class RealtimeHub
     );
     this.ctx.waitUntil(
       completed.catch((error: unknown) => {
-        routed.reject(error);
+        // Hints are best effort, as with the previous listener-based hub.
+        // A failed wake-up must not fail an already committed HTTP mutation.
         console.error("Realtime publication background work failed:", error);
+        routed.resolve();
       }),
     );
     await routed.promise;
