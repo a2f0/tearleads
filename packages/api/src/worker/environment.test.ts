@@ -19,7 +19,7 @@ async function bind(bindings: Record<string, unknown>) {
         }));
       `,
     ],
-    { stdout: "pipe", stderr: "pipe" },
+    { env: {}, stdout: "pipe", stderr: "pipe" },
   );
   const [exitCode, stdout, stderr] = await Promise.all([
     child.exited,

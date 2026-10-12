@@ -217,6 +217,11 @@ test("the Worker receives Hyperdrive, derived origins, and only managed secrets"
   expect(
     run.calls.findIndex((call) => call.startsWith("migrate|")),
   ).toBeLessThan(run.calls.findIndex((call) => call.startsWith("deploy|")));
+  expect(
+    run.calls.findIndex((call) => call.startsWith("deploy|")),
+  ).toBeLessThan(
+    run.calls.findIndex((call) => call.startsWith("secret-delete|")),
+  );
 });
 
 for (const [label, healthcheckUrl] of [
