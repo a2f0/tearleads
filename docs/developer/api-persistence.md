@@ -21,9 +21,9 @@ database from that baseline and records its application in Drizzle's journal.
 Repeating initialization on the same current database is idempotent. There are
 no historical schema upgrades, data backfills, or rollout content scans.
 
-Production uses PlanetScale PostgreSQL; staging uses PostgreSQL on its server.
-Both use independent AWS S3 buckets for encrypted blobs. Runtime database roles
-and schema initialization credentials are separate in production.
+Production and staging use PlanetScale PostgreSQL and independent Cloudflare R2
+buckets for encrypted blobs. Runtime database roles and schema initialization
+credentials are separate.
 
 Schema changes update the Drizzle definitions and regenerate both baseline
 bundles. They require fresh server and client databases. Local database startup

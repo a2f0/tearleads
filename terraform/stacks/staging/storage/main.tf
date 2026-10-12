@@ -1,10 +1,11 @@
-resource "aws_s3_bucket" "blobs" {
-  bucket        = "tearleads-staging"
-  force_destroy = true
+resource "cloudflare_r2_bucket" "blobs" {
+  account_id = var.cloudflare_account_id
+  name       = "tearleads-blobs-staging"
+  location   = "enam"
 }
 
 module "storage" {
-  source        = "../../../modules/s3-blob-storage"
-  bucket        = aws_s3_bucket.blobs
-  iam_user_name = "tearleads-staging-blobs"
+  source      = "../../../modules/r2-object-storage"
+  account_id  = var.cloudflare_account_id
+  bucket_name = cloudflare_r2_bucket.blobs.name
 }

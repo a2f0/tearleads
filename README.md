@@ -44,7 +44,7 @@ Each tier is four Cloudflare Workers plus three independent Terraform stacks:
   as Workers Static Assets, and `packages/website` deploys the marketing site.
 - `terraform/stacks/<tier>/postgres` owns the tier's PlanetScale Postgres and
   Hyperdrive configuration,
-  `terraform/stacks/<tier>/storage` its S3 blob bucket and API credentials,
+  `terraform/stacks/<tier>/storage` its R2 blob bucket and API credentials,
   and `terraform/stacks/<tier>/edge` the custom domains that attach the API,
   app, and demo hostnames to the published Workers. The website keeps its own
   domain stack.

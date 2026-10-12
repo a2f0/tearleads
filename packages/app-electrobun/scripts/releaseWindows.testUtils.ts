@@ -11,6 +11,11 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
+  r2ReleaseAmbientCredentials,
+  r2ReleaseCredentialProbe,
+  r2ReleaseStorageStub,
+} from "./r2Release.testUtils";
+import {
   windowsArtifactDigest,
   windowsReleaseNames,
 } from "./windowsReleaseArtifacts";
@@ -86,6 +91,7 @@ export async function runWindowsRelease(
       "releaseWindows.ts",
       "publishWindowsRelease.ts",
       "publishDesktopRelease.ts",
+      "desktopReleaseStorage.ts",
       "windowsReleaseArtifacts.ts",
       "sentryReleaseSource.ts",
     ])
@@ -103,6 +109,10 @@ export async function runWindowsRelease(
       await Bun.file(
         resolve(import.meta.dirname, "../../../scripts/windowsRelease.sh"),
       ).text(),
+    );
+    await write(
+      "terraform/scripts/run-downloads-stack.sh",
+      r2ReleaseStorageStub,
     );
     await write(
       "terraform/scripts/common.sh",
@@ -128,7 +138,7 @@ export async function runWindowsRelease(
     await symlink(process.execPath, join(root, "bin/bun"));
     await write(
       "bin/aws",
-      '#!/bin/sh\nprintf "aws %s\\n" "$*" >> "$WINDOWS_TEST_LOG"\n',
+      `#!/bin/sh\n${r2ReleaseCredentialProbe}\nprintf "aws %s\\n" "$*" >> "$WINDOWS_TEST_LOG"\n`,
     );
     const names = windowsReleaseNames(tier);
     const artifacts = join(root, "fixture-artifacts");
@@ -174,6 +184,7 @@ export async function runWindowsRelease(
       {
         cwd: root,
         env: {
+          ...r2ReleaseAmbientCredentials,
           ...env,
           PATH: `${root}/bin:${inheritedPath}`,
           WINDOWS_TEST_ROOT: root,

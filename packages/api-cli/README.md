@@ -1,7 +1,7 @@
 # @tearleads/api-cli
 
 Server-side operations CLI for the Tearleads API. The deploy scripts run it
-from source against each tier's PlanetScale database and S3 bucket; it can also
+from source against each tier's PlanetScale database and R2 bucket; it can also
 be compiled to a standalone Bun executable (`tearleads-api-cli`).
 
 It is a separate deployable entry package: it depends on `@tearleads/api-shared`
@@ -92,14 +92,14 @@ Requires these environment variables (read at command time, all validated):
 | `BLOB_OBJECT_STORE` | yes | Must be `s3` |
 | `BLOB_OBJECT_STORE_S3_BUCKET` | yes | |
 | `BLOB_OBJECT_STORE_S3_REGION` | yes | |
-| `BLOB_OBJECT_STORE_S3_ENDPOINT` | no | Set for Garage / non-AWS S3 |
+| `BLOB_OBJECT_STORE_S3_ENDPOINT` | no | R2 account endpoint in deployment; LocalStack locally |
 | `BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE` | no | `1`/`true` or `0`/`false`; any other value throws |
 | `BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID` | no | Must be set together with the secret |
 | `BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY` | no | Must be set together with the key id |
 
 With neither credential set, the AWS SDK's default credential chain applies.
 
-For the deployed S3 buckets, use the repo wrapper — it reads the tier's
+For the deployed R2 buckets, use the repo wrapper — it reads the tier's
 `storage` Terraform stack output and invokes this command locally:
 
 ```bash

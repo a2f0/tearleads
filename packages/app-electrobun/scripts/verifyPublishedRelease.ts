@@ -1,7 +1,13 @@
 import { strict as assert } from "node:assert";
 import { execFileSync } from "node:child_process";
-import { chmod, mkdir } from "node:fs/promises";
+import { chmod, cp, mkdir } from "node:fs/promises";
 import { basename, join, resolve } from "node:path";
+
+import {
+  r2ReleaseAmbientCredentials,
+  r2ReleaseCredentialProbe,
+  r2ReleaseStorageStub,
+} from "./r2Release.testUtils";
 
 async function publishProbe(
   root: string,
@@ -10,11 +16,28 @@ async function publishProbe(
   channel: "stable" | "canary",
   appName: string,
 ) {
+  // Copy only the publisher and replace its Terraform boundary inside the probe.
+  // Production publication still always reads its real stack configuration.
+  const probe = join(root, "publication-probe");
+  const scripts = join(probe, "packages/app-electrobun/scripts");
+  await mkdir(scripts, { recursive: true });
+  for (const name of [
+    "publishMacosRelease.ts",
+    "publishDesktopRelease.ts",
+    "desktopReleaseStorage.ts",
+  ]) {
+    await cp(join(import.meta.dirname, name), join(scripts, name));
+  }
+  await mkdir(join(probe, "terraform/scripts"), { recursive: true });
+  await Bun.write(
+    join(probe, "terraform/scripts/run-downloads-stack.sh"),
+    r2ReleaseStorageStub,
+  );
   const published = join(root, "published");
   await mkdir(published);
   await Bun.write(
     join(root, "bin/aws"),
-    '#!/bin/sh\ncp "$3" "$PUBLICATION_PROBE_DIR/$(basename "$4")"\n',
+    `#!/bin/sh\n${r2ReleaseCredentialProbe}\ncp "$3" "$PUBLICATION_PROBE_DIR/$(basename "$4")"\n`,
   );
   await chmod(join(root, "bin/aws"), 0o755);
   const prefix = `${channel}-macos-arm64`;
@@ -23,8 +46,10 @@ async function publishProbe(
   const publisher = Bun.spawn(
     [
       process.execPath,
-      join(import.meta.dirname, "publishMacosRelease.ts"),
-      "downloads.example.test",
+      join(scripts, "publishMacosRelease.ts"),
+      channel === "stable"
+        ? "tearleads-downloads-prod"
+        : "tearleads-downloads-staging",
       channel,
       appName,
       join(
@@ -35,7 +60,11 @@ async function publishProbe(
       archive,
     ],
     {
-      env: { ...env, PUBLICATION_PROBE_DIR: published },
+      env: {
+        ...env,
+        ...r2ReleaseAmbientCredentials,
+        PUBLICATION_PROBE_DIR: published,
+      },
       stdout: "ignore",
       stderr: "inherit",
     },

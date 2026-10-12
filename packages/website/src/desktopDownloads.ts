@@ -24,10 +24,10 @@ export async function resolveDesktopDownload(
   initialHash: string | undefined,
   request: FetchDownload = fetch,
 ): Promise<DownloadLinks | null> {
-  const bucket = staging
+  const hostname = staging
     ? "downloads-staging.tearleads.com"
     : "downloads.tearleads.com";
-  const base = `https://s3.us-east-1.amazonaws.com/${bucket}`;
+  const base = `https://${hostname}`;
   const prefix = `${staging ? "canary" : "stable"}-${target}`;
   const appName = staging
     ? target === "macos-arm64"

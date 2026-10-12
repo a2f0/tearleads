@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       tier:
-        description: Release to build (S3 publishing runs locally)
+        description: Release to build (R2 publishing runs locally)
         type: choice
         required: true
         default: both

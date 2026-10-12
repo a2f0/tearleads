@@ -4,17 +4,12 @@ terraform {
     key = "staging/storage/terraform.tfstate"
   }
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.63"
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.24"
     }
   }
 }
-
-# PlanetScale production is in AWS us-east-1; both blob stores use that region.
-provider "aws" {
-  region = "us-east-1"
-  default_tags {
-    tags = { Project = "tearleads", ManagedBy = "terraform", Stack = "staging/storage" }
-  }
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }

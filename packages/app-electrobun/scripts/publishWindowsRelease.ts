@@ -3,7 +3,7 @@ import { publishDesktopRelease } from "./publishDesktopRelease";
 import { verifyWindowsDownload } from "./windowsReleaseArtifacts";
 
 // The caller downloads the source maps and uploads them with local credentials.
-// Neither invalid payloads nor an incomplete map upload may reach S3.
+// Neither invalid payloads nor an incomplete map upload may reach R2.
 export async function publishWindowsRelease(options: {
   artifacts: string;
   tier: string;

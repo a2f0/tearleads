@@ -38,8 +38,9 @@ The full `scripts/deployStaging.sh` and `scripts/deployProduction.sh` include th
 website deployment. Their `--skip-terraform` skips server/storage provisioning;
 website domains still reconcile. Their `--skip-infra` also skips domain Terraform.
 
-`scripts/destroyStaging.sh` removes the server and S3 storage, then destroys the
-website domain and deletes the staging Worker. For website-only teardown use
+`scripts/destroyStaging.sh` removes the Workers, database, and R2 storage, then
+destroys the website domain and deletes the staging Worker. For website-only
+teardown use
 `packages/website/scripts/destroyStagingWebsite.sh [--auto-approve]`. A failed
 domain teardown leaves the Worker available. Server-only destruction preserves it.
 The Terraform wrapper rejects production domain destruction before loading
@@ -54,7 +55,7 @@ Cloudflare's [static asset documentation](https://developers.cloudflare.com/work
 describes routing and deployment caching.
 
 The homepage's macOS and Linux download links select the production or staging
-S3 bucket using `PUBLIC_ENVIRONMENT`. Each build resolves download discovery
+R2 download domain using `PUBLIC_ENVIRONMENT`. Each build resolves download discovery
 metadata into a matching pair of immutable installer and SHA-256 checksum URLs;
 offline builds retain the verified first release. Build and upload
 the matching release with `scripts/uploadMacosRelease.sh` or

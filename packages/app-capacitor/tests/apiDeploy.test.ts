@@ -22,6 +22,7 @@ async function deployFixture(
     readonly healthcheckUrl?: string | undefined;
     readonly hyperdriveId?: string;
     readonly tier?: "staging" | "prod";
+    readonly storage?: Readonly<Record<string, unknown>>;
   } = {},
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-api-deploy-"));
@@ -44,6 +45,7 @@ async function deployFixture(
       "load_secrets_env() {",
       '  local traced=0; if [[ "$-" == *x* ]]; then traced=1; set +x; fi',
       "  TF_VAR_domain=example.test",
+      `  TF_VAR_cloudflare_account_id=${"b".repeat(32)}`,
       '  DOCUMENT_SYNC_CURSOR_HMAC_KEY="fixture-cursor-key-with-at-least-32-bytes"',
       `  BLOB_GC_HEALTHCHECK_URL=${options.healthcheckUrl ?? "https://hc.example.test/ping/fixture"}`,
       "  SENTRY_API_STAGING_DSN=https://staging-dsn.example.test/1",
@@ -73,12 +75,22 @@ async function deployFixture(
       'printf \'{"postgres_host":"fixture.pg.psdb.cloud","postgres_port":"6432","postgres_migration_port":"5432","postgres_db":"fixture-db","postgres_user":"runtime.user","postgres_password":"runtime-password","postgres_migration_user":"migration.user","postgres_migration_password":"migration-password"}\\n\'',
     ].join("\n"),
   );
+  await Bun.write(
+    resolve(root, "storage-output.json"),
+    JSON.stringify({
+      blob_object_store: "s3",
+      blob_s3_bucket: `tearleads-blobs-${options.tier ?? "staging"}`,
+      blob_s3_region: "auto",
+      blob_s3_endpoint: `https://${"b".repeat(32)}.r2.cloudflarestorage.com`,
+      blob_s3_force_path_style: true,
+      blob_s3_access_key_id: "fixture-key",
+      blob_s3_secret_access_key: "fixture-secret",
+      ...options.storage,
+    }),
+  );
   await executable(
     resolve(root, "terraform/scripts/run-storage-stack.sh"),
-    [
-      "#!/bin/sh",
-      'printf \'{"blob_s3_access_key_id":"fixture-key","blob_s3_secret_access_key":"fixture-secret","blob_s3_key_prefix":""}\\n\'',
-    ].join("\n"),
+    '#!/bin/sh\ncat "$API_DEPLOY_TEST_ROOT/storage-output.json"\n',
   );
   await executable(
     resolve(bin, "git"),
@@ -208,6 +220,13 @@ test("the Worker receives Hyperdrive, derived origins, and only managed secrets"
   expect(deploy).toContain("wrangler deploy --env staging");
   expect(deploy).toContain("--define API_BUILD_VERSION:123");
   expect(deploy).toContain(
+    "--var BLOB_OBJECT_STORE_S3_BUCKET:tearleads-blobs-staging",
+  );
+  expect(deploy).toContain("--var BLOB_OBJECT_STORE_S3_REGION:auto");
+  expect(deploy).toContain(
+    "--var BLOB_OBJECT_STORE_S3_ENDPOINT:https://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.r2.cloudflarestorage.com",
+  );
+  expect(deploy).toContain(
     "--var API_PUBLIC_ORIGIN:https://api-staging.example.test",
   );
   expect(deploy).toContain(
@@ -289,3 +308,24 @@ test("a missing Hyperdrive ID stops before migration or secret changes", async (
   expect(run.stderr).toContain("hyperdrive_id must be a configuration ID");
   expect(run.calls).toEqual([]);
 });
+
+for (const [label, storage] of [
+  [
+    "AWS storage",
+    { blob_s3_bucket: "tearleads-staging", blob_s3_region: "us-east-1" },
+  ],
+  ["missing endpoint", { blob_s3_endpoint: undefined }],
+  [
+    "another account",
+    { blob_s3_endpoint: `https://${"c".repeat(32)}.r2.cloudflarestorage.com` },
+  ],
+] as const) {
+  test(`R2 storage guard rejects ${label} before migrations or Worker changes`, async () => {
+    const run = await deployFixture({}, { storage });
+    expect(run.exitCode).toBe(1);
+    expect(run.stderr).toContain("Apply the staging R2 storage stack");
+    expect(run.calls).toEqual([]);
+    expect(run.secrets).toBeNull();
+    expect(run.deployedConfig).toBe("");
+  });
+}

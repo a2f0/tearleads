@@ -39,9 +39,9 @@ uses the separate Actions build and local publication workflow below.
 
 | Target | Staging script | Production script | Current destination |
 | --- | --- | --- | --- |
-| macOS ARM64 | `scripts/uploadMacosStagingRelease.sh` | `scripts/uploadMacosRelease.sh` | Signed/notarized DMG and update archive in tier's S3 download bucket |
-| Linux x64 | `scripts/uploadLinuxStagingRelease.sh` | `scripts/uploadLinuxRelease.sh` | Tested installer and update archive in tier's S3 download bucket |
-| Windows x64 | `scripts/windowsRelease.sh upload staging RUN_ID` | `scripts/windowsRelease.sh upload production RUN_ID` | Verified Actions ZIP and update archive in tier's S3 download bucket |
+| macOS ARM64 | `scripts/uploadMacosStagingRelease.sh` | `scripts/uploadMacosRelease.sh` | Signed/notarized DMG and update archive in tier's R2 download bucket |
+| Linux x64 | `scripts/uploadLinuxStagingRelease.sh` | `scripts/uploadLinuxRelease.sh` | Tested installer and update archive in tier's R2 download bucket |
+| Windows x64 | `scripts/windowsRelease.sh upload staging RUN_ID` | `scripts/windowsRelease.sh upload production RUN_ID` | Verified Actions ZIP and update archive in tier's R2 download bucket |
 | iOS | `scripts/uploadIosStagingRelease.sh` | `scripts/uploadIosRelease.sh` | TestFlight internal |
 | Android | `scripts/uploadAndroidStagingRelease.sh` | `scripts/uploadAndroidRelease.sh` | Google Play internal |
 
@@ -145,8 +145,8 @@ independent targets.
 2. Fetch each tier's `canary` (staging) or `stable` (production) discovery JSON
    for `macos-arm64`, `linux-x64`, and `win-x64`. Resolve public bucket endpoints
    from the release scripts; currently they are
-   `https://s3.us-east-1.amazonaws.com/<bucket>/`. The bucket names themselves
-   need not have DNS records.
+   `https://downloads.tearleads.com/` and
+   `https://downloads-staging.tearleads.com/`, backed by R2 custom domains.
 3. Validate each discovery document names a matching immutable installer and
    `.sha256` file. Download the actual public installer bytes and compare the
    digest with the published checksum, filename digest, and the locally

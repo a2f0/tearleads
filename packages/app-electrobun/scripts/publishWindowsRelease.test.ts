@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { r2ReleaseStorageStub } from "./r2Release.testUtils";
 import {
   windowsArtifactDigest,
   windowsReleaseNames,
@@ -62,7 +63,21 @@ for (const [tier, failure] of [
       );
       if (failure === "checksum")
         await Bun.write(join(root, names.archive), "tampered");
-      const entry = join(import.meta.dirname, "publishWindowsRelease.ts");
+      const scripts = join(root, "packages/app-electrobun/scripts");
+      await mkdir(scripts, { recursive: true });
+      for (const name of [
+        "publishWindowsRelease.ts",
+        "publishDesktopRelease.ts",
+        "desktopReleaseStorage.ts",
+        "windowsReleaseArtifacts.ts",
+      ]) {
+        await cp(join(import.meta.dirname, name), join(scripts, name));
+      }
+      await Bun.write(
+        join(root, "terraform/scripts/run-downloads-stack.sh"),
+        r2ReleaseStorageStub,
+      );
+      const entry = join(scripts, "publishWindowsRelease.ts");
       await Bun.write(
         join(root, "publish.ts"),
         `import { publishWindowsRelease } from ${JSON.stringify(entry)};

@@ -19,8 +19,10 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/downloads"
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
-load_secrets_env
+load_secrets_env "$TIER"
 validate_aws_env
+validate_cloudflare_env
+validate_domain_env
 
 if [[ "$ACTION" == init ]]; then
   terraform -chdir="$STACK_DIR" init -input=false -reconfigure \

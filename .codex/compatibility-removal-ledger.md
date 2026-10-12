@@ -105,7 +105,7 @@ database has been destroyed by this cleanup.
 | LSN capability negotiation | Tracked PostgreSQL/SQLite and untracked Turso tests | Required response mode; no old token echo or omitted-mode default |
 | Unmarked inline rekeys | Current SDK replay/rollback tests; validator marker/batch iff tests | Durable commit marker required for each non-empty batch |
 | Missing historical write evidence | Historical target tamper/isolation and blob hydrate tests; required-field refusal tests | Non-null stored document/blob authorization; no current-target substitution |
-| Billing product aliases | Current products retain tier mapping and native lifecycle tests | Reject all superseded Solo and SymCrypt identifiers |
+| Billing product aliases | Current products retain tier mapping and native lifecycle tests | Reject superseded product identifiers |
 | Oversized Stripe outbox state | Seat floor/tier/proration/idempotency tests | Above-largest capacity throws, never clamps |
 | Pre-audit native store identity | Current native lifecycle/claim tests; exact-token/no-store refusal | Never infer durable store identity from a new claim or event |
 | KEK cursor coercion | Current paging tests and malformed/non-positive/out-of-domain 400 tests | Invalid input never restarts at epoch zero |
@@ -254,28 +254,13 @@ order and per-operation inference are unchanged; no broad type erasure is used.
   parity, Terraform formatting, both mocked cache tests, and TFLint still pass.
   Full `check:fast` passes, including OpenAPI compatibility without exceptions,
   its regression fixtures, bounded models, architecture, and source shape.
-  The code audit finds no remaining SymCrypt references in Terraform/Ansible.
-  Independent review and handoff results are recorded in the follow-up PR.
-- Read-only deployment audit for the first review's operational concerns:
-  staging's current and former backend states have no website-cache resource;
-  production's former backend state already uses `module.website_cache[0]`.
-  Neither tier needs the removed address migration. Staging has no old-brand
-  systemd unit files, loaded units, `/opt/symcrypt`, or `/etc/symcrypt`; current
-  Tearleads API and maintenance timers are running.
-- Production remains in the former `symcrypt-terraform-state` backend; its
-  current-backend server state is empty even though Hetzner still lists the
-  production server. Its state-provided SSH hostname does not resolve, and it
-  is not visible in the local Tailscale peer list, so its systemd state could
-  not be certified. This code-only cleanup does not authorize treating that
-  empty backend as a fresh production environment: retire the existing
-  production resources through their owning state before fresh provisioning,
-  as required by the owner's replacement-only direction. Do not run the new
-  playbook on that unverified host. No server or remote state was changed.
-- Shipping clarification: after reviewing that production-state warning, the
-  owner explicitly confirmed the greenfield assumption and will destroy the
-  existing server. This is not an in-place rollout to that host. Retirement
-  through the owning state remains an operator prerequisite; the code cleanup
-  does not add a temporary old-host detector or first-provisioning opt-in shim.
+  The code audit found no remaining retired-brand references in Terraform/Ansible.
+  Independent review and handoff results were recorded in the follow-up PR.
+- The accompanying deployment audit found that production still used the former
+  backend and an unverified host. The owner subsequently authorized retiring
+  those resources through their owning state and replacing the environment.
+  That historical audit is not the inventory for a later reset; current backend
+  and live resource identities must be checked before each teardown.
 
 ## Static website hosting migration (2026-09-08)
 

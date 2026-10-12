@@ -24,7 +24,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.20",
+      "version": "0.1.21",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1147.0",
         "@aws-sdk/xml-builder": "3.972.41",
@@ -51,7 +51,7 @@
     },
     "packages/api-cli": {
       "name": "@tearleads/api-cli",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1147.0",
         "@tearleads/api-shared": "workspace:*",
@@ -124,7 +124,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.7",
+      "version": "0.0.8",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -163,7 +163,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -215,7 +215,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.27",
+      "version": "0.1.28",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -319,7 +319,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "dependencies": {
         "zod": "catalog:",
       },
@@ -331,7 +331,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "dependencies": {
         "@astrojs/react": "7.0.1",
         "@phosphor-icons/react": "2.1.10",

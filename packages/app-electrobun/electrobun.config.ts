@@ -81,8 +81,8 @@ export default {
   release: {
     baseUrl:
       releaseTier === "staging"
-        ? "https://s3.us-east-1.amazonaws.com/downloads-staging.tearleads.com"
-        : "https://s3.us-east-1.amazonaws.com/downloads.tearleads.com",
+        ? "https://downloads-staging.tearleads.com"
+        : "https://downloads.tearleads.com",
     generatePatch: false,
   },
 } satisfies ElectrobunConfig;

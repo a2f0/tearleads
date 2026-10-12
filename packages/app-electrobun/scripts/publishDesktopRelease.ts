@@ -4,6 +4,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { readDesktopReleaseStorage } from "./desktopReleaseStorage";
+
 type ReleasePublication = {
   bucket: string;
   channel: string;
@@ -20,7 +22,7 @@ async function digest(path: string) {
   return hash.digest("hex");
 }
 async function upload(
-  bucket: string,
+  storage: Awaited<ReturnType<typeof readDesktopReleaseStorage>>,
   path: string,
   key: string,
   contentType: string,
@@ -32,9 +34,11 @@ async function upload(
       "s3",
       "cp",
       path,
-      `s3://${bucket}/${key}`,
+      `s3://${storage.bucket}/${key}`,
       "--region",
-      "us-east-1",
+      "auto",
+      "--endpoint-url",
+      storage.endpoint,
       "--only-show-errors",
       "--content-type",
       contentType,
@@ -43,7 +47,7 @@ async function upload(
         ? "public, max-age=31536000, immutable"
         : "public, max-age=0, must-revalidate",
     ],
-    { stdout: "inherit", stderr: "inherit" },
+    { stdout: "inherit", stderr: "inherit", env: storage.env },
   );
   const code = await child.exited;
   if (code !== 0) throw new Error(`Release upload failed (${code}): ${key}`);
@@ -106,6 +110,7 @@ export async function publishDesktopRelease({
     platform ?? "",
     arch ?? "",
   );
+  const storage = await readDesktopReleaseStorage(bucket);
   const temp = await mkdtemp(join(tmpdir(), "tearleads-publication-"));
   try {
     const checksum = join(temp, `${installerKey}.sha256`);
@@ -123,40 +128,18 @@ export async function publishDesktopRelease({
         checksum: `${installerKey}.sha256`,
       }),
     );
-    // Content-derived keys preserve every previously published payload and checksum.
-    await upload(
-      bucket,
-      installer,
-      installerKey,
-      "application/octet-stream",
-      true,
-    );
-    await upload(
-      bucket,
-      checksum,
-      `${installerKey}.sha256`,
-      "text/plain",
-      true,
-    );
-    await upload(bucket, archive, archiveKey, "application/octet-stream", true);
-    // Each discovery document switches its complete set of references atomically.
-    await upload(
-      bucket,
-      updateManifest,
-      `${prefix}-update.json`,
-      "application/json",
-      false,
-    );
-    await upload(
-      bucket,
-      downloadsManifest,
-      `${prefix}-download.json`,
-      "application/json",
-      false,
-    );
-    console.log(
-      `Download: https://s3.us-east-1.amazonaws.com/${bucket}/${installerKey}`,
-    );
+    // Publish immutable payloads first. Each discovery document then switches
+    // its complete set of references atomically.
+    for (const [path, key, contentType, immutable] of [
+      [installer, installerKey, "application/octet-stream", true],
+      [checksum, `${installerKey}.sha256`, "text/plain", true],
+      [archive, archiveKey, "application/octet-stream", true],
+      [updateManifest, `${prefix}-update.json`, "application/json", false],
+      [downloadsManifest, `${prefix}-download.json`, "application/json", false],
+    ] as const) {
+      await upload(storage, path, key, contentType, immutable);
+    }
+    console.log(`Download: ${storage.publicOrigin}/${installerKey}`);
   } finally {
     await rm(temp, { recursive: true, force: true });
   }

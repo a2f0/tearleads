@@ -78,8 +78,7 @@ if check_command terraform; then
   fi
   for module_dir in \
     "$TERRAFORM_DIR/modules/cloudflare-website" \
-    "$TERRAFORM_DIR/modules/s3-blob-storage" \
-    "$TERRAFORM_DIR/modules/s3-downloads" \
+    "$TERRAFORM_DIR/modules/r2-object-storage" \
     "$TERRAFORM_DIR/stacks/prod/postgres" \
     "$TERRAFORM_DIR/stacks/staging/postgres"; do
     if ! run_terraform_tests "$module_dir"; then

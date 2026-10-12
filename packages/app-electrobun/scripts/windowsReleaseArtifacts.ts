@@ -13,8 +13,8 @@ export function windowsReleaseNames(tier: string) {
     channel,
     appName,
     bucket: staging
-      ? "downloads-staging.tearleads.com"
-      : "downloads.tearleads.com",
+      ? "tearleads-downloads-staging"
+      : "tearleads-downloads-prod",
     installer: staging
       ? "canary-win-x64-Tearleads-Setup-canary.zip"
       : "win-x64-Tearleads-Setup.zip",
