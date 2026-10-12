@@ -11,6 +11,12 @@ test("Worker diagnostics retain bundled positions without private error data", a
   const directory = await mkdtemp(join(tmpdir(), "tearleads-worker-frames-"));
   const apiRoot = resolve(import.meta.dirname, "../..");
   const build = workerDiagnosticsBuild(resolve(apiRoot, "../.."));
+  const runtimeConfig = Bun.JSONC.parse(
+    await Bun.file(join(apiRoot, "wrangler.jsonc")).text(),
+  ) as {
+    compatibility_date: string;
+    compatibility_flags: string[];
+  };
   try {
     await Bun.write(
       join(directory, "index.ts"),
@@ -47,17 +53,20 @@ export default { async fetch() {
     // unconditionally appends local file URLs, which deployed Workers lack.
     const runner = Bun.spawn(
       [
-        "node",
-        "--input-type=module",
+        process.execPath,
         "-e",
         `
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
-const { Miniflare, convertV4MiniflareOptions } = createRequire(${JSON.stringify(import.meta.resolve("wrangler"))})("miniflare");
-const worker = new Miniflare(convertV4MiniflareOptions({ modules: true,
-  script: readFileSync(${JSON.stringify(join(directory, "index.js"))}, "utf8"),
-  compatibilityDate: "2026-08-17", compatibilityFlags: ["nodejs_compat"],
-}));
+const { Miniflare } = createRequire(${JSON.stringify(import.meta.resolve("wrangler"))})("miniflare");
+const worker = new Miniflare({ workers: [{ config: {
+  name: "diagnostics-test", type: "worker",
+  compatibilityDate: ${JSON.stringify(runtimeConfig.compatibility_date)},
+  compatibilityFlags: ${JSON.stringify(runtimeConfig.compatibility_flags)},
+  manifest: { mainModule: "index.js", modules: {
+    "index.js": { type: "esm", contents: readFileSync(${JSON.stringify(join(directory, "index.js"))}, "utf8") },
+  } },
+} }] });
 try { console.log("ENVELOPES:" + await (await worker.dispatchFetch("http://localhost/")).text()); }
 finally { await worker.dispose(); }
 `,

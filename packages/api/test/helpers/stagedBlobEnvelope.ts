@@ -15,6 +15,7 @@ export async function stageBlobEnvelopeFixture(
   input: {
     readonly blobId: string;
     readonly organizationId?: string;
+    readonly contentKeyEpoch?: number;
     readonly overrides?: Partial<BlobEnvelopeV2Header>;
     readonly owner: TestUser;
     /** Staged verbatim in place of a generated envelope, to test rejection. */
@@ -30,6 +31,9 @@ export async function stageBlobEnvelopeFixture(
       await createBlobEnvelopeFixture({
         blobId: input.blobId,
         organizationId,
+        ...(input.contentKeyEpoch !== undefined
+          ? { contentKeyEpoch: input.contentKeyEpoch }
+          : {}),
         ...(input.overrides ? { overrides: input.overrides } : {}),
       })
     ).bytes;

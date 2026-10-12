@@ -55,6 +55,7 @@ export async function stageBlob(
   options: {
     readonly bytes?: Uint8Array<ArrayBuffer>;
     readonly organizationId?: string;
+    readonly contentKeyEpoch?: number;
     readonly overrides?: Partial<BlobEnvelopeV2Header>;
   } = {},
 ) {
@@ -109,7 +110,11 @@ async function createWriteHeader(input: {
         encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
         contentRecordId: input.blobId,
       }),
-      metadataHash: await fixtureBlobMetadataHash(input.blobId),
+      metadataHash: await fixtureBlobMetadataHash(
+        input.blobId,
+        32,
+        input.contentKeyEpoch,
+      ),
       ciphertextHash: input.sha256,
       writerUserId: input.owner.userId,
       writerDeviceId: "ownership-regression",

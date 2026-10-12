@@ -260,6 +260,8 @@ function installCommittedAttachmentRemoval(input: {
       attachment.slotId === slotId && attachment.storageKey === storageKey,
   );
   if (input.syncedAttachment && pending?.upload) {
+    state.attachmentBlobIdBySlotId[slotId] = pending.upload.blobId;
+    state.attachmentContentSha256BySlotId[slotId] = pending.contentSha256;
     state.attachmentStorageKeyBySlotId[slotId] = storageKey;
   }
   state.pendingAttachments = state.pendingAttachments.filter(

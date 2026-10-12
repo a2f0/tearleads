@@ -72,3 +72,23 @@ test("a writer cannot bind matching but false envelope and signed metadata hashe
     bindForTest({ blobId, owner, request: retry.request }),
   ).resolves.toBeUndefined();
 });
+
+test("bind fixtures preserve a non-default content-key epoch", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const document = await createDocument({ owner, root });
+  const blobId = crypto.randomUUID();
+  const { request } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    contentKeyEpoch: 2,
+    stagedBlob: await stageBlob(owner, blobId, { contentKeyEpoch: 2 }),
+  });
+  await expect(
+    bindForTest({ blobId, owner, request }),
+  ).resolves.toBeUndefined();
+});

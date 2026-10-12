@@ -254,6 +254,10 @@ test.each([
       const current = restart ? await input.openStore("doc-a") : state;
       expect(current.snapshot.attachments).toEqual([]);
       expect(current.attachmentStorageKeyBySlotId[SLOT_ID]).toBe(STORAGE_KEY);
+      expect(current.attachmentBlobIdBySlotId[SLOT_ID]).toBe(BLOB_ID);
+      expect(current.attachmentContentSha256BySlotId[SLOT_ID]).toBe(
+        await attachmentContentSha256(BYTES),
+      );
       const generation = captureDocumentStoreSyncGeneration(
         current,
         current.doc,
