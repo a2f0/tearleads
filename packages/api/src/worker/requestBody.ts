@@ -78,18 +78,45 @@ function declaredLength(request: Request): number | null {
   return Number.isSafeInteger(length) && length >= 0 ? length : null;
 }
 
-function limitBytes(maxBytes: number): TransformStream<Uint8Array, Uint8Array> {
+const trippedLimiters = new WeakMap<Request, () => boolean>();
+
+/**
+ * Whether the request's body ran past its ceiling. The runtime may surface a
+ * failed body stream to the route as its own connection error rather than
+ * the limiter's, so the entry asks this after the route answers.
+ */
+export function requestBodyOverflowed(request: Request): boolean {
+  return trippedLimiters.get(request)?.() ?? false;
+}
+
+/**
+ * Counts the body as the route reads it; past the ceiling the route's read
+ * fails and the connection is torn down, so nothing past the ceiling is ever
+ * retained and a flooding client is cut off rather than drained.
+ */
+function limitBytes(
+  source: ReadableStream<Uint8Array>,
+  maxBytes: number,
+): {
+  readonly stream: ReadableStream<Uint8Array>;
+  readonly tripped: () => boolean;
+} {
   let total = 0;
-  return new TransformStream({
-    transform(chunk, controller) {
-      total += chunk.byteLength;
-      if (total > maxBytes) {
-        controller.error(new RequestBodyTooLargeError(maxBytes));
-        return;
-      }
-      controller.enqueue(chunk);
-    },
-  });
+  let tripped = false;
+  const stream = source.pipeThrough(
+    new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        total += chunk.byteLength;
+        if (total > maxBytes) {
+          tripped = true;
+          controller.error(new RequestBodyTooLargeError(maxBytes));
+          return;
+        }
+        controller.enqueue(chunk);
+      },
+    }),
+  );
+  return { stream, tripped: () => tripped };
 }
 
 export function boundRequestBody(
@@ -105,11 +132,14 @@ export function boundRequestBody(
   }
   // Bun's RequestInit type omits the standard duplex field a streamed body
   // needs; workerd ignores it.
+  const limiter = limitBytes(request.body, maxBytes);
   const init: RequestInit & { readonly duplex: "half" } = {
-    body: request.body.pipeThrough(limitBytes(maxBytes)),
+    body: limiter.stream,
     duplex: "half",
   };
-  return { kind: "request", request: new Request(request, init) };
+  const bounded = new Request(request, init);
+  trippedLimiters.set(bounded, limiter.tripped);
+  return { kind: "request", request: bounded };
 }
 
 /**

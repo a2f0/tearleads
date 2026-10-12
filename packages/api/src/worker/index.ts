@@ -9,6 +9,7 @@ import {
   createBodyAdmission,
   expectedRequestBytes,
   requestBodyCeiling,
+  requestBodyOverflowed,
   retainUntilDrained,
 } from "./requestBody";
 
@@ -146,12 +147,34 @@ async function handleRequest(
     (closing) => ctx.waitUntil(closing),
   )
     .then(
-      // The reservation outlives the answer: a slow reader still holds the
-      // page the route built until the body has drained or been canceled.
-      (response) =>
-        retainUntilDrained(response, () => bodyAdmission.release(admitted)),
+      (response) => {
+        // Whatever the route made of a body cut off at the ceiling, and
+        // however the runtime reported the failed read, the answer is 413.
+        if (requestBodyOverflowed(bounded.request)) {
+          bodyAdmission.release(admitted);
+          return refuse(
+            request,
+            corsOrigins,
+            { error: "Request body too large" },
+            413,
+          );
+        }
+        // The reservation outlives the answer: a slow reader still holds the
+        // page the route built until the body has drained or been canceled.
+        return retainUntilDrained(response, () =>
+          bodyAdmission.release(admitted),
+        );
+      },
       (error: unknown) => {
         bodyAdmission.release(admitted);
+        if (requestBodyOverflowed(bounded.request)) {
+          return refuse(
+            request,
+            corsOrigins,
+            { error: "Request body too large" },
+            413,
+          );
+        }
         throw error;
       },
     )

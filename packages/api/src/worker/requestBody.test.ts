@@ -10,6 +10,7 @@ import {
   expectedRequestBytes,
   MAX_UNAUTHENTICATED_REQUEST_BYTES,
   requestBodyCeiling,
+  requestBodyOverflowed,
   retainUntilDrained,
 } from "./requestBody";
 
@@ -52,9 +53,13 @@ test("a body past the ceiling fails the route's read, not the ingress", async ()
   const bounded = boundRequestBody(chunkedRequest(["12345", "67890", "x"]), 10);
   expect(bounded.kind).toBe("request");
   if (bounded.kind === "request") {
+    expect(requestBodyOverflowed(bounded.request)).toBe(false);
     await expect(bounded.request.arrayBuffer()).rejects.toBeInstanceOf(
       RequestBodyTooLargeError,
     );
+    // The entry can tell the limiter tripped even when the runtime reports
+    // the failed read as its own error.
+    expect(requestBodyOverflowed(bounded.request)).toBe(true);
   }
 });
 
