@@ -31,6 +31,7 @@ export TF_VAR_planetscale_service_token="${PLANETSCALE_SERVICE_TOKEN:-}"
 
 case "$ACTION" in
   plan | apply | destroy)
+    validate_cloudflare_env
     if [[ "${PLANETSCALE_SERVICE_TOKEN_ID:+set}" != set || "${PLANETSCALE_SERVICE_TOKEN:+set}" != set ]]; then
       echo "ERROR: Set PLANETSCALE_SERVICE_TOKEN_ID and PLANETSCALE_SERVICE_TOKEN in .secrets/planetscale.env or the environment." >&2
       exit 1

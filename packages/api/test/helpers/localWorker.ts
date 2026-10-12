@@ -100,7 +100,7 @@ export async function startLocalWorker(
       "wrangler",
       "dev",
       "--env",
-      "staging",
+      "local",
       "--port",
       String(port),
       "--inspector-port",

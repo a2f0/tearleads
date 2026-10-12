@@ -2,10 +2,11 @@
 # Deploy the Tearleads API Worker for one tier.
 #
 # Runs in order:
-#   1. Read the tier's database and blob storage connection outputs
+#   1. Read the tier's Hyperdrive, migration, and blob storage outputs
 #   2. Run database migrations with the migration login
 #   3. Sync the Worker's secrets from those outputs and the tier secrets
-#   4. Publish the Worker with its build constants
+#   4. Publish the Worker with its Hyperdrive binding and build constants
+#   5. Remove stale Worker secrets after the new code is live
 #
 # Migrations precede the Worker so the schema is never behind the code that
 # reads it; the schema baseline is additive and the previous Worker keeps
@@ -75,13 +76,25 @@ fi
 
 umask 077
 CONNECTION_DIR=$(mktemp -d "${TMPDIR:-/tmp}/tearleads-${TIER}-worker-XXXXXX")
-trap 'rm -rf "$CONNECTION_DIR"' EXIT
+DEPLOY_CONFIG=""
+trap 'rm -rf "$CONNECTION_DIR"; if [[ -n "$DEPLOY_CONFIG" ]]; then rm -f "$DEPLOY_CONFIG"; fi' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
 echo "Reading $TIER database and storage connection outputs..."
 "$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" "$TIER" output -json api_connection >"$CONNECTION_DIR/postgres.json"
 "$REPO_ROOT/terraform/scripts/run-storage-stack.sh" "$TIER" output -json api_storage >"$CONNECTION_DIR/storage.json"
+HYPERDRIVE_ID="$("$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" "$TIER" output -raw hyperdrive_id)"
+if [[ ! "$HYPERDRIVE_ID" =~ ^[a-f0-9]{32}$ ]]; then
+  echo "ERROR: Apply the $TIER Postgres stack before deploying: hyperdrive_id must be a configuration ID." >&2
+  exit 1
+fi
+# Keep the generated config beside its source so Wrangler resolves main,
+# aliases, and module imports identically. Only the selected tier is filled.
+DEPLOY_CONFIG="$(mktemp "$API_DIR/wrangler.deploy.XXXXXX")"
+mv "$DEPLOY_CONFIG" "$DEPLOY_CONFIG.jsonc"
+DEPLOY_CONFIG="$DEPLOY_CONFIG.jsonc"
+sed "s/HYPERDRIVE_ID_$TIER/$HYPERDRIVE_ID/g" "$API_DIR/wrangler.jsonc" >"$DEPLOY_CONFIG"
 
 read_connection() {
   jq -r --arg key "$2" '.[$key] // empty' "$CONNECTION_DIR/$1.json"
@@ -118,17 +131,11 @@ export BLOB_GC_HEALTHCHECK_URL
 # any process on the host can read.
 export DOCUMENT_SYNC_CURSOR_HMAC_KEY
 jq -n \
-  --slurpfile postgres "$CONNECTION_DIR/postgres.json" \
   --slurpfile storage "$CONNECTION_DIR/storage.json" \
   '
   def optional($name):
     if ((env[$name] // "") | length) > 0 then { ($name): env[$name] } else {} end;
   {
-    POSTGRES_HOST: $postgres[0].postgres_host,
-    POSTGRES_PORT: $postgres[0].postgres_port,
-    POSTGRES_USER: $postgres[0].postgres_user,
-    POSTGRES_PASSWORD: $postgres[0].postgres_password,
-    POSTGRES_DATABASE: $postgres[0].postgres_db,
     DOCUMENT_SYNC_CURSOR_HMAC_KEY: env.DOCUMENT_SYNC_CURSOR_HMAC_KEY,
     BLOB_GC_HEALTHCHECK_URL: env.BLOB_GC_HEALTHCHECK_URL,
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: $storage[0].blob_s3_access_key_id,
@@ -157,20 +164,7 @@ if ! jq -e 'type == "object" and (to_entries | all(.value | type == "string"))' 
   echo "ERROR: The Worker secrets file is not a flat object of strings." >&2
   exit 1
 fi
-(cd "$API_DIR" && bunx --no-install wrangler secret bulk "$SECRETS_FILE" --env "$TIER")
-
-# A secret this deploy no longer sets must not keep an earlier value alive:
-# an integration disabled in the tier file has to stay disabled.
-echo "Removing $TIER Worker secrets this deploy does not manage..."
-MANAGED_SECRETS="$(jq -r 'keys[]' "$SECRETS_FILE")"
-DEPLOYED_SECRETS="$(cd "$API_DIR" && bunx --no-install wrangler secret list --env "$TIER" --format json | jq -r '.[].name')"
-while IFS= read -r deployed_secret; do
-  [[ -n "$deployed_secret" ]] || continue
-  if ! grep -Fqx "$deployed_secret" <<<"$MANAGED_SECRETS"; then
-    echo "Removing stale secret $deployed_secret"
-    (cd "$API_DIR" && bunx --no-install wrangler secret delete "$deployed_secret" --env "$TIER")
-  fi
-done <<<"$DEPLOYED_SECRETS"
+(cd "$API_DIR" && bunx --no-install wrangler secret bulk "$SECRETS_FILE" --env "$TIER" --config "$DEPLOY_CONFIG")
 
 echo "Publishing $TIER API Worker..."
 DEFINE_ARGS=()
@@ -193,8 +187,23 @@ fi
 if [[ "$XTRACE_WAS_ENABLED" -eq 1 ]]; then
   set -x
 fi
-(cd "$API_DIR" && bunx --no-install wrangler deploy --env "$TIER" "${DEFINE_ARGS[@]}" \
+(cd "$API_DIR" && bunx --no-install wrangler deploy --env "$TIER" --config "$DEPLOY_CONFIG" "${DEFINE_ARGS[@]}" \
   --var "API_PUBLIC_ORIGIN:$API_PUBLIC_ORIGIN" \
   --var "API_CORS_ORIGINS:$API_CORS_ORIGINS")
+
+# Publish the binding first: an older live Worker may still need the old
+# database secrets until the new code has been uploaded successfully.
+# A secret this deploy no longer sets must not keep an earlier value alive:
+# an integration disabled in the tier file has to stay disabled.
+echo "Removing $TIER Worker secrets this deploy does not manage..."
+MANAGED_SECRETS="$(jq -r 'keys[]' "$SECRETS_FILE")"
+DEPLOYED_SECRETS="$(cd "$API_DIR" && bunx --no-install wrangler secret list --env "$TIER" --config "$DEPLOY_CONFIG" --format json | jq -r '.[].name')"
+while IFS= read -r deployed_secret; do
+  [[ -n "$deployed_secret" ]] || continue
+  if ! grep -Fqx "$deployed_secret" <<<"$MANAGED_SECRETS"; then
+    echo "Removing stale secret $deployed_secret"
+    (cd "$API_DIR" && bunx --no-install wrangler secret delete "$deployed_secret" --env "$TIER" --config "$DEPLOY_CONFIG")
+  fi
+done <<<"$DEPLOYED_SECRETS"
 
 echo "API Worker deployed ($TIER)."

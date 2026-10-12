@@ -96,6 +96,21 @@ for the exact-length rule.
 | Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`) | API. | Pagination via the pull cursor. |
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
 
+## Database connections
+
+| Limit | Value | Where enforced | Past the limit |
+| --- | --- | --- | --- |
+| Worker request Postgres pool | 4 connections, 30 s idle timeout | `packages/api/wrangler.jsonc` and `api-shared/src/adapters/postgresConfig.ts`; the pool closes when the request finishes. Connections use the Hyperdrive binding. | Wait for a free client; connection acquisition times out after 5 s. |
+| Hyperdrive origin connections | Soft limit of 20 per tier | `terraform/stacks/<tier>/postgres/hyperdrive.tf`; TLS connections use the runtime login through PlanetScale PgBouncer on port 6432. | Hyperdrive queues connection acquisition within its service limits. |
+| Hyperdrive query cache | Disabled | Terraform `caching.disabled = true`. Sync cursors, access epochs, and session revocation require fresh reads after writes. | Every query reaches the database. |
+
+Hyperdrive holds origin connections across requests; Worker sockets remain
+request-scoped. `POSTGRES_POOL_MAX_USES=1` only retires clients in the fallback
+pool used by Durable Object timers. Request pools reuse clients until the
+request ends. The migration login connects directly from the deploy host and
+is never bound to the Worker. The placement hint stays at `aws:us-east-1` until
+measurements across client regions support a change.
+
 ## Blobs
 
 | Limit | Value | Where enforced | Past the limit |

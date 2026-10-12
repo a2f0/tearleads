@@ -20,6 +20,8 @@ async function deployFixture(
   options: {
     readonly trace?: boolean;
     readonly healthcheckUrl?: string | undefined;
+    readonly hyperdriveId?: string;
+    readonly tier?: "staging" | "prod";
   } = {},
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-api-deploy-"));
@@ -29,6 +31,10 @@ async function deployFixture(
   await mkdir(dirname(script), { recursive: true });
   await cp(resolve(import.meta.dir, "../../api/scripts/deployApi.sh"), script);
   await chmod(script, 0o755);
+  await cp(
+    resolve(import.meta.dir, "../../api/wrangler.jsonc"),
+    resolve(root, "packages/api/wrangler.jsonc"),
+  );
   await mkdir(resolve(root, "packages/api-cli"), { recursive: true });
   await mkdir(resolve(root, ".secrets"), { recursive: true });
   await executable(
@@ -63,6 +69,7 @@ async function deployFixture(
     resolve(root, "terraform/scripts/run-postgres-stack.sh"),
     [
       "#!/bin/sh",
+      `if [ "$4" = "hyperdrive_id" ]; then printf '%s\\n' '${options.hyperdriveId ?? "a".repeat(32)}'; exit 0; fi`,
       'printf \'{"postgres_host":"fixture.pg.psdb.cloud","postgres_port":"6432","postgres_migration_port":"5432","postgres_db":"fixture-db","postgres_user":"runtime.user","postgres_password":"runtime-password","postgres_migration_user":"migration.user","postgres_migration_password":"migration-password"}\\n\'',
     ].join("\n"),
   );
@@ -105,12 +112,13 @@ async function deployFixture(
       '    printf \'secret-bulk|%s\\n\' "$6" >> "$API_DEPLOY_TEST_LOG"',
       "    ;;",
       "  'wrangler secret list '*)",
-      '    printf \'[{"name":"POSTGRES_HOST"},{"name":"OLD_WEBHOOK_SECRET"}]\\n\'',
+      '    printf \'[{"name":"POSTGRES_HOST"},{"name":"POSTGRES_PORT"},{"name":"POSTGRES_USER"},{"name":"POSTGRES_PASSWORD"},{"name":"POSTGRES_DATABASE"},{"name":"OLD_WEBHOOK_SECRET"}]\\n\'',
       "    ;;",
       "  'wrangler secret delete '*)",
       '    printf \'secret-delete|%s|%s\\n\' "$4" "$6" >> "$API_DEPLOY_TEST_LOG"',
       "    ;;",
       "  'wrangler deploy '*)",
+      '    cp "$6" "$API_DEPLOY_TEST_ROOT/deployed-config.jsonc"',
       '    printf \'deploy|%s\\n\' "$*" >> "$API_DEPLOY_TEST_LOG"',
       "    ;;",
       "  *) exit 1 ;;",
@@ -119,8 +127,8 @@ async function deployFixture(
   );
   const { PATH } = process.env;
   const command = options.trace
-    ? ["bash", "-x", script, "staging"]
-    : [script, "staging"];
+    ? ["bash", "-x", script, options.tier ?? "staging"]
+    : [script, options.tier ?? "staging"];
   const child = Bun.spawn(command, {
     cwd: root,
     env: {
@@ -145,8 +153,12 @@ async function deployFixture(
   const secrets = JSON.parse(
     await readFile(resolve(root, "secrets.json"), "utf8").catch(() => "null"),
   ) as Record<string, string> | null;
+  const deployedConfig = await readFile(
+    resolve(root, "deployed-config.jsonc"),
+    "utf8",
+  ).catch(() => "");
   await rm(root, { recursive: true, force: true });
-  return { exitCode, stdout, stderr, calls, secrets };
+  return { exitCode, stdout, stderr, calls, secrets, deployedConfig };
 }
 
 test("migrations use the stack's migration login and ignore inherited connection URLs", async () => {
@@ -160,15 +172,10 @@ test("migrations use the stack's migration login and ignore inherited connection
   );
 });
 
-test("the Worker receives the runtime login, derived origins, and only managed secrets", async () => {
+test("the Worker receives Hyperdrive, derived origins, and only managed secrets", async () => {
   const run = await deployFixture();
   expect(run.exitCode, run.stderr).toBe(0);
   expect(run.secrets).toMatchObject({
-    POSTGRES_HOST: "fixture.pg.psdb.cloud",
-    POSTGRES_PORT: "6432",
-    POSTGRES_USER: "runtime.user",
-    POSTGRES_PASSWORD: "runtime-password",
-    POSTGRES_DATABASE: "fixture-db",
     DOCUMENT_SYNC_CURSOR_HMAC_KEY: "fixture-cursor-key-with-at-least-32-bytes",
     BLOB_GC_HEALTHCHECK_URL: "https://hc.example.test/ping/fixture",
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "fixture-key",
@@ -180,11 +187,23 @@ test("the Worker receives the runtime login, derived origins, and only managed s
   expect(run.secrets).not.toHaveProperty("STRIPE_WEBHOOK_SECRET");
   expect(run.secrets).not.toHaveProperty("BLOB_OBJECT_STORE_S3_KEY_PREFIX");
   expect(run.secrets).not.toHaveProperty("postgres_migration_password");
+  for (const name of [
+    "POSTGRES_HOST",
+    "POSTGRES_PORT",
+    "POSTGRES_USER",
+    "POSTGRES_PASSWORD",
+    "POSTGRES_DATABASE",
+  ]) {
+    expect(run.secrets).not.toHaveProperty(name);
+    expect(run.calls).toContain(`secret-delete|${name}|staging`);
+  }
+  expect(run.deployedConfig).toContain(`"id": "${"a".repeat(32)}"`);
+  expect(run.deployedConfig).not.toContain("HYPERDRIVE_ID_staging");
   expect(run.calls).toContain("secret-bulk|staging");
   expect(run.calls).toContain("secret-delete|OLD_WEBHOOK_SECRET|staging");
   expect(
     run.calls.filter((call) => call.startsWith("secret-delete")),
-  ).toHaveLength(1);
+  ).toHaveLength(6);
   const deploy = run.calls.find((call) => call.startsWith("deploy|"));
   expect(deploy).toContain("wrangler deploy --env staging");
   expect(deploy).toContain("--define API_BUILD_VERSION:123");
@@ -198,6 +217,11 @@ test("the Worker receives the runtime login, derived origins, and only managed s
   expect(
     run.calls.findIndex((call) => call.startsWith("migrate|")),
   ).toBeLessThan(run.calls.findIndex((call) => call.startsWith("deploy|")));
+  expect(
+    run.calls.findIndex((call) => call.startsWith("deploy|")),
+  ).toBeLessThan(
+    run.calls.findIndex((call) => call.startsWith("secret-delete|")),
+  );
 });
 
 for (const [label, healthcheckUrl] of [
@@ -244,4 +268,24 @@ test("an explicit API_CORS_ORIGINS replaces the computed origin list", async () 
   expect(deploy).toContain(
     "--var API_PUBLIC_ORIGIN:https://api-staging.example.test",
   );
+});
+
+test("production binds the production stack ID", async () => {
+  const id = "b".repeat(32);
+  const run = await deployFixture({}, { tier: "prod", hyperdriveId: id });
+  expect(run.exitCode, run.stderr).toBe(0);
+  expect(Bun.JSON5.parse(run.deployedConfig)).toMatchObject({
+    env: {
+      prod: { hyperdrive: [{ binding: "HYPERDRIVE", id }] },
+      staging: { hyperdrive: [{ id: "HYPERDRIVE_ID_staging" }] },
+      local: { vars: { API_WORKER_LOCAL: "true" } },
+    },
+  });
+});
+
+test("a missing Hyperdrive ID stops before migration or secret changes", async () => {
+  const run = await deployFixture({}, { hyperdriveId: "" });
+  expect(run.exitCode).toBe(1);
+  expect(run.stderr).toContain("hyperdrive_id must be a configuration ID");
+  expect(run.calls).toEqual([]);
 });

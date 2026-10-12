@@ -5,7 +5,12 @@ import { resolve } from "node:path";
 
 async function runWrapper(
   args: string[],
-  options: { tokenId?: string; token?: string; initStatus?: string } = {},
+  options: {
+    tokenId?: string;
+    token?: string;
+    cloudflareToken?: string;
+    initStatus?: string;
+  } = {},
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-postgres-stack-"));
   const bin = resolve(root, "bin");
@@ -29,7 +34,12 @@ async function runWrapper(
     }
     await Bun.write(
       resolve(root, ".secrets/root.env"),
-      "AWS_ACCESS_KEY_ID=fixture-id\nAWS_SECRET_ACCESS_KEY=fixture-secret\n",
+      [
+        "AWS_ACCESS_KEY_ID=fixture-id",
+        "AWS_SECRET_ACCESS_KEY=fixture-secret",
+        "TF_VAR_cloudflare_account_id=fixture-account",
+        `TF_VAR_cloudflare_api_token=${options.cloudflareToken ?? "fixture-cloudflare-token"}`,
+      ].join("\n"),
     );
     await Bun.write(
       resolve(root, ".secrets/planetscale.env"),
@@ -151,6 +161,7 @@ test("output keeps stdout parseable without provider credentials", async () => {
   const result = await runWrapper(["prod", "output", "-json", "database"], {
     token: "",
     tokenId: "",
+    cloudflareToken: "",
   });
   expect(result.exitCode, result.stderr).toBe(0);
   expect(JSON.parse(result.stdout)).toEqual({ name: "tearleads-prod" });
@@ -165,9 +176,18 @@ test("init forwards arguments without requiring provider credentials", async () 
   const result = await runWrapper(["prod", "init", "-upgrade"], {
     token: "",
     tokenId: "",
+    cloudflareToken: "",
   });
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual([`${initCall("prod")}|-upgrade`]);
+});
+
+test("planning Hyperdrive requires Cloudflare credentials before Terraform", async () => {
+  const result = await runWrapper(["prod", "plan"], { cloudflareToken: "" });
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("TF_VAR_cloudflare_api_token");
+  expect(result.stderr).not.toContain("fixture-cloudflare-token");
+  expect(result.calls).toEqual([]);
 });
 
 test("failed initialization prevents apply", async () => {

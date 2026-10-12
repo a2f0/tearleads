@@ -6,6 +6,8 @@ import type { KeyValueStoreRpc, RealtimeHubRpc } from "./contracts";
  * existing configuration readers work unchanged; object bindings stay here.
  */
 export interface WorkerBindings {
+  readonly HYPERDRIVE?: { readonly connectionString: string };
+  readonly API_WORKER_LOCAL?: string;
   readonly KEY_VALUE_STORE: DurableObjectNamespace<KeyValueStoreRpc>;
   readonly REALTIME_HUB: DurableObjectNamespace<RealtimeHubRpc>;
   readonly REALTIME_HUB_LOCATION_HINT?: string | undefined;
@@ -13,6 +15,8 @@ export interface WorkerBindings {
 }
 
 const apiDatabaseEnvKey = "API_DATABASE";
+const databaseUrlKey = "DATABASE_URL";
+const postgresSslKey = "POSTGRES_SSL";
 const nodeEnvKey = "NODE_ENV";
 const KEY_VALUE_STORE_NAME = "default";
 const REALTIME_HUB_NAME = "hub";
@@ -35,6 +39,15 @@ export function bindWorkerEnvironment(env: WorkerBindings): void {
     if (typeof value === "string") {
       process.env[name] = value;
     }
+  }
+  if (env.HYPERDRIVE) {
+    // Hyperdrive supplies edge credentials, not the PlanetScale login. Its
+    // origin TLS policy belongs to the Terraform configuration. pg connects
+    // to the local Hyperdrive socket without STARTTLS.
+    process.env[databaseUrlKey] = env.HYPERDRIVE.connectionString;
+    process.env[postgresSslKey] = "false";
+  } else if (env.API_WORKER_LOCAL !== "true") {
+    throw new Error("The deployed API Worker requires HYPERDRIVE");
   }
   // Wrangler replaces the literal `process.env.NODE_ENV` at build time, but
   // readers that take an environment object see the real `process.env`; a

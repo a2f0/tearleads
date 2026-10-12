@@ -35,3 +35,15 @@ variable "planetscale_service_token" {
   ephemeral   = true
   default     = ""
 }
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token with Hyperdrive Edit"
+  type        = string
+  sensitive   = true
+  ephemeral   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account that owns the API Worker and Hyperdrive"
+  type        = string
+}
