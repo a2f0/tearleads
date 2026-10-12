@@ -9,6 +9,7 @@ import {
   createBodyAdmission,
   expectedRequestBytes,
   requestBodyCeiling,
+  retainUntilDrained,
 } from "./requestBody";
 
 export { KeyValueStore } from "./keyValueStoreObject";
@@ -143,12 +144,21 @@ async function handleRequest(
         ctx,
       ),
     (closing) => ctx.waitUntil(closing),
-  ).finally(() => {
-    // The route has consumed the body once it answers.
-    bodyAdmission.release(admitted);
-    // Sentry sends after the response would be canceled with the request.
-    ctx.waitUntil(flushDiagnostics());
-  });
+  )
+    .then(
+      // The reservation outlives the answer: a slow reader still holds the
+      // page the route built until the body has drained or been canceled.
+      (response) =>
+        retainUntilDrained(response, () => bodyAdmission.release(admitted)),
+      (error: unknown) => {
+        bodyAdmission.release(admitted);
+        throw error;
+      },
+    )
+    .finally(() => {
+      // Sentry sends after the response would be canceled with the request.
+      ctx.waitUntil(flushDiagnostics());
+    });
 }
 
 async function handleScheduled(

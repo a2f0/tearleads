@@ -166,3 +166,48 @@ export function expectedRequestBytes(
   const declared = declaredLength(request);
   return (declared === null ? ceiling : Math.min(declared, ceiling)) + page;
 }
+
+/**
+ * Keeps a request's reservation until its response has drained: a slow
+ * reader holds the page the route built for as long as the body streams.
+ * `release` runs exactly once, on completion, cancellation, or a bodiless
+ * response.
+ */
+export function retainUntilDrained(
+  response: Response,
+  release: () => void,
+): Response {
+  let released = false;
+  const releaseOnce = () => {
+    if (!released) {
+      released = true;
+      release();
+    }
+  };
+  if (response.body === null) {
+    releaseOnce();
+    return response;
+  }
+  const reader = response.body.getReader();
+  const body = new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          controller.close();
+          releaseOnce();
+          return;
+        }
+        controller.enqueue(value);
+      } catch (error) {
+        releaseOnce();
+        controller.error(error);
+      }
+    },
+    cancel(reason) {
+      releaseOnce();
+      return reader.cancel(reason);
+    },
+  });
+  return new Response(body, response);
+}

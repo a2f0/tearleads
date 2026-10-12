@@ -10,6 +10,7 @@ import {
   expectedRequestBytes,
   MAX_UNAUTHENTICATED_REQUEST_BYTES,
   requestBodyCeiling,
+  retainUntilDrained,
 } from "./requestBody";
 
 function chunkedRequest(chunks: readonly string[]): Request {
@@ -173,4 +174,29 @@ test("a document sync pull also reserves the response page it may build", () => 
   expect(
     expectedRequestBytes(chunkedRequest(["12345"]), "/documents/doc-1", 16),
   ).toBe(16);
+});
+
+test("a reservation is released once the response has drained, once", async () => {
+  let releases = 0;
+  const release = () => {
+    releases += 1;
+  };
+  const drained = retainUntilDrained(
+    new Response("0123456789", { status: 200, headers: { "x-a": "b" } }),
+    release,
+  );
+  expect(drained.status).toBe(200);
+  expect(drained.headers.get("x-a")).toBe("b");
+  expect(releases).toBe(0);
+  expect(await drained.text()).toBe("0123456789");
+  await Bun.sleep(0);
+  expect(releases).toBe(1);
+
+  const canceled = retainUntilDrained(new Response("0123456789"), release);
+  await canceled.body?.cancel();
+  await Bun.sleep(0);
+  expect(releases).toBe(2);
+
+  retainUntilDrained(new Response(null, { status: 204 }), release);
+  expect(releases).toBe(3);
 });
