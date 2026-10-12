@@ -153,3 +153,71 @@ test("hub restoration failure does not fail an already committed HTTP mutation",
     report.mockRestore();
   }
 });
+
+test("a failed upgrade releases its accepted server socket", async () => {
+  const OriginalResponse = Response;
+  const originalPair = Reflect.get(globalThis, "WebSocketPair");
+  const closed = mock(() => {});
+  const server = { serializeAttachment: () => {} };
+  Reflect.set(
+    globalThis,
+    "WebSocketPair",
+    class {
+      0 = {};
+      1 = server;
+    },
+  );
+  // Bun lacks Workers' 101 response extension; keep the actual upgrade path.
+  Reflect.set(
+    globalThis,
+    "Response",
+    class extends OriginalResponse {
+      constructor(body: BodyInit | null | undefined, init: ResponseInit) {
+        super(body, {
+          ...init,
+          status: init.status === 101 ? 200 : (init.status ?? 200),
+        });
+      }
+    },
+  );
+  const loaded = {
+    consumeTicket: async () => ({ userId: "user", sessionId: "session" }),
+    withDatabase: (work: () => Promise<unknown>) => work(),
+    gateway: { flush: async () => {} },
+    connections: {
+      countSession: () => 0,
+      attach: async () => {},
+      saveDirty: () => {},
+      close: closed,
+    },
+  };
+  const hub: InstanceType<typeof RealtimeHub> = Object.assign(
+    Object.create(RealtimeHub.prototype),
+    {
+      ctx: { waitUntil: () => {}, acceptWebSocket: () => {} },
+      scheduler: {
+        enter: () => () => {},
+        runDue: async () => {},
+        flush: async () => {
+          throw new Error("alarm write failed");
+        },
+      },
+      hub: Promise.resolve(loaded),
+    },
+  );
+  try {
+    await expect(
+      hub.fetch(
+        new Request("https://api/events?ticket=t", {
+          headers: { upgrade: "websocket" },
+        }),
+      ),
+    ).rejects.toThrow("Realtime event failed");
+    expect(closed).toHaveBeenCalledWith(server, 1011, "Socket setup failed");
+  } finally {
+    Reflect.set(globalThis, "Response", OriginalResponse);
+    if (originalPair === undefined)
+      Reflect.deleteProperty(globalThis, "WebSocketPair");
+    else Reflect.set(globalThis, "WebSocketPair", originalPair);
+  }
+});

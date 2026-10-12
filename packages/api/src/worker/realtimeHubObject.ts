@@ -65,6 +65,9 @@ export class RealtimeHub
     const url = new URL(request.url);
     if (url.pathname !== "/events")
       return new Response("WebSocket endpoint not found", { status: 404 });
+    let accepted:
+      | { hub: LoadedHub; server: CloudflareServerWebSocket }
+      | undefined;
     return this.run(async (hub) => {
       const identity = await hub.consumeTicket(
         url.searchParams.get("ticket") ?? "",
@@ -86,8 +89,16 @@ export class RealtimeHub
       };
       pair[1].serializeAttachment(attachment);
       this.ctx.acceptWebSocket(pair[1]);
+      accepted = { hub, server: pair[1] };
       await hub.connections.attach(pair[1], attachment);
       return new Response(null, { status: 101, webSocket: pair[0] });
+    }).catch((error: unknown) => {
+      accepted?.hub.connections.close(
+        accepted.server,
+        CLOSE_STATE_UNAVAILABLE,
+        "Socket setup failed",
+      );
+      throw error;
     });
   }
 

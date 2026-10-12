@@ -69,6 +69,15 @@ A new connection waits for its initial interest hydration before the upgrade
 response completes. This can add the authorization timeout during an outage;
 a failed hydration uses the gateway's empty baseline for client redeclaration.
 Fatal socket setup errors close the accepted connection for a fresh retry.
+HTTP publications also pay cold restoration cost; organization events await
+bounded authorization (up to ten seconds) before routing. Unrelated periodic
+checks remain in the trailing phase.
+
+Cloudflare's [state API](https://developers.cloudflare.com/durable-objects/api/state/#waituntil)
+documents that `waitUntil` prevents eviction until completion, up to fifteen
+minutes. Every event also retains its temporary deadline timer until cleanup.
+The interest flush captures only currently queued writes so future declarations
+cannot extend an earlier event indefinitely.
 
 The Postgres concurrency lane runs `workerRuntime.hibernation.pg.test.ts` against
 the real Worker configuration through Wrangler's test harness. It evicts the

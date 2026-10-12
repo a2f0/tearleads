@@ -117,7 +117,7 @@ export interface OrderedInterestPersister {
    * memory budget.
    */
   drain(userId: string, sessionId: string): Promise<void>;
-  /** Keep a Workers event alive until all queued mirrors have completed. */
+  /** Wait for the mirrors queued at entry; later events own their own writes. */
   flush(): Promise<void>;
 }
 
@@ -182,8 +182,7 @@ export function createOrderedInterestPersister(
     }
   };
   const flush = async () => {
-    while (sessions.size > 0)
-      await Promise.all([...sessions.values()].map((writes) => writes.settled));
+    await Promise.all([...sessions.values()].map((writes) => writes.settled));
   };
   return Object.assign(persist, { pending, drain, flush });
 }
