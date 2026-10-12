@@ -36,3 +36,35 @@ A generic parent hint invalidates the parent's entire known subtree, including
 unaffected siblings. It also refreshes the root lane to cover moves that occurred
 before a child's interest was confirmed. This trades extra reads and cache misses
 for concealing child identity; a folder move may require two listing requests.
+
+## Cloudflare hub hibernation
+
+`RealtimeHub` accepts sockets through Cloudflare's hibernation API. Each socket
+carries a small server-written attachment containing its identity and storage
+key. The hub's SQLite storage holds that socket's verified container dependency
+paths, organization declaration, session confirmation time, and next check
+schedule. Large snapshots are chunked below SQLite's per-value limit. The
+per-session reconnect cache remains an optimization for new connections; it
+cannot restore distinct interest sets on tabs sharing a session.
+
+Every entry point restores all connected sockets before routing, including an
+HTTP publish that wakes an idle hub. Restoration preserves absolute proof and
+session deadlines and runs overdue callbacks before the waking event can route.
+It does not consume another ticket, send another initial interest frame, or
+extend authorization merely because the object woke up. A missing snapshot
+closes its socket so the client reconnects through fresh authorization.
+
+One durable alarm schedules the earliest periodic check or expiry. While an
+event is awaiting I/O, a temporary timer also enforces deadlines independently
+of that event; the last completed event cancels it. No idle JavaScript timer or
+database pool keeps the hub resident. Event completion drains ordered interest
+writes, saves socket state, updates the alarm, and closes its database pool.
+Closing a socket removes its state, and a restored hub prunes abandoned rows.
+
+The Postgres concurrency lane runs `workerRuntime.hibernation.pg.test.ts` against
+the real Worker configuration through Wrangler's test harness. It evicts the
+object while retaining sockets, exercises publication and logout after wake-up,
+checks distinct per-tab interest, and proves a durable alarm detects session
+expiry without a revocation notification. It also verifies that expired proofs
+cannot route the event that wakes the hub. Test control endpoints live in a
+separate local-only helper Worker, outside the deployed API entry point.

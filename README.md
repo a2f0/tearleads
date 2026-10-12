@@ -78,8 +78,11 @@ closes when the request finishes; Hyperdrive retains the origin connections.
 The 30 s idle timeout allows reuse during a long request.
 `POSTGRES_COALESCE_WRITES` gathers each query's protocol messages into one
 socket write. `maxUses=1` remains
-only for the fallback pool used by Durable Object timers, whose sockets must
-not survive a checkout. The `local` Wrangler environment keeps the direct
+only for work outside an event scope, whose sockets must not survive a checkout.
+The realtime hub now scopes its HTTP, RPC, WebSocket, and alarm events too,
+closing their pools before it can hibernate. See
+[realtime hub hibernation](docs/developer/realtime-hints.md#cloudflare-hub-hibernation).
+The `local` Wrangler environment keeps the direct
 Postgres transport for workerd tests. Deployed environments require Hyperdrive.
 
 Keep the `aws:us-east-1` placement hint until measurements from multiple client

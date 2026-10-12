@@ -6,12 +6,17 @@ const DEFAULT_MAX_PROOF_AGE_INTERVALS = 3;
 
 /** Arms one timer and returns its cancel; injectable for deterministic tests. */
 export type ScheduleTimer = (
-  callback: () => void,
+  callback: () => void | Promise<void>,
   delayMs: number,
 ) => () => void;
 
-function scheduleUnrefTimeout(callback: () => void, delayMs: number) {
-  const timer = setTimeout(callback, delayMs);
+function scheduleUnrefTimeout(
+  callback: () => void | Promise<void>,
+  delayMs: number,
+) {
+  const timer = setTimeout(() => {
+    void callback();
+  }, delayMs);
   // Bun timers hold the process open until unref'd; Workers timers are plain
   // handles with no such method.
   timer.unref?.();
@@ -78,6 +83,8 @@ export function resolveProofAgePolicy(
  */
 export class RevalidationSchedule<Key> {
   private readonly timers = new Map<Key, () => void>();
+  private readonly due = new Map<Key, number>();
+  private readonly now: () => number;
   private readonly intervalMs: number;
   private readonly random: () => number;
   private readonly scheduleTimer: ScheduleTimer;
@@ -86,6 +93,7 @@ export class RevalidationSchedule<Key> {
     private readonly revalidate: (key: Key) => Promise<void>,
     options: RevalidationScheduleOptions = {},
   ) {
+    this.now = options.now ?? Date.now;
     this.intervalMs = options.intervalMs ?? DEFAULT_REVALIDATION_INTERVAL_MS;
     this.random = options.random ?? Math.random;
     this.scheduleTimer = options.schedule ?? scheduleUnrefTimeout;
@@ -96,33 +104,44 @@ export class RevalidationSchedule<Key> {
     return this.intervalMs > 0;
   }
 
-  open(key: Key): void {
+  open(key: Key, dueAt?: number): void {
     this.close(key);
-    this.schedule(key);
+    this.schedule(key, dueAt);
   }
 
   close(key: Key): void {
     this.timers.get(key)?.();
     this.timers.delete(key);
+    this.due.delete(key);
+  }
+
+  nextAt(key: Key): number | undefined {
+    return this.due.get(key);
   }
 
   stop(): void {
     for (const cancel of this.timers.values()) cancel();
     this.timers.clear();
+    this.due.clear();
   }
 
-  private schedule(key: Key): void {
+  private schedule(key: Key, dueAt?: number): void {
     if (this.intervalMs <= 0) return;
     const delay = Math.round(this.intervalMs * (0.5 + 0.5 * this.random()));
-    const cancel = this.scheduleTimer(() => {
-      // Only a still-tracked key re-arms.
-      if (this.timers.get(key) !== cancel) return;
-      this.timers.delete(key);
-      this.schedule(key);
-      void this.revalidate(key).catch((error: unknown) => {
-        reportBackgroundFailure(error, "websocket.revalidate");
-      });
-    }, delay);
+    const at = dueAt ?? this.now() + delay;
+    this.due.set(key, at);
+    const cancel = this.scheduleTimer(
+      () => {
+        // Only a still-tracked key re-arms.
+        if (this.timers.get(key) !== cancel) return;
+        this.timers.delete(key);
+        this.schedule(key);
+        return this.revalidate(key).catch((error: unknown) => {
+          reportBackgroundFailure(error, "websocket.revalidate");
+        });
+      },
+      Math.max(0, at - this.now()),
+    );
     this.timers.set(key, cancel);
   }
 }

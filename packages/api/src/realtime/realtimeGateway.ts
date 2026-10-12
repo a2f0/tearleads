@@ -11,11 +11,13 @@ import {
   RevalidationSchedule,
   type RevalidationScheduleOptions,
   resolveProofAgePolicy,
+  type ScheduleTimer,
 } from "./containerInterestRevalidation";
 import {
   type AuthorizeContainerAccess,
   principalInterestKey,
 } from "./containerInterestTypes";
+import { createGatewayHibernation } from "./gatewayHibernation";
 import {
   type AuthorizeOrganizationAccess,
   OrganizationInterestAuthorizer,
@@ -49,6 +51,7 @@ interface RealtimeGatewayDeps {
   readonly router?: WsEventRouter;
   /** How long a session liveness check waits on the session store. */
   readonly sessionReadTimeoutMs?: number;
+  readonly scheduleReadTimeout?: ScheduleTimer;
   readonly subscribe?: Subscribe;
   readonly subscribeReconnect?: SubscribeReconnect;
   /** Whether a socket's session is still live; defaults to the session store. */
@@ -150,6 +153,7 @@ function createRevalidationPasses(
     liveness: new WsSessionLiveness({
       policy: proofAge,
       readTimeoutMs: deps.sessionReadTimeoutMs ?? SESSION_READ_TIMEOUT_MS,
+      scheduleReadTimeout: deps.scheduleReadTimeout,
       revalidation: deps.revalidation,
       router,
       validateSession: deps.validateSession,
@@ -248,44 +252,35 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
   let unsubscribe: (() => void) | undefined;
   let unsubscribeReconnect: (() => void) | undefined;
 
-  // Redis pub/sub fans every event to every API process; this process routes
-  // each event only to its locally-connected sockets that declared interest. An
-  // access change drops interest locally; mirror that into the persisted set so
-  // a reconnect does not restore it before the client re-checks access.
-  function start(): void {
-    if (unsubscribe) {
-      return;
-    }
-    const routeMessage = (message: string): void => {
-      const event = parsePublishedRealtimeEvent(message);
-      if (event?.type === "access_changed") {
-        containerInterest.invalidateAccess(event.containerId);
-      } else if (event?.type === "principal_access_changed") {
-        containerInterest.invalidateAccess(principalInterestKey(event));
-      }
-      for (const eviction of router.routeServerEvent(message)) {
-        persistInterest(eviction.userId, eviction.sessionId, {
-          containerIds: [eviction.containerId],
-          kind: "remove",
-        });
-      }
-    };
-    unsubscribe = subscribe((message) => {
+  // The Worker awaits this same path directly; an event cannot finish while
+  // organization authorization or interest persistence is still outstanding.
+  async function publish(message: string): Promise<void> {
+    try {
       const preparation = organizationInterest.prepareServerEvent(message);
-      if (!preparation) {
-        routeMessage(message);
-        return;
-      }
-      void preparation
-        .then(() => routeMessage(message))
-        .catch((error: unknown) => {
-          console.error(
-            "Failed to prepare websocket organization event:",
-            error,
-          );
-          reportBackgroundFailure(error, "websocket.event");
-          routeMessage(message);
-        });
+      if (preparation) await preparation;
+    } catch (error) {
+      reportBackgroundFailure(error, "websocket.event");
+    }
+    const event = parsePublishedRealtimeEvent(message);
+    if (event?.type === "access_changed") {
+      containerInterest.invalidateAccess(event.containerId);
+    } else if (event?.type === "principal_access_changed") {
+      containerInterest.invalidateAccess(principalInterestKey(event));
+    }
+    for (const eviction of router.routeServerEvent(message)) {
+      persistInterest(eviction.userId, eviction.sessionId, {
+        containerIds: [eviction.containerId],
+        kind: "remove",
+      });
+    }
+  }
+
+  function start(): void {
+    if (unsubscribe) return;
+    unsubscribe = subscribe((message) => {
+      void publish(message).catch((error: unknown) => {
+        reportBackgroundFailure(error, "websocket.event");
+      });
     });
     unsubscribeReconnect = subscribeReconnect(() =>
       revalidateAfterReconnect(containerInterest, liveness),
@@ -302,5 +297,18 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     unsubscribeReconnect = undefined;
   }
 
-  return { start, stop, websocket };
+  return {
+    start,
+    stop,
+    websocket,
+    publish,
+    flush: persistInterest.flush,
+    hibernation: createGatewayHibernation({
+      containerInterest,
+      liveness,
+      organizationInterest,
+      revalidation,
+      router,
+    }),
+  };
 }

@@ -4,6 +4,7 @@ import {
   type ProofAgePolicy,
   RevalidationSchedule,
   type RevalidationScheduleOptions,
+  type ScheduleTimer,
 } from "./containerInterestRevalidation";
 import { socketSessionKey, type WsConnection } from "./wsConnection";
 import type { WebSocketTicketIdentity, WsSessionValidator } from "./wsIdentity";
@@ -29,6 +30,8 @@ export interface WsSessionLivenessOptions {
   readonly readTimeoutMs: number;
   readonly revalidation?: RevalidationScheduleOptions | undefined;
   readonly validateSession?: WsSessionValidator | undefined;
+  /** Active reads use ordinary timeouts while idle checks may use durable alarms. */
+  readonly scheduleReadTimeout?: ScheduleTimer | undefined;
 }
 
 interface TrackedSession {
@@ -79,11 +82,26 @@ export class WsSessionLiveness {
     );
   }
 
-  /** Tracks a socket whose ticket upgrade has just confirmed its session. */
-  open(ws: WsConnection): void {
+  /** Keep the last actual confirmation across a hub hibernation. */
+  snapshot(ws: WsConnection): {
+    confirmedAt: number;
+    nextCheckAt: number | undefined;
+  } {
+    const key = socketSessionKey(ws);
+    return {
+      confirmedAt: this.sessions.get(key)?.confirmedAt ?? 0,
+      nextCheckAt: this.schedule.nextAt(key),
+    };
+  }
+
+  /** New tickets confirm now; restored sockets retain their original age. */
+  open(
+    ws: WsConnection,
+    restored?: { confirmedAt: number; nextCheckAt: number | undefined },
+  ): void {
     if (this.stopped) return;
     const key = socketSessionKey(ws);
-    const now = this.options.policy.now();
+    const now = restored?.confirmedAt ?? this.options.policy.now();
     const tracked = this.sessions.get(key);
     if (tracked) {
       tracked.sockets.add(ws);
@@ -99,7 +117,7 @@ export class WsSessionLiveness {
     };
     this.sessions.set(key, session);
     this.confirm(key, session, now);
-    this.schedule.open(key);
+    this.schedule.open(key, restored?.nextCheckAt);
   }
 
   close(ws: WsConnection): void {
@@ -150,7 +168,9 @@ export class WsSessionLiveness {
   private withTimeout(read: Promise<void>): Promise<void> {
     const { readTimeoutMs } = this.options;
     return new Promise((resolve, reject) => {
-      const cancel = this.options.policy.schedule(() => {
+      const schedule =
+        this.options.scheduleReadTimeout ?? this.options.policy.schedule;
+      const cancel = schedule(() => {
         this.timeouts.delete(cancel);
         reject(new SessionReadTimeoutError(readTimeoutMs));
       }, readTimeoutMs);

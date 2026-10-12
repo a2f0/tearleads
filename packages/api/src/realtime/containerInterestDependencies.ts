@@ -7,6 +7,10 @@ export class ContainerInterestDependencies {
     string,
     Map<WsConnection, Set<string>>
   >();
+  private readonly proofs = new Map<
+    WsConnection,
+    Map<string, VerifiedContainerInterest>
+  >();
   private readonly bySocket = new Map<
     WsConnection,
     Map<string, readonly string[]>
@@ -14,6 +18,10 @@ export class ContainerInterestDependencies {
 
   set(ws: WsConnection, proof: VerifiedContainerInterest): void {
     this.remove(ws, proof.containerId);
+    const proofs =
+      this.proofs.get(ws) ?? new Map<string, VerifiedContainerInterest>();
+    proofs.set(proof.containerId, proof);
+    this.proofs.set(ws, proofs);
     const path = [
       ...new Set([
         proof.containerId,
@@ -33,7 +41,14 @@ export class ContainerInterestDependencies {
     }
   }
 
+  snapshot(ws: WsConnection): VerifiedContainerInterest[] {
+    return [...(this.proofs.get(ws)?.values() ?? [])];
+  }
+
   remove(ws: WsConnection, containerId: string): void {
+    const proofs = this.proofs.get(ws);
+    proofs?.delete(containerId);
+    if (proofs?.size === 0) this.proofs.delete(ws);
     const interests = this.bySocket.get(ws);
     for (const ancestor of interests?.get(containerId) ?? []) {
       const sockets = this.byAncestor.get(ancestor);

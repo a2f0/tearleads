@@ -385,6 +385,11 @@ export class WsEventRouter {
     return [...(this.interestBySocket.get(ws) ?? [])];
   }
 
+  /** Server-verified dependency paths, retained across a hub hibernation. */
+  snapshotProofs(ws: WsConnection): VerifiedContainerInterest[] {
+    return this.dependencies.snapshot(ws);
+  }
+
   /** Every socket currently open on this process. */
   openSockets(): WsConnection[] {
     return [...this.interestBySocket.keys()];

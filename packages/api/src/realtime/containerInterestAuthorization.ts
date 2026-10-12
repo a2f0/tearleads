@@ -59,19 +59,27 @@ export class ContainerInterestAuthorizer {
     );
   }
 
-  open(ws: WsConnection): Promise<void> {
+  snapshotVerifiedAt(ws: WsConnection): number {
+    return this.states.get(ws)?.verifiedAt ?? 0;
+  }
+
+  open(
+    ws: WsConnection,
+    restored?: { readonly verifiedAt: number },
+  ): Promise<void> {
     this.restoration.clear(ws);
     this.states.set(ws, {
       pending: Promise.resolve(),
       declarations: 0,
       containerIds: 0,
       resyncAll: false,
-      verifiedAt: this.proofAge.now(),
+      verifiedAt: restored?.verifiedAt ?? this.proofAge.now(),
       epoch: 0,
       revalidation: null,
       deadline: null,
     });
     this.armDeadline(ws, this.states.get(ws));
+    if (restored) return Promise.resolve();
     return this.enqueue(ws, async () => {
       try {
         const cached = await beforeDeadline(
@@ -169,7 +177,7 @@ export class ContainerInterestAuthorizer {
    * revalidation ticks and of the declaration queue.
    */
   private armDeadline(ws: WsConnection, state: SocketState | undefined): void {
-    if (!state) return;
+    if (!state || !this.isOpen(ws)) return;
     state.deadline?.();
     state.deadline = null;
     const { maxProofAgeMs, now, schedule } = this.proofAge;

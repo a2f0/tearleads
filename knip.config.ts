@@ -44,6 +44,9 @@ const baseConfig = {
         "src/worker/stubs/*.ts",
         "src/**/*.test.ts",
         "test/slow/**/*.test.ts",
+        // Spawned Node harness and its local-only control Worker.
+        "test/helpers/hibernatingWorkerChild.ts",
+        "test/helpers/hibernationControlWorker.ts",
         "scripts/blobGc.ts",
         "scripts/stripeSeatSync.ts",
         "scripts/workerDefines.ts",

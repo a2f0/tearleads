@@ -74,6 +74,25 @@ export class OrganizationInterestAuthorizer {
     this.sendAcknowledgement(ws, declaration, authorized);
   }
 
+  snapshot(
+    ws: OrganizationSocket,
+  ): { organizationId: string; authorized: boolean } | null {
+    const state = this.states.get(ws);
+    return state
+      ? { organizationId: state.organizationId, authorized: state.authorized }
+      : null;
+  }
+
+  restore(
+    ws: OrganizationSocket,
+    saved: { organizationId: string; authorized: boolean } | null,
+  ): void {
+    if (!saved) return;
+    this.states.set(ws, { ...saved, authorization: null });
+    if (saved.authorized)
+      this.router.applyAuthorizedOrganizationInterest(ws, saved.organizationId);
+  }
+
   close(ws: OrganizationSocket): void {
     this.states.delete(ws);
   }
