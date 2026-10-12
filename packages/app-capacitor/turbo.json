@@ -13,6 +13,7 @@
         "$TURBO_ROOT$/terraform/stacks/**/scripts/**",
         "!$TURBO_ROOT$/terraform/**/.terraform/**",
         "$TURBO_ROOT$/packages/api/scripts/**",
+        "$TURBO_ROOT$/packages/api/src/billing/returnOrigins.ts",
         "$TURBO_ROOT$/packages/api-cli/scripts/**",
         "$TURBO_ROOT$/packages/website/scripts/**",
         "$TURBO_ROOT$/packages/website/wrangler.jsonc",

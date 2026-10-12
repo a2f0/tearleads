@@ -36,6 +36,12 @@ async function deployFixture(
     resolve(import.meta.dir, "../../api/wrangler.jsonc"),
     resolve(root, "packages/api/wrangler.jsonc"),
   );
+  const billingReader = "packages/api/src/billing/returnOrigins.ts";
+  await mkdir(dirname(resolve(root, billingReader)), { recursive: true });
+  await cp(
+    resolve(import.meta.dir, "../../api/src/billing/returnOrigins.ts"),
+    resolve(root, billingReader),
+  );
   await mkdir(resolve(root, "packages/api-cli"), { recursive: true });
   await mkdir(resolve(root, ".secrets"), { recursive: true });
   await executable(
@@ -102,6 +108,7 @@ async function deployFixture(
       "#!/bin/bash",
       "set -eu",
       'case "$*" in',
+      `  -e*) exec '${process.execPath}' "$@" ;;`,
       "  'src/index.ts migrate')",
       `    printf 'migrate|%s|%s|%s|%s|%s|%s\\n' "\${POSTGRES_HOST:-}" "\${POSTGRES_PORT:-}" "\${POSTGRES_USER:-}" "\${POSTGRES_DATABASE:-}" "\${DATABASE_URL:-unset}" "\${POSTGRES_URL:-unset}" >> "$API_DEPLOY_TEST_LOG"`,
       "    ;;",
@@ -230,8 +237,9 @@ test("the Worker receives Hyperdrive, derived origins, and only managed secrets"
     "--var API_PUBLIC_ORIGIN:https://api-staging.example.test",
   );
   expect(deploy).toContain(
-    "--var API_CORS_ORIGINS:https://app-staging.example.test,https://demo-staging.example.test,https://localhost,http://127.0.0.1:3002",
+    "--var API_BILLING_RETURN_ORIGINS:https://app-staging.example.test,https://demo-staging.example.test,https://localhost,http://127.0.0.1:3002",
   );
+  expect(deploy).toContain("--var API_CORS_ORIGINS:*");
   // Migrations precede the publish.
   expect(
     run.calls.findIndex((call) => call.startsWith("migrate|")),
@@ -274,20 +282,40 @@ test("a traced run never prints a secret", async () => {
   }
 });
 
-test("an explicit API_CORS_ORIGINS replaces the computed origin list", async () => {
+test("billing overrides stay separate from wildcard CORS", async () => {
   const run = await deployFixture({
-    API_CORS_ORIGINS: "https://app.example.test,https://partner.example.test",
+    API_CORS_ORIGINS: "https://old-cors.example.test",
+    API_BILLING_RETURN_ORIGINS:
+      "https://app.example.test,https://partner.example.test",
   });
   expect(run.exitCode, run.stderr).toBe(0);
   const deploy = run.calls.find((call) => call.startsWith("deploy|"));
   expect(deploy).toContain(
-    "--var API_CORS_ORIGINS:https://app.example.test,https://partner.example.test",
+    "--var API_BILLING_RETURN_ORIGINS:https://app.example.test,https://partner.example.test",
   );
   expect(deploy).not.toContain("demo-staging.example.test");
+  expect(deploy).not.toContain("old-cors.example.test");
+  expect(deploy).toContain("--var API_CORS_ORIGINS:*");
   expect(deploy).toContain(
     "--var API_PUBLIC_ORIGIN:https://api-staging.example.test",
   );
 });
+
+for (const origins of [
+  "*",
+  "https://app.example,*",
+  "https://app.example/billing",
+]) {
+  test(`invalid billing origins stop deployment before mutations: ${origins}`, async () => {
+    const run = await deployFixture({ API_BILLING_RETURN_ORIGINS: origins });
+    expect(run.exitCode).not.toBe(0);
+    expect(run.stderr).toContain(
+      "API_BILLING_RETURN_ORIGINS must contain http(s) origins",
+    );
+    expect(run.calls).toEqual([]);
+    expect(run.secrets).toBeNull();
+  });
+}
 
 test("production binds the production stack ID", async () => {
   const id = "b".repeat(32);

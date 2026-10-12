@@ -7,8 +7,8 @@ import {
   operationRoutePath,
 } from "@tearleads/validators/operation";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
+import { readBillingReturnOrigins } from "../../billing/returnOrigins";
 import { StripeApiError } from "../../billing/stripeApi";
-import { type ApiCorsOrigins, readApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
 import {
   cancelStripeSubscription,
@@ -31,16 +31,10 @@ import {
  * Stripe's signature instead and is mounted without `requireAuth`.
  */
 
-/**
- * The portal return target must be an http(s) URL on one of the app's own
- * origins (the CORS allowlist): `returnUrl` is caller-supplied, and Stripe's
- * portal redirects to it verbatim — accepting arbitrary origins would make
- * billing.stripe.com an open-redirect/phishing vector. The development
- * wildcard allowlist accepts any http(s) origin, matching the CORS policy.
- */
+/** Caller-supplied Stripe redirects must stay on approved billing origins. */
 function parseReturnUrl(
   value: unknown,
-  allowedOrigins: ApiCorsOrigins,
+  allowedOrigins: readonly string[],
 ): string | null {
   if (typeof value !== "string") {
     return null;
@@ -54,7 +48,7 @@ function parseReturnUrl(
   if (url.protocol !== "https:" && url.protocol !== "http:") {
     return null;
   }
-  if (allowedOrigins !== "*" && !allowedOrigins.includes(url.origin)) {
+  if (!allowedOrigins.includes(url.origin)) {
     return null;
   }
   return url.toString();
@@ -67,7 +61,7 @@ function parseReturnUrl(
  */
 function returnUrlRequestValidator<Output extends { returnUrl: string }>(
   schema: SafeParseSchema<Output>,
-  allowedOrigins: ApiCorsOrigins,
+  allowedOrigins: readonly string[],
 ): MiddlewareHandler<SessionEnv, string, { out: { json: Output } }> {
   return async (c, next) => {
     let body: unknown;
@@ -159,7 +153,7 @@ function registerStripeOptionsAndIntentRoutes(
 function registerStripePortalRoute(
   route: Hono<SessionEnv>,
   { requireAuth, runtime }: OrganizationsRouterDeps,
-  allowedOrigins: ApiCorsOrigins,
+  allowedOrigins: readonly string[],
 ) {
   route.on(
     createStripePortalOperation.method,
@@ -184,7 +178,7 @@ function registerStripePortalRoute(
 function registerStripeCheckoutSessionRoute(
   route: Hono<SessionEnv>,
   { requireAuth, runtime }: OrganizationsRouterDeps,
-  allowedOrigins: ApiCorsOrigins,
+  allowedOrigins: readonly string[],
 ) {
   route.on(
     createStripeCheckoutSessionOperation.method,
@@ -243,7 +237,8 @@ function registerStripeCancelRoute(
 
 export function createStripeCheckoutRoute(deps: OrganizationsRouterDeps) {
   const route = new Hono<SessionEnv>();
-  const allowedOrigins = deps.corsOrigins ?? readApiCorsOrigins();
+  const allowedOrigins =
+    deps.billingReturnOrigins ?? readBillingReturnOrigins();
 
   registerStripeOptionsAndIntentRoutes(route, deps);
   registerStripePortalRoute(route, deps, allowedOrigins);

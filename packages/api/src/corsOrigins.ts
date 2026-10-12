@@ -1,9 +1,4 @@
-/**
- * Reading and parsing of the API's allowed CORS origins. A leaf module so
- * both the route app (CORS middleware) and individual routes (e.g. the
- * Stripe Billing Portal's return-url allowlist) can consume it without an
- * import cycle through routeApp.
- */
+/** Browser CORS policy; billing redirects have their own allowlist. */
 export type ApiCorsOrigins = "*" | readonly string[];
 
 interface ApiCorsEnv {
@@ -36,9 +31,6 @@ export function readApiCorsOrigins(
   const configured = env.API_CORS_ORIGINS?.trim();
   if (configured) {
     return parseConfiguredApiCorsOrigins(configured);
-  }
-  if (env.NODE_ENV?.trim() === "production") {
-    throw new Error("API_CORS_ORIGINS is required when NODE_ENV=production");
   }
 
   return "*";

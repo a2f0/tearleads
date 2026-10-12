@@ -93,13 +93,51 @@ describe("createRouteApp", () => {
     expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
   });
 
-  test("requires explicit CORS origins in production", () => {
-    expect(() => readApiCorsOrigins({ NODE_ENV: "production" })).toThrow(
-      "API_CORS_ORIGINS is required when NODE_ENV=production",
-    );
-    expect(() => readApiCorsOrigins({ NODE_ENV: "production " })).toThrow(
-      "API_CORS_ORIGINS is required when NODE_ENV=production",
-    );
+  test("defaults to wildcard CORS in production", () => {
+    expect(readApiCorsOrigins({ NODE_ENV: "production" })).toBe("*");
+    expect(readApiCorsOrigins({ NODE_ENV: "production " })).toBe("*");
+  });
+
+  test("supports arbitrary SDK hosts without cookie credentials", async () => {
+    const app = createRouteApp({}, { corsOrigins: "*" });
+    for (const origin of [
+      "https://drive.a2f0.net",
+      "https://new-sdk.example",
+      "null",
+    ]) {
+      const preflight = await app.request("/auth/ws-ticket", {
+        method: "OPTIONS",
+        headers: {
+          Origin: origin,
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "authorization,content-type",
+        },
+      });
+      expect(preflight.status).toBe(204);
+      expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe("*");
+      expect(
+        preflight.headers.get("Access-Control-Allow-Credentials"),
+      ).toBeNull();
+      const headers = preflight.headers
+        .get("Access-Control-Allow-Headers")
+        ?.toLowerCase();
+      expect(headers).toContain("authorization");
+      expect(headers).toContain("content-type");
+      expect(preflight.headers.get("Access-Control-Allow-Methods")).toContain(
+        "POST",
+      );
+
+      const protectedResponse = await app.request("/auth/sessions", {
+        headers: { Origin: origin },
+      });
+      expect(protectedResponse.status).toBe(401);
+      expect(protectedResponse.headers.get("Access-Control-Allow-Origin")).toBe(
+        "*",
+      );
+      expect(
+        protectedResponse.headers.get("Access-Control-Allow-Credentials"),
+      ).toBeNull();
+    }
   });
 
   test("parses configured CORS origins", () => {

@@ -35,7 +35,7 @@
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["KeyValueStore", "RealtimeHub"] }
   ],
-  // API_PUBLIC_ORIGIN and API_CORS_ORIGINS are passed by
+  // API_PUBLIC_ORIGIN, API_CORS_ORIGINS and API_BILLING_RETURN_ORIGINS are passed by
   // packages/api/scripts/deployApi.sh from TF_VAR_domain.
   "env": {
     // Local workerd integration tests use direct Postgres, without Hyperdrive.

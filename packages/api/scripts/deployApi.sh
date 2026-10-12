@@ -59,6 +59,19 @@ if [[ "${BLOB_GC_HEALTHCHECK_URL:-}" != https://* ]]; then
   exit 1
 fi
 
+# Login challenges bind to the API; browser SDKs may run on any origin.
+API_PUBLIC_ORIGIN="https://$(tier_api_hostname "$TIER")"
+# Stripe redirects retain a separate allowlist. An explicit tier setting
+# replaces these first-party web and native app origins.
+if [[ -z "${API_BILLING_RETURN_ORIGINS:-}" ]]; then
+  API_BILLING_RETURN_ORIGINS="https://$(tier_app_hostname "$TIER"),https://$(tier_demo_hostname "$TIER"),https://localhost,http://127.0.0.1:3002"
+fi
+# Validate operator overrides before migrations, secret uploads, or publishing.
+(cd "$API_DIR" && API_BILLING_RETURN_ORIGINS="$API_BILLING_RETURN_ORIGINS" bun -e '
+  import { readBillingReturnOrigins } from "./src/billing/returnOrigins";
+  readBillingReturnOrigins({ ...process.env, NODE_ENV: "production" });
+')
+
 # The cursor HMAC key is generated once per tier and kept beside the other
 # tier secrets; rotating it re-verifies every object's history once.
 WORKER_ENV_FILE="$REPO_ROOT/.secrets/$TIER.worker.env"
@@ -181,16 +194,6 @@ DEFINES_OUTPUT="$(cd "$API_DIR" && bun scripts/workerDefines.ts)"
 while IFS= read -r define; do
   [[ -n "$define" ]] && DEFINE_ARGS+=(--define "$define")
 done <<<"$DEFINES_OUTPUT"
-# The public origin and browser origins follow TF_VAR_domain, like the
-# Terraform stacks and the app builds, rather than a name in wrangler.jsonc.
-# Native releases fetch the API from Capacitor and Electrobun loopback origins.
-API_PUBLIC_ORIGIN="https://$(tier_api_hostname "$TIER")"
-# An explicit API_CORS_ORIGINS in the tier's secrets replaces the computed
-# list outright, as it did for the retired server, so an operator-added
-# origin survives every deploy.
-if [[ -z "${API_CORS_ORIGINS:-}" ]]; then
-  API_CORS_ORIGINS="https://$(tier_app_hostname "$TIER"),https://$(tier_demo_hostname "$TIER"),https://localhost,http://127.0.0.1:3002"
-fi
 if [[ "$XTRACE_WAS_ENABLED" -eq 1 ]]; then
   set -x
 fi
@@ -199,7 +202,8 @@ fi
   --var "BLOB_OBJECT_STORE_S3_REGION:$(read_connection storage blob_s3_region)" \
   --var "BLOB_OBJECT_STORE_S3_ENDPOINT:$(read_connection storage blob_s3_endpoint)" \
   --var "API_PUBLIC_ORIGIN:$API_PUBLIC_ORIGIN" \
-  --var "API_CORS_ORIGINS:$API_CORS_ORIGINS")
+  --var "API_CORS_ORIGINS:*" \
+  --var "API_BILLING_RETURN_ORIGINS:$API_BILLING_RETURN_ORIGINS")
 
 # Publish the binding first: an older live Worker may still need the old
 # database secrets until the new code has been uploaded successfully.

@@ -59,6 +59,14 @@ cursor HMAC key is generated once per tier into `.secrets/<tier>.worker.env`.
 `scripts/destroyStaging.sh` removes every staging resource; production stacks
 refuse destruction through their wrappers.
 
+The deployed API allows browser requests from every origin (`API_CORS_ORIGINS=*`)
+for SDK hosts, with explicit bearer-token and protocol headers and no cookie
+credentials. Stripe checkout and portal return URLs use the independent
+`API_BILLING_RETURN_ORIGINS` allowlist. Deployments derive it from the tier's app
+and demo hosts plus native loopback origins; a tier setting replaces that list.
+Wildcards are rejected for billing. Local servers default to unrestricted CORS
+and no billing return origins; configure the billing list to use hosted checkout.
+
 The Worker connects through its `HYPERDRIVE` binding. The Postgres stack
 configures Hyperdrive with the runtime login, PlanetScale's pooled port 6432,
 TLS with WebPKI certificate validation, and query caching disabled. Fresh reads
