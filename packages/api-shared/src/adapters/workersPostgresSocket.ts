@@ -60,6 +60,7 @@ export class WorkersPostgresSocket extends EventEmitter {
   private upgrading = false;
   private upgraded = false;
   private secureDataSeen = false;
+  private closeEmitted = false;
   private pending: PendingWrite[] = [];
   private flushScheduled = false;
 
@@ -263,9 +264,23 @@ export class WorkersPostgresSocket extends EventEmitter {
             ),
           );
         }
-        this.emit("close");
+        this.emitClose();
       })
-      .catch((error: unknown) => this.emit("error", error));
+      .catch((error: unknown) => {
+        // A failed closure is still a closure: pg's shutdown and the
+        // request pool's cleanup wait for the close event, never the error.
+        this.socket = null;
+        this.emit("error", error);
+        this.emitClose();
+      });
+  }
+
+  private emitClose(): void {
+    if (this.closeEmitted) {
+      return;
+    }
+    this.closeEmitted = true;
+    this.emit("close");
   }
 }
 

@@ -14,7 +14,8 @@
 # API and app Workers publish before it runs.
 #
 # Pass --skip-terraform when a caller already prepared storage, the database,
-# and the edge hostnames; --skip-infra is its alias now that no server exists.
+# the edge hostnames, and the website domains; --skip-infra is its alias now
+# that no server exists.
 
 set -euo pipefail
 
@@ -27,7 +28,7 @@ usage() {
 Usage: $(basename "$0") [--skip-terraform] [--skip-infra]
 
 Options:
-  --skip-terraform  Skip storage, database, and edge Terraform; website domains still reconcile.
+  --skip-terraform  Skip every Terraform apply (storage, database, edge, and website domains); Workers and assets still deploy.
   --skip-infra      Alias of --skip-terraform.
   -h, --help        Show this help and exit.
 

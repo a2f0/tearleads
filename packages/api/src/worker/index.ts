@@ -7,7 +7,7 @@ import {
 import {
   boundRequestBody,
   createBodyAdmission,
-  expectedBodyBytes,
+  expectedRequestBytes,
   requestBodyCeiling,
 } from "./requestBody";
 
@@ -101,10 +101,8 @@ async function handleRequest(
   const { corsOrigins, fetch, flushDiagnostics, withRequestDatabase } =
     await loadApp();
   // Route-level limits still apply below this ceiling.
-  const ceiling = requestBodyCeiling(
-    new URL(request.url).pathname,
-    MAX_MULTIPART_BLOB_PART_BYTES,
-  );
+  const { pathname } = new URL(request.url);
+  const ceiling = requestBodyCeiling(pathname, MAX_MULTIPART_BLOB_PART_BYTES);
   const bounded = boundRequestBody(request, ceiling);
   if (bounded.kind === "too-large") {
     return refuse(
@@ -114,9 +112,9 @@ async function handleRequest(
       413,
     );
   }
-  // Concurrent large bodies share this isolate's heap; past the budget the
+  // Concurrent large requests share this isolate's heap; past the budget the
   // client retries rather than the isolate running out of memory.
-  const admitted = expectedBodyBytes(request, ceiling);
+  const admitted = expectedRequestBytes(request, pathname, ceiling);
   if (!bodyAdmission.admit(admitted)) {
     const response = refuse(
       request,

@@ -231,6 +231,25 @@ test("a TLS socket that answered before closing closes quietly", async () => {
   expect(events).toEqual(["data:S", "data:R", "close"]);
 });
 
+test("a rejected closure still closes the stream, exactly once", async () => {
+  const plain = plainSocket();
+  const stream = new WorkersPostgresSocket(
+    false,
+    async () => () => plain.socket,
+  );
+  const events: string[] = [];
+  stream.on("error", (error: Error) => events.push(`error:${error.message}`));
+  stream.on("close", () => events.push("close"));
+  await stream.connect(5432, "db.example.test");
+  plain.fail(new Error("network unreachable"));
+  await settled();
+  expect(events).toEqual(["error:network unreachable", "close"]);
+  // A later resolution of the same socket cannot close it a second time.
+  await plain.socket.close();
+  await settled();
+  expect(events).toEqual(["error:network unreachable", "close"]);
+});
+
 test("a TLS failure after the upgrade surfaces as a stream error", async () => {
   const tls = fakeSocket();
   const plain = fakeSocket({ initialData: "S", tls });

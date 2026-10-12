@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
-import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
+import {
+  MAX_DOCUMENT_SYNC_REQUEST_BYTES,
+  MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
+} from "@tearleads/validators/util";
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import {
   boundRequestBody,
   createBodyAdmission,
-  expectedBodyBytes,
+  expectedRequestBytes,
   MAX_UNAUTHENTICATED_REQUEST_BYTES,
   requestBodyCeiling,
 } from "./requestBody";
@@ -136,18 +139,38 @@ test("bodies are admitted against the isolate's shared budget", () => {
 });
 
 test("a request's expected bytes are its declared length, else the ceiling", () => {
-  expect(expectedBodyBytes(new Request("https://api.example.test/"), 32)).toBe(
-    0,
-  );
   expect(
-    expectedBodyBytes(
-      new Request("https://api.example.test/", {
+    expectedRequestBytes(new Request("https://api.example.test/"), "/", 32),
+  ).toBe(0);
+  expect(
+    expectedRequestBytes(
+      new Request("https://api.example.test/containers", {
         method: "PUT",
         headers: { "content-length": "12" },
         body: "0123456789ab",
       }),
+      "/containers",
       32,
     ),
   ).toBe(12);
-  expect(expectedBodyBytes(chunkedRequest(["12345"]), 32)).toBe(32);
+  expect(
+    expectedRequestBytes(chunkedRequest(["12345"]), "/containers", 32),
+  ).toBe(32);
+});
+
+test("a document sync pull also reserves the response page it may build", () => {
+  const sync = "/documents/doc-1/sync";
+  expect(expectedRequestBytes(chunkedRequest(["12345"]), sync, 16)).toBe(
+    16 + MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
+  );
+  expect(
+    expectedRequestBytes(
+      new Request("https://api.example.test/documents/doc-1/sync"),
+      sync,
+      16,
+    ),
+  ).toBe(MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES);
+  expect(
+    expectedRequestBytes(chunkedRequest(["12345"]), "/documents/doc-1", 16),
+  ).toBe(16);
 });
