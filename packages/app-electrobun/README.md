@@ -139,10 +139,11 @@ Run `bun run --cwd packages/app-electrobun test:release-packaging` on an
 Apple silicon Mac after preparing the devkit to exercise the real native
 packaging pipeline in a temporary project. It verifies the final renderer and
 SQLite assets in the update archive, and confirms a failed packaging hook stops
-before signing or artifact creation. It also publishes through a fake S3 command
-and uses Electrobun's actual updater to validate the manifest, resolve and read
+before signing or artifact creation. It publishes through fixture Terraform
+outputs and a fake S3 command, and uses Electrobun's actual updater to validate
+the manifest, resolve and read
 the published archive, and check its build hash. This probe uses no signing
-or AWS credentials: the app uses ad-hoc signing and skips notarization. It also
+or cloud credentials: the app uses ad-hoc signing and skips notarization. It also
 mounts the DMG read-only, verifies the app's code signature, checks its expanded
 app against the update payload, and launches through the native executable into
 a test-only Bun preload with an isolated home directory.

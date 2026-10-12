@@ -151,9 +151,6 @@ jq -n \
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: $storage[0].blob_s3_access_key_id,
     BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: $storage[0].blob_s3_secret_access_key
   }
-  + (if (($storage[0].blob_s3_key_prefix // "") | length) > 0
-     then { BLOB_OBJECT_STORE_S3_KEY_PREFIX: $storage[0].blob_s3_key_prefix }
-     else {} end)
   + ([
       "API_SENTRY_DSN",
       "REVENUECAT_WEBHOOK_AUTH_HEADER",

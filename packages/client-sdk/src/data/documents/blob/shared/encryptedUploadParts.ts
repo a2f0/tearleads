@@ -36,6 +36,9 @@ export function createEncryptedUploadParts(input: {
         );
         const chunkStart =
           input.header.byteLength + chunkIndex * input.chunkSize;
+        // Adjacent transport parts can re-read and re-encrypt a shared chunk.
+        // Independent calls keep memory bounded during concurrent upload/resume;
+        // the tradeoff is up to two encryptions per chunk in this upload pass.
         const chunk = await input.encryptChunk(chunkIndex);
         const offset = position - chunkStart;
         const length = Math.min(chunk.byteLength - offset, end - position);

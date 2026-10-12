@@ -160,3 +160,22 @@ for (const args of [[], ["upload", "prod"], ["upload", "staging", "extra"]]) {
     expect(result.calls).toEqual([]);
   });
 }
+
+for (const failure of [
+  "storage-read",
+  "storage-bucket",
+  "storage-endpoint",
+  "storage-key",
+]) {
+  test(`macOS rejects ${failure} before any publication`, async () => {
+    const result = await runMacosRelease(["upload", "production"], failure);
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr).toContain(
+      failure === "storage-read"
+        ? "Cannot read R2 release credentials"
+        : "Invalid R2 release storage configuration",
+    );
+    expect(result.calls.some((call) => call.startsWith("upload "))).toBe(false);
+    expect(result.published).toEqual(result.previous);
+  });
+}

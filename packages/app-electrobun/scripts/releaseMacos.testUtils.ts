@@ -9,7 +9,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { r2ReleaseStorageStub } from "./r2Release.testUtils";
+import {
+  r2ReleaseAmbientCredentials,
+  r2ReleaseCredentialProbe,
+  r2ReleaseStorageStub,
+} from "./r2Release.testUtils";
 
 export const bunLaunchVariables = [
   "BUN_OPTIONS",
@@ -139,6 +143,7 @@ export async function runMacosRelease(
       "bin/aws",
       [
         "#!/bin/sh",
+        r2ReleaseCredentialProbe,
         'printf "upload %s\\n" "$*" >> "$RELEASE_TEST_LOG"',
         tokenLeakProbe,
         '[ "$RELEASE_TEST_FAILURE" != payload ] || exit 8',
@@ -175,6 +180,7 @@ export async function runMacosRelease(
       {
         cwd: root,
         env: {
+          ...r2ReleaseAmbientCredentials,
           ...ambient,
           PATH: `${root}/bin:/usr/bin:/bin`,
           RELEASE_TEST_ROOT: root,

@@ -8,7 +8,12 @@ set +x
 umask 077
 STORAGE_DIR="$(mktemp -d)"
 trap 'rm -rf "$STORAGE_DIR"' EXIT
-"$REPO_ROOT/terraform/scripts/run-storage-stack.sh" staging output -json api_storage >"$STORAGE_DIR/storage.json"
+"$REPO_ROOT/terraform/scripts/run-storage-stack.sh" staging output -json >"$STORAGE_DIR/outputs.json"
+if jq -e '. == {}' "$STORAGE_DIR/outputs.json" >/dev/null; then
+  echo "Staging storage has no outputs; there is no configured bucket to empty."
+  exit 0
+fi
+jq -e '.api_storage.value' "$STORAGE_DIR/outputs.json" >"$STORAGE_DIR/storage.json"
 BUCKET="$(jq -er '.blob_s3_bucket' "$STORAGE_DIR/storage.json")"
 ENDPOINT="$(jq -er '.blob_s3_endpoint' "$STORAGE_DIR/storage.json")"
 if [[ "$BUCKET" != tearleads-blobs-staging || ! "$ENDPOINT" =~ ^https://[a-f0-9]{32}\.r2\.cloudflarestorage\.com$ ]]; then
@@ -23,6 +28,7 @@ export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
 export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
 r2() { aws --endpoint-url "$ENDPOINT" --region auto "$@"; }
 r2 s3 rm "s3://$BUCKET/" --recursive --only-show-errors
+# AWS CLI automatically retrieves every page; do not disable pagination.
 r2 s3api list-multipart-uploads --bucket "$BUCKET" --output json >"$STORAGE_DIR/uploads.json"
 jq -c '.Uploads[]?' "$STORAGE_DIR/uploads.json" >"$STORAGE_DIR/uploads.ndjson"
 while IFS= read -r upload; do

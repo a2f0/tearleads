@@ -2,7 +2,11 @@ import { execFileSync } from "node:child_process";
 import { chmod, cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { r2ReleaseStorageStub } from "./r2Release.testUtils";
+import {
+  r2ReleaseAmbientCredentials,
+  r2ReleaseCredentialProbe,
+  r2ReleaseStorageStub,
+} from "./r2Release.testUtils";
 
 export const bunLaunchVariables = [
   "BUN_OPTIONS",
@@ -195,6 +199,7 @@ export async function runLinuxRelease(
       "bin/aws",
       [
         "#!/bin/sh",
+        r2ReleaseCredentialProbe,
         'printf "upload %s\\n" "$*" >> "$RELEASE_TEST_LOG"',
         leakProbe,
         'case "$3:$RELEASE_TEST_FAILURE" in *Setup.tar.gz:payload|*.sha256:checksum|*-update.json:metadata) exit 8 ;; esac',
@@ -210,6 +215,7 @@ export async function runLinuxRelease(
       {
         cwd: root,
         env: {
+          ...r2ReleaseAmbientCredentials,
           ...ambient,
           PATH: `${root}/bin:${inheritedPath}`,
           RELEASE_TEST_ROOT: root,

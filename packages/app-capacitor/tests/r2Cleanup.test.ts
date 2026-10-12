@@ -17,8 +17,10 @@ async function cleanupScenario(failure: string) {
     await write(
       "terraform/scripts/run-storage-stack.sh",
       `#!/bin/sh
-[ "$*" = 'staging output -json api_storage' ] || exit 8
-printf '{"blob_s3_bucket":"%s","blob_s3_endpoint":"https://11111111111111111111111111111111.r2.cloudflarestorage.com","blob_s3_access_key_id":"test-key","blob_s3_secret_access_key":"test-secret"}' "$TEST_BUCKET"
+[ "$*" = 'staging output -json' ] || exit 8
+[ "$TEST_FAILURE" != output-read ] || exit 9
+if [ "$TEST_FAILURE" = empty-state ]; then echo '{}'; exit 0; fi
+printf '{"api_storage":{"value":{"blob_s3_bucket":"%s","blob_s3_endpoint":"https://11111111111111111111111111111111.r2.cloudflarestorage.com","blob_s3_access_key_id":"test-key","blob_s3_secret_access_key":"test-secret"}}}' "$TEST_BUCKET"
 `,
     );
     await write(
@@ -117,3 +119,15 @@ for (const failure of ["delete", "residual", "residual-upload"]) {
     }
   });
 }
+
+test("staging cleanup skips an unapplied or already destroyed stack", async () => {
+  const result = await cleanupScenario("empty-state");
+  expect(result.code, result.stderr).toBe(0);
+  expect(result.calls).toEqual([]);
+});
+
+test("staging cleanup never treats a Terraform read failure as empty storage", async () => {
+  const result = await cleanupScenario("output-read");
+  expect(result.code).not.toBe(0);
+  expect(result.calls).toEqual([]);
+});

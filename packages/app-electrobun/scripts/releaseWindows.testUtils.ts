@@ -10,7 +10,11 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { r2ReleaseStorageStub } from "./r2Release.testUtils";
+import {
+  r2ReleaseAmbientCredentials,
+  r2ReleaseCredentialProbe,
+  r2ReleaseStorageStub,
+} from "./r2Release.testUtils";
 import {
   windowsArtifactDigest,
   windowsReleaseNames,
@@ -134,7 +138,7 @@ export async function runWindowsRelease(
     await symlink(process.execPath, join(root, "bin/bun"));
     await write(
       "bin/aws",
-      '#!/bin/sh\nprintf "aws %s\\n" "$*" >> "$WINDOWS_TEST_LOG"\n',
+      `#!/bin/sh\n${r2ReleaseCredentialProbe}\nprintf "aws %s\\n" "$*" >> "$WINDOWS_TEST_LOG"\n`,
     );
     const names = windowsReleaseNames(tier);
     const artifacts = join(root, "fixture-artifacts");
@@ -180,6 +184,7 @@ export async function runWindowsRelease(
       {
         cwd: root,
         env: {
+          ...r2ReleaseAmbientCredentials,
           ...env,
           PATH: `${root}/bin:${inheritedPath}`,
           WINDOWS_TEST_ROOT: root,
