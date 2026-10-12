@@ -1,5 +1,4 @@
 export {
-  blobContentMetadataHash,
   contentRecordAdditionalDataBytes,
   deriveBlobContentRecordKey,
 } from "./blobRecordCrypto";

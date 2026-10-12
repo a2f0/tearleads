@@ -113,12 +113,17 @@ export async function saveLocalAttachmentRecords(
   installLocalAttachmentRecords(state, attachments, currentDoc);
 }
 
+type AttachmentSlot = Pick<
+  LocalAttachmentRecord,
+  "slotId" | "blobId" | "contentSha256" | "storageKey"
+>;
+
 /** Publish the held copy of each record's slot to the store's slot maps. */
 export function assignLocalAttachmentSlots(
   state: DocumentStoreState,
-  attachments: ReadonlyArray<LocalAttachmentRecord>,
+  attachments: ReadonlyArray<AttachmentSlot>,
 ): void {
-  const entries = <T>(pick: (attachment: LocalAttachmentRecord) => T) =>
+  const entries = <T>(pick: (attachment: AttachmentSlot) => T) =>
     Object.fromEntries(
       attachments.map((attachment) => [attachment.slotId, pick(attachment)]),
     );

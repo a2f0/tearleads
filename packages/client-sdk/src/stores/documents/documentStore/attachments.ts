@@ -19,7 +19,10 @@ import {
   persistStagedAttachmentMutation,
   restoreFailedAttachmentMutation,
 } from "./attachmentMutationPersistence";
-import { removeLocalAttachmentSlot } from "./attachmentPersistence";
+import {
+  assignLocalAttachmentSlots,
+  removeLocalAttachmentSlot,
+} from "./attachmentPersistence";
 import {
   deleteUnreferencedStagedAttachmentBytes,
   installPendingAttachmentRows,
@@ -255,12 +258,26 @@ function installCommittedAttachmentRemoval(input: {
 }): void {
   const { slotId, state, storageKey } = input;
   if (!storageKey) return;
+  const pending = state.pendingAttachments.find(
+    (attachment) =>
+      attachment.slotId === slotId && attachment.storageKey === storageKey,
+  );
+  if (input.syncedAttachment && pending?.upload) {
+    assignLocalAttachmentSlots(state, [
+      {
+        slotId,
+        storageKey,
+        blobId: pending.upload.blobId,
+        contentSha256: pending.contentSha256,
+      },
+    ]);
+  }
   state.pendingAttachments = state.pendingAttachments.filter(
     (attachment) =>
       attachment.slotId !== slotId || attachment.storageKey !== storageKey,
   );
   // The committed removal queued this key. A reset can leave another document
-  // uploading from the same copy, and a pending-only slot leaves no marker.
+  // uploading from the same copy; a detached marker keeps it until sync.
   void runDocumentOrphanMaintenance(state);
   if (
     input.syncedAttachment ||

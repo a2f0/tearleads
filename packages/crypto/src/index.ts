@@ -1,3 +1,4 @@
+export { blobContentMetadataHash } from "./blobContentMetadata";
 export { BlobEnvelopeError } from "./blobEnvelopeError";
 export type {
   BlobEnvelopeHeaderRecord,

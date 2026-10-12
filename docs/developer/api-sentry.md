@@ -20,11 +20,11 @@ in `packages/diagnostics/src/apiVocabulary.ts`; additions need review.
 
 An API title can read **API WebSocket interest revalidation failed: connection
 refused (ECONNREFUSED)**. Driver errors often contain only runtime or dependency
-frames, all of which the path allowlist drops. In that case the reporter uses
+frames outside the bundle, which the path allowlist drops. The reporter then uses
 an independently captured application stack, filtered through the same
 allowlist. `api_stack=capture-site` distinguishes where the error was reported
 from the original throw site (`original`); `unavailable` means neither stack
-had an approved frame. Maintenance entrypoints are explicitly allowlisted too.
+had an approved frame. Cron maintenance runs in the same admitted bundle.
 This preserves diagnostic locations without enabling automatic integrations.
 The transport validates the vocabulary again. The API additions do not expand
 client and desktop collection, which uses `allowlist-v2`: `allowlist-v1` plus
@@ -55,9 +55,18 @@ too; free-trial expiry reports at the attention threshold its backoff already
 defines rather than on every retryable attempt. An aggregate reports a bounded
 number of its constituents rather than itself, because only the first exception
 survives sanitizing and the aggregate's own stack is its construction site.
-Both binaries drain pending reports before exiting, since a short-lived process
-can otherwise finish and exit while a report is still in flight. Reporting never
-changes their exit status.
+Maintenance drains pending reports before its scheduled event completes. HTTP
+requests use `waitUntil` to finish reporting after the response. Reporting never
+changes the operation's outcome.
 
 See [private error diagnostics](sentry.md) for project configuration,
 deployment, collection limits, and verification commands.
+
+Worker builds admit only the deployed entry bundle, `index.js`. workerd exposes
+bundle positions to the in-process Sentry client; Cloudflare remaps its own
+logs after execution using the uploaded source map. Sentry therefore receives
+`app:///index.js` with line and column positions, stripped of function names,
+source text, request data, and machine paths. These positions identify the
+bundle for that release; uploading source maps to Cloudflare alone does not
+symbolicate Sentry events. The workerd regression executes the parser and both
+privacy passes against an intercepted transport without sending events.

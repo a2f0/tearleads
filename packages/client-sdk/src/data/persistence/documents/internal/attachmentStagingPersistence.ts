@@ -35,14 +35,52 @@ export async function applyStoredAttachmentRemoval(input: {
     eq(documentAttachmentBlobProjection.slotId, removal.slotId),
     eq(documentAttachmentBlobProjection.storageKey, removal.storageKey),
   );
-  await tx.delete(documentPendingAttachments).where(pendingMatch).run();
-  // A pending-only slot leaves no detached marker to queue its bytes later.
+  const [pending] = await tx
+    .delete(documentPendingAttachments)
+    .where(pendingMatch)
+    .returning();
+  // A pending upload without a remote identity needs no detach marker.
   // Reclaim keeps any key that a marker or another row still references.
   await queueDocumentAttachmentStorageKeys(tx, [removal.storageKey]);
   if (removal.mode === "detach") {
+    const detachedAt = new Date().toISOString();
+    // The bind may have committed before its response (or settlement) was lost.
+    // Preserve its identity until sync confirms that the binding is detached.
+    if (pending?.uploadBlobId) {
+      const [marker] = await tx
+        .insert(documentAttachmentBlobProjection)
+        .values({
+          localId,
+          slotId: removal.slotId,
+          storageKey: removal.storageKey,
+          blobId: pending.uploadBlobId,
+          byteLength: pending.byteLength,
+          contentSha256: pending.contentSha256,
+          mimeType: pending.mimeType,
+          detachedAt,
+          updatedAt: detachedAt,
+        })
+        .onConflictDoUpdate({
+          target: [
+            documentAttachmentBlobProjection.localId,
+            documentAttachmentBlobProjection.slotId,
+          ],
+          set: {
+            blobId: pending.uploadBlobId,
+            detachedAt,
+            updatedAt: detachedAt,
+          },
+          setWhere: eq(
+            documentAttachmentBlobProjection.storageKey,
+            removal.storageKey,
+          ),
+        })
+        .returning();
+      if (!marker) throw new Error("Attachment slot changed during removal");
+    }
     await tx
       .update(documentAttachmentBlobProjection)
-      .set({ detachedAt: new Date().toISOString() })
+      .set({ detachedAt })
       .where(
         and(localMatch, isNull(documentAttachmentBlobProjection.detachedAt)),
       )

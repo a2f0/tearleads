@@ -4,9 +4,9 @@ import {
   BLOB_CHUNK_SIZE_BYTES,
   BLOB_ENCRYPTED_BYTES_FORMAT,
   BLOB_ENCRYPTED_BYTES_VERSION,
+  blobContentMetadataHash,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
-  computeKeyingDomainHash,
   encodeBlobEnvelopeV2Header,
   joinBlobPartBytes,
   parseBlobEnvelopeV2Header,
@@ -17,10 +17,17 @@ import {
  * carry. They must agree or every bind fails with an envelope mismatch, so
  * every caller derives it here rather than restating the recipe.
  */
-export function fixtureBlobMetadataHash(blobId: string): Promise<string> {
-  return computeKeyingDomainHash("tearleads.keying.access-event-body", {
+export function fixtureBlobMetadataHash(
+  blobId: string,
+  byteLength = 32,
+  contentKeyEpoch = 1,
+): Promise<string> {
+  return blobContentMetadataHash({
     blobId,
-    purpose: "ownership-regression",
+    byteLength,
+    contentKeyEpoch,
+    chunkCount: 1,
+    chunkSize: BLOB_CHUNK_SIZE_BYTES,
   });
 }
 
@@ -46,7 +53,11 @@ export async function createBlobEnvelopeFixture(input: {
     encryptionSuite: CONTENT_RECORD_ENCRYPTION_SUITE,
     format: BLOB_ENCRYPTED_BYTES_FORMAT,
     iv: "AAAAAAAAAAAAAAAA",
-    metadataHash: await fixtureBlobMetadataHash(input.blobId),
+    metadataHash: await fixtureBlobMetadataHash(
+      input.blobId,
+      byteLength,
+      contentKeyEpoch,
+    ),
     nonceDomainHash: await computeContentRecordNonceDomainHash({
       version: 1,
       organizationId: input.organizationId,

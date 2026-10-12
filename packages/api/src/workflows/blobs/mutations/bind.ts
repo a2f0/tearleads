@@ -3,6 +3,7 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import {
+  blobContentMetadataHash,
   verifyAttachmentBindingEvent,
   verifyWriteHeader,
 } from "@tearleads/crypto";
@@ -121,6 +122,13 @@ async function verifyAndStoreStagedBlobWriteHeader(input: {
   ) {
     throw new BlobMutationError(
       "Blob encrypted envelope does not match its signed write header",
+      400,
+    );
+  }
+
+  if (envelope.metadataHash !== (await blobContentMetadataHash(envelope))) {
+    throw new BlobMutationError(
+      "Blob encrypted envelope metadata hash is invalid",
       400,
     );
   }
