@@ -47,7 +47,7 @@ export async function applyStoredAttachmentRemoval(input: {
     // The bind may have committed before its response (or settlement) was lost.
     // Preserve its identity until sync confirms that the binding is detached.
     if (pending?.uploadBlobId) {
-      await tx
+      const [marker] = await tx
         .insert(documentAttachmentBlobProjection)
         .values({
           localId,
@@ -60,8 +60,23 @@ export async function applyStoredAttachmentRemoval(input: {
           detachedAt,
           updatedAt: detachedAt,
         })
-        .onConflictDoNothing()
-        .run();
+        .onConflictDoUpdate({
+          target: [
+            documentAttachmentBlobProjection.localId,
+            documentAttachmentBlobProjection.slotId,
+          ],
+          set: {
+            blobId: pending.uploadBlobId,
+            detachedAt,
+            updatedAt: detachedAt,
+          },
+          setWhere: eq(
+            documentAttachmentBlobProjection.storageKey,
+            removal.storageKey,
+          ),
+        })
+        .returning();
+      if (!marker) throw new Error("Attachment slot changed during removal");
     }
     await tx
       .update(documentAttachmentBlobProjection)

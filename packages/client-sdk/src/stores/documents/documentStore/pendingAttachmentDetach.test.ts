@@ -218,8 +218,11 @@ async function withPendingRuntime(
       detachRequests,
     });
   } finally {
-    await reclaimDocumentOrphanBlobs(runtime);
-    close();
+    try {
+      await reclaimDocumentOrphanBlobs(runtime);
+    } finally {
+      close();
+    }
   }
 }
 
@@ -236,7 +239,14 @@ test.each([
     await withPendingRuntime("pending-upload-detach", bound, async (input) => {
       const state = await input.openStore("doc-a");
       expect(state.attachmentStorageKeyBySlotId[SLOT_ID]).toBeUndefined();
+      // An in-flight hydration pass captured these maps before removal.
+      const before = [
+        state.attachmentBlobIdBySlotId,
+        state.attachmentContentSha256BySlotId,
+        state.attachmentStorageKeyBySlotId,
+      ];
       await removeAttachmentFromDocumentStore(state, () => undefined, SLOT_ID);
+      for (const captured of before) expect(captured[SLOT_ID]).toBeUndefined();
       const { db } = getClientSQLitePersistenceRuntime(input.execSql);
       expect(await db.select().from(documentPendingAttachments)).toEqual([]);
       expect(

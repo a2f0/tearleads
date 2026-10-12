@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { sanitizeSentryEvent } from "@tearleads/diagnostics/privacy";
-import { workerDiagnosticsBuild } from "../../scripts/diagnosticsBuild";
 import { resolveApiSentryConfig } from "./sentryConfig";
 
 test("API diagnostics require a hosted DSN, explicit tier, and compiled commit", () => {
@@ -31,8 +31,19 @@ test("Worker builds admit only their exact bundle, without widening frame privac
     await Bun.file(resolve(apiRoot, "wrangler.jsonc")).text(),
   );
   expect(wrangler).toMatchObject({ main: "./src/worker/index.ts" });
+  const definitions = execFileSync(
+    process.execPath,
+    ["scripts/workerDefines.ts"],
+    { cwd: apiRoot, encoding: "utf8" },
+  );
+  const prefix = "API_DIAGNOSTICS_BUILD:";
+  const definition = definitions
+    .split("\n")
+    .find((line) => line.startsWith(prefix));
+  if (!definition)
+    throw new Error("Missing Worker diagnostics build definition");
   const config = resolveApiSentryConfig({
-    ...workerDiagnosticsBuild(resolve(apiRoot, "../..")),
+    ...JSON.parse(definition.slice(prefix.length)),
     dsn: `https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1`,
     environment: "production",
   });

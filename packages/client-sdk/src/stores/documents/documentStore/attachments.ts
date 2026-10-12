@@ -19,7 +19,10 @@ import {
   persistStagedAttachmentMutation,
   restoreFailedAttachmentMutation,
 } from "./attachmentMutationPersistence";
-import { removeLocalAttachmentSlot } from "./attachmentPersistence";
+import {
+  assignLocalAttachmentSlots,
+  removeLocalAttachmentSlot,
+} from "./attachmentPersistence";
 import {
   deleteUnreferencedStagedAttachmentBytes,
   installPendingAttachmentRows,
@@ -260,9 +263,14 @@ function installCommittedAttachmentRemoval(input: {
       attachment.slotId === slotId && attachment.storageKey === storageKey,
   );
   if (input.syncedAttachment && pending?.upload) {
-    state.attachmentBlobIdBySlotId[slotId] = pending.upload.blobId;
-    state.attachmentContentSha256BySlotId[slotId] = pending.contentSha256;
-    state.attachmentStorageKeyBySlotId[slotId] = storageKey;
+    assignLocalAttachmentSlots(state, [
+      {
+        slotId,
+        storageKey,
+        blobId: pending.upload.blobId,
+        contentSha256: pending.contentSha256,
+      },
+    ]);
   }
   state.pendingAttachments = state.pendingAttachments.filter(
     (attachment) =>
