@@ -6,14 +6,12 @@ import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   type KeyingCanonicalJson,
   serializeKeyingCanonicalJson,
-  toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
   BLOB_CONTENT_RECORD_AAD_DOMAIN,
   BLOB_CONTENT_RECORD_HKDF_SALT,
   BLOB_CONTENT_RECORD_KEY_INFO_DOMAIN,
-  BLOB_CONTENT_RECORD_METADATA_HASH_DOMAIN,
   BLOB_CONTENT_RECORD_NONCE_DOMAIN,
   TEXT_ENCODER,
 } from "./types";
@@ -53,32 +51,6 @@ export async function deriveBlobBaseIv(input: {
     ),
   );
   return digest.slice(0, AES_GCM_IV_BYTES);
-}
-
-export async function blobContentMetadataHash(input: {
-  blobId: string;
-  byteLength: number;
-  chunkCount: number;
-  chunkSize: number;
-  contentKeyEpoch: number;
-}): Promise<string> {
-  return toFingerprint(
-    TEXT_ENCODER.encode(
-      serializeKeyingCanonicalJson({
-        domain: BLOB_CONTENT_RECORD_METADATA_HASH_DOMAIN,
-        payload: {
-          version: BLOB_ENCRYPTED_BYTES_VERSION,
-          recordKind: "blob_bytes",
-          blobId: input.blobId,
-          byteLength: input.byteLength,
-          chunkCount: input.chunkCount,
-          chunkSize: input.chunkSize,
-          contentKeyEpoch: input.contentKeyEpoch,
-          format: BLOB_ENCRYPTED_BYTES_FORMAT,
-        },
-      }),
-    ),
-  );
 }
 
 function contentRecordDerivationPayload(input: {

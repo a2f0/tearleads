@@ -5,6 +5,7 @@ import {
   BLOB_CHUNK_SIZE_BYTES,
   BLOB_ENCRYPTED_BYTES_FORMAT,
   BLOB_ENCRYPTED_BYTES_VERSION,
+  blobContentMetadataHash,
   bytesToHex,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeBlobChunkCount,
@@ -21,7 +22,6 @@ import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request"
 import type { BlobByteSource, BlobBytes } from "../../../blobContracts";
 import { importContentKeyMaterial } from "../../shared/contentRecordKeys";
 import {
-  blobContentMetadataHash,
   contentRecordAdditionalDataBytes,
   deriveBlobBaseIv,
   deriveBlobContentRecordKey,

@@ -5,8 +5,7 @@ import {
 } from "@tearleads/diagnostics/server";
 import { resolveApiSentryConfig } from "./sentryConfig";
 
-// Replaced by the executable builder with code paths and a commit from this
-// checkout. Runtime environment variables cannot supply the frame allowlist.
+// Replaced by the Worker builder with its bundle path and this commit. Runtime environment variables cannot supply the frame allowlist.
 declare const API_DIAGNOSTICS_BUILD: {
   commit: string;
   sourceRoot: string;

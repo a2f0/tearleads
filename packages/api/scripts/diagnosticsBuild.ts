@@ -23,6 +23,14 @@ export function diagnosticsBuild(root: string) {
   }
 }
 
+/** workerd reports the entry bundle, before Cloudflare maps its stack traces. */
+export function workerDiagnosticsBuild(root: string) {
+  const { commit, sourceRoot } = diagnosticsBuild(root);
+  // wrangler.jsonc's src/worker/index.ts entry is deployed as index.js.
+  // Admit that exact code artifact; no runtime path or wildcard can opt in.
+  return { commit, sourceRoot, sourcePaths: ["/index.js"] };
+}
+
 /**
  * The number of commits reachable from HEAD, which the API reports in every
  * response. The default branch only gains squash-merged commits, so each deploy

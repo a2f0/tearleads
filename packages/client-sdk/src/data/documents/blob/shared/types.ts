@@ -37,8 +37,6 @@ export const BLOB_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.blob.content-record-key-info";
 export const BLOB_CONTENT_RECORD_AAD_DOMAIN =
   "tearleads.blob.content-record-aad";
-export const BLOB_CONTENT_RECORD_METADATA_HASH_DOMAIN =
-  "tearleads.blob.content-record-metadata";
 export const BLOB_CONTENT_RECORD_NONCE_DOMAIN =
   "tearleads.blob.content-record-nonce";
 export const BLOB_CONTENT_RECORD_HKDF_SALT: Uint8Array<ArrayBuffer> =

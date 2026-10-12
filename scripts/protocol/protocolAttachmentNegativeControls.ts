@@ -2,6 +2,22 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "pending-removal-loses-detach-marker",
+    module: "formal/blob-attachments/PendingAttachmentDetach.tla",
+    config: "formal/blob-attachments/PendingAttachmentDetach.cfg",
+    constants: { KeepPendingMarker: "FALSE" },
+    expect: { kind: "invariant", name: "RemovedBindingHasMarker" },
+    why: "A lost bind response must leave a durable detach marker when its pending-only slot is removed.",
+  },
+  {
+    id: "pending-removal-unmapped-in-open-store",
+    module: "formal/blob-attachments/PendingAttachmentDetach.tla",
+    config: "formal/blob-attachments/PendingAttachmentDetach.cfg",
+    constants: { InstallPendingMarker: "FALSE" },
+    expect: { kind: "invariant", name: "OpenRemovalIsMapped" },
+    why: "The open store must discover a new detach marker without requiring a restart.",
+  },
+  {
     id: "bind-overwrites-foreign-envelopes",
     module: "formal/document-sync/BlobEnvelopeAuthority.tla",
     config: "formal/document-sync/BlobEnvelopeAuthority.cfg",

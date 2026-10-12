@@ -255,12 +255,19 @@ function installCommittedAttachmentRemoval(input: {
 }): void {
   const { slotId, state, storageKey } = input;
   if (!storageKey) return;
+  const pending = state.pendingAttachments.find(
+    (attachment) =>
+      attachment.slotId === slotId && attachment.storageKey === storageKey,
+  );
+  if (input.syncedAttachment && pending?.upload) {
+    state.attachmentStorageKeyBySlotId[slotId] = storageKey;
+  }
   state.pendingAttachments = state.pendingAttachments.filter(
     (attachment) =>
       attachment.slotId !== slotId || attachment.storageKey !== storageKey,
   );
   // The committed removal queued this key. A reset can leave another document
-  // uploading from the same copy, and a pending-only slot leaves no marker.
+  // uploading from the same copy; a detached marker keeps it until sync.
   void runDocumentOrphanMaintenance(state);
   if (
     input.syncedAttachment ||

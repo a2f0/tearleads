@@ -1,4 +1,5 @@
 import {
+  blobContentMetadataHash,
   bytesToHex,
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeBlobAccessManifestHash,
@@ -9,10 +10,7 @@ import {
 } from "@tearleads/crypto";
 import type { BlobKekTargetsResponse } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
-import {
-  blobContentMetadataHash,
-  deriveBlobContentRecordKey,
-} from "../../data/documents/blob/shared/crypto";
+import { deriveBlobContentRecordKey } from "../../data/documents/blob/shared/crypto";
 import { unwrapBlobContentKey } from "../../data/documents/blob/shared/projection";
 import {
   parseBlobEncryptedBytes,
