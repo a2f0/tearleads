@@ -26,11 +26,12 @@ printf '{"blob_s3_bucket":"%s","blob_s3_endpoint":"https://111111111111111111111
       `#!/bin/sh
 [ "$AWS_ACCESS_KEY_ID" = test-key ] && [ "$AWS_SECRET_ACCESS_KEY" = test-secret ] || exit 9
 [ -z "$AWS_SESSION_TOKEN" ] && [ -z "$AWS_PROFILE" ] || exit 9
+[ "$AWS_REQUEST_CHECKSUM_CALCULATION" = when_required ] && [ "$AWS_RESPONSE_CHECKSUM_VALIDATION" = when_required ] || exit 9
 printf '%s\\n' "$*" >> "$TEST_ROOT/calls"
 case "$*" in
   *'s3 rm'*) [ "$TEST_FAILURE" != delete ] || exit 9 ;;
   *'list-multipart-uploads'*)
-    if [ -f "$TEST_ROOT/aborted" ]; then echo '{"Uploads":[]}'
+    if [ -f "$TEST_ROOT/aborted" ] && [ "$TEST_FAILURE" != residual-upload ]; then echo '{"Uploads":[]}'
     else echo '{"Uploads":[{"Key":"blob/key","UploadId":"test-upload"}]}'
     fi ;;
   *'abort-multipart-upload'*) touch "$TEST_ROOT/aborted" ;;
@@ -61,6 +62,8 @@ esac
           TEST_FAILURE: failure,
           AWS_PROFILE: "inherited",
           AWS_SESSION_TOKEN: "inherited",
+          AWS_REQUEST_CHECKSUM_CALCULATION: "when_supported",
+          AWS_RESPONSE_CHECKSUM_VALIDATION: "when_supported",
         },
         stdout: "pipe",
         stderr: "pipe",
@@ -99,10 +102,18 @@ test("staging cleanup refuses a production bucket before any object access", asy
   expect(result.calls).toEqual([]);
 });
 
-for (const failure of ["delete", "residual"]) {
+for (const failure of ["delete", "residual", "residual-upload"]) {
   test(`staging cleanup reports ${failure} failure instead of allowing teardown`, async () => {
     const result = await cleanupScenario(failure);
     expect(result.code).not.toBe(0);
     expect(result.calls).toHaveLength(failure === "delete" ? 1 : 5);
+    if (failure !== "delete") {
+      expect(result.stderr).toContain(
+        failure === "residual"
+          ? "still contains objects"
+          : "still contains multipart uploads",
+      );
+      expect(result.stderr).toContain("refusing teardown");
+    }
   });
 }

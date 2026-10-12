@@ -19,6 +19,8 @@ export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 AWS_ACCESS_KEY_ID="$(jq -er '.blob_s3_access_key_id' "$STORAGE_DIR/storage.json")"
 AWS_SECRET_ACCESS_KEY="$(jq -er '.blob_s3_secret_access_key' "$STORAGE_DIR/storage.json")"
 unset AWS_SESSION_TOKEN AWS_SECURITY_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
+export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
 r2() { aws --endpoint-url "$ENDPOINT" --region auto "$@"; }
 r2 s3 rm "s3://$BUCKET/" --recursive --only-show-errors
 r2 s3api list-multipart-uploads --bucket "$BUCKET" --output json >"$STORAGE_DIR/uploads.json"
@@ -30,6 +32,12 @@ while IFS= read -r upload; do
 done <"$STORAGE_DIR/uploads.ndjson"
 r2 s3api list-objects-v2 --bucket "$BUCKET" --output json >"$STORAGE_DIR/objects.json"
 r2 s3api list-multipart-uploads --bucket "$BUCKET" --output json >"$STORAGE_DIR/uploads.json"
-jq -e '(.Contents // []) | length == 0' "$STORAGE_DIR/objects.json" >/dev/null
-jq -e '(.Uploads // []) | length == 0' "$STORAGE_DIR/uploads.json" >/dev/null
+if ! jq -e '(.Contents // []) | length == 0' "$STORAGE_DIR/objects.json" >/dev/null; then
+  echo "ERROR: Staging R2 bucket still contains objects; refusing teardown." >&2
+  exit 1
+fi
+if ! jq -e '(.Uploads // []) | length == 0' "$STORAGE_DIR/uploads.json" >/dev/null; then
+  echo "ERROR: Staging R2 bucket still contains multipart uploads; refusing teardown." >&2
+  exit 1
+fi
 echo "Staging R2 blob bucket is empty."

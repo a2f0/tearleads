@@ -435,7 +435,7 @@ describe("stageMultipartBlobAttachment", () => {
         }),
         multipart: { partSize: DEFAULT_CHUNK_SIZE },
       }),
-    ).rejects.toThrow("maximum is 10,000 fixed 5 MiB chunks");
+    ).rejects.toThrow("maximum is 10,000 parts");
     expect(plannedParts).toBe(0);
     expect(initiated).toBe(false);
   });

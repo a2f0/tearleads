@@ -89,7 +89,6 @@ export async function publishDesktopRelease({
     !/^[A-Za-z0-9-]+$/.test(appName)
   )
     throw new Error("Invalid desktop release channel or app name");
-  const storage = await readDesktopReleaseStorage(bucket);
   const [platform, arch] = target.split("-");
   const installerExtension =
     platform === "macos"
@@ -111,6 +110,7 @@ export async function publishDesktopRelease({
     platform ?? "",
     arch ?? "",
   );
+  const storage = await readDesktopReleaseStorage(bucket);
   const temp = await mkdtemp(join(tmpdir(), "tearleads-publication-"));
   try {
     const checksum = join(temp, `${installerKey}.sha256`);

@@ -78,8 +78,8 @@ test("S3 blob object store completes multipart uploads by part number", async ()
       { ETag: secondPart.etag, PartNumber: 2 },
     ],
   });
-  // Completion is by part ETag only; the proprietary FULL_OBJECT whole-object
-  // checksum flow (rejected by Garage and by AWS for SHA-256) must not be sent.
+  // Completion is by part ETag only; R2 does not support the FULL_OBJECT
+  // SHA-256 checksum flow.
   expect(completeCommand?.input.MpuObjectSize).toBeUndefined();
   expect(completeCommand?.input.ChecksumSHA256).toBeUndefined();
   expect(completeCommand?.input.ChecksumType).toBeUndefined();

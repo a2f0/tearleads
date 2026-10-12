@@ -332,7 +332,7 @@ async function resolveMultipartStageStatus(input: {
 function assertMultipartPlanLimits(encryption: BlobEncryptionPlan): void {
   if (encryption.partCount > MAX_BLOB_CHUNK_COUNT) {
     throw new Error(
-      `Multipart blob upload would require ${encryption.partCount.toLocaleString()} parts; the maximum is ${MAX_BLOB_CHUNK_COUNT.toLocaleString()} fixed 5 MiB chunks.`,
+      `Multipart blob upload would require ${encryption.partCount.toLocaleString()} parts; the maximum is ${MAX_BLOB_CHUNK_COUNT.toLocaleString()} parts.`,
     );
   }
   for (let index = 0; index < encryption.partCount; index += 1) {
