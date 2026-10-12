@@ -23,7 +23,7 @@ const organizationId = "11111111-1111-4111-8111-111111111111";
 
 function createTestRoute(requireAuth: MiddlewareHandler<SessionEnv>) {
   return createStripeCheckoutRoute({
-    corsOrigins: ["https://app.example"],
+    billingReturnOrigins: ["https://app.example"],
     requireAuth,
     runtime: {} as ApiServiceRuntime,
   });

@@ -1,6 +1,5 @@
 import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
-import type { ApiCorsOrigins } from "../../corsOrigins";
 import type { SessionEnv } from "../../middleware/session";
 import {
   OrganizationManagerError,
@@ -11,12 +10,8 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 export interface OrganizationsRouterDeps {
   readonly requireAuth: MiddlewareHandler<SessionEnv>;
   readonly runtime: ApiServiceRuntime;
-  /**
-   * The app's RESOLVED allowed origins, threaded from the composition root so
-   * per-route origin checks (e.g. the Stripe portal's return-url allowlist)
-   * cannot diverge from the CORS policy the app was actually built with.
-   */
-  readonly corsOrigins?: ApiCorsOrigins;
+  /** Approved Stripe checkout and portal return origins, independent of CORS. */
+  readonly billingReturnOrigins?: readonly string[];
 }
 
 export function toOrganizationManagerErrorResponse(
