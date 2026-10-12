@@ -6,6 +6,10 @@ terraform {
   }
 
   required_providers {
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.24"
+    }
     external = {
       source  = "hashicorp/external"
       version = "~> 2.3.5"
@@ -30,4 +34,8 @@ provider "restapi" {
   headers = {
     Authorization = "${var.planetscale_service_token_id}:${var.planetscale_service_token}"
   }
+}
+
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }

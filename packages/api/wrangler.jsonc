@@ -8,9 +8,8 @@
   "upload_source_maps": true,
   // The API reaches PlanetScale in us-east-1 with many sequential queries per
   // request; run it next to the database rather than next to the client.
-  // Smart Placement only learns from fetch-based subrequests, so the direct
-  // Postgres sockets would leave the Worker at the client's colo; pin the
-  // region instead.
+  // Keep the placement hint while measuring Hyperdrive. Smart Placement needs
+  // sustained traffic from several locations before it can choose a region.
   "placement": { "region": "aws:us-east-1" },
   // Registration alone issues on the order of a thousand queries in one
   // transaction. CPU time is a fraction of its wall time, but the default
@@ -39,8 +38,34 @@
   // API_PUBLIC_ORIGIN and API_CORS_ORIGINS are passed by
   // packages/api/scripts/deployApi.sh from TF_VAR_domain.
   "env": {
+    // Local workerd integration tests use direct Postgres, without Hyperdrive.
+    "local": {
+      "name": "tearleads-platform-api-local",
+      "vars": {
+        "API_WORKER_LOCAL": "true",
+        "BLOB_OBJECT_STORE": "s3",
+        "BLOB_OBJECT_STORE_S3_BUCKET": "tearleads-workerd-test",
+        "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE": "false",
+        "BLOB_OBJECT_STORE_S3_REGION": "us-east-1",
+        "POSTGRES_COALESCE_WRITES": "true",
+        "POSTGRES_POOL_MAX": "4",
+        "POSTGRES_POOL_MAX_USES": "1",
+        "POSTGRES_REQUEST_SCOPED": "true",
+        "REALTIME_HUB_LOCATION_HINT": "enam"
+      },
+      "durable_objects": {
+        "bindings": [
+          { "name": "KEY_VALUE_STORE", "class_name": "KeyValueStore" },
+          { "name": "REALTIME_HUB", "class_name": "RealtimeHub" }
+        ]
+      }
+    },
     "staging": {
       "name": "tearleads-platform-api-staging",
+      // deployApi.sh fills this from the tier's Terraform hyperdrive_id output.
+      "hyperdrive": [
+        { "binding": "HYPERDRIVE", "id": "HYPERDRIVE_ID_staging" }
+      ],
       "vars": {
         "API_SENTRY_ENVIRONMENT": "staging",
         "BLOB_OBJECT_STORE": "s3",
@@ -48,12 +73,9 @@
         "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE": "false",
         "BLOB_OBJECT_STORE_S3_REGION": "us-east-1",
         "POSTGRES_COALESCE_WRITES": "true",
-        "POSTGRES_POOL_IDLE_TIMEOUT_MS": "1000",
         "POSTGRES_POOL_MAX": "4",
         "POSTGRES_POOL_MAX_USES": "1",
         "POSTGRES_REQUEST_SCOPED": "true",
-        "POSTGRES_SSL": "true",
-        "POSTGRES_SSL_REJECT_UNAUTHORIZED": "true",
         "REALTIME_HUB_LOCATION_HINT": "enam"
       },
       "durable_objects": {
@@ -65,6 +87,8 @@
     },
     "prod": {
       "name": "tearleads-platform-api-prod",
+      // deployApi.sh fills this from the tier's Terraform hyperdrive_id output.
+      "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "HYPERDRIVE_ID_prod" }],
       "vars": {
         "API_SENTRY_ENVIRONMENT": "production",
         "BLOB_OBJECT_STORE": "s3",
@@ -72,12 +96,9 @@
         "BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE": "false",
         "BLOB_OBJECT_STORE_S3_REGION": "us-east-1",
         "POSTGRES_COALESCE_WRITES": "true",
-        "POSTGRES_POOL_IDLE_TIMEOUT_MS": "1000",
         "POSTGRES_POOL_MAX": "4",
         "POSTGRES_POOL_MAX_USES": "1",
         "POSTGRES_REQUEST_SCOPED": "true",
-        "POSTGRES_SSL": "true",
-        "POSTGRES_SSL_REJECT_UNAUTHORIZED": "true",
         "REALTIME_HUB_LOCATION_HINT": "enam"
       },
       "durable_objects": {
