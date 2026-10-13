@@ -4,6 +4,7 @@
  * until the response drains. A sync POST reserves over half this budget, so
  * syncs serialize per isolate. Brief contention waits in a bounded FIFO;
  * sustained overload still returns 503 without raising the memory ceiling.
+ * Small requests can use spare capacity without waiting behind a sync page.
  */
 const BODY_ADMISSION_BYTES = 96 * 1024 * 1024;
 
@@ -17,6 +18,7 @@ export function createBodyAdmission({
   capacity = BODY_ADMISSION_BYTES,
   maxPending = 32,
   maxWaitMs = 30_000,
+  maxBypassBytes = 2 * 1024 * 1024,
 } = {}) {
   let held = 0;
   const pending: PendingAdmission[] = [];
@@ -45,14 +47,16 @@ export function createBodyAdmission({
       if (signal?.aborted || bytes > capacity) return null;
       // Bodiless health checks and preflights never compete with sync pages.
       const immediate =
-        bytes === 0 || (pending.length === 0 && held + bytes <= capacity);
+        held + bytes <= capacity &&
+        (pending.length === 0 || bytes <= maxBypassBytes);
       if (!immediate && pending.length >= maxPending) return null;
 
       const { promise, resolve } = Promise.withResolvers<void>();
       const entry: PendingAdmission = { bytes, resolve, state: "pending" };
       const cancel = () => {
         if (entry.state === "pending") {
-          pending.splice(pending.indexOf(entry), 1);
+          const index = pending.indexOf(entry);
+          if (index >= 0) pending.splice(index, 1);
           entry.state = "canceled";
           resolve();
           drain();
@@ -73,6 +77,9 @@ export function createBodyAdmission({
       try {
         await promise;
         if (entry.state === "canceled") return null;
+        // Once claimed, the route/response owns release. A client disconnect
+        // does not prove that a database operation or page builder has stopped;
+        // releasing here could admit another page while those bytes are held.
         entry.state = "claimed";
         let released = false;
         return () => {

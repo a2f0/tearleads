@@ -20,6 +20,10 @@ import {
   startLocalWorker,
   stringField,
 } from "../../test/helpers/localWorker";
+import {
+  holdAccessManifestHeadForUpdate,
+  waitForPostgresLockWait,
+} from "../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../test/helpers/registerUser";
 
 /**
@@ -257,6 +261,82 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
         200,
       ),
     ).toHaveProperty("updates");
+
+    // Hold a real database lock to prove the request is inside its route,
+    // then exercise overload and disconnect active and waiting clients.
+    const lock = await holdAccessManifestHeadForUpdate({
+      objectId: document.id,
+      objectKind: "document",
+    });
+    const activeController = new AbortController();
+    const queuedControllers = Array.from(
+      { length: 32 },
+      () => new AbortController(),
+    );
+    const submit = (signal: AbortSignal) =>
+      fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${tokens[0]}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(request),
+        signal,
+      }).then(
+        async (response) => {
+          await response.text();
+          return response.status;
+        },
+        () => "aborted",
+      );
+    const active = submit(activeController.signal);
+    let queued: ReturnType<typeof submit>[] = [];
+    try {
+      await waitForPostgresLockWait({
+        blockerPid: lock.backendPid,
+        minimumWaiters: 1,
+        queryFragment: "access_manifest_heads",
+      });
+      queued = queuedControllers.map((controller) => submit(controller.signal));
+      await Bun.sleep(200);
+      const overflow = await fetch(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${tokens[0]}`,
+          "content-type": "application/json",
+          origin: "https://external-sdk.example",
+        },
+        body: JSON.stringify(request),
+        signal: AbortSignal.timeout(5_000),
+      });
+      expect(await expectJson(overflow, 503)).toEqual({
+        error: "Server busy, please retry",
+      });
+      expect(overflow.headers.get("retry-after")).toBe("1");
+      expect(overflow.headers.get("access-control-allow-origin")).toBe("*");
+      queuedControllers[0]?.abort();
+      activeController.abort();
+      expect(await active).toBe("aborted");
+    } finally {
+      activeController.abort();
+      await lock.release();
+    }
+    expect(await Promise.all(queued)).toEqual([
+      "aborted",
+      ...Array(31).fill(200),
+    ]);
+    // Disconnects must not strand reservations in the isolate. This fails
+    // quickly if the next tiny sync still cannot acquire the response budget.
+    const afterDisconnect = await fetch(url, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${tokens[0]}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(5_000),
+    });
+    expect(await expectJson(afterDisconnect, 200)).toHaveProperty("updates");
   }, 120_000);
 
   test("dispatches the billing Cron to the maintenance phases", async () => {

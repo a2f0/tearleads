@@ -2,6 +2,19 @@ import { expect, test } from "bun:test";
 import { createBodyAdmission } from "./bodyAdmission";
 import { expectedRequestBytes, retainUntilDrained } from "./requestBody";
 
+test("small requests use spare capacity while a sync waits, even with a full queue", async () => {
+  const admission = createBodyAdmission({ maxPending: 1 });
+  const syncBytes = 48 * 1024 * 1024 + 100;
+  const first = await admission.acquire(syncBytes);
+  const pending = admission.acquire(syncBytes);
+  const small = await admission.acquire(1024);
+  expect(small).not.toBeNull();
+  small?.();
+  first?.();
+  (await pending)?.();
+  expect(admission.inFlight()).toBe(0);
+});
+
 test("overlapping tiny syncs wait for the previous response to drain", async () => {
   const admission = createBodyAdmission();
   const path = "/documents/doc-1/sync";
@@ -35,7 +48,7 @@ test("overlapping tiny syncs wait for the previous response to drain", async () 
 });
 
 test("waiters reserve in FIFO order without exceeding the budget", async () => {
-  const admission = createBodyAdmission({ capacity: 100 });
+  const admission = createBodyAdmission({ capacity: 100, maxBypassBytes: 0 });
   const first = await admission.acquire(60);
   const second = await admission.acquire(30);
   const order: number[] = [];
@@ -82,7 +95,11 @@ test("an impossible reservation never blocks later work", async () => {
 });
 
 test("a canceled queue head frees its slot and wakes the next fitting request", async () => {
-  const admission = createBodyAdmission({ capacity: 100, maxPending: 2 });
+  const admission = createBodyAdmission({
+    capacity: 100,
+    maxPending: 2,
+    maxBypassBytes: 0,
+  });
   const first = await admission.acquire(60);
   const controller = new AbortController();
   const canceled = admission.acquire(80, controller.signal);
@@ -118,6 +135,16 @@ test("cancellation racing immediate admission returns the reserved bytes", async
   const canceled = admission.acquire(100, controller.signal);
   controller.abort();
   expect(await canceled).toBeNull();
+  expect(admission.inFlight()).toBe(0);
+});
+
+test("a claimed reservation remains held until its route or stream releases it", async () => {
+  const admission = createBodyAdmission({ capacity: 100 });
+  const controller = new AbortController();
+  const release = await admission.acquire(100, controller.signal);
+  controller.abort();
+  expect(admission.inFlight()).toBe(100);
+  release?.();
   expect(admission.inFlight()).toBe(0);
 });
 
