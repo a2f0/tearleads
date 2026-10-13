@@ -19,6 +19,7 @@ import {
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../document-types/projectors";
 import type { CreateNetworkStatusFn } from "../../host/AppHostConfig";
 import { PROVISIONED_SYSTEM_CONTAINER_SPECS } from "../../stores/systemContainers";
+import { getApiRequestMetrics } from "../api/apiRequestMetrics";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useLocalKeyringLock } from "../local-keyring/LocalKeyringLockProvider";
 import { LOCAL_BLOB_STORE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
@@ -223,6 +224,10 @@ export function TearleadsProvider({ children }: PropsWithChildren) {
   const [tearleads] = useState(() => {
     const instance = new Tearleads({
       apiBaseUrl: hostConfig.apiBaseUrl,
+      apiRequestMetrics: getApiRequestMetrics(
+        hostConfig.apiBaseUrl,
+        hostConfig.localIdentityNamespace,
+      ),
       blobStoreFactory,
       documentProjectors: APP_DOCUMENT_PROJECTOR_DEFINITIONS,
       logger: { log, logError },

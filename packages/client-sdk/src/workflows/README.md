@@ -404,3 +404,10 @@ without resubmitting the request.
 The public `AcknowledgedPrincipalCurrentInput` and
 `AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
 signed-grant retirements.
+
+## API Request Counts
+
+`tearleads.apiRequests` exposes in-memory HTTP attempt counts by identity and
+endpoint. Hosts can retain an `ApiRequestMetrics` store across client lifetimes.
+See the [SDK request-count contract](../../../../docs/developer/client-sdk.md#api-request-counts)
+for snapshot, subscription, reset, lifetime, and transport-outcome semantics.
