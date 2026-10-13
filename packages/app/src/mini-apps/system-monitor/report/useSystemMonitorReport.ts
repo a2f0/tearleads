@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { useApiRequestMetrics } from "../../../providers/api/useApiRequestMetrics";
 import { useSystemStatusSnapshot } from "../../../shell/pane/status/useSystemStatusSnapshot";
 import { useSystemEnvironment } from "../environment/useSystemEnvironment";
 import { useSystemMonitorFeatureFlagRows } from "../feature-flags/useSystemMonitorFeatureFlagRows";
@@ -26,6 +27,7 @@ export function useSystemMonitorReport({
   includeFeatureFlags: boolean;
 }): () => string {
   const environment = useSystemEnvironment();
+  const { snapshot: apiRequests } = useApiRequestMetrics();
   const status = useSystemStatusSnapshot();
   const logEntries = useSystemMonitorLogEntries();
   const featureFlags = useSystemMonitorFeatureFlagRows();
@@ -34,6 +36,7 @@ export function useSystemMonitorReport({
   return useCallback(
     () =>
       formatSystemMonitorReport({
+        apiRequests,
         capturedAt: new Date().toISOString(),
         environment,
         // Omitted outside developer mode, matching the tab the user can see.
@@ -44,6 +47,7 @@ export function useSystemMonitorReport({
         writeQueue,
       }),
     [
+      apiRequests,
       environment,
       featureFlags,
       includeFeatureFlags,

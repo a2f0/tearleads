@@ -1,4 +1,5 @@
 import type {
+  ApiRequestMetricsSnapshot,
   DomainSyncSnapshot,
   PendingWriteQueueItem,
   SyncLaneSnapshot,
@@ -20,6 +21,8 @@ import {
 } from "../../../shell/pane/status/useSystemStatusSnapshot";
 import { BILLING_PURCHASE_TRACE_FRAGMENT } from "../../../utils/billingPurchaseTrace";
 import type { EnvironmentRow } from "../environment/useSystemEnvironment";
+import { formatApiRequestReport } from "../requests/apiRequestReport";
+import { formatTable } from "./reportTables";
 
 /**
  * Serializes the System Monitor into a Markdown support report.
@@ -57,6 +60,7 @@ export type SystemMonitorWriteQueueReport =
     };
 
 interface SystemMonitorReportInput {
+  readonly apiRequests?: ApiRequestMetricsSnapshot | undefined;
   readonly capturedAt: string;
   readonly environment: ReadonlyArray<EnvironmentRow>;
   /** Developer-mode only; omitted entirely when the tab is not available. */
@@ -114,30 +118,6 @@ function getClipboardSafeLogMessage(message: string): string | null {
       : null;
   }
   return getClipboardSafeLogPattern().exec(message)?.[1] ?? null;
-}
-
-/**
- * Escapes a value for a Markdown table cell. A stray `|` would otherwise split
- * a cell into two and silently corrupt the row.
- */
-function escapeTableCell(value: string): string {
-  return value.replaceAll("|", "\\|").replace(/[\r\n]+/gu, " ");
-}
-
-function formatTableRow(cells: ReadonlyArray<string>): string {
-  return `| ${cells.map(escapeTableCell).join(" | ")} |`;
-}
-
-function formatTable(
-  headers: ReadonlyArray<string>,
-  rows: ReadonlyArray<ReadonlyArray<string>>,
-): string {
-  const lines = [
-    formatTableRow(headers),
-    `| ${headers.map(() => "---").join(" | ")} |`,
-    ...rows.map(formatTableRow),
-  ];
-  return lines.join("\n");
 }
 
 function formatStatusRows(
@@ -483,6 +463,10 @@ export function formatSystemMonitorReport(
 
   if (input.writeQueue !== undefined) {
     sections.push(...formatWriteQueueSection(input.writeQueue), "");
+  }
+
+  if (input.apiRequests !== undefined) {
+    sections.push(...formatApiRequestReport(input.apiRequests), "");
   }
 
   if (input.syncLanes !== undefined) {

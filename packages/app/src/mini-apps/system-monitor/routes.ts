@@ -2,6 +2,7 @@ export type SystemMonitorTabId =
   | "environment"
   | "feature-flags"
   | "logs"
+  | "requests"
   | "status";
 
 export const DEFAULT_SYSTEM_MONITOR_TAB: SystemMonitorTabId = "logs";
@@ -11,6 +12,7 @@ export function parseSystemMonitorRouteSegments(
 ): SystemMonitorTabId {
   const [firstSegment] = pathSegments;
   return firstSegment === "environment" ||
+    firstSegment === "requests" ||
     firstSegment === "feature-flags" ||
     firstSegment === "status" ||
     firstSegment === "logs"

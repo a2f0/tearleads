@@ -82,7 +82,7 @@ ls:
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2
 
   packages/app/src/mini-apps/system-monitor/*:
-    .dir: regex:(environment|feature-flags|log|report)
+    .dir: regex:(environment|feature-flags|log|report|requests)
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-5
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-3
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-2

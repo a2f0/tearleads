@@ -913,3 +913,23 @@ local prefix can answer an older selected history view without a freshness read.
 Older-page calls return `members: null` and do not reload the member list. Hosts
 lacking paged recovery keep complete histories for cursor-free calls and reject
 explicit cursors instead of silently ignoring them.
+
+## API Request Counts
+
+`tearleads.apiRequests` records HTTP attempts from client creation, grouped by
+operation method/path template and the signing fingerprint at dispatch. Use
+`getSnapshot(fingerprint)` and `subscribe(listener)` for current counts, or
+`reset(fingerprint)` to start a new measurement. A null fingerprint counts
+requests made without an identity. Each retry is a separate attempt; cached
+reads and WebSocket messages are excluded. Success/failure describes HTTP and
+connection outcomes, not later body parsing or cryptographic verification.
+Response headers end the in-flight measurement; bodies are never consumed by
+instrumentation. No request URLs, queries, bodies, or tokens are retained.
+
+Hosts can pass an `ApiRequestMetrics` instance as `apiRequestMetrics` to retain
+counts across SDK disposal/recreation. The app retains one store per API/identity
+namespace until a page reload. System Monitor's **API Requests** tab shows the
+current identity, retains its counts when switching away and back, and includes
+those counts in the copied report. Reset discards earlier in-flight completions
+without affecting the requests themselves. This telemetry never uses durable
+storage or a remote diagnostics service.

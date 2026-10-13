@@ -6,6 +6,8 @@ import {
   apiVersionHeaderName,
   parseApiVersion,
 } from "@tearleads/validators/operation";
+import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
+import { measureApiRequest } from "./measureApiRequest";
 import {
   bindPrototypeMethods,
   describeErrorResponse,
@@ -52,7 +54,10 @@ export class ApiRequestRuntime {
   readonly requestResult: OperationRequestResultFn;
   readonly responseRequest: OperationResponseRequestFn;
 
-  constructor(baseUrl?: string | null) {
+  constructor(
+    baseUrl?: string | null,
+    private readonly instrumentation?: ApiRequestInstrumentation,
+  ) {
     this.baseUrl = normalizeApiBaseUrl(baseUrl);
     bindPrototypeMethods(this, ApiRequestRuntime.prototype);
     this.request = this.makeRequest;
@@ -268,6 +273,7 @@ export class ApiRequestRuntime {
       body,
       options,
       authToken,
+      failureOperation,
     );
     if (!responseResult.ok) {
       return responseResult;
@@ -317,10 +323,9 @@ export class ApiRequestRuntime {
         body,
         options,
         retryAuthToken,
+        failureOperation,
       );
-      if (!retryResult.ok) {
-        return retryResult;
-      }
+      if (!retryResult.ok) return retryResult;
       const retryResponse = retryResult.data;
       if (isSuccessfulResponse(retryResponse, additionalSuccessStatuses)) {
         this.requestFailuresByKey.delete(requestFailureKey({ method, path }));
@@ -357,6 +362,7 @@ export class ApiRequestRuntime {
     body: RequestBody | undefined,
     options: RequestResultOptions,
     authToken: string | null,
+    operation: Parameters<OperationResponseRequestFn>[5],
   ): Promise<RequestResult<Response>> {
     const reportErrors = options.reportErrors ?? true;
     const init: RequestInit & { duplex?: "half" } = {
@@ -373,7 +379,12 @@ export class ApiRequestRuntime {
 
     let response: Response;
     try {
-      response = await fetch(`${this.baseUrl}${path}`, init);
+      response = await measureApiRequest(
+        this.instrumentation,
+        operation,
+        () => fetch(`${this.baseUrl}${path}`, init),
+        options.signal,
+      );
     } catch (error) {
       const cancelled = options.signal?.aborted === true;
       if (!cancelled) this.onNetworkError?.();

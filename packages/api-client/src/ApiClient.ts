@@ -114,6 +114,7 @@ import type {
   UserIdentityResponse,
 } from "@tearleads/validators/response";
 import { BoundedCache } from "./ApiCache";
+import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { ApiRequestRuntime } from "./apiRequestRuntime";
 import {
   getDocumentPurgeProof as readPurgeProof,
@@ -261,9 +262,12 @@ export class ApiClient {
   private readonly transport: OperationTransport;
   private readonly request: OperationRequestFn;
   private readonly requestResult: OperationRequestResultFn;
-  constructor(baseUrl?: string | null) {
+  constructor(
+    baseUrl?: string | null,
+    instrumentation?: ApiRequestInstrumentation,
+  ) {
     bindPrototypeMethods(this, ApiClient.prototype);
-    this.requestRuntime = new ApiRequestRuntime(baseUrl);
+    this.requestRuntime = new ApiRequestRuntime(baseUrl, instrumentation);
     this.principalPolicyRequests = new PrincipalPolicyRequests(
       this.requestRuntime,
       this.principalPolicyRequestsByKey,
