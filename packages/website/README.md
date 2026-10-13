@@ -9,11 +9,18 @@ Workers Static Assets. It has no server runtime or dependency on the API server.
 | Environment | Worker | Hostname | Terraform state |
 | --- | --- | --- | --- |
 | Production | `tearleads-website-prod` | `tearleads.com` | `prod/website/terraform.tfstate` |
+| Continuity | `tearleads-continuity` | `continuity.tearleads.com` | `prod/website/terraform.tfstate` |
 | Staging | `tearleads-website-staging` | `website-staging.tearleads.com` | `staging/website/terraform.tfstate` |
 
 Wrangler owns asset deployments; the independent Terraform roots in
 `terraform/stacks/{prod,staging}/website` own custom domains. Rebuilding a server
 leaves the website available. The API, application, and demo still use the server.
+
+The [continuity repository](https://github.com/a2f0/continuity) builds and
+publishes the scrollable specimen gallery with Wrangler. Its hostname belongs
+to the production website state here; publish `tearleads-continuity` before
+applying that stack for the first time. Subsequent gallery asset deployments
+do not need Terraform. The gallery sends `noindex` in HTML and response headers.
 
 ```sh
 scripts/deployStagingWebsite.sh
