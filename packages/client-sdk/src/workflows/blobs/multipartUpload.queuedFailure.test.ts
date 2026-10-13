@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { runBlobTransfer } from "../../data/blobs/transferPool";
-import { stageMultipartBlobAttachment } from "./multipartUpload";
 import {
   createFakePlan,
   createMultipartApi,
   DEFAULT_CHUNK_SIZE,
-} from "./multipartUploadTestHelpers";
+} from "../../../test/helpers/multipartUpload";
+import { runBlobTransfer } from "../../data/blobs/transferPool";
+import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 for (const failure of ["throw", "null"] as const) {
   test(`a ${failure} part failure cancels queued parts before returning its permit`, async () => {

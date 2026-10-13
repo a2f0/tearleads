@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { stageMultipartBlobAttachment } from "./multipartUpload";
 import {
   createFakePlan,
   createMultipartApi,
   DEFAULT_CHUNK_SIZE,
-} from "./multipartUploadTestHelpers";
+} from "../../../test/helpers/multipartUpload";
+import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 describe("stageMultipartBlobAttachment", () => {
   test("encrypts parts lazily with bounded concurrency", async () => {

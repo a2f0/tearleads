@@ -1,5 +1,5 @@
-import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
-import type { BlobAttachmentApi } from "../../data/documents/blob/shared/types";
+import type { BlobEncryptionPlan } from "../../src/data/documents/blob/shared/crypto";
+import type { BlobAttachmentApi } from "../../src/data/documents/blob/shared/types";
 
 export const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
 
