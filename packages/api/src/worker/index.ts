@@ -7,6 +7,7 @@ import {
 } from "./environment";
 import {
   boundRequestBody,
+  declaredBodyTooLarge,
   expectedRequestBytes,
   requestBodyCeiling,
   requestBodyOverflowed,
@@ -105,6 +106,14 @@ async function handleRequest(
   // Route-level limits still apply below this ceiling.
   const { pathname } = new URL(request.url);
   const ceiling = requestBodyCeiling(pathname, MAX_MULTIPART_BLOB_PART_BYTES);
+  if (declaredBodyTooLarge(request, ceiling)) {
+    return refuse(
+      request,
+      corsOrigins,
+      { error: "Request body too large" },
+      413,
+    );
+  }
   // Wait before wrapping or reading a body: queued requests must not buffer
   // uploads or open database pools while another response holds the budget.
   const admitted = expectedRequestBytes(request, pathname, ceiling);
@@ -149,19 +158,12 @@ async function handleRequest(
         ),
       (closing) => ctx.waitUntil(closing),
     ).catch((error: unknown) => {
-      if (requestBodyOverflowed(bounded.request)) {
-        return refuse(
-          request,
-          corsOrigins,
-          { error: "Request body too large" },
-          413,
-        );
-      }
+      if (requestBodyOverflowed(bounded.request)) return null;
       throw error;
     });
     // Whatever the route made of a body cut off at the ceiling, and however
     // the runtime reported the failed read, the answer is 413.
-    if (requestBodyOverflowed(bounded.request)) {
+    if (response === null || requestBodyOverflowed(bounded.request)) {
       release();
       return refuse(
         request,

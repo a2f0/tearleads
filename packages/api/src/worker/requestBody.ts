@@ -78,6 +78,15 @@ function declaredLength(request: Request): number | null {
   return Number.isSafeInteger(length) && length >= 0 ? length : null;
 }
 
+/** Check without wrapping or reading the body, before waiting for admission. */
+export function declaredBodyTooLarge(
+  request: Request,
+  maxBytes: number,
+): boolean {
+  const declared = declaredLength(request);
+  return request.body !== null && declared !== null && declared > maxBytes;
+}
+
 const trippedLimiters = new WeakMap<Request, () => boolean>();
 
 /**
@@ -126,8 +135,7 @@ export function boundRequestBody(
   if (request.body === null) {
     return { kind: "request", request };
   }
-  const declared = declaredLength(request);
-  if (declared !== null && declared > maxBytes) {
+  if (declaredBodyTooLarge(request, maxBytes)) {
     return { kind: "too-large" };
   }
   // Bun's RequestInit type omits the standard duplex field a streamed body

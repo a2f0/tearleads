@@ -105,6 +105,9 @@ test("cancellation racing admission returns the newly reserved bytes", async () 
   const canceled = admission.acquire(100, controller.signal);
   first?.();
   controller.abort();
+  // workerd may discard the canceled request's continuation entirely. The
+  // abort listener must return a grant before any await resumes below.
+  expect(admission.inFlight()).toBe(0);
   expect(await canceled).toBeNull();
   expect(admission.inFlight()).toBe(0);
 });

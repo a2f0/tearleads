@@ -6,6 +6,7 @@ import {
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import {
   boundRequestBody,
+  declaredBodyTooLarge,
   expectedRequestBytes,
   MAX_UNAUTHENTICATED_REQUEST_BYTES,
   requestBodyCeiling,
@@ -38,6 +39,8 @@ test("a declared length above the ceiling is refused without reading", () => {
     body: "0123456789a",
   });
   expect(boundRequestBody(request, 10)).toEqual({ kind: "too-large" });
+  expect(declaredBodyTooLarge(request, 10)).toBe(true);
+  expect(request.bodyUsed).toBe(false);
 });
 
 test("a body within the ceiling reaches the route intact", async () => {
