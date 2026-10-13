@@ -1,4 +1,6 @@
 import { useCallback } from "react";
+import { useIdentity } from "../../../providers/identity/IdentityProvider";
+import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { useSystemStatusSnapshot } from "../../../shell/pane/status/useSystemStatusSnapshot";
 import { useSystemEnvironment } from "../environment/useSystemEnvironment";
 import { useSystemMonitorFeatureFlagRows } from "../feature-flags/useSystemMonitorFeatureFlagRows";
@@ -26,6 +28,8 @@ export function useSystemMonitorReport({
   includeFeatureFlags: boolean;
 }): () => string {
   const environment = useSystemEnvironment();
+  const { apiRequests } = useTearleads();
+  const { signingFingerprint } = useIdentity();
   const status = useSystemStatusSnapshot();
   const logEntries = useSystemMonitorLogEntries();
   const featureFlags = useSystemMonitorFeatureFlagRows();
@@ -34,6 +38,7 @@ export function useSystemMonitorReport({
   return useCallback(
     () =>
       formatSystemMonitorReport({
+        apiRequests: apiRequests.getSnapshot(signingFingerprint),
         capturedAt: new Date().toISOString(),
         environment,
         // Omitted outside developer mode, matching the tab the user can see.
@@ -44,10 +49,12 @@ export function useSystemMonitorReport({
         writeQueue,
       }),
     [
+      apiRequests,
       environment,
       featureFlags,
       includeFeatureFlags,
       logEntries,
+      signingFingerprint,
       status,
       syncLanes,
       writeQueue,

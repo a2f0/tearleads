@@ -170,6 +170,7 @@ test("copy button serializes every tab regardless of which one is open", async (
   expect(report).toContain("# System Monitor Report");
   expect(report).toContain("## Environment");
   expect(report).toContain("## Status");
+  expect(report).toContain("## API Requests");
   expect(report).toContain("## Logs");
   expect(report).toContain(`| ${ENVIRONMENT_LABELS.appVersion} | 9.9.9 |`);
   expect(report).toContain(`| ${ENVIRONMENT_LABELS.buildCommit} | abc1234 |`);

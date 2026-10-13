@@ -22,6 +22,7 @@ import { SystemMonitorFeatureFlags } from "./feature-flags/SystemMonitorFeatureF
 import { SystemMonitorLog } from "./log/SystemMonitorLog";
 import { useSystemMonitorCopyReportAction } from "./report/useSystemMonitorCopyReportAction";
 import { useSystemMonitorReport } from "./report/useSystemMonitorReport";
+import { SystemMonitorRequests } from "./requests/SystemMonitorRequests";
 import {
   DEFAULT_SYSTEM_MONITOR_TAB,
   formatSystemMonitorRouteSegments,
@@ -36,6 +37,7 @@ type SystemMonitorTab = MiniAppTabDescriptor<SystemMonitorTabId>;
 const BASE_SYSTEM_MONITOR_TABS: ReadonlyArray<SystemMonitorTab> = [
   { id: "logs", label: "Logs" },
   { id: "status", label: "Status" },
+  { id: "requests", label: "API Requests" },
   { id: "environment", label: "Environment" },
 ];
 
@@ -61,6 +63,8 @@ function isVisibleSystemMonitorTab(
 
 function renderSystemMonitorTabPanel(activeTab: SystemMonitorTabId) {
   switch (activeTab) {
+    case "requests":
+      return <SystemMonitorRequests />;
     case "environment":
       return <SystemMonitorEnvironment />;
     case "feature-flags":

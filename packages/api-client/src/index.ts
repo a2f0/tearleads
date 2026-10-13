@@ -1,4 +1,10 @@
 export { ApiClient } from "./ApiClient";
+export {
+  type ApiRequestCounts,
+  type ApiRequestEndpointCounts,
+  ApiRequestMetrics,
+  type ApiRequestMetricsSnapshot,
+} from "./apiRequestMetrics";
 export type {
   PrincipalPolicyPageCurrent,
   PrincipalPolicyPageReadOptions,

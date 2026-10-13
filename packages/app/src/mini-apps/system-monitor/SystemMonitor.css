@@ -101,3 +101,17 @@
 .system-monitor-feature-flag-state {
   opacity: var(--opacity-subtle);
 }
+
+.system-monitor-requests {
+  padding: var(--space-md);
+  font-size: var(--font-size-sm);
+}
+
+.system-monitor-request-table {
+  margin-top: var(--space-md);
+  overflow-x: auto;
+}
+
+.system-monitor-request-table code {
+  overflow-wrap: anywhere;
+}

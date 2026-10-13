@@ -78,6 +78,7 @@ test("root entrypoint exposes public facade symbols", () => {
 // fails here, forcing a reviewed, intentional contract change. When you mean to
 // change the public surface, update this list in the same PR.
 const EXPECTED_ROOT_VALUE_EXPORTS = [
+  "ApiRequestMetrics",
   "Blobs",
   "ContainerAuthorAccessError",
   "ContainerKekRepairInaccessibleError",
