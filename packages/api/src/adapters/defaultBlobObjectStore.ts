@@ -3,6 +3,7 @@ import {
   type BlobObjectStore,
   createMemoryBlobObjectStore,
 } from "./blobObjectStore";
+import { createS3BlobDownloadUrl } from "./s3BlobDownloadUrl";
 import { createS3BlobObjectStore } from "./s3BlobObjectStore";
 
 type BlobObjectStoreKind = "memory" | "s3";
@@ -108,8 +109,20 @@ function createPrefixedBlobObjectStore(
   if (!prefix) {
     return store;
   }
-
+  const createDownloadUrl = store.createDownloadUrl;
   return {
+    ...(createDownloadUrl
+      ? {
+          createDownloadUrl: (input: {
+            readonly key: string;
+            readonly expiresIn: number;
+          }) =>
+            createDownloadUrl({
+              ...input,
+              key: prefixBlobObjectKey(prefix, input.key),
+            }),
+        }
+      : {}),
     abortMultipartUpload: (input) =>
       store.abortMultipartUpload({
         ...input,
@@ -191,11 +204,12 @@ export function createDefaultBlobObjectStore(
     clientConfig.credentials = { accessKeyId, secretAccessKey };
   }
 
+  const client = new S3Client(clientConfig);
   return createPrefixedBlobObjectStore(
-    createS3BlobObjectStore({
-      bucket,
-      client: new S3Client(clientConfig),
-    }),
+    {
+      ...createS3BlobObjectStore({ bucket, client }),
+      createDownloadUrl: createS3BlobDownloadUrl({ bucket, client }),
+    },
     readBlobObjectStoreKeyPrefix(env),
   );
 }

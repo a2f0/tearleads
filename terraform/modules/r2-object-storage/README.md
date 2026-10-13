@@ -14,6 +14,13 @@ bucket. Only downloads receive a custom domain: `downloads.tearleads.com` or
 Production roots retain `prevent_destroy`; R2 requires empty buckets before
 deletion in either tier. Terraform state stays in its existing S3 backend.
 
+Private blob roots set `download_cors_origins = ["*"]` for cross-origin signed
+GETs from web, desktop, and mobile clients. CORS does not grant object access:
+the API authorizes reads and issues five-minute bearer URLs. The rule permits
+GET only and exposes length, range, and ETag headers; it does not enable a public
+domain. Apply storage CORS before deploying clients that download directly.
+Other module callers omit CORS management by default.
+
 The Terraform token needs Workers R2 Storage Write, Account API Tokens Write,
 and zone read access for the download domains. Runtime tokens cannot administer
 buckets or access another bucket. Terraform stores their sensitive values in

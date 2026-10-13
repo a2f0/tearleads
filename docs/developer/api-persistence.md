@@ -212,6 +212,37 @@ The optional S3 key prefix wraps it as
 `<prefix>/organizations/<organizationId>/blob-stages/<stageId>`. The API and GC
 must use the same bucket and prefix configuration.
 
+Downloads first call authenticated `GET /blobs/{blobId}/download`. The API
+checks current read access and returns the encrypted length, SHA-256, and an
+S3/R2 GET URL valid for 300 seconds. The client fetches those bytes directly
+without API authorization headers, then verifies and decrypts them as before.
+Browser fetch also omits cookies and rejects redirects. These fetch options
+have not been verified on physical devices using the native HTTP bridge.
+Memory storage returns an API-stream descriptor instead.
+
+Expiry limits when a storage request can start; it does not abort an accepted
+download after five minutes. A URL remains usable by anyone holding it until
+expiry, even if application access is revoked during that window. Do not log
+or persist signed URLs. Descriptor and object responses use
+`Cache-Control: no-store`. The client refreshes a rejected URL once, including
+browser network errors caused by R2's missing CORS headers on expired responses.
+An interrupted body fails normally; retrying the download gets a new URL and
+starts over. Automatic byte-range resumption is not implemented.
+If direct storage requests still fail, the client falls back once to the existing
+authenticated API stream. This also supports native HTTP bridges that cannot use
+the signed URL and older APIs without the descriptor endpoint. The fallback
+checks current access again and retains length, hash, and decryption checks.
+Storage failures alone do not mark the API offline. Accepted streams are never
+silently restarted or switched to the fallback after delivering bytes.
+
+The S3 endpoint must be reachable from the client, not just the API. Private R2
+blob buckets allow cross-origin GETs from any origin to support web, desktop,
+and mobile clients; valid signatures are still required. Deploy the storage
+stack's CORS configuration, then deploy the API, then release the new clients.
+Older APIs continue through the authenticated stream fallback. For other S3
+providers, apply the equivalent GET-only rule in
+`scripts/localstack/blobDownloadCors.json`.
+
 LocalStack helper:
 
 ```sh
@@ -221,6 +252,9 @@ set -a
 set +a
 bun run --filter=@tearleads/api dev
 ```
+
+The helper configures download CORS and enables LocalStack signature validation.
+LocalStack remains a development emulator, not a test of production IAM policy.
 
 To clear objects from the configured LocalStack bucket:
 

@@ -1,8 +1,11 @@
 import {
   blobWireHeaderKeys,
   getBlobBytesOperation,
+  getBlobDownloadOperation,
 } from "@tearleads/validators/operation";
 import type { BinaryResponseOperationTransport } from "../../binaryResponseOperationTransport";
+import type { JsonOperationTransport } from "../../operationTransport";
+import type { OperationResponseRequestFn } from "../../types";
 
 export interface BlobBytesResponse {
   readonly blobId: string;
@@ -18,8 +21,120 @@ export interface UploadMultipartBlobPartBytesRequest {
   readonly uploadId: string;
 }
 
+type BlobDownloadTransport = Pick<JsonOperationTransport, "requestResult"> &
+  Pick<BinaryResponseOperationTransport, "requestBinaryResponse"> &
+  Pick<OperationResponseRequestFn, "reportFailure">;
+
+type DownloadFetch = (url: string, init: RequestInit) => Promise<Response>;
+
 export async function getBlobBytes(
-  transport: BinaryResponseOperationTransport,
+  transport: BlobDownloadTransport,
+  blobId: string,
+  downloadFetch: DownloadFetch = (url, init) => fetch(url, init),
+): Promise<BlobBytesResponse | null> {
+  // Refresh at most once. R2 expiration errors can appear as CORS/network
+  // failures in browsers, so both rejected fetches and 403s need a fresh URL.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const result = await transport.requestResult(
+      getBlobDownloadOperation,
+      { params: { blobId } },
+      { reportErrors: false },
+    );
+    if (!result.ok) {
+      if (result.kind === "http" && result.status === 404) {
+        return getBlobStream(transport, blobId);
+      }
+      result.report();
+      return null;
+    }
+    const descriptor = result.data;
+    if (descriptor.blobId !== blobId) {
+      transport.reportFailure({
+        kind: "shape",
+        method: "GET",
+        path: `/blobs/${blobId}/download`,
+        status: 200,
+        statusText: "",
+        message: `Blob ${blobId} download descriptor has the wrong identity`,
+      });
+      return null;
+    }
+    if (descriptor.source.kind === "api") {
+      return getBlobStream(transport, blobId);
+    }
+    try {
+      // Never send the application's session or cookies to the object store.
+      // Reject redirects and keep bearer URLs out of referrers and errors.
+      const response = await downloadFetch(descriptor.source.url, {
+        cache: "no-store",
+        credentials: "omit",
+        redirect: "error",
+        referrerPolicy: "no-referrer",
+      });
+      if (response.status !== 200) {
+        await response.body?.cancel().catch(() => {});
+        if (response.status === 403) {
+          continue;
+        }
+        break;
+      }
+      return {
+        blobId: descriptor.blobId,
+        byteLength: descriptor.byteLength,
+        sha256: descriptor.sha256,
+        encryptedBytes: response.body
+          ? signedDownloadBodyStream(response.body)
+          : bufferedResponseBodyStream(await response.arrayBuffer()),
+      };
+    } catch {
+      // The downstream SDK still verifies length, hash and authenticated
+      // encryption. An error after streaming begins propagates to that reader.
+    }
+  }
+  // Preserve downloads when storage is unreachable or a native HTTP bridge
+  // cannot use the signed URL. This endpoint checks current access again.
+  // A storage failure alone must not signal that the API is offline.
+  return getBlobStream(transport, blobId);
+}
+
+function signedDownloadBodyStream(
+  stream: ReadableStream<Uint8Array>,
+): ReadableStream<Uint8Array> {
+  const reader = stream.getReader();
+  // Native network errors may contain the bearer URL. Keep failures generic
+  // before downstream readers log them, without buffering or eager reads.
+  return new ReadableStream<Uint8Array>(
+    {
+      async pull(controller) {
+        try {
+          const { done, value } = await reader.read();
+          if (done) {
+            controller.close();
+            reader.releaseLock();
+          } else {
+            controller.enqueue(value);
+          }
+        } catch {
+          controller.error(new Error("Blob download interrupted"));
+          reader.releaseLock();
+        }
+      },
+      async cancel(reason) {
+        try {
+          await reader.cancel(reason);
+        } catch {
+          throw new Error("Blob download cancellation failed");
+        } finally {
+          reader.releaseLock();
+        }
+      },
+    },
+    { highWaterMark: 0 },
+  );
+}
+
+async function getBlobStream(
+  transport: Pick<BinaryResponseOperationTransport, "requestBinaryResponse">,
   blobId: string,
 ): Promise<BlobBytesResponse | null> {
   const result = await transport.requestBinaryResponse(getBlobBytesOperation, {

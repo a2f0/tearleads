@@ -8,7 +8,8 @@ resource "cloudflare_r2_bucket" "blobs" {
 }
 
 module "storage" {
-  source      = "../../../modules/r2-object-storage"
-  account_id  = var.cloudflare_account_id
-  bucket_name = cloudflare_r2_bucket.blobs.name
+  source                = "../../../modules/r2-object-storage"
+  account_id            = var.cloudflare_account_id
+  bucket_name           = cloudflare_r2_bucket.blobs.name
+  download_cors_origins = ["*"]
 }

@@ -21,6 +21,7 @@ import {
   getBlobBytesOperation,
   uploadMultipartBlobPartBytesOperation,
 } from "./blobBytes";
+import { getBlobDownloadOperation } from "./blobDownloads";
 import {
   createContainerOperation,
   createContainerWithMetadataDocumentOperation,
@@ -118,6 +119,7 @@ export const protocolOperations: readonly [
   typeof verifyOperation,
   typeof webSocketTicketOperation,
   typeof getBlobBytesOperation,
+  typeof getBlobDownloadOperation,
   typeof receiveRevenueCatWebhookOperation,
   typeof receiveStripeWebhookOperation,
   typeof bindBlobAttachmentOperation,
@@ -192,6 +194,7 @@ export const protocolOperations: readonly [
   verifyOperation,
   webSocketTicketOperation,
   getBlobBytesOperation,
+  getBlobDownloadOperation,
   receiveRevenueCatWebhookOperation,
   receiveStripeWebhookOperation,
   bindBlobAttachmentOperation,

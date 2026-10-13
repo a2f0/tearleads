@@ -14,12 +14,14 @@ import type { OperationResponseRequestFn } from "./types";
 
 export type OperationTransport = BinaryRequestOperationTransport &
   JsonOperationTransport &
-  BinaryResponseOperationTransport;
+  BinaryResponseOperationTransport &
+  Pick<OperationResponseRequestFn, "reportFailure">;
 
 export function createOperationTransport(
   responseRequest: OperationResponseRequestFn,
 ): OperationTransport {
   return {
+    reportFailure: responseRequest.reportFailure,
     ...createBinaryRequestOperationTransport(responseRequest),
     ...createJsonOperationTransport(responseRequest),
     ...createBinaryResponseOperationTransport(responseRequest),

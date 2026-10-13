@@ -1,4 +1,5 @@
 import { blobs } from "@tearleads/api-shared/schema";
+import type { BlobDownloadResponse } from "@tearleads/validators/operation";
 import { eq } from "drizzle-orm";
 import type { BlobObjectReadStream } from "../../adapters/blobObjectStore";
 import {
@@ -87,5 +88,26 @@ export async function getBlobBytes(
     blobId: row.blobId,
     encryptedBytes,
     sha256: row.sha256,
+  };
+}
+
+export async function getBlobDownload(
+  runtime: ApiServiceRuntime,
+  input: GetBlobInput,
+): Promise<BlobDownloadResponse> {
+  // Resolve access before signing, and take the object key only from storage.
+  const row = await loadReadableBlobRow(runtime, input);
+  const createDownloadUrl = runtime.blobObjectStore.createDownloadUrl;
+  const source: BlobDownloadResponse["source"] = createDownloadUrl
+    ? {
+        kind: "signed-url",
+        ...(await createDownloadUrl({ key: row.storageKey, expiresIn: 300 })),
+      }
+    : { kind: "api" };
+  return {
+    blobId: row.blobId,
+    byteLength: row.byteLength,
+    sha256: row.sha256,
+    source,
   };
 }

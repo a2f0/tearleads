@@ -1,0 +1,11 @@
+{
+  "CORSRules": [
+    {
+      "AllowedOrigins": ["*"],
+      "AllowedMethods": ["GET"],
+      "AllowedHeaders": ["Range", "If-Match", "Cache-Control"],
+      "ExposeHeaders": ["Content-Length", "Content-Range", "ETag"],
+      "MaxAgeSeconds": 300
+    }
+  ]
+}

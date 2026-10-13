@@ -56,3 +56,21 @@ run "public_downloads" {
     error_message = "Downloads must use their configured HTTPS custom domain."
   }
 }
+
+run "signed_download_cors" {
+  command = plan
+  variables {
+    download_cors_origins = ["*"]
+  }
+  assert {
+    condition = (
+      cloudflare_r2_bucket_cors.downloads[0].bucket_name == var.bucket_name &&
+      toset(cloudflare_r2_bucket_cors.downloads[0].rules[0].allowed.origins) == toset(["*"]) &&
+      toset(cloudflare_r2_bucket_cors.downloads[0].rules[0].allowed.methods) == toset(["GET"]) &&
+      cloudflare_r2_bucket_cors.downloads[0].rules[0].max_age_seconds == 300 &&
+      !cloudflare_r2_managed_domain.storage.enabled &&
+      length(cloudflare_r2_custom_domain.downloads) == 0
+    )
+    error_message = "Browser downloads require GET CORS without making the bucket public."
+  }
+}

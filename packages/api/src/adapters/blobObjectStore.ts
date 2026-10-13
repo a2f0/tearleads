@@ -56,6 +56,10 @@ export interface BlobObjectStore {
     readonly key: string;
   }): Promise<{ readonly uploadId: string }>;
   deleteObject(key: string): Promise<void>;
+  createDownloadUrl?(input: {
+    readonly key: string;
+    readonly expiresIn: number;
+  }): Promise<{ readonly url: string; readonly expiresAt: string }>;
   getObjectStream(key: string): Promise<BlobObjectReadStream | null>;
   listParts(input: {
     readonly key: string;

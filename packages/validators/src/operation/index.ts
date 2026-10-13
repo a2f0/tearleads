@@ -67,6 +67,11 @@ export {
   uploadMultipartBlobPartBytesOperation,
 } from "./blobBytes";
 export {
+  type BlobDownloadResponse,
+  BlobDownloadResponseSchema,
+  getBlobDownloadOperation,
+} from "./blobDownloads";
+export {
   type ContainerMutationPathParams,
   ContainerMutationPathParamsSchema,
   createContainerOperation,

@@ -13,7 +13,17 @@ const blobId = "11111111-1111-4111-8111-111111111111";
 // standalone getBlobBytes can be driven without a live ApiClient/msw. reportFailure
 // records nothing here; the success path under test never calls it.
 function mockRequest(response: Response): OperationResponseRequestFn {
-  const fn = async () => ({ ok: true as const, data: response });
+  const fn = async (path: string) => ({
+    ok: true as const,
+    data: path.endsWith("/download")
+      ? Response.json({
+          blobId,
+          byteLength: 0,
+          sha256: "a".repeat(64),
+          source: { kind: "api" },
+        })
+      : response,
+  });
   return Object.assign(fn, {
     reportFailure: (
       input: ResponseRequestValidationFailureInput,
@@ -112,5 +122,5 @@ test("Content-Length cannot replace the required blob byte-length header", async
 test("rejects invalid blob ids before fetch", async () => {
   await expect(
     getBlobBytes(mockTransport(new Response()), "invalid"),
-  ).rejects.toThrow("Invalid path parameters for blobs.bytes.get");
+  ).rejects.toThrow("Invalid path parameters for blobs.download.get");
 });
