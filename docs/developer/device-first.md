@@ -130,7 +130,7 @@ tree reconciles before document discovery without a new phase.
 interface ReconciliationService {
   start(): void;                         // idempotent; wires coordinator + triggers
   setActiveContainer(containerId: string | null): void;  // re-prioritize
-  enqueueContainer(containerId, priority, force?): void; // event/active work
+  enqueueContainer(containerId, priority, force?, documentId?): void;
   enqueueIdleBackfill(): void;           // known-container catch-up
   resetDiscovered(): void;                // re-arm after reconnect/relogin
   reconcileRootContainersNow(): Promise<void>; // root-lane catch-up
@@ -172,11 +172,12 @@ Scheduling policy (active-first, then idle backfill):
 #### Document content pull policy
 
 The reconciliation service owns discovery scheduling; registered document
-stores own encrypted content sync and attachment hydration. A forced targeted
-container reconciliation carries `force` through `reconcileOneContainer` into
-the document-content puller. For ordinary documents, the puller requests remote
-sync only from stores already registered in that `DomainScope`; it does not open
-every discovered document. System-container documents are opened eagerly once
+stores own encrypted content sync and attachment hydration. Hint-driven
+reconciliation passes `force` and `documentId` to the content puller. Hints merge
+their targets into one trailing pass. The puller revalidates only named registered
+stores; a full force without a target, including Refresh and reconnect,
+revalidates every registered store. Ordinary discovery does not open every
+document. System-container documents are opened eagerly once
 per observed remote version because their derived projections cannot depend on
 a document window.
 

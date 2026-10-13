@@ -12,6 +12,14 @@ import {
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./syncGeneration";
 
+// A remote probe is evidence that bindings may have moved independently of
+// content. Capture its sequence before I/O so a hint arriving during hydration
+// survives for the trailing pass. Missing or changed local bytes always retry.
+const checkedSignals = new WeakMap<
+  DocumentStoreState,
+  { documentId: string; document: WeakRef<DocumentState>; sequence: number }
+>();
+
 export async function hydrateAttachmentBlobs(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -38,9 +46,25 @@ export async function hydrateAttachmentBlobs(
     return;
   }
 
+  const signalSequence = state.remoteUpdateSignalSeq;
+  if (
+    bindingsAlreadyChecked(
+      state,
+      currentDoc,
+      currentRecord.documentId,
+      attachments,
+      signalSequence,
+    )
+  )
+    return;
+
   const expectedStorageKeys = { ...state.attachmentStorageKeyBySlotId };
+  let bindingsChecked = false;
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
     apiClient: runtime.apiClient,
+    onBindingsChecked: () => {
+      bindingsChecked = true;
+    },
     attachments,
     documentId: currentRecord.documentId,
     execSql: runtime.infra.execSql,
@@ -72,5 +96,45 @@ export async function hydrateAttachmentBlobs(
         expectedStorageKeys[hydratedBlob.attachment.slotId] ?? null,
     });
   }
+  if (
+    bindingsChecked &&
+    generationIsCurrent() &&
+    hydratedBlobs.every(
+      (blob) =>
+        state.attachmentBlobIdBySlotId[blob.attachment.slotId] ===
+        blob.binding.blobId,
+    )
+  ) {
+    checkedSignals.set(state, {
+      documentId: currentRecord.documentId,
+      document: new WeakRef(currentDoc),
+      sequence: signalSequence,
+    });
+  }
   void runDocumentOrphanMaintenance(state);
+}
+
+function bindingsAlreadyChecked(
+  state: DocumentStoreState,
+  currentDoc: DocumentState,
+  documentId: string,
+  attachments: ReturnType<typeof getDocumentAttachments>,
+  signalSequence: number,
+): boolean {
+  const checked = checkedSignals.get(state);
+  const needsBindingProbe =
+    signalSequence >
+    (checked?.documentId === documentId &&
+    checked.document.deref() === currentDoc
+      ? checked.sequence
+      : 0);
+  return (
+    !needsBindingProbe &&
+    attachments.every(
+      (attachment) =>
+        state.attachmentStorageKeyBySlotId[attachment.slotId] &&
+        state.attachmentContentSha256BySlotId[attachment.slotId] ===
+          attachment.contentSha256,
+    )
+  );
 }

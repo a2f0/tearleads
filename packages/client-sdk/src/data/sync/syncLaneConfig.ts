@@ -10,6 +10,8 @@ export interface SyncLaneConfig {
   label?: string | undefined;
   onUnexpectedError?: (error: unknown) => void;
   phase?: SyncLanePhase;
+  /** Lower values run first within a phase; evaluated at selection time. */
+  priority?: (() => number) | undefined;
   /** Observability only. Must not change lane behavior. */
   reportUnexpectedError?: (error: unknown) => void;
   run: () => Promise<void>;

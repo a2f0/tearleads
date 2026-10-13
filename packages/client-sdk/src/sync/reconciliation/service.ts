@@ -251,6 +251,7 @@ function startReconciliationLane(
       // Document discovery runs in the document phase, after structural
       // container hydration/metadata sync settles for the scope.
       phase: "document",
+      priority: () => (state.activeContainerId ? -1 : 0),
       onUnexpectedError: (error) => {
         console.error("Device-first reconciliation failed:", error);
       },
@@ -275,6 +276,7 @@ function createReconciliationState(
     automaticRetryGenerations: new Map(),
     discoveredContainerIds: new Set(),
     forcedContainerGenerations: new Map(),
+    forcedDocumentIds: new Map(),
     initialDocumentProbe: createInitialDocumentProbe(host),
     lane: null,
     lifecycleGeneration: 0,
@@ -296,6 +298,7 @@ function stopReconciliationService(
   state.queue.clear();
   state.automaticRetryGenerations.clear();
   state.forcedContainerGenerations.clear();
+  state.forcedDocumentIds.clear();
   state.pendingRefresh = null;
   state.initialDocumentProbe.resetPending();
   // Drop the per-session discovered suppression cache too: a stopped
@@ -331,6 +334,7 @@ export function createReconciliationService(
     containerId: string,
     priority: ReconcilePriority,
     force = false,
+    documentId?: string,
   ) => {
     if (!containerId) {
       return;
@@ -338,11 +342,15 @@ export function createReconciliationService(
     // Skip containers already reconciled this session unless forced. Events
     // force re-discovery; passive active/backfill scheduling does not, so
     // opening Explorer does not re-fetch every container on each navigation.
-    if (!force && state.discoveredContainerIds.has(containerId)) {
+    if (
+      !force &&
+      !state.forcedContainerGenerations.has(containerId) &&
+      state.discoveredContainerIds.has(containerId)
+    ) {
       return;
     }
     if (force) {
-      markContainerForced(state, containerId);
+      markContainerForced(state, containerId, documentId);
     }
     state.queue.enqueue(containerId, priority);
     scheduleDrain();
@@ -363,8 +371,8 @@ export function createReconciliationService(
     },
     // Reconcile the active container first; siblings remain lazy until visited.
     setActiveContainer: (containerId) =>
-      activateContainer(state, containerId, (activeId, force) =>
-        enqueueContainer(activeId, "active", force),
+      activateContainer(state, containerId, (activeId) =>
+        enqueueContainer(activeId, "active"),
       ),
     enqueueContainer,
     enqueueIdleBackfill,

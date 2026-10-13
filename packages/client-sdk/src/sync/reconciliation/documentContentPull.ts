@@ -15,6 +15,14 @@ interface ReconciledDocumentContentPullHost {
   ) => void;
 }
 
+function shouldForceDocument(
+  force: boolean,
+  documentIds: ReadonlySet<string> | undefined,
+  documentId: string,
+): boolean {
+  return force && (!documentIds || documentIds.has(documentId));
+}
+
 /**
  * Routes reconciled summaries into the appropriate content-sync policy.
  *
@@ -31,7 +39,7 @@ export function createReconciledDocumentContentPuller(
   // updatedAt value over the reconciler's lifetime.
   const pulledSystemDocumentVersions = new Map<string, string>();
 
-  return (containerId, documents, force) => {
+  return (containerId, documents, force, documentIds) => {
     const systemContainer = isSystemContainerNode(
       host.getContainer(containerId) ?? { systemSlot: null },
     );
@@ -40,6 +48,12 @@ export function createReconciledDocumentContentPuller(
       if (!document.documentId) {
         continue;
       }
+
+      const forceDocument = shouldForceDocument(
+        force,
+        documentIds,
+        document.documentId,
+      );
 
       if (systemContainer) {
         // Container scope is significant: the same document can be linked into
@@ -55,7 +69,7 @@ export function createReconciledDocumentContentPuller(
             localId: document.id,
           });
           pulledSystemDocumentVersions.set(documentKey, document.updatedAt);
-        } else if (force) {
+        } else if (forceDocument) {
           // The first eager pull registers a document store before scheduling
           // its async sync. If that sync failed, a later explicit Refresh must
           // be able to retry the same server version without defeating normal
@@ -68,7 +82,7 @@ export function createReconciledDocumentContentPuller(
         continue;
       }
 
-      if (force) {
+      if (forceDocument) {
         host.requestRegisteredDocumentRemoteSync(
           document.id,
           document.documentId,

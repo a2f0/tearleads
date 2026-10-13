@@ -6,10 +6,10 @@ It complements the wire-protocol documents; it does not define new HTTP routes
 or server transactions.
 
 For one `DomainScope`, the SDK uses one in-process sync coordinator. Sync lanes
-are serialized by phase:
+drain through a phase barrier:
 
 1. Structural lanes.
-2. Document lanes.
+2. Up to four document lanes concurrently.
 
 The current structural lane is `container-contents`. The current document
 lanes are `documents:${localId}` lanes. Queued structural work drains before
@@ -23,7 +23,9 @@ Manual Sync requests the structural and document owners, never the observational
 rows themselves.
 
 The coordinator is non-preemptive. If a document pass has already started, a
-new structural request waits for that pass to finish. The ordering guarantee is
+new structural request waits for the running document passes to finish and
+blocks additional document starts until structural work drains. The ordering
+guarantee is
 for queued work on one client runtime and one domain scope; other devices and
 other domain scopes still synchronize independently and are validated by the
 server protocol.
@@ -33,6 +35,12 @@ cancelled, so the pump may advance while its tail remains in flight. Its run
 token prevents same-lane overlap until that tail settles; later lanes may
 overlap it, and the server validates any late writes like concurrent writes
 from another device.
+
+Document selection favors remote-revalidation and newly discovered content,
+then rotates equally prioritized lanes by their last run, so registration order
+does not strand new work behind self-rearming stores. Failed self-rearming
+document lanes wait one second independently; healthy document lanes continue.
+A queued structural retry retains the phase barrier during its backoff.
 
 ## Structural Phase
 
@@ -83,8 +91,13 @@ a remote-revalidation signal. The following signals require a probe:
 
 Document update hints require the current shared websocket contract, including
 `containerIds`. Obsolete unscoped events are rejected. A scoped remote event
-force-reconciles its known containers and propagates forced content revalidation
-to registered ordinary documents. Force is acknowledged only after
+reconciles its known containers for discovery and membership changes, while
+content revalidation targets only the named document. The app filters known
+ordinary content hints out of discovery; their registered stores receive them
+directly. Hints routed to the reconciler still list their named containers. Hints
+queued during a listing collapse into one trailing listing, retaining the union
+of named documents. Explicit Refresh, reconnect, and resync-required events
+force every registered document. Force is acknowledged only after
 successful reconciliation, so the lossy hint cannot be discarded by discovery
 suppression, temporary ineligibility, a transient request failure, or database
 loss mid-request. A fulfilled discovery that reports an incompletely listed
@@ -151,7 +164,12 @@ A document pass runs in this order:
 3. Sync encrypted Loro document state. If the document still does not exist
    remotely and has pending Loro updates, create it first. Then send pending
    encrypted updates and import returned updates.
-4. Hydrate remote attachment blobs referenced by the refreshed document record.
+4. Hydrate remote attachment blobs when local bytes are missing or their digest
+   differs from the authenticated attachment intent, or when a new remote
+   revalidation signal requires a binding check. Settled local passes skip the
+   attachment listing. A signal arriving during hydration survives for a trailing
+   pass. All downloaded bindings and bytes still undergo signature and digest
+   verification.
 
 This means a local document can be created remotely before either attachment
 binds or Loro diffs are sent. Attachment binds may also be sent before pending
@@ -197,7 +215,12 @@ detect mutation between passes.
 Blob work remains inside its owning document lane because that lane preserves
 its prerequisites: structural work drains first, the remote document exists,
 the current writer projection is verified, and only then are encrypted bytes
-staged and bound.
+staged and bound. Byte I/O uses a separate FIFO pool with four permits per API
+client, shared by sync hydration downloads and multipart uploads. Relink
+key-authentication downloads use their existing path. A permit
+covers upload encryption through the part response, or a complete download
+stream; permits are released on success and failure. Document lanes await their
+transfers and retain ownership of binding and persistence.
 
 Unlinking an attachment from a synced document is the mirror case. The local
 blob projection row cannot be dropped at unlink time: it is the durable marker
@@ -234,6 +257,6 @@ fields, attachment names, blob bytes, keys, or decrypted payloads.
 ## Orchestration Boundary
 
 There is no domain-specific sync orchestrator. The domain sync coordinator
-provides the shared orchestration: phase ordering, lane serialization, request
+provides the shared orchestration: phase ordering, bounded concurrency, request
 coalescing, pending-work observation, and idle waiting. Container, document,
 Loro, and blob logic remains in the workflow that owns that state.

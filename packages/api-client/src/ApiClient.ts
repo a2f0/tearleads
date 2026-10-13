@@ -1869,12 +1869,15 @@ export class ApiClient {
     stageId: string,
     partNumber: number,
     input: UploadMultipartBlobPartBytesRequest,
+    options: RequestResultOptions = {},
   ) {
     return uploadMultipartBlobPartBytes(
       this.transport,
       stageId,
       partNumber,
       input,
+      undefined,
+      options,
     );
   }
 
@@ -1892,8 +1895,8 @@ export class ApiClient {
     );
   }
 
-  getBlobBytes(blobId: string) {
-    return getBlobBytes(this.transport, blobId);
+  getBlobBytes(blobId: string, options: RequestResultOptions = {}) {
+    return getBlobBytes(this.transport, blobId, undefined, options);
   }
 
   bindBlobAttachment(

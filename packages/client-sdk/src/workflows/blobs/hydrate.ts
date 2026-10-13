@@ -1,4 +1,7 @@
-import type { BlobBytesResponse } from "@tearleads/api-client";
+import type {
+  BlobBytesResponse,
+  RequestResultOptions,
+} from "@tearleads/api-client";
 import { bytesToHex } from "@tearleads/crypto";
 import type {
   BlobAttachmentSummary,
@@ -6,6 +9,7 @@ import type {
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
+import { runBlobTransfer } from "../../data/blobs/transferPool";
 import { attachmentContentSha256 } from "../../data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { errorMessage } from "../../data/errorMessage";
@@ -17,10 +21,14 @@ import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createAttachmentDecryptor } from "./attachmentDecryptor";
 import { collectHydrationResults } from "./hydrationResults";
+import { readAttachmentTransfer } from "./readAttachmentTransfer";
 
 interface DocumentAttachmentHydrationApi {
   evictDocumentWriterProjection?(documentId: string): void;
-  getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;
+  getBlobBytes(
+    blobId: string,
+    options?: RequestResultOptions,
+  ): Promise<BlobBytesResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
@@ -96,12 +104,6 @@ interface LoadedDocumentAttachmentBlobBytes {
   encryptedBytes: Uint8Array<ArrayBuffer>;
 }
 
-async function readBlobStreamBytes(
-  blob: BlobBytesResponse,
-): Promise<Uint8Array<ArrayBuffer>> {
-  return new Uint8Array(await new Response(blob.encryptedBytes).arrayBuffer());
-}
-
 async function hasExpectedBlobSha256(
   blob: BlobBytesResponse,
   encryptedBytes: Uint8Array<ArrayBuffer>,
@@ -146,18 +148,28 @@ function shouldHydrateAttachment(input: {
 async function loadDocumentAttachmentBlob(
   input: DocumentAttachmentHydrationContext & {
     binding: BlobAttachmentSummary;
+    signal: AbortSignal;
+    progress: () => void;
   },
 ): Promise<LoadedDocumentAttachmentBlobBytes | null> {
   const { apiClient, binding, log } = input;
   const logPrefix = input.logPrefix ?? "Documents";
-  const blob = await apiClient.getBlobBytes(binding.blobId);
+  if (input.stillCurrent?.() === false) return null;
+  input.signal.throwIfAborted();
+  const blob = await apiClient.getBlobBytes(binding.blobId, {
+    signal: input.signal,
+  });
   if (!blob) {
     return null;
   }
 
   let encryptedBytes: Uint8Array<ArrayBuffer>;
   try {
-    encryptedBytes = await readBlobStreamBytes(blob);
+    encryptedBytes = await readAttachmentTransfer(
+      blob,
+      input.signal,
+      input.progress,
+    );
   } catch (error) {
     log?.(
       `${logPrefix}: blob ${binding.blobId} failed to stream during hydration: ${errorMessage(
@@ -181,6 +193,7 @@ async function loadDocumentAttachmentBlob(
     return null;
   }
 
+  input.signal.throwIfAborted();
   return {
     blobId: binding.blobId,
     encryptedBytes,
@@ -204,7 +217,14 @@ async function loadUniqueDocumentAttachmentBlobs(
     tasks: Array.from(targetsByBlobId.values()).map((target) => ({
       blobId: target.binding.blobId,
       run: () =>
-        loadDocumentAttachmentBlob({ ...input, binding: target.binding }),
+        runBlobTransfer(input.apiClient, (signal, progress) =>
+          loadDocumentAttachmentBlob({
+            ...input,
+            binding: target.binding,
+            signal,
+            progress,
+          }),
+        ),
     })),
   });
 
@@ -284,6 +304,8 @@ async function decryptLoadedDocumentAttachmentBlob(
 export async function hydrateDocumentAttachmentBlobs(
   input: DocumentAttachmentHydrationContext & {
     attachments: ReadonlyArray<DocumentAttachment>;
+    /** No binding target remains unchecked or unavailable in this pass. */
+    onBindingsChecked?: () => void;
   },
 ): Promise<HydratedDocumentAttachmentBlob[] | null> {
   const attachmentBindings = await input.apiClient.listDocumentAttachments(
@@ -311,6 +333,7 @@ export async function hydrateDocumentAttachmentBlobs(
         : [];
     });
   if (hydrationTargets.length === 0) {
+    input.onBindingsChecked?.();
     return [];
   }
 
@@ -353,7 +376,9 @@ export async function hydrateDocumentAttachmentBlobs(
         }),
     })),
   });
-  return hydrated.filter(
+  const complete = hydrated.filter(
     (item): item is HydratedDocumentAttachmentBlob => item !== null,
   );
+  if (complete.length === hydrationTargets.length) input.onBindingsChecked?.();
+  return complete;
 }

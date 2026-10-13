@@ -5,6 +5,10 @@ import type {
   MultipartBlobStageStatusResponse,
 } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
+import {
+  BLOB_TRANSFER_CONCURRENCY,
+  runBlobTransfer,
+} from "../../data/blobs/transferPool";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type {
   BlobAttachmentApi,
@@ -20,6 +24,9 @@ import {
 
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MAX_MULTIPART_UPLOAD_CONCURRENCY = 4;
+// Fetch exposes no upload progress on every host. Allow a slow shared uplink
+// (8 KiB/s total, shared by every admitted part), plus setup/encryption time.
+const MULTIPART_TRANSFER_BYTES_PER_SECOND = 8 * 1024;
 
 interface MultipartPartCommit {
   readonly etag: string;
@@ -94,6 +101,10 @@ async function uploadMultipartPartTasks(input: {
   let failed = false;
   let firstFailure: { readonly error: unknown } | undefined;
   let nextTaskIndex = 0;
+  const recordFailure = (error: unknown) => {
+    failed = true;
+    firstFailure ??= { error };
+  };
 
   async function worker(): Promise<void> {
     while (!failed) {
@@ -104,40 +115,58 @@ async function uploadMultipartPartTasks(input: {
       }
 
       try {
-        const uploaded = await uploadMultipartPartBytes({
-          apiClient: input.apiClient,
-          encryption: input.encryption,
-          stageId: input.stageId,
-          task,
-          uploadId: input.uploadId,
-        });
-        if (!uploaded) {
-          failed = true;
-          throw new Error(
-            multipartApiFailureMessage({
-              apiClient: input.apiClient,
-              fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
-              request: multipartPartRequest({
+        await runBlobTransfer(
+          input.apiClient,
+          async (signal) => {
+            if (failed) return;
+            const aborted = () => recordFailure(signal.reason);
+            signal.addEventListener("abort", aborted, { once: true });
+            try {
+              const uploaded = await uploadMultipartPartBytes({
                 apiClient: input.apiClient,
-                partNumber: task.partNumber,
+                encryption: input.encryption,
                 stageId: input.stageId,
-              }),
-            }),
-          );
-        }
+                task,
+                uploadId: input.uploadId,
+                signal,
+              });
+              signal.throwIfAborted();
+              if (!uploaded) {
+                failed = true;
+                throw new Error(
+                  multipartApiFailureMessage({
+                    apiClient: input.apiClient,
+                    fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
+                    request: multipartPartRequest({
+                      apiClient: input.apiClient,
+                      partNumber: task.partNumber,
+                      stageId: input.stageId,
+                    }),
+                  }),
+                );
+              }
 
-        input.completeParts[task.partIndex] = {
-          etag: uploaded.part.etag,
-          partNumber: task.partNumber,
-        };
-        input.onPartUploaded?.(task);
+              input.completeParts[task.partIndex] = {
+                etag: uploaded.part.etag,
+                partNumber: task.partNumber,
+              };
+              input.onPartUploaded?.(task);
+            } catch (error) {
+              // Publish failure before releasing the permit to a queued sibling.
+              // Already-started parts still record success and drain through the join.
+              recordFailure(error);
+            } finally {
+              signal.removeEventListener("abort", aborted);
+            }
+          },
+          120_000 +
+            Math.ceil(
+              (task.byteLength * BLOB_TRANSFER_CONCURRENCY * 1000) /
+                MULTIPART_TRANSFER_BYTES_PER_SECOND,
+            ),
+        );
       } catch (error) {
-        // Stop sibling workers from pulling new tasks and firing more uploads
-        // once any part rejects. Keep this worker alive long enough for the
-        // shared join below to drain uploads siblings already started.
-        failed = true;
-        firstFailure ??= { error };
-        return;
+        recordFailure(error);
       }
     }
   }
@@ -155,7 +184,9 @@ async function uploadMultipartPartBytes(input: {
   readonly stageId: string;
   readonly task: MultipartPartUploadTask;
   readonly uploadId: string;
+  readonly signal: AbortSignal;
 }): ReturnType<BlobAttachmentApi["uploadMultipartBlobPartBytes"]> {
+  input.signal.throwIfAborted();
   const encryptedPartBytes = await input.encryption.encryptPart(
     input.task.partIndex,
   );
@@ -165,16 +196,20 @@ async function uploadMultipartPartBytes(input: {
     );
   }
 
+  const sha256 = await sha256BytesHex(encryptedPartBytes);
+  input.signal.throwIfAborted();
   const uploaded = await input.apiClient.uploadMultipartBlobPartBytes(
     input.stageId,
     input.task.partNumber,
     {
       byteLength: encryptedPartBytes.byteLength,
       encryptedBytes: encryptedPartBytes,
-      sha256: await sha256BytesHex(encryptedPartBytes),
+      sha256,
       uploadId: input.uploadId,
     },
+    { signal: input.signal },
   );
+  input.signal.throwIfAborted();
   if (
     uploaded &&
     (uploaded.stageId !== input.stageId ||

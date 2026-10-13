@@ -5,7 +5,11 @@ import {
 } from "@tearleads/validators/operation";
 import type { BinaryResponseOperationTransport } from "../../binaryResponseOperationTransport";
 import type { JsonOperationTransport } from "../../operationTransport";
-import type { OperationResponseRequestFn } from "../../types";
+import type {
+  OperationResponseRequestFn,
+  RequestResultOptions,
+} from "../../types";
+import { storageFetchOptions } from "./storageFetchOptions";
 
 export interface BlobBytesResponse {
   readonly blobId: string;
@@ -31,18 +35,20 @@ export async function getBlobBytes(
   transport: BlobDownloadTransport,
   blobId: string,
   downloadFetch: DownloadFetch = (url, init) => fetch(url, init),
+  options: RequestResultOptions = {},
 ): Promise<BlobBytesResponse | null> {
   // Refresh at most once. R2 expiration errors can appear as CORS/network
   // failures in browsers, so both rejected fetches and 403s need a fresh URL.
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (options.signal?.aborted) return null;
     const result = await transport.requestResult(
       getBlobDownloadOperation,
       { params: { blobId } },
-      { reportErrors: false },
+      { ...options, reportErrors: false },
     );
     if (!result.ok) {
       if (result.kind === "http" && result.status === 404) {
-        return getBlobStream(transport, blobId);
+        return getBlobStream(transport, blobId, options);
       }
       result.report();
       return null;
@@ -60,17 +66,15 @@ export async function getBlobBytes(
       return null;
     }
     if (descriptor.source.kind === "api") {
-      return getBlobStream(transport, blobId);
+      return getBlobStream(transport, blobId, options);
     }
     try {
       // Never send the application's session or cookies to the object store.
       // Reject redirects and keep bearer URLs out of referrers and errors.
-      const response = await downloadFetch(descriptor.source.url, {
-        cache: "no-store",
-        credentials: "omit",
-        redirect: "error",
-        referrerPolicy: "no-referrer",
-      });
+      const response = await downloadFetch(
+        descriptor.source.url,
+        storageFetchOptions(options),
+      );
       if (response.status !== 200) {
         await response.body?.cancel().catch(() => {});
         if (response.status === 403) {
@@ -78,14 +82,7 @@ export async function getBlobBytes(
         }
         break;
       }
-      return {
-        blobId: descriptor.blobId,
-        byteLength: descriptor.byteLength,
-        sha256: descriptor.sha256,
-        encryptedBytes: response.body
-          ? signedDownloadBodyStream(response.body)
-          : bufferedResponseBodyStream(await response.arrayBuffer()),
-      };
+      return await signedBlobResponse(descriptor, response);
     } catch {
       // The downstream SDK still verifies length, hash and authenticated
       // encryption. An error after streaming begins propagates to that reader.
@@ -94,7 +91,21 @@ export async function getBlobBytes(
   // Preserve downloads when storage is unreachable or a native HTTP bridge
   // cannot use the signed URL. This endpoint checks current access again.
   // A storage failure alone must not signal that the API is offline.
-  return getBlobStream(transport, blobId);
+  return getBlobStream(transport, blobId, options);
+}
+
+async function signedBlobResponse(
+  descriptor: Pick<BlobBytesResponse, "blobId" | "byteLength" | "sha256">,
+  response: Response,
+): Promise<BlobBytesResponse> {
+  return {
+    blobId: descriptor.blobId,
+    byteLength: descriptor.byteLength,
+    sha256: descriptor.sha256,
+    encryptedBytes: response.body
+      ? signedDownloadBodyStream(response.body)
+      : bufferedResponseBodyStream(await response.arrayBuffer()),
+  };
 }
 
 function signedDownloadBodyStream(
@@ -136,10 +147,16 @@ function signedDownloadBodyStream(
 async function getBlobStream(
   transport: Pick<BinaryResponseOperationTransport, "requestBinaryResponse">,
   blobId: string,
+  options: RequestResultOptions,
 ): Promise<BlobBytesResponse | null> {
-  const result = await transport.requestBinaryResponse(getBlobBytesOperation, {
-    params: { blobId },
-  });
+  if (options.signal?.aborted) return null;
+  const result = await transport.requestBinaryResponse(
+    getBlobBytesOperation,
+    {
+      params: { blobId },
+    },
+    options,
+  );
   if (!result) {
     return null;
   }

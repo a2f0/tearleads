@@ -23,14 +23,20 @@ Current production lanes include:
 The coordinator guarantees that a single lane does not run concurrently with
 itself. If `requestSync()` is called while that lane is already running, the
 request is coalesced into one follow-up pass after the current pass finishes.
-The coordinator also serializes lanes for a domain scope and drains them by
-phase. All queued `structural` work runs before queued `document` work. This
+The coordinator drains structural lanes serially, then runs up to four
+document lanes concurrently. All queued `structural` work runs before queued
+`document` work. This
 keeps container creates, moves, and container metadata sync ahead of document
 creation, Loro update sync, and attachment blob binding.
 
 The pump is non-preemptive: a lane pass that has already started is allowed to
 finish. New higher-priority requests are selected before the next lower-priority
-lane pass starts.
+lane pass starts. A structural request pauses new document starts and waits for
+running documents before crossing the phase barrier. Equal-priority work rotates
+by last run order; remote hints and fresh document discovery take priority over
+ordinary background work. Failure backoff and watchdogs belong to each lane.
+Delayed structural requests also reserve this barrier until their timer expires;
+production structural lanes currently request immediate work only.
 
 The coordinator also maintains cached read-only telemetry snapshots. A snapshot
 contains lane phase, status, request/run/error counts, last action timestamps,
@@ -70,6 +76,19 @@ the real upload workflow and never own or schedule work. The byte stores, blob
 envelopes, and attachment persistence live elsewhere under `data/blobs`,
 `data/blob*`, and document persistence modules. This coordinator never reads or
 writes blob bytes directly.
+
+Downloads currently buffer each document's encrypted attachment set before
+decryption. Four ordinary workers can retain such sets concurrently, and
+watchdog-abandoned callbacks can outlive those workers. The separate
+four-permit transfer pool limits logical byte I/O, not retained bytes or
+transport tails that ignore cancellation; memory depends on attachment sizes.
+Deadlines start after a transfer acquires a permit. Downloads have a two-minute
+idle deadline renewed by received chunks. Upload parts allow two minutes plus
+their byte length at an aggregate 8 KiB/s divided among all four transfer
+permits, accommodating a saturated slow uplink without upload progress events.
+Expiry aborts fetch and stream reads and releases
+logical permits even if a native transport ignores abort.
+Such abandoned transport tails cannot publish upload progress or hydrated bytes.
 
 Container contents also uses lanes for domain-specific sync work. Container
 contents sync creates pending remote containers, applies pending container move

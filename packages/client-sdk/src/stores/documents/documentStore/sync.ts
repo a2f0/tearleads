@@ -441,6 +441,10 @@ export function registerDocumentStoreSyncLane(
   return registerDocumentSyncLane({
     domainScope: state.runtime.state.domainScope,
     localId: state.localId,
+    priority: () =>
+      state.remoteUpdatePending || state.record?.snapshotEndVersion === ""
+        ? -1
+        : 0,
     logError: (message, error) => {
       // Read the runtime lazily: a store's runtime is replaced in place, and a
       // reference captured here would report into a torn-down host.

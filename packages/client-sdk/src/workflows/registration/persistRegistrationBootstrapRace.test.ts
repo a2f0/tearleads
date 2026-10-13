@@ -73,6 +73,7 @@ test("registration replay keeps the winning record and history checkpoint paired
       accessStateHash: `access-${winner.documentId}`,
       contentKeyBundle: winner.contentKeyBundle,
       documentId: winner.documentId,
+      effectiveAccessLevel: "admin",
       text: winner.text,
     });
     const restored = await loadPersistedDocumentContent({

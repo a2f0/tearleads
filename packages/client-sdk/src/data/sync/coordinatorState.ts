@@ -12,6 +12,8 @@ export interface SyncLaneState {
   // set, so a lane can never run concurrently with its own abandoned run; the
   // late-settle continuation clears it (matching on identity) and re-pumps.
   activeRunToken: object | null;
+  backingOff: boolean;
+  lastRunOrder: number;
   blobStorageKey: string | null;
   config: SyncLaneConfig;
   errorCount: number;
@@ -37,19 +39,22 @@ export interface SyncLaneState {
 }
 
 export interface DomainSyncCoordinatorState {
-  // Set by dispose(): the pump force-stops at its next loop check and no new
-  // pump can be scheduled, so a coordinator cannot run after its runtime/React
-  // tree unmounts.
+  // Set by dispose(): stop admitting work and drain already-running callbacks
+  // (or their watchdogs). No new pump can be scheduled after runtime teardown.
   disposed: boolean;
   lanes: Map<string, SyncLaneState>;
   listeners: Set<() => void>;
   nextRegistrationIndex: number;
+  nextRunOrder: number;
+  wakePump: (() => void) | null;
   pump: Promise<void> | null;
   snapshot: DomainSyncSnapshot;
 }
 
 export const INITIAL_SYNC_LANE_RUN_STATE = {
   activeRunToken: null,
+  backingOff: false,
+  lastRunOrder: 0,
   runAbandoned: false,
   runCount: 0,
   running: false,
@@ -102,7 +107,7 @@ export function noopLaneRun(): Promise<void> {
   return Promise.resolve();
 }
 
-// Deliberately ignores activeRunToken (unlike the pump's hasRequestedLaneWork):
+// Deliberately ignores activeRunToken (unlike the pump's hasRunnableLaneWork):
 // a watchdog-abandoned run is detached background work, and idle/pending-work
 // reporting must not block on a hung run that may never settle. Its late
 // settle still publishes a snapshot and re-pumps any queued re-request.

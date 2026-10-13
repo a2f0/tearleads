@@ -249,6 +249,11 @@ updates, local blob storage keys, and upload cryptographic material stay private
 This answers what remains pending; sync snapshots show scheduler work
 and `blobStorageKey` navigation into Blob Browser.
 
+Custom sync lanes may provide `SyncLaneConfig.priority()`: lower finite numbers
+start first within a phase, with fair rotation among ties. Missing, throwing,
+or nonfinite priority values use zero. Structural work remains a phase barrier;
+priority never interrupts a running callback.
+
 Two per-row recovery actions pair with that view.
 `documentQueries().retryPendingWriteItem(...)` resets the item's parked retry
 state (for documents, the durable re-key budget; the recorded terminal failure

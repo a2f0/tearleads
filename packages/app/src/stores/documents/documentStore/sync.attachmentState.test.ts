@@ -287,14 +287,9 @@ test("document store revalidates before uploading attachments", async () => {
   ]);
   expect(attachmentBinds).toHaveLength(1);
   expect(documentWriterProjectionCalls).toEqual([]);
-  const syncedDocumentId = persistence.getState().document?.documentId;
-  if (!syncedDocumentId) {
-    throw new Error("Expected a synced document after attachment upload.");
-  }
-  expect(listDocumentAttachmentsCalls).toEqual([
-    syncedDocumentId,
-    syncedDocumentId,
-  ]);
+  // Local bytes match the uploaded attachment intent; no remote hint asks
+  // for a binding refresh during either document revalidation.
+  expect(listDocumentAttachmentsCalls).toEqual([]);
 });
 
 test("document store marks a synced attachment detached before the detach flushes", async () => {
