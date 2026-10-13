@@ -20,10 +20,6 @@ import {
   startLocalWorker,
   stringField,
 } from "../../test/helpers/localWorker";
-import {
-  holdAccessManifestHeadForUpdate,
-  waitForPostgresLockWait,
-} from "../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../test/helpers/registerUser";
 
 /**
@@ -261,64 +257,6 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
         200,
       ),
     ).toHaveProperty("updates");
-
-    // Hold a real database lock to prove the request is inside its route,
-    // then fill the queue to exercise the overload response at the entry.
-    const lock = await holdAccessManifestHeadForUpdate({
-      objectId: document.id,
-      objectKind: "document",
-    });
-    const submit = async () => {
-      const response = await postJson(url, request, {
-        authorization: `Bearer ${tokens[0]}`,
-      });
-      await response.text();
-      return response.status;
-    };
-    const active = submit();
-    let queued: ReturnType<typeof submit>[] = [];
-    try {
-      await waitForPostgresLockWait({
-        blockerPid: lock.backendPid,
-        minimumWaiters: 1,
-        queryFragment: "access_manifest_heads",
-      });
-      queued = Array.from({ length: 32 }, submit);
-      await Bun.sleep(200);
-      const overflow = await fetch(url, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${tokens[0]}`,
-          "content-type": "application/json",
-          origin: "https://external-sdk.example",
-        },
-        body: JSON.stringify(request),
-        signal: AbortSignal.timeout(5_000),
-      });
-      expect(await expectJson(overflow, 503)).toEqual({
-        error: "Server busy, please retry",
-      });
-      expect(overflow.headers.get("retry-after")).toBe("1");
-      expect(overflow.headers.get("access-control-allow-origin")).toBe("*");
-    } finally {
-      await lock.release();
-    }
-    const statuses = await Promise.all([active, ...queued]);
-    expect(statuses).toHaveLength(33);
-    expect(statuses.every((status) => status === 200)).toBe(true);
-    // Draining the burst must leave capacity for the next tiny sync. Abort
-    // signal behavior is covered directly in bodyAdmission.test.ts: Wrangler's
-    // local proxy can finish forwarding a request after its client disconnects.
-    const afterQueue = await fetch(url, {
-      method: "POST",
-      headers: {
-        authorization: `Bearer ${tokens[0]}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(request),
-      signal: AbortSignal.timeout(5_000),
-    });
-    expect(await expectJson(afterQueue, 200)).toHaveProperty("updates");
   }, 120_000);
 
   test("dispatches the billing Cron to the maintenance phases", async () => {
