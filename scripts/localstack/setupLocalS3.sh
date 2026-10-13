@@ -190,6 +190,9 @@ main() {
   compose_cmd -f "${COMPOSE_FILE}" up -d localstack
   wait_for_localstack
   ensure_bucket_exists
+  run_aws_cli s3api put-bucket-cors \
+    --bucket "${BLOB_OBJECT_STORE_S3_BUCKET}" \
+    --cors-configuration "$(cat "${LOCALSTACK_DIR}/blobDownloadCors.json")"
 
   echo "Local S3 is ready at ${BLOB_OBJECT_STORE_S3_ENDPOINT}."
   echo "Bucket: ${BLOB_OBJECT_STORE_S3_BUCKET}"
