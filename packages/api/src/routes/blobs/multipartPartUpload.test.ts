@@ -39,14 +39,17 @@ function authenticated(userId: string) {
     return next();
   });
 }
-async function fixture() {
+async function fixture(
+  bytes = new TextEncoder().encode("part-1part-2"),
+  firstPartByteLength = 6,
+) {
   const owner = await createBlobStageOwner();
   const runtime = createServiceTestRuntime();
   const memory = runtime.blobObjectStore;
   const stage = await initiateMultipartBlobStage(runtime, {
     ...owner,
-    byteLength: 12,
-    sha256: sha256Hex("part-1part-2"),
+    byteLength: bytes.byteLength,
+    sha256: sha256Hex(bytes),
   });
   createdStages.push({ runtime, stageId: stage.stageId });
   const createUploadPartUrl = mock(
@@ -68,8 +71,10 @@ async function fixture() {
     runtime,
   });
   const body = {
-    byteLength: 6,
-    contentMd5: createHash("md5").update("part-1").digest("base64"),
+    byteLength: firstPartByteLength,
+    contentMd5: createHash("md5")
+      .update(bytes.subarray(0, firstPartByteLength))
+      .digest("base64"),
     uploadId: stage.uploadId,
   };
   const path = `/blobs/stages/multipart/${stage.stageId}/parts/1/upload`;
@@ -165,7 +170,7 @@ test("part authorization bounds identity, size and checksum before signing", asy
       ).status,
     ).toBe(status);
   }
-  for (const part of [0, 10_001]) {
+  for (const part of [0, 2, 10_000, 10_001]) {
     expect(
       (
         await f.route.request(f.path.replace("/parts/1/", `/parts/${part}/`), {
@@ -215,7 +220,11 @@ test("part authorization clamps URL lifetime to the remaining stage lifetime", a
 });
 
 test("later chunks receive fresh URLs after five minutes and complete with earlier ETags", async () => {
-  const f = await fixture();
+  const firstPartByteLength = 5 * 1024 * 1024;
+  const bytes = new Uint8Array(firstPartByteLength + 6);
+  bytes.set(new TextEncoder().encode("part-2"), firstPartByteLength);
+  const firstPart = bytes.subarray(0, firstPartByteLength);
+  const f = await fixture(bytes, firstPartByteLength);
   const first = MultipartBlobPartUploadResponseSchema.parse(
     await (
       await f.route.request(f.path, {
@@ -231,9 +240,9 @@ test("later chunks receive fresh URLs after five minutes and complete with earli
     uploadId: f.stage.uploadId,
     partNumber: 1,
     body: {
-      bytes: new TextEncoder().encode("part-1"),
-      byteLength: 6,
-      sha256: sha256Hex("part-1"),
+      bytes: firstPart,
+      byteLength: firstPart.byteLength,
+      sha256: sha256Hex(firstPart),
     },
   });
   const clock = spyOn(Date, "now").mockReturnValue(Date.now() + 301_000);
@@ -245,6 +254,7 @@ test("later chunks receive fresh URLs after five minutes and complete with earli
         headers: f.headers,
         body: JSON.stringify({
           ...f.body,
+          byteLength: 6,
           contentMd5: createHash("md5").update("part-2").digest("base64"),
         }),
       },
@@ -287,7 +297,7 @@ test("later chunks receive fresh URLs after five minutes and complete with earli
         uploadId: f.stage.uploadId,
         parts: [part1, part2],
       }),
-    ).toMatchObject({ byteLength: 12, sha256: sha256Hex("part-1part-2") });
+    ).toMatchObject({ byteLength: bytes.byteLength, sha256: sha256Hex(bytes) });
   } finally {
     clock.mockRestore();
   }

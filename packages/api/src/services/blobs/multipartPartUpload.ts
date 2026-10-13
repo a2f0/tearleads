@@ -11,6 +11,8 @@ import {
   MultipartBlobStageError,
 } from "./multipartStageAccess";
 
+const MIN_S3_MULTIPART_PART_BYTES = 5 * 1024 * 1024;
+
 export async function authorizeMultipartBlobPartUpload(
   runtime: ApiServiceRuntime,
   input: AuthenticatedMultipartBlobStageInput &
@@ -39,6 +41,14 @@ export async function authorizeMultipartBlobPartUpload(
     input.byteLength > stage.byteLength
   ) {
     throw new MultipartBlobStageError("Invalid multipart part", 400);
+  }
+  // Every nonfinal S3/R2 part must be at least 5 MiB. Do not let a small
+  // declared object authorize thousands of otherwise individually valid parts.
+  if (
+    runtime.blobObjectStore.createUploadPartUrl &&
+    input.partNumber > Math.ceil(stage.byteLength / MIN_S3_MULTIPART_PART_BYTES)
+  ) {
+    throw new MultipartBlobStageError("Part number exceeds staged size", 400);
   }
   // Issue one capability just before each part. Renewing it never changes the
   // stage/upload identity or invalidates earlier parts. Stage expiry still wins.

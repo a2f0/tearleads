@@ -219,8 +219,11 @@ upload ID, byte length, and base64 Content-MD5. The API checks the stage owner,
 expiry, completion state, upload ID, and bounded part metadata, then signs only
 the stored object key and requested part. The client sends a binary `File`
 directly to S3/R2 with Content-MD5; the signature binds its length and checksum.
-Parts remain capped at 32 MiB. File bodies preserve binary data through the
-Capacitor HTTP bridge. Browser requests omit cookies, API authorization, and
+Parts remain capped at 32 MiB.
+Part numbers are also bounded by the staged size and S3/R2's 5 MiB nonfinal-part
+minimum, so small stages cannot authorize thousands of stored parts.
+File bodies preserve binary data through the Capacitor HTTP bridge.
+Browser requests omit cookies, API authorization, and
 referrers, and reject redirects; physical-device enforcement of these fetch
 options has not been verified.
 
@@ -229,7 +232,8 @@ lifetime. A file can take longer than five minutes: later chunks receive new
 URLs just before sending, while the stage ID, upload ID, and earlier part ETags
 stay the same. Refreshing a URL does not restart or invalidate earlier chunks.
 A rejected or failed request can reauthorize and retry the same immutable part
-once. Interrupted uploads retain resumable stage state and reconcile actual
+once, with a short backoff for storage throttling or server errors.
+Interrupted uploads retain resumable stage state and reconcile actual
 stored parts through `ListParts`. URLs are never persisted as resume state.
 The existing one-hour stage lifetime is separate: URLs do not extend it, and an
 expired stage cannot be completed. An accepted request is not aborted by a
@@ -272,11 +276,13 @@ Storage failures alone do not mark the API offline. Accepted streams are never
 silently restarted or switched to the fallback after delivering bytes.
 
 The S3 endpoint must be reachable from the client, not just the API. Private R2
-blob buckets allow cross-origin GETs and PUTs from any origin to support web, desktop,
-and mobile clients; valid signatures are still required. Deploy the storage
-stack's CORS configuration, then deploy the API, then release the new clients.
-Older APIs continue through the authenticated stream fallback. For other S3
-providers, apply the equivalent GET/PUT rule in
+blob buckets allow cross-origin GETs and PUTs from any origin to support web,
+desktop, and mobile clients; valid signatures are still required. Deploy the storage
+stack's CORS configuration before the coordinated API/client upload cutover.
+Only downloads support older APIs through the authenticated stream fallback.
+Old upload clients, including installed native apps, receive 409 on the new
+S3/R2 byte route; new clients require the new upload-authorization route.
+For other S3 providers, apply the equivalent GET/PUT rule in
 `scripts/localstack/blobTransferCors.json`.
 
 LocalStack helper:

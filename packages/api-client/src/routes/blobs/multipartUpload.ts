@@ -13,6 +13,15 @@ import type { UploadMultipartBlobPartBytesRequest } from "./get";
 
 type UploadFetch = (url: string, init: RequestInit) => Promise<Response>;
 
+async function retryStorageStatus(status: number, attempt: number) {
+  if (status === 403) return true;
+  const transient = status === 429 || (status >= 500 && status <= 599);
+  if (transient && attempt === 0) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
+  }
+  return transient;
+}
+
 async function preparePart(input: UploadMultipartBlobPartBytesRequest) {
   // File snapshots mutable buffers and preserves ciphertext across Capacitor's
   // native HTTP bridge. Uint8Array is UTF-8 decoded there; a plain Blob becomes
@@ -121,7 +130,7 @@ export async function uploadMultipartBlobPartBytes(
           part: { byteLength: input.byteLength, partNumber, etag },
         };
       }
-      if (status !== 403) break;
+      if (!(await retryStorageStatus(status, attempt))) break;
     } catch {
       // Never expose a provider exception or body: it may contain the bearer URL.
       status = null;

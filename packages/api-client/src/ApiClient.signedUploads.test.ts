@@ -112,7 +112,12 @@ testApiClient(
   },
 );
 
-for (const firstFailure of ["expired", "network"] as const) {
+for (const firstFailure of [
+  "expired",
+  "network",
+  "throttled",
+  "server",
+] as const) {
   testApiClient(
     `renews a ${firstFailure} upload URL for the same immutable part`,
     async () => {
@@ -134,7 +139,14 @@ for (const firstFailure of ["expired", "network"] as const) {
           if (uploadedUrls.length === 1)
             return firstFailure === "network"
               ? HttpResponse.error()
-              : new HttpResponse(null, { status: 403 });
+              : new HttpResponse(null, {
+                  status:
+                    firstFailure === "expired"
+                      ? 403
+                      : firstFailure === "throttled"
+                        ? 429
+                        : 503,
+                });
           return new HttpResponse(null, { headers: { ETag: "part-etag" } });
         }),
       );
@@ -192,7 +204,7 @@ for (const override of [
   );
 }
 
-for (const status of [200, 400, 403, 404, 500, null]) {
+for (const status of [200, 400, 403, 404, 429, 500, 503, null]) {
   testApiClient(
     `reports storage failure ${status} without leaking URLs or marking API offline`,
     async () => {
@@ -220,7 +232,10 @@ for (const status of [200, 400, 403, 404, 500, null]) {
       expect(
         await client.uploadMultipartBlobPartBytes(stageId, 1, request),
       ).toBeNull();
-      const attempts = status === null || status === 403 ? 2 : 1;
+      const attempts =
+        status === null || status === 403 || status === 429 || status >= 500
+          ? 2
+          : 1;
       expect(authorizations).toBe(attempts);
       expect(storageCalls).toBe(attempts);
       expect(messages).toHaveLength(1);

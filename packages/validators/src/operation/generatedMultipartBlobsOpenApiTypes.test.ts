@@ -9,6 +9,10 @@ import type {
   MultipartBlobStageStatusResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
+import type {
+  MultipartBlobPartUploadRequest,
+  MultipartBlobPartUploadResponse,
+} from "./multipartPartUploads";
 
 type IsEqual<Left, Right> =
   (<Value>() => Value extends Left ? 1 : 2) extends <
@@ -52,8 +56,34 @@ type CompleteRequest =
   CompleteOperation["requestBody"]["content"]["application/json"];
 type CompleteResponse =
   CompleteOperation["responses"][200]["content"]["application/json"];
+type PartUploadOperation = operations["blobs.multipartStages.parts.authorize"];
 
 function assertType<Condition extends true>(_condition?: Condition): void {}
+
+test("generated OpenAPI types match part upload authorization", () => {
+  assertType<
+    IsEqual<
+      paths["/blobs/stages/multipart/{stageId}/parts/{partNumber}/upload"]["post"],
+      PartUploadOperation
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<
+        PartUploadOperation["requestBody"]["content"]["application/json"]
+      >,
+      NormalizeWireType<MultipartBlobPartUploadRequest>
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<
+        PartUploadOperation["responses"][200]["content"]["application/json"]
+      >,
+      NormalizeWireType<MultipartBlobPartUploadResponse>
+    >
+  >();
+});
 
 test("generated OpenAPI types match multipart control contracts", () => {
   assertType<
