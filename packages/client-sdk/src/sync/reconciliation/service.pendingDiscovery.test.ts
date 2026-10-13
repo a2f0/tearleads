@@ -64,6 +64,7 @@ test("a pending discovery for the open container retries ahead of idle work", as
     activeContainerId: "open",
     automaticRetryGenerations: new Map<string, number>(),
     discoveredContainerIds: new Set(["open"]),
+    forcedDocumentIds: new Map(),
     forcedContainerGenerations: new Map<string, number>(),
     initialDocumentProbe: createInitialDocumentProbe(host),
     nextForceGeneration: 0,

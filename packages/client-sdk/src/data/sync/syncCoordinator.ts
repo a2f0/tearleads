@@ -82,6 +82,8 @@ function createDomainSyncCoordinator(): DomainSyncCoordinator {
     lanes: new Map<string, SyncLaneState>(),
     listeners: new Set(),
     nextRegistrationIndex: 0,
+    nextRunOrder: 0,
+    wakePump: null,
     pump: null,
     snapshot: createDomainSyncSnapshot({
       hasPendingWork: false,

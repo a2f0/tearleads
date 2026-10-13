@@ -23,14 +23,18 @@ Current production lanes include:
 The coordinator guarantees that a single lane does not run concurrently with
 itself. If `requestSync()` is called while that lane is already running, the
 request is coalesced into one follow-up pass after the current pass finishes.
-The coordinator also serializes lanes for a domain scope and drains them by
-phase. All queued `structural` work runs before queued `document` work. This
+The coordinator drains structural lanes serially, then runs up to four
+document lanes concurrently. All queued `structural` work runs before queued
+`document` work. This
 keeps container creates, moves, and container metadata sync ahead of document
 creation, Loro update sync, and attachment blob binding.
 
 The pump is non-preemptive: a lane pass that has already started is allowed to
 finish. New higher-priority requests are selected before the next lower-priority
-lane pass starts.
+lane pass starts. A structural request pauses new document starts and waits for
+running documents before crossing the phase barrier. Equal-priority work rotates
+by last run order; remote hints and fresh document discovery take priority over
+ordinary background work. Failure backoff and watchdogs belong to each lane.
 
 The coordinator also maintains cached read-only telemetry snapshots. A snapshot
 contains lane phase, status, request/run/error counts, last action timestamps,

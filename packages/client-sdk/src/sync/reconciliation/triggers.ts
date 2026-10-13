@@ -9,12 +9,18 @@ import type { ReconciliationService } from "./serviceTypes";
 
 function enqueueKnownEventContainers(input: {
   readonly containerIds: ReadonlyArray<string>;
+  readonly documentId: string;
   readonly knownContainerIds: ReadonlySet<string>;
   readonly service: ReconciliationService;
 }): void {
   for (const containerId of input.containerIds) {
     if (input.knownContainerIds.has(containerId)) {
-      input.service.enqueueContainer(containerId, "active", true);
+      input.service.enqueueContainer(
+        containerId,
+        "active",
+        true,
+        input.documentId,
+      );
     }
   }
 }
@@ -66,7 +72,8 @@ export function connectReconciliationTriggers(input: {
 /**
  * Translate a batch of server events into reconciler work. Containers named by
  * document content or structural mutation events are reconciled at active
- * priority. Document updates must carry the current container-scoped hint shape.
+ * priority; content pulls target only the event's document. Document updates
+ * must carry the current container-scoped hint shape.
  *
  * `domainScope`, when provided, suppresses self-echoes: a `document_update_created`
  * whose documentId this client just originated (created/uploaded) is dropped
@@ -90,6 +97,7 @@ export function enqueueReconciliationForEvents(input: {
       // while another session for the same identity must reconcile both sides.
       enqueueKnownEventContainers({
         containerIds: event.containerIds,
+        documentId: event.documentId,
         knownContainerIds: knownContainerIdSet,
         service,
       });
@@ -110,6 +118,7 @@ export function enqueueReconciliationForEvents(input: {
     // container was already reconciled this session.
     enqueueKnownEventContainers({
       containerIds: event.containerIds,
+      documentId: event.documentId,
       knownContainerIds: knownContainerIdSet,
       service,
     });

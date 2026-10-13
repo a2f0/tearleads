@@ -35,14 +35,11 @@ afterEach(async () => {
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // The memory-store path uses ten mutation/blob requests (including part
-  // authorization), eighteen public-history
-  // reads and fifteen bounded policy reads to authenticate metadata-root grants
-  // with private recovery. Keep one request of aggregate headroom. Per-route
-  // caps are independent maxima: the
-  // second attachment-list allowance and the optional writer/discovery reads
-  // are scenario-specific headroom and do not occur in that steady path.
-  total: 44,
+  // Nine mutation/blob requests, eighteen public-history reads and fifteen
+  // bounded policy reads authenticate metadata-root grants. Held bytes match
+  // the authenticated attachment intent, so local settlement needs no binding
+  // listing. Keep one request of aggregate scheduling headroom.
+  total: 43,
   byRequest: {
     // Each projection verification rechecks its organization/Admins head page.
     "GET /principals/history": 18,
@@ -61,7 +58,7 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "POST /blobs/stages/multipart/:stageId/complete": 1,
     "POST /blobs/:blobId/attachment-bindings": 1,
     "POST /documents/:documentId/sync": 3,
-    "GET /documents/:documentId/attachments": 2,
+    "GET /documents/:documentId/attachments": 0,
     // With system bootstrap decoupled from Explorer startup, the upload path may
     // be the first writer to need the root container projection in this settled
     // test window.

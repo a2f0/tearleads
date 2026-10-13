@@ -486,6 +486,7 @@ test("a run exceeding its watchdog frees the queue instead of blocking it", asyn
   let nextRan = false;
 
   const stuckLane = coordinator.registerLane("stuck", {
+    phase: "structural",
     run: () => stuckRelease,
     watchdogMs: 20,
   });
@@ -498,8 +499,7 @@ test("a run exceeding its watchdog frees the queue instead of blocking it", asyn
   stuckLane.requestSync();
   nextLane.requestSync();
 
-  // The stuck lane is selected first (registration order) and holds the pump
-  // only until its watchdog fires; the queue then drains past it.
+  // The structural watchdog releases the phase barrier for document work.
   await waitFor(() => nextRan, "Next lane never ran.", 2_000);
 
   const snapshot = getDomainSyncCoordinatorSnapshot(domainScope);

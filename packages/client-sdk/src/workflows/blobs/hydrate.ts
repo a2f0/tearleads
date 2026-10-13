@@ -6,6 +6,7 @@ import type {
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
 import type { BlobBytes } from "../../data/blobContracts";
+import { runBlobTransfer } from "../../data/blobs/transferPool";
 import { attachmentContentSha256 } from "../../data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { errorMessage } from "../../data/errorMessage";
@@ -204,7 +205,9 @@ async function loadUniqueDocumentAttachmentBlobs(
     tasks: Array.from(targetsByBlobId.values()).map((target) => ({
       blobId: target.binding.blobId,
       run: () =>
-        loadDocumentAttachmentBlob({ ...input, binding: target.binding }),
+        runBlobTransfer(input.apiClient, () =>
+          loadDocumentAttachmentBlob({ ...input, binding: target.binding }),
+        ),
     })),
   });
 

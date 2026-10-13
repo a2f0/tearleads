@@ -12,6 +12,14 @@ import {
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
 } from "./syncGeneration";
 
+// A remote probe is evidence that bindings may have moved independently of
+// content. Capture its sequence before I/O so a hint arriving during hydration
+// survives for the trailing pass. Missing or changed local bytes always retry.
+const checkedSignals = new WeakMap<
+  DocumentStoreState,
+  { documentId: string; document: DocumentState; sequence: number }
+>();
+
 export async function hydrateAttachmentBlobs(
   state: DocumentStoreState,
   currentDoc: DocumentState,
@@ -38,6 +46,25 @@ export async function hydrateAttachmentBlobs(
     return;
   }
 
+  const signalSequence = state.remoteUpdateSignalSeq;
+  const checked = checkedSignals.get(state);
+  const needsBindingProbe =
+    signalSequence >
+    (checked?.documentId === currentRecord.documentId &&
+    checked.document === currentDoc
+      ? checked.sequence
+      : 0);
+  if (
+    !needsBindingProbe &&
+    attachments.every(
+      (attachment) =>
+        state.attachmentStorageKeyBySlotId[attachment.slotId] &&
+        state.attachmentContentSha256BySlotId[attachment.slotId] ===
+          attachment.contentSha256,
+    )
+  )
+    return;
+
   const expectedStorageKeys = { ...state.attachmentStorageKeyBySlotId };
   const hydratedBlobs = await hydrateDocumentAttachmentBlobs({
     apiClient: runtime.apiClient,
@@ -61,6 +88,12 @@ export async function hydrateAttachmentBlobs(
   if (!hydratedBlobs) {
     return;
   }
+
+  checkedSignals.set(state, {
+    documentId: currentRecord.documentId,
+    document: currentDoc,
+    sequence: signalSequence,
+  });
 
   for (const hydratedBlob of hydratedBlobs) {
     await commitHydratedAttachment({

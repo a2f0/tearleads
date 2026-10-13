@@ -1,6 +1,6 @@
 # Protocol Models
 
-This directory contains executable abstractions of protocol safety rules. The
+This directory contains executable protocol safety models. The
 models complement the runtime grammar in
 [`docs/protocol-specification.md`](../docs/protocol-specification.md); they do
 not replace Zod validation, cryptographic verification, database constraints,
@@ -16,14 +16,11 @@ bun run check:protocol-models
 The repository pins Java 25 LTS and the prebuilt TLA+ tools; TLC itself requires
 Java 11 or newer. No generated state directory or tool binary is committed.
 
-[`protocol-models.txt`](./protocol-models.txt) is the pull-request model
-registry. Each non-comment line pairs one repository-relative TLA+ module and
-configuration as `model|config`. The checker validates the complete registry
-before starting Java, rejects unregistered configuration files, sorts pairs
-deterministically, and gives each TLC invocation an isolated state directory.
-Runs overlap `PROTOCOL_TLC_PARALLELISM` at a time (default 2), each with a
-private Java tmpdir and hosts file, and their output is reported in registry
-order.
+[`protocol-models.txt`](./protocol-models.txt) registers `model|config` pairs.
+The checker validates every pair and rejects unregistered configurations before
+running Java. Each invocation has isolated state, JVM temporary files, and hosts
+files. `PROTOCOL_TLC_PARALLELISM` controls concurrency (default 2); results print
+in deterministic registry order.
 
 Model documentation that maps abstract actions to production seams does so in
 `Model action … | Production …` tables; the registry in
@@ -51,9 +48,8 @@ in `check:fast`) replays recorded runs of the real container-path and
 principal-policy verifiers through `NoBrickedDevice` the way the restart-probe
 projection does; see the [trace projection section](./container-keying/NoBrickedDevice.md).
 
-Negative controls do not establish non-vacuity for every property or prove
-that all intended actions are reachable. See the [September 2026 audit](./audit-2026-09.md)
-for the coverage inventory, improvements, and prioritized remaining work.
+Negative controls cover selected properties; see the
+[September 2026 audit](./audit-2026-09.md) for remaining coverage gaps.
 
 The [container depth model](./container-keying/ContainerDepth.md) checks that
 create and subtree moves preserve readable paths. Policy revocation is outside
@@ -68,6 +64,13 @@ One module may appear with multiple configurations, but each configuration must
 appear exactly once. Keep registered bounds small enough for `check:fast`;
 broader configurations should use a separate scheduled suite rather than
 silently increasing pull-request check time.
+
+## Sync Lane Concurrency
+
+[`document-sync/SyncLaneConcurrency.tla`](./document-sync/SyncLaneConcurrency.tla)
+checks bounded document workers, structural ordering, exclusive lane ownership
+through watchdog expiry, trailing requests, and lane-local failure backoff. See
+the [mapping and boundaries](./document-sync/SyncLaneConcurrency.md).
 
 ## Container Deletion
 

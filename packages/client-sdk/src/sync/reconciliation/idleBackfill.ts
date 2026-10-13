@@ -7,6 +7,7 @@ export interface IdleBackfillState {
   automaticRetryGenerations: Map<string, number>;
   discoveredContainerIds: Set<string>;
   forcedContainerGenerations: Map<string, number>;
+  forcedDocumentIds: Map<string, ReadonlySet<string>>;
   initialDocumentProbe: InitialDocumentProbe;
   nextForceGeneration: number;
   queue: ReconcileQueue;
@@ -15,7 +16,21 @@ export interface IdleBackfillState {
 export function markContainerForced(
   state: IdleBackfillState,
   containerId: string,
+  documentId?: string,
 ): void {
+  const previous = state.forcedDocumentIds.get(containerId);
+  if (
+    documentId &&
+    (!state.forcedContainerGenerations.has(containerId) || previous)
+  ) {
+    state.forcedDocumentIds.set(
+      containerId,
+      new Set([...(previous ?? []), documentId]),
+    );
+  } else {
+    // A full revalidation dominates any pending targeted hints.
+    state.forcedDocumentIds.delete(containerId);
+  }
   state.nextForceGeneration += 1;
   state.automaticRetryGenerations.delete(containerId);
   state.forcedContainerGenerations.set(containerId, state.nextForceGeneration);
@@ -28,6 +43,7 @@ export function acknowledgeContainerForce(
 ): void {
   if (state.forcedContainerGenerations.get(containerId) === generation) {
     state.forcedContainerGenerations.delete(containerId);
+    state.forcedDocumentIds.delete(containerId);
     state.automaticRetryGenerations.delete(containerId);
   }
 }
@@ -35,11 +51,11 @@ export function acknowledgeContainerForce(
 export function activateContainer(
   state: IdleBackfillState,
   containerId: string | null,
-  enqueue: (containerId: string, force: boolean) => void,
+  enqueue: (containerId: string) => void,
 ): void {
   state.activeContainerId = containerId;
   if (containerId) {
-    enqueue(containerId, state.forcedContainerGenerations.has(containerId));
+    enqueue(containerId);
   }
 }
 

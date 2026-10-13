@@ -5,6 +5,7 @@ import type {
   MultipartBlobStageStatusResponse,
 } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
+import { runBlobTransfer } from "../../data/blobs/transferPool";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type {
   BlobAttachmentApi,
@@ -104,13 +105,17 @@ async function uploadMultipartPartTasks(input: {
       }
 
       try {
-        const uploaded = await uploadMultipartPartBytes({
-          apiClient: input.apiClient,
-          encryption: input.encryption,
-          stageId: input.stageId,
-          task,
-          uploadId: input.uploadId,
-        });
+        const uploaded = await runBlobTransfer(input.apiClient, () =>
+          failed
+            ? Promise.resolve(null)
+            : uploadMultipartPartBytes({
+                apiClient: input.apiClient,
+                encryption: input.encryption,
+                stageId: input.stageId,
+                task,
+                uploadId: input.uploadId,
+              }),
+        );
         if (!uploaded) {
           failed = true;
           throw new Error(

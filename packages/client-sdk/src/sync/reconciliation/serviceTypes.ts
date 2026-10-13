@@ -41,12 +41,14 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
    * refresh) revalidates registered ordinary documents and retries system
    * documents; otherwise only unopened system documents are synced, so a
    * background pass can materialize projection-owned content without eagerly
-   * opening every ordinary document.
+   * opening every ordinary document. A documentIds set limits forced pulls to
+   * hint-named documents while still discovering new system content.
    */
   requestDocumentContentPull: (
     containerId: string,
     documents: ReadonlyArray<DocumentSummary>,
     force: boolean,
+    documentIds?: ReadonlySet<string>,
   ) => void;
   /** Refresh the container tree from the server (explicit refresh). */
   refreshTree: () => Promise<void>;
@@ -61,10 +63,12 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
 export interface ReconciliationService {
   start: () => void;
   setActiveContainer: (containerId: string | null) => void;
+  /** Force a listing; documentId limits content revalidation to that hint. */
   enqueueContainer: (
     containerId: string,
     priority: ReconcilePriority,
     force?: boolean,
+    documentId?: string,
   ) => void;
   /** Queue known containers at idle priority. */
   enqueueIdleBackfill: () => void;

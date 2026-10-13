@@ -78,10 +78,14 @@ export async function reconcileMarkedContainer(
   state: KnownContainerSweepState,
   containerId: string,
   forceDocumentContentPull: boolean,
+  fullRevalidation = false,
 ): Promise<boolean> {
   try {
     const reconciled = await reconcileOneContainer(host, containerId, {
       forceDocumentContentPull,
+      documentIds: fullRevalidation
+        ? undefined
+        : state.forcedDocumentIds.get(containerId),
       onFullListing: state.initialDocumentProbe.captureListing(containerId),
       onPendingDiscovery: (delayMs) =>
         schedulePendingDiscovery(state, containerId, delayMs),
@@ -119,6 +123,7 @@ async function sweepContainer(input: {
       state,
       containerId,
       input.forceAllDocumentContentPulls || forceGeneration !== undefined,
+      input.forceAllDocumentContentPulls,
     );
     if (!isCurrentReconciliationLifecycle(state, lifecycleGeneration)) {
       return { status: "stale" };
