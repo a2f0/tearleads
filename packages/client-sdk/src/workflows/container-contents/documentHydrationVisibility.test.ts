@@ -50,7 +50,11 @@ test("discovered documents stay in Downloads until their content supplies a type
         }),
       ).toEqual({ rows: [], totalCount: 0 });
     }
-    expect(await queries.loadDocumentSummary("remote-file")).toBeNull();
+    expect(
+      await queries.loadDocumentSummary("remote-file", {
+        requireHydrated: true,
+      }),
+    ).toBeNull();
     expect(await queries.listPendingDownloads()).toEqual([
       {
         localId: "remote-file",
@@ -61,6 +65,10 @@ test("discovered documents stay in Downloads until their content supplies a type
         lastError: null,
       },
     ]);
+    // Identity consumers, including Contacts cleanup, still see remote ownership.
+    expect(await queries.loadDocumentSummary("remote-file")).toMatchObject({
+      documentId: "remote-file",
+    });
     // Sync can still load the shell; only the UI read model hides it.
     const shell = await sqlDocumentsPersistence.loadDocument(
       execSql,
@@ -73,7 +81,11 @@ test("discovered documents stay in Downloads until their content supplies a type
       title: "Holiday.jpg",
       snapshotEndVersion: emptyVersionVector(),
     });
-    expect(await queries.loadDocumentSummary("remote-file")).toMatchObject({
+    expect(
+      await queries.loadDocumentSummary("remote-file", {
+        requireHydrated: true,
+      }),
+    ).toMatchObject({
       documentKind: "photo",
       title: "Holiday.jpg",
     });
@@ -108,7 +120,11 @@ test("discovered documents stay in Downloads until their content supplies a type
       title: "Syncing document...",
       snapshotEndVersion: emptyVersionVector(),
     });
-    expect(await queries.loadDocumentSummary("remote-file")).not.toBeNull();
+    expect(
+      await queries.loadDocumentSummary("remote-file", {
+        requireHydrated: true,
+      }),
+    ).not.toBeNull();
     await execSql(
       "UPDATE document_projection SET container_id = NULL WHERE local_id = ?",
       ["remote-file"],

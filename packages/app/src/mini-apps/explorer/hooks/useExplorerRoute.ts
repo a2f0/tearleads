@@ -95,6 +95,8 @@ function useExplorerRouteBinding() {
 
 function useExplorerRouteSelectionEffect(params: {
   appRouteIsRouted: boolean;
+  nodes: ReadonlyArray<ContainerNode>;
+  ready: boolean;
   loadDocumentSummary: (
     localId: string,
     routeContainerId: string,
@@ -106,6 +108,8 @@ function useExplorerRouteSelectionEffect(params: {
 }) {
   const {
     appRouteIsRouted,
+    nodes,
+    ready,
     loadDocumentSummary,
     logError,
     parsedAppRoute,
@@ -123,7 +127,7 @@ function useExplorerRouteSelectionEffect(params: {
     route?.view === "document-selection" ? route.localId : null;
   const selectedId = parsedAppRoute?.selectedId;
   useEffect(() => {
-    if (!appRouteIsRouted) {
+    if (!appRouteIsRouted || !ready) {
       return undefined;
     }
 
@@ -183,6 +187,8 @@ function useExplorerRouteSelectionEffect(params: {
     return undefined;
   }, [
     appRouteIsRouted,
+    nodes,
+    ready,
     documentSelectionContainerId,
     documentSelectionLocalId,
     loadDocumentSummary,
@@ -194,15 +200,16 @@ function useExplorerRouteSelectionEffect(params: {
 
 function useAvailableExplorerRoute(params: {
   nodes: ReadonlyArray<ContainerNode>;
+  ready: boolean;
   route: ExplorerRoute;
   setRoute: ExplorerRouteSetter;
 }) {
-  const { nodes, route, setRoute } = params;
+  const { nodes, ready, route, setRoute } = params;
   useEffect(() => {
-    if (!isExplorerRouteAvailable(route, nodes)) {
+    if (ready && !isExplorerRouteAvailable(route, nodes)) {
       setRoute(DEFAULT_EXPLORER_ROUTE, null, { replace: true });
     }
-  }, [nodes, route, setRoute]);
+  }, [nodes, ready, route, setRoute]);
 }
 
 function useExplorerBlobBrowserRouteActions(params: {
@@ -429,6 +436,8 @@ function useExplorerRouteActions(params: {
 }
 
 export function useExplorerRoute(params: {
+  knownNodes?: ReadonlyArray<ContainerNode>;
+  ready?: boolean;
   loadDocumentSummary: (
     localId: string,
     routeContainerId: string,
@@ -442,6 +451,8 @@ export function useExplorerRoute(params: {
     loadDocumentSummary,
     logError,
     nodes,
+    knownNodes = nodes,
+    ready = true,
     selectDocument,
     setSelectedId,
   } = params;
@@ -449,13 +460,15 @@ export function useExplorerRoute(params: {
     useExplorerRouteBinding();
   useExplorerRouteSelectionEffect({
     appRouteIsRouted: appRoute.isRouted,
+    nodes,
+    ready,
     loadDocumentSummary,
     logError,
     parsedAppRoute,
     selectDocument,
     setSelectedId,
   });
-  useAvailableExplorerRoute({ nodes, route, setRoute });
+  useAvailableExplorerRoute({ nodes: knownNodes, ready, route, setRoute });
   const actions = useExplorerRouteActions({
     route,
     routeSnapshot,

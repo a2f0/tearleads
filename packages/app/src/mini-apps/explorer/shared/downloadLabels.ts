@@ -16,15 +16,5 @@ export const EXPLORER_DOWNLOAD_LABELS = {
   downloadsStatusColumn: "Status",
   downloadsCountOne: "pending download",
   downloadsCountOther: "pending downloads",
+  downloadsShowMoreAction: "Show more",
 } as const;
-
-const COUNT_FORMATTER = new Intl.NumberFormat();
-const PLURAL_RULES = new Intl.PluralRules();
-
-export function getExplorerDownloadsCountLabel(value: number): string {
-  const label =
-    PLURAL_RULES.select(value) === "one"
-      ? EXPLORER_DOWNLOAD_LABELS.downloadsCountOne
-      : EXPLORER_DOWNLOAD_LABELS.downloadsCountOther;
-  return `${COUNT_FORMATTER.format(value)} ${label}`;
-}

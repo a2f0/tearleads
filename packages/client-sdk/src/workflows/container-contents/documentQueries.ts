@@ -120,7 +120,10 @@ export interface ContainerDocumentQueries {
   loadDocumentSyncState(
     localId: string,
   ): Promise<ContainerDocumentObjectSyncState | null>;
-  loadDocumentSummary(localId: string): Promise<DocumentSummary | null>;
+  loadDocumentSummary(
+    localId: string,
+    options?: { requireHydrated?: boolean },
+  ): Promise<DocumentSummary | null>;
   loadOrphanedDocumentSummary(input: {
     currentOrganizationId: string | null;
     localId: string;
@@ -290,7 +293,6 @@ async function queryContainerContentsDocumentSummary(
         ON stored.app_kind = 'documents'
         AND stored.local_id = d.local_id
       WHERE d.local_id = ?
-      AND ${hydratedProjectionSql("d.local_id", "documents")}
       ${scope.whereSql}
       LIMIT 1
     `,
@@ -303,10 +305,13 @@ async function queryContainerContentsDocumentSummary(
 function loadContainerContentsDocumentSummary(
   execSql: ExecSql,
   localId: string,
+  requireHydrated: boolean,
 ): Promise<DocumentSummary | null> {
   return queryContainerContentsDocumentSummary(execSql, localId, {
     bind: [],
-    whereSql: "",
+    whereSql: requireHydrated
+      ? `AND ${hydratedProjectionSql("d.local_id", "documents")}`
+      : "",
   });
 }
 
@@ -317,10 +322,12 @@ function loadContainerContentsOrphanedDocumentSummary(
 ): Promise<DocumentSummary | null> {
   return queryContainerContentsDocumentSummary(execSql, localId, {
     bind: getOrphanedDocumentQueryBind(currentOrganizationId),
-    whereSql: `AND ${getOrphanedDocumentWhereSql({
-      documentIdSql: "d.document_id",
-      projectionAlias: "d",
-    })}`,
+    whereSql: `AND ${hydratedProjectionSql("d.local_id", "documents")} AND ${getOrphanedDocumentWhereSql(
+      {
+        documentIdSql: "d.document_id",
+        projectionAlias: "d",
+      },
+    )}`,
   });
 }
 
@@ -414,8 +421,12 @@ export function createContainerDocumentQueriesFromRuntime(
     loadDocumentSyncState(localId) {
       return loadContainerContentsDocumentSyncState(execSql, localId);
     },
-    loadDocumentSummary(localId) {
-      return loadContainerContentsDocumentSummary(execSql, localId);
+    loadDocumentSummary(localId, options) {
+      return loadContainerContentsDocumentSummary(
+        execSql,
+        localId,
+        options?.requireHydrated ?? false,
+      );
     },
     loadOrphanedDocumentSummary({ currentOrganizationId, localId }) {
       return loadContainerContentsOrphanedDocumentSummary(

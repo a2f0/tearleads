@@ -57,7 +57,11 @@ for (const hasMore of [false, true]) {
         throw new Error("Expected ready store");
       const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
       if (!generation) throw new Error("Expected current generation");
-      expect(await queries.loadDocumentSummary(documentId)).toBeNull();
+      expect(
+        await queries.loadDocumentSummary(documentId, {
+          requireHydrated: true,
+        }),
+      ).toBeNull();
       const attempt = await requestRemoteDocumentSync({
         currentDoc,
         currentRecord,
@@ -88,12 +92,20 @@ for (const hasMore of [false, true]) {
         hasMore ? "" : emptyVersionVector(),
       );
       if (hasMore) {
-        expect(await queries.loadDocumentSummary(documentId)).toBeNull();
+        expect(
+          await queries.loadDocumentSummary(documentId, {
+            requireHydrated: true,
+          }),
+        ).toBeNull();
         expect(await queries.listPendingDownloads()).toMatchObject([
           { documentId, reason: "initial" },
         ]);
       } else {
-        expect(await queries.loadDocumentSummary(documentId)).toMatchObject({
+        expect(
+          await queries.loadDocumentSummary(documentId, {
+            requireHydrated: true,
+          }),
+        ).toMatchObject({
           documentKind: "note",
           title: "Untitled note",
         });

@@ -914,8 +914,12 @@ Older-page calls return `members: null` and do not reload the member list. Hosts
 lacking paged recovery keep complete histories for cursor-free calls and reject
 explicit cursors instead of silently ignoring them.
 
+## Explorer hydration and pending downloads
+
 Explorer queries omit remote document shells until content is present, including
-paginated counts and direct summary reads. `ContainerNode.metadataReady` is false
+paginated counts. Explorer requests direct summaries with
+`loadDocumentSummary(id, { requireHydrated: true })`; ordinary identity reads still
+include shells. `ContainerNode.metadataReady` is false
 for remote folders awaiting metadata; consumers can hide these nodes without
 removing their sync registrations. `containerContents.documentQueries()` exposes
 `listPendingDownloads()` and `PendingDownloadQueueItem` for known document and

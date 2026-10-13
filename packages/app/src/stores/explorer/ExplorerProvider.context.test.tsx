@@ -89,6 +89,7 @@ test("explorer context preserves its exact surface and projected nodes", async (
       "ensureSystemContainer",
       "ensureTrashContainer",
       "moveContainer",
+      "knownNodes",
       "nodes",
       "purgeContainer",
       "ready",
@@ -107,6 +108,7 @@ test("explorer context preserves its exact surface and projected nodes", async (
     ].sort(),
   );
   expect(view.result.current.refresh).toBe(refresh);
+  expect(view.result.current.knownNodes).toEqual([root, trash, hidden]);
   expect(view.result.current.nodes.map((node) => node.id)).toEqual([
     "root",
     "trash",

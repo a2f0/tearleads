@@ -26,6 +26,13 @@ function formatExplorerCountLabel(
   return `${EXPLORER_COUNT_FORMATTER.format(value)} ${getExplorerPluralLabel(value, labels)}`;
 }
 
+export function getExplorerDownloadsCountLabel(value: number): string {
+  return formatExplorerCountLabel(value, {
+    one: EXPLORER_LABELS.downloadsCountOne,
+    other: EXPLORER_LABELS.downloadsCountOther,
+  });
+}
+
 export function getExplorerSyncBlobCountLabel(value: number): string {
   return formatExplorerCountLabel(value, {
     one: EXPLORER_LABELS.syncStateBlobCountOne,

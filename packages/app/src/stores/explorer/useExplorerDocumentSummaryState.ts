@@ -123,8 +123,10 @@ function useExplorerDocumentSummaryLoaders(params: {
         return null;
       }
 
-      const documentSummary =
-        await documentQueries.loadDocumentSummary(localId);
+      const documentSummary = await documentQueries.loadDocumentSummary(
+        localId,
+        { requireHydrated: true },
+      );
       if (documentSummary) {
         mergeDocumentSummary(documentSummary);
       }
@@ -160,8 +162,10 @@ function useExplorerDocumentSummaryLoaders(params: {
       }
 
       if (!isExplorerOrphanedDocumentsId(routeContainerId)) {
-        const documentSummary =
-          await documentQueries.loadDocumentSummary(localId);
+        const documentSummary = await documentQueries.loadDocumentSummary(
+          localId,
+          { requireHydrated: true },
+        );
         // A null-container document is only selectable through the scoped
         // recovery collection. Do not let a forged ordinary-container route
         // bypass its organization and surviving-link predicate.
@@ -183,7 +187,9 @@ function useExplorerDocumentSummaryLoaders(params: {
         // former must remain an optimistic pending selection so discovery can
         // resolve it without another route change.
         const unscopedDocumentSummary =
-          await documentQueries.loadDocumentSummary(localId);
+          await documentQueries.loadDocumentSummary(localId, {
+            requireHydrated: true,
+          });
         return {
           status: unscopedDocumentSummary ? "rejected" : "pending",
         };

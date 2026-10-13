@@ -23,8 +23,7 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
-import { EXPLORER_LABELS } from "../../labels";
-import { getExplorerDownloadsCountLabel } from "../../shared/downloadLabels";
+import { EXPLORER_LABELS, getExplorerDownloadsCountLabel } from "../../labels";
 import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 import { usePendingDownloads } from "./usePendingDownloads";
 
@@ -119,7 +118,7 @@ export function ExplorerDownloadsPanel(params: {
                       params.online,
                       params.isAuthenticated,
                     )}
-                    {error ? <small role="alert"> {error}</small> : null}
+                    {error ? <small> {error}</small> : null}
                   </MiniAppTableText>
                 </MiniAppTableCell>
               </MiniAppTableRow>
@@ -135,7 +134,7 @@ export function ExplorerDownloadsPanel(params: {
               <MiniAppButton
                 onClick={() => setLimit((current) => current + 100)}
               >
-                {EXPLORER_LABELS.uploadsShowMoreAction}
+                {EXPLORER_LABELS.downloadsShowMoreAction}
               </MiniAppButton>
             </MiniAppTableEmptyRow>
           ) : null}

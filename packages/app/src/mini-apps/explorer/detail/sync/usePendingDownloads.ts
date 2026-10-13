@@ -23,10 +23,17 @@ export function usePendingDownloads(params: {
     loading: boolean;
   }>({ items: [], error: null, loading: true });
   const refresh = useRef<() => void>(() => undefined);
+  const syncSettlementRevision = params.syncSnapshot.lanes
+    .map(
+      (lane) =>
+        `${lane.key}:${lane.runCount}:${lane.running}:${lane.lastCompletedAt ?? ""}:${lane.lastFailedAt ?? ""}`,
+    )
+    .join("\0");
   useEffect(() => {
     let disposed = false;
     let inFlight = false;
     let rerunRequested = false;
+    let initialRead = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const queries = params.documentQueries;
     setState({ items: [], error: null, loading: true });
@@ -58,8 +65,12 @@ export function usePendingDownloads(params: {
         void read();
       }, 300);
     }
-    refresh.current = schedule;
-    void read();
+    refresh.current = () => {
+      if (initialRead) {
+        initialRead = false;
+        void read();
+      } else schedule();
+    };
     return () => {
       disposed = true;
       clearTimeout(timer);
@@ -67,6 +78,13 @@ export function usePendingDownloads(params: {
   }, [params.documentQueries, params.domainScope]);
   useEffect(() => {
     refresh.current();
-  }, [params.documentListRevision, params.nodes, params.syncSnapshot]);
+  }, [
+    params.documentQueries,
+    params.domainScope,
+    params.documentListRevision,
+    params.nodes,
+    params.syncSnapshot.hasPendingWork,
+    syncSettlementRevision,
+  ]);
   return state;
 }

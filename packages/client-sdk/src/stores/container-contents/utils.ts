@@ -1,11 +1,8 @@
-import { emptyVersionVector, encodeVersionVector } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../data/accessLevel";
 import type { ContainerRecord } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type { ContainerNode } from "./types";
-
-const EMPTY_METADATA_VERSION = emptyVersionVector();
 
 function hasPendingContainerTimestamp(container: ContainerRecord): boolean {
   const localUpdatedAt = container.localUpdatedAt ?? null;
@@ -29,8 +26,7 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
     kind: "container",
     metadataDocumentId: container.metadataDocumentId ?? record.documentId,
     metadataReady:
-      !record.documentId ||
-      encodeVersionVector(containerState.doc) !== EMPTY_METADATA_VERSION,
+      !record.documentId || containerState.doc.oplogVersion().length() > 0,
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,
