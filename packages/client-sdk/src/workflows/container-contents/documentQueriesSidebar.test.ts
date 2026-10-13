@@ -526,6 +526,7 @@ test("primeDocumentsForContainerSubtree skips settled documents", async () => {
       documentId: "remote-discovered",
       execSql,
       id: "discovered-document",
+      snapshotEndVersion: "",
       title: "Discovered",
       updatedAt: "2026-07-20T00:00:02.000Z",
     });

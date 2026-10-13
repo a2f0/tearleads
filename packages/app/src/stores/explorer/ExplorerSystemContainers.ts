@@ -90,15 +90,31 @@ function shouldPreferExplorerSystemNode(
   return candidateNode.id < currentNode.id;
 }
 
+function hasUnhydratedAncestor(
+  node: ContainerNode,
+  nodesById: ReadonlyMap<string, ContainerNode>,
+): boolean {
+  let ancestor: ContainerNode | undefined = node;
+  const visited = new Set<string>();
+  while (ancestor && !visited.has(ancestor.id)) {
+    if (ancestor.metadataReady === false) return true;
+    visited.add(ancestor.id);
+    ancestor = ancestor.parentId ? nodesById.get(ancestor.parentId) : undefined;
+  }
+  return false;
+}
+
 export function getVisibleExplorerNodes(
   nodes: ContainerContentsContextValue["nodes"] | null | undefined,
   visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
   currentOrganizationId?: string | null,
 ): ContainerContentsContextValue["nodes"] {
+  const nodesById = new Map((nodes ?? []).map((node) => [node.id, node]));
   const visibleNodes: ContainerNode[] = [];
   const systemNodeIndexes = new Map<string, number>();
 
   for (const node of nodes ?? []) {
+    if (hasUnhydratedAncestor(node, nodesById)) continue;
     const systemSlot = node.systemSlot ?? null;
     if (
       !shouldShowExplorerSystemSlot(

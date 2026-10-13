@@ -30,6 +30,8 @@ export interface ContainerNode {
   id: string;
   icon?: string | null;
   metadataDocumentId?: string | null;
+  /** False while a discovered remote folder has no local metadata content. */
+  metadataReady?: boolean;
   organizationId: string;
   name: string;
   parentId: string | null;

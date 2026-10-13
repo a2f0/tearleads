@@ -28,11 +28,13 @@ function renderSectionsPanel(
     onOpenSyncLaneDetailRoute?: (laneKey: string) => void;
     openBlobBrowserRoute?: () => void;
     openSyncLanesRoute?: () => void;
+    openDownloadsRoute?: () => void;
     openUploadsRoute?: () => void;
     openWriteQueueRoute?: () => void;
   } = {},
 ) {
   const documentQueries = {
+    listPendingDownloads: async () => [],
     listPendingWrites: async () => [],
   } as unknown as ContainerDocumentQueries;
   const uploadManager: ExplorerUploadManager = {
@@ -67,6 +69,7 @@ function renderSectionsPanel(
       openContainerInfoRoute={() => undefined}
       openDocumentInfoRoute={() => undefined}
       openSyncLanesRoute={overrides.openSyncLanesRoute ?? (() => undefined)}
+      openDownloadsRoute={overrides.openDownloadsRoute ?? (() => undefined)}
       openUploadsRoute={overrides.openUploadsRoute ?? (() => undefined)}
       openWriteQueueRoute={overrides.openWriteQueueRoute ?? (() => undefined)}
       openWriteQueueEntryRoute={() => undefined}
@@ -212,4 +215,21 @@ test("the embedded Sync Lanes panel drops the back-to-Explorer action", () => {
   expect(
     view.queryByRole("button", { name: EXPLORER_LABELS.syncLanesBackAction }),
   ).toBeNull();
+});
+
+test("Downloads opens its route and shows an empty durable queue", async () => {
+  const opened: string[] = [];
+  const view = renderSectionsPanel(
+    { view: "downloads" },
+    {
+      openDownloadsRoute: () => opened.push("downloads"),
+    },
+  );
+  const tab = view.getByRole("tab", { name: "Downloads" });
+  expect(tab.getAttribute("aria-selected")).toBe("true");
+  fireEvent.click(tab);
+  expect(opened).toEqual(["downloads"]);
+  await waitFor(() =>
+    expect(view.getByText("No pending downloads.")).toBeTruthy(),
+  );
 });

@@ -1,3 +1,4 @@
+import { emptyVersionVector, encodeVersionVector } from "@tearleads/loro";
 import { normalizeEffectiveAccessLevel } from "../../data/accessLevel";
 import type { ContainerRecord } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
@@ -25,6 +26,9 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
     id: container.id,
     kind: "container",
     metadataDocumentId: container.metadataDocumentId ?? record.documentId,
+    metadataReady:
+      !record.documentId ||
+      encodeVersionVector(containerState.doc) !== emptyVersionVector(),
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,

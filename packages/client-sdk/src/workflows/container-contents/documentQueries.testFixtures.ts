@@ -1,3 +1,4 @@
+import { emptyVersionVector } from "@tearleads/loro";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -129,6 +130,7 @@ export async function saveTestDocument(input: {
   execSql: Parameters<typeof sqlDocumentsPersistence.saveDocument>[0];
   id: string;
   kind?: "note" | "drivers_license" | "credit_card";
+  snapshotEndVersion?: string;
   title: string;
   updatedAt: string;
 }) {
@@ -140,7 +142,7 @@ export async function saveTestDocument(input: {
       documentId: input.documentId,
       documentKind: input.kind ?? "note",
       id: input.id,
-      snapshotEndVersion: "",
+      snapshotEndVersion: input.snapshotEndVersion ?? emptyVersionVector(),
       text: input.title,
       title: input.title,
     },

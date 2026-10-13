@@ -21,6 +21,7 @@ import {
 } from "../../data/persistence/documents/documentsPersistence";
 import { containerCreateIntentTables } from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import { hydratedProjectionSql } from "./documentQueries/hydrationSql";
 import {
   mapContainerContentsDocumentSummaryRow,
   mapContainerContentsDocumentSyncStateRow,
@@ -58,6 +59,10 @@ import {
   getOrphanedDocumentQueryBind,
   getOrphanedDocumentWhereSql,
 } from "./orphanedDocumentSql";
+import {
+  listPendingDownloads,
+  type PendingDownloadQueueItem,
+} from "./pendingDownloads";
 import {
   listPendingWrites,
   type PendingWriteQueueItem,
@@ -126,6 +131,7 @@ export interface ContainerDocumentQueries {
   listLinkedContainerIdsByDocumentIds(
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
+  listPendingDownloads(): Promise<ReadonlyArray<PendingDownloadQueueItem>>;
   listPendingWrites(): Promise<ReadonlyArray<PendingWriteQueueItem>>;
   retryPendingWriteItem(input: {
     localId: string;
@@ -284,6 +290,7 @@ async function queryContainerContentsDocumentSummary(
         ON stored.app_kind = 'documents'
         AND stored.local_id = d.local_id
       WHERE d.local_id = ?
+      AND ${hydratedProjectionSql("d.local_id", "documents")}
       ${scope.whereSql}
       LIMIT 1
     `,
@@ -428,6 +435,9 @@ export function createContainerDocumentQueriesFromRuntime(
         execSql,
         documentIds,
       );
+    },
+    listPendingDownloads() {
+      return listPendingDownloads(execSql);
     },
     listPendingWrites() {
       return listPendingWrites(execSql);

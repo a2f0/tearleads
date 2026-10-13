@@ -54,6 +54,7 @@ export function createExplorerDocumentQueries(
       };
     },
     listContainerItemWindow: async () => ({ rows: [], totalCount: 0 }),
+    listPendingDownloads: async () => [],
     listPendingWrites: async () => [],
     retryPendingWriteItem: async () => undefined,
     loadContainerDocumentWatermark: async () => null,

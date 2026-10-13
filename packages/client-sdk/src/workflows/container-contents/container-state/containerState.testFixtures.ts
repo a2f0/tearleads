@@ -1,3 +1,4 @@
+import { decodeVersionVector } from "@tearleads/loro";
 import type { ContainerState } from "../remoteHydration";
 
 /**
@@ -25,7 +26,9 @@ export function createTestContainerState(input: {
       parentId: input.parentId,
       systemSlot: null,
     },
-    doc: {} as ContainerState["doc"],
+    doc: {
+      oplogVersion: () => decodeVersionVector(null),
+    } as ContainerState["doc"],
     record: {
       accessEpoch: 1,
       accessStateHash: synced ? `access-${input.id}` : "",

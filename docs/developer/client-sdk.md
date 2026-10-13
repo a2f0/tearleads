@@ -913,3 +913,11 @@ local prefix can answer an older selected history view without a freshness read.
 Older-page calls return `members: null` and do not reload the member list. Hosts
 lacking paged recovery keep complete histories for cursor-free calls and reject
 explicit cursors instead of silently ignoring them.
+
+Explorer queries omit remote document shells until content is present, including
+paginated counts and direct summary reads. `ContainerNode.metadataReady` is false
+for remote folders awaiting metadata; consumers can hide these nodes without
+removing their sync registrations. `containerContents.documentQueries()` exposes
+`listPendingDownloads()` and `PendingDownloadQueueItem` for known document and
+folder metadata pulls (initial hydration or remaining pages), including durable
+errors. The queue does not estimate undiscovered objects or on-demand blob reads.

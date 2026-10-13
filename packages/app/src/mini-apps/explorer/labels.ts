@@ -1,7 +1,11 @@
 import { formatByteLength } from "../../utils/formatByteLength";
-import { EXPLORER_LABELS } from "./labelCatalog";
+import { EXPLORER_DOWNLOAD_LABELS } from "./detail/sync/downloadLabels";
+import { EXPLORER_LABELS as CATALOG_LABELS } from "./labelCatalog";
 
-export { EXPLORER_LABELS };
+export const EXPLORER_LABELS = {
+  ...CATALOG_LABELS,
+  ...EXPLORER_DOWNLOAD_LABELS,
+};
 
 const EXPLORER_COUNT_FORMATTER = new Intl.NumberFormat();
 const EXPLORER_PLURAL_RULES = new Intl.PluralRules();

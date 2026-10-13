@@ -26,6 +26,7 @@ export interface ExplorerRouteState {
   openNewStructuredDocumentRoute: (containerId: string) => void;
   openSyncLaneDetailRoute: (laneKey: string) => void;
   openSyncLanesRoute: (options?: ExplorerRouteNavigationOptions) => void;
+  openDownloadsRoute: () => void;
   openUploadsRoute: () => void;
   openWriteQueueRoute: (options?: ExplorerRouteNavigationOptions) => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
@@ -307,6 +308,10 @@ function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
     [setRoute],
   );
 
+  const openDownloadsRoute = useCallback(() => {
+    setRoute({ view: "downloads" }, undefined);
+  }, [setRoute]);
+
   const openUploadsRoute = useCallback(() => {
     setRoute({ view: "uploads" }, undefined);
   }, [setRoute]);
@@ -314,6 +319,7 @@ function useExplorerSectionRouteActions(setRoute: ExplorerRouteSetter) {
   return {
     openSyncLaneDetailRoute,
     openSyncLanesRoute,
+    openDownloadsRoute,
     openUploadsRoute,
     openWriteQueueEntryRoute,
     openWriteQueueRoute,

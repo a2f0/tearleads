@@ -404,3 +404,11 @@ without resubmitting the request.
 The public `AcknowledgedPrincipalCurrentInput` and
 `AcknowledgedPrincipalCurrentRetirement` types describe batch inputs and
 signed-grant retirements.
+
+Explorer queries omit remote document shells until content is present, including
+paginated counts and direct summary reads. `ContainerNode.metadataReady` is false
+for remote folders awaiting metadata; consumers can hide these nodes without
+removing their sync registrations. `containerContents.documentQueries()` exposes
+`listPendingDownloads()` and `PendingDownloadQueueItem` for known document and
+folder metadata pulls (initial hydration or remaining pages), including durable
+errors. The queue does not estimate undiscovered objects or on-demand blob reads.

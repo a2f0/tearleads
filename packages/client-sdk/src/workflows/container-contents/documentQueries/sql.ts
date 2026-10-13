@@ -1,4 +1,5 @@
 import { getOrphanedDocumentWhereSql } from "../orphanedDocumentSql";
+import { hydratedProjectionSql } from "./hydrationSql";
 import type { ContainerItemSort } from "./types";
 
 // Keep each IN clause below SQLite's historical 999 bind-parameter limit.
@@ -206,6 +207,7 @@ export function getContainerContentsContainerItemsBaseSql(
       LEFT JOIN pending_container_create_intents create_intent
         ON create_intent.container_id = c.id
       WHERE c.parent_id = ?
+        AND ${hydratedProjectionSql("c.id", "container-metadata")}
         AND ${getContainerContentsContainerSystemSlotFilter({
           visibleForeignSystemContainerNameCount,
           visibleSystemSlotCount,
@@ -237,7 +239,8 @@ export function getContainerContentsContainerItemsBaseSql(
         ON document_updates.local_id = d.local_id
       LEFT JOIN document_pending_attachment_counts document_attachments
         ON document_attachments.local_id = d.local_id
-      WHERE d.container_id = ?${getHeldPlacementExclusionSql("d.document_id", "d.container_id")}
+      WHERE ${hydratedProjectionSql("d.local_id", "documents")}
+        AND d.container_id = ?${getHeldPlacementExclusionSql("d.document_id", "d.container_id")}
 
       UNION ALL
 
@@ -266,7 +269,8 @@ export function getContainerContentsContainerItemsBaseSql(
         ON document_updates.local_id = d.local_id
       LEFT JOIN document_pending_attachment_counts document_attachments
         ON document_attachments.local_id = d.local_id
-      WHERE linked.container_id = ?
+      WHERE ${hydratedProjectionSql("d.local_id", "documents")}
+        AND linked.container_id = ?
         AND (
           d.container_id IS NULL
           OR d.container_id != linked.container_id
@@ -296,7 +300,8 @@ export function getContainerContentsDocumentRowsBaseSql(): string {
         ON document_updates.local_id = d.local_id
       LEFT JOIN document_pending_attachment_counts document_attachments
         ON document_attachments.local_id = d.local_id
-      WHERE d.container_id = ?${getHeldPlacementExclusionSql("d.document_id", "d.container_id")}
+      WHERE ${hydratedProjectionSql("d.local_id", "documents")}
+        AND d.container_id = ?${getHeldPlacementExclusionSql("d.document_id", "d.container_id")}
 
       UNION ALL
 
@@ -316,7 +321,8 @@ export function getContainerContentsDocumentRowsBaseSql(): string {
         ON document_updates.local_id = d.local_id
       LEFT JOIN document_pending_attachment_counts document_attachments
         ON document_attachments.local_id = d.local_id
-      WHERE linked.container_id = ?
+      WHERE ${hydratedProjectionSql("d.local_id", "documents")}
+        AND linked.container_id = ?
         AND (
           d.container_id IS NULL
           OR d.container_id != linked.container_id
@@ -355,7 +361,8 @@ export function getOrphanedDocumentItemsBaseSql(): string {
         ON document_updates.local_id = d.local_id
       LEFT JOIN document_pending_attachment_counts document_attachments
         ON document_attachments.local_id = d.local_id
-      WHERE ${getOrphanedDocumentWhereSql({
+      WHERE ${hydratedProjectionSql("d.local_id", "documents")}
+      AND ${getOrphanedDocumentWhereSql({
         documentIdSql: "d.document_id",
         projectionAlias: "d",
       })}
@@ -383,10 +390,11 @@ export function getOrphanedDocumentRowsBaseSql(): string {
       ON document_updates.local_id = d.local_id
     LEFT JOIN document_pending_attachment_counts document_attachments
       ON document_attachments.local_id = d.local_id
-    WHERE ${getOrphanedDocumentWhereSql({
-      documentIdSql: "d.document_id",
-      projectionAlias: "d",
-    })}
+    WHERE ${hydratedProjectionSql("d.local_id", "documents")}
+      AND ${getOrphanedDocumentWhereSql({
+        documentIdSql: "d.document_id",
+        projectionAlias: "d",
+      })}
   `;
 }
 
@@ -394,10 +402,11 @@ export function getOrphanedDocumentExistsSql(): string {
   return `
     SELECT 1
     FROM document_projection d
-    WHERE ${getOrphanedDocumentWhereSql({
-      documentIdSql: "d.document_id",
-      projectionAlias: "d",
-    })}
+    WHERE ${hydratedProjectionSql("d.local_id", "documents")}
+      AND ${getOrphanedDocumentWhereSql({
+        documentIdSql: "d.document_id",
+        projectionAlias: "d",
+      })}
     LIMIT 1
   `;
 }
