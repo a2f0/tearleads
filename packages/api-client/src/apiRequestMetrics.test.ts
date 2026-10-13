@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import {
   getBlobBytesOperation,
   listSessionsOperation,
@@ -146,3 +146,42 @@ test("HTTP, network and cancellation outcomes are counted separately", async () 
     inFlight: 0,
   });
 });
+
+for (const failure of ["identity", "begin", "finish"] as const) {
+  test(`instrumentation ${failure} errors cannot prevent or fail HTTP`, async () => {
+    const metrics = new ApiRequestMetrics();
+    const observerError = new Error("instrumentation failed");
+    const begin = spyOn(metrics, "begin");
+    if (failure === "begin")
+      begin.mockImplementation(() => {
+        throw observerError;
+      });
+    if (failure === "finish")
+      begin.mockImplementation(() => () => {
+        throw observerError;
+      });
+    const response = new Response("ok");
+    let dispatched = false;
+    try {
+      const result = await measureApiRequest(
+        {
+          metrics,
+          getIdentity: () => {
+            if (failure === "identity") throw observerError;
+            return "alice";
+          },
+        },
+        listSessionsOperation,
+        async () => {
+          dispatched = true;
+          return response;
+        },
+        undefined,
+      );
+      expect(dispatched).toBe(true);
+      expect(result).toBe(response);
+    } finally {
+      begin.mockRestore();
+    }
+  });
+}

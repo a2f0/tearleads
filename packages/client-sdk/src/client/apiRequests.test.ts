@@ -17,18 +17,21 @@ test("request counts survive identity switches and SDK recreation with a shared 
       identity: { signingFingerprint },
       logger: quietLogger,
     });
-  const first = createClient("alice");
   try {
-    await first.session.listSessions();
-    expect(metrics.getSnapshot("alice").total).toBe(1);
-    await first.identity.setKeyPairs({
-      signingFingerprint: "bob",
-      signingKeyPair: null,
-      encapsulationKeyPair: null,
-    });
-    await first.session.listSessions();
-    expect(metrics.getSnapshot("bob").total).toBe(1);
-    first.dispose();
+    const first = createClient("alice");
+    try {
+      await first.session.listSessions();
+      expect(metrics.getSnapshot("alice").total).toBe(1);
+      await first.identity.setKeyPairs({
+        signingFingerprint: "bob",
+        signingKeyPair: null,
+        encapsulationKeyPair: null,
+      });
+      await first.session.listSessions();
+      expect(metrics.getSnapshot("bob").total).toBe(1);
+    } finally {
+      first.dispose();
+    }
     const restored = createClient("alice");
     try {
       expect(restored.apiRequests.getSnapshot("alice").total).toBe(1);
@@ -39,7 +42,6 @@ test("request counts survive identity switches and SDK recreation with a shared 
       restored.dispose();
     }
   } finally {
-    first.dispose();
     globalThis.fetch = previousFetch;
   }
 });

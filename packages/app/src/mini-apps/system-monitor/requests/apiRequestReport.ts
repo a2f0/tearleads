@@ -7,7 +7,7 @@ export function formatApiRequestReport(
   return [
     "## API Requests",
     "",
-    "Current identity; in-memory HTTP attempts since reload or reset. Includes retries; excludes cached reads and WebSockets. Outcomes describe HTTP transport, not response validation.",
+    "Current identity; in-memory HTTP attempts since reload or reset. Includes retries; excludes cached reads and WebSockets. Succeeded means HTTP 2xx/3xx; failed means HTTP 4xx/5xx or connection failure, including responses the app handles. Excludes later response validation.",
     "",
     formatTable(
       ["Field", "Value"],

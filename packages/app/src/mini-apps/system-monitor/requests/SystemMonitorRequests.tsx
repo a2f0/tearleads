@@ -33,8 +33,9 @@ export function SystemMonitorRequests() {
       </p>
       <p>
         Each HTTP attempt counts, including retries. Cached reads and WebSocket
-        messages are excluded. Outcomes reflect HTTP responses and connection
-        failures, not response validation.
+        messages are excluded. Succeeded means HTTP 2xx/3xx; failed means HTTP
+        4xx/5xx or a connection failure, even if the app handles that response.
+        Counts do not include later response validation.
       </p>
       <MiniAppInfoTable className="mini-app-info-table--borderless">
         <tbody>

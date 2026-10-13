@@ -45,6 +45,7 @@ function emptySnapshot(): ApiRequestMetricsSnapshot {
 export class ApiRequestMetrics {
   private readonly scopes = new Map<string | null, ApiRequestMetricsSnapshot>();
   private readonly listeners = new Set<() => void>();
+  private readonly generations = new Map<string | null, number>();
 
   getSnapshot = (identity: string | null): ApiRequestMetricsSnapshot => {
     let snapshot = this.scopes.get(identity);
@@ -110,8 +111,6 @@ export class ApiRequestMetrics {
       });
     };
   }
-
-  private readonly generations = new Map<string | null, number>();
 
   private update(
     identity: string | null,
