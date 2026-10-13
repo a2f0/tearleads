@@ -25,6 +25,16 @@ import { measureWorkflowRequests } from "../../../../test/helpers/workflowReques
 
 afterEach(cleanupPaneTestEnvironment);
 
+async function setNetworkMode(pane: HTMLElement, label: string) {
+  const monitor = within(pane).getByRole("button", { name: "System Monitor" });
+  await interact(() => {
+    fireEvent.contextMenu(monitor, { clientX: 30, clientY: 30 });
+  });
+  await interact(() => {
+    fireEvent.click(within(document.body).getByRole("button", { name: label }));
+  });
+}
+
 test("offline folder creation, cached note edits and Trash use zero requests and resume after reconnect", async () => {
   useTestApiAppHandlers();
   const pane = getPaneRoot(renderSinglePane(), "left");
@@ -32,9 +42,9 @@ test("offline folder creation, cached note edits and Trash use zero requests and
   await openExplorer(pane);
   await createNoteInContainer(pane, "/", "Cached before outage");
   await waitForPaneRuntimeToSettle();
-  await interact(() => {
-    fireEvent(window, new Event("offline"));
-  });
+  // The mock backend remains reachable. Automatic mode can correctly return
+  // online when a late response succeeds, so pin the requested offline mode.
+  await setNetworkMode(pane, "Force Offline");
 
   await measureWorkflowRequests({
     label: "offline create folder",
@@ -108,9 +118,7 @@ test("offline folder creation, cached note edits and Trash use zero requests and
   });
 
   const reconnectStart = listProxiedApiRequests().length;
-  await interact(() => {
-    fireEvent(window, new Event("online"));
-  });
+  await setNetworkMode(pane, "Use Automatic Network");
   await waitFor(
     () => {
       const committed = listProxiedApiRequests()
