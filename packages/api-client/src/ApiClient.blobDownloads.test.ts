@@ -157,6 +157,9 @@ testApiClient(
 testApiClient(
   "rejects mismatched blob descriptors before contacting storage",
   async () => {
+    let storageRequests = 0;
+    let streamRequests = 0;
+    const client = new ApiClient(apiBaseUrl);
     server.use(
       http.get(downloadPath, () =>
         HttpResponse.json({
@@ -164,7 +167,29 @@ testApiClient(
           blobId: "33333333-3333-4333-8333-333333333333",
         }),
       ),
+      http.get("https://storage.test/private-object", () => {
+        storageRequests += 1;
+        return HttpResponse.text("bytes");
+      }),
+      http.get(`${apiBaseUrl}/blobs/${blobId}/bytes`, () => {
+        streamRequests += 1;
+        return new HttpResponse("bytes", {
+          headers: {
+            "X-Tearleads-Blob-Id": blobId,
+            "X-Tearleads-Blob-Byte-Length": "5",
+            "X-Tearleads-Blob-Sha256": descriptor.sha256,
+          },
+        });
+      }),
     );
-    expect(await new ApiClient(apiBaseUrl).getBlobBytes(blobId)).toBeNull();
+    expect(await client.getBlobBytes(blobId)).toBeNull();
+    expect(storageRequests).toBe(0);
+    expect(streamRequests).toBe(0);
+    expect(
+      client.getRequestFailure({
+        method: "GET",
+        path: `/blobs/${blobId}/download`,
+      }),
+    ).toMatchObject({ kind: "shape", status: 200 });
   },
 );
