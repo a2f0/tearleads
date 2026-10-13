@@ -31,7 +31,11 @@ property to fail. Runtime regressions in the coordinator concurrency and watchdo
 tests exercise those production seams.
 
 The model abstracts timestamps, dynamic lane registration, disposal, priority
-ranking, byte transfers, and document/SQL/cryptographic behavior. It is not a
+ranking, byte transfers, and document/SQL/cryptographic behavior. It does not
+model pump teardown, wake-up delivery, or the `hasRunnableLaneWork` restart
+check; runtime regressions cover those mechanisms. Negative controls mutate
+model guards, so they establish property sensitivity within this abstraction,
+not automatic detection of arbitrary implementation faults. It is not a
 throughput proof or a guarantee of progress through permanent network failure.
 The single-document RestartProbeConvergence model and its implementation trace
 projection retain their per-document exclusive-probe contract; concurrent

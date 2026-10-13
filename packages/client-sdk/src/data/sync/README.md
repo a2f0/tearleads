@@ -75,6 +75,11 @@ envelopes, and attachment persistence live elsewhere under `data/blobs`,
 `data/blob*`, and document persistence modules. This coordinator never reads or
 writes blob bytes directly.
 
+Downloads currently buffer each document's encrypted attachment set before
+decryption. Up to four such sets can coexist while document lanes run. The
+separate four-permit transfer pool limits concurrent byte I/O, not retained
+bytes; peak download memory still depends on attachment sizes.
+
 Container contents also uses lanes for domain-specific sync work. Container
 contents sync creates pending remote containers, applies pending container move
 intents, and syncs container metadata documents before document lanes drain.

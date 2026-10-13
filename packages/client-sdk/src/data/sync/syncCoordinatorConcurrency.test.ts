@@ -126,7 +126,7 @@ test("one failing document does not back off healthy documents", async () => {
   }
 });
 
-test("hint priority wins and a rearming lane yields to fresh documents", async () => {
+test("hint priority wins over ordinary background documents", async () => {
   const coordinator = getOrCreateDomainSyncCoordinator(createDomainScope());
   const started: string[] = [];
   const release = gate();
@@ -155,6 +155,32 @@ test("hint priority wins and a rearming lane yields to fresh documents", async (
     release.open();
   }
   expect(await coordinator.waitForIdle()).toBe(true);
+});
+
+test("a rearming lane yields its worker to a fresh equal-priority document", async () => {
+  const coordinator = getOrCreateDomainSyncCoordinator(createDomainScope());
+  const releases = Array.from({ length: 5 }, gate);
+  const started: number[] = [];
+  const lanes = releases.map((release, index) =>
+    coordinator.registerLane(`doc-${index}`, {
+      run: async () => {
+        started.push(index);
+        await release.wait;
+      },
+    }),
+  );
+  try {
+    coordinator.requestAllLanes();
+    await waitFor(() => started.length === 4, "workers did not fill");
+    lanes[0]?.requestSync();
+    releases[0]?.open();
+    await waitFor(() => started.length >= 5, "free worker did not restart");
+    expect(started).toEqual([0, 1, 2, 3, 4]);
+  } finally {
+    for (const release of releases) release.open();
+  }
+  expect(await coordinator.waitForIdle()).toBe(true);
+  expect(started).toEqual([0, 1, 2, 3, 4, 0]);
 });
 
 test("a throwing priority cannot abandon occupied workers", async () => {
