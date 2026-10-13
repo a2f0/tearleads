@@ -84,8 +84,9 @@ four-permit transfer pool limits logical byte I/O, not retained bytes or
 transport tails that ignore cancellation; memory depends on attachment sizes.
 Deadlines start after a transfer acquires a permit. Downloads have a two-minute
 idle deadline renewed by received chunks. Upload parts allow two minutes plus
-their byte length at 8 KiB/s per part, accommodating a slow shared uplink on hosts
-without upload progress events. Expiry aborts fetch and stream reads and releases
+their byte length at an aggregate 8 KiB/s divided among all four transfer
+permits, accommodating a saturated slow uplink without upload progress events.
+Expiry aborts fetch and stream reads and releases
 logical permits even if a native transport ignores abort.
 Such abandoned transport tails cannot publish upload progress or hydrated bytes.
 

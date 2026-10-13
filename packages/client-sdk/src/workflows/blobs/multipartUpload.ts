@@ -5,7 +5,10 @@ import type {
   MultipartBlobStageStatusResponse,
 } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
-import { runBlobTransfer } from "../../data/blobs/transferPool";
+import {
+  BLOB_TRANSFER_CONCURRENCY,
+  runBlobTransfer,
+} from "../../data/blobs/transferPool";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type {
   BlobAttachmentApi,
@@ -22,7 +25,7 @@ import {
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MAX_MULTIPART_UPLOAD_CONCURRENCY = 4;
 // Fetch exposes no upload progress on every host. Allow a slow shared uplink
-// (8 KiB/s per admitted part), plus setup/encryption time, while bounding stalls.
+// (8 KiB/s total, shared by every admitted part), plus setup/encryption time.
 const MULTIPART_TRANSFER_BYTES_PER_SECOND = 8 * 1024;
 
 interface MultipartPartCommit {
@@ -158,7 +161,8 @@ async function uploadMultipartPartTasks(input: {
           },
           120_000 +
             Math.ceil(
-              (task.byteLength * 1000) / MULTIPART_TRANSFER_BYTES_PER_SECOND,
+              (task.byteLength * BLOB_TRANSFER_CONCURRENCY * 1000) /
+                MULTIPART_TRANSFER_BYTES_PER_SECOND,
             ),
         );
       } catch (error) {

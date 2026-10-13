@@ -24,8 +24,9 @@ Liveness assumes weak fairness of starting eligible work, callback settlement,
 and backoff expiry, with the bounded requests/failure above. Watchdog tails may
 overlap later phases; the barrier deliberately excludes abandoned callbacks,
 matching the existing exception documented in client sync ordering.
-Byte transfers separately enforce idle deadlines and discard aborted results;
-their permit lifecycle is covered by runtime regressions, outside this model.
+Byte transfers separately enforce download idle and upload size-based deadlines;
+aborted results are discarded. Runtime regressions cover the permit lifecycle
+outside this model.
 
 Six negative controls disable the worker cap, phase barrier, exclusive token,
 trailing request retention, backoff isolation, or timer expiry and require the corresponding

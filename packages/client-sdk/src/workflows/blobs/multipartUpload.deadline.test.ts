@@ -72,7 +72,7 @@ test("multipart timeout aborts its transport and ignores a late successful part"
   }
 });
 
-test("large parts reserve time for a slow shared uplink", async () => {
+test("four parts finish on a saturated 16 KiB/s uplink", async () => {
   const timers = spyOn(globalThis, "setTimeout");
   let release = () => {};
   const blocked = new Promise<void>((resolve) => {
@@ -82,9 +82,9 @@ test("large parts reserve time for a slow shared uplink", async () => {
   const entered = new Promise<void>((resolve) => {
     started = resolve;
   });
-  let signal: AbortSignal | undefined;
+  const signals: AbortSignal[] = [];
   const encryption = createFakePlan({
-    partCount: 1,
+    partCount: 4,
     getPartByteLength: () => 5 * 1024 * 1024,
   });
   const apiClient = createMultipartApi({
@@ -94,8 +94,9 @@ test("large parts reserve time for a slow shared uplink", async () => {
       request,
       options,
     ) => {
-      signal = options?.signal;
-      started();
+      if (!options?.signal) throw new Error("Missing part abort signal");
+      signals.push(options.signal);
+      if (signals.length === 4) started();
       await blocked;
       return {
         stageId,
@@ -123,16 +124,20 @@ test("large parts reserve time for a slow shared uplink", async () => {
   );
   try {
     await entered;
-    // Advance the old two-minute boundary while the upload is still sending.
+    // Four parts each receive 4 KiB/s on this shared 16 KiB/s link.
+    // Advance through their transfer time without waiting on wall-clock timers.
+    const transferMs = (5 * 1024 * 1024 * 4 * 1000) / (16 * 1024);
     for (const [callback, delay] of timers.mock.calls) {
-      if (delay === 120_000 && typeof callback === "function") callback();
+      if (
+        typeof delay === "number" &&
+        delay >= 120_000 &&
+        delay <= transferMs &&
+        typeof callback === "function"
+      )
+        callback();
     }
-    expect(signal?.aborted).toBe(false);
-    expect(
-      timers.mock.calls.some(
-        ([, delay]) => typeof delay === "number" && delay > 120_000,
-      ),
-    ).toBe(true);
+    expect(signals).toHaveLength(4);
+    expect(signals.every((signal) => !signal.aborted)).toBe(true);
     release();
     expect(await outcome).toBe("stage-new");
   } finally {

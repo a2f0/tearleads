@@ -1,5 +1,5 @@
 /** Bound byte I/O across documents sharing a client, including multipart parts. */
-const TRANSFER_CONCURRENCY = 4;
+export const BLOB_TRANSFER_CONCURRENCY = 4;
 const TRANSFER_IDLE_TIMEOUT_MS = 120_000;
 interface TransferPool {
   active: number;
@@ -19,7 +19,7 @@ export async function runBlobTransfer<T>(
     pool = { active: 0, waiting: [] };
     pools.set(client, pool);
   }
-  if (pool.active >= TRANSFER_CONCURRENCY) {
+  if (pool.active >= BLOB_TRANSFER_CONCURRENCY) {
     await new Promise<void>((resolve) => pool.waiting.push(resolve));
   } else {
     pool.active += 1;
