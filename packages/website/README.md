@@ -68,6 +68,39 @@ See the desktop instructions for
 
 ## Continuity gallery
 
+### Local website screenshots
+
+From the repository root, build the website with fresh screenshots:
+
+```sh
+bun install --frozen-lockfile
+bun run build:website
+bun run --cwd packages/website preview
+```
+
+`build:website` builds the SDK and SQLite prerequisites, creates an encrypted
+backup from the commit-pinned `@a2f0/continuity` development dependency, restores
+it through the app, and captures desktop, phone, and tablet in light and dark
+themes. Contacts include portraits; document details include the specimen
+driver's license and passport. Capture assertions use Continuity's expected
+names, note text, document titles, and image counts. The separate two-peer
+authorship captures still exercise the collaboration demo.
+
+Astro stages these local `.screenshots/` files into its gallery and homepage
+figures, then writes the site to `packages/website/dist/`. This command runs
+locally and does not publish anything. For a site-only rebuild using the last
+captures, run `bun run --cwd packages/website build`; without captures that
+command renders the existing empty gallery state.
+
+Use `bun run screenshots --project=web` for a desktop-only recapture or
+`bun run screenshots:seed` to generate just `tearleads-seed.tlbackup.json` for
+manual restore. PNGs and the backup stay gitignored. Update the Continuity SHA
+in the root `package.json` catalog, run
+`bun install`, then rebuild the screenshots and website to adopt new canon.
+The website consumes PNGs and a manifest; it does not import application code.
+
+### Standalone specimen gallery
+
 The [continuity repository](https://github.com/a2f0/continuity) builds and
 publishes the scrollable specimen gallery at `continuity.tearleads.com` with
 Wrangler. Its domain has a separate stack, `terraform/stacks/prod/continuity`,
