@@ -250,3 +250,40 @@ test("a throwing priority cannot abandon occupied workers", async () => {
   expect(started).toBe(8);
   expect(peak).toBe(4);
 });
+
+test("document watchdogs free saturated workers while retaining lane ownership", async () => {
+  const coordinator = getOrCreateDomainSyncCoordinator(createDomainScope());
+  const release = gate();
+  let entries = 0;
+  let healthyRan = false;
+  for (let index = 0; index < 4; index += 1) {
+    coordinator
+      .registerLane(`hung-${index}`, {
+        watchdogMs: 20,
+        run: async () => {
+          entries += 1;
+          await release.wait;
+        },
+      })
+      .requestSync();
+  }
+  coordinator
+    .registerLane("healthy", {
+      run: async () => {
+        healthyRan = true;
+      },
+    })
+    .requestSync();
+  try {
+    await waitFor(() => entries === 4, "document workers did not fill");
+    coordinator.requestAllLanes();
+    await waitFor(
+      () => healthyRan,
+      "watchdogs did not release document workers",
+    );
+    expect(entries).toBe(4);
+  } finally {
+    release.open();
+  }
+  expect(await coordinator.waitForIdle()).toBe(true);
+});

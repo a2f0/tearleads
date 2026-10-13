@@ -107,3 +107,40 @@ test("a failed targeted listing retries only its named document", async () => {
   expect(probes).toEqual(["doc-99"]);
   service.stop();
 });
+
+for (const targetedFirst of [true, false]) {
+  test(`full revalidation dominates pending targets (targeted first: ${targetedFirst})`, async () => {
+    const probes: string[] = [];
+    const host = createReconciliationTestHost({
+      discoverContainerDocuments: async () => documents,
+      loadContainerDelta: async (containerId) => ({
+        containerId,
+        documentSummaries: documents,
+      }),
+      requestDocumentContentPull: createReconciledDocumentContentPuller({
+        getContainer: () => null,
+        pullDocumentContent: () => {},
+        requestRegisteredDocumentRemoteSync: (_localId, documentId) => {
+          probes.push(documentId);
+        },
+      }),
+    });
+    const service = createReconciliationService(host);
+    service.start();
+    try {
+      for (const target of targetedFirst
+        ? ["doc-99", undefined]
+        : [undefined, "doc-99"]) {
+        service.enqueueContainer("root", "active", true, target);
+      }
+      expect(
+        await getOrCreateDomainSyncCoordinator(host.domainScope).waitForIdle(),
+      ).toBe(true);
+      expect(new Set(probes)).toEqual(
+        new Set(documents.map(({ documentId }) => documentId)),
+      );
+    } finally {
+      service.stop();
+    }
+  });
+}

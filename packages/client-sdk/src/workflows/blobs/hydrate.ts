@@ -1,4 +1,7 @@
-import type { BlobBytesResponse } from "@tearleads/api-client";
+import type {
+  BlobBytesResponse,
+  RequestResultOptions,
+} from "@tearleads/api-client";
 import { bytesToHex } from "@tearleads/crypto";
 import type {
   BlobAttachmentSummary,
@@ -18,10 +21,14 @@ import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createAttachmentDecryptor } from "./attachmentDecryptor";
 import { collectHydrationResults } from "./hydrationResults";
+import { readAttachmentTransfer } from "./readAttachmentTransfer";
 
 interface DocumentAttachmentHydrationApi {
   evictDocumentWriterProjection?(documentId: string): void;
-  getBlobBytes(blobId: string): Promise<BlobBytesResponse | null>;
+  getBlobBytes(
+    blobId: string,
+    options?: RequestResultOptions,
+  ): Promise<BlobBytesResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;
@@ -97,12 +104,6 @@ interface LoadedDocumentAttachmentBlobBytes {
   encryptedBytes: Uint8Array<ArrayBuffer>;
 }
 
-async function readBlobStreamBytes(
-  blob: BlobBytesResponse,
-): Promise<Uint8Array<ArrayBuffer>> {
-  return new Uint8Array(await new Response(blob.encryptedBytes).arrayBuffer());
-}
-
 async function hasExpectedBlobSha256(
   blob: BlobBytesResponse,
   encryptedBytes: Uint8Array<ArrayBuffer>,
@@ -147,18 +148,28 @@ function shouldHydrateAttachment(input: {
 async function loadDocumentAttachmentBlob(
   input: DocumentAttachmentHydrationContext & {
     binding: BlobAttachmentSummary;
+    signal: AbortSignal;
+    progress: () => void;
   },
 ): Promise<LoadedDocumentAttachmentBlobBytes | null> {
   const { apiClient, binding, log } = input;
   const logPrefix = input.logPrefix ?? "Documents";
-  const blob = await apiClient.getBlobBytes(binding.blobId);
+  if (input.stillCurrent?.() === false) return null;
+  input.signal.throwIfAborted();
+  const blob = await apiClient.getBlobBytes(binding.blobId, {
+    signal: input.signal,
+  });
   if (!blob) {
     return null;
   }
 
   let encryptedBytes: Uint8Array<ArrayBuffer>;
   try {
-    encryptedBytes = await readBlobStreamBytes(blob);
+    encryptedBytes = await readAttachmentTransfer(
+      blob,
+      input.signal,
+      input.progress,
+    );
   } catch (error) {
     log?.(
       `${logPrefix}: blob ${binding.blobId} failed to stream during hydration: ${errorMessage(
@@ -182,6 +193,7 @@ async function loadDocumentAttachmentBlob(
     return null;
   }
 
+  input.signal.throwIfAborted();
   return {
     blobId: binding.blobId,
     encryptedBytes,
@@ -205,8 +217,13 @@ async function loadUniqueDocumentAttachmentBlobs(
     tasks: Array.from(targetsByBlobId.values()).map((target) => ({
       blobId: target.binding.blobId,
       run: () =>
-        runBlobTransfer(input.apiClient, () =>
-          loadDocumentAttachmentBlob({ ...input, binding: target.binding }),
+        runBlobTransfer(input.apiClient, (signal, progress) =>
+          loadDocumentAttachmentBlob({
+            ...input,
+            binding: target.binding,
+            signal,
+            progress,
+          }),
         ),
     })),
   });

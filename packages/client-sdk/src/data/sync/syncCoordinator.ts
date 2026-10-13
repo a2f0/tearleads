@@ -46,7 +46,7 @@ export interface DomainSyncCoordinator {
     key: string,
     options?: UploadSyncLaneOptions,
   ) => UploadSyncLane;
-  // Force-stop the pump, drop all queued lane work, and refuse further runs.
+  // Drop queued work and refuse new runs; active callbacks retain ownership.
   dispose: () => void;
   getSnapshot: () => DomainSyncSnapshot;
   registerLane: (key: string, config: SyncLaneConfig) => SyncLane;
@@ -213,9 +213,8 @@ export function requestDomainSyncLane(
   coordinatorsByScope.get(domainScope)?.requestLane(key);
 }
 
-// Force-stop the coordinator for a scope and drop it from the registry, so a
-// pump cannot outlive the runtime/React tree that created it. A later
-// getOrCreate for the same scope builds a fresh coordinator.
+// Stop admitting work and remove this scope's coordinator. Active callbacks
+// drain under their existing watchdogs; getOrCreate builds a fresh coordinator.
 export function disposeDomainSyncCoordinator(domainScope: DomainScope): void {
   const coordinator = coordinatorsByScope.get(domainScope);
   if (!coordinator) {

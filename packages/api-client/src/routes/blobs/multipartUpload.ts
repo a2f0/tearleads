@@ -9,7 +9,9 @@ import {
 import type { UploadMultipartBlobPartResponse } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import type { OperationTransport } from "../../operationTransportFactory";
+import type { RequestResultOptions } from "../../types";
 import type { UploadMultipartBlobPartBytesRequest } from "./get";
+import { storageFetchOptions } from "./storageFetchOptions";
 
 type UploadFetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -68,7 +70,9 @@ export async function uploadMultipartBlobPartBytes(
   partNumber: number,
   input: UploadMultipartBlobPartBytesRequest,
   uploadFetch: UploadFetch = (url, init) => fetch(url, init),
+  options: RequestResultOptions = {},
 ): Promise<UploadMultipartBlobPartResponse | null> {
+  if (options.signal?.aborted) return null;
   const operation = authorizeMultipartBlobPartUploadOperation;
   const params = { stageId, partNumber };
   const path = operationRequestPath(operation, params);
@@ -87,7 +91,12 @@ export async function uploadMultipartBlobPartBytes(
   // failure may be an expired URL hidden by R2 CORS, or a lost success response;
   // reauthorize once and send the same immutable bytes to the same part number.
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const result = await transport.requestResult(operation, { params, body });
+    if (options.signal?.aborted) return null;
+    const result = await transport.requestResult(
+      operation,
+      { params, body },
+      options,
+    );
     if (!result.ok) return null;
     const descriptor = result.data;
     if (
@@ -120,7 +129,7 @@ export async function uploadMultipartBlobPartBytes(
             [blobWireHeaderKeys.partUploadId]: input.uploadId,
           },
         },
-        { encodeBody: () => file },
+        { ...options, encodeBody: () => file },
       );
     }
     try {
@@ -131,10 +140,7 @@ export async function uploadMultipartBlobPartBytes(
           "Content-Type": "application/octet-stream",
           "Content-MD5": contentMd5,
         },
-        cache: "no-store",
-        credentials: "omit",
-        redirect: "error",
-        referrerPolicy: "no-referrer",
+        ...storageFetchOptions(options),
       });
       status = response.status;
       const etag = response.headers.get("ETag")?.trim();
@@ -152,9 +158,20 @@ export async function uploadMultipartBlobPartBytes(
       status = null;
     }
   }
+  if (options.signal?.aborted) return null;
+  reportStorageFailure(transport, path, partNumber, status);
+  return null;
+}
+
+function reportStorageFailure(
+  transport: OperationTransport,
+  path: string,
+  partNumber: number,
+  status: number | null,
+) {
   transport.reportFailure({
     kind: "storage",
-    method: operation.method,
+    method: authorizeMultipartBlobPartUploadOperation.method,
     path,
     status,
     statusText: "",
@@ -163,5 +180,4 @@ export async function uploadMultipartBlobPartBytes(
         ? `Multipart part ${partNumber} storage response is missing ETag; check storage CORS exposure`
         : `Multipart part ${partNumber} storage upload failed${status === null ? "" : ` (HTTP ${status})`}`,
   });
-  return null;
 }

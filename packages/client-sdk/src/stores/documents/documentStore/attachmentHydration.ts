@@ -17,7 +17,7 @@ import {
 // survives for the trailing pass. Missing or changed local bytes always retry.
 const checkedSignals = new WeakMap<
   DocumentStoreState,
-  { documentId: string; document: DocumentState; sequence: number }
+  { documentId: string; document: WeakRef<DocumentState>; sequence: number }
 >();
 
 export async function hydrateAttachmentBlobs(
@@ -51,7 +51,7 @@ export async function hydrateAttachmentBlobs(
   const needsBindingProbe =
     signalSequence >
     (checked?.documentId === currentRecord.documentId &&
-    checked.document === currentDoc
+    checked.document.deref() === currentDoc
       ? checked.sequence
       : 0);
   if (
@@ -91,7 +91,7 @@ export async function hydrateAttachmentBlobs(
 
   checkedSignals.set(state, {
     documentId: currentRecord.documentId,
-    document: currentDoc,
+    document: new WeakRef(currentDoc),
     sequence: signalSequence,
   });
 

@@ -1,5 +1,6 @@
 import type {
   RequestFailureKind,
+  RequestResultOptions,
   UploadMultipartBlobPartBytesRequest,
 } from "@tearleads/api-client";
 import type {
@@ -81,6 +82,7 @@ export interface BlobAttachmentApi {
     stageId: string,
     partNumber: number,
     input: UploadMultipartBlobPartBytesRequest,
+    options?: RequestResultOptions,
   ): Promise<UploadMultipartBlobPartResponse | null>;
 }
 

@@ -55,6 +55,8 @@ export function activateContainer(
 ): void {
   state.activeContainerId = containerId;
   if (containerId) {
+    // Navigation preserves pending targets and their bounded retry allowance.
+    // A new hint or explicit refresh, rather than navigation, rearms that budget.
     enqueue(containerId);
   }
 }
