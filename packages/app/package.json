@@ -29,7 +29,7 @@
     "react-dom": "catalog:react"
   },
   "devDependencies": {
-    "@a2f0/continuity": "github:a2f0/continuity#673421b331dd6263a62367a0747ff4d777462f5b",
+    "@a2f0/continuity": "catalog:",
     "@happy-dom/global-registrator": "catalog:testing",
     "@testing-library/react": "catalog:testing",
     "@tearleads/loro": "workspace:*",

@@ -95,7 +95,7 @@ command renders the existing empty gallery state.
 Use `bun run screenshots --project=web` for a desktop-only recapture or
 `bun run screenshots:seed` to generate just `tearleads-seed.tlbackup.json` for
 manual restore. PNGs and the backup stay gitignored. Update the Continuity SHA
-in both `packages/app/package.json` and `packages/app-web/package.json`, run
+in the root `package.json` catalog, run
 `bun install`, then rebuild the screenshots and website to adopt new canon.
 The website consumes PNGs and a manifest; it does not import application code.
 

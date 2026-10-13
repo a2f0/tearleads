@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import { seedExpectations } from "./continuity";
+import { type DocumentExpectation, seedExpectations } from "./continuity";
 
 type OpenDetail = (scope: Page | Locator) => Promise<void>;
 
@@ -43,10 +43,7 @@ export const openContactDetail: OpenDetail = async (scope) => {
   );
 };
 
-function openDocumentDetail(expected: {
-  title: string;
-  imageCount: number;
-}): OpenDetail {
+function openDocumentDetail(expected: DocumentExpectation): OpenDetail {
   return async (scope) => {
     await scope
       .locator(".explorer-item-row-button", { hasText: expected.title })

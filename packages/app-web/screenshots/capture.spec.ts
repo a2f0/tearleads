@@ -183,6 +183,8 @@ async function captureRouted(page: Page, outputDir: string): Promise<void> {
       screen.name === "contacts" &&
       !(await page.locator(".routed-pane--mobile").isVisible())
     ) {
+      // Roomy layouts always select a contact. Keep their overview populated
+      // even when the auto-provisioned You contact has no profile fields.
       await openContactDetail(page);
     }
     await page.screenshot({

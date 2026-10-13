@@ -4,6 +4,7 @@
   "license": "UNLICENSED",
   "packageManager": "bun@1.4.2",
   "catalog": {
+    "@a2f0/continuity": "github:a2f0/continuity#673421b331dd6263a62367a0747ff4d777462f5b",
     "@types/bun": "1.4.2",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
@@ -80,7 +81,7 @@
     "report:dependencies:mermaid": "bun scripts/architecture/reportDependencyGraph.ts --format mermaid",
     "report:lines": "bun scripts/countLines.ts",
     "screenshots": "bun run --filter=app-web screenshots",
-    "screenshots:seed": "bun run build:packages && bun packages/app/test/screenshot-seed/buildScreenshotSeed.ts",
+    "screenshots:seed": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk && bun packages/app/test/screenshot-seed/buildScreenshotSeed.ts",
     "test:bun": "bun run build:packages && bun run --filter='*' --sequential test",
     "test:openapi:compatibility": "sh scripts/checks/testOpenApiCompatibility.sh",
     "test:postgres-concurrency": "sh scripts/checks/testPostgresConcurrency.sh",

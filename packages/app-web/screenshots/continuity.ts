@@ -11,7 +11,7 @@ export const seedIdentity = JSON.parse(
   ),
 ) as { password: string; identitySeedPhrase: string };
 
-interface DocumentExpectation {
+export interface DocumentExpectation {
   title: string;
   imageCount: number;
 }
