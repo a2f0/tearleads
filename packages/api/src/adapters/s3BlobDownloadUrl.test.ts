@@ -27,6 +27,9 @@ test("signs the configured S3 object and prefix for exactly five minutes", async
   expect(url.searchParams.get("X-Amz-SignedHeaders")).toBe("host");
   expect(url.searchParams.get("X-Amz-Signature")).toMatch(/^[a-f0-9]{64}$/u);
   expect(url.searchParams.get("response-cache-control")).toBe("no-store");
+  expect(url.searchParams.get("response-content-type")).toBe(
+    "application/octet-stream",
+  );
   const signedAt = new Date(Date.parse(signed.expiresAt) - 300_000)
     .toISOString()
     .replace(/[-:]|\.\d{3}/gu, "");

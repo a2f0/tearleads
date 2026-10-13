@@ -15,6 +15,7 @@ export function createS3BlobDownloadUrl(input: {
         Bucket: input.bucket,
         Key: key,
         ResponseCacheControl: "no-store",
+        ResponseContentType: "application/octet-stream",
       }),
       { expiresIn, signingDate },
     );

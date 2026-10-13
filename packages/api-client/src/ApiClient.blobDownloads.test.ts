@@ -110,6 +110,7 @@ testApiClient(
     expect(await client.getBlobBytes(blobId)).toBeNull();
     expect(authorizations).toBe(2);
     expect(downloads).toBe(2);
+    expect(errors).toEqual([`Blob ${blobId} download failed (network error)`]);
     expect(errors.join(" ")).not.toContain("signature=secret");
   },
 );
@@ -151,3 +152,36 @@ testApiClient(
     expect(await new ApiClient(apiBaseUrl).getBlobBytes(blobId)).toBeNull();
   },
 );
+
+for (const status of [404, 500]) {
+  testApiClient(
+    `reports storage HTTP ${status} without refreshing or leaking response text`,
+    async () => {
+      let authorizations = 0;
+      const errors: string[] = [];
+      const client = new ApiClient(apiBaseUrl);
+      client.setOnError((message) => errors.push(message));
+      server.use(
+        http.get(downloadPath, () => {
+          authorizations += 1;
+          return HttpResponse.json(descriptor);
+        }),
+        http.get(
+          "https://storage.test/private-object",
+          () => new HttpResponse(storageUrl, { status }),
+        ),
+      );
+      expect(await client.getBlobBytes(blobId)).toBeNull();
+      expect(authorizations).toBe(1);
+      expect(errors).toEqual([
+        `Blob ${blobId} download failed (HTTP ${status})`,
+      ]);
+      expect(
+        client.getRequestFailure({
+          method: "GET",
+          path: `/blobs/${blobId}/download`,
+        }),
+      ).toMatchObject({ kind: "http", status });
+    },
+  );
+}

@@ -19,6 +19,9 @@ test("download descriptor has generated types and a session-protected OpenAPI op
     BlobDownloadResponseSchema.parse(response);
   expect(generated).toEqual(response);
   expect(
+    JSON.stringify(openApiDocument.paths["/blobs/{blobId}/download"]),
+  ).not.toContain('"$schema"');
+  expect(
     openApiDocument.paths["/blobs/{blobId}/download"]?.get?.security,
   ).toEqual([{ bearerAuth: [] }]);
 });

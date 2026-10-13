@@ -12,6 +12,14 @@ import { defineJsonOperation } from "./definition";
 const downloadUrlSchema = z.url().regex(/^https?:\/\//u);
 const downloadExpirySchema = z.iso.datetime();
 
+function stringSchemaFragment(schema: z.ZodType<string>) {
+  const { $schema: _dialect, ...fragment } = z.toJSONSchema(schema);
+  return registerJsonSchemaFragment(
+    z.custom<string>((value) => schema.safeParse(value).success),
+    fragment,
+  );
+}
+
 export const BlobDownloadResponseSchema = z.strictObject({
   blobId: uuidStringSchema,
   byteLength: safeNonNegativeIntegerSchema,
@@ -20,16 +28,8 @@ export const BlobDownloadResponseSchema = z.strictObject({
     z.strictObject({ kind: z.literal("api") }),
     z.strictObject({
       kind: z.literal("signed-url"),
-      url: registerJsonSchemaFragment(
-        z.custom<string>((value) => downloadUrlSchema.safeParse(value).success),
-        z.toJSONSchema(downloadUrlSchema),
-      ),
-      expiresAt: registerJsonSchemaFragment(
-        z.custom<string>(
-          (value) => downloadExpirySchema.safeParse(value).success,
-        ),
-        z.toJSONSchema(downloadExpirySchema),
-      ),
+      url: stringSchemaFragment(downloadUrlSchema),
+      expiresAt: stringSchemaFragment(downloadExpirySchema),
     }),
   ]),
 });

@@ -5,6 +5,7 @@ import {
 } from "@tearleads/validators/operation";
 import type { BinaryResponseOperationTransport } from "../../binaryResponseOperationTransport";
 import type { JsonOperationTransport } from "../../operationTransport";
+import type { OperationResponseRequestFn } from "../../types";
 
 export interface BlobBytesResponse {
   readonly blobId: string;
@@ -21,7 +22,8 @@ export interface UploadMultipartBlobPartBytesRequest {
 }
 
 type BlobDownloadTransport = Pick<JsonOperationTransport, "request"> &
-  Pick<BinaryResponseOperationTransport, "requestBinaryResponse">;
+  Pick<BinaryResponseOperationTransport, "requestBinaryResponse"> &
+  Pick<OperationResponseRequestFn, "reportFailure">;
 
 type DownloadFetch = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -30,13 +32,25 @@ export async function getBlobBytes(
   blobId: string,
   downloadFetch: DownloadFetch = (url, init) => fetch(url, init),
 ): Promise<BlobBytesResponse | null> {
+  let failedStatus: number | null = null;
   // Refresh at most once. R2 expiration errors can appear as CORS/network
   // failures in browsers, so both rejected fetches and 403s need a fresh URL.
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const descriptor = await transport.request(getBlobDownloadOperation, {
       params: { blobId },
     });
-    if (!descriptor || descriptor.blobId !== blobId) {
+    if (!descriptor) {
+      return null;
+    }
+    if (descriptor.blobId !== blobId) {
+      transport.reportFailure({
+        kind: "shape",
+        method: "GET",
+        path: `/blobs/${blobId}/download`,
+        status: 200,
+        statusText: "",
+        message: `Blob ${blobId} download descriptor has the wrong identity`,
+      });
       return null;
     }
     if (descriptor.source.kind === "api") {
@@ -52,11 +66,12 @@ export async function getBlobBytes(
         referrerPolicy: "no-referrer",
       });
       if (response.status !== 200) {
+        failedStatus = response.status;
         await response.body?.cancel();
         if (response.status === 403) {
           continue;
         }
-        return null;
+        break;
       }
       return {
         blobId: descriptor.blobId,
@@ -67,10 +82,19 @@ export async function getBlobBytes(
           : bufferedResponseBodyStream(await response.arrayBuffer()),
       };
     } catch {
+      failedStatus = null;
       // The downstream SDK still verifies length, hash and authenticated
       // encryption. An error after streaming begins propagates to that reader.
     }
   }
+  transport.reportFailure({
+    kind: failedStatus === null ? "network" : "http",
+    method: "GET",
+    path: `/blobs/${blobId}/download`,
+    status: failedStatus,
+    statusText: "",
+    message: `Blob ${blobId} download failed${failedStatus === null ? " (network error)" : ` (HTTP ${failedStatus})`}`,
+  });
   return null;
 }
 
