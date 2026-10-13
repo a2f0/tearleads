@@ -17,6 +17,7 @@ async function runWebsite(script: string, args: string[] = [], failure = "") {
       "scripts/deployProductionWebsite.sh",
       "packages/website/scripts/destroyStagingWebsite.sh",
       "terraform/scripts/run-website-stack.sh",
+      "terraform/scripts/run-continuity-stack.sh",
     ]) {
       await mkdir(dirname(resolve(root, path)), { recursive: true });
       await cp(resolve(import.meta.dir, "../../..", path), resolve(root, path));
@@ -167,6 +168,9 @@ for (const [script, args] of [
   ["packages/website/scripts/deployWebsite.sh", ["unknown"]],
   ["packages/website/scripts/deployWebsite.sh", ["prod", "--unknown"]],
   ["packages/website/scripts/destroyStagingWebsite.sh", ["-target=wrong"]],
+  ["terraform/scripts/run-continuity-stack.sh", []],
+  ["terraform/scripts/run-continuity-stack.sh", ["destroy"]],
+  ["terraform/scripts/run-continuity-stack.sh", ["unknown"]],
   ["terraform/scripts/run-website-stack.sh", []],
   ["terraform/scripts/run-website-stack.sh", ["unknown", "apply"]],
   ["terraform/scripts/run-website-stack.sh", ["prod", "unknown"]],
@@ -208,3 +212,46 @@ test("website initialization forwards provider upgrade arguments", async () => {
     result.calls.filter((call) => call.startsWith("terraform|")),
   ).toHaveLength(1);
 });
+
+test("continuity output keeps initialization noise off stdout", async () => {
+  const result = await runWebsite("terraform/scripts/run-continuity-stack.sh", [
+    "output",
+    "-raw",
+    "url",
+  ]);
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.stdout).toBe("https://fixture.test\n");
+  expect(result.stderr).toContain("init-noise");
+});
+
+test("continuity initialization forwards provider upgrade arguments", async () => {
+  const result = await runWebsite("terraform/scripts/run-continuity-stack.sh", [
+    "init",
+    "-upgrade",
+  ]);
+  expect(result.exitCode, result.stderr).toBe(0);
+  expect(result.calls).toEqual([
+    "secrets|prod",
+    "aws",
+    "terraform|-chdir=ROOT/terraform/stacks/prod/continuity init -input=false -reconfigure -backend-config=/fixture/backend.hcl -upgrade",
+  ]);
+});
+
+for (const [action, argument] of [
+  ["plan", "-out=/fixture/gallery.tfplan"],
+  ["apply", "/fixture/gallery.tfplan"],
+]) {
+  test(`continuity ${action} uses its own stack without prompting`, async () => {
+    const result = await runWebsite(
+      "terraform/scripts/run-continuity-stack.sh",
+      [action, argument],
+    );
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.calls).toEqual([
+      "secrets|prod",
+      "aws",
+      "terraform|-chdir=ROOT/terraform/stacks/prod/continuity init -input=false -reconfigure -backend-config=/fixture/backend.hcl",
+      `terraform|-chdir=ROOT/terraform/stacks/prod/continuity ${action} -input=false ${argument}`,
+    ]);
+  });
+}

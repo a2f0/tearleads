@@ -15,22 +15,6 @@ Wrangler owns asset deployments; the independent Terraform roots in
 `terraform/stacks/{prod,staging}/website` own custom domains. Rebuilding a server
 leaves the website available. The API, application, and demo still use the server.
 
-The [continuity repository](https://github.com/a2f0/continuity) builds and
-publishes the scrollable specimen gallery at `continuity.tearleads.com` with
-Wrangler. Its domain has a separate stack, `terraform/stacks/prod/continuity`,
-and state key, `prod/continuity/terraform.tfstate`; website and tier deploys do
-not apply it. Publish `tearleads-continuity` first, then run:
-
-```sh
-terraform/scripts/run-continuity-stack.sh plan -out=/path/to/gallery.tfplan
-terraform/scripts/run-continuity-stack.sh apply /path/to/gallery.tfplan
-```
-
-Subsequent gallery asset deployments do not need Terraform. The gallery sends
-`noindex` in HTML and response headers. Wrangler needs Workers Scripts Edit in
-the gallery's Cloudflare account; the hostname stack uses Workers Routes Edit
-and Zone Read, plus the existing AWS credentials for its S3 backend.
-
 ```sh
 scripts/deployStagingWebsite.sh
 scripts/deployProductionWebsite.sh
@@ -81,3 +65,22 @@ for staging. Run these from the repository root before deploying the website.
 See the desktop instructions for
 [macOS](../app-electrobun/README.md#macos-releases) and
 [Linux from Docker](../app-electrobun/README.md#linux-releases-from-docker).
+
+## Continuity gallery
+
+The [continuity repository](https://github.com/a2f0/continuity) builds and
+publishes the scrollable specimen gallery at `continuity.tearleads.com` with
+Wrangler. Its domain has a separate stack, `terraform/stacks/prod/continuity`,
+and state key, `prod/continuity/terraform.tfstate`; website and tier deploys do
+not apply it. Publish `tearleads-continuity` first, then run:
+
+```sh
+terraform/scripts/run-continuity-stack.sh plan -out=/path/to/gallery.tfplan
+terraform/scripts/run-continuity-stack.sh apply /path/to/gallery.tfplan
+```
+
+Subsequent gallery asset deployments do not need Terraform. The gallery sends
+`noindex` in HTML and response headers. Wrangler needs Workers Scripts Edit in
+the tearleads.com Cloudflare account (`TF_VAR_cloudflare_account_id`); publish
+the Worker into that same account. The hostname stack uses Workers Routes Edit
+and Zone Read, plus the existing AWS credentials for its S3 backend.
