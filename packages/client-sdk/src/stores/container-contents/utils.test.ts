@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
+import {
+  createContainerMetadataDocument,
+  writeContainerMetadataValue,
+} from "../../data/containers/containerMetadataDocument";
 import type { ContainerState } from "./syncAgent";
 import { toContainerNode } from "./utils";
 
@@ -47,4 +50,14 @@ test("toContainerNode exposes projected container metadata icons", async () => {
       await createContainerState({ icon: null, id: "without-icon" }),
     ),
   ).not.toHaveProperty("icon");
+});
+
+test("remote folder readiness follows content, not its fallback name", async () => {
+  const state = await createContainerState({
+    icon: null,
+    id: "pending-folder",
+  });
+  expect(toContainerNode(state).metadataReady).toBe(false);
+  writeContainerMetadataValue(state.doc, { name: "Untitled", icon: null });
+  expect(toContainerNode(state).metadataReady).toBe(true);
 });

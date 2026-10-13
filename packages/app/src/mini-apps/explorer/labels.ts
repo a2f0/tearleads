@@ -1,7 +1,11 @@
 import { formatByteLength } from "../../utils/formatByteLength";
-import { EXPLORER_LABELS } from "./labelCatalog";
+import { EXPLORER_LABELS as CATALOG_LABELS } from "./labelCatalog";
+import { EXPLORER_DOWNLOAD_LABELS } from "./shared/downloadLabels";
 
-export { EXPLORER_LABELS };
+export const EXPLORER_LABELS = {
+  ...CATALOG_LABELS,
+  ...EXPLORER_DOWNLOAD_LABELS,
+};
 
 const EXPLORER_COUNT_FORMATTER = new Intl.NumberFormat();
 const EXPLORER_PLURAL_RULES = new Intl.PluralRules();
@@ -20,6 +24,13 @@ function formatExplorerCountLabel(
   labels: { one: string; other: string },
 ): string {
   return `${EXPLORER_COUNT_FORMATTER.format(value)} ${getExplorerPluralLabel(value, labels)}`;
+}
+
+export function getExplorerDownloadsCountLabel(value: number): string {
+  return formatExplorerCountLabel(value, {
+    one: EXPLORER_LABELS.downloadsCountOne,
+    other: EXPLORER_LABELS.downloadsCountOther,
+  });
 }
 
 export function getExplorerSyncBlobCountLabel(value: number): string {

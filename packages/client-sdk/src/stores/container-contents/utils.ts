@@ -4,6 +4,15 @@ import type { ContainerState } from "../../workflows/container-contents/remoteHy
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type { ContainerNode } from "./types";
 
+function hasContainerMetadata(containerState: ContainerState): boolean {
+  const version = containerState.doc.oplogVersion();
+  try {
+    return version.length() > 0;
+  } finally {
+    version.free();
+  }
+}
+
 function hasPendingContainerTimestamp(container: ContainerRecord): boolean {
   const localUpdatedAt = container.localUpdatedAt ?? null;
   const serverUpdatedAt = container.serverUpdatedAt ?? null;
@@ -25,6 +34,7 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
     id: container.id,
     kind: "container",
     metadataDocumentId: container.metadataDocumentId ?? record.documentId,
+    metadataReady: !record.documentId || hasContainerMetadata(containerState),
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,

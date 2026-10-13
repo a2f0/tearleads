@@ -286,6 +286,7 @@ function useExplorerRoutedBackAction({
     if (
       route.view === "sync-lanes" ||
       route.view === "write-queue" ||
+      route.view === "downloads" ||
       route.view === "uploads"
     ) {
       return {

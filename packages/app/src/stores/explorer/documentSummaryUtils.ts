@@ -1,4 +1,7 @@
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  ContainerDocumentQueries,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 
 function areDocumentSummariesEqualForExplorerMerge(
   left: DocumentSummary,
@@ -221,4 +224,44 @@ export function mergeDocumentSummaryLists(
   }
 
   return changed ? nextDocumentSummaries : currentDocumentSummaries;
+}
+
+export type ExplorerRouteDocumentSummaryResult =
+  | { status: "deferred" }
+  | { status: "pending" }
+  | { status: "rejected" }
+  | { documentSummary: DocumentSummary; status: "loaded" };
+
+export async function loadExplorerRouteSummary(input: {
+  documentQueries: ContainerDocumentQueries;
+  localId: string;
+  orphanedRoute: boolean;
+  currentOrganizationId: string | null;
+}): Promise<ExplorerRouteDocumentSummaryResult> {
+  const { documentQueries, localId } = input;
+  if (!input.orphanedRoute) {
+    const identity = await documentQueries.loadDocumentSummary(localId);
+    if (identity?.containerId === null) return { status: "rejected" };
+    const documentSummary = await documentQueries.loadDocumentSummary(localId, {
+      requireHydrated: true,
+    });
+    if (!documentSummary) return { status: "pending" };
+    if (documentSummary.containerId === null) return { status: "rejected" };
+    return { status: "loaded", documentSummary };
+  }
+  const identity = await documentQueries.loadOrphanedDocumentSummary({
+    currentOrganizationId: input.currentOrganizationId,
+    localId,
+  });
+  if (!identity) {
+    const unscoped = await documentQueries.loadDocumentSummary(localId);
+    return { status: unscoped ? "rejected" : "pending" };
+  }
+  const documentSummary = await documentQueries.loadOrphanedDocumentSummary({
+    currentOrganizationId: input.currentOrganizationId,
+    localId,
+    requireHydrated: true,
+  });
+  if (!documentSummary) return { status: "pending" };
+  return { status: "loaded", documentSummary };
 }

@@ -21,6 +21,7 @@ import {
 } from "../../data/persistence/documents/documentsPersistence";
 import { containerCreateIntentTables } from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
+import { hydratedProjectionSql } from "./documentQueries/hydrationSql";
 import {
   mapContainerContentsDocumentSummaryRow,
   mapContainerContentsDocumentSyncStateRow,
@@ -58,6 +59,10 @@ import {
   getOrphanedDocumentQueryBind,
   getOrphanedDocumentWhereSql,
 } from "./orphanedDocumentSql";
+import {
+  listPendingDownloads,
+  type PendingDownloadQueueItem,
+} from "./pendingDownloads";
 import {
   listPendingWrites,
   type PendingWriteQueueItem,
@@ -115,8 +120,12 @@ export interface ContainerDocumentQueries {
   loadDocumentSyncState(
     localId: string,
   ): Promise<ContainerDocumentObjectSyncState | null>;
-  loadDocumentSummary(localId: string): Promise<DocumentSummary | null>;
+  loadDocumentSummary(
+    localId: string,
+    options?: { requireHydrated?: boolean },
+  ): Promise<DocumentSummary | null>;
   loadOrphanedDocumentSummary(input: {
+    requireHydrated?: boolean;
     currentOrganizationId: string | null;
     localId: string;
   }): Promise<DocumentSummary | null>;
@@ -126,6 +135,7 @@ export interface ContainerDocumentQueries {
   listLinkedContainerIdsByDocumentIds(
     documentIds: ReadonlyArray<string>,
   ): Promise<ReadonlyMap<string, ReadonlyArray<string>>>;
+  listPendingDownloads(): Promise<ReadonlyArray<PendingDownloadQueueItem>>;
   listPendingWrites(): Promise<ReadonlyArray<PendingWriteQueueItem>>;
   retryPendingWriteItem(input: {
     localId: string;
@@ -296,10 +306,13 @@ async function queryContainerContentsDocumentSummary(
 function loadContainerContentsDocumentSummary(
   execSql: ExecSql,
   localId: string,
+  requireHydrated: boolean,
 ): Promise<DocumentSummary | null> {
   return queryContainerContentsDocumentSummary(execSql, localId, {
     bind: [],
-    whereSql: "",
+    whereSql: requireHydrated
+      ? `AND ${hydratedProjectionSql("d.local_id", "documents")}`
+      : "",
   });
 }
 
@@ -307,13 +320,16 @@ function loadContainerContentsOrphanedDocumentSummary(
   execSql: ExecSql,
   localId: string,
   currentOrganizationId: string | null,
+  requireHydrated: boolean,
 ): Promise<DocumentSummary | null> {
   return queryContainerContentsDocumentSummary(execSql, localId, {
     bind: getOrphanedDocumentQueryBind(currentOrganizationId),
-    whereSql: `AND ${getOrphanedDocumentWhereSql({
-      documentIdSql: "d.document_id",
-      projectionAlias: "d",
-    })}`,
+    whereSql: `${requireHydrated ? `AND ${hydratedProjectionSql("d.local_id", "documents")}` : ""} AND ${getOrphanedDocumentWhereSql(
+      {
+        documentIdSql: "d.document_id",
+        projectionAlias: "d",
+      },
+    )}`,
   });
 }
 
@@ -407,14 +423,23 @@ export function createContainerDocumentQueriesFromRuntime(
     loadDocumentSyncState(localId) {
       return loadContainerContentsDocumentSyncState(execSql, localId);
     },
-    loadDocumentSummary(localId) {
-      return loadContainerContentsDocumentSummary(execSql, localId);
+    loadDocumentSummary(localId, options) {
+      return loadContainerContentsDocumentSummary(
+        execSql,
+        localId,
+        options?.requireHydrated ?? false,
+      );
     },
-    loadOrphanedDocumentSummary({ currentOrganizationId, localId }) {
+    loadOrphanedDocumentSummary({
+      currentOrganizationId,
+      localId,
+      requireHydrated = false,
+    }) {
       return loadContainerContentsOrphanedDocumentSummary(
         execSql,
         localId,
         currentOrganizationId,
+        requireHydrated,
       );
     },
     loadContainerDocumentWatermark(containerId) {
@@ -428,6 +453,9 @@ export function createContainerDocumentQueriesFromRuntime(
         execSql,
         documentIds,
       );
+    },
+    listPendingDownloads() {
+      return listPendingDownloads(execSql);
     },
     listPendingWrites() {
       return listPendingWrites(execSql);

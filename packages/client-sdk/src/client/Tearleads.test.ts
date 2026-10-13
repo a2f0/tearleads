@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { emptyVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   quietLogger,
@@ -806,7 +807,7 @@ describe("Tearleads", () => {
           documentManifestBundle: null,
           id: "note-1",
           lastCommitLsn: null,
-          snapshotEndVersion: "",
+          snapshotEndVersion: emptyVersionVector(),
           text: "Note text",
           title: "Note title",
         },

@@ -50,6 +50,8 @@ interface ExplorerContextModel {
 }
 
 interface ExplorerContextValue extends ContainerContentsContextValue {
+  /** Known identities preserve routes while their display metadata hydrates. */
+  knownNodes: ReadonlyArray<ContainerNode>;
   builtInSystemContainers: ReadonlyArray<BuiltInSystemContainer>;
   canResolveTrashContainer: boolean;
   contactsSystemSlot: ContainerSystemSlot | null;
@@ -222,6 +224,12 @@ export function useExplorer(): ExplorerContextValue {
       contactsSystemSlot,
       ensureTrashContainer,
       reconciler,
+      knownNodes: getVisibleExplorerNodes(
+        snapshot.nodes,
+        visibleSystemSlots,
+        currentOrganizationId,
+        true,
+      ),
       nodes: getVisibleExplorerNodes(
         snapshot.nodes,
         visibleSystemSlots,

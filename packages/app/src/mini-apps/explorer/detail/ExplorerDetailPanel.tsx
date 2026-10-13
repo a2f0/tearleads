@@ -170,6 +170,7 @@ interface ExplorerDetailPanelProps {
   }) => void;
   openContainerInfoRoute: (containerId: string) => void;
   openDocumentInfoRoute: (localId: string, containerId: string) => void;
+  openDownloadsRoute: () => void;
   openUploadsRoute: () => void;
   openWriteQueueRoute: () => void;
   openWriteQueueEntryRoute: (entryKey: string) => void;
@@ -239,6 +240,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
     route.view === "blob-browser" ||
     route.view === "write-queue" ||
     route.view === "write-queue-entry" ||
+    route.view === "downloads" ||
     route.view === "uploads"
   ) {
     return (
@@ -261,6 +263,7 @@ function renderExplorerRouteDetail(params: ExplorerDetailPanelProps) {
         openContainerInfoRoute={params.openContainerInfoRoute}
         openDocumentInfoRoute={params.openDocumentInfoRoute}
         openSyncLanesRoute={params.openSyncLanesRoute}
+        openDownloadsRoute={params.openDownloadsRoute}
         openUploadsRoute={params.openUploadsRoute}
         openWriteQueueRoute={params.openWriteQueueRoute}
         openWriteQueueEntryRoute={params.openWriteQueueEntryRoute}

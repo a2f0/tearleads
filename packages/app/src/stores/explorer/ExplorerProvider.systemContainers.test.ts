@@ -407,3 +407,31 @@ test("system container provisioning rejects an organization metadata root", () =
     }),
   ).toBe(false);
 });
+
+test("Explorer hides unhydrated folders and their descendants until metadata arrives", () => {
+  const root = {
+    id: "pending-root",
+    kind: "container" as const,
+    name: "/",
+    parentId: null,
+    organizationId: "org",
+    metadataReady: false,
+    syncState: syncedContainerDocumentObjectSyncState,
+  };
+  const child = {
+    ...root,
+    id: "child",
+    name: "Ready child",
+    metadataReady: true,
+    parentId: root.id,
+  };
+  expect(getVisibleExplorerNodes([root, child])).toEqual([]);
+  expect(
+    getVisibleExplorerNodes([root, child], undefined, undefined, true),
+  ).toEqual([root, child]);
+  expect(
+    getVisibleExplorerNodes([{ ...root, metadataReady: true }, child]).map(
+      (node) => node.id,
+    ),
+  ).toEqual([root.id, child.id]);
+});

@@ -117,6 +117,15 @@ interface BlobPickPanelRenderParams extends BlobPickPanelProps {
   featureFlags: ExplorerDetailPanelFeatureFlags;
 }
 
+function explorerQueueRoutes(model: BlobPickPanelRenderParams["model"]) {
+  return {
+    openDownloadsRoute: model.routeState.openDownloadsRoute,
+    openUploadsRoute: model.routeState.openUploadsRoute,
+    openWriteQueueRoute: model.routeState.openWriteQueueRoute,
+    openWriteQueueEntryRoute: model.routeState.openWriteQueueEntryRoute,
+  };
+}
+
 function renderExplorerDetailPanelWithBlobPick(
   params: BlobPickPanelRenderParams,
 ) {
@@ -179,9 +188,7 @@ function renderExplorerDetailPanelWithBlobPick(
       openBlobBrowserRoute={routeState.openBlobBrowserRoute}
       openContainerInfoRoute={routeState.openContainerInfoRoute}
       openDocumentInfoRoute={routeState.openDocumentInfoRoute}
-      openUploadsRoute={routeState.openUploadsRoute}
-      openWriteQueueRoute={routeState.openWriteQueueRoute}
-      openWriteQueueEntryRoute={routeState.openWriteQueueEntryRoute}
+      {...explorerQueueRoutes(model)}
       peerUserId={model.peerUserId}
       ready={model.explorer.ready}
       refreshError={model.refreshError}

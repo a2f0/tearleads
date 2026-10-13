@@ -3,8 +3,9 @@ import type { ContainerNode, DocumentSummary } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { WindowStateProvider } from "@tearleads/windowing";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
-import { type ReactNode, useCallback } from "react";
+import { type ReactNode, useCallback, useMemo } from "react";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
+import { getVisibleExplorerNodes } from "../../../stores/explorer/ExplorerSystemContainers";
 import {
   createExplorerOrphanedDocumentsNode,
   EXPLORER_ORPHANED_DOCUMENTS_ID,
@@ -306,4 +307,152 @@ test("a failed route restoration reports the original error", async () => {
     new Set(["Failed to restore the explorer document route"]),
   );
   expect(view.result.current).toBeNull();
+});
+
+const pendingRoot: ContainerNode = {
+  id: "root",
+  kind: "container",
+  name: "/",
+  parentId: null,
+  organizationId: "org",
+  metadataReady: false,
+  syncState: syncedContainerDocumentObjectSyncState,
+};
+const child: ContainerNode = {
+  ...pendingRoot,
+  id: "child",
+  name: "Ready child",
+  parentId: "root",
+  metadataReady: true,
+};
+const loadDocumentSummary = async () => ({ status: "pending" as const });
+const logError = () => undefined;
+
+for (const targetId of ["root", "child"]) {
+  test(`a cold ancestor does not replace the restored ${targetId} route`, () => {
+    const path = `/app/explorer/containers/${targetId}/info`;
+    const happyDomWindow = window as typeof window & {
+      happyDOM: { setURL: (url: string) => void };
+    };
+    happyDomWindow.happyDOM.setURL(`http://localhost${path}`);
+    window.history.replaceState(null, "", path);
+    const view = renderHook(
+      ({ knownNodes }: { knownNodes: ReadonlyArray<ContainerNode> }) => {
+        const nodes = useMemo(
+          () => getVisibleExplorerNodes(knownNodes),
+          [knownNodes],
+        );
+        const selection = useExplorerSelection(nodes, []);
+        const route = useExplorerRoute({
+          nodes,
+          knownNodes,
+          loadDocumentSummary,
+          logError,
+          selectDocument: selection.selectDocument,
+          setSelectedId: selection.setSelectedId,
+        });
+        return { nodes, route };
+      },
+      {
+        wrapper: TestProviders,
+        initialProps: { knownNodes: [pendingRoot, child] },
+      },
+    );
+    expect(view.result.current.nodes).toEqual([]);
+    expect(window.location.pathname).toBe(path);
+    expect(view.result.current.route.route).toEqual({
+      view: "container-info",
+      containerId: targetId,
+    });
+    view.rerender({
+      knownNodes: [{ ...pendingRoot, metadataReady: true }, child],
+    });
+    expect(view.result.current.nodes.map((node) => node.id)).toEqual([
+      "root",
+      "child",
+    ]);
+    expect(window.location.pathname).toBe(path);
+  });
+}
+
+test("a folder selection resumes after its metadata arrives", () => {
+  const path = "/app/explorer/containers/child";
+  const happyDomWindow = window as typeof window & {
+    happyDOM: { setURL: (url: string) => void };
+  };
+  happyDomWindow.happyDOM.setURL(`http://localhost${path}`);
+  window.history.replaceState(null, "", path);
+  const view = renderHook(
+    ({ knownNodes }: { knownNodes: ReadonlyArray<ContainerNode> }) => {
+      const nodes = useMemo(
+        () => getVisibleExplorerNodes(knownNodes),
+        [knownNodes],
+      );
+      const selection = useExplorerSelection(nodes, []);
+      useExplorerRoute({
+        nodes,
+        knownNodes,
+        loadDocumentSummary,
+        logError,
+        selectDocument: selection.selectDocument,
+        setSelectedId: selection.setSelectedId,
+      });
+      return selection;
+    },
+    {
+      wrapper: TestProviders,
+      initialProps: { knownNodes: [pendingRoot, child] },
+    },
+  );
+  expect(view.result.current.selectedNode).toBeUndefined();
+  view.rerender({
+    knownNodes: [{ ...pendingRoot, metadataReady: true }, child],
+  });
+  expect(view.result.current.selectedNode?.id).toBe("child");
+  expect(window.location.pathname).toBe(path);
+});
+
+test("route validation and selection wait for the container store to be ready", async () => {
+  const path =
+    "/app/explorer/containers/root-container/documents/future-document";
+  const happyDomWindow = window as typeof window & {
+    happyDOM: { setURL: (url: string) => void };
+  };
+  happyDomWindow.happyDOM.setURL(`http://localhost${path}`);
+  window.history.replaceState(null, "", path);
+  const view = renderHook(
+    ({
+      ready,
+      knownNodes,
+    }: {
+      ready: boolean;
+      knownNodes: ReadonlyArray<ContainerNode>;
+    }) => {
+      const selection = useExplorerSelection(knownNodes, []);
+      return useExplorerRoute({
+        nodes: knownNodes,
+        ready,
+        loadDocumentSummary: deferUndiscoveredRouteDocument,
+        logError: () => undefined,
+        selectDocument: selection.selectDocument,
+        setSelectedId: selection.setSelectedId,
+      });
+    },
+    {
+      wrapper: TestProviders,
+      initialProps: {
+        ready: false,
+        knownNodes: [] as ReadonlyArray<ContainerNode>,
+      },
+    },
+  );
+  expect(window.location.pathname).toBe(path);
+  expect(routeLoadCalls).toEqual([]);
+  view.rerender({ ready: true, knownNodes: nodes });
+  await waitFor(() =>
+    expect(routeLoadCalls).toEqual([["future-document", "root-container"]]),
+  );
+  expect(window.location.pathname).toBe(path);
+  view.rerender({ ready: true, knownNodes: [] });
+  expect(view.result.current.route.view).toBe("selection");
 });
