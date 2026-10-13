@@ -1,7 +1,8 @@
 import { ApiRequestMetrics } from "@tearleads/client-sdk";
 
 // Page-lifetime ownership keeps counts through workspace/provider remounts.
-// Separate hosts/panes stay isolated even when they use the same identity.
+// Explicit host namespaces isolate stores; hosts without one share a store
+// per API, with counts still separated by identity.
 const metricsByHost = new Map<string, ApiRequestMetrics>();
 
 export function getApiRequestMetrics(
