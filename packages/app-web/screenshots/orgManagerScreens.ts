@@ -114,7 +114,10 @@ export async function assertOrgManagerCaptureReady(
       break;
     case "organization":
       await expect(
-        scope.getByText("Organization policy history", { exact: true }).first(),
+        scope.getByRole("tab", { name: "Profile", exact: true }),
+      ).toHaveAttribute("aria-selected", "true", { timeout: 60_000 });
+      await expect(
+        scope.getByRole("tab", { name: "Policy history", exact: true }),
       ).toBeVisible({ timeout: 60_000 });
       await expect(
         scope.getByText("Loading organization profile...", { exact: true }),

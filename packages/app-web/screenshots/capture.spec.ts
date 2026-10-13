@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +11,8 @@ import {
   visiblePane,
   waitForBooted,
 } from "./appShell";
+import { seedExpectations, seedIdentity } from "./continuity";
+import { DETAIL_SCREENS, openContactDetail } from "./detailScreens";
 import {
   assertOrgManagerCaptureReady,
   assertRoutedOrgManagerBaseCaptureReady,
@@ -36,21 +37,8 @@ const REPO_ROOT = path.resolve(
   "..",
 );
 
-// The seed fixture (spec) is committed; the artifact it produces is not — it is
-// gitignored and regenerated at the repo root by the `prescreenshots` step (and
-// on demand via `bun run screenshots:seed`).
-const SEED_FIXTURES_DIR = path.join(
-  REPO_ROOT,
-  "packages/app/test/screenshot-seed/fixtures",
-);
+// Regenerated from the pinned Continuity package by prescreenshots.
 const SEED_ARTIFACT_PATH = path.join(REPO_ROOT, "tearleads-seed.tlbackup.json");
-// Password + identity phrase come from the fixture so they never drift from the
-// artifact they were authored with.
-const SEED_SPEC = JSON.parse(
-  readFileSync(path.join(SEED_FIXTURES_DIR, "seed.json"), "utf8"),
-) as { password: string; identitySeedPhrase: string };
-const SEED_PASSWORD = SEED_SPEC.password;
-const SEED_IDENTITY_PHRASE = SEED_SPEC.identitySeedPhrase;
 
 // The app self-provisions an identity on boot via IdentityAutopilot (the default
 // "app" host profile sets autoGenerateIdentity) and the local keychain is
@@ -126,7 +114,7 @@ async function openBackupRestore(page: Page, routed: boolean): Promise<void> {
 //    a layout-independent signal the backup restored.
 //  - Contacts reads the identity-scoped Contacts system container, so a seeded
 //    contact there proves the imported identity re-derived that container's slot.
-const SEEDED_CONTACT_NAME = "Alan Turing";
+const SEEDED_CONTACT_NAME = seedExpectations.contact.displayName;
 
 async function assertSeededDataVisible(
   page: Page,
@@ -135,7 +123,11 @@ async function assertSeededDataVisible(
   if (routed) {
     await page.goto("/app/explorer");
     await waitForBooted(page);
-    await expect(page.getByText(/Driver's License/).first()).toBeVisible({
+    await expect(
+      page
+        .getByText(seedExpectations.driversLicense.title, { exact: true })
+        .first(),
+    ).toBeVisible({
       timeout: 20_000,
     });
     await page.goto("/app/contacts");
@@ -150,7 +142,9 @@ async function assertSeededDataVisible(
   const explorerPane = visiblePane(page);
   const explorerWindow = explorerPane.locator(".window").first();
   await expect(
-    explorerWindow.getByText(/Driver's License/).first(),
+    explorerWindow
+      .getByText(seedExpectations.driversLicense.title, { exact: true })
+      .first(),
   ).toBeVisible({
     timeout: 20_000,
   });
@@ -184,6 +178,14 @@ async function captureRouted(page: Page, outputDir: string): Promise<void> {
     await disableAnimations(page);
     if (screen.name === "org-manager") {
       await assertRoutedOrgManagerBaseCaptureReady(page);
+    }
+    if (
+      screen.name === "contacts" &&
+      !(await page.locator(".routed-pane--mobile").isVisible())
+    ) {
+      // Roomy layouts always select a contact. Keep their overview populated
+      // even when the auto-provisioned You contact has no profile fields.
+      await openContactDetail(page);
     }
     await page.screenshot({
       path: path.join(outputDir, `${screen.name}.png`),
@@ -227,14 +229,13 @@ async function captureOpenWindow(
 async function captureWindowed(page: Page, outputDir: string): Promise<void> {
   for (const app of WINDOWED_MENU_APPS) {
     await openWindowedApp(page, app.menuLabel);
-    await captureOpenWindow(
-      page,
-      outputDir,
-      app.name,
-      app.name === "org-manager"
-        ? (window) => assertOrgManagerCaptureReady(window, "directory")
-        : undefined,
-    );
+    await captureOpenWindow(page, outputDir, app.name, async (window) => {
+      if (app.name === "org-manager") {
+        await assertOrgManagerCaptureReady(window, "directory");
+      } else if (app.name === "contacts") {
+        await openContactDetail(window);
+      }
+    });
   }
 
   // Exercise the persistent System Monitor tray shortcut; the Start-menu entry
@@ -259,94 +260,6 @@ async function captureWindowedOrgManagerSections(
     });
   }
 }
-
-// A detail screen is reached by clicking into a seeded item. Each `open` selects
-// the item (scoped to the given page or window) and then waits for a signal that
-// is present ONLY in the detail view, so a mis-click can never emit a list
-// screenshot mislabeled as a detail. The same `open` drives both layouts, since
-// Page and Locator share getByText/getByRole/locator.
-type OpenDetail = (scope: Page | Locator) => Promise<void>;
-
-// Notes: click a note row; the editor textarea then holds the note body.
-const openNoteDetail: OpenDetail = async (scope) => {
-  await scope
-    .locator(".mini-app-row--button", { hasText: "Meeting notes" })
-    .first()
-    .click();
-  const editor = scope.locator("textarea.note-document-editor");
-  await expect(editor).toBeVisible({ timeout: 20_000 });
-  await expect(editor).toHaveValue(/Sync on the sync layer:/, {
-    timeout: 20_000,
-  });
-};
-
-// Contacts: click a contact row; the read detail shows the "Public key" field,
-// which appears only in the detail (not the list or the new/import forms).
-const openContactDetail: OpenDetail = async (scope) => {
-  await scope
-    .locator(".mini-app-row--button", { hasText: "Alan Turing" })
-    .first()
-    .click();
-  await expect(scope.getByText("Public key").first()).toBeVisible({
-    timeout: 20_000,
-  });
-};
-
-// Driver's license: click its row in the Explorer folder-contents table (the
-// `.explorer-item-row-button` name cell, present in both the routed and windowed
-// layouts — the sidebar tree is windowed-only). The document detail renders the
-// two license images (front + back) from blob URLs, which resolve async.
-const openDriversLicenseDetail: OpenDetail = async (scope) => {
-  await scope
-    .locator(".explorer-item-row-button", {
-      hasText: "Driver's License S123-4567-8901",
-    })
-    .first()
-    .click();
-  // The blob-backed previews resolve asynchronously; presence in the DOM is not
-  // enough — wait until both have actually decoded so the shot never catches a
-  // blank/half-loaded image.
-  const images = scope.locator("img.structured-document-slot-preview-image");
-  await expect(images).toHaveCount(2, { timeout: 20_000 });
-  // Query each image via nth() rather than a captured all() snapshot, so a
-  // re-render between assertions can't leave us holding a detached element.
-  for (let i = 0; i < 2; i++) {
-    const image = images.nth(i);
-    await expect(image).toHaveJSProperty("complete", true);
-    await expect(image).not.toHaveJSProperty("naturalWidth", 0);
-  }
-};
-
-interface DetailScreen {
-  /** Output file stem (`<name>.png`). */
-  name: string;
-  /** Routed URL of the mini-app whose detail is opened. */
-  route: string;
-  /** Footer-launcher label for the windowed shell. */
-  menuLabel: string;
-  open: OpenDetail;
-}
-
-const DETAIL_SCREENS: readonly DetailScreen[] = [
-  {
-    name: "note-detail",
-    route: "/app/notes",
-    menuLabel: "Notes",
-    open: openNoteDetail,
-  },
-  {
-    name: "contact-detail",
-    route: "/app/contacts",
-    menuLabel: "Contacts",
-    open: openContactDetail,
-  },
-  {
-    name: "drivers-license-detail",
-    route: "/app/explorer",
-    menuLabel: "Explorer",
-    open: openDriversLicenseDetail,
-  },
-];
 
 // Routed: navigate to the list, click into the detail, screenshot the viewport.
 async function captureRoutedDetails(
@@ -424,11 +337,11 @@ test("capture screenshots", async ({ page }, testInfo) => {
   //  2. Restore the seed backup through the shipping backup-restore mini-app.
   //  3. Clear the stale session/caches so the reload adopts the restored root,
   //     then reload so the populated DB is reopened under the imported identity.
-  await importSeedIdentity(page, routed, SEED_IDENTITY_PHRASE);
+  await importSeedIdentity(page, routed, seedIdentity.identitySeedPhrase);
   await openBackupRestore(page, routed);
   await restoreSeedBackup(page, {
     artifactPath: SEED_ARTIFACT_PATH,
-    password: SEED_PASSWORD,
+    password: seedIdentity.password,
   });
   await clearStaleLocalState(page);
   await page.reload();

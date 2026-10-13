@@ -1,11 +1,12 @@
 import type { StoredDocumentKind } from "@tearleads/client-sdk";
 
 // Declarative description of the data seeded into a screenshot backup artifact.
-// Authored in fixtures/seed.json and interpreted by buildSeedArtifact.ts. Kept
+// Supplied by Continuity and interpreted by buildSeedArtifact.ts. Kept
 // deliberately small: it maps to the mini-apps (Contacts / Notes / Explorer),
 // not to raw SQLite rows, so authors never touch the encrypted schema.
 
 export interface SeedContact {
+  readonly avatar?: Pick<SeedAttachment, "file" | "mimeType">;
   // Contact structured fields. Display name is DERIVED (nickname, else
   // "firstName lastName") — there is intentionally no displayName/email/phone.
   readonly fields: {

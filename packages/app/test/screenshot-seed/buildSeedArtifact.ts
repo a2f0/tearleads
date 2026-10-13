@@ -8,6 +8,7 @@ import {
   Tearleads,
 } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
+import { CONTACT_AVATAR_SLOT_ID } from "../../src/document-types/contact/contactAvatarSlot";
 import { DRIVER_LICENSE_ATTACHMENT_SLOTS } from "../../src/document-types/drivers-license/driverLicenseDocument";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { createBackupPayload } from "../../src/providers/db/localBackupData";
@@ -211,6 +212,13 @@ export async function buildSeedArtifact(
     const store = openDocument("contact", contactsContainerId);
     await store.ensureInitialized();
     await store.setStructuredFields("contact", contact.fields);
+    if (contact.avatar) {
+      await store.replaceAttachment(CONTACT_AVATAR_SLOT_ID, {
+        bytes: await deps.readAttachment(contact.avatar.file),
+        mimeType: contact.avatar.mimeType,
+        name: contact.avatar.file,
+      });
+    }
     store.requestSync();
   }
 

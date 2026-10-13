@@ -64,7 +64,12 @@ const PNG_1X1 = Uint8Array.from([
 ]);
 
 const SPEC: SeedSpec = {
-  contacts: [{ fields: { firstName: "Ada", lastName: "Lovelace" } }],
+  contacts: [
+    {
+      avatar: { file: "ada.png", mimeType: "image/png" },
+      fields: { firstName: "Ada", lastName: "Lovelace" },
+    },
+  ],
   files: [
     {
       attachments: [
@@ -78,6 +83,13 @@ const SPEC: SeedSpec = {
       attachments: [{ file: "logo.png", mimeType: "image/png" }],
       fields: { fileName: "logo.png", mimeType: "image/png" },
       kind: "image",
+    },
+    {
+      attachments: [
+        { file: "passport.png", mimeType: "image/png", slot: "passport-image" },
+      ],
+      fields: { passportNumber: "UT1234567", fullName: "Ada Lovelace" },
+      kind: "passport",
     },
   ],
   identitySeedPhrase: TEST_SEED_PHRASE,
@@ -107,15 +119,15 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
       readAttachment: async () => PNG_1X1,
     });
 
-    // 3 attachments (license front + back, one image).
-    expect(artifact.summary.blobCount).toBe(3);
+    // Avatar, license front + back, one image, and passport.
+    expect(artifact.summary.blobCount).toBe(5);
     expect(artifact.summary.rowCount).toBeGreaterThan(0);
     expect(await countRows(sourceExecSql, "contact_projection")).toBe(1);
 
     const attachmentRows = (await sourceExecSql(
       "SELECT storage_key FROM document_pending_attachments",
     )) as Array<{ storage_key: string }>;
-    expect(attachmentRows.length).toBe(3);
+    expect(attachmentRows.length).toBe(5);
     const firstKey = attachmentRows[0]?.storage_key as string;
     expect(await sourceBlobStore.readBytes(firstKey)).toEqual(PNG_1X1);
 
@@ -134,6 +146,15 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
     // The restored DB is what a fresh Playwright context would read.
     expect(await countRows(targetExecSql, "contact_projection")).toBe(1);
     expect(await targetBlobStore.readBytes(firstKey)).toEqual(PNG_1X1);
+    const avatars = (await targetExecSql(
+      "SELECT storage_key, name FROM document_pending_attachments WHERE slot_id = ?",
+      ["contact-avatar"],
+    )) as Array<{ storage_key: string; name: string }>;
+    expect(avatars).toHaveLength(1);
+    expect(avatars[0]?.name).toBe("ada.png");
+    expect(
+      await targetBlobStore.readBytes(avatars[0]?.storage_key as string),
+    ).toEqual(PNG_1X1);
 
     // The seeded contact lives in the identity-scoped Contacts container, and a
     // same-seed-phrase identity re-derives that exact slot — this is what lets
@@ -167,6 +188,11 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
     });
     expect(licenses?.totalCount).toBe(1);
     expect(licenses?.rows[0]?.title).toBe("Driver's License D1234567");
+    const passports = await restoredSdk.documents.list({
+      documentKind: "passport",
+    });
+    expect(passports?.totalCount).toBe(1);
+    expect(passports?.rows[0]?.title).toBe("Passport UT1234567");
   } finally {
     source.close();
     target.close();

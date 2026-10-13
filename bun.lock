@@ -112,6 +112,7 @@
         "react-dom": "catalog:react",
       },
       "devDependencies": {
+        "@a2f0/continuity": "catalog:",
         "@happy-dom/global-registrator": "catalog:testing",
         "@tearleads/loro": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
@@ -186,7 +187,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "@stripe/stripe-js": "10.0.0",
         "@tearleads/client-sdk": "workspace:*",
@@ -196,6 +197,7 @@
         "react-dom": "catalog:react",
       },
       "devDependencies": {
+        "@a2f0/continuity": "catalog:",
         "@playwright/test": "1.63.0",
         "@sentry/browser": "11.5.0",
         "@sentry/cli": "3.8.0",
@@ -333,7 +335,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "dependencies": {
         "@astrojs/react": "7.0.1",
         "@phosphor-icons/react": "2.1.10",
@@ -384,6 +386,7 @@
     },
   },
   "catalog": {
+    "@a2f0/continuity": "github:a2f0/continuity#673421b331dd6263a62367a0747ff4d777462f5b",
     "@types/bun": "1.4.2",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
@@ -407,6 +410,8 @@
     },
   },
   "packages": {
+    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#673421b", {}, "a2f0-continuity-673421b", "sha512-zJwgzT9DO8vTURQHtZKTjtOvZ8FGy1D6kt9ngBfvhTSeJLPJvezmd1hkFunaS+20667tzDJrQm3hfMEBKSmYAQ=="],
+
     "@astrojs/compiler-binding": ["@astrojs/compiler-binding@0.5.1", "", { "optionalDependencies": { "@astrojs/compiler-binding-android-arm64": "0.5.1", "@astrojs/compiler-binding-darwin-arm64": "0.5.1", "@astrojs/compiler-binding-darwin-x64": "0.5.1", "@astrojs/compiler-binding-linux-arm64-gnu": "0.5.1", "@astrojs/compiler-binding-linux-arm64-musl": "0.5.1", "@astrojs/compiler-binding-linux-x64-gnu": "0.5.1", "@astrojs/compiler-binding-linux-x64-musl": "0.5.1", "@astrojs/compiler-binding-wasm32-wasi": "0.5.1", "@astrojs/compiler-binding-win32-arm64-msvc": "0.5.1", "@astrojs/compiler-binding-win32-x64-msvc": "0.5.1" } }, "sha512-oczyolLUl9mNrtuBuNjuvn5thpHrFLXAHAWGTRg0JDHQ8cGVsVeFekOu2uSoQGgainJIi+A3/9m0DyYwz3Nlnw=="],
 
     "@astrojs/compiler-binding-android-arm64": ["@astrojs/compiler-binding-android-arm64@0.5.1", "", { "os": "android", "cpu": "arm64" }, "sha512-nMb2nMIJtcWLNH+fV75Enmi+jp4tIOYOfsv4XtpgdOWkqc9P4uSSdK5u1xb340AzrXo5V18SxLl/nc3vcqtamQ=="],
