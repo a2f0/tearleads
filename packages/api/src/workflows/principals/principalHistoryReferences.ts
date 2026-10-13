@@ -67,12 +67,18 @@ export async function selectStoredPrincipalHistoryReferences(
     return pending;
   };
   for (const reference of requested) {
-    const entry = await readPrincipalHistoryEntry(
-      executor,
-      history.currentEntry.state,
-      reference.version,
-      kind,
-    );
+    // Preparation just read and authenticated the current entry (including
+    // when resuming a saved prefix). Reuse that exact result for a head citation;
+    // older citations still require their stored artifacts and inclusion proof.
+    const entry =
+      reference.version === history.currentEntry.state.version
+        ? history.currentEntry
+        : await readPrincipalHistoryEntry(
+            executor,
+            history.currentEntry.state,
+            reference.version,
+            kind,
+          );
     let proof: TransparencyInclusionProof;
     try {
       proof = await createPrincipalHistoryIndexProof({

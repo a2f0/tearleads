@@ -1,5 +1,10 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import type {
+  PrincipalContainerGrant,
+  PrincipalProjectionMember,
+  VerifiedPrincipalPolicyHistory,
+} from "@tearleads/crypto";
+import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicySnapshotResponse,
 } from "@tearleads/validators/response";
@@ -9,8 +14,6 @@ import {
   listContainerGrantsForState,
   listPrincipalStateHistory,
   listProjectionMembersForState,
-  type StoredPrincipalContainerGrant,
-  type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
 import {
@@ -21,7 +24,7 @@ import {
 } from "./shared";
 
 function toProjectionResponse(
-  projection: ReadonlyArray<StoredPrincipalProjectionMember>,
+  projection: ReadonlyArray<PrincipalProjectionMember>,
 ) {
   return projection.map((member) => ({
     userId: member.userId,
@@ -29,7 +32,7 @@ function toProjectionResponse(
   }));
 }
 
-function toGrantResponse(grants: ReadonlyArray<StoredPrincipalContainerGrant>) {
+function toGrantResponse(grants: ReadonlyArray<PrincipalContainerGrant>) {
   return grants.map((grant) => ({
     accessLevel: grant.accessLevel,
     containerId: grant.containerId,
@@ -39,6 +42,7 @@ function toGrantResponse(grants: ReadonlyArray<StoredPrincipalContainerGrant>) {
 export async function buildPrincipalPolicyCurrentForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
+  verifiedHistory?: VerifiedPrincipalPolicyHistory,
 ): Promise<Omit<PrincipalPolicyBundleResponse, "previousStates">> {
   const { principalId, principalType } = currentState;
   // Every dependent read is pinned to this exact accepted state. In particular,
@@ -54,18 +58,25 @@ export async function buildPrincipalPolicyCurrentForStateWithExecutor(
   if (!currentPayload) {
     throw new PrincipalPolicyError("Principal state payload not found", 500);
   }
-  const currentProjection = await listProjectionMembersForState(
-    principalType,
-    principalId,
-    pinnedStateHash,
-    executor,
-  );
-  const currentGrants = await listContainerGrantsForState(
-    principalType,
-    principalId,
-    pinnedStateHash,
-    executor,
-  );
+  // The verifier has just checked these stored artifacts against this head.
+  // This is an explicit handoff, not a cache: payloads/envelopes are still read
+  // here, and the caller binds the entire bundle to the history with crypto.
+  const currentProjection =
+    verifiedHistory?.currentEntry.projection ??
+    (await listProjectionMembersForState(
+      principalType,
+      principalId,
+      pinnedStateHash,
+      executor,
+    ));
+  const currentGrants =
+    verifiedHistory?.currentEntry.grants ??
+    (await listContainerGrantsForState(
+      principalType,
+      principalId,
+      pinnedStateHash,
+      executor,
+    ));
   const currentMemberEnvelopes = await listPrincipalMemberEnvelopesForState(
     principalType,
     principalId,
@@ -91,11 +102,8 @@ export async function buildPrincipalPolicyCurrentForStateWithExecutor(
 export async function buildPrincipalPolicyForStateWithExecutor(
   executor: DatabaseSession,
   currentState: StoredPrincipalState,
+  current: Omit<PrincipalPolicyBundleResponse, "previousStates">,
 ): Promise<PrincipalPolicyBundleResponse> {
-  const current = await buildPrincipalPolicyCurrentForStateWithExecutor(
-    executor,
-    currentState,
-  );
   const stateHistory = await listPrincipalStateHistory(currentState, executor);
   return {
     ...current,
