@@ -91,7 +91,7 @@ for (const failure of ["forbidden", "network"] as const) {
 }
 
 testApiClient(
-  "bounds repeated failures and never reports the bearer URL",
+  "a forbidden fallback stops without leaking URLs or marking the API offline",
   async () => {
     let authorizations = 0;
     let downloads = 0;
@@ -111,19 +111,23 @@ testApiClient(
         downloads += 1;
         return HttpResponse.error();
       }),
+      http.get(`${apiBaseUrl}/blobs/${blobId}/bytes`, () =>
+        HttpResponse.json({ error: "Forbidden" }, { status: 403 }),
+      ),
     );
     expect(await client.getBlobBytes(blobId)).toBeNull();
     expect(authorizations).toBe(2);
     expect(downloads).toBe(2);
-    expect(errors).toEqual([`Blob ${blobId} download failed (network error)`]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toContain("403");
     expect(errors.join(" ")).not.toContain("signature=secret");
     expect(networkErrors).toBe(0);
     expect(
       client.getRequestFailure({
         method: "GET",
-        path: `/blobs/${blobId}/download`,
+        path: `/blobs/${blobId}/bytes`,
       }),
-    ).toMatchObject({ kind: "storage", status: null });
+    ).toMatchObject({ kind: "http", status: 403 });
   },
 );
 
@@ -164,36 +168,3 @@ testApiClient(
     expect(await new ApiClient(apiBaseUrl).getBlobBytes(blobId)).toBeNull();
   },
 );
-
-for (const status of [404, 500]) {
-  testApiClient(
-    `reports storage HTTP ${status} without refreshing or leaking response text`,
-    async () => {
-      let authorizations = 0;
-      const errors: string[] = [];
-      const client = new ApiClient(apiBaseUrl);
-      client.setOnError((message) => errors.push(message));
-      server.use(
-        http.get(downloadPath, () => {
-          authorizations += 1;
-          return HttpResponse.json(descriptor);
-        }),
-        http.get(
-          "https://storage.test/private-object",
-          () => new HttpResponse(storageUrl, { status }),
-        ),
-      );
-      expect(await client.getBlobBytes(blobId)).toBeNull();
-      expect(authorizations).toBe(1);
-      expect(errors).toEqual([
-        `Blob ${blobId} download failed (HTTP ${status})`,
-      ]);
-      expect(
-        client.getRequestFailure({
-          method: "GET",
-          path: `/blobs/${blobId}/download`,
-        }),
-      ).toMatchObject({ kind: "http", status });
-    },
-  );
-}

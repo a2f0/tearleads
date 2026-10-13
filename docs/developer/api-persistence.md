@@ -228,20 +228,20 @@ or persist signed URLs. Descriptor and object responses use
 browser network errors caused by R2's missing CORS headers on expired responses.
 An interrupted body fails normally; retrying the download gets a new URL and
 starts over. Automatic byte-range resumption is not implemented.
-Storage failures are reported separately from API connectivity failures.
-
-S3/R2 downloads require a reachable storage endpoint; they do not fall back to
-proxying bytes through the Worker when storage fails. This keeps Worker memory,
-bandwidth, and request limits out of the download path, including during outages.
-The API streaming endpoint remains available for memory storage and older clients.
+If direct storage requests still fail, the client falls back once to the existing
+authenticated API stream. This also supports native HTTP bridges that cannot use
+the signed URL and older APIs without the descriptor endpoint. The fallback
+checks current access again and retains length, hash, and decryption checks.
+Storage failures alone do not mark the API offline. Accepted streams are never
+silently restarted or switched to the fallback after delivering bytes.
 
 The S3 endpoint must be reachable from the client, not just the API. Private R2
 blob buckets allow cross-origin GETs from any origin to support web, desktop,
 and mobile clients; valid signatures are still required. Deploy the storage
 stack's CORS configuration, then deploy the API, then release the new clients.
-A new client requires the download-descriptor API; coordinate API rollback with
-client rollback. For other S3 providers, apply
-the equivalent GET-only rule in `scripts/localstack/blobDownloadCors.json`.
+Older APIs continue through the authenticated stream fallback. For other S3
+providers, apply the equivalent GET-only rule in
+`scripts/localstack/blobDownloadCors.json`.
 
 LocalStack helper:
 

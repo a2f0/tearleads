@@ -21,7 +21,7 @@ export interface UploadMultipartBlobPartBytesRequest {
   readonly uploadId: string;
 }
 
-type BlobDownloadTransport = Pick<JsonOperationTransport, "request"> &
+type BlobDownloadTransport = Pick<JsonOperationTransport, "requestResult"> &
   Pick<BinaryResponseOperationTransport, "requestBinaryResponse"> &
   Pick<OperationResponseRequestFn, "reportFailure">;
 
@@ -32,16 +32,22 @@ export async function getBlobBytes(
   blobId: string,
   downloadFetch: DownloadFetch = (url, init) => fetch(url, init),
 ): Promise<BlobBytesResponse | null> {
-  let failedStatus: number | null = null;
   // Refresh at most once. R2 expiration errors can appear as CORS/network
   // failures in browsers, so both rejected fetches and 403s need a fresh URL.
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const descriptor = await transport.request(getBlobDownloadOperation, {
-      params: { blobId },
-    });
-    if (!descriptor) {
+    const result = await transport.requestResult(
+      getBlobDownloadOperation,
+      { params: { blobId } },
+      { reportErrors: false },
+    );
+    if (!result.ok) {
+      if (result.kind === "http" && result.status === 404) {
+        return getBlobStream(transport, blobId);
+      }
+      result.report();
       return null;
     }
+    const descriptor = result.data;
     if (descriptor.blobId !== blobId) {
       transport.reportFailure({
         kind: "shape",
@@ -66,8 +72,7 @@ export async function getBlobBytes(
         referrerPolicy: "no-referrer",
       });
       if (response.status !== 200) {
-        failedStatus = response.status;
-        await response.body?.cancel();
+        await response.body?.cancel().catch(() => {});
         if (response.status === 403) {
           continue;
         }
@@ -82,22 +87,14 @@ export async function getBlobBytes(
           : bufferedResponseBodyStream(await response.arrayBuffer()),
       };
     } catch {
-      failedStatus = null;
       // The downstream SDK still verifies length, hash and authenticated
       // encryption. An error after streaming begins propagates to that reader.
     }
   }
-  transport.reportFailure({
-    // Storage reachability says nothing about the API, which just authorized
-    // this request. Do not trigger the API's offline signal for storage errors.
-    kind: failedStatus === null ? "storage" : "http",
-    method: "GET",
-    path: `/blobs/${blobId}/download`,
-    status: failedStatus,
-    statusText: "",
-    message: `Blob ${blobId} download failed${failedStatus === null ? " (network error)" : ` (HTTP ${failedStatus})`}`,
-  });
-  return null;
+  // Preserve downloads when storage is unreachable or a native HTTP bridge
+  // cannot use the signed URL. This endpoint checks current access again.
+  // A storage failure alone must not signal that the API is offline.
+  return getBlobStream(transport, blobId);
 }
 
 function signedDownloadBodyStream(

@@ -55,7 +55,6 @@ export type OperationRequestResultFn = <T>(
 export type RequestFailureKind =
   | "http"
   | "network"
-  | "storage"
   | "json"
   | "shape"
   | "cancelled"
