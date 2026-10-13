@@ -240,7 +240,7 @@ test("continuity initialization forwards provider upgrade arguments", async () =
 for (const [action, argument] of [
   ["plan", "-out=/fixture/gallery.tfplan"],
   ["apply", "/fixture/gallery.tfplan"],
-]) {
+] as const) {
   test(`continuity ${action} uses its own stack without prompting`, async () => {
     const result = await runWebsite(
       "terraform/scripts/run-continuity-stack.sh",

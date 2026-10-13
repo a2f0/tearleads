@@ -80,7 +80,13 @@ terraform/scripts/run-continuity-stack.sh apply /path/to/gallery.tfplan
 ```
 
 Subsequent gallery asset deployments do not need Terraform. The gallery sends
-`noindex` in HTML and response headers. Wrangler needs Workers Scripts Edit in
-the tearleads.com Cloudflare account (`TF_VAR_cloudflare_account_id`); publish
-the Worker into that same account. The hostname stack uses Workers Routes Edit
-and Zone Read, plus the existing AWS credentials for its S3 backend.
+`noindex` in HTML and response headers. Publish the Worker into the tearleads.com
+Cloudflare account (`TF_VAR_cloudflare_account_id`). The hostname stack needs
+Workers Routes Edit and Zone Read, plus AWS credentials for its S3 backend.
+
+Initial publishing is an operator task using existing production credentials.
+Workers Scripts Edit grants account-wide edits, including the production API,
+app, and website Workers; do not copy that token into continuity's CI secrets.
+For later automation, use an account-owned token with Editor scoped only to the
+existing `tearleads-continuity` Worker. See Cloudflare's
+[Workers roles and scopes](https://developers.cloudflare.com/workers/authorization/workers/).

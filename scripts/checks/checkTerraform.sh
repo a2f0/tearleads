@@ -41,8 +41,12 @@ run_terraform_tests() {
   terraform_test_dir="$terraform_test_root"
   if [[ "$module_dir" == "$TERRAFORM_DIR/stacks/"* ]]; then
     terraform_test_dir="$terraform_test_root/${module_dir#"$TERRAFORM_DIR"/}"
-    mkdir -p "$terraform_test_dir"
-    ln -s "$TERRAFORM_DIR/modules" "$terraform_test_root/modules"
+    if ! mkdir -p "$terraform_test_dir" ||
+      ! ln -s "$TERRAFORM_DIR/modules" "$terraform_test_root/modules"; then
+      rm -rf -- "$terraform_test_root"
+      echo "Error: could not stage the Terraform stack module paths" >&2
+      return 1
+    fi
   fi
   if ! cp "$module_dir"/*.tf "$module_dir"/*.tftest.hcl "$terraform_test_dir/"; then
     rm -rf -- "$terraform_test_root"
