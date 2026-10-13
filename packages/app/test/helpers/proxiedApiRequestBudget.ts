@@ -106,6 +106,10 @@ function normalizeRequestPath(path: string): string {
         "/blobs/:blobId/attachment-bindings",
       )
       .replace(
+        /^\/blobs\/stages\/multipart\/[^/]+\/parts\/[^/]+\/upload$/u,
+        "/blobs/stages/multipart/:stageId/parts/:partNumber/upload",
+      )
+      .replace(
         /^\/blobs\/stages\/multipart\/[^/]+\/parts\/[^/]+\/bytes$/u,
         "/blobs/stages/multipart/:stageId/parts/:partNumber/bytes",
       )

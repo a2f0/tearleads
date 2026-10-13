@@ -60,6 +60,14 @@ export interface BlobObjectStore {
     readonly key: string;
     readonly expiresIn: number;
   }): Promise<{ readonly url: string; readonly expiresAt: string }>;
+  createUploadPartUrl?(input: {
+    readonly key: string;
+    readonly uploadId: string;
+    readonly partNumber: number;
+    readonly byteLength: number;
+    readonly contentMd5: string;
+    readonly expiresIn: number;
+  }): Promise<{ readonly url: string; readonly expiresAt: string }>;
   getObjectStream(key: string): Promise<BlobObjectReadStream | null>;
   listParts(input: {
     readonly key: string;

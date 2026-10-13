@@ -53,6 +53,7 @@ export type OperationRequestResultFn = <T>(
 ) => Promise<RequestResult<T>>;
 
 export type RequestFailureKind =
+  | "storage"
   | "http"
   | "network"
   | "json"

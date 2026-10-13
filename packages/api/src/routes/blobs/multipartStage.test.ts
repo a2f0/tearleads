@@ -272,6 +272,8 @@ test("multipart status identifies replaceable missing and expired stages", async
     code: MULTIPART_BLOB_STAGE_ERROR_CODES.expired,
     error: "Blob stage has expired",
   });
+  // Do not leave this expired fixture for the unscoped cleanup service tests.
+  await runtime.db.delete(blobStages).where(eq(blobStages.id, expired.stageId));
 });
 
 test("multipart status keeps recovered object corruption terminal", async () => {

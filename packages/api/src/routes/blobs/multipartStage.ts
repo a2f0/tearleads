@@ -104,6 +104,10 @@ function registerPartBytesRoute(
     pathParamsValidator(uploadMultipartBlobPartBytesOperation.params),
     headersValidator(uploadMultipartBlobPartBytesOperation.headers),
     async (c) => {
+      // S3/R2 payloads go directly to storage. Refuse before buffering a body.
+      if (runtime.blobObjectStore.createUploadPartUrl) {
+        return c.json({ error: "Direct multipart uploads are required" }, 409);
+      }
       const headers = c.req.valid("header");
       const byteLength = Number(headers[blobWireHeaderKeys.partByteLength]);
       const sha256 = headers[blobWireHeaderKeys.partSha256];

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { registerJsonSchemaFragment } from "../jsonSchema";
 import { ErrorResponseSchema, SessionFailureResponseSchema } from "../response";
 import {
   safeNonNegativeIntegerSchema,
@@ -7,18 +6,11 @@ import {
   uuidStringSchema,
 } from "../schema";
 import { BlobBytesPathParamsSchema } from "./blobBytes";
+import {
+  signedBlobUrlExpirySchema,
+  signedBlobUrlSchema,
+} from "./blobTransferSchemas";
 import { defineJsonOperation } from "./definition";
-
-const downloadUrlSchema = z.url().regex(/^https?:\/\//u);
-const downloadExpirySchema = z.iso.datetime();
-
-function stringSchemaFragment(schema: z.ZodType<string>) {
-  const { $schema: _dialect, ...fragment } = z.toJSONSchema(schema);
-  return registerJsonSchemaFragment(
-    z.custom<string>((value) => schema.safeParse(value).success),
-    fragment,
-  );
-}
 
 export const BlobDownloadResponseSchema = z.strictObject({
   blobId: uuidStringSchema,
@@ -28,8 +20,8 @@ export const BlobDownloadResponseSchema = z.strictObject({
     z.strictObject({ kind: z.literal("api") }),
     z.strictObject({
       kind: z.literal("signed-url"),
-      url: stringSchemaFragment(downloadUrlSchema),
-      expiresAt: stringSchemaFragment(downloadExpirySchema),
+      url: signedBlobUrlSchema,
+      expiresAt: signedBlobUrlExpirySchema,
     }),
   ]),
 });

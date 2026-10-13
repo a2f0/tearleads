@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/api-client",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -13,6 +13,7 @@
     "test": "bun test src --max-concurrency=4"
   },
   "dependencies": {
+    "@noble/hashes": "2.4.0",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/validators": "workspace:*"
   },

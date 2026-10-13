@@ -56,6 +56,7 @@ import {
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
 } from "./multipartBlobs";
+import { authorizeMultipartBlobPartUploadOperation } from "./multipartPartUploads";
 import {
   claimNativeOrganizationSubscriptionOperation,
   getOrganizationBillingHistoryOperation,
@@ -127,6 +128,7 @@ export const protocolOperations: readonly [
   typeof initiateMultipartBlobStageOperation,
   typeof getMultipartBlobStageOperation,
   typeof completeMultipartBlobStageOperation,
+  typeof authorizeMultipartBlobPartUploadOperation,
   typeof uploadMultipartBlobPartBytesOperation,
   typeof listDocumentAttachmentsOperation,
   typeof getDocumentAttributionOperation,
@@ -202,6 +204,7 @@ export const protocolOperations: readonly [
   initiateMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   completeMultipartBlobStageOperation,
+  authorizeMultipartBlobPartUploadOperation,
   uploadMultipartBlobPartBytesOperation,
   listDocumentAttachmentsOperation,
   getDocumentAttributionOperation,

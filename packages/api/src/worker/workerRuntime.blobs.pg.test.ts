@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createTestUser } from "@tearleads/bob-and-alice";
+import { MultipartBlobPartUploadResponseSchema } from "@tearleads/validators/operation";
 import { createRegistrationRequestBody } from "../../test/helpers/api/submitRegistration";
 import { type FakeS3, startFakeS3 } from "../../test/helpers/fakeS3";
 import {
@@ -85,22 +86,33 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime blobs", () => {
     const stageId = stringField(initiated, "stageId");
     const uploadId = stringField(initiated, "uploadId");
 
-    const uploaded = await expectJson(
-      await fetch(`${base}/blobs/stages/multipart/${stageId}/parts/1/bytes`, {
-        method: "PUT",
-        headers: {
-          ...authorized,
-          "content-type": "application/octet-stream",
-          "x-tearleads-blob-part-byte-length": String(bytes.byteLength),
-          "x-tearleads-blob-part-sha256": sha256,
-          "x-tearleads-blob-upload-id": uploadId,
-        },
-        body: bytes,
-      }),
-      200,
+    const contentMd5 = createHash("md5").update(bytes).digest("base64");
+    const descriptor = MultipartBlobPartUploadResponseSchema.parse(
+      await expectJson(
+        await postJson(
+          `${base}/blobs/stages/multipart/${stageId}/parts/1/upload`,
+          { byteLength: bytes.byteLength, contentMd5, uploadId },
+          authorized,
+        ),
+        200,
+      ),
     );
-    const part = field(uploaded, "part");
-    expect(part).toMatchObject({ partNumber: 1 });
+    if (descriptor.source.kind !== "signed-url")
+      throw new Error("Expected a direct upload URL");
+    expect(
+      new URL(descriptor.source.url).searchParams.get("X-Amz-SignedHeaders"),
+    ).toBe("content-length;content-md5;host");
+    const uploaded = await fetch(descriptor.source.url, {
+      method: "PUT",
+      headers: {
+        "content-type": "application/octet-stream",
+        "content-md5": contentMd5,
+      },
+      body: new File([bytes], "encrypted-part"),
+    });
+    expect(uploaded.status).toBe(200);
+    const etag = uploaded.headers.get("etag");
+    expect(etag).toBeTruthy();
 
     // Stage status lists the parts S3 holds: XML decoded in the Worker.
     const status = await expectJson(
@@ -116,15 +128,7 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime blobs", () => {
         `${base}/blobs/stages/multipart/${stageId}/complete`,
         {
           uploadId,
-          parts: [
-            {
-              etag: stringField(
-                typeof part === "object" && part !== null ? { ...part } : {},
-                "etag",
-              ),
-              partNumber: 1,
-            },
-          ],
+          parts: [{ etag, partNumber: 1 }],
         },
         authorized,
       ),

@@ -400,14 +400,22 @@ Blob bytes are staged before attachment binding:
 
 - `POST /blobs/stages/multipart`
 - `GET /blobs/stages/multipart/:stageId`
-- `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes`
+- `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload`
+- `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` (non-signing stores)
 - `POST /blobs/stages/multipart/:stageId/complete`
 
 `InitiateMultipartBlobStageRequest` declares the completed encrypted object's
 `organizationId`, `byteLength`, and `sha256`. The caller must have direct
-organization access. Each part is sent as `application/octet-stream` with
-its byte length, SHA-256 digest, and upload id in request headers. The API stores
-only object-store multipart metadata in `blob_stages`; encrypted payload bytes
+organization access. Each part is authorized separately with its byte length,
+base64 Content-MD5, and upload ID. S3/R2 return a five-minute UploadPart URL,
+scoped to the stored key, upload ID, part number, checksum, and exact byte length.
+The client sends `application/octet-stream` directly to storage and retains the
+returned ETag. Later chunks and retries get fresh URLs for the same upload ID;
+URL expiry never invalidates completed parts or extends the one-hour stage.
+Non-signing stores use the API byte route; S3/R2 reject that proxy path.
+Completion verifies the full object's length and SHA-256 before promotion.
+The API stores only object-store multipart metadata in `blob_stages`;
+encrypted payload bytes
 are never encoded into JSON or stored in the database. Staged objects are not
 readable as committed blobs and are promoted only by a successful attachment
 bind. Incomplete or expired stages fail closed during bind.

@@ -6,7 +6,6 @@ import type {
 import type {
   CompleteMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponse,
-  MultipartBlobStageErrorCode,
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
@@ -20,7 +19,6 @@ import {
 import { summarizeSha256Stream } from "../../utils/sha256";
 import {
   expireBlobStageForCleanup,
-  loadOwnedActiveBlobStage,
   type OwnedActiveBlobStage,
 } from "../../workflows/blobs/stageAccess";
 import {
@@ -29,13 +27,15 @@ import {
 } from "../../workflows/blobs/stageOrganizationAccess";
 import { storageKeyForBlobStage } from "../../workflows/blobs/storageKeys";
 import type { ApiServiceRuntime } from "../runtime";
+import {
+  type AuthenticatedMultipartBlobStageInput,
+  assertUploadIdMatches,
+  loadMultipartBlobStage,
+  MultipartBlobStageError,
+  toMultipartBlobStageError,
+} from "./multipartStageAccess";
 
-type MultipartBlobStageStatus = 400 | 403 | 404 | 409 | 500;
-
-interface AuthenticatedMultipartBlobStageInput {
-  readonly stageId: string;
-  readonly userId: string;
-}
+export { MultipartBlobStageError } from "./multipartStageAccess";
 
 export interface CleanupExpiredBlobStagesInput {
   readonly organizationId?: string;
@@ -61,41 +61,6 @@ interface UploadMultipartBlobPartInput
   readonly uploadId: string;
 }
 
-export class MultipartBlobStageError extends Error {
-  constructor(
-    message: string,
-    readonly status: MultipartBlobStageStatus,
-    readonly code?: MultipartBlobStageErrorCode,
-  ) {
-    super(message);
-    this.name = "MultipartBlobStageError";
-  }
-}
-
-function toMultipartBlobStageError(
-  error: unknown,
-): MultipartBlobStageError | null {
-  if (!(error instanceof BlobObjectStoreError)) {
-    return null;
-  }
-
-  if (error.code === "multipart_upload_not_found") {
-    return new MultipartBlobStageError(
-      error.message,
-      404,
-      MULTIPART_BLOB_STAGE_ERROR_CODES.notFound,
-    );
-  }
-  if (error.code === "not_found") {
-    return new MultipartBlobStageError(error.message, 500);
-  }
-  if (error.code === "upload_conflict") {
-    return new MultipartBlobStageError(error.message, 409);
-  }
-
-  return new MultipartBlobStageError(error.message, 400);
-}
-
 function normalizeCleanupLimit(limit: number | undefined): number {
   if (limit === undefined) {
     return 100;
@@ -108,35 +73,6 @@ function normalizeCleanupLimit(limit: number | undefined): number {
   }
 
   return limit;
-}
-
-function assertUploadIdMatches(input: {
-  readonly expectedUploadId: string;
-  readonly uploadId: string;
-}): void {
-  if (input.uploadId !== input.expectedUploadId) {
-    throw new MultipartBlobStageError("Multipart upload id mismatch", 409);
-  }
-}
-
-async function loadMultipartBlobStage(
-  runtime: ApiServiceRuntime,
-  input: AuthenticatedMultipartBlobStageInput,
-): Promise<OwnedActiveBlobStage> {
-  return loadOwnedActiveBlobStage(runtime.db, {
-    error: (message, status) =>
-      new MultipartBlobStageError(
-        message,
-        status,
-        status === 404
-          ? MULTIPART_BLOB_STAGE_ERROR_CODES.notFound
-          : status === 409
-            ? MULTIPART_BLOB_STAGE_ERROR_CODES.expired
-            : undefined,
-      ),
-    stageId: input.stageId,
-    userId: input.userId,
-  });
 }
 
 async function listStageParts(
@@ -333,6 +269,12 @@ export async function uploadMultipartBlobPartBytes(
   runtime: ApiServiceRuntime,
   input: UploadMultipartBlobPartInput,
 ): Promise<UploadMultipartBlobPartResponse> {
+  if (runtime.blobObjectStore.createUploadPartUrl) {
+    throw new MultipartBlobStageError(
+      "Direct multipart uploads are required",
+      409,
+    );
+  }
   try {
     const stage = await loadMultipartBlobStage(runtime, input);
     if (stage.completedAt !== null) {

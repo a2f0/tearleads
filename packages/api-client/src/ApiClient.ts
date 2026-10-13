@@ -2,7 +2,6 @@ import { sign } from "@tearleads/crypto";
 import type { NativeSubscriptionStore } from "@tearleads/validators/billing";
 import {
   bindBlobAttachmentOperation,
-  blobWireHeaderKeys,
   cancelStripeSubscriptionOperation,
   challengeOperation,
   claimNativeOrganizationSubscriptionOperation,
@@ -60,7 +59,6 @@ import {
   unlinkDocumentOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
-  uploadMultipartBlobPartBytesOperation,
   userIdentityOperation,
   verifyOperation,
   webSocketTicketOperation,
@@ -155,6 +153,7 @@ import {
   getMultipartBlobStage as multipartGet,
   initiateMultipartBlobStage as multipartInitiate,
 } from "./routes/blobs/multipart";
+import { uploadMultipartBlobPartBytes } from "./routes/blobs/multipartUpload";
 import {
   containerCreate,
   containerCreateWithMetadataDocument,
@@ -1871,36 +1870,11 @@ export class ApiClient {
     partNumber: number,
     input: UploadMultipartBlobPartBytesRequest,
   ) {
-    // Send the encrypted part as a File — not a raw Uint8Array and not a plain
-    // Blob. CapacitorHttp (enabled on the native builds so API requests bypass the
-    // WKWebView's broken cross-origin fetch) serializes request bodies across the
-    // JS->native bridge in its convertBody(): a Uint8Array octet-stream body is
-    // `TextDecoder().decode()`d to UTF-8 there — which corrupts encrypted
-    // ciphertext (arbitrary, non-UTF-8 bytes) — and a plain Blob is not recognized
-    // at all, falling through as JSON (`{}`). Only a File is read byte-for-byte
-    // (readAsBinaryString -> base64), so the ciphertext survives the bridge intact
-    // and the server's byte-length/SHA-256 validation passes. A File is a Blob, so
-    // it is equally valid on the plain web fetch path (the operation-derived
-    // Content-Type header still wins).
-    return this.transport.requestBinaryRequest(
-      uploadMultipartBlobPartBytesOperation,
-      {
-        headers: {
-          [blobWireHeaderKeys.partByteLength]: input.byteLength.toString(),
-          [blobWireHeaderKeys.partSha256]: input.sha256,
-          [blobWireHeaderKeys.partUploadId]: input.uploadId,
-        },
-        body: input.encryptedBytes,
-        params: { partNumber, stageId },
-      },
-      {
-        encodeBody: (body) =>
-          body instanceof File
-            ? body
-            : new File([body], "encrypted-blob-part", {
-                type: "application/octet-stream",
-              }),
-      },
+    return uploadMultipartBlobPartBytes(
+      this.transport,
+      stageId,
+      partNumber,
+      input,
     );
   }
 
