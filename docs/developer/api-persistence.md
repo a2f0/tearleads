@@ -222,10 +222,17 @@ directly to S3/R2 with Content-MD5; the signature binds its length and checksum.
 Parts remain capped at 32 MiB.
 Part numbers are also bounded by the staged size and S3/R2's 5 MiB nonfinal-part
 minimum, so small stages cannot authorize thousands of stored parts.
-File bodies preserve binary data through the Capacitor HTTP bridge.
-Browser requests omit cookies, API authorization, and
-referrers, and reject redirects; physical-device enforcement of these fetch
-options has not been verified.
+File bodies preserve binary data through the Capacitor HTTP bridge. On
+2026-10-13, the actual API client and production signer passed real staging R2
+probes using Capacitor 8.5.3 on iOS 26.2 Simulator and Android API 35 Emulator.
+Each native bridge sent binary File parts with Content-MD5 and no API
+Authorization header, received 403 for an expired URL, renewed that part's URL,
+then received 200 for both parts. Completion and download verified all 5,242,888
+bytes against SHA-256. These probes exercised native HTTP transport, including
+signed query parameters and body length, rather than WebView browser fetch.
+Browser requests omit cookies, API authorization, and referrers, and reject
+redirects; physical-device enforcement of these fetch options has not been
+verified.
 
 Each part URL lasts at most 300 seconds, capped by the stage's remaining
 lifetime. A file can take longer than five minutes: later chunks receive new
