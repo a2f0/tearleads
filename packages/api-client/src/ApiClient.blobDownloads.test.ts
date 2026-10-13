@@ -35,6 +35,7 @@ testApiClient(
       }),
       http.get("https://storage.test/private-object", ({ request }) => {
         expect(request.url).toBe(storageUrl);
+        // Header smoke checks; signedDownload.test.ts verifies fetch options.
         expect(request.headers.get("Authorization")).toBeNull();
         expect(request.headers.get("Cookie")).toBeNull();
         expect(request.signal.aborted).toBe(false);
@@ -95,8 +96,12 @@ testApiClient(
     let authorizations = 0;
     let downloads = 0;
     const errors: string[] = [];
+    let networkErrors = 0;
     const client = new ApiClient(apiBaseUrl);
     client.setOnError((message) => errors.push(message));
+    client.setOnNetworkError(() => {
+      networkErrors += 1;
+    });
     server.use(
       http.get(downloadPath, () => {
         authorizations += 1;
@@ -112,6 +117,13 @@ testApiClient(
     expect(downloads).toBe(2);
     expect(errors).toEqual([`Blob ${blobId} download failed (network error)`]);
     expect(errors.join(" ")).not.toContain("signature=secret");
+    expect(networkErrors).toBe(0);
+    expect(
+      client.getRequestFailure({
+        method: "GET",
+        path: `/blobs/${blobId}/download`,
+      }),
+    ).toMatchObject({ kind: "storage", status: null });
   },
 );
 

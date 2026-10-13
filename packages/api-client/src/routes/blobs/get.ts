@@ -88,7 +88,9 @@ export async function getBlobBytes(
     }
   }
   transport.reportFailure({
-    kind: failedStatus === null ? "network" : "http",
+    // Storage reachability says nothing about the API, which just authorized
+    // this request. Do not trigger the API's offline signal for storage errors.
+    kind: failedStatus === null ? "storage" : "http",
     method: "GET",
     path: `/blobs/${blobId}/download`,
     status: failedStatus,

@@ -215,7 +215,9 @@ must use the same bucket and prefix configuration.
 Downloads first call authenticated `GET /blobs/{blobId}/download`. The API
 checks current read access and returns the encrypted length, SHA-256, and an
 S3/R2 GET URL valid for 300 seconds. The client fetches those bytes directly
-without API credentials or cookies, then verifies and decrypts them as before.
+without API authorization headers, then verifies and decrypts them as before.
+Browser fetch also omits cookies and rejects redirects. These fetch options
+have not been verified on physical devices using the native HTTP bridge.
 Memory storage returns an API-stream descriptor instead.
 
 Expiry limits when a storage request can start; it does not abort an accepted
@@ -226,11 +228,19 @@ or persist signed URLs. Descriptor and object responses use
 browser network errors caused by R2's missing CORS headers on expired responses.
 An interrupted body fails normally; retrying the download gets a new URL and
 starts over. Automatic byte-range resumption is not implemented.
+Storage failures are reported separately from API connectivity failures.
+
+S3/R2 downloads require a reachable storage endpoint; they do not fall back to
+proxying bytes through the Worker when storage fails. This keeps Worker memory,
+bandwidth, and request limits out of the download path, including during outages.
+The API streaming endpoint remains available for memory storage and older clients.
 
 The S3 endpoint must be reachable from the client, not just the API. Private R2
 blob buckets allow cross-origin GETs from any origin to support web, desktop,
 and mobile clients; valid signatures are still required. Deploy the storage
-stack's CORS configuration before the new client. For other S3 providers, apply
+stack's CORS configuration, then deploy the API, then release the new clients.
+A new client requires the download-descriptor API; coordinate API rollback with
+client rollback. For other S3 providers, apply
 the equivalent GET-only rule in `scripts/localstack/blobDownloadCors.json`.
 
 LocalStack helper:
