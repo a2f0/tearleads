@@ -6,7 +6,7 @@ import {
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import {
   boundRequestBody,
-  createBodyAdmission,
+  declaredBodyTooLarge,
   expectedRequestBytes,
   MAX_UNAUTHENTICATED_REQUEST_BYTES,
   requestBodyCeiling,
@@ -39,6 +39,8 @@ test("a declared length above the ceiling is refused without reading", () => {
     body: "0123456789a",
   });
   expect(boundRequestBody(request, 10)).toEqual({ kind: "too-large" });
+  expect(declaredBodyTooLarge(request, 10)).toBe(true);
+  expect(request.bodyUsed).toBe(false);
 });
 
 test("a body within the ceiling reaches the route intact", async () => {
@@ -130,20 +132,6 @@ test("the unauthenticated surface gets the small ceiling, every session route th
   }
 });
 
-test("bodies are admitted against the isolate's shared budget", () => {
-  const admission = createBodyAdmission(100);
-  expect(admission.admit(60)).toBe(true);
-  expect(admission.admit(30)).toBe(true);
-  // A third body would overrun the budget; the others keep theirs.
-  expect(admission.admit(20)).toBe(false);
-  expect(admission.inFlight()).toBe(90);
-  admission.release(60);
-  expect(admission.admit(20)).toBe(true);
-  admission.release(30);
-  admission.release(20);
-  expect(admission.inFlight()).toBe(0);
-});
-
 test("a request's expected bytes are its declared length, else the ceiling", () => {
   expect(
     expectedRequestBytes(new Request("https://api.example.test/"), "/", 32),
@@ -166,12 +154,21 @@ test("a request's expected bytes are its declared length, else the ceiling", () 
 
 test("a document sync pull also reserves the response page it may build", () => {
   const sync = "/documents/doc-1/sync";
-  expect(expectedRequestBytes(chunkedRequest(["12345"]), sync, 16)).toBe(
-    16 + MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES,
-  );
   expect(
     expectedRequestBytes(
-      new Request("https://api.example.test/documents/doc-1/sync"),
+      new Request("https://api.example.test/documents/doc-1/sync", {
+        method: "POST",
+        body: "12345",
+      }),
+      sync,
+      16,
+    ),
+  ).toBe(16 + MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES);
+  expect(
+    expectedRequestBytes(
+      new Request("https://api.example.test/documents/doc-1/sync", {
+        method: "POST",
+      }),
       sync,
       16,
     ),
@@ -179,6 +176,31 @@ test("a document sync pull also reserves the response page it may build", () => 
   expect(
     expectedRequestBytes(chunkedRequest(["12345"]), "/documents/doc-1", 16),
   ).toBe(16);
+});
+
+test("only a sync POST reserves a response page, including encoded routes", () => {
+  for (const path of ["/documents/doc-1/sync", "/%64ocuments/doc-1/%73ync"]) {
+    for (const method of ["OPTIONS", "GET", "HEAD", "DELETE"]) {
+      expect(
+        expectedRequestBytes(
+          new Request(`https://api.example.test${path}`, {
+            method,
+          }),
+          path,
+          16,
+        ),
+      ).toBe(0);
+    }
+    expect(
+      expectedRequestBytes(
+        new Request(`https://api.example.test${path}`, {
+          method: "POST",
+        }),
+        path,
+        16,
+      ),
+    ).toBe(MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES);
+  }
 });
 
 test("a reservation is released once the response has drained, once", async () => {

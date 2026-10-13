@@ -1,7 +1,12 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { createRegistrationRequestBody } from "../../test/helpers/api/submitRegistration";
+import { authenticate } from "../../test/helpers/authenticate";
 import { startFakeStartTlsPostgres } from "../../test/helpers/fakeStartTlsPostgres";
+import {
+  bootstrapRoot,
+  createDocument,
+} from "../../test/helpers/keyingWriterProjectionKit";
 import {
   attachWorkerLogs,
   BUILD_VERSION,
@@ -15,6 +20,7 @@ import {
   startLocalWorker,
   stringField,
 } from "../../test/helpers/localWorker";
+import { registerUser } from "../../test/helpers/registerUser";
 
 /**
  * The deployed entry in workerd: health with the build version, registration,
@@ -209,6 +215,49 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
     });
     expect(underCeiling.status).toBe(400);
   }, 60_000);
+
+  test("overlapping document syncs from two sessions finish without upload refusals", async () => {
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const root = await bootstrapRoot(owner);
+    const document = await createDocument({ owner, root });
+    const tokens = [
+      await loginThroughWorker(worker.origin, owner),
+      await loginThroughWorker(worker.origin, owner),
+    ];
+    const url = `${worker.origin}/documents/${document.id}/sync`;
+    const request = {
+      contentKeyEpoch: document.contentKeyBundle.contentKeyEpoch,
+      expectedLinkSetManifestHash:
+        document.contentKeyBundle.linkSetManifestHash,
+      expectedTargetHash: document.contentKeyBundle.targetHash,
+      localVersionVector: null,
+      outgoingUpdates: [],
+      supportsPullPagination: true,
+    };
+    // A tiny metadata sync still reserves the maximum possible response page.
+    // A move can overlap several of these pulls across the two browsers.
+    const responses = await Promise.all(
+      tokens.flatMap((token) =>
+        Array.from({ length: 3 }, async () =>
+          expectJson(
+            await postJson(url, request, { authorization: `Bearer ${token}` }),
+            200,
+          ),
+        ),
+      ),
+    );
+    expect(responses).toHaveLength(6);
+    expect(
+      await expectJson(
+        await postJson(url, request, {
+          authorization: `Bearer ${tokens[0]}`,
+        }),
+        200,
+      ),
+    ).toHaveProperty("updates");
+  }, 120_000);
 
   test("dispatches the billing Cron to the maintenance phases", async () => {
     const response = await fetch(
