@@ -1,27 +1,38 @@
 import type {
   ContainerDocumentQueries,
+  ContainerNode,
   DomainScope,
+  DomainSyncSnapshot,
   PendingDownloadQueueItem,
 } from "@tearleads/client-sdk";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { unknownErrorMessage } from "../../../../utils/unknownErrorMessage";
 
-// Poll only while the panel is open, with one read in flight. Discovery and
-// document pulls can finish without a currently selected document subscription.
-export function usePendingDownloads(
-  queries: ContainerDocumentQueries,
-  domainScope: DomainScope,
-) {
+// Coalesce discovery, document persistence, and sync notifications. Keep only
+// one read in flight and one follow-up; an idle panel does not poll SQLite.
+export function usePendingDownloads(params: {
+  documentQueries: ContainerDocumentQueries;
+  domainScope: DomainScope;
+  documentListRevision: number;
+  nodes: ReadonlyArray<ContainerNode>;
+  syncSnapshot: DomainSyncSnapshot;
+}) {
   const [state, setState] = useState<{
     items: ReadonlyArray<PendingDownloadQueueItem>;
     error: string | null;
     loading: boolean;
   }>({ items: [], error: null, loading: true });
+  const refresh = useRef<() => void>(() => undefined);
   useEffect(() => {
     let disposed = false;
+    let inFlight = false;
+    let rerunRequested = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    const queries = params.documentQueries;
     setState({ items: [], error: null, loading: true });
     async function read() {
+      inFlight = true;
+      rerunRequested = false;
       try {
         const items = await queries.listPendingDownloads();
         if (!disposed) setState({ items, error: null, loading: false });
@@ -33,16 +44,29 @@ export function usePendingDownloads(
             loading: false,
           });
       }
-      if (!disposed)
-        timer = setTimeout(() => {
-          void read();
-        }, 1000);
+      inFlight = false;
+      if (!disposed && rerunRequested) schedule();
     }
+    function schedule() {
+      if (disposed || timer !== undefined) return;
+      if (inFlight) {
+        rerunRequested = true;
+        return;
+      }
+      timer = setTimeout(() => {
+        timer = undefined;
+        void read();
+      }, 300);
+    }
+    refresh.current = schedule;
     void read();
     return () => {
       disposed = true;
       clearTimeout(timer);
     };
-  }, [queries, domainScope]);
+  }, [params.documentQueries, params.domainScope]);
+  useEffect(() => {
+    refresh.current();
+  }, [params.documentListRevision, params.nodes, params.syncSnapshot]);
   return state;
 }

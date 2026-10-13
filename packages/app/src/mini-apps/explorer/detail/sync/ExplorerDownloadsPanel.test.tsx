@@ -2,9 +2,10 @@ import { afterEach, expect, test } from "bun:test";
 import {
   type ContainerDocumentQueries,
   createDomainScope,
+  getOrCreateDomainSyncCoordinator,
   type PendingDownloadQueueItem,
 } from "@tearleads/client-sdk";
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { ExplorerDownloadsPanel } from "./ExplorerDownloadsPanel";
 
 afterEach(cleanup);
@@ -23,10 +24,21 @@ test("Downloads shows unknown items and failures, then removes hydrated items", 
   const documentQueries = {
     listPendingDownloads: async () => items,
   } as unknown as ContainerDocumentQueries;
+  const domainScope = createDomainScope();
+  const lane = getOrCreateDomainSyncCoordinator(domainScope).registerLane(
+    "documents:local",
+    {
+      run: async () => {
+        items = [];
+      },
+    },
+  );
   const view = render(
     <ExplorerDownloadsPanel
+      documentListRevision={0}
       documentQueries={documentQueries}
-      domainScope={createDomainScope()}
+      domainScope={domainScope}
+      nodes={[]}
       online
       isAuthenticated
     />,
@@ -35,14 +47,16 @@ test("Downloads shows unknown items and failures, then removes hydrated items", 
     expect(view.getByText("Document awaiting content")).toBeTruthy(),
   );
   expect(view.getByText("Unable to fetch content")).toBeTruthy();
+  expect(view.getByText("Sync error")).toBeTruthy();
   expect(view.queryByText("Syncing document...")).toBeNull();
   expect(
     view.queryByRole("button", { name: /Document awaiting content/ }),
   ).toBeNull();
-  items = [];
-  await waitFor(
-    () => expect(view.getByText("No pending downloads.")).toBeTruthy(),
-    { timeout: 2000 },
+  await act(async () => {
+    lane.requestSync();
+  });
+  await waitFor(() =>
+    expect(view.getByText("No pending downloads.")).toBeTruthy(),
   );
   expect(view.queryByText("Document awaiting content")).toBeNull();
 });
@@ -64,10 +78,13 @@ test("Downloads distinguishes waiting offline from a failed queue read", async (
       ];
     },
   } as unknown as ContainerDocumentQueries;
+  const domainScope = createDomainScope();
   const view = render(
     <ExplorerDownloadsPanel
+      documentListRevision={0}
       documentQueries={documentQueries}
-      domainScope={createDomainScope()}
+      domainScope={domainScope}
+      nodes={[]}
       online={false}
       isAuthenticated
     />,
@@ -80,10 +97,46 @@ test("Downloads distinguishes waiting offline from a failed queue read", async (
     view.getByRole("button", { name: "Sync now" }).hasAttribute("disabled"),
   ).toBe(true);
   fail = true;
-  await waitFor(
-    () =>
-      expect(view.getByRole("alert").textContent).toBe("Storage unavailable"),
-    { timeout: 2000 },
+  view.rerender(
+    <ExplorerDownloadsPanel
+      documentListRevision={1}
+      documentQueries={documentQueries}
+      domainScope={domainScope}
+      nodes={[]}
+      online={false}
+      isAuthenticated
+    />,
+  );
+  await waitFor(() =>
+    expect(view.getByRole("alert").textContent).toBe("Storage unavailable"),
   );
   expect(view.queryByText("No pending downloads.")).toBeNull();
+});
+
+test("Downloads keeps the title of a hydrated document with pages remaining", async () => {
+  const documentQueries = {
+    listPendingDownloads: async () => [
+      {
+        localId: "local",
+        documentId: "remote",
+        objectKind: "document",
+        title: "Holiday.jpg",
+        reason: "continuation",
+        lastError: null,
+      },
+    ],
+  } as unknown as ContainerDocumentQueries;
+  const view = render(
+    <ExplorerDownloadsPanel
+      documentListRevision={0}
+      documentQueries={documentQueries}
+      domainScope={createDomainScope()}
+      nodes={[]}
+      online
+      isAuthenticated
+    />,
+  );
+  await waitFor(() => expect(view.getByText("Holiday.jpg")).toBeTruthy());
+  expect(view.getByText("More pages pending")).toBeTruthy();
+  expect(view.getByText("1 pending download")).toBeTruthy();
 });

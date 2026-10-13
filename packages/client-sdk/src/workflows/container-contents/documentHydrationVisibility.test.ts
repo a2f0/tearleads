@@ -88,7 +88,21 @@ test("discovered documents stay in Downloads until their content supplies a type
       rows: [{ documentKind: "photo", title: "Holiday.jpg" }],
     });
     expect(await queries.listPendingDownloads()).toEqual([]);
-    // A real title matching the former placeholder is still a valid note.
+    await sqlDocumentsPersistence.saveDocument(execSql, {
+      ...shell,
+      documentKind: "photo",
+      title: "Holiday.jpg",
+      snapshotEndVersion: emptyVersionVector(),
+      pullContinuation: {
+        commitLsn: "0/20",
+        commitLsnMode: "tracked",
+        cursor: "page-2",
+      },
+    });
+    expect(await queries.listPendingDownloads()).toMatchObject([
+      { objectKind: "document", title: "Holiday.jpg", reason: "continuation" },
+    ]);
+    // A real title matching the discovery placeholder is still a valid note.
     await sqlDocumentsPersistence.saveDocument(execSql, {
       ...shell,
       title: "Syncing document...",
@@ -186,6 +200,23 @@ test("cold folders stay hidden until metadata arrives, including genuinely untit
       rows: [{ itemKind: "container", name: "Untitled" }],
     });
     expect(await queries.listPendingDownloads()).toEqual([]);
+    await defaultContainerContentsPersistence.saveContainer(
+      execSql,
+      container,
+      {
+        ...record,
+        metadataUpdates: bytesToBase64(exportAllUpdates(doc)),
+        pullContinuation: {
+          commitLsn: "0/20",
+          commitLsnMode: "tracked",
+          cursor: "page-2",
+        },
+      },
+    );
+    expect(await queries.listPendingDownloads()).toMatchObject([
+      { objectKind: "container", title: "Untitled", reason: "continuation" },
+    ]);
+    doc.free();
   } finally {
     close();
   }

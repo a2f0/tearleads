@@ -1,6 +1,6 @@
 import { formatByteLength } from "../../utils/formatByteLength";
-import { EXPLORER_DOWNLOAD_LABELS } from "./detail/sync/downloadLabels";
 import { EXPLORER_LABELS as CATALOG_LABELS } from "./labelCatalog";
+import { EXPLORER_DOWNLOAD_LABELS } from "./shared/downloadLabels";
 
 export const EXPLORER_LABELS = {
   ...CATALOG_LABELS,

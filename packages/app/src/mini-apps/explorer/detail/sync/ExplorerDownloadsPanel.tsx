@@ -1,5 +1,6 @@
 import {
   type ContainerDocumentQueries,
+  type ContainerNode,
   type DomainScope,
   type PendingDownloadQueueItem,
   requestAllDomainSyncLanes,
@@ -23,12 +24,17 @@ import {
   MiniAppTableText,
 } from "../../../../components/mini-app/MiniAppTable";
 import { EXPLORER_LABELS } from "../../labels";
+import { getExplorerDownloadsCountLabel } from "../../shared/downloadLabels";
 import { useDomainSyncSnapshot } from "./useDomainSyncSnapshot";
 import { usePendingDownloads } from "./usePendingDownloads";
 
 const COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
-  { id: "item", header: "Item", width: "20rem" },
-  { id: "status", header: "Status", width: "14rem" },
+  { id: "item", header: EXPLORER_LABELS.downloadsItemColumn, width: "20rem" },
+  {
+    id: "status",
+    header: EXPLORER_LABELS.downloadsStatusColumn,
+    width: "14rem",
+  },
 ];
 
 function downloadStatus(
@@ -48,13 +54,15 @@ function downloadStatus(
 }
 
 export function ExplorerDownloadsPanel(params: {
+  documentListRevision: number;
   documentQueries: ContainerDocumentQueries;
   domainScope: DomainScope;
+  nodes: ReadonlyArray<ContainerNode>;
   online: boolean;
   isAuthenticated: boolean;
 }) {
-  const state = usePendingDownloads(params.documentQueries, params.domainScope);
   const snapshot = useDomainSyncSnapshot(params.domainScope);
+  const state = usePendingDownloads({ ...params, syncSnapshot: snapshot });
   const [limit, setLimit] = useState(100);
   const lanes = new Map(snapshot.lanes.map((lane) => [lane.key, lane]));
   return (
@@ -78,7 +86,7 @@ export function ExplorerDownloadsPanel(params: {
         <MiniAppStatus>
           {state.loading
             ? EXPLORER_LABELS.downloadsLoading
-            : `${state.items.length} pending ${state.items.length === 1 ? "download" : "downloads"}`}
+            : getExplorerDownloadsCountLabel(state.items.length)}
         </MiniAppStatus>
       ) : null}
       <MiniAppTableFrame className="mini-app-table-frame--bleed">

@@ -5,6 +5,8 @@ import type { ContainerState } from "../../workflows/container-contents/remoteHy
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type { ContainerNode } from "./types";
 
+const EMPTY_METADATA_VERSION = emptyVersionVector();
+
 function hasPendingContainerTimestamp(container: ContainerRecord): boolean {
   const localUpdatedAt = container.localUpdatedAt ?? null;
   const serverUpdatedAt = container.serverUpdatedAt ?? null;
@@ -28,7 +30,7 @@ export function toContainerNode(containerState: ContainerState): ContainerNode {
     metadataDocumentId: container.metadataDocumentId ?? record.documentId,
     metadataReady:
       !record.documentId ||
-      encodeVersionVector(containerState.doc) !== emptyVersionVector(),
+      encodeVersionVector(containerState.doc) !== EMPTY_METADATA_VERSION,
     name: container.name,
     organizationId: container.organizationId,
     parentId: container.parentId,

@@ -95,8 +95,10 @@ function ExplorerSectionsActivePanel(params: ExplorerSectionsPanelProps) {
   if (route.view === "downloads") {
     return (
       <ExplorerDownloadsPanel
+        documentListRevision={params.documentListRevision}
         documentQueries={params.documentQueries}
         domainScope={params.domainScope}
+        nodes={params.nodes}
         online={params.online}
         isAuthenticated={params.isAuthenticated}
       />
@@ -162,8 +164,8 @@ function getActiveExplorerSectionTab(
 
 /**
  * The full-screen Explorer diagnostics hub: route-backed tabs for transient
- * sync-lane telemetry, local blob state, durable pending writes, and the
- * session upload queue.
+ * sync-lane telemetry, local blob state, durable pending writes/downloads,
+ * and the session upload queue.
  */
 export function ExplorerSectionsPanel(params: ExplorerSectionsPanelProps) {
   const idPrefix = useId();
