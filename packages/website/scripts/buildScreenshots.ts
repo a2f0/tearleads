@@ -79,6 +79,7 @@ const SCREEN_ORDER = [
   "note-blame",
   "contact-detail",
   "drivers-license-detail",
+  "passport-detail",
 ];
 const CANONICAL_SCREENS = new Set(SCREEN_ORDER);
 const THEMES = ["light", "dark"];

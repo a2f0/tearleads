@@ -127,3 +127,19 @@ test("no captures stage an empty manifest", async () => {
     entries: [],
   });
 });
+
+test("passport captures are included in the website gallery", async () => {
+  const { code, log, output } = await stageScreenshots({
+    "web/light/passport-detail.png": pngHeader(2880, 1658),
+    "ipad/dark/passport-detail.png": pngHeader(1668, 2388),
+    "mobile/light/passport-detail.png": pngHeader(1170, 1992),
+  });
+  expect(code, log).toBe(0);
+  const manifest = await Bun.file(join(output, "manifest.json")).json();
+  expect(manifest.screens).toEqual(["passport-detail"]);
+  expect(manifest.projects).toEqual(["windowed", "mobile", "tablet"]);
+  expect(manifest.entries).toHaveLength(3);
+  expect(existsSync(join(output, "img/tablet/dark/passport-detail.png"))).toBe(
+    true,
+  );
+});

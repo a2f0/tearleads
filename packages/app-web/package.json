@@ -12,7 +12,7 @@
     "test:e2e": "bun run e2e",
     "predev": "bun run build:client-sdk",
     "dev": "sh ../../scripts/lib/withBuildInfoEnv.sh bun --hot src/servers/devServer.ts",
-    "prescreenshots": "bun run build:client-sdk && bun run --cwd ../.. screenshots:seed",
+    "prescreenshots": "bun run --cwd ../.. screenshots:seed",
     "screenshots": "env -u NO_COLOR -u FORCE_COLOR playwright test --config=playwright.screenshots.config.ts",
     "prebuild": "bun run build:client-sdk",
     "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/lib/withBuildInfoEnv.sh bun scripts/buildApp.ts && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
@@ -33,6 +33,7 @@
     "react-dom": "catalog:react"
   },
   "devDependencies": {
+    "@a2f0/continuity": "github:a2f0/continuity#673421b331dd6263a62367a0747ff4d777462f5b",
     "@playwright/test": "1.63.0",
     "@sentry/browser": "11.5.0",
     "@sentry/cli": "3.8.0",

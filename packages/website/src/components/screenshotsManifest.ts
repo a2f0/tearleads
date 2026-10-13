@@ -46,6 +46,7 @@ const SCREEN_LABELS: ReadonlyMap<string, string> = new Map([
   ["note-blame", "Note authorship"],
   ["contact-detail", "Contact"],
   ["drivers-license-detail", "Driver's license"],
+  ["passport-detail", "Passport"],
 ]);
 
 const THEME_LABELS: Record<string, string> = {

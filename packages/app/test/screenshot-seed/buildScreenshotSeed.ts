@@ -1,4 +1,5 @@
-import { resolve } from "node:path";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
 import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
@@ -8,7 +9,7 @@ import type { SeedSpec } from "./seedTypes";
 // CLI that regenerates the screenshot seed artifact:
 //   bun run screenshots:seed
 //
-// Reads fixtures/seed.json + its referenced attachment files, drives the client
+// Reads Continuity's pinned seed.json + its attachment files, drives the client
 // -sdk write path headlessly into an in-memory chacha20 SQLite + memory blob
 // store, and writes tearleads-seed.tlbackup.json at the repo root — the artifact
 // the Playwright screenshot run restores through the backup-restore mini-app.
@@ -19,8 +20,11 @@ import type { SeedSpec } from "./seedTypes";
 // This file is packages/app/test/screenshot-seed/buildScreenshotSeed.ts, so the
 // repo root is four levels up.
 const REPO_ROOT = resolve(import.meta.dir, "../../../..");
-const FIXTURES_DIR = `${import.meta.dir}/fixtures`;
-const SPEC_PATH = `${FIXTURES_DIR}/seed.json`;
+const require = createRequire(import.meta.url);
+const SPEC_PATH = require.resolve(
+  "@a2f0/continuity/genesis/tearleads/seed.json",
+);
+const FIXTURES_DIR = dirname(SPEC_PATH);
 const ARTIFACT_PATH = resolve(REPO_ROOT, "tearleads-seed.tlbackup.json");
 
 async function main(): Promise<void> {
