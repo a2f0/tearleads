@@ -13,6 +13,18 @@ import type { UploadMultipartBlobPartBytesRequest } from "./get";
 
 type UploadFetch = (url: string, init: RequestInit) => Promise<Response>;
 
+function invalidPart(transport: OperationTransport, path: string) {
+  transport.reportFailure({
+    kind: "shape",
+    method: authorizeMultipartBlobPartUploadOperation.method,
+    path,
+    status: null,
+    statusText: "",
+    message: "Multipart part bytes do not match the declared length or SHA-256",
+  });
+  return null;
+}
+
 async function retryStorageStatus(status: number, attempt: number) {
   if (status === 403) return true;
   const transient = status === 429 || (status >= 500 && status <= 599);
@@ -60,7 +72,11 @@ export async function uploadMultipartBlobPartBytes(
   const operation = authorizeMultipartBlobPartUploadOperation;
   const params = { stageId, partNumber };
   const path = operationRequestPath(operation, params);
-  const { file, contentMd5 } = await preparePart(input);
+  const prepared = await preparePart(input).catch(() =>
+    invalidPart(transport, path),
+  );
+  if (!prepared) return null;
+  const { file, contentMd5 } = prepared;
   const body = {
     byteLength: input.byteLength,
     contentMd5,
@@ -142,7 +158,10 @@ export async function uploadMultipartBlobPartBytes(
     path,
     status,
     statusText: "",
-    message: `Multipart part ${partNumber} storage upload failed${status === null ? "" : ` (HTTP ${status})`}`,
+    message:
+      status === 200
+        ? `Multipart part ${partNumber} storage response is missing ETag; check storage CORS exposure`
+        : `Multipart part ${partNumber} storage upload failed${status === null ? "" : ` (HTTP ${status})`}`,
   });
   return null;
 }

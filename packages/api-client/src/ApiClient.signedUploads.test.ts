@@ -33,6 +33,38 @@ const descriptor = {
   },
 };
 
+for (const invalid of [
+  { byteLength: bytes.length + 1 },
+  { sha256: "0".repeat(64) },
+]) {
+  testApiClient(
+    `reports invalid local part ${Object.keys(invalid)[0]} before authorization`,
+    async () => {
+      let authorizations = 0;
+      server.use(
+        http.post(`${apiBaseUrl}${partPath}`, () => {
+          authorizations += 1;
+          return HttpResponse.json(descriptor);
+        }),
+      );
+      const client = new ApiClient(apiBaseUrl);
+      const messages: string[] = [];
+      client.setOnError((message) => messages.push(message));
+      expect(
+        await client.uploadMultipartBlobPartBytes(stageId, 1, {
+          ...request,
+          ...invalid,
+        }),
+      ).toBeNull();
+      expect(authorizations).toBe(0);
+      expect(messages).toHaveLength(1);
+      expect(
+        client.getRequestFailure({ method: "POST", path: partPath }),
+      ).toMatchObject({ kind: "shape", status: null });
+    },
+  );
+}
+
 testApiClient(
   "snapshots the exact buffer view before authorizing a part",
   async () => {
@@ -241,6 +273,8 @@ for (const status of [200, 400, 403, 404, 429, 500, 503, null]) {
       expect(messages).toHaveLength(1);
       expect(messages[0]).not.toContain("secret");
       expect(messages[0]).not.toContain(storagePath);
+      if (status === 200)
+        expect(messages[0]).toContain("ETag; check storage CORS");
       expect(offlineSignals).toBe(0);
       expect(
         client.getRequestFailure({ method: "POST", path: partPath }),

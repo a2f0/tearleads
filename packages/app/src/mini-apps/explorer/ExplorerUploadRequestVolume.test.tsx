@@ -35,13 +35,14 @@ afterEach(async () => {
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // The steady path uses nine mutation/blob requests, eighteen public-history
+  // The memory-store path uses ten mutation/blob requests (including part
+  // authorization), eighteen public-history
   // reads and fifteen bounded policy reads to authenticate metadata-root grants
   // with private recovery. Keep one request of aggregate headroom. Per-route
   // caps are independent maxima: the
   // second attachment-list allowance and the optional writer/discovery reads
   // are scenario-specific headroom and do not occur in that steady path.
-  total: 43,
+  total: 44,
   byRequest: {
     // Each projection verification rechecks its organization/Admins head page.
     "GET /principals/history": 18,
@@ -55,6 +56,7 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // one multipart part.
     "POST /documents": 1,
     "POST /blobs/stages/multipart": 1,
+    "POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload": 1,
     "PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes": 1,
     "POST /blobs/stages/multipart/:stageId/complete": 1,
     "POST /blobs/:blobId/attachment-bindings": 1,

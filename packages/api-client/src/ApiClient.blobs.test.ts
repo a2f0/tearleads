@@ -14,17 +14,19 @@ import { ApiClient } from "./ApiClient";
 
 const stageId = "11111111-1111-4111-8111-111111111111";
 
-function useMemoryPartUpload() {
+function useMemoryPartUpload(calls?: CapturedHttpCall[]) {
   server.use(
     http.post<{ stageId: string; partNumber: string }>(
       `${apiBaseUrl}/blobs/stages/multipart/:stageId/parts/:partNumber/upload`,
-      async ({ request, params }) =>
-        HttpResponse.json({
+      async ({ request, params }) => {
+        calls?.push(await captureHttpCall(request));
+        return HttpResponse.json({
           ...MultipartBlobPartUploadRequestSchema.parse(await request.json()),
           stageId: params.stageId,
           partNumber: Number(params.partNumber),
           source: { kind: "api" },
-        }),
+        });
+      },
     ),
   );
 }
@@ -82,7 +84,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
     }),
   );
 
-  useMemoryPartUpload();
+  useMemoryPartUpload(calls);
   const client = new ApiClient(apiBaseUrl);
   const initiateRequest = {
     organizationId: "organization-1",
@@ -131,6 +133,17 @@ testApiClient("uses blob multipart stage route namespace", async () => {
       method: "GET",
     },
     {
+      body: JSON.stringify({
+        byteLength: encryptedPartBytes.byteLength,
+        contentMd5: createHash("md5")
+          .update(encryptedPartBytes)
+          .digest("base64"),
+        uploadId: "upload-1",
+      }),
+      input: `${apiBaseUrl}/blobs/stages/multipart/${stageId}/parts/1/upload`,
+      method: "POST",
+    },
+    {
       body: "part-2",
       input: `${apiBaseUrl}/blobs/stages/multipart/${stageId}/parts/1/bytes`,
       method: "PUT",
@@ -141,7 +154,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
       method: "POST",
     },
   ]);
-  expect(calls[2]?.contentType).toBe("application/octet-stream");
+  expect(calls[3]?.contentType).toBe("application/octet-stream");
   expect(uploadHeaders).toEqual({
     byteLength: String(encryptedPartBytes.byteLength),
     sha256: "2bb41b3bc344d2a5c1f31d662d86d78d7e98198b1eef7be3209d4f85da4ef14d",

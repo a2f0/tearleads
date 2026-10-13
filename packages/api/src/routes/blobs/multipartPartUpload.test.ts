@@ -13,6 +13,7 @@ import {
   completeMultipartBlobStage,
   getMultipartBlobStage,
   initiateMultipartBlobStage,
+  uploadMultipartBlobPartBytes,
 } from "../../services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { sha256Hex } from "../../utils/sha256";
@@ -345,6 +346,17 @@ test("unsigned stores use byte transport while S3 byte proxy requests fail befor
     ),
   });
   expect(proxy.status).toBe(409);
+  await expect(
+    uploadMultipartBlobPartBytes(f.runtime, {
+      byteLength: 6,
+      bytes: new TextEncoder().encode("part-1"),
+      partNumber: 1,
+      sha256: sha256Hex("part-1"),
+      stageId: f.stage.stageId,
+      uploadId: f.stage.uploadId,
+      userId: f.owner.userId,
+    }),
+  ).rejects.toThrow("Direct multipart uploads are required");
   expect(uploadPart).not.toHaveBeenCalled();
 });
 
