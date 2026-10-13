@@ -78,6 +78,15 @@ function declaredLength(request: Request): number | null {
   return Number.isSafeInteger(length) && length >= 0 ? length : null;
 }
 
+/** Check without wrapping or reading the body, before waiting for admission. */
+export function declaredBodyTooLarge(
+  request: Request,
+  maxBytes: number,
+): boolean {
+  const declared = declaredLength(request);
+  return request.body !== null && declared !== null && declared > maxBytes;
+}
+
 const trippedLimiters = new WeakMap<Request, () => boolean>();
 
 /**
@@ -126,8 +135,7 @@ export function boundRequestBody(
   if (request.body === null) {
     return { kind: "request", request };
   }
-  const declared = declaredLength(request);
-  if (declared !== null && declared > maxBytes) {
+  if (declaredBodyTooLarge(request, maxBytes)) {
     return { kind: "too-large" };
   }
   // Bun's RequestInit type omits the standard duplex field a streamed body
@@ -143,42 +151,6 @@ export function boundRequestBody(
 }
 
 /**
- * Bytes this isolate may hold for requests at once: their bodies and, for
- * document sync, the response page a pull materializes. The per-request
- * ceilings bound one request; an isolate serving several large requests at
- * the same time still has one 128 MB heap, so each is admitted against a
- * shared budget and one that would overrun it is told to retry. Two full
- * sync pulls, or three part uploads, fit at once.
- */
-const BODY_ADMISSION_BYTES = 96 * 1024 * 1024;
-
-export interface BodyAdmission {
-  /** Reserve the bytes a request may buffer, or refuse when over budget. */
-  readonly admit: (bytes: number) => boolean;
-  readonly release: (bytes: number) => void;
-  readonly inFlight: () => number;
-}
-
-export function createBodyAdmission(
-  capacity = BODY_ADMISSION_BYTES,
-): BodyAdmission {
-  let held = 0;
-  return {
-    admit: (bytes) => {
-      if (held + bytes > capacity) {
-        return false;
-      }
-      held += bytes;
-      return true;
-    },
-    release: (bytes) => {
-      held -= bytes;
-    },
-    inFlight: () => held,
-  };
-}
-
-/**
  * The most a request can make the isolate hold: its declared body length,
  * else its ceiling, plus the response page a document sync pull may build.
  */
@@ -187,9 +159,10 @@ export function expectedRequestBytes(
   pathname: string,
   ceiling: number,
 ): number {
-  const page = DOCUMENT_SYNC_PATH.test(decodedPath(pathname))
-    ? MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES
-    : 0;
+  const page =
+    request.method === "POST" && DOCUMENT_SYNC_PATH.test(decodedPath(pathname))
+      ? MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES
+      : 0;
   if (request.body === null) {
     return page;
   }

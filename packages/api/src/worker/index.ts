@@ -1,4 +1,5 @@
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
+import { createBodyAdmission } from "./bodyAdmission";
 import {
   bindWorkerEnvironment,
   realtimeHubStub,
@@ -6,7 +7,7 @@ import {
 } from "./environment";
 import {
   boundRequestBody,
-  createBodyAdmission,
+  declaredBodyTooLarge,
   expectedRequestBytes,
   requestBodyCeiling,
   requestBodyOverflowed,
@@ -105,8 +106,7 @@ async function handleRequest(
   // Route-level limits still apply below this ceiling.
   const { pathname } = new URL(request.url);
   const ceiling = requestBodyCeiling(pathname, MAX_MULTIPART_BLOB_PART_BYTES);
-  const bounded = boundRequestBody(request, ceiling);
-  if (bounded.kind === "too-large") {
+  if (declaredBodyTooLarge(request, ceiling)) {
     return refuse(
       request,
       corsOrigins,
@@ -114,74 +114,77 @@ async function handleRequest(
       413,
     );
   }
-  // Concurrent large requests share this isolate's heap; past the budget the
-  // client retries rather than the isolate running out of memory.
+  // Wait before wrapping or reading a body: queued requests must not buffer
+  // uploads or open database pools while another response holds the budget.
   const admitted = expectedRequestBytes(request, pathname, ceiling);
-  if (!bodyAdmission.admit(admitted)) {
+  const release = await bodyAdmission.acquire(
+    admitted,
+    request.signal,
+    (done) => ctx.waitUntil(done),
+  );
+  if (!release) {
     const response = refuse(
       request,
       corsOrigins,
-      { error: "Too many uploads in progress" },
+      { error: "Server busy, please retry" },
       503,
     );
     response.headers.set("retry-after", "1");
     return response;
   }
-  // The request's database pool closes once the response is produced; the
-  // close itself runs after the response so it never delays the client.
-  return withRequestDatabase(
-    async () =>
-      fetch(
-        bounded.request,
-        {
-          ...env,
-          // Cloudflare sets this from the connecting socket; proxies cannot
-          // forge it.
-          directClientIp: request.headers.get("cf-connecting-ip"),
-          // Workers impose no idle timeout on a response, so there is nothing
-          // to extend while a principal-history verification runs.
-          beginPrincipalHistoryVerification: () => {},
-        },
-        ctx,
-      ),
-    (closing) => ctx.waitUntil(closing),
-  )
-    .then(
-      (response) => {
-        // Whatever the route made of a body cut off at the ceiling, and
-        // however the runtime reported the failed read, the answer is 413.
-        if (requestBodyOverflowed(bounded.request)) {
-          bodyAdmission.release(admitted);
-          return refuse(
-            request,
-            corsOrigins,
-            { error: "Request body too large" },
-            413,
-          );
-        }
-        // The reservation outlives the answer: a slow reader still holds the
-        // page the route built until the body has drained or been canceled.
-        return retainUntilDrained(response, () =>
-          bodyAdmission.release(admitted),
-        );
-      },
-      (error: unknown) => {
-        bodyAdmission.release(admitted);
-        if (requestBodyOverflowed(bounded.request)) {
-          return refuse(
-            request,
-            corsOrigins,
-            { error: "Request body too large" },
-            413,
-          );
-        }
-        throw error;
-      },
-    )
-    .finally(() => {
-      // Sentry sends after the response would be canceled with the request.
-      ctx.waitUntil(flushDiagnostics());
+  try {
+    const bounded = boundRequestBody(request, ceiling);
+    if (bounded.kind === "too-large") {
+      release();
+      return refuse(
+        request,
+        corsOrigins,
+        { error: "Request body too large" },
+        413,
+      );
+    }
+    // The request's database pool closes once the response is produced; the
+    // close itself runs after the response so it never delays the client.
+    const response = await withRequestDatabase(
+      async () =>
+        fetch(
+          bounded.request,
+          {
+            ...env,
+            // Cloudflare sets this from the connecting socket; proxies cannot
+            // forge it.
+            directClientIp: request.headers.get("cf-connecting-ip"),
+            // Workers impose no idle timeout on a response, so there is nothing
+            // to extend while a principal-history verification runs.
+            beginPrincipalHistoryVerification: () => {},
+          },
+          ctx,
+        ),
+      (closing) => ctx.waitUntil(closing),
+    ).catch((error: unknown) => {
+      if (requestBodyOverflowed(bounded.request)) return null;
+      throw error;
     });
+    // Whatever the route made of a body cut off at the ceiling, and however
+    // the runtime reported the failed read, the answer is 413.
+    if (response === null || requestBodyOverflowed(bounded.request)) {
+      release();
+      return refuse(
+        request,
+        corsOrigins,
+        { error: "Request body too large" },
+        413,
+      );
+    }
+    // A slow reader still holds the page until it drains or cancels the body.
+    return retainUntilDrained(response, release);
+  } catch (error) {
+    release();
+    throw error;
+  } finally {
+    // Sentry sends after the response would be canceled with the request.
+    ctx.waitUntil(flushDiagnostics());
+  }
 }
 
 async function handleScheduled(
