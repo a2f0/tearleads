@@ -304,6 +304,8 @@ async function decryptLoadedDocumentAttachmentBlob(
 export async function hydrateDocumentAttachmentBlobs(
   input: DocumentAttachmentHydrationContext & {
     attachments: ReadonlyArray<DocumentAttachment>;
+    /** No binding target remains unchecked or unavailable in this pass. */
+    onBindingsChecked?: () => void;
   },
 ): Promise<HydratedDocumentAttachmentBlob[] | null> {
   const attachmentBindings = await input.apiClient.listDocumentAttachments(
@@ -331,6 +333,7 @@ export async function hydrateDocumentAttachmentBlobs(
         : [];
     });
   if (hydrationTargets.length === 0) {
+    input.onBindingsChecked?.();
     return [];
   }
 
@@ -373,7 +376,9 @@ export async function hydrateDocumentAttachmentBlobs(
         }),
     })),
   });
-  return hydrated.filter(
+  const complete = hydrated.filter(
     (item): item is HydratedDocumentAttachmentBlob => item !== null,
   );
+  if (complete.length === hydrationTargets.length) input.onBindingsChecked?.();
+  return complete;
 }

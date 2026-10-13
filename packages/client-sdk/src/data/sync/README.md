@@ -81,9 +81,11 @@ Downloads currently buffer each document's encrypted attachment set before
 decryption. Up to four such sets can coexist while document lanes run. The
 separate four-permit transfer pool limits concurrent byte I/O, not retained
 bytes; peak download memory still depends on attachment sizes.
-Queued transfers and active byte I/O have a two-minute idle deadline. Received
-download chunks renew it. Expiry aborts fetch and stream reads, removes queued
-waiters, and releases logical permits even if a native transport ignores abort.
+Deadlines start after a transfer acquires a permit. Downloads have a two-minute
+idle deadline renewed by received chunks. Upload parts allow two minutes plus
+their byte length at 8 KiB/s per part, accommodating a slow shared uplink on hosts
+without upload progress events. Expiry aborts fetch and stream reads and releases
+logical permits even if a native transport ignores abort.
 Such abandoned transport tails cannot publish upload progress or hydrated bytes.
 
 Container contents also uses lanes for domain-specific sync work. Container

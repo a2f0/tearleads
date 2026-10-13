@@ -44,33 +44,35 @@ test("four stalled transfers time out and admit a healthy transfer", async () =>
   }
 });
 
-test("a queued deadline removes its waiter without stealing another permit", async () => {
+test("waiting behind healthy transfers does not spend the transfer deadline", async () => {
   const client = {};
   let release = () => {};
-  const stalled = new Promise<void>((resolve) => {
+  const held = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const blocked = Array.from({ length: 4 }, () =>
-    runBlobTransfer(client, () => stalled, 1_000),
+  const active = Array.from({ length: 4 }, () =>
+    runBlobTransfer(client, () => held, 1_000),
   );
   let queuedRan = false;
+  let queuedError: unknown = null;
+  const queued = runBlobTransfer(
+    client,
+    async () => {
+      queuedRan = true;
+    },
+    20,
+  ).catch((error: unknown) => {
+    queuedError = error;
+  });
   try {
-    await expect(
-      runBlobTransfer(
-        client,
-        async () => {
-          queuedRan = true;
-        },
-        20,
-      ),
-    ).rejects.toThrow("Blob transfer timed out");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(queuedError).toBeNull();
     expect(queuedRan).toBe(false);
   } finally {
     release();
-    await Promise.all(blocked);
+    await Promise.allSettled([...active, queued]);
   }
-  expect(await runBlobTransfer(client, async () => "reused")).toBe("reused");
-  expect(queuedRan).toBe(false);
+  expect(queuedRan).toBe(true);
 });
 
 test("download progress renews the idle deadline", async () => {

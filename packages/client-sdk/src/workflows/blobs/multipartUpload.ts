@@ -21,6 +21,9 @@ import {
 
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MAX_MULTIPART_UPLOAD_CONCURRENCY = 4;
+// Fetch exposes no upload progress on every host. Allow a slow shared uplink
+// (8 KiB/s per admitted part), plus setup/encryption time, while bounding stalls.
+const MULTIPART_TRANSFER_BYTES_PER_SECOND = 8 * 1024;
 
 interface MultipartPartCommit {
   readonly etag: string;
@@ -109,48 +112,55 @@ async function uploadMultipartPartTasks(input: {
       }
 
       try {
-        await runBlobTransfer(input.apiClient, async (signal) => {
-          if (failed) return;
-          const aborted = () => recordFailure(signal.reason);
-          signal.addEventListener("abort", aborted, { once: true });
-          try {
-            const uploaded = await uploadMultipartPartBytes({
-              apiClient: input.apiClient,
-              encryption: input.encryption,
-              stageId: input.stageId,
-              task,
-              uploadId: input.uploadId,
-              signal,
-            });
-            signal.throwIfAborted();
-            if (!uploaded) {
-              failed = true;
-              throw new Error(
-                multipartApiFailureMessage({
-                  apiClient: input.apiClient,
-                  fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
-                  request: multipartPartRequest({
+        await runBlobTransfer(
+          input.apiClient,
+          async (signal) => {
+            if (failed) return;
+            const aborted = () => recordFailure(signal.reason);
+            signal.addEventListener("abort", aborted, { once: true });
+            try {
+              const uploaded = await uploadMultipartPartBytes({
+                apiClient: input.apiClient,
+                encryption: input.encryption,
+                stageId: input.stageId,
+                task,
+                uploadId: input.uploadId,
+                signal,
+              });
+              signal.throwIfAborted();
+              if (!uploaded) {
+                failed = true;
+                throw new Error(
+                  multipartApiFailureMessage({
                     apiClient: input.apiClient,
-                    partNumber: task.partNumber,
-                    stageId: input.stageId,
+                    fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
+                    request: multipartPartRequest({
+                      apiClient: input.apiClient,
+                      partNumber: task.partNumber,
+                      stageId: input.stageId,
+                    }),
                   }),
-                }),
-              );
-            }
+                );
+              }
 
-            input.completeParts[task.partIndex] = {
-              etag: uploaded.part.etag,
-              partNumber: task.partNumber,
-            };
-            input.onPartUploaded?.(task);
-          } catch (error) {
-            // Publish failure before releasing the permit to a queued sibling.
-            // Already-started parts still record success and drain through the join.
-            recordFailure(error);
-          } finally {
-            signal.removeEventListener("abort", aborted);
-          }
-        });
+              input.completeParts[task.partIndex] = {
+                etag: uploaded.part.etag,
+                partNumber: task.partNumber,
+              };
+              input.onPartUploaded?.(task);
+            } catch (error) {
+              // Publish failure before releasing the permit to a queued sibling.
+              // Already-started parts still record success and drain through the join.
+              recordFailure(error);
+            } finally {
+              signal.removeEventListener("abort", aborted);
+            }
+          },
+          120_000 +
+            Math.ceil(
+              (task.byteLength * 1000) / MULTIPART_TRANSFER_BYTES_PER_SECOND,
+            ),
+        );
       } catch (error) {
         recordFailure(error);
       }

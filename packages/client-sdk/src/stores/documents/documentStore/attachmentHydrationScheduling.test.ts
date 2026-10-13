@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createFixtureBinding,
+  createUploadedAttachmentFixture,
+} from "../../../../test/helpers/blobHydration";
 import { addDocumentAttachments } from "../../../data/documents/documentContent";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hydrateAttachmentBlobs } from "./attachmentHydration";
@@ -83,6 +87,25 @@ test("settled attachments skip listings until a remote signal or missing/mismatc
     } finally {
       reloaded.free();
     }
+    // A moved binding with unavailable bytes must not consume the hint merely
+    // because the held copy still matches the document's attachment intent.
+    const moved = await createUploadedAttachmentFixture();
+    state.remoteUpdateSignalSeq += 1;
+    state.attachmentBlobIdBySlotId[attachment.slotId] = "held-blob";
+    runtime.apiClient.listDocumentAttachments = async () => [
+      {
+        ...createFixtureBinding(moved),
+        slotId: attachment.slotId,
+      },
+    ];
+    let downloads = 0;
+    runtime.apiClient.getBlobBytes = async () => {
+      downloads += 1;
+      return null;
+    };
+    await hydrateAttachmentBlobs(state, doc, record);
+    await hydrateAttachmentBlobs(state, doc, record);
+    expect(downloads).toBe(2);
   } finally {
     fixture.remoteDocument.free();
     close();

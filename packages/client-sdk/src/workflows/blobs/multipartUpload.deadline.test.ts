@@ -51,7 +51,9 @@ test("multipart timeout aborts its transport and ignores a late successful part"
   );
   try {
     await entered;
-    const timer = timers.mock.calls.findLast(([, delay]) => delay === 120_000);
+    const timer = timers.mock.calls.findLast(
+      ([, delay]) => typeof delay === "number" && delay >= 120_000,
+    );
     if (!timer || typeof timer[0] !== "function")
       throw new Error("Missing transfer deadline");
     timer[0]();
@@ -67,5 +69,75 @@ test("multipart timeout aborts its transport and ignores a late successful part"
     release();
     timers.mockRestore();
     await Promise.allSettled([upload, outcome]);
+  }
+});
+
+test("large parts reserve time for a slow shared uplink", async () => {
+  const timers = spyOn(globalThis, "setTimeout");
+  let release = () => {};
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let started = () => {};
+  const entered = new Promise<void>((resolve) => {
+    started = resolve;
+  });
+  let signal: AbortSignal | undefined;
+  const encryption = createFakePlan({
+    partCount: 1,
+    getPartByteLength: () => 5 * 1024 * 1024,
+  });
+  const apiClient = createMultipartApi({
+    uploadMultipartBlobPartBytes: async (
+      stageId,
+      partNumber,
+      request,
+      options,
+    ) => {
+      signal = options?.signal;
+      started();
+      await blocked;
+      return {
+        stageId,
+        uploadId: request.uploadId,
+        part: { partNumber, etag: "slow", byteLength: request.byteLength },
+      };
+    },
+    completeMultipartBlobStage: async (stageId) => ({
+      stageId,
+      byteLength: encryption.byteLength,
+      sha256: encryption.sha256,
+      organizationId: "organization-1",
+      expiresAt: "2026-04-27T01:00:00.000Z",
+    }),
+  });
+  const upload = stageMultipartBlobAttachment({
+    apiClient,
+    encryption,
+    organizationId: "organization-1",
+    multipart: { partSize: DEFAULT_CHUNK_SIZE },
+  });
+  const outcome = upload.then(
+    (result) => result,
+    (error: unknown) => error,
+  );
+  try {
+    await entered;
+    // Advance the old two-minute boundary while the upload is still sending.
+    for (const [callback, delay] of timers.mock.calls) {
+      if (delay === 120_000 && typeof callback === "function") callback();
+    }
+    expect(signal?.aborted).toBe(false);
+    expect(
+      timers.mock.calls.some(
+        ([, delay]) => typeof delay === "number" && delay > 120_000,
+      ),
+    ).toBe(true);
+    release();
+    expect(await outcome).toBe("stage-new");
+  } finally {
+    release();
+    timers.mockRestore();
+    await outcome;
   }
 });

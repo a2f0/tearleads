@@ -19,6 +19,11 @@ export async function runBlobTransfer<T>(
     pool = { active: 0, waiting: [] };
     pools.set(client, pool);
   }
+  if (pool.active >= TRANSFER_CONCURRENCY) {
+    await new Promise<void>((resolve) => pool.waiting.push(resolve));
+  } else {
+    pool.active += 1;
+  }
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   const progress = () => {
@@ -29,12 +34,8 @@ export async function runBlobTransfer<T>(
       timeoutMs,
     );
   };
-  let acquired = false;
   progress();
   try {
-    await acquire(pool, controller.signal);
-    acquired = true;
-    progress();
     // A native bridge or custom transport may ignore abort. Bound its logical
     // ownership anyway; callers must check the signal before accepting results.
     return await new Promise<T>((resolve, reject) => {
@@ -55,31 +56,8 @@ export async function runBlobTransfer<T>(
     });
   } finally {
     clearTimeout(timer);
-    if (acquired) {
-      const next = pool.waiting.shift();
-      if (next) next();
-      else pool.active -= 1;
-    }
+    const next = pool.waiting.shift();
+    if (next) next();
+    else pool.active -= 1;
   }
-}
-
-async function acquire(pool: TransferPool, signal: AbortSignal): Promise<void> {
-  signal.throwIfAborted();
-  if (pool.active < TRANSFER_CONCURRENCY) {
-    pool.active += 1;
-    return;
-  }
-  await new Promise<void>((resolve, reject) => {
-    const start = () => {
-      signal.removeEventListener("abort", aborted);
-      resolve();
-    };
-    const aborted = () => {
-      const index = pool.waiting.indexOf(start);
-      if (index >= 0) pool.waiting.splice(index, 1);
-      reject(signal.reason);
-    };
-    signal.addEventListener("abort", aborted, { once: true });
-    pool.waiting.push(start);
-  });
 }
