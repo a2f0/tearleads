@@ -32,7 +32,7 @@ export function getActiveDocumentRemoteWork(
     : null;
 }
 
-/** Never wait on another remote request inside the coordinator's serial pump. */
+/** A document lane retries instead of waiting on overlapping remote work. */
 export function runDocumentRemoteWork<T>(
   state: DocumentStoreState,
   task: () => Promise<T>,

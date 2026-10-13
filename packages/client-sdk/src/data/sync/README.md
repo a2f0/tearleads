@@ -35,6 +35,8 @@ lane pass starts. A structural request pauses new document starts and waits for
 running documents before crossing the phase barrier. Equal-priority work rotates
 by last run order; remote hints and fresh document discovery take priority over
 ordinary background work. Failure backoff and watchdogs belong to each lane.
+Delayed structural requests also reserve this barrier until their timer expires;
+production structural lanes currently request immediate work only.
 
 The coordinator also maintains cached read-only telemetry snapshots. A snapshot
 contains lane phase, status, request/run/error counts, last action timestamps,

@@ -69,7 +69,7 @@ explicit unknown-outcome acknowledgement; they never submit unreadable work.
 | `principals` | Platform runtime | Verified online/offline policies with durable identity trust and [history recovery](../../../../docs/developer/principal-history-recovery.md). |
 | `registration` | Platform runtime | Atomic bootstrap. `registerUser` requires metadata at argument 13; omitted roster arguments 11–12 are `undefined`. Profile bodies remain optional. |
 | `root` | Platform operator administration | Root-only identity lookups for internal staff: paged identity listing with fingerprint filter, identity detail with live sessions, per-identity organization membership, searchable organization pages, organization detail with persisted billing/provider state and the latest 50 billing events, paged organization rosters linking back to identities, and [synced data usage and organization usage reports](../../../../docs/developer/client-sdk.md#advanced-configuration). Locally gated on the session's server-reported root flag; the API enforces access. Root console screens belong in `packages/app`. |
-| `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. |
+| `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. `SyncLaneConfig.priority()` ranks eligible work within a phase: lower finite values first, default zero, with fair rotation among ties. A throw or nonfinite result uses zero. |
 
 Organization billing views expose subscription ownership and direct cancellation
 availability in the billing snapshot. Current clients use management URL reads

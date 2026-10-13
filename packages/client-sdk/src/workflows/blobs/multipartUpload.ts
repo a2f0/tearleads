@@ -104,47 +104,43 @@ async function uploadMultipartPartTasks(input: {
         return;
       }
 
-      try {
-        const uploaded = await runBlobTransfer(input.apiClient, () =>
-          failed
-            ? Promise.resolve(null)
-            : uploadMultipartPartBytes({
-                apiClient: input.apiClient,
-                encryption: input.encryption,
-                stageId: input.stageId,
-                task,
-                uploadId: input.uploadId,
-              }),
-        );
+      await runBlobTransfer(input.apiClient, async () => {
         if (failed) return;
-        if (!uploaded) {
-          failed = true;
-          throw new Error(
-            multipartApiFailureMessage({
-              apiClient: input.apiClient,
-              fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
-              request: multipartPartRequest({
+        try {
+          const uploaded = await uploadMultipartPartBytes({
+            apiClient: input.apiClient,
+            encryption: input.encryption,
+            stageId: input.stageId,
+            task,
+            uploadId: input.uploadId,
+          });
+          if (!uploaded) {
+            failed = true;
+            throw new Error(
+              multipartApiFailureMessage({
                 apiClient: input.apiClient,
-                partNumber: task.partNumber,
-                stageId: input.stageId,
+                fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
+                request: multipartPartRequest({
+                  apiClient: input.apiClient,
+                  partNumber: task.partNumber,
+                  stageId: input.stageId,
+                }),
               }),
-            }),
-          );
-        }
+            );
+          }
 
-        input.completeParts[task.partIndex] = {
-          etag: uploaded.part.etag,
-          partNumber: task.partNumber,
-        };
-        input.onPartUploaded?.(task);
-      } catch (error) {
-        // Stop sibling workers from pulling new tasks and firing more uploads
-        // once any part rejects. Keep this worker alive long enough for the
-        // shared join below to drain uploads siblings already started.
-        failed = true;
-        firstFailure ??= { error };
-        return;
-      }
+          input.completeParts[task.partIndex] = {
+            etag: uploaded.part.etag,
+            partNumber: task.partNumber,
+          };
+          input.onPartUploaded?.(task);
+        } catch (error) {
+          // Publish failure before releasing the permit to a queued sibling.
+          // Already-started parts still record success and drain through the join.
+          failed = true;
+          firstFailure ??= { error };
+        }
+      });
     }
   }
 

@@ -126,6 +126,38 @@ test("one failing document does not back off healthy documents", async () => {
   }
 });
 
+test("a delayed structural request reserves the phase barrier", async () => {
+  const coordinator = getOrCreateDomainSyncCoordinator(createDomainScope());
+  const started: string[] = [];
+  const release = gate();
+  coordinator
+    .registerLane("structure", {
+      phase: "structural",
+      run: async () => {
+        started.push("structure");
+        await release.wait;
+      },
+    })
+    .requestSyncAfter(60);
+  coordinator
+    .registerLane("document", {
+      run: async () => {
+        started.push("document");
+      },
+    })
+    .requestSync();
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(started).toEqual([]);
+    await waitFor(() => started.length > 0, "delayed structure did not start");
+    expect(started).toEqual(["structure"]);
+  } finally {
+    release.open();
+  }
+  expect(await coordinator.waitForIdle()).toBe(true);
+  expect(started).toEqual(["structure", "document"]);
+});
+
 test("hint priority wins over ordinary background documents", async () => {
   const coordinator = getOrCreateDomainSyncCoordinator(createDomainScope());
   const started: string[] = [];
