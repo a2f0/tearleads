@@ -78,9 +78,10 @@ envelopes, and attachment persistence live elsewhere under `data/blobs`,
 writes blob bytes directly.
 
 Downloads currently buffer each document's encrypted attachment set before
-decryption. Up to four such sets can coexist while document lanes run. The
-separate four-permit transfer pool limits concurrent byte I/O, not retained
-bytes; peak download memory still depends on attachment sizes.
+decryption. Four ordinary workers can retain such sets concurrently, and
+watchdog-abandoned callbacks can outlive those workers. The separate
+four-permit transfer pool limits logical byte I/O, not retained bytes or
+transport tails that ignore cancellation; memory depends on attachment sizes.
 Deadlines start after a transfer acquires a permit. Downloads have a two-minute
 idle deadline renewed by received chunks. Upload parts allow two minutes plus
 their byte length at 8 KiB/s per part, accommodating a slow shared uplink on hosts

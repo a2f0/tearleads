@@ -316,6 +316,9 @@ export async function persistInitialDocumentBootstrap(
       containerId: input.containerId,
       contentKeyBundle: input.documentState.contentKeyBundle ?? null,
       documentId: input.documentId,
+      // Successful provisioning makes this device's user the founding admin.
+      // Stores can open before discovery returns the same access level.
+      effectiveAccessLevel: "admin",
       documentKekTargets: input.documentState.documentKekTargets ?? null,
       documentKind: input.documentKind,
       documentManifestBundle:

@@ -96,8 +96,8 @@ content revalidation targets only the named document. The app filters known
 ordinary content hints out of discovery; their registered stores receive them
 directly. Hints routed to the reconciler still list their named containers. Hints
 queued during a listing collapse into one trailing listing, retaining the union
-of named documents. Only explicit Refresh and reconnect force every registered
-document. Force is acknowledged only after
+of named documents. Explicit Refresh, reconnect, and resync-required events
+force every registered document. Force is acknowledged only after
 successful reconciliation, so the lossy hint cannot be discarded by discovery
 suppression, temporary ineligibility, a transient request failure, or database
 loss mid-request. A fulfilled discovery that reports an incompletely listed
@@ -216,7 +216,8 @@ Blob work remains inside its owning document lane because that lane preserves
 its prerequisites: structural work drains first, the remote document exists,
 the current writer projection is verified, and only then are encrypted bytes
 staged and bound. Byte I/O uses a separate FIFO pool with four permits per API
-client, shared by downloads and multipart uploads across documents. A permit
+client, shared by sync hydration downloads and multipart uploads. Relink
+key-authentication downloads use their existing path. A permit
 covers upload encryption through the part response, or a complete download
 stream; permits are released on success and failure. Document lanes await their
 transfers and retain ownership of binding and persistence.
