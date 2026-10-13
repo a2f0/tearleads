@@ -65,3 +65,28 @@ for staging. Run these from the repository root before deploying the website.
 See the desktop instructions for
 [macOS](../app-electrobun/README.md#macos-releases) and
 [Linux from Docker](../app-electrobun/README.md#linux-releases-from-docker).
+
+## Continuity gallery
+
+The [continuity repository](https://github.com/a2f0/continuity) builds and
+publishes the scrollable specimen gallery at `continuity.tearleads.com` with
+Wrangler. Its domain has a separate stack, `terraform/stacks/prod/continuity`,
+and state key, `prod/continuity/terraform.tfstate`; website and tier deploys do
+not apply it. Publish `tearleads-continuity` first, then run:
+
+```sh
+terraform/scripts/run-continuity-stack.sh plan -out=/path/to/gallery.tfplan
+terraform/scripts/run-continuity-stack.sh apply /path/to/gallery.tfplan
+```
+
+Subsequent gallery asset deployments do not need Terraform. The gallery sends
+`noindex` in HTML and response headers. Publish the Worker into the tearleads.com
+Cloudflare account (`TF_VAR_cloudflare_account_id`). The hostname stack needs
+Workers Routes Edit and Zone Read, plus AWS credentials for its S3 backend.
+
+Initial publishing is an operator task using existing production credentials.
+Workers Scripts Edit grants account-wide edits, including the production API,
+app, and website Workers; do not copy that token into continuity's CI secrets.
+For later automation, use an account-owned token with Editor scoped only to the
+existing `tearleads-continuity` Worker. See Cloudflare's
+[Workers roles and scopes](https://developers.cloudflare.com/workers/authorization/workers/).

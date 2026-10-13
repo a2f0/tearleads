@@ -126,7 +126,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.9",
+      "version": "0.0.10",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -333,7 +333,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@astrojs/react": "7.0.1",
         "@phosphor-icons/react": "2.1.10",
