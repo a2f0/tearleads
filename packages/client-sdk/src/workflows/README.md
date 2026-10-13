@@ -411,3 +411,17 @@ signed-grant retirements.
 endpoint. Hosts can retain an `ApiRequestMetrics` store across client lifetimes.
 See the [SDK request-count contract](../../../../docs/developer/client-sdk.md#api-request-counts)
 for snapshot, subscription, reset, lifetime, and transport-outcome semantics.
+
+## Explorer hydration and pending downloads
+
+Explorer queries omit remote document shells until content is present, including
+paginated counts. Explorer requests direct summaries with
+`loadDocumentSummary(id, { requireHydrated: true })`; ordinary identity reads still
+include shells. Orphan-route identity checks use the scoped
+`loadOrphanedDocumentSummary` read before requesting `requireHydrated: true`
+content. `ContainerNode.metadataReady` is false
+for remote folders awaiting metadata; consumers can hide these nodes without
+removing their sync registrations. `containerContents.documentQueries()` exposes
+`listPendingDownloads()` and `PendingDownloadQueueItem` for known document and
+folder metadata pulls (initial hydration or remaining pages), including durable
+errors. The queue does not estimate undiscovered objects or on-demand blob reads.

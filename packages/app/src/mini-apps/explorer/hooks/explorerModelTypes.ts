@@ -54,6 +54,7 @@ export interface ExplorerModelExplorer {
   ) => Promise<boolean>;
   shareWithUser: (containerId: string, userId: string) => Promise<boolean>;
   nodes: ReadonlyArray<ContainerNode>;
+  knownNodes: ReadonlyArray<ContainerNode>;
   ready: boolean;
   reconciler: ReconciliationService;
   trashContainerId: string | null;

@@ -48,6 +48,7 @@ function areSnapshotNodesEqual(
       leftNode.icon === rightNode.icon &&
       leftNode.kind === rightNode.kind &&
       leftNode.metadataDocumentId === rightNode.metadataDocumentId &&
+      leftNode.metadataReady === rightNode.metadataReady &&
       leftNode.name === rightNode.name &&
       leftNode.organizationId === rightNode.organizationId &&
       leftNode.parentId === rightNode.parentId &&

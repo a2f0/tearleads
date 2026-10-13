@@ -229,3 +229,13 @@ test("explorer route segments cover selection and detail routes", () => {
     }),
   ).toEqual(["sync", "lanes", "documents:local-1"]);
 });
+
+test("Downloads round trips through an Explorer route", () => {
+  expect(parseExplorerRouteSegments(["downloads"])).toEqual({
+    route: { view: "downloads" },
+  });
+  expect(formatExplorerRouteSegments({ view: "downloads" })).toEqual([
+    "downloads",
+  ]);
+  expect(isExplorerRouteAvailable({ view: "downloads" }, [])).toBe(true);
+});

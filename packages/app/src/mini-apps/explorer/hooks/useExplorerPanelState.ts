@@ -144,6 +144,8 @@ export function useExplorerPanelState(params: {
   const loadDocumentAttributionRanges =
     useExplorerDocumentAttributionRangesLoader();
   const routeState = useExplorerRoute({
+    knownNodes: explorer.knownNodes,
+    ready: explorer.ready,
     loadDocumentSummary: loadRouteDocumentSummary,
     logError: appData.util.logError,
     nodes: explorer.nodes,

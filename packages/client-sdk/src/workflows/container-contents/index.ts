@@ -99,6 +99,7 @@ export {
   renameContainerMetadataStateFromRuntime,
   syncContainerMetadataState,
 } from "./metadata";
+export type { PendingDownloadQueueItem } from "./pendingDownloads";
 export {
   listPendingWrites,
   type PendingWriteQueueItem,

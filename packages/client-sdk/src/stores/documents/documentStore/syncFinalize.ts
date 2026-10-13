@@ -1,5 +1,6 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
+  emptyVersionVector,
   encodeVersionVector,
   getImportBlobMetadata,
   mergeVersionVectors,
@@ -96,10 +97,14 @@ function coveredSyncFrontier(
   currentRecord: DocumentRecord,
   synced: DocumentSyncAttempt["synced"],
 ): { snapshotEndVersion: string } | Record<string, never> {
-  if (synced.decryptedUpdates.length === 0) {
-    return {};
-  }
   const liveFrontier = (state.record ?? currentRecord).snapshotEndVersion;
+  if (synced.decryptedUpdates.length === 0) {
+    // A completed empty pull distinguishes a real blank note from discovery.
+    // An intermediate page cannot establish that no content exists yet.
+    return liveFrontier === "" && !synced.hasIncompletePull
+      ? { snapshotEndVersion: emptyVersionVector() }
+      : {};
+  }
   return {
     snapshotEndVersion: mergeVersionVectors([
       ...(liveFrontier.length > 0 ? [liveFrontier] : []),

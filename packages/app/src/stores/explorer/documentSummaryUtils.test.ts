@@ -1,9 +1,13 @@
 import { expect, test } from "bun:test";
-import type { DocumentSummary } from "@tearleads/client-sdk";
+import type {
+  ContainerDocumentQueries,
+  DocumentSummary,
+} from "@tearleads/client-sdk";
 import {
   applyTrackedDocumentSummaryUpdates,
   computeContainerMembershipSignatures,
   diffChangedContainerIds,
+  loadExplorerRouteSummary,
 } from "./documentSummaryUtils";
 
 // The changed container ids between two summary maps — the exact input the link
@@ -189,3 +193,67 @@ test("container map ordering does not affect the reported changes", () => {
 
   expect(changedContainers(oneOrder, otherOrder)).toEqual([]);
 });
+
+for (const orphanedRoute of [false, true]) {
+  test(`unhydrated out-of-scope documents are rejected (orphan route=${orphanedRoute})`, async () => {
+    const documentQueries = {
+      loadDocumentSummary: async (
+        _id: string,
+        options?: { requireHydrated?: boolean },
+      ) =>
+        options?.requireHydrated
+          ? null
+          : {
+              id: "orphan",
+              documentId: "remote",
+              containerId: null,
+              title: "Syncing document...",
+              updatedAt: "2026-10-13",
+            },
+      loadOrphanedDocumentSummary: async () => null,
+    } as unknown as ContainerDocumentQueries;
+    expect(
+      await loadExplorerRouteSummary({
+        documentQueries,
+        localId: "orphan",
+        orphanedRoute,
+        currentOrganizationId: "org",
+      }),
+    ).toEqual({ status: "rejected" });
+  });
+}
+
+for (const orphanedRoute of [false, true]) {
+  for (const hydrated of [false, true]) {
+    test(`in-scope routes wait for content (orphan=${orphanedRoute}, hydrated=${hydrated})`, async () => {
+      const summary = {
+        id: "item",
+        documentId: "remote",
+        containerId: orphanedRoute ? null : "root",
+        title: "Known",
+        updatedAt: "2026-10-13",
+      };
+      const documentQueries = {
+        loadDocumentSummary: async (
+          _id: string,
+          options?: { requireHydrated?: boolean },
+        ) => (options?.requireHydrated && !hydrated ? null : summary),
+        loadOrphanedDocumentSummary: async (input: {
+          requireHydrated?: boolean;
+        }) => (input.requireHydrated && !hydrated ? null : summary),
+      } as unknown as ContainerDocumentQueries;
+      expect(
+        await loadExplorerRouteSummary({
+          documentQueries,
+          localId: "item",
+          orphanedRoute,
+          currentOrganizationId: "org",
+        }),
+      ).toEqual(
+        hydrated
+          ? { status: "loaded", documentSummary: summary }
+          : { status: "pending" },
+      );
+    });
+  }
+}

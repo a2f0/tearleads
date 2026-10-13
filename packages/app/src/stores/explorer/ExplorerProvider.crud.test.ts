@@ -53,6 +53,7 @@ test("explorer store creates, renames, deletes, and reloads child containers", a
           id: "root-container",
           kind: "container",
           metadataDocumentId: null,
+          metadataReady: true,
           name: "/",
           organizationId: "org-1",
           parentId: null,

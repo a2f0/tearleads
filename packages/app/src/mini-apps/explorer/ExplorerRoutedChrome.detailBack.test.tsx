@@ -145,3 +145,30 @@ test("diagnostics hub with no history replaces itself with the list", async () =
 
   expect(returned).toEqual([{ replace: true }]);
 });
+
+for (const historyCanGoBack of [true, false]) {
+  test(`Downloads Back respects host history (history=${historyCanGoBack})`, async () => {
+    const returned: Array<{ replace?: boolean | undefined } | undefined> = [];
+    const view = renderDetailBackChrome({
+      historyCanGoBack,
+      route: { view: "downloads" },
+      showSelectionRoute: (options) => returned.push(options),
+    });
+    await waitFor(() =>
+      expect(
+        view.getByRole("button", {
+          name: EXPLORER_LABELS.syncSectionsAction,
+        }),
+      ).toBeTruthy(),
+    );
+    const back = view.queryByRole("button", {
+      name: EXPLORER_LABELS.syncLanesBackAction,
+    });
+    if (historyCanGoBack) expect(back).toBeNull();
+    else {
+      expect(back).toBeTruthy();
+      if (back) fireEvent.click(back);
+      expect(returned).toEqual([{ replace: true }]);
+    }
+  });
+}
