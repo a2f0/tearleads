@@ -9,7 +9,6 @@ Workers Static Assets. It has no server runtime or dependency on the API server.
 | Environment | Worker | Hostname | Terraform state |
 | --- | --- | --- | --- |
 | Production | `tearleads-website-prod` | `tearleads.com` | `prod/website/terraform.tfstate` |
-| Continuity | `tearleads-continuity` | `continuity.tearleads.com` | `prod/website/terraform.tfstate` |
 | Staging | `tearleads-website-staging` | `website-staging.tearleads.com` | `staging/website/terraform.tfstate` |
 
 Wrangler owns asset deployments; the independent Terraform roots in
@@ -17,10 +16,20 @@ Wrangler owns asset deployments; the independent Terraform roots in
 leaves the website available. The API, application, and demo still use the server.
 
 The [continuity repository](https://github.com/a2f0/continuity) builds and
-publishes the scrollable specimen gallery with Wrangler. Its hostname belongs
-to the production website state here; publish `tearleads-continuity` before
-applying that stack for the first time. Subsequent gallery asset deployments
-do not need Terraform. The gallery sends `noindex` in HTML and response headers.
+publishes the scrollable specimen gallery at `continuity.tearleads.com` with
+Wrangler. Its domain has a separate stack, `terraform/stacks/prod/continuity`,
+and state key, `prod/continuity/terraform.tfstate`; website and tier deploys do
+not apply it. Publish `tearleads-continuity` first, then run:
+
+```sh
+terraform/scripts/run-continuity-stack.sh plan -out=/path/to/gallery.tfplan
+terraform/scripts/run-continuity-stack.sh apply /path/to/gallery.tfplan
+```
+
+Subsequent gallery asset deployments do not need Terraform. The gallery sends
+`noindex` in HTML and response headers. Wrangler needs Workers Scripts Edit in
+the gallery's Cloudflare account; the hostname stack uses Workers Routes Edit
+and Zone Read, plus the existing AWS credentials for its S3 backend.
 
 ```sh
 scripts/deployStagingWebsite.sh
