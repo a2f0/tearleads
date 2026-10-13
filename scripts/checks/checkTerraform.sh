@@ -31,22 +31,32 @@ run_terraform_fmt() {
 
 run_terraform_tests() {
   local module_dir="$1"
-  local terraform_test_dir
+  local terraform_test_root terraform_test_dir
   local terraform_test_status=0
 
-  if ! terraform_test_dir="$(mktemp -d)"; then
+  if ! terraform_test_root="$(mktemp -d)"; then
     echo "Error: could not create a temporary Terraform test directory" >&2
     return 1
   fi
+  terraform_test_dir="$terraform_test_root"
+  if [[ "$module_dir" == "$TERRAFORM_DIR/stacks/"* ]]; then
+    terraform_test_dir="$terraform_test_root/${module_dir#"$TERRAFORM_DIR"/}"
+    if ! mkdir -p "$terraform_test_dir" ||
+      ! ln -s "$TERRAFORM_DIR/modules" "$terraform_test_root/modules"; then
+      rm -rf -- "$terraform_test_root"
+      echo "Error: could not stage the Terraform stack module paths" >&2
+      return 1
+    fi
+  fi
   if ! cp "$module_dir"/*.tf "$module_dir"/*.tftest.hcl "$terraform_test_dir/"; then
-    rm -rf -- "$terraform_test_dir"
+    rm -rf -- "$terraform_test_root"
     echo "Error: could not stage the Terraform module tests" >&2
     return 1
   fi
 
   if [[ -f "$module_dir/.terraform.lock.hcl" ]]; then
     cp "$module_dir/.terraform.lock.hcl" "$terraform_test_dir/" || {
-      rm -rf -- "$terraform_test_dir"
+      rm -rf -- "$terraform_test_root"
       echo "Error: could not stage the Terraform provider lock file" >&2
       return 1
     }
@@ -57,7 +67,7 @@ run_terraform_tests() {
   if [ "$terraform_test_status" -eq 0 ]; then
     terraform -chdir="$terraform_test_dir" test -no-color || terraform_test_status=$?
   fi
-  rm -rf -- "$terraform_test_dir"
+  rm -rf -- "$terraform_test_root"
   return "$terraform_test_status"
 }
 
@@ -79,6 +89,7 @@ if check_command terraform; then
   for module_dir in \
     "$TERRAFORM_DIR/modules/cloudflare-website" \
     "$TERRAFORM_DIR/modules/r2-object-storage" \
+    "$TERRAFORM_DIR/stacks/prod/continuity" \
     "$TERRAFORM_DIR/stacks/prod/postgres" \
     "$TERRAFORM_DIR/stacks/staging/postgres"; do
     if ! run_terraform_tests "$module_dir"; then
