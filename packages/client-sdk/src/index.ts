@@ -1,6 +1,12 @@
 // Current SDK contract: unified device-first handles and atomic revision checks.
 // Authority loaders take exact heads, including cached citations. Obsolete
 // adapters are excluded; authored policy journals survive restart. See workflows/README.md.
+export {
+  type ApiRequestCounts,
+  type ApiRequestEndpointCounts,
+  ApiRequestMetrics,
+  type ApiRequestMetricsSnapshot,
+} from "@tearleads/api-client";
 export type {
   AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,

@@ -1,4 +1,4 @@
-import { ApiClient } from "@tearleads/api-client";
+import { ApiClient, ApiRequestMetrics } from "@tearleads/api-client";
 import type { BlobStore } from "../data/blobContracts";
 import {
   type DocumentProjectorRegistry,
@@ -70,6 +70,8 @@ export type ClientDatabaseOptions = Omit<DatabaseOptions, "status">;
 
 export interface ClientOptions {
   apiBaseUrl?: string | undefined;
+  /** Reuse a memory-only request counter across client lifetimes. */
+  apiRequestMetrics?: ApiRequestMetrics | undefined;
   blobStore?: BlobStore | undefined;
   blobStoreFactory?: BlobStoreFactory | undefined;
   database?: ClientDatabaseOptions | undefined;
@@ -108,6 +110,7 @@ export interface ClientOptions {
 
 export class Tearleads {
   readonly apiVersion = new ApiVersion();
+  readonly apiRequests: ApiRequestMetrics;
   readonly blobs: Blobs;
   readonly database: Database;
   readonly deviceFirst: DeviceFirst;
@@ -151,7 +154,8 @@ export class Tearleads {
 
   constructor(options: ClientOptions = {}) {
     const apiBaseUrl = options.apiBaseUrl ?? "";
-    this.apiClient = new ApiClient(apiBaseUrl);
+    this.apiRequests = options.apiRequestMetrics ?? new ApiRequestMetrics();
+    this.apiClient = this.createApiClient(apiBaseUrl);
     this.blobs = new Blobs(options.blobStore, options.blobStoreFactory);
     this.database = new Database(options.database);
     this.documentProjectors = resolveDocumentProjectorRegistry(
@@ -237,6 +241,13 @@ export class Tearleads {
     if (options.identityProvisioning === "auto") {
       this.startAutomaticIdentityProvisioning();
     }
+  }
+
+  private createApiClient(apiBaseUrl: string): ApiClient {
+    return new ApiClient(apiBaseUrl, {
+      metrics: this.apiRequests,
+      getIdentity: () => this.identity.signingFingerprint,
+    });
   }
 
   /** Rebinds the session's trust callbacks once the runtime exists. */

@@ -8,6 +8,7 @@ test("system monitor route segments cover logs, status, environment, and feature
   expect(parseSystemMonitorRouteSegments([])).toBe("logs");
   expect(parseSystemMonitorRouteSegments(["logs"])).toBe("logs");
   expect(parseSystemMonitorRouteSegments(["status"])).toBe("status");
+  expect(parseSystemMonitorRouteSegments(["requests"])).toBe("requests");
   expect(parseSystemMonitorRouteSegments(["environment"])).toBe("environment");
   expect(parseSystemMonitorRouteSegments(["feature-flags"])).toBe(
     "feature-flags",
@@ -16,6 +17,7 @@ test("system monitor route segments cover logs, status, environment, and feature
 
   expect(formatSystemMonitorRouteSegments("logs")).toEqual([]);
   expect(formatSystemMonitorRouteSegments("status")).toEqual(["status"]);
+  expect(formatSystemMonitorRouteSegments("requests")).toEqual(["requests"]);
   expect(formatSystemMonitorRouteSegments("environment")).toEqual([
     "environment",
   ]);
