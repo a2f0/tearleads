@@ -1,4 +1,6 @@
 import { expect } from "bun:test";
+import { createHash } from "node:crypto";
+import { MultipartBlobPartUploadRequestSchema } from "@tearleads/validators/operation";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
@@ -11,6 +13,21 @@ import {
 import { ApiClient } from "./ApiClient";
 
 const stageId = "11111111-1111-4111-8111-111111111111";
+
+function useMemoryPartUpload() {
+  server.use(
+    http.post<{ stageId: string; partNumber: string }>(
+      `${apiBaseUrl}/blobs/stages/multipart/:stageId/parts/:partNumber/upload`,
+      async ({ request, params }) =>
+        HttpResponse.json({
+          ...MultipartBlobPartUploadRequestSchema.parse(await request.json()),
+          stageId: params.stageId,
+          partNumber: Number(params.partNumber),
+          source: { kind: "api" },
+        }),
+    ),
+  );
+}
 
 testApiClient("uses blob multipart stage route namespace", async () => {
   const calls: CapturedHttpCall[] = [];
@@ -65,6 +82,7 @@ testApiClient("uses blob multipart stage route namespace", async () => {
     }),
   );
 
+  useMemoryPartUpload();
   const client = new ApiClient(apiBaseUrl);
   const initiateRequest = {
     organizationId: "organization-1",
@@ -135,6 +153,7 @@ testApiClient(
   "keeps multipart Blob sources intact until encoding",
   async () => {
     const encryptedBytes = new Blob(["encrypted-part"]);
+    useMemoryPartUpload();
     const client = new ApiClient(apiBaseUrl);
     let capturedBody: Blob | BufferSource | undefined;
     const transport = Reflect.get(client, "transport");
@@ -160,7 +179,7 @@ testApiClient(
     await client.uploadMultipartBlobPartBytes(stageId, 1, {
       byteLength: encryptedBytes.size,
       encryptedBytes,
-      sha256: "a".repeat(64),
+      sha256: createHash("sha256").update("encrypted-part").digest("hex"),
       uploadId: "upload-1",
     });
 
@@ -181,6 +200,7 @@ testApiClient("retains coded multipart stage lookup failures", async () => {
     ),
   );
 
+  useMemoryPartUpload();
   const client = new ApiClient(apiBaseUrl);
 
   await expect(client.getMultipartBlobStage(stageId)).resolves.toBeNull();
@@ -210,6 +230,7 @@ testApiClient(
       ),
     );
 
+    useMemoryPartUpload();
     const client = new ApiClient(apiBaseUrl);
     const encryptedPartBytes = new TextEncoder().encode("part-2");
 

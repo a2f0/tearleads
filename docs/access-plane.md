@@ -228,8 +228,12 @@ Blob bind writes submit:
 - blob content-key bundle
 - optional staged blob write header
 
-Blob stages are created through the multipart staging routes and uploaded as
-binary parts. The bind path treats a stage as a temporary encrypted upload
+Blob stages are created through the multipart staging routes. Each encrypted
+part receives a five-minute S3/R2 upload URL after stage-owner and identity
+checks. URLs renew independently between chunks without changing the upload ID
+or earlier part ETags. Completion verifies the assembled length and SHA-256.
+Non-signing stores use the API binary-part route. The bind path treats a stage
+as a temporary encrypted upload
 owned by the authenticated user and promotes only a completed, unexpired
 stage.
 

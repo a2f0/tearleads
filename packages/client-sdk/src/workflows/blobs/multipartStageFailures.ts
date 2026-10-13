@@ -19,7 +19,7 @@ export function multipartApiFailureMessage(input: {
 }): string {
   const failure = input.apiClient.getRequestFailure?.(input.request)?.message;
   return failure
-    ? `${input.fallback} Last API failure: ${failure}`
+    ? `${input.fallback} Last request failure: ${failure}`
     : input.fallback;
 }
 

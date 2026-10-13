@@ -4,6 +4,7 @@ import type { SessionEnv } from "../../middleware/session";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createGetBlobRoute } from "./getBlob";
 import { createGetBlobDownloadRoute } from "./getBlobDownload";
+import { createMultipartPartUploadRoute } from "./multipartPartUpload";
 import { createMultipartBlobStageRoute } from "./multipartStage";
 import { createBlobMutationsRoute } from "./mutations";
 
@@ -17,6 +18,7 @@ export function createBlobsRouter({ requireAuth, runtime }: BlobsRouterDeps) {
   const routeDeps = { requireAuth, runtime };
 
   blobsRouter.route("/", createMultipartBlobStageRoute(routeDeps));
+  blobsRouter.route("/", createMultipartPartUploadRoute(routeDeps));
   blobsRouter.route("/", createBlobMutationsRoute(routeDeps));
   blobsRouter.route("/", createGetBlobRoute(routeDeps));
   blobsRouter.route("/", createGetBlobDownloadRoute(routeDeps));

@@ -1,7 +1,5 @@
 /**
- * Protocol ceiling for one buffered multipart blob part. The API buffers a
- * part before uploading it, and the Workers isolate that serves uploads has
- * 128 MB of memory, so the ceiling leaves room for the copy the digest check
- * makes.
+ * Protocol ceiling for a multipart blob part. Bounds client hashing and native
+ * HTTP bridge buffers for direct uploads, and API buffers for non-signing stores.
  */
 export const MAX_MULTIPART_BLOB_PART_BYTES = 32 * 1024 * 1024;

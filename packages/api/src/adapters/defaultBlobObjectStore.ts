@@ -5,6 +5,7 @@ import {
 } from "./blobObjectStore";
 import { createS3BlobDownloadUrl } from "./s3BlobDownloadUrl";
 import { createS3BlobObjectStore } from "./s3BlobObjectStore";
+import { createS3BlobUploadUrl } from "./s3BlobUploadUrl";
 
 type BlobObjectStoreKind = "memory" | "s3";
 
@@ -110,7 +111,19 @@ function createPrefixedBlobObjectStore(
     return store;
   }
   const createDownloadUrl = store.createDownloadUrl;
+  const createUploadPartUrl = store.createUploadPartUrl;
   return {
+    ...(createUploadPartUrl
+      ? {
+          createUploadPartUrl: (
+            input: Parameters<typeof createUploadPartUrl>[0],
+          ) =>
+            createUploadPartUrl.call(store, {
+              ...input,
+              key: prefixBlobObjectKey(prefix, input.key),
+            }),
+        }
+      : {}),
     ...(createDownloadUrl
       ? {
           createDownloadUrl: (input: {
@@ -209,6 +222,7 @@ export function createDefaultBlobObjectStore(
     {
       ...createS3BlobObjectStore({ bucket, client }),
       createDownloadUrl: createS3BlobDownloadUrl({ bucket, client }),
+      createUploadPartUrl: createS3BlobUploadUrl({ bucket, client }),
     },
     readBlobObjectStoreKeyPrefix(env),
   );

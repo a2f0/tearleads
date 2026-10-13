@@ -77,6 +77,7 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/adapters/defaultBlobObjectStore.ts`,
       `${api}/adapters/s3BlobObjectStore.ts`,
       `${api}/adapters/s3BlobDownloadUrl.ts`,
+      `${api}/adapters/s3BlobUploadUrl.ts`,
       `${api}/adapters/s3BlobObjectStreams.ts`,
     ],
   },

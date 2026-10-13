@@ -63,7 +63,8 @@ Write surfaces:
 | Unlink document from container | `POST /documents/:documentId/unlink` | `DocumentLinkSetMutationRequest` |
 | Sync encrypted Loro updates | `POST /documents/:documentId/sync` | `DocumentSyncRequest` |
 | Initiate multipart blob stage | `POST /blobs/stages/multipart` | `InitiateMultipartBlobStageRequest` |
-| Upload multipart blob part as bytes | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` | headers plus octet stream |
+| Authorize direct multipart blob part | `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload` | upload ID, byte length, Content-MD5 |
+| Upload multipart blob part for non-signing stores | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` | headers plus octet stream |
 | Complete multipart blob stage | `POST /blobs/stages/multipart/:stageId/complete` | `CompleteMultipartBlobStageRequest` |
 | Bind or replace blob attachment | `POST /blobs/:blobId/attachment-bindings` | `BlobAttachmentBindRequest` |
 | Detach blob attachment | `POST /blobs/:blobId/attachment-bindings/:bindingId/detach` | `BlobAttachmentDetachRequest` |
@@ -292,7 +293,8 @@ call `routeApp` directly instead of importing the server entrypoint.
 Blob staging is implemented as blob services. The
 `/blobs/stages/multipart` routes validate request shape and map service errors
 to HTTP responses, while the services own digest/byte-length validation,
-staged-row creation, object-store multipart state, binary part upload, and
+staged-row creation, object-store multipart state, per-part signed upload URLs,
+binary part upload for non-signing stores, and
 completion. The client supplies the destination organization from the verified
 document projection. Stages persist that organization, use
 `organizations/<organizationId>/blob-stages/<stageId>` keys, and can only be

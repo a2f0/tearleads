@@ -67,6 +67,7 @@
       "name": "@tearleads/api-client",
       "version": "0.1.16",
       "dependencies": {
+        "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
         "@tearleads/validators": "workspace:*",
       },

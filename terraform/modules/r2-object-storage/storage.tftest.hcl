@@ -57,7 +57,7 @@ run "public_downloads" {
   }
 }
 
-run "signed_download_cors" {
+run "signed_blob_transfer_cors" {
   command = plan
   variables {
     download_cors_origins = ["*"]
@@ -66,11 +66,13 @@ run "signed_download_cors" {
     condition = (
       cloudflare_r2_bucket_cors.downloads[0].bucket_name == var.bucket_name &&
       toset(cloudflare_r2_bucket_cors.downloads[0].rules[0].allowed.origins) == toset(["*"]) &&
-      toset(cloudflare_r2_bucket_cors.downloads[0].rules[0].allowed.methods) == toset(["GET"]) &&
+      toset(cloudflare_r2_bucket_cors.downloads[0].rules[0].allowed.methods) == toset(["GET", "PUT"]) &&
+      contains(cloudflare_r2_bucket_cors.downloads[0].rules[0].allowed.headers, "Content-MD5") &&
+      contains(cloudflare_r2_bucket_cors.downloads[0].rules[0].expose_headers, "ETag") &&
       cloudflare_r2_bucket_cors.downloads[0].rules[0].max_age_seconds == 300 &&
       !cloudflare_r2_managed_domain.storage.enabled &&
       length(cloudflare_r2_custom_domain.downloads) == 0
     )
-    error_message = "Browser downloads require GET CORS without making the bucket public."
+    error_message = "Browser blob transfers require GET/PUT CORS without making the bucket public."
   }
 }

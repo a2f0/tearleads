@@ -7,7 +7,7 @@ variable "bucket_name" {
   type        = string
 }
 variable "download_cors_origins" {
-  description = "Browser origins allowed to read signed downloads; empty omits CORS management"
+  description = "Browser origins allowed for signed blob transfers; empty omits CORS management"
   type        = list(string)
   default     = []
 }

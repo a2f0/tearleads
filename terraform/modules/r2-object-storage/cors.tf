@@ -3,11 +3,11 @@ resource "cloudflare_r2_bucket_cors" "downloads" {
   account_id  = var.account_id
   bucket_name = var.bucket_name
   rules = [{
-    id = "signed-blob-downloads"
+    id = "signed-blob-transfers"
     allowed = {
       origins = var.download_cors_origins
-      methods = ["GET"]
-      headers = ["Range", "If-Match", "Cache-Control"]
+      methods = ["GET", "PUT"]
+      headers = ["Range", "If-Match", "Cache-Control", "Content-Type", "Content-MD5"]
     }
     expose_headers  = ["Content-Length", "Content-Range", "ETag"]
     max_age_seconds = 300

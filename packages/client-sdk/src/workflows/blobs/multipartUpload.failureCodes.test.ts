@@ -62,6 +62,63 @@ function createApi(input: {
   };
 }
 
+for (const failedOperation of ["authorization", "memory-bytes"] as const) {
+  test(`multipart upload retains ${failedOperation} failure diagnostics`, async () => {
+    const api = createApi({
+      failure: {
+        kind: "storage",
+        message: "Storage part upload failed",
+        status: 403,
+      },
+      onInitiate: () => {},
+    });
+    api.uploadMultipartBlobPartBytes = async () => null;
+    api.getRequestFailure = ({ method, path }) => {
+      const expectedMethod =
+        failedOperation === "authorization" ? "POST" : "PUT";
+      const expectedSuffix =
+        failedOperation === "authorization" ? "/upload" : "/bytes";
+      return method === expectedMethod && path.endsWith(expectedSuffix)
+        ? {
+            kind: "storage",
+            message: "Storage part upload failed",
+            status: 403,
+          }
+        : null;
+    };
+    await expect(
+      stageMultipartBlobAttachment({
+        organizationId: "organization-1",
+        apiClient: api,
+        encryption: createPlan(),
+        multipart: { partSize: CHUNK_SIZE },
+      }),
+    ).rejects.toThrow("Storage part upload failed");
+  });
+}
+
+test("rejects parts over the authorization limit before creating a stage", async () => {
+  let initiated = false;
+  const plan = {
+    ...createPlan(),
+    getPartByteLength: () => 32 * 1024 * 1024 + 1,
+  };
+  await expect(
+    stageMultipartBlobAttachment({
+      organizationId: "organization-1",
+      apiClient: createApi({
+        failure: { kind: "http", message: "unused", status: 500 },
+        onInitiate: () => {
+          initiated = true;
+        },
+      }),
+      encryption: plan,
+      multipart: { partSize: CHUNK_SIZE },
+    }),
+  ).rejects.toThrow("32 MiB multipart part limit");
+  expect(initiated).toBe(false);
+});
+
 test("opens a fresh stage only after coded absence or expiry", async () => {
   const failures = [
     {

@@ -4,6 +4,7 @@ import type {
   MultipartBlobStagePart,
   MultipartBlobStageStatusResponse,
 } from "@tearleads/validators/response";
+import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type {
   BlobAttachmentApi,
@@ -19,7 +20,6 @@ import {
 
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MAX_MULTIPART_UPLOAD_CONCURRENCY = 4;
-const MAX_MULTIPART_PART_BYTES = 5 * 1024 * 1024 * 1024;
 
 interface MultipartPartCommit {
   readonly etag: string;
@@ -36,12 +36,18 @@ function pathSegment(value: number | string): string {
   return encodeURIComponent(String(value));
 }
 
-function multipartPartPath(input: {
+function multipartPartRequest(input: {
+  readonly apiClient: BlobAttachmentApi;
   readonly partNumber: number;
   readonly stageId: string;
-}): string {
+}) {
   const basePath = `${multipartStagePath(input.stageId)}/parts/${pathSegment(input.partNumber)}`;
-  return `${basePath}/bytes`;
+  const authorization = { method: "POST" as const, path: `${basePath}/upload` };
+  // A successful authorization clears its previous failure. If a memory-store
+  // byte request then fails, its separate transport diagnostic is authoritative.
+  return input.apiClient.getRequestFailure?.(authorization)
+    ? authorization
+    : { method: "PUT" as const, path: `${basePath}/bytes` };
 }
 
 async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
@@ -111,13 +117,11 @@ async function uploadMultipartPartTasks(input: {
             multipartApiFailureMessage({
               apiClient: input.apiClient,
               fallback: `Multipart blob part ${task.partNumber} upload failed for stage ${input.stageId}.`,
-              request: {
-                method: "PUT",
-                path: multipartPartPath({
-                  partNumber: task.partNumber,
-                  stageId: input.stageId,
-                }),
-              },
+              request: multipartPartRequest({
+                apiClient: input.apiClient,
+                partNumber: task.partNumber,
+                stageId: input.stageId,
+              }),
             }),
           );
         }
@@ -336,9 +340,9 @@ function assertMultipartPlanLimits(encryption: BlobEncryptionPlan): void {
     );
   }
   for (let index = 0; index < encryption.partCount; index += 1) {
-    if (encryption.getPartByteLength(index) > MAX_MULTIPART_PART_BYTES) {
+    if (encryption.getPartByteLength(index) > MAX_MULTIPART_BLOB_PART_BYTES) {
       throw new Error(
-        `Encrypted blob part ${index + 1} exceeds the 5 GiB multipart part limit.`,
+        `Encrypted blob part ${index + 1} exceeds the 32 MiB multipart part limit.`,
       );
     }
   }

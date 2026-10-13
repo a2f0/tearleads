@@ -186,6 +186,13 @@ export {
   MultipartBlobStagePathParamsSchema,
 } from "./multipartBlobs";
 export {
+  authorizeMultipartBlobPartUploadOperation,
+  type MultipartBlobPartUploadRequest,
+  MultipartBlobPartUploadRequestSchema,
+  type MultipartBlobPartUploadResponse,
+  MultipartBlobPartUploadResponseSchema,
+} from "./multipartPartUploads";
+export {
   claimNativeOrganizationSubscriptionOperation,
   getOrganizationBillingHistoryOperation,
   getOrganizationBillingManagementUrlOperation,
