@@ -65,7 +65,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.15",
+      "version": "0.1.16",
       "dependencies": {
         "@tearleads/crypto": "workspace:*",
         "@tearleads/validators": "workspace:*",
@@ -216,7 +216,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.30",
+      "version": "0.1.31",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
