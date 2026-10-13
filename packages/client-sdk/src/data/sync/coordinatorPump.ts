@@ -25,6 +25,16 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Priority is a scheduling hint, never permission to abandon active workers.
+function readLanePriority(lane: SyncLaneState): number {
+  try {
+    const priority = lane.config.priority?.() ?? 0;
+    return Number.isFinite(priority) ? priority : 0;
+  } catch {
+    return 0;
+  }
+}
+
 function compareRequestedLanes(
   left: SyncLaneState,
   right: SyncLaneState,
@@ -35,7 +45,7 @@ function compareRequestedLanes(
     return compareSyncLaneOrder(left, right);
   }
   return (
-    (left.config.priority?.() ?? 0) - (right.config.priority?.() ?? 0) ||
+    readLanePriority(left) - readLanePriority(right) ||
     left.lastRunOrder - right.lastRunOrder ||
     compareSyncLaneOrder(left, right)
   );
@@ -59,7 +69,7 @@ function hasRunnableLaneWork(laneValues: Iterable<SyncLaneState>): boolean {
       (!structuralPending || lane.config.phase === "structural") &&
       isRequestedLaneAvailable(lane) &&
       (lane.notBeforeAtMs === null || lane.notBeforeAtMs <= now) &&
-      lane.retryAtMs <= now
+      !lane.backingOff
     ) {
       return true;
     }
@@ -78,7 +88,7 @@ function selectNextRequestedLane(
     if (
       !isRequestedLaneAvailable(lane) ||
       (lane.notBeforeAtMs !== null && lane.notBeforeAtMs > now) ||
-      lane.retryAtMs > now
+      lane.backingOff
     ) {
       continue;
     }

@@ -92,8 +92,9 @@ a remote-revalidation signal. The following signals require a probe:
 Document update hints require the current shared websocket contract, including
 `containerIds`. Obsolete unscoped events are rejected. A scoped remote event
 reconciles its known containers for discovery and membership changes, while
-content revalidation targets only the named document. Already-known content
-hints reach their registered store directly without a container listing. Hints
+content revalidation targets only the named document. The app filters known
+ordinary content hints out of discovery; their registered stores receive them
+directly. Hints routed to the reconciler still list their named containers. Hints
 queued during a listing collapse into one trailing listing, retaining the union
 of named documents. Only explicit Refresh and reconnect force every registered
 document. Force is acknowledged only after

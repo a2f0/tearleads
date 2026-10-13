@@ -13,19 +13,20 @@ fail and rearm once. Each callback can time out once without releasing its token
 | `StructuralBarrier` | `runRequestedSyncLanes` drains running documents before structural work and blocks new documents behind a structural request |
 | `ExclusiveLane` / `Watchdog` | `activeRunToken` survives watchdog expiry in `runCoordinatorLane` and is cleared by `settleAbandonedSyncLaneRun` |
 | `RequestOnce` / `TrailingRequestSurvives` | `requestLaneSync` coalesces a trailing request without completion clearing it |
-| `Fail` / `BackoffIsLocal` | `retryAtMs` delays the failed lane while `selectNextRequestedLane` admits healthy peers |
+| `Fail` / `BackoffIsLocal` | `backingOff` delays the failed lane while `selectNextRequestedLane` admits healthy peers |
 | `Finish` / `AllLanesProgress` | `runCoordinatorLane` releases workers and wakes the pump; late callbacks retain exclusive ownership until settlement |
 
 Safety checks cover capacity, the phase barrier at admission, lane exclusivity,
 and preservation of a trailing request. Backoff locality is an eligibility
 property, so it cannot pass just because a model assumes all timers finish.
+Eventual quiescence also requires every trailing or retried request to settle.
 Liveness assumes weak fairness of starting eligible work, callback settlement,
 and backoff expiry, with the bounded requests/failure above. Watchdog tails may
 overlap later phases; the barrier deliberately excludes abandoned callbacks,
 matching the existing exception documented in client sync ordering.
 
-Five negative controls disable the worker cap, phase barrier, exclusive token,
-trailing request retention, or backoff isolation and require the corresponding
+Six negative controls disable the worker cap, phase barrier, exclusive token,
+trailing request retention, backoff isolation, or timer expiry and require the corresponding
 property to fail. Runtime regressions in the coordinator concurrency and watchdog
 tests exercise those production seams.
 

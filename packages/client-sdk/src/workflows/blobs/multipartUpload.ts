@@ -116,6 +116,7 @@ async function uploadMultipartPartTasks(input: {
                 uploadId: input.uploadId,
               }),
         );
+        if (failed) return;
         if (!uploaded) {
           failed = true;
           throw new Error(

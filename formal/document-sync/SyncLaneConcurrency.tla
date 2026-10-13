@@ -2,10 +2,10 @@
 EXTENDS Naturals, FiniteSets
 
 CONSTANTS Workers, EnforceBound, EnforceBarrier, EnforceExclusivity,
-          PreserveTrailing, IsolateBackoff
+          PreserveTrailing, IsolateBackoff, ExpireBackoff
 ASSUME Workers \in Nat \ {0}
 ASSUME {EnforceBound, EnforceBarrier, EnforceExclusivity,
-        PreserveTrailing, IsolateBackoff} \subseteq BOOLEAN
+        PreserveTrailing, IsolateBackoff, ExpireBackoff} \subseteq BOOLEAN
 
 Documents == {"a", "b", "c"}
 Lanes == Documents \cup {"structure"}
@@ -82,6 +82,7 @@ Fail ==
   /\ UNCHANGED <<completed, rearmed, timedOut, overlap, badStart>>
 
 BackoffExpires ==
+  /\ ExpireBackoff
   /\ cooldown # {}
   /\ cooldown' = {}
   /\ UNCHANGED <<requested, running, occupied, completed, rearmed,
@@ -110,4 +111,5 @@ TrailingRequestSurvives ==
        (lane \in occupied /\ lane \notin occupied' /\ lane \in requested)
          => lane \in requested']_vars
 AllLanesProgress == <> (completed = Lanes)
+AllRequestsSettle == <>[] (requested = {} /\ occupied = {} /\ cooldown = {})
 ======================================================================

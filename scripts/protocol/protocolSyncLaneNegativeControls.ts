@@ -2,6 +2,14 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const SYNC_LANE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "sync-backoff-never-expires",
+    module: "formal/document-sync/SyncLaneConcurrency.tla",
+    config: "formal/document-sync/SyncLaneConcurrency.cfg",
+    constants: { ExpireBackoff: "FALSE" },
+    expect: { kind: "liveness", name: "AllRequestsSettle" },
+    why: "A failed retry cannot leave the coordinator permanently non-idle.",
+  },
+  {
     id: "sync-workers-exceed-bound",
     module: "formal/document-sync/SyncLaneConcurrency.tla",
     config: "formal/document-sync/SyncLaneConcurrency.cfg",

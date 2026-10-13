@@ -156,3 +156,39 @@ test("hint priority wins and a rearming lane yields to fresh documents", async (
   }
   expect(await coordinator.waitForIdle()).toBe(true);
 });
+
+test("a throwing priority cannot abandon occupied workers", async () => {
+  const coordinator = getOrCreateDomainSyncCoordinator(createDomainScope());
+  const release = gate();
+  let started = 0;
+  let active = 0;
+  let peak = 0;
+  let shouldThrow = false;
+  const lanes = Array.from({ length: 8 }, (_, index) =>
+    coordinator.registerLane(`doc-${index}`, {
+      priority: () => {
+        if (shouldThrow) throw new Error("priority unavailable");
+        return 0;
+      },
+      run: async () => {
+        started += 1;
+        peak = Math.max(peak, ++active);
+        await release.wait;
+        active -= 1;
+      },
+    }),
+  );
+  try {
+    for (const lane of lanes.slice(0, 4)) lane.requestSync();
+    await waitFor(() => started === 4, "workers did not fill");
+    shouldThrow = true;
+    for (const lane of lanes.slice(4)) lane.requestSync();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(started).toBe(4);
+  } finally {
+    release.open();
+  }
+  expect(await coordinator.waitForIdle()).toBe(true);
+  expect(started).toBe(8);
+  expect(peak).toBe(4);
+});

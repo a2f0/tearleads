@@ -48,8 +48,8 @@ in `check:fast`) replays recorded runs of the real container-path and
 principal-policy verifiers through `NoBrickedDevice` the way the restart-probe
 projection does; see the [trace projection section](./container-keying/NoBrickedDevice.md).
 
-Negative controls cover selected properties; see the
-[September 2026 audit](./audit-2026-09.md) for remaining coverage gaps.
+Negative controls do not establish general non-vacuity or action reachability.
+See the [coverage audit](./audit-2026-09.md).
 
 The [container depth model](./container-keying/ContainerDepth.md) checks that
 create and subtree moves preserve readable paths. Policy revocation is outside
@@ -68,9 +68,8 @@ silently increasing pull-request check time.
 ## Sync Lane Concurrency
 
 [`document-sync/SyncLaneConcurrency.tla`](./document-sync/SyncLaneConcurrency.tla)
-checks bounded document workers, structural ordering, exclusive lane ownership
-through watchdog expiry, trailing requests, and lane-local failure backoff. See
-the [mapping and boundaries](./document-sync/SyncLaneConcurrency.md).
+checks worker bounds, structural ordering, exclusivity, trailing requests, and
+backoff. See the [mapping](./document-sync/SyncLaneConcurrency.md).
 
 ## Container Deletion
 

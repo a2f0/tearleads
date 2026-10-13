@@ -209,7 +209,10 @@ export async function runCoordinatorLane(
   ) {
     // A fresh hint cannot bypass a failed lane's cooldown. Other document
     // lanes remain runnable; structural retries still preserve the barrier.
-    lane.retryAtMs = Date.now() + FAILED_LANE_REARM_BACKOFF_MS;
-    setTimeout(wake, FAILED_LANE_REARM_BACKOFF_MS);
+    lane.backingOff = true;
+    setTimeout(() => {
+      lane.backingOff = false;
+      wake();
+    }, FAILED_LANE_REARM_BACKOFF_MS);
   }
 }

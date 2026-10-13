@@ -12,7 +12,7 @@ export interface SyncLaneState {
   // set, so a lane can never run concurrently with its own abandoned run; the
   // late-settle continuation clears it (matching on identity) and re-pumps.
   activeRunToken: object | null;
-  retryAtMs: number;
+  backingOff: boolean;
   lastRunOrder: number;
   blobStorageKey: string | null;
   config: SyncLaneConfig;
@@ -54,7 +54,7 @@ export interface DomainSyncCoordinatorState {
 
 export const INITIAL_SYNC_LANE_RUN_STATE = {
   activeRunToken: null,
-  retryAtMs: 0,
+  backingOff: false,
   lastRunOrder: 0,
   runAbandoned: false,
   runCount: 0,
