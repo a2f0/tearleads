@@ -263,33 +263,19 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
     ).toHaveProperty("updates");
 
     // Hold a real database lock to prove the request is inside its route,
-    // then exercise overload and disconnect active and waiting clients.
+    // then fill the queue to exercise the overload response at the entry.
     const lock = await holdAccessManifestHeadForUpdate({
       objectId: document.id,
       objectKind: "document",
     });
-    const activeController = new AbortController();
-    const queuedControllers = Array.from(
-      { length: 32 },
-      () => new AbortController(),
-    );
-    const submit = (signal: AbortSignal) =>
-      fetch(url, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${tokens[0]}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(request),
-        signal,
-      }).then(
-        async (response) => {
-          await response.text();
-          return response.status;
-        },
-        () => "aborted",
-      );
-    const active = submit(activeController.signal);
+    const submit = async () => {
+      const response = await postJson(url, request, {
+        authorization: `Bearer ${tokens[0]}`,
+      });
+      await response.text();
+      return response.status;
+    };
+    const active = submit();
     let queued: ReturnType<typeof submit>[] = [];
     try {
       await waitForPostgresLockWait({
@@ -297,7 +283,7 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
         minimumWaiters: 1,
         queryFragment: "access_manifest_heads",
       });
-      queued = queuedControllers.map((controller) => submit(controller.signal));
+      queued = Array.from({ length: 32 }, submit);
       await Bun.sleep(200);
       const overflow = await fetch(url, {
         method: "POST",
@@ -314,20 +300,16 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
       });
       expect(overflow.headers.get("retry-after")).toBe("1");
       expect(overflow.headers.get("access-control-allow-origin")).toBe("*");
-      queuedControllers[0]?.abort();
-      activeController.abort();
-      expect(await active).toBe("aborted");
     } finally {
-      activeController.abort();
       await lock.release();
     }
-    expect(await Promise.all(queued)).toEqual([
-      "aborted",
-      ...Array(31).fill(200),
-    ]);
-    // Disconnects must not strand reservations in the isolate. This fails
-    // quickly if the next tiny sync still cannot acquire the response budget.
-    const afterDisconnect = await fetch(url, {
+    const statuses = await Promise.all([active, ...queued]);
+    expect(statuses).toHaveLength(33);
+    expect(statuses.every((status) => status === 200)).toBe(true);
+    // Draining the burst must leave capacity for the next tiny sync. Abort
+    // signal behavior is covered directly in bodyAdmission.test.ts: Wrangler's
+    // local proxy can finish forwarding a request after its client disconnects.
+    const afterQueue = await fetch(url, {
       method: "POST",
       headers: {
         authorization: `Bearer ${tokens[0]}`,
@@ -336,7 +318,7 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime", () => {
       body: JSON.stringify(request),
       signal: AbortSignal.timeout(5_000),
     });
-    expect(await expectJson(afterDisconnect, 200)).toHaveProperty("updates");
+    expect(await expectJson(afterQueue, 200)).toHaveProperty("updates");
   }, 120_000);
 
   test("dispatches the billing Cron to the maintenance phases", async () => {

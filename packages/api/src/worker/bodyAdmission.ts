@@ -43,7 +43,11 @@ export function createBodyAdmission({
   }
 
   return {
-    async acquire(bytes: number, signal?: AbortSignal) {
+    async acquire(
+      bytes: number,
+      signal?: AbortSignal,
+      keepAlive?: (untilReleased: Promise<void>) => void,
+    ) {
       if (signal?.aborted || bytes > capacity) return null;
       // Bodiless health checks and preflights never compete with sync pages.
       const immediate =
@@ -77,16 +81,26 @@ export function createBodyAdmission({
       try {
         await promise;
         if (entry.state === "canceled") return null;
-        // Once claimed, the route/response owns release. A client disconnect
-        // does not prove that a database operation or page builder has stopped;
-        // releasing here could admit another page while those bytes are held.
-        entry.state = "claimed";
+        const lifetime = Promise.withResolvers<void>();
         let released = false;
-        return () => {
+        const releaseOnce = () => {
           if (released) return;
           released = true;
           release(bytes);
+          lifetime.resolve();
         };
+        try {
+          // Register in this request's context before handing ownership to the
+          // route. workerd must keep its cleanup alive after a disconnect.
+          keepAlive?.(lifetime.promise);
+        } catch (error) {
+          releaseOnce();
+          throw error;
+        }
+        // Once claimed, retain the bytes until route/stream cleanup finishes;
+        // disconnect alone does not prove that a page builder has stopped.
+        entry.state = "claimed";
+        return releaseOnce;
       } finally {
         // Clean up in the waiting request's context, even when another request
         // releases the capacity that wakes it in workerd.

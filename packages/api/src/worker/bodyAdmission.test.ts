@@ -141,10 +141,32 @@ test("cancellation racing immediate admission returns the reserved bytes", async
 test("a claimed reservation remains held until its route or stream releases it", async () => {
   const admission = createBodyAdmission({ capacity: 100 });
   const controller = new AbortController();
-  const release = await admission.acquire(100, controller.signal);
+  const lifetimes: Promise<void>[] = [];
+  const release = await admission.acquire(100, controller.signal, (done) => {
+    lifetimes.push(done);
+  });
+  expect(lifetimes).toHaveLength(1);
+  let settled = false;
+  const finished = Promise.all(lifetimes).then(() => {
+    settled = true;
+  });
   controller.abort();
+  await Bun.sleep(0);
+  expect(settled).toBe(false);
   expect(admission.inFlight()).toBe(100);
   release?.();
+  await finished;
+  expect(settled).toBe(true);
+  expect(admission.inFlight()).toBe(0);
+});
+
+test("a failed lifetime registration returns the reservation", async () => {
+  const admission = createBodyAdmission({ capacity: 100 });
+  await expect(
+    admission.acquire(100, undefined, () => {
+      throw new Error("context unavailable");
+    }),
+  ).rejects.toThrow("context unavailable");
   expect(admission.inFlight()).toBe(0);
 });
 

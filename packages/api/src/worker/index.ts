@@ -117,7 +117,11 @@ async function handleRequest(
   // Wait before wrapping or reading a body: queued requests must not buffer
   // uploads or open database pools while another response holds the budget.
   const admitted = expectedRequestBytes(request, pathname, ceiling);
-  const release = await bodyAdmission.acquire(admitted, request.signal);
+  const release = await bodyAdmission.acquire(
+    admitted,
+    request.signal,
+    (done) => ctx.waitUntil(done),
+  );
   if (!release) {
     const response = refuse(
       request,
