@@ -410,7 +410,9 @@ signed-grant retirements.
 Explorer queries omit remote document shells until content is present, including
 paginated counts. Explorer requests direct summaries with
 `loadDocumentSummary(id, { requireHydrated: true })`; ordinary identity reads still
-include shells. `ContainerNode.metadataReady` is false
+include shells. Orphan-route identity checks use the scoped
+`loadOrphanedDocumentSummary` read before requesting `requireHydrated: true`
+content. `ContainerNode.metadataReady` is false
 for remote folders awaiting metadata; consumers can hide these nodes without
 removing their sync registrations. `containerContents.documentQueries()` exposes
 `listPendingDownloads()` and `PendingDownloadQueueItem` for known document and

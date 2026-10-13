@@ -14,6 +14,8 @@ import type { RuntimeSnapshot } from "../../providers/sdk/TearleadsProvider";
 import { useTearleads } from "../../providers/sdk/TearleadsProvider";
 import {
   applyTrackedDocumentSummaryUpdates,
+  type ExplorerRouteDocumentSummaryResult,
+  loadExplorerRouteSummary,
   mergeDocumentSummaryLists,
   mergeSingleDocumentSummaryList,
 } from "./documentSummaryUtils";
@@ -26,11 +28,7 @@ import { isExplorerOrphanedDocumentsId } from "./orphanedDocuments";
 // SQLite at most a few times a second instead of on every keystroke.
 const TRACKED_SUMMARY_FLUSH_MS = 200;
 
-export type ExplorerRouteDocumentSummaryResult =
-  | { status: "deferred" }
-  | { status: "pending" }
-  | { status: "rejected" }
-  | { documentSummary: DocumentSummary; status: "loaded" };
+export type { ExplorerRouteDocumentSummaryResult } from "./documentSummaryUtils";
 
 // Owns the debounced document subscription: it buffers incoming deltas and, on a
 // trailing timer, applies them as one revision bump + merge. Kept apart so the
@@ -142,7 +140,7 @@ function useExplorerDocumentSummaryLoaders(params: {
       }
 
       const documentSummary = await documentQueries.loadOrphanedDocumentSummary(
-        { currentOrganizationId, localId },
+        { currentOrganizationId, localId, requireHydrated: true },
       );
       if (documentSummary) {
         mergeDocumentSummary(documentSummary);
@@ -161,48 +159,17 @@ function useExplorerDocumentSummaryLoaders(params: {
         return { status: "deferred" };
       }
 
-      if (!isExplorerOrphanedDocumentsId(routeContainerId)) {
-        const documentSummary = await documentQueries.loadDocumentSummary(
-          localId,
-          { requireHydrated: true },
-        );
-        // A null-container document is only selectable through the scoped
-        // recovery collection. Do not let a forged ordinary-container route
-        // bypass its organization and surviving-link predicate.
-        if (!documentSummary) {
-          return { status: "pending" };
-        }
-        if (documentSummary.containerId === null) {
-          return { status: "rejected" };
-        }
-
-        mergeDocumentSummary(documentSummary);
-        return { documentSummary, status: "loaded" };
-      }
-
-      const documentSummary = await loadOrphanedDocumentSummary(localId);
-      if (!documentSummary) {
-        // Distinguish a valid deep link whose local projection has not arrived
-        // yet from a present row rejected by organization/link scoping. The
-        // former must remain an optimistic pending selection so discovery can
-        // resolve it without another route change.
-        const unscopedDocumentSummary =
-          await documentQueries.loadDocumentSummary(localId, {
-            requireHydrated: true,
-          });
-        return {
-          status: unscopedDocumentSummary ? "rejected" : "pending",
-        };
-      }
-
-      return { documentSummary, status: "loaded" };
+      const result = await loadExplorerRouteSummary({
+        documentQueries,
+        localId,
+        currentOrganizationId,
+        orphanedRoute: isExplorerOrphanedDocumentsId(routeContainerId),
+      });
+      if (result.status === "loaded")
+        mergeDocumentSummary(result.documentSummary);
+      return result;
     },
-    [
-      dbStatus,
-      documentQueries,
-      loadOrphanedDocumentSummary,
-      mergeDocumentSummary,
-    ],
+    [dbStatus, documentQueries, currentOrganizationId, mergeDocumentSummary],
   );
 
   return {

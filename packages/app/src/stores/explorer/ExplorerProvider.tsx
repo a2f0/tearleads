@@ -224,7 +224,12 @@ export function useExplorer(): ExplorerContextValue {
       contactsSystemSlot,
       ensureTrashContainer,
       reconciler,
-      knownNodes: snapshot.nodes,
+      knownNodes: getVisibleExplorerNodes(
+        snapshot.nodes,
+        visibleSystemSlots,
+        currentOrganizationId,
+        true,
+      ),
       nodes: getVisibleExplorerNodes(
         snapshot.nodes,
         visibleSystemSlots,

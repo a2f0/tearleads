@@ -108,13 +108,15 @@ export function getVisibleExplorerNodes(
   nodes: ContainerContentsContextValue["nodes"] | null | undefined,
   visibleSystemSlots?: ReadonlySet<ContainerSystemSlot>,
   currentOrganizationId?: string | null,
+  includePendingMetadata = false,
 ): ContainerContentsContextValue["nodes"] {
   const nodesById = new Map((nodes ?? []).map((node) => [node.id, node]));
   const visibleNodes: ContainerNode[] = [];
   const systemNodeIndexes = new Map<string, number>();
 
   for (const node of nodes ?? []) {
-    if (hasUnhydratedAncestor(node, nodesById)) continue;
+    if (!includePendingMetadata && hasUnhydratedAncestor(node, nodesById))
+      continue;
     const systemSlot = node.systemSlot ?? null;
     if (
       !shouldShowExplorerSystemSlot(

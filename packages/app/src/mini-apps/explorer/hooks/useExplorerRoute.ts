@@ -126,6 +126,9 @@ function useExplorerRouteSelectionEffect(params: {
   const documentSelectionLocalId =
     route?.view === "document-selection" ? route.localId : null;
   const selectedId = parsedAppRoute?.selectedId;
+  const routeTargetAvailable = nodes.some(
+    (node) => node.id === (documentSelectionContainerId ?? selectedId),
+  );
   useEffect(() => {
     if (!appRouteIsRouted || !ready) {
       return undefined;
@@ -187,7 +190,7 @@ function useExplorerRouteSelectionEffect(params: {
     return undefined;
   }, [
     appRouteIsRouted,
-    nodes,
+    routeTargetAvailable,
     ready,
     documentSelectionContainerId,
     documentSelectionLocalId,

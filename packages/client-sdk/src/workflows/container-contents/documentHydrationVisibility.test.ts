@@ -144,6 +144,19 @@ test("discovered documents stay in Downloads until their content supplies a type
       }),
     ).toEqual({ rows: [], totalCount: 0 });
     expect(
+      await queries.loadOrphanedDocumentSummary({
+        currentOrganizationId: null,
+        localId: "remote-file",
+      }),
+    ).toMatchObject({ documentId: "remote-file" });
+    expect(
+      await queries.loadOrphanedDocumentSummary({
+        currentOrganizationId: null,
+        localId: "remote-file",
+        requireHydrated: true,
+      }),
+    ).toBeNull();
+    expect(
       await queries.hasOrphanedDocuments({ currentOrganizationId: null }),
     ).toBe(false);
   } finally {

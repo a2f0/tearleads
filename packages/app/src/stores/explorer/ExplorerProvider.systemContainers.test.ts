@@ -427,6 +427,9 @@ test("Explorer hides unhydrated folders and their descendants until metadata arr
   };
   expect(getVisibleExplorerNodes([root, child])).toEqual([]);
   expect(
+    getVisibleExplorerNodes([root, child], undefined, undefined, true),
+  ).toEqual([root, child]);
+  expect(
     getVisibleExplorerNodes([{ ...root, metadataReady: true }, child]).map(
       (node) => node.id,
     ),

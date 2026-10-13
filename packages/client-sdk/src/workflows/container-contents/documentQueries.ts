@@ -125,6 +125,7 @@ export interface ContainerDocumentQueries {
     options?: { requireHydrated?: boolean },
   ): Promise<DocumentSummary | null>;
   loadOrphanedDocumentSummary(input: {
+    requireHydrated?: boolean;
     currentOrganizationId: string | null;
     localId: string;
   }): Promise<DocumentSummary | null>;
@@ -319,10 +320,11 @@ function loadContainerContentsOrphanedDocumentSummary(
   execSql: ExecSql,
   localId: string,
   currentOrganizationId: string | null,
+  requireHydrated: boolean,
 ): Promise<DocumentSummary | null> {
   return queryContainerContentsDocumentSummary(execSql, localId, {
     bind: getOrphanedDocumentQueryBind(currentOrganizationId),
-    whereSql: `AND ${hydratedProjectionSql("d.local_id", "documents")} AND ${getOrphanedDocumentWhereSql(
+    whereSql: `${requireHydrated ? `AND ${hydratedProjectionSql("d.local_id", "documents")}` : ""} AND ${getOrphanedDocumentWhereSql(
       {
         documentIdSql: "d.document_id",
         projectionAlias: "d",
@@ -428,11 +430,16 @@ export function createContainerDocumentQueriesFromRuntime(
         options?.requireHydrated ?? false,
       );
     },
-    loadOrphanedDocumentSummary({ currentOrganizationId, localId }) {
+    loadOrphanedDocumentSummary({
+      currentOrganizationId,
+      localId,
+      requireHydrated = false,
+    }) {
       return loadContainerContentsOrphanedDocumentSummary(
         execSql,
         localId,
         currentOrganizationId,
+        requireHydrated,
       );
     },
     loadContainerDocumentWatermark(containerId) {
