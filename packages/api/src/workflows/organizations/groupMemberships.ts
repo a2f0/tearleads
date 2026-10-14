@@ -3,10 +3,7 @@ import {
   groups as groupsTable,
   organizationGroupTombstones,
 } from "@tearleads/api-shared/schema";
-import type {
-  OrganizationGroupMemberResponse,
-  OrganizationReadModelGroupMembershipsResponse,
-} from "@tearleads/validators/response";
+import type { OrganizationReadModelGroupMembershipsResponse } from "@tearleads/validators/response";
 import { and, asc, eq, gt } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
@@ -14,7 +11,6 @@ import {
   type StoredPrincipalProjectionMember,
   type StoredPrincipalState,
 } from "../../access/read/principalStateStore";
-import { loadUsersById, type UserKeyRow } from "./users";
 
 interface OrganizationGroupCatalogRow {
   readonly groupId: string;
@@ -25,22 +21,6 @@ interface GroupMembershipLoadInput {
   readonly changedAfterCursor?: bigint;
   readonly executor: DatabaseSession;
   readonly organizationId: string;
-}
-
-export function toOrganizationGroupMemberResponse(input: {
-  readonly member: StoredPrincipalProjectionMember;
-  readonly usersById: ReadonlyMap<string, UserKeyRow>;
-}): OrganizationGroupMemberResponse {
-  const user = input.usersById.get(input.member.userId);
-
-  return {
-    userId: input.member.userId,
-    role: input.member.role,
-    signingKeyFingerprint: user?.signingKeyFingerprint ?? null,
-    signingPublicKey: user?.signingPublicKey ?? null,
-    encapsulationPublicKey: user?.encapsulationPublicKey ?? null,
-    encapsulationKeyFingerprint: user?.encapsulationKeyFingerprint ?? null,
-  };
 }
 
 async function loadOrganizationGroupRows(
@@ -133,25 +113,11 @@ function indexProjectionsByGroupId(
   return result;
 }
 
-async function loadMemberEnrichment(input: {
-  readonly executor: DatabaseSession;
-  readonly organizationId: string;
-  readonly projectionMembers: readonly StoredPrincipalProjectionMember[];
-}): Promise<{
-  readonly usersById: ReadonlyMap<string, UserKeyRow>;
-}> {
-  // Every projected member is a user, so there is no member-kind split and no
-  // nested-group catalog to join against.
-  const userIds = [
-    ...new Set(input.projectionMembers.map((member) => member.userId)),
-  ];
-  return { usersById: await loadUsersById(input.executor, userIds) };
-}
-
 /**
  * Load the display-only group-membership projection for the organization feed.
- * Mutation authorization must continue to use the signed principal state and
- * its exact external authority, never this denormalized response.
+ * Members carry only user and role; their public keys travel once per user in
+ * the directory lane. Mutation authorization must continue to use the signed
+ * principal state and its exact external authority, never this response.
  */
 export async function loadOrganizationGroupMembershipsInTransaction(
   input: GroupMembershipLoadInput,
@@ -177,12 +143,6 @@ export async function loadOrganizationGroupMembershipsInTransaction(
     orderedStates,
     projectionsByState,
   );
-  const projectionMembers = [...projectionsByGroupId.values()].flat();
-  const { usersById } = await loadMemberEnrichment({
-    executor: input.executor,
-    organizationId: input.organizationId,
-    projectionMembers,
-  });
 
   return {
     organizationId: input.organizationId,
@@ -191,7 +151,7 @@ export async function loadOrganizationGroupMembershipsInTransaction(
       groupId: state.principalId,
       stateHash: state.stateHash,
       members: (projectionsByGroupId.get(state.principalId) ?? []).map(
-        (member) => toOrganizationGroupMemberResponse({ member, usersById }),
+        ({ role, userId }) => ({ role, userId }),
       ),
     })),
   };

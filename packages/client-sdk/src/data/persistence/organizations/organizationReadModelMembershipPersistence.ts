@@ -1,5 +1,5 @@
 import type {
-  OrganizationGroupMemberResponse,
+  OrganizationReadModelGroupMemberResponse,
   OrganizationReadModelGroupMembershipsResponse,
 } from "@tearleads/validators/response";
 import { and, eq, inArray } from "drizzle-orm";
@@ -21,7 +21,7 @@ export class OrganizationReadModelBindingError extends Error {
 }
 
 function membershipMemberKey(
-  member: Pick<OrganizationGroupMemberResponse, "userId">,
+  member: Pick<OrganizationReadModelGroupMemberResponse, "userId">,
 ): string {
   return member.userId;
 }
@@ -172,10 +172,6 @@ async function insertMembershipRows(
       sortOrder,
       stateHash: group.stateHash,
       role: member.role,
-      signingKeyFingerprint: member.signingKeyFingerprint,
-      signingPublicKey: member.signingPublicKey,
-      encapsulationPublicKey: member.encapsulationPublicKey,
-      encapsulationKeyFingerprint: member.encapsulationKeyFingerprint,
     })),
   );
   for (

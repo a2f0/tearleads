@@ -328,10 +328,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         sortOrder: 0,
         stateHash: "group-state",
         role: "member",
-        signingKeyFingerprint: "signing-fingerprint",
-        signingPublicKey: "signing-public-key",
-        encapsulationPublicKey: "encapsulation-public-key",
-        encapsulationKeyFingerprint: "encapsulation-fingerprint",
       });
       await tx.insert(organizationReadModelContainerGrants).values({
         organizationId: "org-old",

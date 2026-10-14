@@ -47002,26 +47002,6 @@
                                         "items": {
                                           "type": "object",
                                           "properties": {
-                                            "encapsulationKeyFingerprint": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
-                                            },
-                                            "encapsulationPublicKey": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
-                                            },
                                             "role": {
                                               "type": "string",
                                               "enum": [
@@ -47029,36 +47009,12 @@
                                                 "admin"
                                               ]
                                             },
-                                            "signingKeyFingerprint": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
-                                            },
-                                            "signingPublicKey": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
-                                            },
                                             "userId": {
                                               "type": "string"
                                             }
                                           },
                                           "required": [
-                                            "encapsulationKeyFingerprint",
-                                            "encapsulationPublicKey",
                                             "role",
-                                            "signingKeyFingerprint",
-                                            "signingPublicKey",
                                             "userId"
                                           ],
                                           "additionalProperties": false
@@ -47548,26 +47504,6 @@
                                         "items": {
                                           "type": "object",
                                           "properties": {
-                                            "encapsulationKeyFingerprint": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
-                                            },
-                                            "encapsulationPublicKey": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
-                                            },
                                             "role": {
                                               "type": "string",
                                               "enum": [
@@ -47575,36 +47511,12 @@
                                                 "admin"
                                               ]
                                             },
-                                            "signingKeyFingerprint": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
-                                            },
-                                            "signingPublicKey": {
-                                              "anyOf": [
-                                                {
-                                                  "type": "string"
-                                                },
-                                                {
-                                                  "type": "null"
-                                                }
-                                              ]
-                                            },
                                             "userId": {
                                               "type": "string"
                                             }
                                           },
                                           "required": [
-                                            "encapsulationKeyFingerprint",
-                                            "encapsulationPublicKey",
                                             "role",
-                                            "signingKeyFingerprint",
-                                            "signingPublicKey",
                                             "userId"
                                           ],
                                           "additionalProperties": false

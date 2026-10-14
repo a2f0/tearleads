@@ -3,8 +3,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationDirectoryUserResponse,
-  OrganizationGroupMemberResponse,
   OrganizationReadModelDeltaResponse,
+  OrganizationReadModelGroupMemberResponse,
   OrganizationReadModelGroupMembershipResponse,
   OrganizationReadModelGroupMembershipsResponse,
   OrganizationReadModelOrganizationPolicyResponse,
@@ -45,22 +45,18 @@ function directoryUser(userId: string): OrganizationDirectoryUserResponse {
 
 function member(
   userId: string,
-  role: OrganizationGroupMemberResponse["role"] = "member",
-): OrganizationGroupMemberResponse {
+  role: OrganizationReadModelGroupMemberResponse["role"] = "member",
+): OrganizationReadModelGroupMemberResponse {
   return {
     userId,
     role,
-    signingKeyFingerprint: `signing-fingerprint-${userId}`,
-    signingPublicKey: `signing-public-key-${userId}`,
-    encapsulationPublicKey: `encapsulation-public-key-${userId}`,
-    encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
   };
 }
 
 function membership(
   groupId: string,
   stateHash: string,
-  members: OrganizationGroupMemberResponse[],
+  members: OrganizationReadModelGroupMemberResponse[],
 ): OrganizationReadModelGroupMembershipResponse {
   return { groupId, stateHash, members };
 }

@@ -71,6 +71,15 @@ test("organization read model schema stores exact policy heads and access lanes"
       notNull: 1,
       pk: 3,
     });
+    // Member public keys are not repeated; the directory lane holds them.
+    for (const name of [
+      "signing_key_fingerprint",
+      "signing_public_key",
+      "encapsulation_public_key",
+      "encapsulation_key_fingerprint",
+    ]) {
+      expect(name in members).toBe(false);
+    }
 
     const grants = await readTableColumns(
       execSql,

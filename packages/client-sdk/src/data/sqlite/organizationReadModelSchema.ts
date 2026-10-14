@@ -106,7 +106,10 @@ export const organizationReadModelGroupMemberships = sqliteTable(
   (table) => [primaryKey({ columns: [table.organizationId, table.groupId] })],
 );
 
-/** Direct users bound to the exact state in the membership completeness row. */
+/**
+ * Direct users bound to the exact state in the membership completeness row.
+ * Public keys are not repeated here; the directory lane holds them per user.
+ */
 export const organizationReadModelGroupMembers = sqliteTable(
   "organization_read_model_group_members",
   {
@@ -116,10 +119,6 @@ export const organizationReadModelGroupMembers = sqliteTable(
     sortOrder: integer("sort_order").notNull(),
     stateHash: text("state_hash").notNull(),
     role: text("role").notNull(),
-    signingKeyFingerprint: text("signing_key_fingerprint"),
-    signingPublicKey: text("signing_public_key"),
-    encapsulationPublicKey: text("encapsulation_public_key"),
-    encapsulationKeyFingerprint: text("encapsulation_key_fingerprint"),
   },
   (table) => [
     primaryKey({

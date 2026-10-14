@@ -40,12 +40,11 @@ import {
   requireDeletableOrganizationGroup,
   requireOrganizationGroupWithoutDeleteBlockers,
 } from "./groupDeletion";
-import { toOrganizationGroupMemberResponse } from "./groupMemberships";
 import { toGroupSummary } from "./groupSummary";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { organizationGroupDeletionOutcome } from "./organizationGroupOperationOutcome";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
-import { loadUsersById } from "./users";
+import { loadUsersById, toOrganizationGroupMemberResponse } from "./users";
 
 interface OrganizationGroupSummariesResult {
   readonly groups: OrganizationGroupSummaryResponse[];

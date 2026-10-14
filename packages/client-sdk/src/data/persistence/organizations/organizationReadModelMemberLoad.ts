@@ -1,6 +1,5 @@
 import type {
-  OrganizationGroupMemberResponse,
-  OrganizationGroupMembersResponse,
+  OrganizationReadModelGroupMemberResponse,
   OrganizationRole,
 } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
@@ -17,13 +16,16 @@ import { OrganizationReadModelIntegrityError } from "./organizationReadModelProt
 import { loadWithOrganizationReadModelIntegrityPurge } from "./organizationReadModelPurge";
 
 interface SelectedGroupMember {
-  readonly encapsulationKeyFingerprint: string | null;
-  readonly encapsulationPublicKey: string | null;
   readonly userId: string;
   readonly role: string;
-  readonly signingKeyFingerprint: string | null;
-  readonly signingPublicKey: string | null;
   readonly stateHash: string;
+}
+
+/** Locally projected members of one group, by user and role. */
+export interface OrganizationReadModelGroupMembers {
+  readonly groupId: string;
+  readonly members: OrganizationReadModelGroupMemberResponse[];
+  readonly organizationId: string;
 }
 
 function requireOrganizationRole(value: string): OrganizationRole {
@@ -38,7 +40,7 @@ function requireOrganizationRole(value: string): OrganizationRole {
 function toGroupMember(
   row: SelectedGroupMember,
   expectedStateHash: string,
-): OrganizationGroupMemberResponse {
+): OrganizationReadModelGroupMemberResponse {
   if (row.stateHash !== expectedStateHash) {
     throw new OrganizationReadModelIntegrityError(
       "Stored organization group membership state is inconsistent",
@@ -47,10 +49,6 @@ function toGroupMember(
   return {
     userId: row.userId,
     role: requireOrganizationRole(row.role),
-    signingKeyFingerprint: row.signingKeyFingerprint,
-    signingPublicKey: row.signingPublicKey,
-    encapsulationPublicKey: row.encapsulationPublicKey,
-    encapsulationKeyFingerprint: row.encapsulationKeyFingerprint,
   };
 }
 
@@ -61,15 +59,8 @@ async function loadMembershipRows(input: {
 }): Promise<SelectedGroupMember[]> {
   return input.tx
     .select({
-      encapsulationKeyFingerprint:
-        organizationReadModelGroupMembers.encapsulationKeyFingerprint,
-      encapsulationPublicKey:
-        organizationReadModelGroupMembers.encapsulationPublicKey,
       userId: organizationReadModelGroupMembers.userId,
       role: organizationReadModelGroupMembers.role,
-      signingKeyFingerprint:
-        organizationReadModelGroupMembers.signingKeyFingerprint,
-      signingPublicKey: organizationReadModelGroupMembers.signingPublicKey,
       stateHash: organizationReadModelGroupMembers.stateHash,
     })
     .from(organizationReadModelGroupMembers)
@@ -92,7 +83,7 @@ async function loadOrganizationReadModelGroupMembersInTransaction(input: {
   readonly groupId: string;
   readonly organizationId: string;
   readonly tx: ClientSQLiteTransactionScope;
-}): Promise<OrganizationGroupMembersResponse | null> {
+}): Promise<OrganizationReadModelGroupMembers | null> {
   const [head] = await input.tx
     .select({ stateHash: organizationReadModelGroupMemberships.stateHash })
     .from(organizationReadModelGroupMemberships)
@@ -144,7 +135,7 @@ export async function loadOrganizationReadModelGroupMembers(
   organizationId: string,
   groupId: string,
   currentUserId: string,
-): Promise<OrganizationGroupMembersResponse | null> {
+): Promise<OrganizationReadModelGroupMembers | null> {
   return loadWithOrganizationReadModelIntegrityPurge({
     execSql,
     organizationId,

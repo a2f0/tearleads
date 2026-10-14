@@ -1,0 +1,3 @@
+# #2522: groupMemberships members carry only userId and role; public keys stay in the directory lane.
+# Remove this exact diagnostic once main contains the narrowed read-model member contract.
+GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`

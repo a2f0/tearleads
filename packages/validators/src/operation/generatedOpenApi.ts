@@ -22872,12 +22872,8 @@ export interface operations {
                                 groups: {
                                     groupId: string;
                                     members: {
-                                        encapsulationKeyFingerprint: string | null;
-                                        encapsulationPublicKey: string | null;
                                         /** @enum {string} */
                                         role: "member" | "admin";
-                                        signingKeyFingerprint: string | null;
-                                        signingPublicKey: string | null;
                                         userId: string;
                                     }[];
                                     stateHash: string;
@@ -22973,12 +22969,8 @@ export interface operations {
                                 groups: {
                                     groupId: string;
                                     members: {
-                                        encapsulationKeyFingerprint: string | null;
-                                        encapsulationPublicKey: string | null;
                                         /** @enum {string} */
                                         role: "member" | "admin";
-                                        signingKeyFingerprint: string | null;
-                                        signingPublicKey: string | null;
                                         userId: string;
                                     }[];
                                     stateHash: string;

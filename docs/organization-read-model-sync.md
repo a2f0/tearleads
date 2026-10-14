@@ -122,7 +122,8 @@ Protocol version 6 includes these lanes:
 - `groups`: visible group catalog rows and state-head summaries;
 - `groupMemberships`: state-hash-bound membership projections for individual
   groups, including the reserved `Members` group that is hidden from the group
-  catalog;
+  catalog. Each member names only its user ID and role; public keys travel once
+  per user in the `directory` lane, and keying reads neither copy;
 - `grants`: a whole-lane replacement of container access presentation rows;
 - `organizationPolicy`: the current organization policy head used only to
   determine whether separately verified local policy history is current.
