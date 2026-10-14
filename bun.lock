@@ -386,7 +386,7 @@
     },
   },
   "catalog": {
-    "@a2f0/continuity": "github:a2f0/continuity#1e93f3c2f4d3a23da220066e7a56ca843a29c62d",
+    "@a2f0/continuity": "github:a2f0/continuity#9d9cc078f0b28470699a13d30c4c1141bc2960aa",
     "@types/bun": "1.4.2",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
@@ -410,7 +410,7 @@
     },
   },
   "packages": {
-    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#1e93f3c", {}, "a2f0-continuity-1e93f3c", "sha512-3BjVW/yTYY1bUFL1f5kxIT1BEd3sSCRuXWrw+NyQGr/8ZUi4/n9JvvqPBRJy4WcWvlR/j6rRX/qTHe7nYF+QsQ=="],
+    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#9d9cc07", {}, "a2f0-continuity-9d9cc07", "sha512-GuUt1TmyIXKqP7lQMMbg+1Qu7tcKsQGrNbmL68ujc9X3ILPNaGIcWMeCkZzLqgpRTG7W8NjoOutxGlrf0waPVw=="],
 
     "@astrojs/compiler-binding": ["@astrojs/compiler-binding@0.5.1", "", { "optionalDependencies": { "@astrojs/compiler-binding-android-arm64": "0.5.1", "@astrojs/compiler-binding-darwin-arm64": "0.5.1", "@astrojs/compiler-binding-darwin-x64": "0.5.1", "@astrojs/compiler-binding-linux-arm64-gnu": "0.5.1", "@astrojs/compiler-binding-linux-arm64-musl": "0.5.1", "@astrojs/compiler-binding-linux-x64-gnu": "0.5.1", "@astrojs/compiler-binding-linux-x64-musl": "0.5.1", "@astrojs/compiler-binding-wasm32-wasi": "0.5.1", "@astrojs/compiler-binding-win32-arm64-msvc": "0.5.1", "@astrojs/compiler-binding-win32-x64-msvc": "0.5.1" } }, "sha512-oczyolLUl9mNrtuBuNjuvn5thpHrFLXAHAWGTRg0JDHQ8cGVsVeFekOu2uSoQGgainJIi+A3/9m0DyYwz3Nlnw=="],
 

@@ -143,3 +143,26 @@ test("passport captures are included in the website gallery", async () => {
     true,
   );
 });
+
+test("wallet detail and specimen captures are staged for every platform and theme", async () => {
+  const files: Record<string, Uint8Array> = {};
+  const screens = [
+    "credit-card-detail",
+    "birth-certificate-detail",
+    "birth-certificate-image",
+    "credit-card-image",
+  ];
+  for (const project of ["web", "mobile", "ipad"]) {
+    for (const theme of ["light", "dark"]) {
+      for (const screen of screens)
+        files[`${project}/${theme}/${screen}.png`] = pngHeader(1440, 900);
+    }
+  }
+  const { code, log, output } = await stageScreenshots(files);
+  expect(code, log).toBe(0);
+  const manifest = await Bun.file(join(output, "manifest.json")).json();
+  expect(manifest.screens).toEqual(screens);
+  expect(manifest.entries).toHaveLength(24);
+  expect(manifest.projects).toEqual(["windowed", "mobile", "tablet"]);
+  expect(manifest.themes).toEqual(["light", "dark"]);
+});

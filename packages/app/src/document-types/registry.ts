@@ -9,6 +9,8 @@ import { ApplianceDocumentApp } from "./appliance/ApplianceApp";
 import { APPLIANCE_DOCUMENT_KIND } from "./appliance/applianceDocumentDefinition";
 import { AudioDocumentApp } from "./audio/AudioDocumentApp";
 import { AUDIO_DOCUMENT_KIND } from "./audio/audioDocumentDefinition";
+import { BirthCertificateDocumentApp } from "./birth-certificate/BirthCertificateApp";
+import { BIRTH_CERTIFICATE_DOCUMENT_KIND } from "./birth-certificate/birthCertificateDocumentDefinition";
 import { BloodPressureDocumentApp } from "./blood-pressure/BloodPressureApp";
 import { BLOOD_PRESSURE_DOCUMENT_KIND } from "./blood-pressure/bloodPressureDocumentDefinition";
 import { ContactDocumentApp } from "./contact/ContactDocumentApp";
@@ -60,6 +62,7 @@ const documentTypeAppsByKind = new Map<
   [DRIVER_LICENSE_DOCUMENT_KIND, DriverLicenseDocumentApp],
   [CREDIT_CARD_DOCUMENT_KIND, CreditCardDocumentApp],
   [PASSPORT_DOCUMENT_KIND, PassportDocumentApp],
+  [BIRTH_CERTIFICATE_DOCUMENT_KIND, BirthCertificateDocumentApp],
   [ENV_FILE_DOCUMENT_KIND, EnvFileDocumentApp],
   [BLOOD_PRESSURE_DOCUMENT_KIND, BloodPressureDocumentApp],
   [WEIGHT_DOCUMENT_KIND, WeightDocumentApp],

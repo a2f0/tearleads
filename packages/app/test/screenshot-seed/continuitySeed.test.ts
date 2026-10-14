@@ -47,7 +47,9 @@ test("pinned Continuity data builds the documents and images promised to screens
     expect(payload.summary.blobCount).toBe(
       avatarCount +
         expected.driversLicense.imageCount +
-        expected.passport.imageCount,
+        expected.passport.imageCount +
+        expected.birthCertificate.imageCount +
+        expected.creditCard.imageCount,
     );
 
     const contacts = await sdk.documents.list({ documentKind: "contact" });
@@ -69,6 +71,8 @@ test("pinned Continuity data builds the documents and images promised to screens
     for (const [kind, detail] of [
       ["drivers_license", expected.driversLicense],
       ["passport", expected.passport],
+      ["birth_certificate", expected.birthCertificate],
+      ["credit_card", expected.creditCard],
     ] as const) {
       const documents = await sdk.documents.list({ documentKind: kind });
       expect(documents?.totalCount).toBe(1);

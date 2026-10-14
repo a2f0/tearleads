@@ -1,6 +1,7 @@
 import type { DocumentProjectorDefinition } from "@tearleads/client-sdk";
 import { applianceDocumentProjectorDefinition } from "../document-types/appliance/applianceDocumentDefinition";
 import { audioDocumentProjectorDefinition } from "../document-types/audio/audioDocumentDefinition";
+import { birthCertificateDocumentProjectorDefinition } from "../document-types/birth-certificate/birthCertificateDocumentDefinition";
 import { bloodPressureDocumentProjectorDefinition } from "../document-types/blood-pressure/bloodPressureDocumentDefinition";
 import { contactDocumentProjectorDefinition } from "../document-types/contact/contactDocumentDefinition";
 import { creditCardDocumentProjectorDefinition } from "../document-types/credit-card/creditCardDocumentDefinition";
@@ -16,6 +17,7 @@ import { toolDocumentProjectorDefinition } from "../document-types/tool/toolDocu
 import type { AppDocumentProjectorDefinition } from "../document-types/types";
 import { videoDocumentProjectorDefinition } from "../document-types/video/videoDocumentDefinition";
 import { weightDocumentProjectorDefinition } from "../document-types/weight/weightDocumentDefinition";
+import { birthCertificateClientProjection } from "./birthCertificateClientProjection";
 import { contactClientProjection } from "./contactClientProjection";
 import { creditCardClientProjection } from "./creditCardClientProjection";
 import { driverLicenseClientProjection } from "./driverLicenseClientProjection";
@@ -41,6 +43,10 @@ export const APP_DOCUMENT_TYPE_PROJECTOR_DEFINITIONS: ReadonlyArray<AppDocumentP
     {
       ...passportDocumentProjectorDefinition,
       clientProjection: passportClientProjection,
+    },
+    {
+      ...birthCertificateDocumentProjectorDefinition,
+      clientProjection: birthCertificateClientProjection,
     },
     envFileDocumentProjectorDefinition,
     bloodPressureDocumentProjectorDefinition,
