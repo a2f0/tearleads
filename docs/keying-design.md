@@ -696,7 +696,7 @@ server. A content-key holder can also generate a commitment for arbitrary
 plaintext, so this binds the record against server or storage substitution, not
 against a malicious authorized reader. Readers authenticate the metadata,
 decrypt the record, and reject a plaintext-hash mismatch before importing it
-into Loro. The audit chain thereby retains a keyed identity for an authored
+into Loro. Retained history thereby keeps a keyed identity for an authored
 plaintext while retaining its ciphertext, provided the signed header,
 original content-record id and epoch, and corresponding content key remain
 available. A full-history rotation snapshot's commitment is not comparable to
@@ -1087,7 +1087,6 @@ Core server tables:
 
 Projection/cache tables include:
 
-- `access_event_dependency_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
 - `document_container_links`
@@ -1163,8 +1162,8 @@ The protocol covers:
 6. Signed document link/unlink manifests and multi-container target validation.
 7. Blob attachment binding/detach with blob KEK targets and staged blob
  write headers.
-8. Document audit entries, baseline checkpoints, attachment audit events, and
- audit-history verification for signed write paths.
+8. Rotation-baseline markers and the attachment blob registry for signed
+ write paths.
 
 Deployment boundaries:
 

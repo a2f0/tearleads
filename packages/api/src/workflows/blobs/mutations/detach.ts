@@ -13,13 +13,11 @@ import {
   readDetachRequestSession,
   verifyAttachmentAuthorizationProof,
 } from "./authorization";
+import { registerAttachmentBlobs } from "./blobAuditRegistry";
 import { lockBlobMutationRows } from "./blobMutationLocks";
 import { toMutationError } from "./errors";
 import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
-import {
-  appendAttachmentDetachAuditEvent,
-  loadActiveAttachmentBindingById,
-} from "./persistence";
+import { loadActiveAttachmentBindingById } from "./persistence";
 import {
   BlobMutationError,
   type DetachBlobAttachmentInput,
@@ -93,12 +91,10 @@ async function detachBlobAttachmentTransaction(
   }
 
   await storeVerifiedAttachmentDetachInTransaction(verifiedDetach.value, tx);
-  await appendAttachmentDetachAuditEvent({
-    detach: verifiedDetach.value,
+  await registerAttachmentBlobs({
+    blobIds: [verifiedDetach.value.blobId],
     executor: tx,
-    fingerprint: input.fingerprint,
-    manifest: proof.documentManifest,
-    userId: input.userId,
+    organizationId: proof.documentManifest.state.organizationId,
   });
   await finalizeAttachmentMutation({
     dereferencedBlobId: verifiedDetach.value.blobId,

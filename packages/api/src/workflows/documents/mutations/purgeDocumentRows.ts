@@ -1,6 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
-  accessEventDependencyProjection,
   accessEvents,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
@@ -9,9 +8,7 @@ import {
   accessManifestVerifications,
   attachmentBindings,
   blobs,
-  documentAttachmentAuditEvents,
-  documentAuditCheckpoints,
-  documentAuditEntries,
+  documentBaselines,
   documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
@@ -19,7 +16,6 @@ import {
   documentInlineRekeyCommits,
   documentManifestObservations,
   documents,
-  documentUpdateAuditEvents,
   documentUpdateSpans,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
@@ -27,37 +23,8 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { wallClockNowExpression } from "../../../utils/sqlDialect";
 import { DocumentMutationError } from "./errors";
 
-// Audit event detail tables reference documentAuditEntries(id); clear them
-// before the entries they depend on, then the checkpoint chain.
-async function deleteDocumentAuditRows(
-  documentId: string,
-  executor: DatabaseTransaction,
-): Promise<void> {
-  const auditEntryRows = await executor
-    .select({ id: documentAuditEntries.id })
-    .from(documentAuditEntries)
-    .where(eq(documentAuditEntries.documentId, documentId));
-  const auditEntryIds = auditEntryRows.map((row) => row.id);
-  if (auditEntryIds.length > 0) {
-    await executor
-      .delete(documentUpdateAuditEvents)
-      .where(inArray(documentUpdateAuditEvents.auditEntryId, auditEntryIds));
-    await executor
-      .delete(documentAttachmentAuditEvents)
-      .where(
-        inArray(documentAttachmentAuditEvents.auditEntryId, auditEntryIds),
-      );
-  }
-  await executor
-    .delete(documentAuditEntries)
-    .where(eq(documentAuditEntries.documentId, documentId));
-  await executor
-    .delete(documentAuditCheckpoints)
-    .where(eq(documentAuditCheckpoints.documentId, documentId));
-}
-
 // Content-key targets reference documentContentKeyEpochs(id); the loro update
-// payloads and write headers are independent.
+// payloads, write headers, and baseline markers are independent.
 async function deleteDocumentContentRows(
   documentId: string,
   executor: DatabaseTransaction,
@@ -83,6 +50,9 @@ async function deleteDocumentContentRows(
   await executor
     .delete(documentInlineRekeyCommits)
     .where(eq(documentInlineRekeyCommits.documentId, documentId));
+  await executor
+    .delete(documentBaselines)
+    .where(eq(documentBaselines.documentId, documentId));
   await executor
     .delete(documentUpdateSpans)
     .where(eq(documentUpdateSpans.documentId, documentId));
@@ -150,14 +120,6 @@ async function deleteDocumentAccessHistory(
     .delete(documentManifestObservations)
     .where(eq(documentManifestObservations.documentId, documentId));
   await executor
-    .delete(accessEventDependencyProjection)
-    .where(
-      and(
-        eq(accessEventDependencyProjection.objectKind, "document"),
-        eq(accessEventDependencyProjection.objectId, documentId),
-      ),
-    );
-  await executor
     .delete(accessManifestDocumentLinkProjection)
     .where(eq(accessManifestDocumentLinkProjection.documentId, documentId));
   await executor
@@ -208,7 +170,6 @@ export async function deleteDocumentRows(input: {
 }): Promise<void> {
   const { documentId, executor } = input;
 
-  await deleteDocumentAuditRows(documentId, executor);
   await deleteDocumentContentRows(documentId, executor);
   await deleteDocumentAttachmentRows(input);
   await deleteDocumentAccessHead(documentId, executor);

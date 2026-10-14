@@ -40,9 +40,12 @@ export interface SeedFile {
   /** Structured fields for the kind (e.g. fileName, licenseId, expirationDate). */
   readonly fields?: Readonly<Record<string, string>>;
   readonly attachments: readonly SeedAttachment[];
+  /** First-class document rows, written through DocumentStore.addRow. */
+  readonly rows?: readonly Readonly<Record<string, string>>[];
 }
 
 export interface SeedSpec {
+  readonly schemaVersion: 2;
   /** Password the artifact is encrypted with; the Playwright restore reuses it. */
   readonly password: string;
   /**

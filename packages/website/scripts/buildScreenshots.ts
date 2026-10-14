@@ -84,6 +84,16 @@ const SCREEN_ORDER = [
   "birth-certificate-detail",
   "birth-certificate-image",
   "credit-card-image",
+  "family-photo-1",
+  "family-photo-2",
+  "tool-detail-1",
+  "tool-detail-2",
+  "appliance-detail-1",
+  "appliance-detail-2",
+  "tool-receipt",
+  "appliance-receipt",
+  "weight-detail",
+  "blood-pressure-detail",
 ];
 const CANONICAL_SCREENS = new Set(SCREEN_ORDER);
 const THEMES = ["light", "dark"];

@@ -1,7 +1,4 @@
-export {
-  accessEventDependencyProjection,
-  accessEvents,
-} from "./accessEvents";
+export { accessEvents } from "./accessEvents";
 export {
   accessManifestContainerGrantProjection,
   accessManifestDocumentLinkProjection,
@@ -12,13 +9,7 @@ export {
   containerBuiltinGrants,
   documentManifestObservations,
 } from "./accessManifests";
-export {
-  blobAuditObjects,
-  documentAttachmentAuditEvents,
-  documentAuditCheckpoints,
-  documentAuditEntries,
-  documentUpdateAuditEvents,
-} from "./audit";
+export { blobAuditObjects } from "./blobAuditObjects";
 export {
   type BlobWriteAuthorization,
   blobContentKeyEpochs,
@@ -28,6 +19,7 @@ export {
 export { attachmentBindings, blobStages, blobs } from "./blobs";
 export { containerKeyEpochs, containerKeyWraps } from "./containerKeying";
 export { containerSyncTombstones, containers } from "./containers";
+export { documentBaselines } from "./documentBaselines";
 export {
   documentContentKeyEpochs,
   documentContentKeyTargets,
@@ -81,7 +73,6 @@ export { revenuecatWebhookEvents } from "./revenuecatWebhookEvents";
 export type {
   BlobAuditRetentionMode,
   ContainerSyncTombstoneReason,
-  DocumentAttachmentAuditAction,
   OrganizationBillingProvider,
   OrganizationBillingSeatEventSourceType,
   OrganizationBillingSeatEventType,

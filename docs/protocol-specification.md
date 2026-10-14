@@ -502,8 +502,8 @@ After verification, the API promotes staged bytes when supplied, detaches the
 previous active slot binding if present, stores the new binding, persists blob
 content-key targets merged with the exact stored envelopes of all other bindings
 under the blob row lock, recomputes the merged target hash, stores the blob write
-header, appends attachment audit
-events, and touches the document plus linked containers for sync discovery.
+header, registers the blob in `blob_audit_objects`, and touches the document
+plus linked containers for sync discovery.
 
 Detach uses:
 
@@ -513,7 +513,7 @@ Detach uses:
 body, the document manifest bundle, authorizing container paths, and optional
 `containerRekeys[]`. The API verifies the active binding, signed event,
 document manifest, authorizing paths, and referenced principal policies before
-detaching the binding and appending audit rows.
+detaching the binding.
 
 Each encrypted Loro attachment entry carries its slot ID and required lowercase
 SHA-256 `contentSha256` of the intended plaintext. Local attachment creation and
@@ -623,8 +623,8 @@ bindings do not keep a blob live. Re-stamping an already-dereferenced blob
 preserves its original timestamp, while a bind during the grace period clears
 the marker and revives the blob. After the grace period, GC locks and rechecks
 the blob before pruning its live row, key material, and detached bindings; its
-audit metadata remains as durable physical-object deletion work. The response
-returns `purgedAt`.
+`blob_audit_objects` row remains as durable physical-object deletion work. The
+response returns `purgedAt`.
 
 `DELETE /containers/:containerId` is an admin-only structural delete for empty,
 non-system, non-root leaf containers. A root or system-slot container cannot be

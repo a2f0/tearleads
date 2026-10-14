@@ -20,11 +20,14 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 0,
-  // Each spec walks every screen in one context, so allow generous headroom.
-  timeout: 300_000,
+  // Routed captures reload every view in both themes; the full set takes
+  // several minutes. Individual readiness assertions retain short timeouts.
+  timeout: 600_000,
   reporter: [["list"]],
   use: {
     baseURL: WEB_APP_BASE_URL,
+    locale: "en-US",
+    timezoneId: "America/Los_Angeles",
   },
   projects: [
     {

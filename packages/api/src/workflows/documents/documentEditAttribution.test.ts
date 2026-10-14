@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  documentAuditCheckpoints,
+  documentBaselines,
   documentContentWriteHeaders,
   documents,
   documentUpdateSpans,
@@ -176,15 +176,10 @@ test("attributes original uploads ahead of a rotation baseline re-assertion", as
     startCounter: 0,
     updateId: baselineUpdateId,
   });
-  await db.insert(documentAuditCheckpoints).values({
-    accessEpoch: 1,
-    accessManifestHash: "manifest",
-    actorFingerprint: "fp-bob",
-    // A uuid column; attribution reads writerUserId off the write-header JSON,
-    // not the checkpoint actor, so this is independent of the "bob" writer.
-    actorUserId: crypto.randomUUID(),
+  // Attribution reads writerUserId off the write-header JSON; the baseline row
+  // only flags the update as a re-assertion.
+  await db.insert(documentBaselines).values({
     baselineUpdateId,
-    checkpointHash: "checkpoint-hash",
     checkpointKind: "rotate_baseline",
     documentId,
     sourceVersionVector: late,
