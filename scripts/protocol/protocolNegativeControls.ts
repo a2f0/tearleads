@@ -2,6 +2,7 @@ import { ACKNOWLEDGEMENT_NEGATIVE_CONTROLS } from "./protocolAcknowledgementNega
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
+import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
@@ -41,6 +42,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...PURGE_SCOPE_NEGATIVE_CONTROLS,
   ...SESSION_RETRY_NEGATIVE_CONTROLS,
   ...SYNC_LANE_NEGATIVE_CONTROLS,
+  ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
   ...HISTORY_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
@@ -153,14 +155,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { CheckSocketOpen: "FALSE" },
     expect: { kind: "invariant", name: "ClosedSocketsNeverIndexed" },
     why: "Removing the live-socket guard lets a late result violate ClosedSocketsNeverIndexed (#2266).",
-  },
-  {
-    id: "sync-publishes-before-durable-claim",
-    module: "formal/document-sync/DeferredTailSettlement.tla",
-    config: "formal/document-sync/DeferredTailSettlement.cfg",
-    constants: { RequireDurablePublication: "FALSE" },
-    expect: { kind: "invariant", name: "PublishedHistoryIsDurable" },
-    why: "Publishing a rejected incoming candidate exposes text whose history is absent from the next local edit's durable basis.",
   },
   {
     id: "host-restore-binds-a-switched-identity",

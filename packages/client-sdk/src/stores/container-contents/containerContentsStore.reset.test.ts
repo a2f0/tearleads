@@ -1,5 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import { createDomainScope } from "../../data/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -257,7 +258,7 @@ test("executor replacement prevents an in-flight create from entering the rebuil
     ).toEqual(["original-root"]);
     expect(
       await originalDatabase.execSql(
-        "SELECT local_id FROM document_pending_updates",
+        `SELECT local_id FROM ${QUEUED_UPDATES_SQL}`,
       ),
     ).toEqual([]);
   } finally {

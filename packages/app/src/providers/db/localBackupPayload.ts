@@ -1,6 +1,10 @@
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
-/** Current local schema, including required directory ownership flags. */
-export const BACKUP_FORMAT_VERSION = 8;
+/**
+ * Current local schema: v9 folded the outbound write queue into the history
+ * update log (`document_history_updates.update_id`), so an older backup's
+ * queued updates would restore into a table the runtime no longer reads.
+ */
+export const BACKUP_FORMAT_VERSION = 9;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;

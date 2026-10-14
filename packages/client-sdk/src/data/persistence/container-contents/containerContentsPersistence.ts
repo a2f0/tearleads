@@ -1,4 +1,8 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
+import {
+  hasQueuedDocumentUpdates,
+  settleQueuedDocumentUpdatesInTransaction,
+} from "../../sqlite/documentPendingUpdatePersistence";
 import {
   enqueueDocumentPendingUpdate,
   ensureDocumentProjectionTables,
@@ -10,7 +14,6 @@ import {
   containerMoveIntentTables,
   containers,
   documentContainerProjectionTables,
-  documentPendingUpdates,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -28,7 +31,6 @@ import {
 } from "../containers/containerPersistence";
 import { sqlContainerSyncWatermarkPersistence } from "../containers/containerSyncWatermarkPersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
-import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 import {
   claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,
@@ -119,24 +121,6 @@ async function saveStoredContainer(
     // non-null save contract while the transaction itself remains rolled back.
     return outcome.result ?? container;
   });
-}
-
-async function hasPendingContainerMetadataUpdates(input: {
-  tx: ClientSQLiteTransactionScope;
-  containerId: string;
-}): Promise<boolean> {
-  const rows = await input.tx
-    .select({ id: documentPendingUpdates.id })
-    .from(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(documentPendingUpdates.localId, input.containerId),
-      ),
-    )
-    .limit(1);
-
-  return rows.length > 0;
 }
 
 export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
@@ -260,33 +244,20 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
     record,
     pendingUpdateIds,
   ) {
-    const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
-
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const localUpdatedAt = new Date().toISOString();
       return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
-          if (uniquePendingUpdateIds.length > 0) {
-            await tx
-              .delete(documentPendingUpdates)
-              .where(
-                and(
-                  eq(
-                    documentPendingUpdates.appKind,
-                    CONTAINER_METADATA_APP_KIND,
-                  ),
-                  eq(documentPendingUpdates.localId, container.id),
-                  inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
-                ),
-              )
-              .run();
-          }
-
-          const hasRemainingPendingUpdates =
-            await hasPendingContainerMetadataUpdates({
-              containerId: container.id,
-              tx,
-            });
+          const scope = getContainerMetadataScope(container.id);
+          await settleQueuedDocumentUpdatesInTransaction(
+            tx,
+            scope,
+            pendingUpdateIds,
+          );
+          const hasRemainingPendingUpdates = await hasQueuedDocumentUpdates(
+            tx,
+            scope,
+          );
           const containerToSave = hasRemainingPendingUpdates
             ? container
             : {

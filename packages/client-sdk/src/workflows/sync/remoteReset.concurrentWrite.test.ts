@@ -7,6 +7,7 @@ import {
   exportUpdatesSince,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { eq } from "drizzle-orm";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
@@ -14,7 +15,6 @@ import {
   containers,
   documentHistoryCheckpoints,
   documentHistoryUpdates,
-  documentPendingUpdates,
   documentProjection,
   documents,
 } from "../../data/sqlite/schema";
@@ -116,18 +116,24 @@ test("a write racing reset remains queued after the atomic reset snapshot", asyn
     const [, queued] = await Promise.all([reset, concurrentWrite]);
     expect(queued).toBe(true);
 
-    const pendingRows = await runtime.db
-      .select({ updateData: documentPendingUpdates.updateData })
-      .from(documentPendingUpdates);
-    expect(pendingRows).toContainEqual({
-      updateData: concurrentPending.updateData,
-    });
-    const historyRows = await runtime.db
-      .select({ updateData: documentHistoryUpdates.updateData })
-      .from(documentHistoryUpdates);
-    expect(historyRows).toContainEqual({
-      updateData: concurrentPending.updateData,
-    });
+    // The racing write is one log row: queued, and restorable as history.
+    const logRows = await runtime.db
+      .select({
+        origin: documentHistoryUpdates.origin,
+        updateData: documentHistoryUpdates.updateData,
+        updateId: documentHistoryUpdates.updateId,
+      })
+      .from(documentHistoryUpdates)
+      .where(
+        eq(documentHistoryUpdates.updateData, concurrentPending.updateData),
+      );
+    expect(logRows).toEqual([
+      {
+        origin: "local",
+        updateData: concurrentPending.updateData,
+        updateId: expect.any(String),
+      },
+    ]);
   } finally {
     releasePlanRead();
     close();

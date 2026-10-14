@@ -1,5 +1,5 @@
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
-import { and, eq, or, sql } from "drizzle-orm";
+import { and, eq, ne, or, sql } from "drizzle-orm";
 import {
   type DocumentAttachment,
   getDocumentAttachments,
@@ -95,16 +95,22 @@ async function loadResetHistoryRows(
       ]
     : null;
   for (const scopeBatch of scopes ? remoteResetBatches(scopes) : [null]) {
+    // An outbox row only waits to be sent; the content lives in the
+    // checkpoint and tail rows (see `documentHistoryUpdates`).
+    const notOutbox = ne(documentHistoryUpdates.origin, "outbox");
     const scopeTail = scopeBatch
-      ? or(
-          ...scopeBatch.map((scope) =>
-            and(
-              eq(documentHistoryUpdates.appKind, scope.appKind),
-              eq(documentHistoryUpdates.localId, scope.localId),
+      ? and(
+          notOutbox,
+          or(
+            ...scopeBatch.map((scope) =>
+              and(
+                eq(documentHistoryUpdates.appKind, scope.appKind),
+                eq(documentHistoryUpdates.localId, scope.localId),
+              ),
             ),
           ),
         )
-      : undefined;
+      : notOutbox;
     const scopeCheckpoints = scopeBatch
       ? or(
           ...scopeBatch.map((scope) =>

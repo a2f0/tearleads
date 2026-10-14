@@ -78,8 +78,8 @@ export interface SelectedDocumentRecordRow {
 export interface SelectedPendingUpdateRow {
   id: string | null;
   updateData: string;
-  partialStartVersionVector: string;
-  partialEndVersionVector: string;
+  partialStartVersionVector: string | null;
+  partialEndVersionVector: string | null;
   sourceVersionVector: string | null;
   rekeyCount: number;
 }

@@ -4,16 +4,18 @@ import {
   importSnapshot,
   updateMatchesDocumentHistory,
 } from "@tearleads/loro";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../../documents/shared/pullContinuation";
 import {
   appendDocumentHistoryUpdates,
   replaceDocumentHistoryCheckpoint,
 } from "../../../sqlite/documentHistoryPersistence";
-import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../../../sqlite/documentPendingUpdatePersistence";
+import {
+  insertDocumentPendingUpdateWithHistoryInTransaction,
+  settleQueuedDocumentUpdatesInTransaction,
+} from "../../../sqlite/documentPendingUpdatePersistence";
 import {
   documentHistoryUpdates,
-  documentPendingUpdates,
   documentSyncFailures,
 } from "../../../sqlite/schema";
 import {
@@ -72,18 +74,11 @@ async function deleteAcceptedPendingUpdates(
   localId: string,
   ids: readonly string[],
 ): Promise<void> {
-  const uniqueIds = [...new Set(ids)];
-  if (uniqueIds.length === 0) return;
-  await tx
-    .delete(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
-        eq(documentPendingUpdates.localId, localId),
-        inArray(documentPendingUpdates.id, uniqueIds),
-      ),
-    )
-    .run();
+  await settleQueuedDocumentUpdatesInTransaction(
+    tx,
+    { appKind: DOCUMENTS_APP_KIND, localId },
+    ids,
+  );
 }
 
 async function clearSyncFailure(
@@ -175,6 +170,13 @@ async function appendMutationHistory(
         "Document recovery found unverified history tail before installation",
       );
     }
+    // A queued rotation baseline the recovery snapshot covers is unqueued
+    // first so the replacement below can delete it with the covered tail.
+    await deleteAcceptedPendingUpdates(
+      tx,
+      input.document.id,
+      coveredLocalState.checkpointIds,
+    );
     const checkpointReplaced = await replaceDocumentHistoryCheckpoint(
       execSql,
       { appKind: DOCUMENTS_APP_KIND, localId: input.document.id },
@@ -190,11 +192,6 @@ async function appendMutationHistory(
         "Document recovery checkpoint was superseded before installation",
       );
     }
-    await deleteAcceptedPendingUpdates(
-      tx,
-      input.document.id,
-      coveredLocalState.checkpointIds,
-    );
   }
   if (input.historyUpdates && input.historyUpdates.length > 0) {
     await appendDocumentHistoryUpdates(
@@ -222,22 +219,13 @@ async function findCoveredRecoveryLocalState(
   );
   try {
     importSnapshot(recoveredDocument, base64ToBytes(recoverySnapshot));
-    const scope = and(
-      eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
-      eq(documentPendingUpdates.localId, localId),
-    );
-    const pendingUpdates = await tx
-      .select({
-        id: documentPendingUpdates.id,
-        sourceVersionVector: documentPendingUpdates.sourceVersionVector,
-        updateData: documentPendingUpdates.updateData,
-      })
-      .from(documentPendingUpdates)
-      .where(scope);
-    const tail = await tx
+    const rows = await tx
       .select({
         id: documentHistoryUpdates.id,
+        origin: documentHistoryUpdates.origin,
+        sourceVersionVector: documentHistoryUpdates.sourceVersionVector,
         updateData: documentHistoryUpdates.updateData,
+        updateId: documentHistoryUpdates.updateId,
       })
       .from(documentHistoryUpdates)
       .where(
@@ -246,11 +234,11 @@ async function findCoveredRecoveryLocalState(
           eq(documentHistoryUpdates.localId, localId),
         ),
       );
+    const pendingUpdates = rows.filter((row) => row.updateId !== null);
+    const tail = rows.filter((row) => row.origin !== "outbox");
     const checkpointUpdateData = new Set(
       pendingUpdates.flatMap((row) =>
-        row.id === null || row.sourceVersionVector === null
-          ? []
-          : [row.updateData],
+        row.sourceVersionVector === null ? [] : [row.updateData],
       ),
     );
     let hasUnverifiedHistoryTail = false;
@@ -279,7 +267,9 @@ async function findCoveredRecoveryLocalState(
     });
     return {
       checkpointIds: pendingUpdates.flatMap((row) =>
-        row.id !== null && row.sourceVersionVector !== null ? [row.id] : [],
+        row.updateId !== null && row.sourceVersionVector !== null
+          ? [row.updateId]
+          : [],
       ),
       hasOrdinaryPendingUpdates: pendingUpdates.some(
         (row) => row.sourceVersionVector === null,

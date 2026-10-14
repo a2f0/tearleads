@@ -149,8 +149,9 @@ test("explorer store flushes an offline child-container write after network reco
       const pendingRows = await runtime.infra.execSql(
         `
  SELECT COUNT(*) AS count
- FROM document_pending_updates
- WHERE app_kind = 'container-metadata'
+ FROM document_history_updates
+ WHERE update_id IS NOT NULL
+ AND app_kind = 'container-metadata'
  AND local_id = :containerId
  `,
         {
@@ -266,8 +267,9 @@ test("explorer store queues authenticated child create when parent has no remote
     const pendingUpdateRows = await runtime.infra.execSql(
       `
  SELECT COUNT(*) AS count
- FROM document_pending_updates
- WHERE app_kind = 'container-metadata'
+ FROM document_history_updates
+ WHERE update_id IS NOT NULL
+ AND app_kind = 'container-metadata'
  AND local_id = :containerId
  `,
       {

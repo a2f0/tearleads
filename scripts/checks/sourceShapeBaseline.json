@@ -48,8 +48,8 @@
       "bytes": 20904
     },
     "docs/document-rekey-and-audit-history.md": {
-      "lines": 543,
-      "bytes": 21124
+      "lines": 541,
+      "bytes": 21122
     },
     "docs/glossary.md": {
       "lines": 533,
@@ -80,8 +80,8 @@
       "bytes": 407663
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
-      "lines": 586,
-      "bytes": 24037
+      "lines": 597,
+      "bytes": 24635
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 1961,
@@ -232,8 +232,8 @@
       "bytes": 18900
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 899,
-      "bytes": 35552
+      "lines": 811,
+      "bytes": 31686
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,

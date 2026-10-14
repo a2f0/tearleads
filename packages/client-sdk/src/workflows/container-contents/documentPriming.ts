@@ -52,9 +52,10 @@ const PENDING_PRIME_LOCAL_ID_SQL = `
       OR COALESCE(stored.pending_base_version, '') <> stored.snapshot_end_version
       OR EXISTS (
         SELECT 1
-        FROM document_pending_updates pending
+        FROM document_history_updates pending
         WHERE pending.app_kind = 'documents'
           AND pending.local_id = stored.local_id
+          AND pending.update_id IS NOT NULL
       )
       OR EXISTS (
         SELECT 1

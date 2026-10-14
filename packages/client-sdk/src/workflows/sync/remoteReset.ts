@@ -5,6 +5,10 @@ import {
   deleteDocumentPlacementRowsByDocumentIds,
 } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
+import {
+  queuedUpdateRow,
+  unqueueDocumentScopesInTransaction,
+} from "../../data/sqlite/documentPendingUpdatePersistence";
 import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
 import {
   organizationDataUsageCategories,
@@ -28,9 +32,9 @@ import {
   containerMoveIntents,
   containers,
   documentAttachmentBlobProjection,
+  documentHistoryUpdates,
   documentMoveIntents,
   documentPendingAttachments,
-  documentPendingUpdates,
   documentProjection,
   documentSyncFailures,
   documents,
@@ -163,19 +167,7 @@ async function clearScopedDocumentRows(
       .run();
   }
   for (const documentBatch of remoteResetBatches(snapshot.documentRows)) {
-    await tx
-      .delete(documentPendingUpdates)
-      .where(
-        or(
-          ...documentBatch.map((row) =>
-            and(
-              eq(documentPendingUpdates.appKind, row.appKind),
-              eq(documentPendingUpdates.localId, row.localId),
-            ),
-          ),
-        ),
-      )
-      .run();
+    await unqueueDocumentScopesInTransaction(tx, documentBatch);
     await tx
       .delete(documentSyncFailures)
       .where(
@@ -299,13 +291,17 @@ async function queueResetDocumentUpdates(input: {
 }): Promise<void> {
   for (const updateBatch of remoteResetBatches(input.documentUpdates)) {
     await input.tx
-      .insert(documentPendingUpdates)
+      .insert(documentHistoryUpdates)
       .values(
-        updateBatch.map((update) => ({
-          ...update,
-          id: crypto.randomUUID(),
-          createdAt: input.now,
-        })),
+        updateBatch.map((update) =>
+          queuedUpdateRow({
+            createdAt: input.now,
+            origin: "outbox",
+            pendingUpdate: update,
+            scope: update,
+            updateId: crypto.randomUUID(),
+          }),
+        ),
       )
       .run();
   }

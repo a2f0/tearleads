@@ -28,9 +28,9 @@ import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
   documentHistoryCheckpoints,
+  documentHistoryUpdates,
   documentMoveIntents,
   documentPendingAttachments,
-  documentPendingUpdates,
   documentProjection,
   documentProjectionText,
   documents,
@@ -174,15 +174,14 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         contentSha256: "0".repeat(64),
         updatedAt: stale,
       });
-      await tx.insert(documentPendingUpdates).values({
-        id: "old-update",
+      await tx.insert(documentHistoryUpdates).values({
+        id: "old-update-row",
         appKind: "documents",
         localId: "doc-1",
         updateData: "old",
-        partialStartVersionVector: "old",
-        partialEndVersionVector: "old",
-        sourceVersionVector: null,
+        origin: "outbox",
         createdAt: stale,
+        updateId: "old-update",
       });
       await tx.insert(documentContainerProjection).values({
         documentId: "doc-remote-old",
@@ -404,7 +403,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     expect(await db.select().from(securityIncidents)).toEqual([
       expect.objectContaining({ id: "incident-1", code: "rollback" }),
     ]);
-    const pendingUpdates = await db.select().from(documentPendingUpdates);
+    const pendingUpdates = (
+      await db.select().from(documentHistoryUpdates)
+    ).filter((row) => row.updateId !== null);
     expect(pendingUpdates).toHaveLength(2);
     expect(pendingUpdates.every((row) => row.updateData !== "old")).toBe(true);
 

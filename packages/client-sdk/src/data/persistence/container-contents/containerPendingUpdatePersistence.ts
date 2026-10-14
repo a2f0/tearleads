@@ -1,12 +1,13 @@
 import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
+import { listLocalIdsWithQueuedUpdates } from "../../sqlite/documentPendingUpdatePersistence";
 import {
-  deleteDocumentPendingUpdate,
-  deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
   listDocumentPendingUpdates,
   rekeyDocumentPendingUpdate,
+  settleDocumentPendingUpdate,
+  unqueueDocumentPendingUpdates,
 } from "../../sqlite/documentPersistence";
-import { documentPendingUpdates, documents } from "../../sqlite/schema";
+import { documents } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
@@ -28,12 +29,12 @@ export const containerPendingUpdatePersistence: ContainerPendingUpdatePersistenc
   {
     async deletePendingUpdate(execSql, id) {
       await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await deleteDocumentPendingUpdate(lockedExecSql, id);
+        await settleDocumentPendingUpdate(lockedExecSql, id);
       });
     },
     async deletePendingUpdates(execSql, containerId) {
       await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-        await deleteDocumentPendingUpdates(
+        await unqueueDocumentPendingUpdates(
           lockedExecSql,
           getContainerMetadataScope(containerId),
         );
@@ -58,24 +59,11 @@ export const containerPendingUpdatePersistence: ContainerPendingUpdatePersistenc
       return rekeyDocumentPendingUpdate(execSql, id);
     },
     async listContainerIdsWithPendingUpdates(execSql, containerIds) {
-      const uniqueContainerIds = Array.from(new Set(containerIds));
-      if (uniqueContainerIds.length === 0) {
-        return [];
-      }
-
-      const { db } = getClientSQLitePersistenceRuntime(execSql);
-      const rows = await db
-        .selectDistinct({ containerId: documentPendingUpdates.localId })
-        .from(documentPendingUpdates)
-        .where(
-          and(
-            eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-            inArray(documentPendingUpdates.localId, uniqueContainerIds),
-          ),
-        )
-        .orderBy(asc(documentPendingUpdates.localId));
-
-      return rows.map((row) => row.containerId);
+      return listLocalIdsWithQueuedUpdates(
+        getClientSQLitePersistenceRuntime(execSql).db,
+        CONTAINER_METADATA_APP_KIND,
+        containerIds,
+      );
     },
     async listContainerIdsWithPullContinuations(execSql, containerIds) {
       const uniqueContainerIds = Array.from(new Set(containerIds));

@@ -191,8 +191,8 @@ correct recovery path is:
 4. emit a new baseline or rebased updates under the canonical current-epoch DEK
 
 Local durable-history compaction does not flatten the CRDT. It periodically
-exports a full-history Loro snapshot as a checkpoint and deletes only the local
-tail rows that snapshot covers. The checkpoint still carries the complete
+exports a full-history Loro snapshot as a checkpoint and deletes only covered
+tail rows that sync has settled. The checkpoint still carries the complete
 operation history needed for merging, rotation, and recovery.
 
 ### Revoked Offline Clients

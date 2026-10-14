@@ -116,6 +116,7 @@ The abstraction maps to production at these seams:
 | `CompleteStaleResponseDurableOp` | a claimed response persist or deletion (`runSerializedSqlMutation`) returning after reset, followed by no additional in-memory publication or effect callback on the replacement store |
 | `CancelOrIgnoreResponse` | response cancellation or `finalizeDocumentSync` returning and re-arming without response-derived snapshot, marker, or queue mutation |
 | `CompleteCapturedPass` | `shouldSkipCleanScheduledDocumentSync` after outgoing coverage preparation |
+| `CompactHistory` | `replaceDocumentHistoryCheckpoint` deleting only covered `documentHistoryUpdates` rows whose `updateId` is null, so a queued update survives a checkpoint that covers it |
 
 TLC explores restarts before and after both durable preparation steps, every
 partial/all queued-settlement ordering, ordinary edits that re-export an older
@@ -165,6 +166,13 @@ unvalidated response start a durable operation violates
 a stale deletion remove the live store violates
 `StaleDeletionCannotRemoveLiveDocument`. These checks are independent from the
 tail-accounting invariants.
+
+The local update log stores each queued update as its local history tail row,
+so a checkpoint can cover an operation that is still queued. Settlement clears
+the row's `update_id`; only then may compaction delete it. Disabling
+`CompactionSparesQueued` lets `CompactHistory` delete covered queued rows and
+violates `WorkingAccountingSound`: the marker already counts the operation,
+but nothing durable still sends it.
 
 The checked configuration uses two abstract operations, two document
 identity/access contexts, and two non-reused store generations, exploring

@@ -164,7 +164,9 @@ test("a failure with no pending work surfaces as its own queue item", async () =
 
     // A later clean pass clears the row and the failure-only item with it.
     await clearDocumentSyncFailure(execSql, DOCUMENT_SCOPE);
-    await execSql(`DELETE FROM document_pending_updates`);
+    await execSql(
+      "DELETE FROM document_history_updates WHERE update_id IS NOT NULL",
+    );
     const cleared = await listPendingWrites(execSql);
     expect(
       cleared.find((item) => item.localId === "local-document"),
