@@ -1,8 +1,6 @@
 import { publish } from "../adapters/redisPubSub";
-import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import type { SessionData } from "../validators/session";
 import type { PublishedRealtimeEvent } from "./publishedRealtimeEvents";
-import { wsInterestStore } from "./wsInterestStore";
 
 const SESSION_REVOKED_EVENT_TYPE = "session_revoked";
 
@@ -20,33 +18,20 @@ function sessionRevokedEvent(session: SessionData): SessionRevokedEvent {
 }
 
 interface SessionRevocationNotifierDependencies {
-  clearInterest: (userId: string, sessionId: string) => Promise<void>;
-  onClearInterestError?: (error: unknown) => void;
   publishEvent: (event: SessionRevokedEvent) => Promise<void>;
 }
 
+/**
+ * Closes the revoked session's open sockets. No interest outlives a socket,
+ * so revocation has nothing else to clear.
+ */
 export function createSessionRevocationNotifier({
-  clearInterest,
-  onClearInterestError = (error) => {
-    console.error("Failed to clear websocket interest store:", error);
-    reportBackgroundFailure(error, "session.clear-interest");
-  },
   publishEvent,
 }: SessionRevocationNotifierDependencies) {
-  return async (session: SessionData): Promise<void> => {
-    const clearInterestTask = Promise.resolve()
-      .then(() => clearInterest(session.userId, session.id))
-      .catch(onClearInterestError);
-    const publishTask = Promise.resolve().then(() =>
-      publishEvent(sessionRevokedEvent(session)),
-    );
-
-    await Promise.all([clearInterestTask, publishTask]);
-  };
+  return (session: SessionData): Promise<void> =>
+    publishEvent(sessionRevokedEvent(session));
 }
 
 export const notifySessionRevoked = createSessionRevocationNotifier({
-  clearInterest: (userId, sessionId) =>
-    wsInterestStore.clear(userId, sessionId),
   publishEvent: publish,
 });

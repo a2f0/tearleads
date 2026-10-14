@@ -13,7 +13,8 @@ import {
   submitRegistration,
   submitVerify,
 } from "../../../test/helpers/api";
-import { del } from "../../adapters/redis";
+import { del, get } from "../../adapters/redis";
+import { consumeWebSocketTicket } from "../../realtime/wsTicket";
 import { routeApp } from "../../routeApp";
 
 const signingKeys = generateSigningSeedAndKeyPair();
@@ -56,6 +57,14 @@ test("authenticates with a valid signature", async () => {
   expect(body.organizationId).toBe(registrationBody.organizationId);
   expect(body.rootContainerId).toBe(registrationBody.rootContainerId);
   expect(body.userId).toBe(registrationBody.userId);
+
+  // The login carries the new session's first single-use websocket ticket.
+  const session = JSON.parse((await get(`session:${body.token}`)) ?? "null");
+  expect(await consumeWebSocketTicket(body.wsTicket)).toEqual({
+    sessionId: session.id,
+    userId: body.userId,
+  });
+  expect(await consumeWebSocketTicket(body.wsTicket)).toBeNull();
 });
 
 test("returns 401 when no challenge exists", async () => {

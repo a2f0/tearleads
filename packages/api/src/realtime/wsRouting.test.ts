@@ -411,7 +411,7 @@ test("access_changed evicts interest and tells interested sockets to resync", ()
     JSON.stringify({ type: "known_containers", containerIds: [X] }),
   );
 
-  const evictions = router.routeServerEvent(
+  router.routeServerEvent(
     JSON.stringify({ type: "access_changed", containerId: X }),
   );
 
@@ -421,12 +421,6 @@ test("access_changed evicts interest and tells interested sockets to resync", ()
   expect(bob.sent).toEqual([resync]);
   expect(router.interestedSocketCount(X)).toBe(0);
   expect(router.interestedSocketCount(Y)).toBe(1);
-  // The evictions are returned so the shell drops them from the persisted set,
-  // or a reconnect would restore the just-revoked interest.
-  expect(evictions).toEqual([
-    { containerId: X, sessionId: "alice-session", userId: "alice" },
-    { containerId: X, sessionId: "bob-session", userId: "bob" },
-  ]);
 
   router.routeServerEvent(documentEvent([X]));
   // No document delivery after eviction.

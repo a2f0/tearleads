@@ -1,11 +1,9 @@
-import { expect, mock, spyOn, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
 import { Hono } from "hono";
 import { createDestroySession } from "../middleware/session";
 import { createRealtimeGateway } from "../realtime/realtimeGateway";
-import { createSessionRevocationNotifier } from "../realtime/sessionRevocation";
 import type { WebSocketTicketIdentity } from "../realtime/wsIdentity";
-import type { AppliedInterest } from "../realtime/wsRouting";
 import { publishBestEffort } from "../utils/publishBestEffort";
 import type { SessionData } from "../validators/session";
 import * as background from "./reportBackgroundFailure";
@@ -48,21 +46,6 @@ function socket(sessionId: string) {
   return { sent, ws };
 }
 
-function failingInterestStore(failure: Error) {
-  return {
-    apply: async (
-      _userId: string,
-      _sessionId: string,
-      _applied: AppliedInterest,
-    ): Promise<void> => {
-      throw failure;
-    },
-    load: async (): Promise<string[]> => {
-      throw failure;
-    },
-  };
-}
-
 test("a broker outage on a committed write is reported without failing the write", async () => {
   const watch = watchReports();
   const failure = new Error("SYNTHETIC_PRIVATE_BROKER_VALUE");
@@ -78,28 +61,6 @@ test("a broker outage on a committed write is reported without failing the write
     ).toBeUndefined();
     expect(watch.log).toHaveBeenCalledTimes(1);
     expect(watch.report).toHaveBeenCalledWith(failure, "realtime.publish");
-  } finally {
-    watch.restore();
-  }
-});
-
-test("a failed interest cleanup is reported while the revocation still publishes", async () => {
-  const watch = watchReports();
-  const failure = new Error("SYNTHETIC_PRIVATE_REDIS_VALUE");
-  const publishEvent = mock(async () => {});
-  try {
-    await createSessionRevocationNotifier({
-      clearInterest: async () => {
-        throw failure;
-      },
-      publishEvent,
-    })(session);
-    expect(publishEvent).toHaveBeenCalledTimes(1);
-    expect(watch.log).toHaveBeenCalledTimes(1);
-    expect(watch.report).toHaveBeenCalledWith(
-      failure,
-      "session.clear-interest",
-    );
   } finally {
     watch.restore();
   }
@@ -136,44 +97,32 @@ test("a failed revocation fan-out is reported and still completes the logout", a
   }
 });
 
-test("post-handshake interest failures are reported and the socket still gets its state", async () => {
+test("a post-handshake container authorization failure is reported and closes the socket", async () => {
   const watch = watchReports();
   const failure = new Error("SYNTHETIC_PRIVATE_INTEREST_VALUE");
   const gateway = createRealtimeGateway({
-    authorizeContainerAccess: async (_userId, ids) =>
-      ids.map((containerId) => ({
-        containerId,
-        pathContainerIds: [containerId],
-        principalKeys: [],
-      })),
-    interestStore: failingInterestStore(failure),
+    authorizeContainerAccess: async () => {
+      throw failure;
+    },
     subscribe: () => () => undefined,
   });
   const { sent, ws } = socket("session-a");
   try {
-    await gateway.websocket.open(ws);
-    expect(sent.map((message) => JSON.parse(message))).toEqual([
-      { type: "interest_state", containerIds: [] },
-    ]);
-
+    gateway.websocket.open(ws);
     await gateway.websocket.message(
       ws,
       JSON.stringify({
         type: "known_containers",
         containerIds: [CONTAINER_ID],
+        declarationId: "container-interest-a",
       }),
     );
-    // The persisted write is serialized behind a chain, so it settles a tick
-    // after the handler the socket already returned from.
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(watch.log).toHaveBeenCalledTimes(2);
-    expect(watch.report).toHaveBeenCalledTimes(2);
-    for (const [error] of watch.report.mock.calls) {
-      expect(error).toBe(failure);
-    }
+    expect(sent).toEqual([]);
+    expect(watch.report).toHaveBeenCalledTimes(1);
+    expect(watch.report).toHaveBeenCalledWith(failure, "websocket.operation");
   } finally {
     watch.restore();
+    gateway.stop();
   }
 });
 
@@ -184,12 +133,11 @@ test("an organization authorization failure is reported and denies the declarati
     authorizeOrganizationAccess: async () => {
       throw failure;
     },
-    interestStore: { apply: async () => {}, load: async () => [] },
     subscribe: () => () => undefined,
   });
   const { sent, ws } = socket("session-b");
   try {
-    await gateway.websocket.open(ws);
+    gateway.websocket.open(ws);
     await gateway.websocket.message(
       ws,
       JSON.stringify({
@@ -198,7 +146,7 @@ test("an organization authorization failure is reported and denies the declarati
         organizationIds: [CONTAINER_ID],
       }),
     );
-    expect(JSON.parse(sent[1] ?? "{}")).toEqual({
+    expect(JSON.parse(sent[0] ?? "{}")).toEqual({
       type: "known_organizations_ack",
       declarationId: "organization-interest-a",
       organizationId: CONTAINER_ID,
