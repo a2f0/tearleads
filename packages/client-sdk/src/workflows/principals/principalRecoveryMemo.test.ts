@@ -36,10 +36,12 @@ test("online directory and Admins recovery cannot reuse an offline batch entry",
       memo,
     );
     await online.directory([]);
+    // Online discovery still reads the server-current directory head.
     expect(f.requests.length).toBeGreaterThan(before);
-    const directoryReads = f.requests.length;
     await online.admins(principalPolicyHead(history.admin));
-    expect(f.requests.length).toBeGreaterThan(directoryReads);
+    // Completed Admins evidence needs no read, but never reuses the offline entry.
+    expect(memo.directories.size).toBe(2);
+    expect(memo.admins.size).toBe(2);
   } finally {
     f.close();
   }
@@ -66,7 +68,7 @@ test("a failed batch recovery can retry after the transport recovers", async () 
   }
 });
 
-test("a directory batch shares selected evidence without dropping its original lease", async () => {
+test("an operation shares selected evidence but never serves an expired lease", async () => {
   const f = await createAuthorityRecoveryFixture(history);
   try {
     const memo: PrincipalRecoveryMemo = {
@@ -91,14 +93,23 @@ test("a directory batch shares selected evidence without dropping its original l
     );
     expect(f.requests).toHaveLength(count);
     originalCurrent = false;
-    await expect(later.directory([])).rejects.toThrow("generation expired");
-    expect(f.requests).toHaveLength(count);
+    // The expired entry is evicted; the live caller rediscovers under its own
+    // lease, which this unavailable server refuses.
+    f.controls.failureStatus = 503;
+    await expect(later.directory([])).rejects.toMatchObject({
+      name: "PrincipalPolicyHistoryReadError",
+    });
+    delete f.controls.failureStatus;
+    expect((await later.directory([])).policy.stateHash).toBe(
+      first.policy.stateHash,
+    );
+    expect(f.requests).toHaveLength(count + 1);
   } finally {
     f.close();
   }
 });
 
-test("additional Admins citations reuse local proofs and keep the source lease", async () => {
+test("additional Admins citations reuse local proofs within the source lease", async () => {
   const f = await createAuthorityRecoveryFixture(history);
   try {
     const memo: PrincipalRecoveryMemo = {
@@ -128,17 +139,23 @@ test("additional Admins citations reuse local proofs and keep the source lease",
     ).toEqual([1, 66]);
     expect(f.requests).toHaveLength(count);
     sourceCurrent = false;
-    await expect(later.admins(head, [genesis])).rejects.toThrow(
-      "generation expired",
+    // Expired entries are evicted, never served; the completed local stage
+    // re-verifies the selection under the live caller's lease.
+    const expired = new Set(memo.admins.values());
+    const reverified = await later.admins(head, [genesis]);
+    expect(
+      reverified.policy.retainedHistory.map((entry) => entry.state.version),
+    ).toEqual([1, 66]);
+    expect([...memo.admins.values()].some((entry) => expired.has(entry))).toBe(
+      false,
     );
-    await expect(later.admins(head)).rejects.toThrow("generation expired");
     expect(f.requests).toHaveLength(count);
   } finally {
     f.close();
   }
 });
 
-test("additional directory citations keep the verified view and its source lease", async () => {
+test("additional directory citations keep the verified view within its source lease", async () => {
   const f = await createAuthorityRecoveryFixture(history);
   try {
     const memo: PrincipalRecoveryMemo = {
@@ -172,10 +189,13 @@ test("additional directory citations keep the verified view and its source lease
     ).toEqual([1, 32, 66]);
     expect(f.requests).toHaveLength(count);
     sourceCurrent = false;
-    await expect(later.directory([reference])).rejects.toThrow(
-      "generation expired",
-    );
-    await expect(later.directory([])).rejects.toThrow("generation expired");
+    // An expired view is evicted rather than served; rediscovery is refused.
+    await expect(later.directory([reference])).rejects.toMatchObject({
+      name: "PrincipalPolicyHistoryReadError",
+    });
+    await expect(later.directory([])).rejects.toMatchObject({
+      name: "PrincipalPolicyHistoryReadError",
+    });
     expect(f.requests).toHaveLength(count);
   } finally {
     f.close();
@@ -207,3 +227,36 @@ test("a directory memo still authenticates an added historical citation", async 
     f.close();
   }
 });
+
+test.each(["directory", "admins"] as const)(
+  "a reused %s keeps its producer's lifetime after hand-out",
+  async (kind) => {
+    const f = await createAuthorityRecoveryFixture(history);
+    try {
+      const memo: PrincipalRecoveryMemo = {
+        directories: new Map(),
+        admins: new Map(),
+      };
+      let producerCurrent = true;
+      const producer = createPrincipalRecoveryReader(
+        { ...f.options, stillCurrent: () => producerCurrent },
+        memo,
+      );
+      const consumer = createPrincipalRecoveryReader(f.options, memo);
+      const read = (reader: typeof producer) =>
+        kind === "directory"
+          ? reader.directory([])
+          : reader.admins(principalPolicyHead(history.admin));
+      await read(producer);
+      const count = f.requests.length;
+      await read(consumer);
+      expect(f.requests).toHaveLength(count);
+      expect(consumer.stillCurrent()).toBe(true);
+      // The consumer holds the producer's evidence; its use must end with it.
+      producerCurrent = false;
+      expect(consumer.stillCurrent()).toBe(false);
+    } finally {
+      f.close();
+    }
+  },
+);

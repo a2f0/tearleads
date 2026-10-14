@@ -117,41 +117,40 @@ when a rollback response arrives. A later user retry starts a fresh operation.
 
 ## Warm projection request cost
 
-A completed local prefix avoids replaying historical signatures, but online
-projection recovery still fetches the pinned head once per source. That read
-validates the returned public head artifacts and rechecks the grant's live
-object access. It does not download the completed prefix again. The fixed
-15-second response-body deadline also applies to document and container
-writer-projection GETs.
+A completed local stage or prefix already authenticates every signed entry
+through the exact head its caller pins. Recovery therefore reads nothing for
+that head ([#2522](https://github.com/a2f0/tearleads/issues/2522)). A read
+pinned to the head could only return the stored head bundle, whose current
+artifacts are fixed by the signed state, or refuse. Public projection sources
+skip their pinned read once their progress is complete, and private exact-head
+recovery takes the same local path while online. An incomplete stage, a new
+head, or lost proof material still reads the bounded pages it needs; each
+returned head artifact is checked against the private root as before.
 
-This deliberately preserves those checks in the first compact-wire release.
-The app's single-file upload fixture grows from 10 to 28 requests (18 public
-history reads), personal-organization bootstrap from 30 to 64 (34 such reads),
-and additional-organization bootstrap from 9 to 12. The Admins-group mutation
-fixture adds 78–84 public history reads, measuring 136–144 total requests against
-its prior 63-request allowance. Those are measured request
-counts, not latency benchmarks. Serial round trips can increase warm-operation
-latency, especially on mobile links; the change does not claim a warm-path
-performance improvement. In exchange, projection responses no longer embed
-complete principal histories, and cold verification progresses across bounded
-requests instead of one history-sized response.
+Server currency stays with the organization discovery read, a bare
+`GET /principals/organization/:organizationId/policy` without `stateHash`.
+Every workflow operation that needs private policy authority issues it once.
+It selects the server-current directory head and applies live read
+authorization to the organization policy. A group revocation rotates the group
+and commits a directory successor with it, so the next operation recovers that
+successor. Within one operation, later projection collections reuse its
+recovered directory until an organization hint, a durable pin past a memoized
+head, or the end of the producing lease evicts it. Dropping the confirmation
+read removes only refusals of evidence the device already verified: a 403 or
+409 for a completed head, or served head bytes that differ from the stored
+ones. It cannot admit an unverified head, bypass the rollback, fork or
+checkpoint checks, or extend write authority, which the API still decides
+against live state. Stored current artifacts that fail their signed-history
+check discard the stage and replay signed history online once rather than
+refusing (no-brick).
 
-The settled folder workflow adds 8 history reads to create, 10 to link, 30 to
-unlink, 34 to move a document to Trash, 12 to move a folder to Trash, and 14 to
-restore it. Its prior non-history route budgets remain unchanged. Group creation
-adds 9 reads; adding the first roster peer to a custom group adds 42, and adding
-an existing peer adds 9. The first add also allows one fresh document projection
-when a concurrent policy advance invalidates the create-time proof. Mutation
-counts remain exact, including the single committed compound folder create.
-The root attachment-sharing fixture adds 70 public history reads (116–118 total
-requests); its existing mutation, projection and aggregate byte caps are retained.
-
-Reusing a head check for an entire runtime lifetime would also reuse an earlier
-access result and stop inspecting subsequent returned head artifacts. This
-release keeps the existing online refusal, artifact validation, and lifetime
-checks explicit. Batching exact source heads while reauthorizing their object
-scope is a possible optimization for reducing these round trips. It must preserve
-current authorization and artifact validation; the present reads remain bounded.
+Measured on the app fixtures at that change, the single-file upload fell from
+33 to 10 requests (three discovery reads, no public history reads),
+personal-organization bootstrap from 93 to 41, the Admins-group addition from
+202 to 74–77, and the root attachment-sharing test from 182 to 65–71. The
+remaining policy reads are one discovery read per operation and reads of heads
+that are new to the device. These are measured request counts, not latency
+benchmarks.
 
 ## Measuring HTTP work
 

@@ -15,6 +15,7 @@ formal/container-keying/PrincipalHistory.tla|formal/container-keying/PrincipalHi
 formal/container-keying/PrincipalHistoryPages.tla|formal/container-keying/PrincipalHistoryPages.cfg
 formal/container-keying/PrincipalHistoryResume.tla|formal/container-keying/PrincipalHistoryResume.cfg
 formal/container-keying/PrincipalReferenceProgress.tla|formal/container-keying/PrincipalReferenceProgress.cfg
+formal/container-keying/PrincipalRecoveryReuse.tla|formal/container-keying/PrincipalRecoveryReuse.cfg
 formal/document-sync/AttachmentKeyReachability.tla|formal/document-sync/AttachmentKeyReachability.cfg
 formal/document-sync/BaselineDominance.tla|formal/document-sync/BaselineDominance.cfg
 formal/document-sync/BaselineDominanceTraceExport.tla|formal/document-sync/BaselineDominanceTraceExport.cfg

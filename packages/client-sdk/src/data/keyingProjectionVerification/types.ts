@@ -18,7 +18,7 @@ export type PrincipalPolicyCache = Map<string, PrincipalPolicyCurrentEvidence>;
 export interface PrincipalPolicyResolveRequest {
   /** Reuse authenticated local ancestry before an authorized online recovery. */
   readonly preferLocalHistory?: boolean | undefined;
-  /** Identity of one projection collection, never caller-supplied evidence. */
+  /** One recovery view: the warmer's operation unless a caller supplies its own. */
   readonly recoveryBatch?: object | undefined;
   readonly organizationId: string;
   readonly reference: ReferencedPrincipalHead;
