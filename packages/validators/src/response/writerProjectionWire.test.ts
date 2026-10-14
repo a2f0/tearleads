@@ -127,3 +127,63 @@ test("a document's bundle map must cover every cited list", () => {
     ),
   ).toBeNull();
 });
+
+test("a request's known hashes are cited but not served", () => {
+  const known = new Set(["root", "leaf-genesis", "never-cited"]);
+  const wire = jsonRoundTrip(
+    encodeDocumentWriterProjection(documentProjection(), known),
+  );
+  expect(Object.keys(Reflect.get(Object(wire), "bundles")).sort()).toEqual([
+    "document",
+    "document-genesis",
+    "leaf",
+    "root-genesis",
+  ]);
+  expect(Reflect.get(Object(wire), "omittedBundles")).toEqual([
+    "root",
+    "leaf-genesis",
+  ]);
+  // Rebuilding needs the exact bytes the request cited.
+  expect(decodeDocumentWriterProjection(wire)).toBeNull();
+  const held = new Map([
+    ["root", bundle("root")],
+    ["leaf-genesis", bundle("leaf-genesis")],
+  ]);
+  expect(decodeDocumentWriterProjection(wire, held)).toEqual(
+    documentProjection(),
+  );
+  // A held bundle stored under another hash fills nothing.
+  expect(
+    decodeDocumentWriterProjection(
+      wire,
+      new Map([...held, ["root", bundle("other")]]),
+    ),
+  ).toBeNull();
+});
+
+test("an omission must be cited, unique, and not also served", () => {
+  const wire = encodeContainerWriterProjection(
+    containerProjection(),
+    new Set(["root"]),
+  );
+  const held = new Map([["root", bundle("root")]]);
+  expect(decodeContainerWriterProjection(jsonRoundTrip(wire), held)).toEqual(
+    containerProjection(),
+  );
+  for (const omittedBundles of [
+    ["root", "root"],
+    ["root", "uncited"],
+    ["root", "leaf"],
+  ]) {
+    expect(
+      decodeContainerWriterProjection(
+        jsonRoundTrip({ ...wire, omittedBundles }),
+        new Map([...held, ["leaf", bundle("leaf")]]),
+      ),
+    ).toBeNull();
+  }
+  const { omittedBundles: _omitted, ...withoutOmissions } = wire;
+  expect(
+    decodeContainerWriterProjection(jsonRoundTrip(withoutOmissions), held),
+  ).toBeNull();
+});

@@ -10,10 +10,17 @@ lost or retired, and reaching a verification budget must not prevent revocation.
 | `IterativeVerification` | `verifyStoredManifestGraph` walks dependencies with an explicit stack rather than rejecting a lifetime history depth |
 | `Restart` / `warm` | `access_manifest_verifications` markers only accelerate reads; a cleared table, rotated secret or new verifier version must preserve acceptance |
 | `Commit` / `Revoke` | `verifyStoredContainerManifest` verifies the previous manifest before mutation authorization; history length adds no new mutation refusal |
+| `held` / `Evict` | `rememberVerifiedManifestBundles` stores bundles after projection verification, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
+| `Citable` / `CiteHeldBytes` | `heldManifestCitations` copies the exact stored bytes a request cites, at most `KNOWN_MANIFEST_HINT_LIMIT` hashes |
+| `Omitted` / `OmitOnlyCited` | `encodeContainerWriterProjection` and `encodeDocumentWriterProjection` omit only hashes the request cited, after the ordinary build, authorization and stored-evidence verification |
+| `Rebuilds` / `RefetchUncited` | `decodeContainerWriterProjection` and `decodeDocumentWriterProjection` fill omissions only from the cited bytes; a gap makes `citedProjectionRead` refetch once with no hints |
 
 The model abstracts one valid object history, with complete retained evidence
-and an authorized actor. It does not model signatures, missing dependencies,
-cycles, hierarchy depth, storage corruption, or key-epoch bounds. Runtime
+and an authorized actor. A device's durable verified-bundle table is the set
+`held` of versions whose bytes it stores; `known` models the rejected design of
+a hash-only table whose bytes may be gone. It does not model signatures,
+missing dependencies, cycles, hierarchy depth, storage corruption, or key-epoch
+bounds. Runtime
 regressions exercise the real signature verifier and histories longer than the
 former 4,096-entry limit. The history counter saturates only to keep the model
 finite; revocation still has an enabled transition at the model boundary.
@@ -38,13 +45,25 @@ changed signer key or forged marker makes that manifest verify in full
 wherever the server verifies it.
 Document ancestor queries share a request-local binary ancestor index: indexing
 N manifests uses O(N log N) time and space, and each indexed lineage query
-takes O(log N). The
-index expands only down to requested floors. Writer projections now omit exact
-historical prefixes only when requested from the device's verified evidence
-cache; the client reconstructs the proof before ordinary verification. Cache
-loss falls back to full evidence. These transport and signature-cache
-optimizations add no lifetime-history refusal or cap preventing revocation;
-see
+takes O(log N). The index expands only down to requested floors.
+
+Writer projections cite each manifest by hash (#2522). A projection read may
+list, in `x-known-manifests`, up to 48 manifest hashes whose verified bundles
+the device durably holds; the API omits exactly those it would have served and
+names them in `omittedBundles`. The device refills each omission from the bytes
+it cited and verifies the rebuilt projection as if it had arrived whole, so a
+held bundle is evidence bytes, never a verification result. `Read` checks the
+two rules that keep honest reads available whatever the device evicted: cite
+only held bytes (`CiteHeldBytes`) and omit only what was cited
+(`OmitOnlyCited`). The registered configuration proves them sufficient without
+the production refetch; each negative control drops one rule and TLC finds an
+honest refusal. `RefetchUncited` models the production fallback: a rebuild gap
+refetches once with no citations, which an honest API serves in full. Losing
+the table (`Evict` to nothing) therefore yields a complete response, and no
+device depends on another's cache. The API still walks and verifies every
+manifest it cites, because its own KEK verification consumes those states and
+the served policy evidence must cover every bundle the device re-verifies;
+citation saves bytes, not server work. See
 [the transport contract](../../docs/projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 No existing history is trusted merely because its depth is large.
 Regressions cover a full 4,098-entry verification without markers, a marked

@@ -43,6 +43,7 @@ import {
 } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { verifiedAccessManifestBundles } from "../../data/sqlite/verifiedManifestBundleSchema";
 import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
 import { clearResetPendingAttachments } from "./remoteResetAttachments";
 import { remoteResetBatches } from "./remoteResetBatches";
@@ -200,6 +201,7 @@ async function clearScopedRemoteRows(
   for (const table of [
     dormantContainerMetadata,
     dormantMetadataSweepRequests,
+    verifiedAccessManifestBundles,
   ] as const) {
     await tx
       .delete(table)

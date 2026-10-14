@@ -1,4 +1,3 @@
-import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
 import type {
   PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
@@ -35,6 +34,10 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
 import { withGenerationGuardedPolicyWarmer } from "./types";
+import {
+  retainVerifiedProjectionBundles,
+  verifiedProjectionBundles,
+} from "./verifiedProjectionBundles";
 
 type VerifiedManifestMap = Map<string, VerifiedContainerAccessManifest>;
 type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
@@ -262,6 +265,36 @@ async function verifyDocumentWriterProjectionWithContext(
   };
 }
 
+function retainVerifiedDocumentProjection(
+  input: Pick<
+    DocumentWriterProjectionVerificationInput,
+    "execSql" | "projection"
+  >,
+  authorization: DocumentWriterProjectionAuthorization,
+): Promise<void> {
+  const { projection } = input;
+  const containerManifests = new Map(
+    [...authorization.containerPathByManifestHash.values()]
+      .flat()
+      .map((manifest) => [manifest.manifestHash, manifest]),
+  );
+  const documentBundles = new Map(
+    [projection.documentManifest, ...projection.documentManifestHistory].map(
+      (bundle) => [bundle.manifestHash, bundle],
+    ),
+  );
+  return retainVerifiedProjectionBundles(input.execSql, [
+    ...verifiedProjectionBundles(
+      documentBundles,
+      authorization.documentManifestByHash,
+    ),
+    ...verifiedProjectionBundles(
+      collectDocumentProjectionContainerBundles(projection),
+      containerManifests,
+    ),
+  ]);
+}
+
 export async function verifyDocumentWriterProjection(
   input: DocumentWriterProjectionVerificationInput,
 ): Promise<VerifiedDocumentLinkSetManifest> {
@@ -273,7 +306,7 @@ export async function verifyDocumentWriterProjection(
     checkpointContext,
   );
   await finalizeProjectionCheckpoints(checkpointContext, input);
-  retainVerifiedProjectionHistory(input.projection);
+  await retainVerifiedDocumentProjection(input, verified.authorization);
   return verified.headManifest;
 }
 
@@ -289,7 +322,7 @@ export async function verifyDocumentWriterProjectionAuthorization(
       checkpointContext,
     );
     await finalizeProjectionCheckpoints(checkpointContext, input);
-    retainVerifiedProjectionHistory(input.projection);
+    await retainVerifiedDocumentProjection(input, verified.authorization);
     return verified.authorization;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);

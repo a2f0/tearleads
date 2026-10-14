@@ -1,4 +1,3 @@
-import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
 import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import {
   type ContainerUserRecipientKey,
@@ -43,6 +42,10 @@ import {
   generationGuardedPrincipalPolicyWarmer,
   withGenerationGuardedPolicyWarmer,
 } from "./types";
+import {
+  retainVerifiedProjectionBundles,
+  verifiedProjectionBundles,
+} from "./verifiedProjectionBundles";
 
 async function collectContainerUserRecipientKeys(input: {
   readonly containerManifest: VerifiedContainerAccessManifest;
@@ -303,12 +306,34 @@ export async function verifyContainerWriterProjectionWithContext(
   return verifiedPath;
 }
 
+function retainVerifiedContainerProjection(
+  input: Pick<
+    ContainerWriterProjectionVerificationInput,
+    "execSql" | "projection"
+  >,
+  verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
+): Promise<void> {
+  return retainVerifiedProjectionBundles(
+    input.execSql,
+    verifiedProjectionBundles(
+      collectContainerProjectionBundles(input.projection),
+      verifiedByHash,
+    ),
+  );
+}
+
 export async function verifyContainerWriterProjection(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<VerifiedContainerAccessManifest[]> {
   try {
     assertProjectionVerificationCurrent(input.stillCurrent);
-    const guardedInput = withGenerationGuardedPolicyWarmer(input);
+    const verifiedByHash =
+      input.verifiedByHash ??
+      new Map<string, VerifiedContainerAccessManifest>();
+    const guardedInput = {
+      ...withGenerationGuardedPolicyWarmer(input),
+      verifiedByHash,
+    };
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
       organizationId: input.projection.organizationId,
@@ -320,7 +345,7 @@ export async function verifyContainerWriterProjection(
     assertProjectionVerificationCurrent(input.stillCurrent);
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
-    retainVerifiedProjectionHistory(input.projection);
+    await retainVerifiedContainerProjection(input, verifiedByHash);
     return verifiedPath;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);
@@ -339,6 +364,9 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
       );
     const principalPolicyCache: PrincipalPolicyCache =
       input.principalPolicyCache ?? new Map();
+    const verifiedByHash =
+      input.verifiedByHash ??
+      new Map<string, VerifiedContainerAccessManifest>();
     const checkpointContext = createProjectionCheckpointContext({
       execSql: input.execSql,
       organizationId: input.projection.organizationId,
@@ -347,7 +375,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
       {
         principalPolicyCache,
         projection: input.projection,
-        verifiedByHash: input.verifiedByHash,
+        verifiedByHash,
         resolveUserKey: input.resolveUserKey,
         warmReferencedPrincipalPolicies,
       },
@@ -366,7 +394,7 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
     assertProjectionVerificationCurrent(input.stillCurrent);
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
-    retainVerifiedProjectionHistory(input.projection);
+    await retainVerifiedContainerProjection(input, verifiedByHash);
     return policies;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);

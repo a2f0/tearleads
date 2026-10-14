@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { projectionHistoryHeaderRefinement } from "../projectionHistoryRefinements";
+import { knownManifestsHeaderRefinement } from "../knownManifestsRefinements";
 import {
   ContainerNotFoundErrorResponseSchema,
   ContainerWriterProjectionErrorResponseSchema,
@@ -13,7 +13,7 @@ import {
   SessionFailureResponseSchema,
 } from "../response";
 import { PrincipalHistoryPreparationResponseSchema } from "../response/principalHistoryPreparation";
-import { ProjectionHistoryHeadersSchema } from "../util/projectionHistoryWire";
+import { KnownManifestsHeadersSchema } from "../util/knownManifestWire";
 import { writerProjectionResponseRuntimeRefinements } from "../writerProjectionRefinements";
 import { defineJsonOperation } from "./definition";
 
@@ -45,7 +45,7 @@ export const getContainerWriterProjectionOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "containers.writerProjection.get",
   method: "GET",
-  headers: ProjectionHistoryHeadersSchema,
+  headers: KnownManifestsHeadersSchema,
   params: ContainerWriterProjectionPathParamsSchema,
   path: "/containers/{containerId}/writer-projection",
   responses: {
@@ -54,7 +54,7 @@ export const getContainerWriterProjectionOperation = defineJsonOperation({
   },
   runtimeRefinements: [
     ...writerProjectionResponseRuntimeRefinements,
-    projectionHistoryHeaderRefinement,
+    knownManifestsHeaderRefinement,
   ],
 });
 
@@ -71,7 +71,7 @@ export const getDocumentWriterProjectionOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "documents.writerProjection.get",
   method: "GET",
-  headers: ProjectionHistoryHeadersSchema,
+  headers: KnownManifestsHeadersSchema,
   params: DocumentWriterProjectionPathParamsSchema,
   path: "/documents/{documentId}/writer-projection",
   responses: {
@@ -80,7 +80,7 @@ export const getDocumentWriterProjectionOperation = defineJsonOperation({
   },
   runtimeRefinements: [
     ...writerProjectionResponseRuntimeRefinements,
-    projectionHistoryHeaderRefinement,
+    knownManifestsHeaderRefinement,
   ],
 });
 

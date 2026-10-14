@@ -16,6 +16,7 @@ import { DocumentWriterProjectionWireResponseSchema } from "@tearleads/validator
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { writerResolver } from "../../../test/helpers/coldSdkRematerialization";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
+import { createHeldManifestCitations } from "../../../test/helpers/heldManifestCitations";
 import {
   asVerifiedContainerManifest,
   bootstrapRoot,
@@ -24,7 +25,7 @@ import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyRe
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import { routeApp } from "../../routeApp";
 
-test("real document incremental projections verify linked histories, rotations and cold recovery", async () => {
+test("real document projections cite held manifests through links, rotations and cold recovery", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await recoverRegisteredRootKek({
@@ -42,6 +43,7 @@ test("real document incremental projections verify linked histories, rotations a
   const recitedContainerIds: string[] = [];
   const samples: {
     hinted: boolean;
+    served: number;
     omitted: number;
     documentHistory: number;
   }[] = [];
@@ -63,8 +65,9 @@ test("real document incremental projections verify linked histories, rotations a
           await response.clone().json(),
         );
         samples.push({
-          hinted: request.headers.has("x-projection-history"),
-          omitted: wire.historyPrefixes?.length ?? 0,
+          hinted: request.headers.has("x-known-manifests"),
+          served: Object.keys(wire.bundles).length,
+          omitted: wire.omittedBundles.length,
           documentHistory: wire.documentManifestHistory.length,
         });
       }
@@ -73,6 +76,8 @@ test("real document incremental projections verify linked histories, rotations a
   });
   const client = new ApiClient(server.url.origin);
   client.setAuthToken(owner.token);
+  const held = createHeldManifestCitations();
+  client.setVerifiedManifestCitations(held.citations);
   const common = {
     ...device.common,
     apiClient: client,
@@ -154,6 +159,7 @@ test("real document incremental projections verify linked histories, rotations a
       });
       if (!result) throw new Error("Expected verified document read");
       expect(result.contentKey).toEqual(created.contentKey);
+      if (apiClient === client) held.holdDocument(projection);
       return { projection, result };
     };
     await linkChild();
@@ -170,13 +176,14 @@ test("real document incremental projections verify linked histories, rotations a
     );
     expect(samples[0]?.hinted).toBe(false);
     expect(samples[1]?.hinted).toBe(true);
-    expect(samples[1]?.omitted).toBeGreaterThan(0);
-    expect(samples[1]?.documentHistory).toBe(0);
+    expect(samples[1]?.omitted).toBe(samples[0]?.served);
+    expect(samples[1]?.served).toBe(0);
     await linkChild();
     const grown = await read();
     expect(grown.projection.authorizingContainerPaths).toHaveLength(3);
     expect(grown.projection.documentManifestHistory).toHaveLength(2);
-    expect(samples[2]?.documentHistory).toBe(1);
+    expect(samples[2]?.documentHistory).toBe(2);
+    expect(samples[2]?.omitted).toBeGreaterThan(0);
     expect(
       await rekeyRemoteContainer({
         ...rotator.common,
@@ -195,6 +202,7 @@ test("real document incremental projections verify linked histories, rotations a
     expect(recitedContainerIds).toEqual([]);
     expect(samples.at(-1)?.hinted).toBe(false);
     expect(samples.at(-1)?.omitted).toBe(0);
+    expect(samples.at(-1)?.served).toBeGreaterThan(samples[3]?.served ?? 0);
     expect(recovered.projection.documentManifest).toEqual(
       rotated.projection.documentManifest,
     );

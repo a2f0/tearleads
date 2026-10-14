@@ -107,7 +107,7 @@ export function createDocumentWriterProjectionRoute({
           await getDocumentWriterProjection(runtime, {
             documentId,
             userId: session.userId,
-            historyPrefixes: c.req.valid("header")["x-projection-history"],
+            knownManifests: c.req.valid("header")["x-known-manifests"],
           }),
         );
       } catch (error) {

@@ -40,8 +40,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 964,
-      "bytes": 53122
+      "lines": 971,
+      "bytes": 53636
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -68,8 +68,8 @@
       "bytes": 2984719
     },
     "docs/protocol-specification.md": {
-      "lines": 678,
-      "bytes": 35100
+      "lines": 689,
+      "bytes": 35817
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -84,8 +84,8 @@
       "bytes": 24037
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1978,
-      "bytes": 62836
+      "lines": 1981,
+      "bytes": 62970
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,

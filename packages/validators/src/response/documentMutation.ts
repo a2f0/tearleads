@@ -10,7 +10,6 @@ import {
   AccessEventBundleWireResponseSchema,
   AccessManifestBundleWireResponseSchema,
 } from "../util";
-import { ProjectionHistoryPrefixesSchema } from "../util/projectionHistoryWire";
 import { writerProjectionManifestBundlesRefinement } from "../writerProjectionRefinements";
 import {
   ContainerKeyingPathResponseSchema,
@@ -28,6 +27,7 @@ import {
   containerKeyingPathReferences,
   ManifestBundlesSchema,
   ManifestHashReferenceSchema,
+  OmittedManifestBundlesSchema,
   refineManifestBundleReferences,
 } from "./manifestBundleReferences";
 import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
@@ -106,7 +106,6 @@ export const DocumentPurgeResponseSchema = loosePlainObject({
 export type DocumentPurgeResponse = z.infer<typeof DocumentPurgeResponseSchema>;
 
 export const DocumentWriterProjectionResponseSchema = loosePlainObject({
-  historyPrefixes: ProjectionHistoryPrefixesSchema.optional(),
   policyEvidence: ProjectionPolicyEvidenceResponseSchema,
   authorizingContainerPaths: nonEmptyArraySchema(
     ContainerKeyingPathResponseSchema,
@@ -150,12 +149,12 @@ function documentWriterProjectionReferences(projection: {
   ];
 }
 
-/** The served shape: manifest positions cite `bundles` by hash. */
+/** The served shape; see ContainerWriterProjectionWireResponseSchema. */
 export const DocumentWriterProjectionWireResponseSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       bundles: ManifestBundlesSchema,
-      historyPrefixes: ProjectionHistoryPrefixesSchema.optional(),
+      omittedBundles: OmittedManifestBundlesSchema,
       policyEvidence: ProjectionPolicyEvidenceResponseSchema,
       authorizingContainerPaths: nonEmptyArraySchema(
         ContainerKeyingPathWireResponseSchema,
@@ -175,7 +174,7 @@ export const DocumentWriterProjectionWireResponseSchema =
       documentManifestHistory: arraySchema(ManifestHashReferenceSchema),
     }).superRefine((projection, context) =>
       refineManifestBundleReferences(
-        projection.bundles,
+        projection,
         documentWriterProjectionReferences(projection),
         context,
       ),

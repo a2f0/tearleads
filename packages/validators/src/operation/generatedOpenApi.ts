@@ -10677,7 +10677,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-projection-history"?: string;
+                "x-known-manifests"?: string;
             };
             path: {
                 containerId: string;
@@ -10748,11 +10748,7 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        historyPrefixes?: {
-                            count: number;
-                            digest: string;
-                            key: string;
-                        }[];
+                        omittedBundles: string[];
                         organizationId: string;
                         path: string[];
                         policyEvidence: {
@@ -14369,7 +14365,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-projection-history"?: string;
+                "x-known-manifests"?: string;
             };
             path: {
                 documentId: string;
@@ -14485,11 +14481,7 @@ export interface operations {
                         documentManifest: string;
                         documentManifestContainerPaths: string[][];
                         documentManifestHistory: string[];
-                        historyPrefixes?: {
-                            count: number;
-                            digest: string;
-                            key: string;
-                        }[];
+                        omittedBundles: string[];
                         policyEvidence: {
                             groups: ({
                                 grant: string;

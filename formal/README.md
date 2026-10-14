@@ -147,9 +147,10 @@ before an additive join hands that key out. See the
 ## Manifest History Availability
 
 [`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
-models cold reads and revocation. Negative controls show why lifetime caps fail.
-The positive predicates hold by definition; this model does not explore a verifier
-algorithm or establish resource bounds. See the
+models cold reads, revocation, and reads citing a device's held bundles.
+Negative controls show why lifetime caps fail and why citations need held bytes
+and cited-only omission. The read and revocation predicates hold by
+definition; it does not explore a verifier algorithm or resource bounds. See the
 [mapping and runtime regressions](./container-keying/ManifestHistory.md).
 Principal state models cover
 [version availability](./container-keying/PrincipalHistory.md)

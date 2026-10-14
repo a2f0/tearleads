@@ -1,6 +1,5 @@
-import { omitProjectionHistory } from "@tearleads/crypto";
 import { encodeContainerWriterProjection } from "@tearleads/validators/response";
-import { parseProjectionHistoryHints } from "@tearleads/validators/util";
+import { parseKnownManifestHints } from "@tearleads/validators/util";
 import { runContainerWriterProjectionWorkflow } from "../../workflows/containers/writerProjection";
 import { createDatabaseWorkflowService } from "../databaseWorkflowService";
 
@@ -15,15 +14,14 @@ const getFullProjection = createDatabaseWorkflowService(
 export async function getContainerWriterProjection(
   runtime: Parameters<typeof getFullProjection>[0],
   input: Parameters<typeof getFullProjection>[1] & {
-    readonly historyPrefixes?: string | undefined;
+    readonly knownManifests?: string | undefined;
   },
 ) {
   const projection = await getFullProjection(runtime, input);
-  // Each distinct manifest bundle travels once; every position cites it by hash.
+  // Built, authorized and verified as for any reader; each distinct bundle
+  // travels once, and the bundles the request holds are cited but not sent.
   return encodeContainerWriterProjection(
-    omitProjectionHistory(
-      projection,
-      parseProjectionHistoryHints(input.historyPrefixes ?? "[]") ?? [],
-    ),
+    projection,
+    new Set(parseKnownManifestHints(input.knownManifests ?? "") ?? []),
   );
 }

@@ -89,4 +89,20 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "RevocationAvailable" },
     why: "Limiting accepted history length cannot refuse an otherwise authorized revocation.",
   },
+  {
+    id: "manifest-citation-cites-hashes-without-bytes",
+    module: "formal/container-keying/ManifestHistory.tla",
+    config: "formal/container-keying/ManifestHistory.cfg",
+    constants: { CiteHeldBytes: "FALSE" },
+    expect: { kind: "invariant", name: "HonestCitedReadsAccepted" },
+    why: "A device may cite only manifests whose verified bytes it can resend into verification (#2522).",
+  },
+  {
+    id: "manifest-citation-omits-uncited",
+    module: "formal/container-keying/ManifestHistory.tla",
+    config: "formal/container-keying/ManifestHistory.cfg",
+    constants: { OmitOnlyCited: "FALSE" },
+    expect: { kind: "invariant", name: "HonestCitedReadsAccepted" },
+    why: "The API may omit only manifests the request cited, never what it believes the device holds (#2522).",
+  },
 ];

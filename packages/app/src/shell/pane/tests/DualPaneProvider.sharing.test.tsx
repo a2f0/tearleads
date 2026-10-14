@@ -57,11 +57,12 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
   // Private metadata-root authority now uses bounded directory/Admins reads.
-  // Measured 182 calls and 3.04 MB received once writer projections carry one
-  // bundle per manifest hash (3.53 MB before); keep eight calls of room.
+  // Measured 182 calls and 2.65 MB received once writer projections carry one
+  // bundle per manifest hash and omit bundles the device already verified
+  // (3.53 MB before #2522); keep eight calls of room.
   total: 190,
   // Preserve the request-byte cap and room for two extra document projections.
-  bodyBytes: { request: 380_000, response: 3_250_000 },
+  bodyBytes: { request: 380_000, response: 2_850_000 },
   byRequest: {
     "GET /principals/history": 70,
     "GET /documents/:documentId/writer-projection": 9,

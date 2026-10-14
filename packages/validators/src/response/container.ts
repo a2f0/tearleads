@@ -18,7 +18,6 @@ import {
   CONTAINER_KEK_WRAPS_PER_EPOCH_LIMIT,
   ContainerKekKeyringWireRecordSchema,
 } from "../util";
-import { ProjectionHistoryPrefixesSchema } from "../util/projectionHistoryWire";
 import {
   containerWriterProjectionPathKekCountRefinement,
   writerProjectionManifestBundlesRefinement,
@@ -28,6 +27,7 @@ import {
   containerKeyingPathReferences,
   ManifestBundlesSchema,
   ManifestHashReferenceSchema,
+  OmittedManifestBundlesSchema,
   refineManifestBundleReferences,
 } from "./manifestBundleReferences";
 import {
@@ -277,7 +277,6 @@ export const ContainerWriterProjectionResponseSchema =
     loosePlainObject({
       ...containerKeyingPathShape,
       policyEvidence: ProjectionPolicyEvidenceResponseSchema,
-      historyPrefixes: ProjectionHistoryPrefixesSchema.optional(),
     }).superRefine(refineContainerKeyingPath),
     [containerWriterProjectionPathKekCountRefinement],
   );
@@ -303,18 +302,21 @@ export type ContainerKeyingPathWireResponse = z.infer<
   typeof ContainerKeyingPathWireResponseSchema
 >;
 
-/** The served shape: manifest positions cite `bundles` by hash. */
+/**
+ * The served shape: manifest positions cite `bundles` by hash, except hashes
+ * the request declared already held, which `omittedBundles` lists instead.
+ */
 export const ContainerWriterProjectionWireResponseSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
       bundles: ManifestBundlesSchema,
+      omittedBundles: OmittedManifestBundlesSchema,
       ...containerKeyingPathWireShape,
       policyEvidence: ProjectionPolicyEvidenceResponseSchema,
-      historyPrefixes: ProjectionHistoryPrefixesSchema.optional(),
     }).superRefine((projection, context) => {
       refineContainerKeyingPath(projection, context);
       refineManifestBundleReferences(
-        projection.bundles,
+        projection,
         containerKeyingPathReferences(projection),
         context,
       );

@@ -157,3 +157,11 @@ GET /documents/{documentId}/writer-projection removed the required property `doc
 # #2522 (#3): writer projections cite one manifest bundle per hash.
 # Remove this exact diagnostic once main contains the new contract.
 GET /documents/{documentId}/writer-projection removed the required property `documentManifestHistory/items/state` from the response with the `200` status
+
+# #2522 (#4): durable manifest citation replaces per-path history prefixes.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection deleted the `header` request parameter `x-projection-history`
+
+# #2522 (#4): durable manifest citation replaces per-path history prefixes.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection deleted the `header` request parameter `x-projection-history`

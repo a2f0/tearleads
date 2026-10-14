@@ -1,6 +1,6 @@
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
-/** Current local schema, including required directory ownership flags. */
-export const BACKUP_FORMAT_VERSION = 8;
+/** Current local schema, including the verified manifest bundle cache. */
+export const BACKUP_FORMAT_VERSION = 9;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;
