@@ -209,18 +209,14 @@ async function citedObjects(
   ];
 }
 
-function soleOrganization(
-  rows: readonly { readonly organizationId: string }[],
-): string | null {
-  const organizations = new Set(rows.map((row) => row.organizationId));
-  const [organizationId] = organizations;
-  return organizations.size === 1 && organizationId ? organizationId : null;
-}
-
 /**
- * The one organization the read's objects locally belong to: listed
- * containers, then a document's discovery head, then the target's own
- * verified rows. Null when unknown or ambiguous.
+ * The one organization every local source places the read in. Verified
+ * ownership (stored verified bundles of the target and of the containers on
+ * its walk, and a document's verified discovery head) and local placement
+ * (listed container rows reached through links, pending listings, metadata,
+ * or parents) must all agree: any disagreement, or no source at all, yields
+ * null, so the read is sent with no hints rather than another
+ * organization's.
  */
 async function targetOrganization(
   db: ClientSQLiteDatabase,
@@ -237,25 +233,37 @@ async function targetOrganization(
           .select({ organizationId: containers.organizationId })
           .from(containers)
           .where(inArray(containers.id, containerIds));
-  if (listed.length > 0) return soleOrganization(listed);
-  if (target.kind === "document") {
-    const discovered = await db
-      .select({ organizationId: documentDiscoveryHeads.organizationId })
-      .from(documentDiscoveryHeads)
-      .where(eq(documentDiscoveryHeads.documentId, target.id));
-    if (discovered.length > 0) return soleOrganization(discovered);
-  }
-  return soleOrganization(
-    await db
-      .select({ organizationId: bundles.organizationId })
-      .from(bundles)
-      .where(
-        and(
-          eq(bundles.objectKind, target.kind),
-          eq(bundles.objectId, target.id),
-        ),
-      ),
+  const verifiedContainers =
+    containerIds.length === 0
+      ? []
+      : await db
+          .select({ organizationId: bundles.organizationId })
+          .from(bundles)
+          .where(
+            and(
+              eq(bundles.objectKind, "container"),
+              inArray(bundles.objectId, containerIds),
+            ),
+          );
+  const verifiedTarget = await db
+    .select({ organizationId: bundles.organizationId })
+    .from(bundles)
+    .where(
+      and(eq(bundles.objectKind, target.kind), eq(bundles.objectId, target.id)),
+    );
+  const discovered =
+    target.kind === "document"
+      ? await db
+          .select({ organizationId: documentDiscoveryHeads.organizationId })
+          .from(documentDiscoveryHeads)
+          .where(eq(documentDiscoveryHeads.documentId, target.id))
+      : [];
+  const sources = [listed, verifiedContainers, verifiedTarget, discovered];
+  const organizations = new Set(
+    sources.flat().map((row) => row.organizationId),
   );
+  const [organizationId] = organizations;
+  return organizations.size === 1 && organizationId ? organizationId : null;
 }
 
 interface StoredBundleRow {

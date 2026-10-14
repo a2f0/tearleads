@@ -27,6 +27,16 @@ type HeldBundles = ReadonlyMap<string, AccessManifestBundleWireResponse>;
 const PROJECTION_PATH =
   /^\/(?:containers|documents)\/([^/?#]+)\/writer-projection$/u;
 
+function projectionId(path: string): string | null {
+  const encoded = PROJECTION_PATH.exec(path)?.[1];
+  if (encoded === undefined) return null;
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return null;
+  }
+}
+
 function writerProjectionKind(
   operationId: string,
 ): WriterProjectionTarget["kind"] | null {
@@ -87,15 +97,17 @@ async function citedProjectionRead<T>(
     input.path,
     options,
   );
-  const id = PROJECTION_PATH.exec(input.path)?.[1];
-  // Caller-specific headers make a request its own; it cites nothing.
+  const id = projectionId(input.path);
+  // Caller-specific headers make a request its own; it cites nothing. The
+  // caller's abort also ends a citation wait.
   const held =
-    id === undefined || options.headers !== undefined
+    id === null || options.headers !== undefined
       ? new Map<string, AccessManifestBundleWireResponse>()
-      : await heldManifestCitations(citations, {
-          kind: input.kind,
-          id: decodeURIComponent(id),
-        });
+      : await heldManifestCitations(
+          citations,
+          { kind: input.kind, id },
+          options.signal,
+        );
   if (held.size === 0) return readProjection(runtime, input, held, context);
   const hinted = await readProjection(
     runtime,

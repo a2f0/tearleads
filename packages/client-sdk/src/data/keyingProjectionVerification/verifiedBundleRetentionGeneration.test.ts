@@ -18,6 +18,7 @@ import {
   verifyDocumentWriterProjectionAuthorization,
 } from "./documentProjectionVerification";
 import { ProjectionVerificationCancelledError } from "./types";
+import { BUNDLE_RETENTION_DEADLINE_MS } from "./verifiedProjectionBundles";
 
 /**
  * An executor whose generation expires while the verified-bundle cache write
@@ -114,3 +115,30 @@ for (const [entry, verify] of documentVerifiers) {
     }
   });
 }
+
+test("a stalled bundle write delays container verification by at most its bound", async () => {
+  const fixture = await containerFixture();
+  const database = await createTestExecSql("stalled-bundle-write");
+  const execSql = (async (...args: Parameters<ExecSql>) =>
+    args[0].includes("verified_access_manifest_bundles")
+      ? new Promise<never>(() => {})
+      : database.execSql(...args)) as ExecSql;
+  try {
+    const verified = await Promise.race([
+      verifyContainerWriterProjection({
+        execSql,
+        projection: fixture.projection,
+        resolveUserKey: fixture.resolveUserKey,
+      }).then(() => "verified"),
+      new Promise((resolve) =>
+        setTimeout(
+          () => resolve("stalled"),
+          BUNDLE_RETENTION_DEADLINE_MS + 1_000,
+        ),
+      ),
+    ]);
+    expect(verified).toBe("verified");
+  } finally {
+    database.close();
+  }
+});

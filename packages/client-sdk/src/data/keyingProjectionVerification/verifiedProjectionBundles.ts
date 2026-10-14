@@ -28,8 +28,8 @@ export function verifiedProjectionBundles(
 
 /**
  * Lets a later projection read cite these bundles instead of downloading
- * them again. Best effort: the projection already verified, and a cache
- * write must never turn that into a refusal. The write is the verifier's
+ * them again. Best effort and bounded: the projection already verified, and
+ * a cache write must never refuse or stall it. The write is the verifier's
  * last await, so afterwards it rechecks the composite guard checkpoint
  * finalization used — the caller's generation and every lease (such as a
  * policy-history lease) observed on `checkpointContext` — so a verification
@@ -41,12 +41,27 @@ export async function retainVerifiedProjectionBundles(
   checkpointContext: ProjectionCheckpointContext,
   stillCurrent: (() => boolean) | undefined,
 ): Promise<void> {
-  try {
-    await rememberVerifiedManifestBundles(execSql, entries);
-  } catch {
+  await boundedRetention(
     // A missed write only means the next read carries these bundles again.
-  }
+    rememberVerifiedManifestBundles(execSql, entries).catch(() => undefined),
+  );
   assertProjectionVerificationCurrent(
     projectionLifetimeGuard(checkpointContext, stillCurrent),
   );
+}
+
+/**
+ * The cache write never delays a verified projection by more than this; a
+ * slower write finishes in the background.
+ */
+export const BUNDLE_RETENTION_DEADLINE_MS = 250;
+
+function boundedRetention(write: Promise<void>): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, BUNDLE_RETENTION_DEADLINE_MS);
+    void write.then(() => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }

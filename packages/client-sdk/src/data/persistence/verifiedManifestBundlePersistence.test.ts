@@ -185,6 +185,86 @@ test("a discovered document cites within its discovery head's organization", asy
   }
 });
 
+test("any disagreement about an object's organization cites nothing", async () => {
+  const database = createNativeTestExecSql();
+  try {
+    await seedTree(database.execSql);
+    const { db } = getClientSQLitePersistenceRuntime(database.execSql);
+    const now = new Date().toISOString();
+    for (const [id, parentId, organizationId, metadataDocumentId] of [
+      ["metadata-holder", null, ORGANIZATION, "metadata-b"],
+      ["split-child", "foreign", ORGANIZATION, null],
+      ["rows-b", null, ORGANIZATION, null],
+    ] as const)
+      await db
+        .insert(containers)
+        .values({
+          id,
+          organizationId,
+          parentId,
+          metadataDocumentId,
+          localCreatedAt: now,
+          localUpdatedAt: now,
+        })
+        .run();
+    await db
+      .insert(documentContainerProjection)
+      .values({ documentId: "linked-b", containerId: "child", updatedAt: now })
+      .run();
+    await db
+      .insert(pendingDocumentDiscoveries)
+      .values({
+        containerId: "child",
+        documentId: "pending-b",
+        accessEpoch: 1,
+        generation: 1,
+        inputJson: "{}",
+      })
+      .run();
+    for (const [documentId, organizationId] of [
+      ["metadata-b", FOREIGN],
+      ["head-b", FOREIGN],
+    ] as const)
+      await db
+        .insert(documentDiscoveryHeads)
+        .values({
+          documentId,
+          organizationId,
+          manifestHash: hash(90),
+          accessEpoch: 1,
+          linksJson: "[]",
+        })
+        .run();
+    await rememberVerifiedManifestBundles(database.execSql, [
+      entry(hash(1), "container", "root", 1),
+      entry(hash(3), "container", "child", 1),
+      entry(hash(6), "container", "foreign", 1, FOREIGN),
+      // Verified rows place these objects in the other organization.
+      entry(hash(11), "document", "linked-b", 1, FOREIGN),
+      entry(hash(12), "document", "pending-b", 1, FOREIGN),
+      entry(hash(13), "container", "rows-b", 1, FOREIGN),
+      entry(hash(14), "document", "head-b", 1),
+    ]);
+    // Each pair disagrees: verified rows vs a link, verified rows vs a pending
+    // listing, a discovery head vs a metadata container, a discovery head vs
+    // verified rows, verified rows vs a listed container, and a listed child
+    // vs its listed parent.
+    for (const [kind, id] of [
+      ["document", "linked-b"],
+      ["document", "pending-b"],
+      ["document", "metadata-b"],
+      ["document", "head-b"],
+      ["container", "rows-b"],
+      ["container", "split-child"],
+    ] as const)
+      expect(
+        await loadVerifiedManifestCitations(database.execSql, { kind, id }),
+      ).toEqual([]);
+  } finally {
+    database.close();
+  }
+});
+
 test("a damaged row is dropped instead of cited", async () => {
   const database = createNativeTestExecSql();
   try {
