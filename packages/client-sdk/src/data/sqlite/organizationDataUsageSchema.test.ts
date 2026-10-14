@@ -5,14 +5,13 @@ import {
   requireColumn,
 } from "../../../test/helpers/sqlitePragma";
 import {
-  organizationDataUsageCategories,
   organizationDataUsageSnapshots,
   organizationDataUsageTables,
 } from "./organizationDataUsageSchema";
 import { clientSQLiteSchema, clientSqlTables } from "./schema";
 import { ensureSqlTables } from "./sqlTableSchema";
 
-test("organization data usage schema is requester scoped and normalized", async () => {
+test("organization data usage schema is requester scoped with an inline breakdown", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-data-usage-schema",
   );
@@ -44,40 +43,18 @@ test("organization data usage schema is requester scoped and normalized", async 
         type: "INTEGER",
       });
     }
-    expect(requireColumn(snapshots, "refreshed_at")).toMatchObject({
-      notNull: 1,
-      type: "TEXT",
-    });
-
-    const categories = await readTableColumns(
-      execSql,
-      "organization_data_usage_categories",
-    );
-    expect(requireColumn(categories, "organization_id")).toMatchObject({
-      notNull: 1,
-      pk: 1,
-    });
-    expect(requireColumn(categories, "requester_user_id")).toMatchObject({
-      notNull: 1,
-      pk: 2,
-    });
-    expect(requireColumn(categories, "category")).toMatchObject({
-      notNull: 1,
-      pk: 3,
-    });
+    for (const name of ["category_breakdown_json", "refreshed_at"]) {
+      expect(requireColumn(snapshots, name)).toMatchObject({
+        notNull: 1,
+        type: "TEXT",
+      });
+    }
     expect(clientSqlTables.map((table) => table.name)).toEqual(
-      expect.arrayContaining([
-        "organization_data_usage_snapshots",
-        "organization_data_usage_categories",
-      ]),
+      expect.arrayContaining(["organization_data_usage_snapshots"]),
     );
     const snapshotsSchemaKey = "organizationDataUsageSnapshots";
     expect(clientSQLiteSchema[snapshotsSchemaKey]).toBe(
       organizationDataUsageSnapshots,
-    );
-    const categoriesSchemaKey = "organizationDataUsageCategories";
-    expect(clientSQLiteSchema[categoriesSchemaKey]).toBe(
-      organizationDataUsageCategories,
     );
   } finally {
     close();

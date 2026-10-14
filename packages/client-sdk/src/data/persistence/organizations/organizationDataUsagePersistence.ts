@@ -2,13 +2,10 @@ import {
   ORGANIZATION_DOCUMENT_USAGE_CATEGORIES,
   type OrganizationDataUsageResponse,
   OrganizationDataUsageResponseSchema,
-  type OrganizationDocumentUsageCategory,
-  type OrganizationDocumentUsageCategoryBreakdown,
 } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import {
   ORGANIZATION_DATA_USAGE_PROJECTION_VERSION,
-  organizationDataUsageCategories,
   organizationDataUsageSnapshots,
   organizationDataUsageTables,
 } from "../../sqlite/organizationDataUsageSchema";
@@ -21,19 +18,10 @@ import type { ExecSql } from "../../sqlite/sqlSchema";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
 import { clearOrganizationPresentationDenialInTransaction } from "./organizationPresentationDenialPersistence";
 
-type StoredCategory = typeof organizationDataUsageCategories.$inferSelect;
 type StoredSnapshot = typeof organizationDataUsageSnapshots.$inferSelect;
 
 function isNonNegativeSafeInteger(value: number): boolean {
   return Number.isSafeInteger(value) && value >= 0;
-}
-
-function isDocumentUsageCategory(
-  value: string,
-): value is OrganizationDocumentUsageCategory {
-  return ORGANIZATION_DOCUMENT_USAGE_CATEGORIES.some(
-    (category) => category === value,
-  );
 }
 
 function isIsoTimestamp(value: string): boolean {
@@ -69,20 +57,6 @@ export async function purgeOrganizationDataUsageProjectionInTransaction(input: {
   readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   requireScope(input.organizationId, input.requesterUserId);
-  const condition = input.requesterUserId
-    ? and(
-        eq(
-          organizationDataUsageCategories.organizationId,
-          input.organizationId,
-        ),
-        eq(
-          organizationDataUsageCategories.requesterUserId,
-          input.requesterUserId,
-        ),
-      )
-    : eq(organizationDataUsageCategories.organizationId, input.organizationId);
-  await input.tx.delete(organizationDataUsageCategories).where(condition).run();
-
   const snapshotCondition = input.requesterUserId
     ? and(
         eq(organizationDataUsageSnapshots.organizationId, input.organizationId),
@@ -117,63 +91,58 @@ function isStoredSnapshotValid(
   );
 }
 
+function parseStoredBreakdown(json: string): unknown {
+  try {
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+}
+
+// The stored breakdown is untrusted local JSON: the strict response schema
+// re-checks every entry (known category, each exactly once, safe non-negative
+// counts that sum to the stored totals) before it is served.
 function storedResponse(
   snapshot: StoredSnapshot,
-  categories: readonly StoredCategory[],
 ): OrganizationDataUsageResponse | null {
-  if (categories.length !== ORGANIZATION_DOCUMENT_USAGE_CATEGORIES.length) {
-    return null;
-  }
-  const byCategory = new Map<
-    OrganizationDocumentUsageCategory,
-    OrganizationDocumentUsageCategoryBreakdown
-  >();
-  for (const row of categories) {
-    const category = row.category;
-    if (
-      row.organizationId !== snapshot.organizationId ||
-      row.requesterUserId !== snapshot.requesterUserId ||
-      !isDocumentUsageCategory(category) ||
-      byCategory.has(category) ||
-      !isNonNegativeSafeInteger(row.byteLength) ||
-      !isNonNegativeSafeInteger(row.documentCount) ||
-      !isNonNegativeSafeInteger(row.updateCount)
-    ) {
-      return null;
-    }
-    byCategory.set(category, {
-      byteLength: row.byteLength,
-      category,
-      documentCount: row.documentCount,
-      updateCount: row.updateCount,
-    });
-  }
-  const breakdown = ORGANIZATION_DOCUMENT_USAGE_CATEGORIES.flatMap(
-    (category) => {
-      const entry = byCategory.get(category);
-      return entry ? [entry] : [];
-    },
-  );
-  if (breakdown.length !== ORGANIZATION_DOCUMENT_USAGE_CATEGORIES.length) {
-    return null;
-  }
-
-  const response: OrganizationDataUsageResponse = {
+  const parsed = OrganizationDataUsageResponseSchema.safeParse({
     organizationId: snapshot.organizationId,
     blobs: {
       blobCount: snapshot.blobCount,
       byteLength: snapshot.blobByteLength,
     },
     documents: {
-      breakdown,
+      breakdown: parseStoredBreakdown(snapshot.categoryBreakdownJson),
       byteLength: snapshot.documentByteLength,
       documentCount: snapshot.documentCount,
       updateCount: snapshot.documentUpdateCount,
     },
     totalByteLength: snapshot.totalByteLength,
-  };
-  const parsed = OrganizationDataUsageResponseSchema.safeParse(response);
+  });
   return parsed.success ? parsed.data : null;
+}
+
+function canonicalBreakdownJson(
+  response: OrganizationDataUsageResponse,
+): string {
+  const order = new Map<string, number>(
+    ORGANIZATION_DOCUMENT_USAGE_CATEGORIES.map((category, index) => [
+      category,
+      index,
+    ]),
+  );
+  const breakdown = [...response.documents.breakdown]
+    .sort(
+      (left, right) =>
+        (order.get(left.category) ?? 0) - (order.get(right.category) ?? 0),
+    )
+    .map((entry) => ({
+      byteLength: entry.byteLength,
+      category: entry.category,
+      documentCount: entry.documentCount,
+      updateCount: entry.updateCount,
+    }));
+  return JSON.stringify(breakdown);
 }
 
 export async function loadOrganizationDataUsageProjection(
@@ -193,23 +162,7 @@ export async function loadOrganizationDataUsageProjection(
       .from(organizationDataUsageSnapshots)
       .where(scope)
       .limit(1);
-    const categories = await tx
-      .select()
-      .from(organizationDataUsageCategories)
-      .where(
-        and(
-          eq(organizationDataUsageCategories.organizationId, organizationId),
-          eq(organizationDataUsageCategories.requesterUserId, requesterUserId),
-        ),
-      );
     if (!snapshot) {
-      if (categories.length > 0) {
-        await purgeOrganizationDataUsageProjectionInTransaction({
-          organizationId,
-          requesterUserId,
-          tx,
-        });
-      }
       return null;
     }
     const response = isStoredSnapshotValid(
@@ -217,7 +170,7 @@ export async function loadOrganizationDataUsageProjection(
       organizationId,
       requesterUserId,
     )
-      ? storedResponse(snapshot, categories)
+      ? storedResponse(snapshot)
       : null;
     if (!response) {
       await purgeOrganizationDataUsageProjectionInTransaction({
@@ -251,18 +204,6 @@ export async function saveOrganizationDataUsageProjection(input: {
         requesterUserId: input.requesterUserId,
         tx,
       });
-      const scope = and(
-        eq(
-          organizationDataUsageCategories.organizationId,
-          response.organizationId,
-        ),
-        eq(
-          organizationDataUsageCategories.requesterUserId,
-          input.requesterUserId,
-        ),
-      );
-      await tx.delete(organizationDataUsageCategories).where(scope).run();
-
       const snapshot = {
         organizationId: response.organizationId,
         requesterUserId: input.requesterUserId,
@@ -273,6 +214,7 @@ export async function saveOrganizationDataUsageProjection(input: {
         documentCount: response.documents.documentCount,
         documentUpdateCount: response.documents.updateCount,
         totalByteLength: response.totalByteLength,
+        categoryBreakdownJson: canonicalBreakdownJson(response),
         refreshedAt: new Date().toISOString(),
       };
       await tx
@@ -291,22 +233,10 @@ export async function saveOrganizationDataUsageProjection(input: {
             documentCount: snapshot.documentCount,
             documentUpdateCount: snapshot.documentUpdateCount,
             totalByteLength: snapshot.totalByteLength,
+            categoryBreakdownJson: snapshot.categoryBreakdownJson,
             refreshedAt: snapshot.refreshedAt,
           },
         })
-        .run();
-      await tx
-        .insert(organizationDataUsageCategories)
-        .values(
-          response.documents.breakdown.map((entry) => ({
-            organizationId: response.organizationId,
-            requesterUserId: input.requesterUserId,
-            category: entry.category,
-            byteLength: entry.byteLength,
-            documentCount: entry.documentCount,
-            updateCount: entry.updateCount,
-          })),
-        )
         .run();
     },
   );

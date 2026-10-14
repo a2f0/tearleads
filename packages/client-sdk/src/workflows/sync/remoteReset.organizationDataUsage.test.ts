@@ -7,10 +7,7 @@ import {
   organizationId,
 } from "../../../test/helpers/organizationReadModelFixtures";
 import { loadOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
-import {
-  organizationDataUsageCategories,
-  organizationDataUsageSnapshots,
-} from "../../data/sqlite/organizationDataUsageSchema";
+import { organizationDataUsageSnapshots } from "../../data/sqlite/organizationDataUsageSchema";
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
@@ -36,21 +33,13 @@ test("remote reset deletes durable organization data usage", async () => {
       documentCount: 1,
       documentUpdateCount: 2,
       totalByteLength: 30,
+      categoryBreakdownJson: "[]",
       refreshedAt: "2026-07-18T12:00:00.000Z",
-    });
-    await db.insert(organizationDataUsageCategories).values({
-      organizationId: "org-1",
-      requesterUserId: "user-1",
-      category: "user",
-      byteLength: 20,
-      documentCount: 1,
-      updateCount: 2,
     });
 
     await clearRemoteSyncState(execSql, { organizationId: "org-1" });
 
     expect(await db.select().from(organizationDataUsageSnapshots)).toEqual([]);
-    expect(await db.select().from(organizationDataUsageCategories)).toEqual([]);
   } finally {
     close();
   }

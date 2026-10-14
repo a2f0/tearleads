@@ -7,10 +7,7 @@ import {
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
 import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../../data/sqlite/documentSyncFailurePersistence";
-import {
-  organizationDataUsageCategories,
-  organizationDataUsageSnapshots,
-} from "../../data/sqlite/organizationDataUsageSchema";
+import { organizationDataUsageSnapshots } from "../../data/sqlite/organizationDataUsageSchema";
 import {
   organizationPresentationDenials,
   organizationReadModelContainerGrants,
@@ -84,7 +81,6 @@ async function clearOrganizationPresentationRows(
   organizationId: string,
 ): Promise<void> {
   for (const table of [
-    organizationDataUsageCategories,
     organizationDataUsageSnapshots,
     organizationReadModelContainerGrants,
     organizationReadModelGroupMembers,
