@@ -36,10 +36,12 @@ test("online directory and Admins recovery cannot reuse an offline batch entry",
       memo,
     );
     await online.directory([]);
+    // Online discovery still reads the server-current directory head.
     expect(f.requests.length).toBeGreaterThan(before);
-    const directoryReads = f.requests.length;
     await online.admins(principalPolicyHead(history.admin));
-    expect(f.requests.length).toBeGreaterThan(directoryReads);
+    // Completed Admins evidence needs no read, but never reuses the offline entry.
+    expect(memo.directories.size).toBe(2);
+    expect(memo.admins.size).toBe(2);
   } finally {
     f.close();
   }

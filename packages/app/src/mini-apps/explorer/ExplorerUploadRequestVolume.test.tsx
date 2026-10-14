@@ -35,18 +35,17 @@ afterEach(async () => {
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Nine mutation/blob requests, eighteen public-history reads and fifteen
-  // bounded policy reads authenticate metadata-root grants. Held bytes match
-  // the authenticated attachment intent, so local settlement needs no binding
-  // listing. Keep one request of aggregate scheduling headroom.
-  total: 43,
+  // Seven mutation/blob requests and four directory discovery reads measured
+  // 11 calls. Held bytes match the authenticated attachment intent, so local
+  // settlement needs no binding listing. Keep one request of scheduling headroom.
+  total: 12,
   byRequest: {
-    // Each projection verification rechecks its organization/Admins head page.
-    "GET /principals/history": 18,
-    // Five destination checks discover and pin the directory plus its Admins
-    // head. These replace the old unprotected complete-bundle authority path.
-    "GET /principals/organization/:organizationId/policy": 10,
-    "GET /principals/group/:groupId/policy": 5,
+    // Completed public stages of the cited heads need no confirmation read.
+    "GET /principals/history": 0,
+    // Each scoped recovery batch discovers the server-current directory head;
+    // its completed directory and Admins stages need no pinned read.
+    "GET /principals/organization/:organizationId/policy": 4,
+    "GET /principals/group/:groupId/policy": 0,
     // Create the image document shell, upload + bind its attachment blob, and
     // probe the remote document before blob staging, then sync the document
     // content before and after the attachment bind. A small encrypted blob is

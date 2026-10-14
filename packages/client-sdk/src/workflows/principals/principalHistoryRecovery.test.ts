@@ -49,18 +49,43 @@ test("a fresh SDK operation resumes checked pages after an HTTP interruption", a
   }
 });
 
-test("finished progress still rechecks live HTTP access before reuse", async () => {
+test("a completed stage of the exact pinned head needs no confirmation read", async () => {
   const fixture = await createRecoveryFixture(history);
   try {
     await recoverPrincipalPolicyHistory(fixture.options);
+    // A read of the pinned head could only repeat the stored bytes or refuse.
     fixture.controls.failAfterVersion = 65;
+    const result = await recoverPrincipalPolicyHistory({
+      ...fixture.options,
+      apiClient: fixture.client(),
+    });
+    expect(result.policy.stateHash).toBe(history.expectedHead.stateHash);
+    expect(fixture.requests).toEqual([0, 32, 64]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("rejected stored current artifacts replay signed history once online", async () => {
+  const fixture = await createRecoveryFixture(history);
+  try {
+    fixture.controls.mutate = (page) => {
+      page.currentPayload.ciphertext = "substituted";
+    };
     await expect(
-      recoverPrincipalPolicyHistory({
-        ...fixture.options,
-        apiClient: fixture.client(),
-      }),
-    ).rejects.toMatchObject({ failure: { status: 503 } });
-    expect(fixture.requests).toEqual([0, 32, 64, 65]);
+      recoverPrincipalPolicyHistory(fixture.options),
+    ).rejects.toMatchObject({ code: "hash_mismatch" });
+    // The saved stage is complete; its stored current artifacts are invalid.
+    const [stage] = await fixture.db.select().from(principalHistoryStages);
+    expect(stage).toMatchObject({ complete: true });
+    fixture.controls.mutate = null;
+    fixture.requests.length = 0;
+    const result = await recoverPrincipalPolicyHistory({
+      ...fixture.options,
+      apiClient: fixture.client(),
+    });
+    expect(result.policy.stateHash).toBe(history.expectedHead.stateHash);
+    expect(fixture.requests).toEqual([0, 32, 64]);
   } finally {
     fixture.close();
   }

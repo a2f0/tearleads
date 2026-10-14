@@ -2,6 +2,30 @@ import type { NegativeControl } from "./protocolNegativeControls";
 
 export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   {
+    id: "principal-reuse-skips-discovery",
+    module: "formal/container-keying/PrincipalRecoveryReuse.tla",
+    config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
+    constants: { DiscoverEachBatch: "FALSE" },
+    expect: { kind: "invariant", name: "FreshPerBatch" },
+    why: "Completed local stages must not replace the per-batch discovery of the server-current head (#2522).",
+  },
+  {
+    id: "principal-reuse-shortcuts-partial-stage",
+    module: "formal/container-keying/PrincipalRecoveryReuse.tla",
+    config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
+    constants: { ShortcutRequiresComplete: "FALSE" },
+    expect: { kind: "invariant", name: "AcceptedHeadVerified" },
+    why: "Only a completed stage of the exact pinned head may skip its history read (#2522).",
+  },
+  {
+    id: "principal-reuse-refuses-stored-current",
+    module: "formal/container-keying/PrincipalRecoveryReuse.tla",
+    config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
+    constants: { ReplayRejectedStoredCurrent: "FALSE" },
+    expect: { kind: "invariant", name: "HonestServerNeverRefused" },
+    why: "Rejected stored current artifacts must replay online instead of refusing the honest server (#2522).",
+  },
+  {
     id: "principal-resume-saves-unchecked-progress",
     module: "formal/container-keying/PrincipalHistoryResume.tla",
     config: "formal/container-keying/PrincipalHistoryResume.cfg",

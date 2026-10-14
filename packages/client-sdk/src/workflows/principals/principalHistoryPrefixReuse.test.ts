@@ -84,7 +84,7 @@ test("new citations and a later local checkpoint reuse a completed prefix", asyn
     expect(
       recovered.policy.retainedHistory.map(({ state }) => state.version),
     ).toEqual([16, 32, 67]);
-    expect(fixture.requests).toEqual([66]);
+    expect(fixture.requests).toEqual([]);
   } finally {
     fixture.close();
   }

@@ -53,7 +53,7 @@ test("persistent display proof loss stops after one signed-history replay and pr
     await expect(
       recoverPrincipalHistoryPage({ ...f.options, execSql }, 67),
     ).rejects.toMatchObject({ code: "missing_dependency" });
-    expect(f.requests).toEqual([65, 0, 32, 64]);
+    expect(f.requests).toEqual([0, 32, 64]);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual(pins);
   } finally {
     f.close();

@@ -56,13 +56,14 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Measure after provisioning/roster import, including background settlement.
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
-  // Private metadata-root authority now uses bounded directory/Admins reads.
-  // Measured 182 calls and 3.56 MB received; keep eight calls of scheduling room.
-  total: 190,
+  // Private metadata-root authority adds directory discovery reads; completed
+  // policy stages need no confirmation read. Measured 68–73 calls and about
+  // 2.1 MB received; keep eight calls of scheduling room.
+  total: 81,
   // Preserve the request-byte cap and room for two extra document projections.
-  bodyBytes: { request: 380_000, response: 3_900_000 },
+  bodyBytes: { request: 380_000, response: 2_350_000 },
   byRequest: {
-    "GET /principals/history": 70,
+    "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 18,
     "GET /containers/:containerId/documents": 10,
@@ -79,8 +80,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /documents/:documentId/attachments": 2,
     "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,
-    "GET /principals/group/:groupId/policy": 25,
-    "GET /principals/organization/:organizationId/policy": 44,
+    "GET /principals/group/:groupId/policy": 0,
+    "GET /principals/organization/:organizationId/policy": 26,
     "GET /organizations/:organizationId/groups": 0,
     "POST /containers/with-metadata-document": 1,
     "POST /containers/:containerId/share": 1,

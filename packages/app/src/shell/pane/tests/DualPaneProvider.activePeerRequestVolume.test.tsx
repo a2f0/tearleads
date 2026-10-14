@@ -301,9 +301,16 @@ test(
       // Encrypted labels require the new signed directory and group head.
       `GET /principals/organization/${founderSession.organizationId}/policy`,
       `GET /principals/organization/${founderSession.organizationId}/policy`,
-      `GET /principals/group/${adminGroupId}/policy`,
       `GET /principals/group/${groupId}/policy`,
     ]);
+    // The unchanged Admins head is already a completed local stage.
+    expect(
+      peerMutationRequests.some(
+        (request) =>
+          requestPath(request.url) ===
+          `/principals/group/${adminGroupId}/policy`,
+      ),
+    ).toBe(false);
     expect(peerReadModelRequests).toHaveLength(1);
     expect(
       peerContainerOrDocumentRequests.map(
