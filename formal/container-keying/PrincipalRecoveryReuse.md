@@ -20,8 +20,8 @@ a value it hands out stays bound to its producer's lifetime until it is used.
 | `AdmitPin` | `advanceKeyingCheckpointsAtomically` admits a verified head as the durable pin |
 | `Interrupt` | `savePrincipalHistoryStage` persists an incomplete page boundary |
 | `StoreRejectedCurrent` | `acceptPage` saves a completed stage before `verifyPrincipalPolicyCurrent` checks its current artifacts |
-| `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer, and `bindPrincipalPolicyWarmerOperation` names it for guarded wrappers |
-| `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `rememberedEvidence` reuses a policy cache's evidence only for the same `principalPolicyWarmerOperation` and epoch |
+| `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer |
+| `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `resolveReferencedPrincipalPolicy` always resolves through the warmer, so this is the only reuse of scoped evidence |
 | `BeginReuse` | `memoPrincipalRecovery` rechecks `entryLive` synchronously and hands out the value with the consumer's and producer's lifetime |
 | `ExpireProducer` | the producing call's `stillCurrent` (lease or caller lifetime) ends |
 | `FinishReuse` / `CancelDerive` | `resolveReferencedPrincipalPolicy` registers the composite lifetime with `observeProjectionLifetime`, so `commitProjectionCheckpoints` cancels a use whose producer expired |
@@ -59,10 +59,10 @@ hints. Eight negative controls in
   server forever, the bricked-device shape `NoBrickedDevice` forbids.
 - `MemoPerOperation = FALSE` violates `FreshPerOperation`: a memo that outlives
   its operation serves a directory older than the next operation's start. A
-  caller's policy cache shared across operations was such a memo until its
-  remembered evidence was bound to the producing operation (Codex re-review of
-  9c9c8dcc2); `principalRecoveryOperation.test.ts` reuses one cache across two
-  operations and across a hint.
+  caller's policy cache that remembered resolved evidence was a second such
+  memo with its own, drifting rules (Codex re-reviews of 9c9c8dcc2 and
+  343e89875); it was removed, and `principalRecoveryOperation.test.ts` reuses
+  one cache across two operations, across a hint, and past a named group pin.
 - `EvictOnHint = FALSE` violates `NoStaleAfterHint`: a hinted advance would not
   reach later collections of an operation already in flight.
 - `EvictOnCheckpoint = FALSE` violates `ReuseCoversPin`: another operation's

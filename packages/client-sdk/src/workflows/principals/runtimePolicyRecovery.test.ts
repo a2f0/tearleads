@@ -139,11 +139,12 @@ test("runtime projection recovery carries bounded history and dependencies throu
     );
     const requests = f.requests.length;
     const keys = f.ownedKeys.length;
-    // The same operation reuses its remembered evidence without a lease.
+    // The same operation reuses its memoized evidence without a request; the
+    // reuse runs under the private lease and the memo's validity rules.
     const cached = await f.collect(cache, operation);
     expect(cached.context.policies).toHaveLength(3);
     expect(f.requests).toHaveLength(requests);
-    expect(f.ownedKeys).toHaveLength(keys);
+    expect(f.ownedKeys).toHaveLength(keys + 1);
     // A new operation sharing the cache still discovers the directory itself.
     await f.collect(cache);
     expect(f.requests).toHaveLength(requests + 1);
@@ -215,7 +216,9 @@ test.each(["target", "dependency"] as const)(
       await expect(f.collect(cache, operation)).rejects.toMatchObject({
         code: "equivocation",
       });
-      expect(f.requests).toHaveLength(requests);
+      // The forked pin evicts the memoized view; one rediscovery precedes
+      // the terminal refusal.
+      expect(f.requests).toHaveLength(requests + 1);
     } finally {
       f.close();
     }

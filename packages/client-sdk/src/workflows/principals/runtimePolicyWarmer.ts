@@ -3,7 +3,6 @@ import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectio
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
   assertProjectionVerificationCurrent,
-  bindPrincipalPolicyWarmerOperation,
   isProjectionVerificationCancelledError,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
@@ -44,17 +43,13 @@ export function createRuntimePrincipalPolicyWarmer(
       recoveryBatch: input.recoveryBatch ?? operation,
     });
   };
-  return bindPrincipalPolicyWarmerOperation(
-    Object.assign(
-      (input: Parameters<ReferencedPrincipalPolicyWarmer>[0]) =>
-        prefetchReferences(runtime, resolveReference, input),
-      {
-        resolveReference,
-        resolveProjectionHistory:
-          createRuntimeProjectionPolicyResolver(runtime),
-      },
-    ),
-    operation,
+  return Object.assign(
+    (input: Parameters<ReferencedPrincipalPolicyWarmer>[0]) =>
+      prefetchReferences(runtime, resolveReference, input),
+    {
+      resolveReference,
+      resolveProjectionHistory: createRuntimeProjectionPolicyResolver(runtime),
+    },
   );
 }
 

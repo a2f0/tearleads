@@ -15,11 +15,11 @@ EXTENDS Naturals
 (* pins may change between a collection's reads and the entry it stores,   *)
 (* so an entry carries the epoch observed before its reads (a derived      *)
 (* citation keeps its source's). A value handed out from the memo stays    *)
-(* bound to its producer's lifetime until its point of use. memo abstracts *)
-(* every in-memory reuse of recovered evidence: the warmer's recovery memo *)
-(* and evidence remembered in a caller's policy cache, which carries the   *)
-(* same operation, epoch and lifetime binding. Each parameter is a         *)
-(* production guard; negative controls disable one at a time.              *)
+(* bound to its producer's lifetime until its point of use. memo is the    *)
+(* only in-memory reuse of recovered directory and Admins evidence; a      *)
+(* caller's policy cache keeps bare policies and resolves scoped evidence  *)
+(* through it. Each parameter is a production guard; negative controls     *)
+(* disable one at a time.                                                  *)
 (***************************************************************************)
 
 CONSTANTS MaxHead, MaxOps, MaxHints,

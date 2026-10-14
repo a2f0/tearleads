@@ -66,13 +66,14 @@ async function fixture() {
     warmer: ReferencedPrincipalPolicyWarmer,
     principalPolicyCache: PrincipalPolicyCache = new Map(),
     stillCurrent?: () => boolean,
+    reference = principalPolicyHead(history.created),
   ) => {
     const context = createProjectionCheckpointContext(source.options);
     await collectReferencedPrincipalPolicies({
       checkpointContext: context,
       organizationId: history.organizationId,
       principalPolicyCache,
-      references: [principalPolicyHead(history.created)],
+      references: [reference],
       resolveUserKey: source.options.resolveTrustedUserIdentity,
       stillCurrent,
       warmReferencedPrincipalPolicies: warmer,
@@ -187,14 +188,14 @@ test("a shared policy cache does not carry evidence into the next operation", as
   }
 });
 
-test("a hint evicts evidence remembered in a shared policy cache", async () => {
+test("a hint evicts the operation's view behind a shared policy cache", async () => {
   const f = await fixture();
   try {
     const cache: PrincipalPolicyCache = new Map();
     const warmer = f.operation();
     await f.collect(warmer, cache);
     const discovered = f.discoveries();
-    // The same operation and cache reuse remembered evidence without a read.
+    // The same operation reuses its memoized view without a read.
     await f.collect(warmer, cache);
     expect(f.discoveries()).toBe(discovered);
     const successor = await advanceAdmins(f);
@@ -228,6 +229,48 @@ test.each(["memo", "policy cache"] as const)(
       );
       expect(isProjectionVerificationCancelledError(error)).toBe(true);
       expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+    } finally {
+      f.close();
+    }
+  },
+);
+
+test.each(["admin", "group"] as const)(
+  "a shared policy cache never admits a directory behind a named %s pin",
+  async (kind) => {
+    const f = await fixture();
+    try {
+      const warmer = f.operation();
+      const cache: PrincipalPolicyCache = new Map();
+      const directoryReference = principalPolicyHead(history.directory);
+      await f.collect(warmer, cache, undefined, directoryReference);
+      // Another operation admits a named group's successor, committed with a
+      // directory successor; only the group's durable pin advances here.
+      const named = await history.extend(history[kind], 67);
+      const directory = await history.advanceDirectory(
+        history.directory,
+        named,
+      );
+      f.policies.set(named.currentState.principalId, named);
+      f.policies.set(history.organizationId, directory);
+      await f.db
+        .insert(principalPolicyCheckpoints)
+        .values({
+          principalType: "group",
+          principalId: named.currentState.principalId,
+          version: 67,
+          stateHash: named.currentState.stateHash,
+          updatedAt: named.currentState.createdAt,
+        })
+        .run();
+      const context = await f.collect(
+        warmer,
+        cache,
+        undefined,
+        directoryReference,
+      );
+      expect(f.directoryHash(context)).toBe(directory.currentState.stateHash);
+      expect(f.incidents).toEqual([]);
     } finally {
       f.close();
     }
