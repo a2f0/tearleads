@@ -1,9 +1,13 @@
 import type { DocumentContextValue } from "@tearleads/client-sdk";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useTearleadsRuntime } from "../../providers/sdk/TearleadsProvider";
 import { useDocument } from "../../stores/documents/DocumentsProvider";
 import type { DocumentAttachmentSlots } from "./DocumentAttachmentSlots";
-import type { DocumentAttachmentSlot } from "./documentAttachmentUtils";
+import {
+  type DocumentAttachmentSlot,
+  expandAttachmentSlots,
+  resolveAttachmentUploadSlot,
+} from "./documentAttachmentUtils";
 import { useStructuredDocumentEditing } from "./StructuredDocument";
 import { useAttachmentImageUrls } from "./useAttachmentImageUrls";
 import { useBlobPickAttachment } from "./useBlobPickAttachment";
@@ -66,17 +70,35 @@ export function useAttachedStructuredDocument<Fields>(
     attachmentStorageKeyBySlotId,
     infra.blobStore,
   );
+  const uploadSlots = useMemo(
+    () => expandAttachmentSlots(slots, attachments, true),
+    [slots, attachments],
+  );
   const handleSelectedAttachment = useDocumentAttachmentSelection({
     errorMessage: `Failed to handle ${options.documentLabel} attachment selection`,
     replaceAttachment,
+    slots: uploadSlots,
   });
-  const slotIds = useMemo(() => slots.map((slot) => slot.slotId), [slots]);
+  const slotIds = useMemo(
+    () => uploadSlots.map((slot) => slot.slotId),
+    [uploadSlots],
+  );
+  const replacePickedAttachment = useCallback<
+    DocumentContextValue["replaceAttachment"]
+  >(
+    (slotId, upload) =>
+      replaceAttachment(
+        resolveAttachmentUploadSlot(slotId, uploadSlots),
+        upload,
+      ),
+    [replaceAttachment, uploadSlots],
+  );
   const blobPicker = useBlobPickAttachment({
     blobStore: infra.blobStore,
     containerId: options.containerId,
     errorMessage: `Failed to handle ${options.documentLabel} blob attachment selection`,
     localId: options.localId,
-    replaceAttachment,
+    replaceAttachment: replacePickedAttachment,
     slotIds,
   });
 

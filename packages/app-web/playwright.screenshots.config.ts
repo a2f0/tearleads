@@ -25,6 +25,8 @@ export default defineConfig({
   reporter: [["list"]],
   use: {
     baseURL: WEB_APP_BASE_URL,
+    locale: "en-US",
+    timezoneId: "America/Los_Angeles",
   },
   projects: [
     {
