@@ -10,7 +10,8 @@ test("stage reclamation selects its bounded batch through the scope index", asyn
     exec: async ({ sql, bind, rowMode }) => {
       if (
         sql.startsWith("select ") &&
-        sql.includes('from "principal_history_stage_scopes" inner join')
+        sql.includes('from "principal_history_stages" where') &&
+        sql.includes("offset")
       )
         selection = { sql, bind };
       return {
@@ -39,7 +40,7 @@ test("stage reclamation selects its bounded batch through the scope index", asyn
     );
     const details = plan.map((row) => String(Reflect.get(row, "detail")));
     expect(details).toContainEqual(
-      expect.stringContaining("principal_history_stage_scopes_scope_idx"),
+      expect.stringContaining("principal_history_stages_scope_idx"),
     );
     expect(details.some((detail) => detail.includes("USE TEMP B-TREE"))).toBe(
       false,

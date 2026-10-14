@@ -1,7 +1,5 @@
 import { expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
 import { seededCompletedRetention } from "../../../test/helpers/principalCompletedRetention";
-import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import { createExecSql, type ExecSql } from "../sqlite/sqlSchema";
 import { savePrincipalHistoryStage } from "./principalHistoryStagePersistence";
@@ -14,8 +12,7 @@ test("completed attempts converge in bounded batches while protecting published 
       { ...f.input.stage, id: "foreign-scope" },
       { ...f.input.stage, id: "foreign-organization", organizationId: "org-2" },
     ];
-    await f.db.insert(principalHistoryStages).values(retained);
-    await f.db.insert(principalHistoryStageScopes).values(
+    await f.db.insert(principalHistoryStages).values(
       retained.map((stage) => ({
         ...stage,
         scopeId: stage.id === "foreign-scope" ? "scope-2" : "scope-1",
@@ -38,9 +35,6 @@ test("completed attempts converge in bounded batches while protecting published 
     expect(saved.stages).toContainEqual(stage);
     for (const id of ["old-0", "old-1"])
       expect(saved.stages.some((row) => row.id === id)).toBe(true);
-    expect(saved.hints.map(({ id }) => id)).toEqual(
-      saved.stages.map(({ id }) => id),
-    );
     expect(saved.prefixes).toEqual(first.prefixes);
     const lost = f.rows[2];
     if (!lost) throw new Error("Missing evicted writer");
@@ -80,32 +74,6 @@ test.each([false, true])(
     }
   },
 );
-
-test("stale completion and version hints cannot evict a different actual stage", async () => {
-  const f = await seededCompletedRetention(10, 2);
-  try {
-    await f.db
-      .update(principalHistoryStages)
-      .set({ complete: false })
-      .where(eq(principalHistoryStages.id, "old-2"));
-    await f.db
-      .update(principalHistoryStages)
-      .set({ afterVersion: 200 })
-      .where(eq(principalHistoryStages.id, "old-3"));
-    await savePrincipalHistoryStage(f.input);
-    const saved = await f.snapshot();
-    expect(saved.stages.find((row) => row.id === "old-2")).toMatchObject({
-      complete: false,
-    });
-    expect(saved.stages.find((row) => row.id === "old-3")).toMatchObject({
-      afterVersion: 200,
-    });
-    expect(saved.stages).toHaveLength(10);
-    expect(saved.stages.some((row) => row.id === "old-4")).toBe(false);
-  } finally {
-    f.close();
-  }
-});
 
 test("cancellation rolls back completed acceptance and reclamation", async () => {
   const f = await seededCompletedRetention(9, 2);
@@ -148,8 +116,9 @@ test("completed reclamation uses the scoped recency index without an all-stage s
     exec: async ({ sql, bind, rowMode }) => {
       if (
         sql.startsWith("select ") &&
-        sql.includes('"principal_history_stages"."current_json"') &&
-        sql.includes('from "principal_history_stage_scopes" inner join')
+        sql.includes('"current_json"') &&
+        sql.includes('from "principal_history_stages" where') &&
+        sql.includes("offset")
       )
         selected = { sql, bind };
       return {
@@ -166,7 +135,7 @@ test("completed reclamation uses the scoped recency index without an all-stage s
     );
     const details = plan.map((row) => String(Reflect.get(row, "detail")));
     expect(details).toContainEqual(
-      expect.stringContaining("principal_history_stage_scopes_incomplete_idx"),
+      expect.stringContaining("principal_history_stages_incomplete_idx"),
     );
     expect(details.some((detail) => detail.includes("USE TEMP B-TREE"))).toBe(
       false,

@@ -1,6 +1,5 @@
 import { and, asc, desc, eq, inArray, lt, notInArray } from "drizzle-orm";
 import { principalHistoryPrefixes } from "../sqlite/principalHistoryEvidenceSchema";
-import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRuntime";
 import { releasePrincipalHistoryRoot } from "./principalHistoryRootOwnership";
@@ -18,15 +17,9 @@ interface CompletedWriter {
 
 function matchingCompletedStages(current: CompletedWriter) {
   return and(
-    eq(principalHistoryStageScopes.scopeId, current.scopeId),
-    eq(principalHistoryStageScopes.organizationId, current.organizationId),
-    eq(principalHistoryStageScopes.complete, true),
+    eq(principalHistoryStages.scopeId, current.scopeId),
     eq(principalHistoryStages.organizationId, current.organizationId),
     eq(principalHistoryStages.complete, true),
-    eq(
-      principalHistoryStages.afterVersion,
-      principalHistoryStageScopes.afterVersion,
-    ),
   );
 }
 
@@ -47,21 +40,17 @@ async function protectedPublishedStages(
   if (!prefix) return [];
   return tx
     .select({ id: principalHistoryStages.id })
-    .from(principalHistoryStageScopes)
-    .innerJoin(
-      principalHistoryStages,
-      eq(principalHistoryStageScopes.id, principalHistoryStages.id),
-    )
+    .from(principalHistoryStages)
     .where(
       and(
         matchingCompletedStages(current),
-        lt(principalHistoryStageScopes.afterVersion, prefix.version),
+        lt(principalHistoryStages.afterVersion, prefix.version),
       ),
     )
     .orderBy(
-      desc(principalHistoryStageScopes.afterVersion),
-      desc(principalHistoryStageScopes.touchedAt),
-      asc(principalHistoryStageScopes.id),
+      desc(principalHistoryStages.afterVersion),
+      desc(principalHistoryStages.touchedAt),
+      asc(principalHistoryStages.id),
     )
     .limit(2);
 }
@@ -85,11 +74,7 @@ export async function reclaimUnpublishedPrincipalHistoryStages(
         afterVersion: principalHistoryStages.afterVersion,
       },
     })
-    .from(principalHistoryStageScopes)
-    .innerJoin(
-      principalHistoryStages,
-      eq(principalHistoryStageScopes.id, principalHistoryStages.id),
-    )
+    .from(principalHistoryStages)
     .where(
       and(
         matchingCompletedStages(current),
@@ -98,8 +83,8 @@ export async function reclaimUnpublishedPrincipalHistoryStages(
     )
     // The existing "incomplete" index also covers completed scoped recency.
     .orderBy(
-      desc(principalHistoryStageScopes.touchedAt),
-      asc(principalHistoryStageScopes.id),
+      desc(principalHistoryStages.touchedAt),
+      asc(principalHistoryStages.id),
     )
     .offset(COMPLETED_STAGE_LIMIT - protectedIds.length)
     .limit(PRINCIPAL_HISTORY_STAGE_RECLAIM_LIMIT);
@@ -114,9 +99,5 @@ export async function reclaimUnpublishedPrincipalHistoryStages(
   await tx
     .delete(principalHistoryStages)
     .where(inArray(principalHistoryStages.id, ids))
-    .run();
-  await tx
-    .delete(principalHistoryStageScopes)
-    .where(inArray(principalHistoryStageScopes.id, ids))
     .run();
 }

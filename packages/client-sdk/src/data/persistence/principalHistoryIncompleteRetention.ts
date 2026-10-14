@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, inArray, ne } from "drizzle-orm";
-import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../sqlite/sqlitePersistenceRuntime";
 import { releasePrincipalHistoryRoot } from "./principalHistoryRootOwnership";
@@ -19,24 +18,18 @@ export async function reclaimIncompletePrincipalHistoryStages(
 ) {
   const obsolete = await tx
     .select({ id: principalHistoryStages.id })
-    .from(principalHistoryStageScopes)
-    .innerJoin(
-      principalHistoryStages,
-      eq(principalHistoryStageScopes.id, principalHistoryStages.id),
-    )
+    .from(principalHistoryStages)
     .where(
       and(
-        eq(principalHistoryStageScopes.scopeId, current.scopeId),
-        eq(principalHistoryStageScopes.organizationId, current.organizationId),
-        eq(principalHistoryStageScopes.complete, false),
+        eq(principalHistoryStages.scopeId, current.scopeId),
         eq(principalHistoryStages.organizationId, current.organizationId),
         eq(principalHistoryStages.complete, false),
-        ne(principalHistoryStageScopes.id, current.id),
+        ne(principalHistoryStages.id, current.id),
       ),
     )
     .orderBy(
-      desc(principalHistoryStageScopes.touchedAt),
-      asc(principalHistoryStageScopes.id),
+      desc(principalHistoryStages.touchedAt),
+      asc(principalHistoryStages.id),
     )
     // The writer always keeps its own stage, even when recency hints tie.
     .offset(INCOMPLETE_STAGE_LIMIT - (current.complete ? 0 : 1))
@@ -47,9 +40,5 @@ export async function reclaimIncompletePrincipalHistoryStages(
   await tx
     .delete(principalHistoryStages)
     .where(inArray(principalHistoryStages.id, ids))
-    .run();
-  await tx
-    .delete(principalHistoryStageScopes)
-    .where(inArray(principalHistoryStageScopes.id, ids))
     .run();
 }

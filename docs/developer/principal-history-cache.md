@@ -1,12 +1,12 @@
 # Principal-history cache retention
 
 Completed-prefix publication and atomic current acknowledgements reclaim older
-completed stages in the same transaction.
-Each pass retains the two newest completed stages through the published head and
-deletes at most 16 older rows. It preserves newer, incomplete, other-scope and
-other-organization progress. The scope index bounds candidate selection without
-sorting all stored stages. Scope and recency records are eviction hints; only
-private authentication permits recovery reuse.
+completed stages in the same transaction. Each pass retains the two newest
+completed stages through the published head and deletes at most 16 older rows.
+It preserves newer, incomplete, other-scope and other-organization progress. The
+scope index bounds candidate selection without sorting all stored stages. Each
+stage row's `scope_id` and `touched_at` columns are eviction hints; only private
+authentication permits recovery reuse.
 
 Encrypted member envelopes are retained separately for each principal key
 fingerprint before progress is removed. Candidate retention checks the envelope
@@ -34,19 +34,20 @@ most 16 rows, so an existing excess converges over subsequent page writes. It
 never removes completed artifacts, other scopes or other organizations through
 this path. Recency hints do not authorize recovery.
 
-Completed acceptance also targets eight indexed completed stages per scope.
-It always protects the current writer and the two newest completed heads through
+Completed acceptance also targets eight indexed completed stages per scope. It
+always protects the current writer and the two newest completed heads through
 the published prefix, then fills the remaining slots by recency. At most 16
 excess stages are removed per pass, so an existing backlog converges over later
 completed writes. This runs before current-artifact verification can fail;
 invalid current payloads cannot accumulate unlimited completed attempts while
 the last good prefix remains unchanged. Published offline evidence, incomplete
-work, other scopes and other organizations remain protected. Stale completion
-or version hints are skipped rather than used to evict a different actual row.
-Encrypted key candidates are archived before the bounded batch is deleted.
-The same cap applies to completed public-history attempts interrupted before
-prefix publication. Public progress contains no private key candidates;
-successful public recovery publishes its prefix and removes its own stage.
+work, other scopes and other organizations remain protected. Completion and
+version filters read the stage row itself, so no separate hint can disagree with
+the work it describes. Encrypted key candidates are archived before the bounded
+batch is deleted. The same cap applies to completed public-history attempts
+interrupted before prefix publication. Public progress contains no private key
+candidates; successful public recovery publishes its prefix and removes its own
+stage.
 
 An evicted in-flight writer fails its progress compare-and-swap with
 `principal_history_stage_changed`; the caller must start another recovery, which
@@ -57,8 +58,7 @@ Cancellation rolls back page acceptance, key archival and reclamation. Incomplet
 cleanup reads only stage identifiers; completed cleanup reads current artifacts
 only for its bounded archival/deletion batch. Both use the scoped recency index.
 
-Stages written before scope indexing remain untouched until rewritten or reset.
-Proof nodes present before graph indexing also remain available. Their previous
+Proof nodes present before graph indexing remain available. Their previous
 owners cannot be reconstructed from unauthenticated metadata alone.
 
 Accepted pages record their computed proof root and each new node's outgoing
@@ -88,14 +88,15 @@ Archive persistence does not authenticate the old progress record. Corrupted loc
 artifacts can replace useful candidates and make offline decryption unavailable;
 their consistency checks do not establish a new trust boundary.
 
-The archive and scope rows join the same guarded transaction as prefix publication
-or coupled receipt/checkpoint admission. Cancellation and transaction failure roll
-back reclamation as well as the new artifacts. The tests cover old object-key
-decryption after rotation, preservation of the immediate completed predecessor,
-transaction rollback, scope isolation, and the indexed SQLite query plan. Real
-HTTP tests reject a sequence of malformed current payloads while retaining only
-eight completed attempts, preserving the published prefix and predecessor
-offline, and decrypting an old object key after its unpublished stage is evicted.
+The archive rows and stage recency hints join the same guarded transaction as
+prefix publication or coupled receipt/checkpoint admission. Cancellation and
+transaction failure roll back reclamation as well as the new artifacts. The
+tests cover old object-key decryption after rotation, preservation of the
+immediate completed predecessor, transaction rollback, scope isolation, and the
+indexed SQLite query plan. Real HTTP tests reject a sequence of malformed
+current payloads while retaining only eight completed attempts, preserving the
+published prefix and predecessor offline, and decrypting an old object key after
+its unpublished stage is evicted.
 
 This bounds staged recovery attempts and cleanup batches, not total cache bytes.
 Retained key epochs, signed entries, leaf-reference hints and the shared nodes

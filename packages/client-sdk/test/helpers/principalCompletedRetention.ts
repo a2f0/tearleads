@@ -4,13 +4,22 @@ import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
 } from "../../src/data/sqlite/principalHistoryEvidenceSchema";
-import { principalHistoryStageScopes } from "../../src/data/sqlite/principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
 } from "../../src/data/sqlite/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../src/data/sqlite/sqlSchema";
+
+/** A stored stage without its retention hints, as writers hand it in. */
+export const principalHistoryStageWorkColumns = {
+  id: principalHistoryStages.id,
+  organizationId: principalHistoryStages.organizationId,
+  currentJson: principalHistoryStages.currentJson,
+  afterVersion: principalHistoryStages.afterVersion,
+  complete: principalHistoryStages.complete,
+  progress: principalHistoryStages.progress,
+};
 
 /** Opaque rows exercise eviction; cryptographic recovery is tested separately. */
 export async function seededCompletedRetention(
@@ -31,8 +40,7 @@ export async function seededCompletedRetention(
     complete: true,
     progress: `progress-${index}`,
   }));
-  await db.insert(principalHistoryStages).values(rows);
-  await db.insert(principalHistoryStageScopes).values(
+  await db.insert(principalHistoryStages).values(
     rows.map((row, index) => ({
       ...row,
       scopeId: "scope-1",
@@ -74,13 +82,9 @@ export async function seededCompletedRetention(
     },
     snapshot: async () => ({
       stages: await db
-        .select()
+        .select(principalHistoryStageWorkColumns)
         .from(principalHistoryStages)
         .orderBy(asc(principalHistoryStages.id)),
-      hints: await db
-        .select()
-        .from(principalHistoryStageScopes)
-        .orderBy(asc(principalHistoryStageScopes.id)),
       prefixes: await db.select().from(principalHistoryPrefixes),
     }),
   };

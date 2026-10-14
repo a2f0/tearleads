@@ -9,10 +9,7 @@ import {
 } from "../../../test/helpers/principalPolicyFixtures";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../data/principals/principalPolicyCrypto";
-import {
-  principalHistoryStageScopes,
-  principalKeyEnvelopeArchive,
-} from "../../data/sqlite/principalHistoryRetentionSchema";
+import { principalKeyEnvelopeArchive } from "../../data/sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { restorePrincipalHistoryRecoveryStage } from "../principals/principalHistoryRecoveryStage";
 import { recoverPrincipalPolicyHistory } from "../principals/recoverPrincipalPolicyHistory";
@@ -84,9 +81,9 @@ test("successive acknowledgements reclaim old stages while preserving predecesso
     expect(
       organizationStages.map((stage) => stage.afterVersion + 1).sort(),
     ).toEqual([68, 69]);
-    const hints = await f.db.select().from(principalHistoryStageScopes);
-    expect(hints.map((hint) => hint.id).sort()).toEqual(
-      stages.map((stage) => stage.id).sort(),
+    // Both retained organization stages carry the organization's scope hint.
+    expect(new Set(organizationStages.map((stage) => stage.scopeId)).size).toBe(
+      1,
     );
     const archive = (
       await f.db.select().from(principalKeyEnvelopeArchive)

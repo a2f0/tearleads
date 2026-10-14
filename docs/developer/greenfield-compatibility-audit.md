@@ -39,9 +39,10 @@ points before the environment reset and coordinated release.
   columns. It does not add historical columns or backfill stored records.
 - The October 2026 local-schema folds (#2522) move one-row-per-key side tables
   onto the rows they describe: container display names and icons live on
-  `containers`, a scope's last sync failure lives on its `documents` row, and
-  an organization usage snapshot carries its category breakdown as JSON that
-  is re-validated on every read. A database that predates a fold fails the required-column
+  `containers`, a scope's last sync failure lives on its `documents` row, an
+  organization usage snapshot carries its category breakdown as JSON that is
+  re-validated on every read, and a principal-history stage carries its own
+  scope and recency eviction hints. A database that predates a fold fails the required-column
   check and is reset rather than converted.
 - Local backup payloads and encrypted envelopes require format version 9.
   Previous versions are refused, with no conversion path. Security-anchor
