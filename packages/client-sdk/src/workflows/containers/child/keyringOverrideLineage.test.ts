@@ -39,10 +39,7 @@ async function repairWithOverride(
       getContainerWriterProjection: async () => scenario.projection,
       rekeyContainer: async (_containerId, request) => {
         submitted.push(request);
-        return createMutationResponseFromRequest(
-          request,
-          scenario.projection.containerKeks.at(-1),
-        );
+        return createMutationResponseFromRequest(request, scenario.projection);
       },
     },
     author: scenario.parent.author,

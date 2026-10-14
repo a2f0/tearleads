@@ -22,7 +22,7 @@ test("self-revocation never signs or submits descendant recitations for a server
     });
     const response = await createContainerMutationResponseFromRequest(
       plan.request,
-      parent.projection.containerKeks.at(-1),
+      parent.projection,
     );
     expect(
       await acknowledgeContainerMutation({
@@ -82,7 +82,7 @@ test("an ancestor revocation in flight cannot acknowledge an echoed descendant p
     });
     const ancestorResponse = await createContainerMutationResponseFromRequest(
       plan.request,
-      parent.projection.containerKeks.at(-1),
+      parent.projection,
     );
     const attempts: string[] = [];
     const incidents: unknown[] = [];

@@ -37,10 +37,7 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) => {
         submitted.push(request);
-        return createMutationResponseFromRequest(
-          request,
-          parent.projection.containerKeks.at(-1),
-        );
+        return createMutationResponseFromRequest(request, parent.projection);
       },
     },
     author,
@@ -123,10 +120,7 @@ test("a poisoned keyring is rebuilt from the log and repaired by rekey", async (
       getContainerWriterProjection: async () => epoch2Projection,
       rekeyContainer: async (_containerId, request) => {
         submitted.push(request);
-        return createMutationResponseFromRequest(
-          request,
-          epoch2Projection.containerKeks.at(-1),
-        );
+        return createMutationResponseFromRequest(request, epoch2Projection);
       },
     },
     author,
@@ -202,10 +196,7 @@ test("a severed bridge is recovered through the retained historical wrap", async
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) => {
         submitted.push(request);
-        return createMutationResponseFromRequest(
-          request,
-          parent.projection.containerKeks.at(-1),
-        );
+        return createMutationResponseFromRequest(request, parent.projection);
       },
     },
     author: parent.author,
@@ -288,10 +279,7 @@ test("a severed bridge is recovered through the retained historical wrap", async
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => epoch2Projection,
       rekeyContainer: async (_containerId, request) =>
-        createMutationResponseFromRequest(
-          request,
-          epoch2Projection.containerKeks.at(-1),
-        ),
+        createMutationResponseFromRequest(request, epoch2Projection),
     },
     author: parent.author,
     containerId: parent.projection.containerId,
@@ -330,7 +318,7 @@ test("a substituted keyring is rejected at acknowledgement", async () => {
         rekeyContainer: async (_containerId, request) => {
           const response = await createMutationResponseFromRequest(
             request,
-            parent.projection.containerKeks.at(-1),
+            parent.projection,
           );
           // A hostile server echoes a different sealed blob than the one this
           // client's signed event committed to.

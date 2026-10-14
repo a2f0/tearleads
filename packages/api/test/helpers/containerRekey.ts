@@ -33,6 +33,7 @@ import {
   createTestContainerKekMaterial,
   createTestContainerKekPredecessorBridge,
 } from "./containerKekMaterial";
+import { containerManifestRef } from "./containerManifestRefs";
 
 interface ContainerRekeyFixture {
   readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
@@ -324,8 +325,8 @@ export async function buildRootContainerRekeyMutation(input: {
       body: body as unknown,
       expectedManifestHash: manifestHash,
       manifest: manifest as unknown as Record<string, unknown>,
-      previousManifest: previousBundle,
-      previousContainerPath: [previousBundle],
+      previousManifestRef: containerManifestRef(previousBundle),
+      previousContainerPathRefs: [containerManifestRef(previousBundle)],
       keyEpoch: keyEpoch as unknown as Record<string, unknown>,
       keyring: keyring as unknown as Record<string, unknown>,
       predecessorBridge: predecessorBridge as unknown as Record<

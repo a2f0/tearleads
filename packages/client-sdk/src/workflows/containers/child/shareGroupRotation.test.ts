@@ -162,7 +162,7 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
         },
         shareContainer: async (_containerId, request) => {
           submittedRequests.push(request);
-          return createMutationResponseFromRequest(request);
+          return createMutationResponseFromRequest(request, initialProjection);
         },
       },
       author,
@@ -366,7 +366,7 @@ test("Admins rotation rekeys the root and a fresh current member opens all epoch
     });
     const response = await createMutationResponseFromRequest(
       rekeyed.plan.request,
-      initialKek,
+      initialProjection,
     );
     const coldProjection: ContainerWriterProjectionResponse = {
       policyEvidence: initialProjection.policyEvidence,

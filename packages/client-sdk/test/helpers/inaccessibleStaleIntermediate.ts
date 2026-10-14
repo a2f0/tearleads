@@ -82,7 +82,7 @@ export async function createInaccessibleStaleIntermediateFixture(
     });
     const sharedResponse = await createMutationResponseFromRequest(
       shared.plan.request,
-      leaf.projection.containerKeks.at(-1),
+      leaf.projection,
     );
     const sharedLeafKek = {
       ...sharedResponse.containerKek,

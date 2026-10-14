@@ -60,7 +60,11 @@ export function createContainerServer(
   ) => {
     const node = nodes.get(containerId);
     if (!node) throw new Error(`Unknown container ${containerId}`);
-    const response = await createMutationResponseFromRequest(request, node.kek);
+    const response = await createMutationResponseFromRequest(
+      request,
+      node.kek,
+      [node.manifest],
+    );
     nodes.set(containerId, {
       ...node,
       kek: {

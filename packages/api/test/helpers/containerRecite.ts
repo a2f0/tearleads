@@ -5,6 +5,10 @@ import type {
 } from "@tearleads/validators/request";
 import { routeApp } from "../../src/routeApp";
 import { authenticate } from "./authenticate";
+import {
+  containerManifestRef,
+  containerManifestRefs,
+} from "./containerManifestRefs";
 import { createChildContainer } from "./keyingWriterProjectionChild";
 import {
   asVerifiedContainerManifest,
@@ -64,8 +68,8 @@ export async function buildReciteRequest(input: {
     event: { ...event.event },
     manifest: bundle.manifest,
     expectedManifestHash: bundle.manifestHash,
-    previousManifest: previousBundle,
-    previousContainerPath: input.path,
+    previousManifestRef: containerManifestRef(previousBundle),
+    previousContainerPathRefs: containerManifestRefs(input.path),
     principalPolicies: (
       await loadPrincipalPoliciesForContainerPath(input.path)
     ).map((policy) => ({ ...policy })),

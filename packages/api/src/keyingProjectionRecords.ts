@@ -274,7 +274,7 @@ export function projectionVerifiedAccessEventRecord(
   };
 }
 
-export function readProjectionVerifiedAccessEvent(
+function readProjectionVerifiedAccessEvent(
   value: unknown,
   label: string,
   error: ProjectionErrorFactory,
@@ -343,7 +343,7 @@ function isContainerGrantPrincipalHead(
   return principalHead.principalType === "group";
 }
 
-export function readProjectionContainerGrantPrincipalHeads(
+function readProjectionContainerGrantPrincipalHeads(
   value: unknown,
   label: string,
   error: ProjectionErrorFactory,
@@ -426,7 +426,7 @@ export function readProjectionAccessManifest(
   };
 }
 
-export function readProjectionContainerAccessManifest(
+function readProjectionContainerAccessManifest(
   value: unknown,
   label: string,
   error: ProjectionErrorFactory,

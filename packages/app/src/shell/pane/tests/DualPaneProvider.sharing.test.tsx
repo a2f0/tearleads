@@ -59,8 +59,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Private metadata-root authority now uses bounded directory/Admins reads.
   // Measured 182 calls and 3.56 MB received; keep eight calls of scheduling room.
   total: 190,
-  // Preserve the request-byte cap and room for two extra document projections.
-  bodyBytes: { request: 380_000, response: 3_900_000 },
+  // Container mutations cite stored manifests by hash, so the share and its
+  // recitations no longer echo path bundles: 180 KB sent (was 352 KB). Keep
+  // the same ~8% request headroom and room for two extra document projections.
+  bodyBytes: { request: 195_000, response: 3_900_000 },
   byRequest: {
     "GET /principals/history": 70,
     "GET /documents/:documentId/writer-projection": 9,

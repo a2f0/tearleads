@@ -57,6 +57,7 @@ Write surfaces:
 | Revoke container grant | `POST /containers/:containerId/revoke` | `ContainerMutationRequest` |
 | Rekey container | `POST /containers/:containerId/rekey` | `ContainerMutationRequest` |
 | Move container | `POST /containers/:containerId/move` | `ContainerMutationRequest` |
+| Re-cite a held container's current ancestor path | `POST /containers/:containerId/recite` | `ContainerReciteRequest` |
 | Delete container | `DELETE /containers/:containerId` | n/a |
 | Create document | `POST /documents` | `DocumentCreateRequest` |
 | Link document to container | `POST /documents/:documentId/link` | `DocumentLinkSetMutationRequest` |

@@ -23,6 +23,7 @@ import { assertContainerAuthorAccess } from "../../../data/containers/shared/aut
 import { assertContainerChildPathFits } from "../../../data/containers/shared/containerPathLimits";
 import {
   asContainerManifestBundle,
+  containerManifestRef,
   getTargetContainerContext,
   readContainerState,
   uniqueSortedManifestHashes,
@@ -91,9 +92,8 @@ function buildContainerMoveRequest(input: {
       input.previousManifest,
       input.previousProjection,
     ),
-    destinationParentContainerPath: input.destinationParentProjection.path.map(
-      asContainerManifestBundle,
-    ),
+    destinationParentContainerPathRefs:
+      input.destinationParentProjection.path.map(containerManifestRef),
     predecessorBridge: readCanonicalRecord(
       input.predecessorBridge,
       "Container move predecessor bridge",

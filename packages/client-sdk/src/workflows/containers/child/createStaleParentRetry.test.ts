@@ -11,7 +11,7 @@ import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCh
 import { createRemoteContainer } from "./create";
 
 const STALE_PARENT_FAILURE =
-  "POST /containers: 409 Conflict: parentContainerPath[0] manifest head is stale";
+  "POST /containers: 409 Conflict: parentContainerPathRefs[0] manifest head is stale";
 
 test("createRemoteContainer replans once after the parent head advances", async () => {
   const parent = await createParentProjection();

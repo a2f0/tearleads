@@ -292,6 +292,7 @@ Signed container mutation routes are:
 - `POST /containers/:containerId/revoke`
 - `POST /containers/:containerId/rekey`
 - `POST /containers/:containerId/move`
+- `POST /containers/:containerId/recite` (`ContainerReciteRequest`)
 
 Most signed mutations use `ContainerMutationRequest`. The container with
 metadata document create route wraps a `ContainerMutationRequest` with the
@@ -301,7 +302,10 @@ Each signed mutation request carries:
 
 - signed event and event body
 - expected manifest hash and derived manifest state
-- optional previous, parent, destination-parent, and history manifest bundles
+- optional `previousManifestRef`, `previousContainerPathRefs`,
+  `parentContainerPathRefs`, `destinationParentContainerPathRefs`, and
+  `containerManifestHistoryRefs`: `{containerId, manifestHash}` citations of
+  manifests the server already stores, never the bundles themselves
 - referenced principal policy bundles
 - a container key epoch
 - a required nullable predecessor bridge (`null` for creates and same-epoch
@@ -314,7 +318,16 @@ Each signed mutation request carries:
 
 The API verifies the signed event, derives the manifest, checks predecessor and
 path heads, verifies referenced principal policies, derives recipient targets,
-and verifies the container KEK state. Container KEK wraps target direct users,
+and verifies the container KEK state. Every cited manifest is resolved from the
+API's own artifacts: a manifest an earlier mutation of the same batch verified,
+or the stored bundle, re-verified because database rows are not a trust
+boundary. A citation whose hash is not stored, or whose `containerId` names a
+different container, is refused with `409`. The previous manifest and every path
+element must also be the container's current head, and the signed event's
+`dependencyManifestHashes` must equal the cited hashes, so a stale or uncited
+head is refused exactly as before. Only the new manifest the mutation commits
+travels in full; a recitation cites its previous head and current path the same
+way. Container KEK wraps target direct users,
 managed principals, or the parent container KEK. A child container can inherit
 access through parent KEK edges without rewriting every descendant object when
 an ancestor grant changes.

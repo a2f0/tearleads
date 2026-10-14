@@ -9,8 +9,6 @@ import type {
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import {
-  computeAccessManifestHash,
-  deriveDocumentLinkSetManifest,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
@@ -28,10 +26,7 @@ import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
 } from "../../../../keyingProjectionRecords";
-import {
-  canonicalJsonEquals,
-  readKeyingCanonicalJson,
-} from "../../../../utils/canonicalJson";
+import { readKeyingCanonicalJson } from "../../../../utils/canonicalJson";
 import { createContainerWriterProjectionContext } from "../../../containers/writerProjection/context";
 import { toManifestBundleResponse } from "../../../containers/writerProjection/records";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";
@@ -52,10 +47,7 @@ import {
 } from "./currentContainerPaths";
 
 import { assertDocumentAccessEventDependenciesMatchRequest as assertDependencies } from "./eventDependencies";
-import {
-  readVerifiedDocumentManifest,
-  verifiedDocumentKekTargetsFromResolved,
-} from "./records";
+import { verifiedDocumentKekTargetsFromResolved } from "./records";
 
 type CurrentDocumentKekTargets = Awaited<ReturnType<typeof resolveTargets>>;
 
@@ -116,31 +108,6 @@ export async function verifyDocumentEvent(input: {
   return verifiedEvent.value;
 }
 
-async function assertDocumentManifestBundleConsistent(
-  bundle: unknown,
-  label: string,
-): Promise<VerifiedDocumentLinkSetManifest> {
-  const verified = readVerifiedDocumentManifest(bundle, label);
-  const derivedManifest = await deriveDocumentLinkSetManifest(verified.state);
-  const derivedManifestHash = await computeAccessManifestHash(derivedManifest);
-  const suppliedManifestHash = await computeAccessManifestHash(
-    verified.manifest,
-  );
-
-  if (
-    verified.manifestHash !== derivedManifestHash ||
-    verified.manifestHash !== suppliedManifestHash ||
-    !canonicalJsonEquals(derivedManifest, verified.manifest)
-  ) {
-    throw new DocumentMutationError(
-      `${label} manifest bundle is not self-consistent`,
-      409,
-    );
-  }
-
-  return verified;
-}
-
 export async function verifyDocumentManifestFromRequest(input: {
   readonly event: VerifiedAccessEvent;
   readonly executor: DatabaseTransaction;
@@ -173,14 +140,8 @@ export async function verifyDocumentManifestFromRequest(input: {
       "Document manifest",
       documentShapeError,
     ),
-    previousManifest:
-      input.request.previousManifest === undefined ||
-      input.request.previousManifest === null
-        ? null
-        : await assertDocumentManifestBundleConsistent(
-            input.request.previousManifest,
-            "previousManifest",
-          ),
+    // A create is the initial link-set manifest: there is no predecessor.
+    previousManifest: null,
     principalPolicies,
     ...(targetContainerPath !== undefined ? { targetContainerPath } : {}),
     ...(authorizingContainerPaths !== undefined

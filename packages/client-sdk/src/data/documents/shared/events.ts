@@ -110,7 +110,6 @@ export async function buildDocumentCreatePlan({
       body: readCanonicalRecord(body, "Document create body"),
       expectedManifestHash: manifestHash,
       manifest: readCanonicalRecord(manifest, "Document create manifest"),
-      previousManifest: null,
       targetContainerPathRefs: containerPathRefs(containerProjection.path),
       contentKeyBundle: {
         contentKeyEpoch,

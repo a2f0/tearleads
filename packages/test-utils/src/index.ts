@@ -1,4 +1,7 @@
-export { createContainerMutationResponseFromRequest } from "./createContainerMutationResponseFromRequest";
+export {
+  createContainerMutationResponseFromRequest,
+  registerContainerManifestBundles,
+} from "./createContainerMutationResponseFromRequest";
 export {
   type ContainerParentLaneBatchMockInput,
   createContainerParentLaneBatchMock,

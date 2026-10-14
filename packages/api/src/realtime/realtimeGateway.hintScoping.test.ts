@@ -170,15 +170,8 @@ test("a move evicts a child watcher before sending its parent's generic hint", a
     publish: async (event) => {
       f.publish(event);
     },
-    request: {
-      body: { eventType: "container.move" },
-      previousManifest: {
-        event: {},
-        manifest: {},
-        manifestHash: "previous",
-        state: { parentContainerId: OTHER },
-      },
-    },
+    previousParentId: OTHER,
+    request: { body: { eventType: "container.move" } },
     response: { containerId: CONTAINER, parentId: null, updatedAt: UPDATED_AT },
   });
   expect(f.sent.slice(before)).toEqual([

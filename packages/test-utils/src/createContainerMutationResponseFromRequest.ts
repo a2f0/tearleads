@@ -10,14 +10,45 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
 } from "@tearleads/crypto";
-import type { ContainerMutationRequest } from "@tearleads/validators/request";
-import {
-  type ContainerMutationResponse,
-  type ContainerWriterProjectionResponse,
-  isAccessManifestBundleWireResponse,
+import type {
+  ContainerManifestRef,
+  ContainerMutationRequest,
+} from "@tearleads/validators/request";
+import type {
+  AccessManifestBundleWireResponse,
+  ContainerMutationResponse,
+  ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
+
+// Requests cite stored manifests by hash, as the server resolves them from its
+// own store. This fake resolves them from every manifest it has seen: the ones
+// a caller supplies, the previous KEK's history, and every response it built.
+// Manifests are content-addressed, so a hash always names the same bundle.
+const knownManifestByHash = new Map<string, AccessManifestBundleWireResponse>();
+
+/** Teach the fake manifests that tests built outside of it. */
+export function registerContainerManifestBundles(
+  bundles: Iterable<AccessManifestBundleWireResponse>,
+): void {
+  for (const bundle of bundles) {
+    knownManifestByHash.set(bundle.manifestHash, bundle);
+  }
+}
+
+function resolveCitedManifest(
+  ref: ContainerManifestRef,
+  label: string,
+): AccessManifestBundleWireResponse {
+  const bundle = knownManifestByHash.get(ref.manifestHash);
+  if (!bundle) {
+    throw new Error(
+      `Container mutation response fixture cannot resolve ${label} ${ref.manifestHash}`,
+    );
+  }
+  return bundle;
+}
 
 type PrincipalIdentity = {
   subjectId?: string | undefined;
@@ -49,13 +80,13 @@ function sortedUpsert<T extends PrincipalIdentity>(
 function previousState(
   request: ContainerMutationRequest,
 ): ContainerAccessManifestState {
-  const state = request.previousManifest?.state;
-  if (!state) {
+  if (!request.previousManifestRef) {
     throw new Error(
       "Container mutation response fixture requires previous state",
     );
   }
-  return state as unknown as ContainerAccessManifestState;
+  return resolveCitedManifest(request.previousManifestRef, "previous manifest")
+    .state as unknown as ContainerAccessManifestState;
 }
 
 function deriveMutationState(input: {
@@ -89,7 +120,7 @@ function deriveMutationState(input: {
     ...previous,
     epoch: previous.epoch + 1,
     eventHash,
-    previousManifestHash: request.previousManifest?.manifestHash ?? null,
+    previousManifestHash: request.previousManifestRef?.manifestHash ?? null,
   };
   if (body.eventType === "container.grant") {
     return {
@@ -147,10 +178,43 @@ function deriveMutationState(input: {
   };
 }
 
+type PreviousProjection = Pick<
+  ContainerWriterProjectionResponse,
+  "containerKeks" | "path"
+>;
+
+function isPreviousProjection(
+  value: ProjectionKek | PreviousProjection,
+): value is PreviousProjection {
+  return "containerKeks" in value && "path" in value;
+}
+
+/**
+ * Build the response the server would return for `request`. `previous` is the
+ * projection the mutation was planned from (or just its last KEK): its path and
+ * KEK histories hold the manifests the request cites by hash.
+ */
 export async function createContainerMutationResponseFromRequest(
   request: ContainerMutationRequest,
-  previousKek?: ProjectionKek | undefined,
+  previous?: ProjectionKek | PreviousProjection | undefined,
+  citedManifests: readonly AccessManifestBundleWireResponse[] = [],
 ): Promise<ContainerMutationResponse> {
+  const previousKek =
+    previous && isPreviousProjection(previous)
+      ? previous.containerKeks.at(-1)
+      : previous;
+  registerContainerManifestBundles([
+    ...citedManifests,
+    ...(previous && isPreviousProjection(previous)
+      ? [
+          ...previous.path,
+          ...previous.containerKeks.flatMap(
+            (kek) => kek.containerManifestHistory,
+          ),
+        ]
+      : []),
+    ...(previousKek?.containerManifestHistory ?? []),
+  ]);
   const event = request.event as unknown as AccessEvent;
   const body = request.body as ContainerAccessEventBody;
   const keyEpoch = request.keyEpoch as unknown as ContainerKeyEpoch;
@@ -163,23 +227,16 @@ export async function createContainerMutationResponseFromRequest(
   }));
   const eventHash = await computeAccessEventHash(event);
   const state = deriveMutationState({ body, event, eventHash, request });
-  const containerManifestHistory = (request.containerManifestHistory ?? []).map(
-    (bundle) => {
-      if (!isAccessManifestBundleWireResponse(bundle)) {
-        throw new Error(
-          "Container mutation response fixture requires response-shaped manifest history",
-        );
-      }
-      return bundle;
-    },
-  );
+  const containerManifestHistory = (
+    request.containerManifestHistoryRefs ?? []
+  ).map((ref) => resolveCitedManifest(ref, "manifest history"));
   const keyring = keyringFromRequest({
     currentKeyEpoch: keyEpoch,
     previousKek,
     request,
   });
 
-  return {
+  const response: ContainerMutationResponse = {
     // The server echoes the stored slot column exactly when it is non-null.
     ...(state.systemSlot === null ? {} : { systemSlot: state.systemSlot }),
     containerId: event.objectId,
@@ -221,6 +278,8 @@ export async function createContainerMutationResponseFromRequest(
     },
     referencedPrincipalHeads: [...state.referencedPrincipalHeads],
   };
+  registerContainerManifestBundles([response.accessManifest]);
+  return response;
 }
 
 function keyringFromRequest(input: {

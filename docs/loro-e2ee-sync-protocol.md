@@ -36,18 +36,18 @@ Document write routes:
   - creates a document link-set manifest and initial content-key bundle
   - request shape: `DocumentCreateRequest`
   - key fields: signed `event`, event `body`, `expectedManifestHash`,
-    `manifest`, optional `previousManifest`, optional `targetContainerPath`,
-    optional `authorizingContainerPaths`, optional signed `containerRekeys[]`,
-    and required `contentKeyBundle`
+    `manifest`, optional `targetContainerPathRefs`, optional
+    `authorizingContainerPathRefs`, optional signed `containerRekeys[]`, and
+    required `contentKeyBundle`; a create has no predecessor manifest
   - response shape: `DocumentCreateResponse`
 - `POST /documents/:documentId/link`
 - `POST /documents/:documentId/unlink`
   - advances the signed document link-set manifest
   - request shape: `DocumentLinkSetMutationRequest`
   - key fields: signed `event`, event `body`, `expectedManifestHash`,
-    `manifest`, required `previousManifest`, `targetContainerPath`,
-    `authorizingContainerPaths`, optional signed `containerRekeys[]`, and
-    required `contentKeyBundle`
+    `manifest`, `targetContainerPathRefs`, `authorizingContainerPathRefs`,
+    optional signed `containerRekeys[]`, and required `contentKeyBundle`; the
+    server resolves the previous link-set manifest from its own store
   - response shape: `DocumentLinkSetMutationResponse`
 - `POST /documents/:documentId/sync`
   - syncs encrypted Loro updates against the current signed link-set manifest
@@ -105,6 +105,12 @@ Access write routes are the signed `/containers` mutation family:
 - `POST /containers/:containerId/revoke`
 - `POST /containers/:containerId/rekey`
 - `POST /containers/:containerId/move`
+- `POST /containers/:containerId/recite`
+
+Container mutations cite every manifest the server already stores (previous
+head, current and destination paths, KEK manifest history) by
+`{containerId, manifestHash}` reference; only the manifest being committed
+travels in full.
 
 For the full HTTP surface, see
 [api-architecture.md](./api-architecture.md#http-protocol-surface).

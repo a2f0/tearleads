@@ -1,0 +1,1271 @@
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/recite added the new required request property `previousContainerPathRefs`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/recite added the new required request property `previousManifestRef`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/container/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/container/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/container/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/container/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/container/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationMetadataContainer/metadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialOrganizationProfileDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootContainer/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootContainer/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootContainer/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootContainer/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootContainer/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRootMetadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/container/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/container/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/container/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/container/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/container/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileContainer/metadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialRosterProfileDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/container/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/container/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/container/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/container/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/container/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /auth/register removed the request property `initialSystemContainers/items/metadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/{blobId}/attachment-bindings/{bindingId}/detach removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers removed the request property `containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers removed the request property `destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers removed the request property `parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers removed the request property `previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers removed the request property `previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `container/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `container/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `container/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `container/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `container/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `metadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `metadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `metadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `metadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `metadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/with-metadata-document removed the request property `metadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/move removed the request property `previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/recite removed the request property `previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/recite removed the request property `previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/rekey removed the request property `previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/revoke removed the request property `previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/share removed the request property `containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/share removed the request property `destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/share removed the request property `parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/share removed the request property `previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /containers/{containerId}/share removed the request property `previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents removed the request property `previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/link removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/link removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/link removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/link removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/link removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/sync removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/sync removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/sync removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/sync removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/sync removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/unlink removed the request property `containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/unlink removed the request property `containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/unlink removed the request property `containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/unlink removed the request property `containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /documents/{documentId}/unlink removed the request property `containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialAdminGroup/initialGroupPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialMemberGroup/initialGroupPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/container/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/container/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/container/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/container/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/container/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/initialMetadataSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationMetadataContainer/metadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/initialSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialOrganizationProfileDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootContainer/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootContainer/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootContainer/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootContainer/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootContainer/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/initialSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRootMetadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/container/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/container/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/container/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/container/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/container/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/initialMetadataSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/metadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileContainer/metadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/initialSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialRosterProfileDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/container/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/container/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/container/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/container/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/container/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/initialMetadataSync/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/metadataDocument/containerRekeys/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations removed the request property `initialSystemContainers/items/metadataDocument/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `initialGroupPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+POST /organizations/{organizationId}/groups removed the request property `organizationPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+DELETE /organizations/{organizationId}/groups/{groupId} removed the request property `organizationPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `groupPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /organizations/{organizationId}/groups/{groupId}/policy-commit removed the request property `organizationPolicy/containerMutations/items/previousManifest`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/containerManifestHistory`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/destinationParentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/parentContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/previousContainerPath`
+
+# #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
+# Remove this exact diagnostic once main contains the new contract.
+PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/previousManifest`

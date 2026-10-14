@@ -1,7 +1,14 @@
 import { expect, test } from "bun:test";
 import { ContainerMutationFailureResponseSchema } from "../response";
-import { MAX_ROTATION_CONTAINER_REKEYS } from "../util";
-import { isContainerMutationRequest, isContainerRotationRequest } from ".";
+import {
+  MAX_CONTAINER_PATH_LENGTH,
+  MAX_ROTATION_CONTAINER_REKEYS,
+} from "../util";
+import {
+  isContainerMutationRequest,
+  isContainerReciteRequest,
+  isContainerRotationRequest,
+} from ".";
 
 const rekey = {
   body: {},
@@ -98,4 +105,40 @@ test("both rekeys-required codes are registered, behavior-bearing codes", () => 
       error: "x",
     }).success,
   ).toBe(false);
+});
+
+test("mutation and recitation path citations are bounded by path depth", () => {
+  const ref = { containerId: "container-1", manifestHash: "manifest-hash" };
+  const deepest = Array.from({ length: MAX_CONTAINER_PATH_LENGTH }, () => ref);
+  for (const field of [
+    "previousContainerPathRefs",
+    "parentContainerPathRefs",
+    "destinationParentContainerPathRefs",
+  ]) {
+    expect(isContainerMutationRequest({ ...rekey, [field]: deepest })).toBe(
+      true,
+    );
+    expect(
+      isContainerMutationRequest({ ...rekey, [field]: [...deepest, ref] }),
+    ).toBe(false);
+  }
+  const recitation = {
+    body: {},
+    event: {},
+    expectedManifestHash: "manifest-hash",
+    manifest: {},
+    previousManifestRef: ref,
+    principalPolicies: [],
+  };
+  expect(
+    isContainerReciteRequest({
+      ...recitation,
+      previousContainerPathRefs: deepest,
+    }),
+  ).toBe(true);
+  for (const previousContainerPathRefs of [[], [...deepest, ref]]) {
+    expect(
+      isContainerReciteRequest({ ...recitation, previousContainerPathRefs }),
+    ).toBe(false);
+  }
 });

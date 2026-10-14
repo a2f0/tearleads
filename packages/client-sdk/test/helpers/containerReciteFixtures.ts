@@ -85,7 +85,7 @@ export async function createContainerReciteScenario(extraChildren = 0) {
       signerPublicKey: parent.signingPublicKey,
     });
     if (!event.ok) throw event.error;
-    const path = request.previousContainerPath.map((bundle) => {
+    const path = request.previousContainerPathRefs.map((bundle) => {
       const verified = byHash.get(bundle.manifestHash);
       if (!verified) throw new Error("Recitation cited unknown evidence");
       return verified;

@@ -80,7 +80,7 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
   expect(plan.request.userRecipientKeys).toEqual([]);
   expect(plan.request.principalPolicies).toEqual([]);
   expect(
-    plan.request.parentContainerPath?.map((bundle) => bundle.manifestHash),
+    plan.request.parentContainerPathRefs?.map((bundle) => bundle.manifestHash),
   ).toEqual(parent.projection.path.map((bundle) => bundle.manifestHash));
   expect(plan.recipientTargets).toEqual([
     {
@@ -288,11 +288,13 @@ test("buildMaterializedContainerCreatePlan rejects deeply nested non-canonical p
       containerKey: crypto.getRandomValues(new Uint8Array(32)),
       parentProjection: {
         ...parent.projection,
+        // The request cites the path by hash, so the client never re-encodes
+        // its event bodies; the state it plans from is still read canonically.
         path: parent.projection.path.map((bundle) => ({
           ...bundle,
-          event: {
-            ...bundle.event,
-            body: createDeepNonCanonicalRecord(20_000),
+          state: {
+            ...bundle.state,
+            nested: createDeepNonCanonicalRecord(20_000),
           },
         })),
       },
