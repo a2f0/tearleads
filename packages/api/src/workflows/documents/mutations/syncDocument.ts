@@ -16,7 +16,6 @@ import {
   readCommitLsnMode,
   readCurrentCommitLsn,
 } from "../../../documents/commitLsn";
-import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import {
   assertMinLsnSatisfied,
   readDocumentUpdateUpperBound,
@@ -63,19 +62,17 @@ import type {
   SyncDocumentInput,
 } from "./types";
 
-async function resolveSyncAuditAccess(input: {
+// Updates are stamped with the epoch of the manifest that authorized the write;
+// a read-only pull never inserts, so it falls back to the current link set.
+function resolveSyncAccessEpoch(input: {
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
   >;
   readonly writeAuthorization: DocumentWriteAuthorizationProof | null;
-}) {
+}): number {
   return input.writeAuthorization
-    ? documentAuditAccessFromManifest(input.writeAuthorization.documentManifest)
-    : {
-        accessEpoch: input.currentTargets.linkSetEpoch,
-        accessManifestHash: input.currentTargets.linkSetManifestHash,
-        accessStateHash: null,
-      };
+    ? input.writeAuthorization.documentManifest.state.epoch
+    : input.currentTargets.linkSetEpoch;
 }
 
 async function touchAcceptedSyncTargets(input: {
@@ -237,14 +234,8 @@ async function syncDocumentTransaction(input: {
       executor: input.tx,
       request: input.request,
     });
-  const auditAccess = await resolveSyncAuditAccess({
-    currentTargets,
-    writeAuthorization,
-  });
   const appendResult = await appendDocumentUpdates({
-    accessEpoch: auditAccess.accessEpoch,
-    accessManifestHash: auditAccess.accessManifestHash,
-    accessStateHash: auditAccess.accessStateHash,
+    accessEpoch: resolveSyncAccessEpoch({ currentTargets, writeAuthorization }),
     documentId: input.documentId,
     executor: input.tx,
     fingerprint: input.fingerprint,

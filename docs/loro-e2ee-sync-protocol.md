@@ -210,8 +210,8 @@ Limitations:
     linked container, exposes document link/unlink management, and can switch
     which linked container is locally active
 - subtractive rotation for document epochs uses the fresh-baseline path with
-    source-frontier checkpoint metadata; durable audit rows are written on live
-    sync and attachment writes, while audit export surfaces remain separate
+    source-frontier checkpoint metadata signed in the write header;
+    `document_baselines` marks each baseline for the coverage-gated redirect
 - encrypted Loro updates do not expose `referencedSlotIds[]`; attachment slot
     reachability is validated through signed binding metadata rather than through
     the encrypted Loro payload
@@ -304,8 +304,8 @@ Objects:
 
 For the attachment/blob retention decision, see
 [attachment-retention.md](./attachment-retention.md). Historical attachment
-bytes, signed tombstones, and attachment manifests are audit/history
-concepts, not part of the live attachment binding contract.
+bytes, signed tombstones, and attachment manifests are not retained or part
+of the live attachment binding contract.
 
 For the access-plane model, the important semantic is:
 
@@ -424,8 +424,8 @@ If a attachment mutation succeeds:
 - a bind during the grace period revives the blob; otherwise GC locks and
     rechecks it before pruning the live row, content-key material, write header,
     and detached bindings
-- audit metadata retains the storage key as durable physical-object deletion
-    work until maintenance records a successful deletion
+- `blob_audit_objects` retains the storage key as durable physical-object
+    deletion work until maintenance records a successful deletion
 - affected blob key targets are recomputed and persisted
 
 Because encrypted Loro updates do not expose `referencedSlotIds[]`, the server

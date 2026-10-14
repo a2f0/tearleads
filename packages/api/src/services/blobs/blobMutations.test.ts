@@ -5,8 +5,6 @@ import {
   blobAuditObjects,
   blobs,
   containers,
-  documentAttachmentAuditEvents,
-  documentAuditEntries,
   documentContainerLinks,
   documents,
 } from "@tearleads/api-shared/schema";
@@ -63,7 +61,6 @@ import {
   listContainerKeyWraps,
 } from "../../access/read/containerKekStore";
 import { storeVerifiedAccessManifest } from "../../access/write/accessManifestStore";
-import { verifyDocumentAuditHistory } from "../../documents/auditHistory.testUtils";
 import {
   BlobMutationError,
   bindBlobAttachment,
@@ -681,67 +678,23 @@ test("attachment writes tolerate publish failures", async () => {
     afterDetachTimestamps.documentUpdatedAt.toISOString(),
   );
   expect(publishedEvents).toHaveLength(2);
-  const attachmentAuditEvents = await db
+  // Attach, replace, and detach register every referenced blob generation
+  // under the document's organization before pruning can drop its live row.
+  const registeredBlobs = await db
     .select({
-      action: documentAttachmentAuditEvents.action,
-      bindingId: documentAttachmentAuditEvents.bindingId,
-      blobId: documentAttachmentAuditEvents.blobId,
-      previousBindingId: documentAttachmentAuditEvents.previousBindingId,
-      previousBlobId: documentAttachmentAuditEvents.previousBlobId,
-      slotId: documentAttachmentAuditEvents.slotId,
+      blobId: blobAuditObjects.blobId,
+      organizationId: blobAuditObjects.organizationId,
     })
-    .from(documentAttachmentAuditEvents)
-    .innerJoin(
-      documentAuditEntries,
-      eq(documentAuditEntries.id, documentAttachmentAuditEvents.auditEntryId),
-    )
-    .where(
-      eq(documentAuditEntries.documentId, document.bundle.state.documentId),
-    )
-    .orderBy(documentAuditEntries.sequence);
-  expect(attachmentAuditEvents).toEqual([
-    {
-      action: "attach",
-      bindingId: firstBind.verifiedBinding.bindingId,
-      blobId: firstBlobId,
-      previousBindingId: null,
-      previousBlobId: null,
-      slotId: "slot-a",
-    },
-    {
-      action: "replace",
-      bindingId: replacementBind.verifiedBinding.bindingId,
-      blobId: replacementBlobId,
-      previousBindingId: firstBind.verifiedBinding.bindingId,
-      previousBlobId: firstBlobId,
-      slotId: "slot-a",
-    },
-    {
-      action: "detach",
-      bindingId: replacementBind.verifiedBinding.bindingId,
-      blobId: replacementBlobId,
-      previousBindingId: null,
-      previousBlobId: null,
-      slotId: "slot-a",
-    },
-  ]);
-  const auditedBlobs = await db
-    .select({ blobId: blobAuditObjects.blobId })
     .from(blobAuditObjects)
     .where(inArray(blobAuditObjects.blobId, [firstBlobId, replacementBlobId]));
-  expect(new Set(auditedBlobs.map((blob) => blob.blobId))).toEqual(
-    new Set([firstBlobId, replacementBlobId]),
+  expect(new Map(registeredBlobs.map((row) => [row.blobId, row]))).toEqual(
+    new Map(
+      [firstBlobId, replacementBlobId].map((blobId) => [
+        blobId,
+        { blobId, organizationId: document.bundle.state.organizationId },
+      ]),
+    ),
   );
-  const auditHistory = await verifyDocumentAuditHistory(db, {
-    documentId: document.bundle.state.documentId,
-  });
-  expect(auditHistory).toMatchObject({
-    attachmentEventCount: 3,
-    auditEntryCount: 3,
-    checkpointCount: 0,
-    isValid: true,
-    updateEventCount: 0,
-  });
 });
 
 test("bindBlobAttachment applies optional container rekeys before target validation", async () => {

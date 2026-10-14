@@ -25,12 +25,12 @@ import {
   readBindRequestSession,
   verifyAttachmentAuthorizationProof,
 } from "./authorization";
+import { registerAttachmentBlobs } from "./blobAuditRegistry";
 import { lockBlobMutationRows } from "./blobMutationLocks";
 import { toMutationError } from "./errors";
 import { assertExistingBlobSourceAuthority } from "./existingBlobAuthority";
 import { finalizeAttachmentMutation } from "./finalizeAttachmentMutation";
 import {
-  appendAttachmentAuditEvent,
   detachActiveSlotBinding,
   promoteStagedBlobIfPresent,
   requireSingleActiveAttachmentBindingForSlot,
@@ -347,13 +347,10 @@ async function bindBlobAttachmentTransaction(
   // signed write header cannot be re-bound because the receiving client would
   // have no independent proof of who wrote its ciphertext.
   const storedWriteHeader = await requireBlobWriteHeader(input.blobId, tx);
-  await appendAttachmentAuditEvent({
-    activeBinding,
-    binding: verifiedBinding,
+  await registerAttachmentBlobs({
+    blobIds: [verifiedBinding.blobId, activeBinding?.blobId ?? null],
     executor: tx,
-    fingerprint: input.fingerprint,
-    manifest: proof.documentManifest,
-    userId: input.userId,
+    organizationId: proof.documentManifest.state.organizationId,
   });
   await finalizeAttachmentMutation({
     ...(activeBinding ? { dereferencedBlobId: activeBinding.blobId } : {}),
