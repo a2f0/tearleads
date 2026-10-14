@@ -3,7 +3,7 @@ import type { BlobObjectStore } from "../adapters/blobObjectStore";
 import { createDefaultBlobObjectStore } from "../adapters/defaultBlobObjectStore";
 import { del, get, getdel, set } from "../adapters/redis";
 import { publish } from "../adapters/redisPubSub";
-import { createSession } from "../middleware/session";
+import { createSession, type IssuedSession } from "../middleware/session";
 import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
 import { readDocumentSyncCursorHmacKey } from "../utils/serverSecrets";
 import type { SessionCreateInput } from "../validators/session";
@@ -20,7 +20,7 @@ export interface EventPublisher {
 }
 
 export interface SessionTokenIssuer {
-  createSession: (data: SessionCreateInput) => Promise<string>;
+  createSession: (data: SessionCreateInput) => Promise<IssuedSession>;
 }
 
 export interface ApiServiceRuntime {

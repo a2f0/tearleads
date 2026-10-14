@@ -25,16 +25,9 @@ import {
 import { parsePublishedRealtimeEvent } from "./publishedRealtimeEvents";
 import type { GatewaySocket, WsConnection } from "./wsConnection";
 import type { WsSessionValidator } from "./wsIdentity";
-import {
-  createOrderedInterestPersister,
-  MAX_PENDING_INTEREST_WRITES,
-  type OrderedInterestPersister,
-  wsInterestStore,
-} from "./wsInterestStore";
 import { WsEventRouter } from "./wsRouting";
 import { WsSessionLiveness } from "./wsSessionLiveness";
 
-type InterestStore = Pick<typeof wsInterestStore, "apply" | "load">;
 type Subscribe = typeof addListener;
 type SubscribeReconnect = typeof addSubscriberReconnectListener;
 const CONTAINER_AUTHORIZATION_TIMEOUT_MS = 10_000;
@@ -45,7 +38,6 @@ interface RealtimeGatewayDeps {
   readonly authorizeContainerAccess?: AuthorizeContainerAccess;
   readonly containerAuthorizationTimeoutMs?: number;
   readonly authorizeOrganizationAccess?: AuthorizeOrganizationAccess;
-  readonly interestStore?: InterestStore;
   readonly organizationAuthorizationTimeoutMs?: number;
   readonly revalidation?: RevalidationScheduleOptions;
   readonly router?: WsEventRouter;
@@ -98,17 +90,18 @@ function createWebsocketHandler(input: {
   readonly containerInterest: ContainerInterestAuthorizer;
   readonly liveness: WsSessionLiveness;
   readonly organizationInterest: OrganizationInterestAuthorizer;
-  readonly persistInterest: OrderedInterestPersister;
   readonly revalidation: RevalidationSchedule<WsConnection>;
   readonly router: WsEventRouter;
 }) {
   return {
     maxPayloadLength: MAX_WS_CLIENT_MESSAGE_BYTES,
-    async open(ws: GatewaySocket) {
+    // A new socket holds no container interest until its client declares;
+    // the client's acknowledged declaration is the only interest source.
+    open(ws: GatewaySocket) {
       input.router.open(ws);
       input.revalidation.open(ws);
       input.liveness.open(ws);
-      await input.containerInterest.open(ws);
+      input.containerInterest.open(ws);
     },
     close(ws: GatewaySocket) {
       input.revalidation.close(ws);
@@ -118,14 +111,6 @@ function createWebsocketHandler(input: {
       input.router.close(ws);
     },
     async message(ws: GatewaySocket, message: string | Buffer) {
-      // A session whose interest writes lag holds its next frame until the
-      // store catches up; the frame stays counted by the socket's queue.
-      if (
-        input.persistInterest.pending(ws.data.userId, ws.data.sessionId) >=
-        MAX_PENDING_INTEREST_WRITES
-      ) {
-        await input.persistInterest.drain(ws.data.userId, ws.data.sessionId);
-      }
       const action = input.router.handleClientMessage(
         ws,
         messageToString(message),
@@ -189,8 +174,6 @@ function revalidateAfterReconnect(
 function createInterestAuthorizers(
   deps: RealtimeGatewayDeps,
   shared: {
-    readonly interestStore: InterestStore;
-    readonly persistInterest: OrderedInterestPersister;
     readonly proofAge: ProofAgePolicy;
     readonly router: WsEventRouter;
   },
@@ -206,8 +189,6 @@ function createInterestAuthorizers(
   const containerInterest = new ContainerInterestAuthorizer(
     deps.authorizeContainerAccess ?? authorizeContainerAccessWithWorkflow,
     deps.containerAuthorizationTimeoutMs ?? CONTAINER_AUTHORIZATION_TIMEOUT_MS,
-    shared.interestStore,
-    shared.persistInterest,
     shared.router,
     shared.proofAge,
   );
@@ -215,8 +196,9 @@ function createInterestAuthorizers(
 }
 
 /**
- * The realtime sync gateway owns the in-memory socket/interest router, the
- * per-session interest write serialization, and the Redis pub/sub subscription.
+ * The realtime sync gateway owns the in-memory socket/interest router and the
+ * Redis pub/sub subscription. Interest belongs to one open socket: a client
+ * declares it after every connect, and no reconnect cache outlives the socket.
  * Constructing it has no side effects; the subscription opens only when
  * `start()` is called, so importing this module never connects to Redis. The
  * gateway is constructed and started once at the composition root (index.ts),
@@ -226,15 +208,13 @@ function createInterestAuthorizers(
  */
 export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
   const router = deps.router ?? new WsEventRouter();
-  const interestStore = deps.interestStore ?? wsInterestStore;
-  const persistInterest = createOrderedInterestPersister(interestStore);
   const subscribe = deps.subscribe ?? addListener;
   const subscribeReconnect =
     deps.subscribeReconnect ?? addSubscriberReconnectListener;
   const proofAge = resolveProofAgePolicy(deps.revalidation);
   const { containerInterest, organizationInterest } = createInterestAuthorizers(
     deps,
-    { interestStore, persistInterest, proofAge, router },
+    { proofAge, router },
   );
   const { liveness, revalidation } = createRevalidationPasses(
     deps,
@@ -246,7 +226,6 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     containerInterest,
     liveness,
     organizationInterest,
-    persistInterest,
     revalidation,
     router,
   });
@@ -254,7 +233,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
   let unsubscribeReconnect: (() => void) | undefined;
 
   // The Worker awaits this same path directly; an event cannot finish while
-  // organization authorization or interest persistence is still outstanding.
+  // organization authorization is still outstanding.
   async function publish(message: string): Promise<void> {
     try {
       const preparation = organizationInterest.prepareServerEvent(message);
@@ -268,12 +247,7 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     } else if (event?.type === "principal_access_changed") {
       containerInterest.invalidateAccess(principalInterestKey(event));
     }
-    for (const eviction of router.routeServerEvent(message)) {
-      persistInterest(eviction.userId, eviction.sessionId, {
-        containerIds: [eviction.containerId],
-        kind: "remove",
-      });
-    }
+    router.routeServerEvent(message);
   }
 
   function start(): void {
@@ -303,7 +277,6 @@ export function createRealtimeGateway(deps: RealtimeGatewayDeps = {}) {
     stop,
     websocket,
     publish,
-    flush: persistInterest.flush,
     hibernation: createGatewayHibernation({
       containerInterest,
       liveness,

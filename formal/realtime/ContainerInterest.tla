@@ -3,7 +3,7 @@ EXTENDS Naturals, FiniteSets, TLC
 
 CONSTANTS AuthorizeInterest, InvalidateOnAccessChange, CheckSocketOpen,
           ScopeInvalidation, ScopeQueryChanges, NotifyPrincipalChanges,
-          CheckRestoreDependencies, CheckSessionLiveness,
+          CheckQueryOwner, CheckSessionLiveness,
           EnforceSessionDeadline, ConfirmOnlyLiveReads
 Containers == {"child", "other"}
 \* Time units a session may go unconfirmed by the session store.
@@ -15,65 +15,68 @@ Dependencies(container) == IF container = "child"
 \* readAfterEnd: that read answered after the session had ended.
 \* sinceConfirmed: time since the store last confirmed the session live.
 \* deadlineAge: time since production last armed the session deadline.
+\* declared: the open socket's own client has declared "child" since it opened.
+\* queryOwned: the pending query was started by the socket open now, not by a
+\*             socket of the same session that has since closed.
 VARIABLES access, revision, open, indexed, pending, queryAccess,
-          queryChanged, unrelatedRetry, cached, cacheInvalidated, cacheReadable,
+          queryChanged, unrelatedRetry, declared, queryOwned,
           sessionLive, servedEndedSession, observed, readAfterEnd,
           sinceConfirmed, deadlineAge, servedUnconfirmed
 sessionVars == <<sessionLive, servedEndedSession, observed, readAfterEnd,
                  sinceConfirmed, deadlineAge, servedUnconfirmed>>
 vars == <<access, revision, open, indexed, pending, queryAccess,
-          queryChanged, unrelatedRetry, cached, cacheInvalidated, cacheReadable,
-          sessionVars>>
+          queryChanged, unrelatedRetry, declared, queryOwned, sessionVars>>
 interestVars == <<access, revision, pending, queryAccess, queryChanged,
-                  unrelatedRetry, cached, cacheInvalidated, cacheReadable>>
+                  unrelatedRetry, declared, queryOwned>>
 Readable(container) == \A dependency \in Dependencies(container): access[dependency]
 QueryDependencies == IF queryAccess THEN Dependencies("child") ELSE {"child"}
 RelevantQueryChange == queryChanged \cap QueryDependencies # {}
 NeedsRetry == IF ScopeQueryChanges THEN RelevantQueryChange ELSE queryChanged # {}
+\* Production checks the query's own socket object, not merely its session.
+QuerySocketOpen == open /\ (~CheckQueryOwner \/ queryOwned)
 
 Init == /\ access = [dependency \in {"root", "child", "group", "other"} |-> dependency # "root"]
         /\ revision = 0 /\ open = TRUE /\ indexed = {"other"}
         /\ pending = FALSE /\ queryAccess = FALSE
         /\ queryChanged = {} /\ unrelatedRetry = FALSE
-        /\ cached = FALSE /\ cacheInvalidated = FALSE /\ cacheReadable = FALSE
+        /\ declared = FALSE /\ queryOwned = FALSE
         /\ sessionLive = TRUE /\ servedEndedSession = FALSE
         /\ observed = "none" /\ readAfterEnd = FALSE
         /\ sinceConfirmed = 0 /\ deadlineAge = 0 /\ servedUnconfirmed = FALSE
 
+\* The socket's own client declares "child". A declaration is the only way a
+\* query starts: no server-side cache restores interest for a socket.
 BeginAuthorization ==
     /\ open /\ ~pending
     /\ pending' = TRUE /\ queryAccess' = Readable("child")
-    /\ queryChanged' = {}
-    /\ UNCHANGED <<access, revision, open, indexed, unrelatedRetry,
-                    cached, cacheInvalidated, cacheReadable>>
+    /\ queryChanged' = {} /\ declared' = TRUE /\ queryOwned' = TRUE
+    /\ UNCHANGED <<access, revision, open, indexed, unrelatedRetry>>
     /\ UNCHANGED sessionVars
 
 ApplyAuthorization ==
-    /\ pending /\ (~CheckSocketOpen \/ open)
+    /\ pending /\ (~CheckSocketOpen \/ QuerySocketOpen)
     /\ ~NeedsRetry
     /\ indexed' = IF ~AuthorizeInterest \/ queryAccess
                    THEN indexed \cup {"child"} ELSE indexed \ {"child"}
     /\ pending' = FALSE
-    /\ cached' = TRUE /\ cacheInvalidated' = FALSE /\ cacheReadable' = queryAccess
-    /\ UNCHANGED <<access, revision, open, queryAccess, queryChanged, unrelatedRetry>>
+    /\ UNCHANGED <<access, revision, open, queryAccess, queryChanged,
+                    unrelatedRetry, declared, queryOwned>>
+    /\ UNCHANGED sessionVars
+
+\* A closed socket's query settles inert: its result indexes no socket.
+SettleOrphanedAuthorization ==
+    /\ pending /\ CheckSocketOpen /\ ~QuerySocketOpen
+    /\ pending' = FALSE
+    /\ UNCHANGED <<access, revision, open, indexed, queryAccess, queryChanged,
+                    unrelatedRetry, declared, queryOwned>>
     /\ UNCHANGED sessionVars
 
 RetryAuthorization ==
-    /\ open /\ pending /\ NeedsRetry
+    /\ QuerySocketOpen /\ pending /\ NeedsRetry
     /\ unrelatedRetry' = (unrelatedRetry \/ ~RelevantQueryChange)
     /\ queryAccess' = Readable("child") /\ queryChanged' = {}
-    /\ UNCHANGED <<access, revision, open, indexed, pending,
-                    cached, cacheInvalidated, cacheReadable>>
-    /\ UNCHANGED sessionVars
-
-ReuseRestoredAuthorization ==
-    /\ open /\ ~pending /\ cached
-    /\ (~CheckRestoreDependencies \/ ~cacheInvalidated)
-    /\ indexed' = IF cacheReadable THEN indexed \cup {"child"}
-                   ELSE indexed \ {"child"}
-    /\ cached' = FALSE
-    /\ UNCHANGED <<access, revision, open, pending, queryAccess, queryChanged,
-                    unrelatedRetry, cacheInvalidated, cacheReadable>>
+    /\ UNCHANGED <<access, revision, open, indexed, pending, declared,
+                    queryOwned>>
     /\ UNCHANGED sessionVars
 
 ObserveChange(dependency) == InvalidateOnAccessChange /\ (dependency # "group" \/ NotifyPrincipalChanges)
@@ -89,18 +92,28 @@ ChangeAccess(dependency) ==
                      ELSE {}
     /\ queryChanged' = IF pending /\ ObserveChange(dependency)
                         THEN queryChanged \cup {dependency} ELSE queryChanged
-    /\ cacheInvalidated' = (cacheInvalidated \/
-         (cached /\ ObserveChange(dependency) /\
-          dependency \in (IF cacheReadable THEN Dependencies("child") ELSE {"child"})))
-    /\ UNCHANGED <<open, pending, queryAccess, unrelatedRetry,
-                    cached, cacheReadable>>
+    /\ UNCHANGED <<open, pending, queryAccess, unrelatedRetry, declared,
+                    queryOwned>>
     /\ UNCHANGED sessionVars
 
 CloseSocket ==
     /\ open /\ open' = FALSE /\ indexed' = indexed \ {"child"}
-    /\ UNCHANGED <<access, revision, pending, queryAccess, queryChanged, unrelatedRetry,
-                    cached, cacheInvalidated, cacheReadable>>
+    /\ UNCHANGED <<access, revision, pending, queryAccess, queryChanged,
+                    unrelatedRetry, declared, queryOwned>>
     /\ UNCHANGED sessionVars
+
+\* The client reconnects on a fresh ticket for the same live session. The new
+\* socket opens with no container interest: nothing restores the closed
+\* socket's set, so its client declares again. A query the closed socket left
+\* pending belongs to that socket. The ticket upgrade confirms the session.
+ReopenSocket ==
+    /\ ~open /\ sessionLive
+    /\ open' = TRUE /\ declared' = FALSE /\ queryOwned' = FALSE
+    /\ sinceConfirmed' = 0 /\ deadlineAge' = 0
+    /\ UNCHANGED <<access, revision, indexed, pending, queryAccess,
+                    queryChanged, unrelatedRetry>>
+    /\ UNCHANGED <<sessionLive, servedEndedSession, observed, readAfterEnd,
+                    servedUnconfirmed>>
 
 \* A socket's session is checked once at upgrade. Revocation publishes
 \* session_revoked at most once and expiry publishes nothing, so ending a
@@ -163,9 +176,10 @@ SessionDeadline ==
     /\ UNCHANGED sessionVars /\ UNCHANGED interestVars
 
 Next == BeginAuthorization \/ ApplyAuthorization \/ RetryAuthorization
-        \/ ReuseRestoredAuthorization
+        \/ SettleOrphanedAuthorization
         \/ (\E dependency \in {"root", "child", "group", "outside"}: ChangeAccess(dependency))
-        \/ CloseSocket \/ (\E delivered \in BOOLEAN: EndSession(delivered))
+        \/ CloseSocket \/ ReopenSocket
+        \/ (\E delivered \in BOOLEAN: EndSession(delivered))
         \/ (\E answered \in BOOLEAN: ReadSession(answered)) \/ CompletePass
         \/ Elapse \/ SessionDeadline \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
@@ -174,8 +188,7 @@ TypeOK == /\ access \in [{"root", "child", "group", "other"} -> BOOLEAN]
           /\ indexed \subseteq Containers /\ revision \in 0..2
           /\ queryChanged \subseteq {"root", "child", "group", "outside"}
           /\ unrelatedRetry \in BOOLEAN
-          /\ cached \in BOOLEAN /\ cacheReadable \in BOOLEAN
-          /\ cacheInvalidated \in BOOLEAN
+          /\ declared \in BOOLEAN /\ queryOwned \in BOOLEAN
           /\ sessionLive \in BOOLEAN /\ servedEndedSession \in BOOLEAN
           /\ observed \in {"none", "live", "ended", "failed"}
           /\ readAfterEnd \in BOOLEAN /\ servedUnconfirmed \in BOOLEAN
@@ -183,6 +196,10 @@ TypeOK == /\ access \in [{"root", "child", "group", "other"} -> BOOLEAN]
           /\ deadlineAge \in 0..(MaxUnconfirmed + 1)
 OnlyReadableInterests == "child" \in indexed => Readable("child")
 ClosedSocketsNeverIndexed == "child" \in indexed => open
+\* Container hints route only through indexed interest, so a socket whose own
+\* client has not declared a container since it opened receives no hint for it,
+\* including a reconnected socket of a session that held it before.
+UndeclaredSocketsReceiveNoHints == "child" \in indexed => declared
 UnrelatedInterestsPreserved == "other" \in indexed
 NoUnrelatedRetries == ~unrelatedRetry
 \* An ended session's socket never survives a pass whose read answered after

@@ -260,7 +260,8 @@ hint arriving during I/O sets one dirty bit for a sequential catch-up pass;
 parallel organization feed requests are never started for one SDK scope.
 
 Socket closure or error enters a cancellable exponential-backoff loop with
-jitter. Every attempt mints a fresh one-time websocket ticket. A handshake must
+jitter. The first connection after login uses the one-time websocket ticket
+the login returned; every later attempt mints a fresh one. A handshake must
 remain open for ten seconds before it resets that backoff, so
 accept-and-immediately-close failures cannot create a fixed-rate ticket storm.
 A successful reconnect re-declares current demand and schedules one catch-up for

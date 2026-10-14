@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { generateSigningKeyPair } from "@tearleads/crypto";
 import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
@@ -86,5 +87,42 @@ testApiClient(
     expect(errors).toHaveLength(1);
     expect(errors[0]).toContain("Invalid failure response body");
     expect(errors[0]).not.toContain("Untrusted retry detail");
+  },
+);
+
+testApiClient(
+  "login returns the first ticket and later connects mint their own",
+  async () => {
+    let minted = 0;
+    server.use(
+      http.post(`${apiBaseUrl}/auth/challenge`, () =>
+        HttpResponse.json({ challenge: "a".repeat(64) }),
+      ),
+      http.post(`${apiBaseUrl}/auth/verify`, () =>
+        HttpResponse.json({
+          authenticated: true,
+          isRoot: false,
+          organizationId: "organization-1",
+          rootContainerId: null,
+          token: "token-1",
+          userId: "user-1",
+          wsTicket: "login-ticket",
+        }),
+      ),
+      http.post(`${apiBaseUrl}/auth/ws-ticket`, () => {
+        minted += 1;
+        return HttpResponse.json({ ticket: `minted-${minted}` });
+      }),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    const { signingPrivateKey } = generateSigningKeyPair(new Uint8Array(32));
+
+    const login = await client.authenticate("b".repeat(64), signingPrivateKey);
+    expect(login?.wsTicket).toBe("login-ticket");
+    client.setAuthToken("token-1");
+
+    await expect(client.requestWebSocketTicket()).resolves.toBe("login-ticket");
+    expect(minted).toBe(0);
+    await expect(client.requestWebSocketTicket()).resolves.toBe("minted-1");
   },
 );

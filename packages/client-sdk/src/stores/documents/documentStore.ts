@@ -140,9 +140,9 @@ function updateDocumentStoreRuntime(
   if (state.snapshot.ready) {
     if (serverEventsReconnected) {
       // The invalidation stream is lossy while disconnected. Once the server
-      // has restored this session's interest baseline, every already-open
-      // remote document needs one HTTP probe to cover peer writes made during
-      // the gap. This also closes iOS background/resume reconnects where the
+      // has acknowledged this socket's authoritative interest declaration,
+      // every already-open remote document needs one HTTP probe to cover peer
+      // writes made during the gap. This also closes iOS background/resume reconnects where the
       // native network source remained online throughout.
       requestRemoteDocumentStoreSync(state, scheduleSync);
       logRevalidationScheduled(state.runtime, "reconnect");
