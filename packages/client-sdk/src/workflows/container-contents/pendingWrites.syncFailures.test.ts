@@ -279,6 +279,21 @@ test("retry keeps a failure-only row and clears it with queued work", async () =
   );
   try {
     await ensurePendingWriteSchema(execSql);
+    await sqlDocumentsPersistence.saveDocument(
+      execSql,
+      {
+        accessEpoch: 1,
+        accessStateHash: null,
+        containerId: null,
+        documentId: "remote-document",
+        documentKind: "note",
+        id: "local-document",
+        snapshotEndVersion: "",
+        text: "",
+        title: "Stale note",
+      },
+      { updatedAt: T0 },
+    );
     await recordDocumentSyncFailure(execSql, DOCUMENT_SCOPE, {
       attemptedAt: T2,
       message: "Remote revalidation failed: container unavailable (409)",

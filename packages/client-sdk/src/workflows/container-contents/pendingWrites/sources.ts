@@ -41,8 +41,8 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    failure.message AS last_error,
-    failure.attempted_at AS last_attempted_at,
+    stored.sync_failure_message AS last_error,
+    stored.sync_failure_attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM pending_update_groups updates
   LEFT JOIN documents stored
@@ -52,9 +52,6 @@ const PENDING_WRITE_SOURCE_SQL = `
     ON projection.local_id = updates.local_id
   LEFT JOIN containers container
     ON container.id = projection.container_id
-  LEFT JOIN document_sync_failures failure
-    ON failure.app_kind = 'documents'
-    AND failure.local_id = updates.local_id
   WHERE updates.app_kind = 'documents'
 
   UNION ALL
@@ -68,7 +65,7 @@ const PENDING_WRITE_SOURCE_SQL = `
   SELECT
     'document' AS object_kind,
     NULL AS namespace,
-    failure.local_id AS local_id,
+    stored.local_id AS local_id,
     stored.document_id AS remote_id,
     projection.title AS name,
     projection.container_id AS container_id,
@@ -76,22 +73,20 @@ const PENDING_WRITE_SOURCE_SQL = `
     'revalidation' AS operation_kind,
     0 AS operation_count,
     0 AS byte_length,
-    failure.attempted_at AS created_at,
-    failure.attempted_at AS updated_at,
+    stored.sync_failure_attempted_at AS created_at,
+    stored.sync_failure_attempted_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    failure.message AS last_error,
-    failure.attempted_at AS last_attempted_at,
+    stored.sync_failure_message AS last_error,
+    stored.sync_failure_attempted_at AS last_attempted_at,
     'unless-item-covered' AS inclusion
-  FROM document_sync_failures failure
-  LEFT JOIN documents stored
-    ON stored.app_kind = failure.app_kind
-    AND stored.local_id = failure.local_id
+  FROM documents stored
   LEFT JOIN document_projection projection
-    ON projection.local_id = failure.local_id
+    ON projection.local_id = stored.local_id
   LEFT JOIN containers container
     ON container.id = projection.container_id
-  WHERE failure.app_kind = 'documents'
+  WHERE stored.app_kind = 'documents'
+    AND stored.sync_failure_message IS NOT NULL
 
   UNION ALL
 
@@ -110,14 +105,14 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    failure.message AS last_error,
-    failure.attempted_at AS last_attempted_at,
+    metadata.sync_failure_message AS last_error,
+    metadata.sync_failure_attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM pending_update_groups updates
   LEFT JOIN containers container ON container.id = updates.local_id
-  LEFT JOIN document_sync_failures failure
-    ON failure.app_kind = 'container-metadata'
-    AND failure.local_id = updates.local_id
+  LEFT JOIN documents metadata
+    ON metadata.app_kind = 'container-metadata'
+    AND metadata.local_id = updates.local_id
   WHERE updates.app_kind = 'container-metadata'
     -- Dormant retained metadata (container tombstoned access_revoked, row 4)
     -- has no containers row; keep it unsurfaced until rehydration re-attaches
@@ -132,7 +127,7 @@ const PENDING_WRITE_SOURCE_SQL = `
   SELECT
     'container' AS object_kind,
     NULL AS namespace,
-    failure.local_id AS local_id,
+    metadata.local_id AS local_id,
     CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END AS remote_id,
     ${CONTAINER_DISPLAY_NAME_SQL} AS name,
     container.id AS container_id,
@@ -140,16 +135,17 @@ const PENDING_WRITE_SOURCE_SQL = `
     'revalidation' AS operation_kind,
     0 AS operation_count,
     0 AS byte_length,
-    failure.attempted_at AS created_at,
-    failure.attempted_at AS updated_at,
+    metadata.sync_failure_attempted_at AS created_at,
+    metadata.sync_failure_attempted_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    failure.message AS last_error,
-    failure.attempted_at AS last_attempted_at,
+    metadata.sync_failure_message AS last_error,
+    metadata.sync_failure_attempted_at AS last_attempted_at,
     'unless-item-covered' AS inclusion
-  FROM document_sync_failures failure
-  JOIN containers container ON container.id = failure.local_id
-  WHERE failure.app_kind = 'container-metadata'
+  FROM documents metadata
+  JOIN containers container ON container.id = metadata.local_id
+  WHERE metadata.app_kind = 'container-metadata'
+    AND metadata.sync_failure_message IS NOT NULL
 
   UNION ALL
 
@@ -168,16 +164,13 @@ const PENDING_WRITE_SOURCE_SQL = `
     updates.updated_at AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    failure.message AS last_error,
-    failure.attempted_at AS last_attempted_at,
+    stored.sync_failure_message AS last_error,
+    stored.sync_failure_attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM pending_update_groups updates
   LEFT JOIN documents stored
     ON stored.app_kind = updates.app_kind
     AND stored.local_id = updates.local_id
-  LEFT JOIN document_sync_failures failure
-    ON failure.app_kind = updates.app_kind
-    AND failure.local_id = updates.local_id
   WHERE updates.app_kind NOT IN ('documents', 'container-metadata')
 
   UNION ALL
@@ -197,8 +190,8 @@ const PENDING_WRITE_SOURCE_SQL = `
     MAX(attachment.created_at) AS updated_at,
     NULL AS target_container_id,
     'pending' AS operation_status,
-    failure.message AS last_error,
-    failure.attempted_at AS last_attempted_at,
+    stored.sync_failure_message AS last_error,
+    stored.sync_failure_attempted_at AS last_attempted_at,
     'always' AS inclusion
   FROM document_pending_attachments attachment
   LEFT JOIN documents stored
@@ -208,9 +201,6 @@ const PENDING_WRITE_SOURCE_SQL = `
     ON projection.local_id = attachment.local_id
   LEFT JOIN containers container
     ON container.id = projection.container_id
-  LEFT JOIN document_sync_failures failure
-    ON failure.app_kind = 'documents'
-    AND failure.local_id = attachment.local_id
   GROUP BY attachment.local_id
 
   UNION ALL
@@ -279,17 +269,17 @@ const PENDING_WRITE_SOURCE_SQL = `
     intent.updated_at AS updated_at,
     intent.target_container_id AS target_container_id,
     CASE WHEN intent.sync_status IN ('blocked', 'unavailable') THEN 'blocked' ELSE 'pending' END AS operation_status,
-    COALESCE(NULLIF(intent.last_error, ''), failure.message) AS last_error,
-    COALESCE(intent.last_attempted_at, failure.attempted_at) AS last_attempted_at,
+    COALESCE(NULLIF(intent.last_error, ''), stored.sync_failure_message) AS last_error,
+    COALESCE(intent.last_attempted_at, stored.sync_failure_attempted_at) AS last_attempted_at,
     'always' AS inclusion
   FROM document_move_intents intent
+  LEFT JOIN documents stored
+    ON stored.app_kind = 'documents'
+    AND stored.local_id = intent.local_id
   LEFT JOIN document_projection projection
     ON projection.local_id = intent.local_id
   LEFT JOIN containers container
     ON container.id = COALESCE(projection.container_id, intent.target_container_id)
-  LEFT JOIN document_sync_failures failure
-    ON failure.app_kind = 'documents'
-    AND failure.local_id = intent.local_id
   WHERE intent.intent_type IN ('document.move', 'document.link')
 
   UNION ALL
@@ -309,17 +299,14 @@ const PENDING_WRITE_SOURCE_SQL = `
     stored.updated_at AS updated_at,
     projection.container_id AS target_container_id,
     'pending' AS operation_status,
-    failure.message AS last_error,
-    failure.attempted_at AS last_attempted_at,
+    stored.sync_failure_message AS last_error,
+    stored.sync_failure_attempted_at AS last_attempted_at,
     'unless-operation-covered' AS inclusion
   FROM documents stored
   LEFT JOIN document_projection projection
     ON projection.local_id = stored.local_id
   LEFT JOIN containers container
     ON container.id = projection.container_id
-  LEFT JOIN document_sync_failures failure
-    ON failure.app_kind = 'documents'
-    AND failure.local_id = stored.local_id
   WHERE stored.app_kind = 'documents'
     AND stored.document_id IS NULL
 

@@ -133,6 +133,13 @@ const accessLevelColumn = "effective_access_level";
  * - `recoveryGeneration`: Atomic raw-history recovery writer fence.
  * - `recoveryDocumentId`: Former server id for cross-client post-purge recreation.
  * - `pullContinuation`: Durable progress for the next bounded remote pull.
+ * - `syncFailureStatus`, `syncFailureMessage`, `syncFailureAttemptedAt`: The
+ *   last terminal sync failure or quarantined incoming update for this scope.
+ *   The durable write queue (`documentPendingUpdates`) has no status columns,
+ *   so these let the write-queue view and footer explain why the document is
+ *   blocked. `syncFailureMessage` is non-null exactly when a failure is
+ *   recorded; a newer failure replaces the old, and a later fully validated
+ *   sync pass, a remote reset, or the scope's teardown clears all three.
  * - `updatedAt`: Local timestamp for the last persisted runtime-state update.
  *
  * Indexes:
@@ -158,6 +165,9 @@ export const documents = sqliteTable(
     recoveryGeneration: integer("recovery_generation").notNull().default(0),
     recoveryDocumentId: text("recovery_document_id"),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
+    syncFailureStatus: integer("sync_failure_status"),
+    syncFailureMessage: text("sync_failure_message"),
+    syncFailureAttemptedAt: text("sync_failure_attempted_at"),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
@@ -212,38 +222,6 @@ export const documentPendingUpdates = sqliteTable(
       table.createdAt,
     ),
   ],
-);
-
-/**
- * Last terminal sync failure or quarantined incoming update per document scope.
- *
- * The durable write queue (`documentPendingUpdates`) has no status columns — a
- * row is either pending or settled-and-deleted. Terminal submissions and
- * incoming updates that cannot be decrypted or imported are recorded here so
- * the write-queue view and footer can surface why the document is blocked.
- * Rows are upserted per scope and deleted only after a later fully validated
- * sync pass succeeds or the scope's local state is torn down.
- *
- * Columns:
- * - `appKind`: Local document namespace matching `documents.appKind`.
- * - `localId`: Local document id matching `documents.localId`.
- * - `status`: HTTP status of the failed submission when known.
- * - `message`: Human-readable failure description for queue display.
- * - `attemptedAt`: Timestamp of the failed attempt.
- *
- * Indexes:
- * - `(appKind, localId)` is the primary key and keeps one failure per scope.
- */
-export const documentSyncFailures = sqliteTable(
-  "document_sync_failures",
-  {
-    appKind: text("app_kind").notNull(),
-    localId: text("local_id").notNull(),
-    status: integer("status"),
-    message: text("message").notNull(),
-    attemptedAt: text("attempted_at").notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.appKind, table.localId] })],
 );
 
 /**
@@ -671,10 +649,12 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
       "pull_continuation",
       "recovery_generation",
       "recovery_document_id",
+      "sync_failure_status",
+      "sync_failure_message",
+      "sync_failure_attempted_at",
     ],
   },
   defineSqlTableSchema(documentPendingUpdates),
-  defineSqlTableSchema(documentSyncFailures),
   defineSqlTableSchema(documentHistoryCheckpoints),
   defineSqlTableSchema(documentHistoryUpdates),
 ];
@@ -792,7 +772,6 @@ export const clientSQLiteSchema = {
   principalGrantRetirements,
   documents,
   documentPendingUpdates,
-  documentSyncFailures,
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,

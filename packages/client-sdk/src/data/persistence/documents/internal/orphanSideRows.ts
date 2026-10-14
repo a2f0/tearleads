@@ -16,7 +16,6 @@ import {
   documentHistoryUpdates,
   documentPendingAttachments,
   documentPendingUpdates,
-  documentSyncFailures,
   documents,
 } from "../../../sqlite/schema";
 import {
@@ -39,8 +38,7 @@ type DocumentSideLocalIdColumn =
   | typeof documentHistoryCheckpoints.localId
   | typeof documentHistoryUpdates.localId
   | typeof documentPendingAttachments.localId
-  | typeof documentPendingUpdates.localId
-  | typeof documentSyncFailures.localId;
+  | typeof documentPendingUpdates.localId;
 
 function requirePredicate(predicate: SQL | undefined): SQL {
   if (!predicate) {
@@ -148,7 +146,6 @@ interface HistorySweepCandidates {
 
 interface WriteSweepCandidates {
   pendingUpdates: ReadonlyArray<{ id: string | null }>;
-  syncFailures: ReadonlyArray<{ localId: string }>;
 }
 
 interface AttachmentSweepCandidates {
@@ -202,18 +199,7 @@ async function selectWriteSweepCandidates(
       ),
     )
     .limit(DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
-  const syncFailures = await tx
-    .select({ localId: documentSyncFailures.localId })
-    .from(documentSyncFailures)
-    .where(
-      and(
-        eq(documentSyncFailures.appKind, DOCUMENTS_APP_KIND),
-        lt(documentSyncFailures.attemptedAt, olderThan),
-        hasNoDocument(tx, documentSyncFailures.localId),
-      ),
-    )
-    .limit(DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
-  return { pendingUpdates, syncFailures };
+  return { pendingUpdates };
 }
 
 async function selectAttachmentSweepCandidates(
@@ -301,20 +287,6 @@ async function deleteWriteSweepCandidates(
       )
       .run();
   }
-  if (candidates.syncFailures.length > 0) {
-    await tx
-      .delete(documentSyncFailures)
-      .where(
-        and(
-          eq(documentSyncFailures.appKind, DOCUMENTS_APP_KIND),
-          inArray(
-            documentSyncFailures.localId,
-            candidates.syncFailures.map((row) => row.localId),
-          ),
-        ),
-      )
-      .run();
-  }
 }
 
 async function deleteAttachmentSweepCandidates(
@@ -349,7 +321,6 @@ function hasFullSweepBatch(
     history.checkpoints,
     history.updates,
     writes.pendingUpdates,
-    writes.syncFailures,
     attachments.pending,
     attachments.local,
   ].some((rows) => rows.length === DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);

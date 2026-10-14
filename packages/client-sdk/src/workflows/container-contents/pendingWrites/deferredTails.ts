@@ -41,8 +41,8 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
     ${getContainerDisplayNameSql("metadata_container")} AS container_name,
     metadata_container.id AS metadata_container_id,
     NULLIF(metadata_container.organization_id, '') AS metadata_organization_id,
-    failure.message AS failure_message,
-    failure.attempted_at AS failure_attempted_at
+    stored.sync_failure_message AS failure_message,
+    stored.sync_failure_attempted_at AS failure_attempted_at
   FROM documents stored
   LEFT JOIN document_projection
     ON stored.app_kind = 'documents'
@@ -52,9 +52,6 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
   LEFT JOIN containers metadata_container
     ON stored.app_kind = 'container-metadata'
     AND metadata_container.id = stored.local_id
-  LEFT JOIN document_sync_failures failure
-    ON failure.app_kind = stored.app_kind
-    AND failure.local_id = stored.local_id
   WHERE stored.snapshot_end_version <> ''
     -- Dormant retained metadata (row 4, access_revoked) has no containers
     -- row; keep it out of deferred-tail candidates until re-attach, matching

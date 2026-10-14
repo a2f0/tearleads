@@ -20,10 +20,27 @@ import {
   ensureRemoteDocument,
 } from "./syncShared";
 
+// Failures live on the scope's `documents` row, so every recording scope
+// starts from a stored document, as a running document store's does.
+async function seedStoredDocument(
+  execSql: Parameters<typeof sqlDocumentsPersistence.ensureSchema>[0],
+  localId: string,
+): Promise<void> {
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+  await sqlDocumentsPersistence.saveDocument(execSql, {
+    accessEpoch: 1,
+    containerId: null,
+    documentId: null,
+    id: localId,
+    snapshotEndVersion: "",
+    text: "",
+  });
+}
+
 test("incoming poison updates record a durable document-scoped quarantine", async () => {
   const { close, execSql } = await createTestExecSql("incoming-quarantine");
   try {
-    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await seedStoredDocument(execSql, "quarantined-doc");
     const state = {
       localId: "quarantined-doc",
       runtime: { infra: { execSql }, util: {} },
@@ -38,7 +55,8 @@ test("incoming poison updates record a durable document-scoped quarantine", asyn
 
     expect(
       await execSql(
-        `SELECT status, message FROM document_sync_failures
+        `SELECT sync_failure_status AS status, sync_failure_message AS message
+         FROM documents
          WHERE app_kind = 'documents' AND local_id = 'quarantined-doc'`,
       ),
     ).toEqual([
@@ -58,6 +76,7 @@ test("incoming poison updates record a durable document-scoped quarantine", asyn
 test("revalidation failures record durably except read-only 403s", async () => {
   const { close, execSql } = await createTestExecSql("revalidation-record");
   try {
+    await seedStoredDocument(execSql, "revalidating-doc");
     const state = {
       localId: "revalidating-doc",
       runtime: { infra: { execSql } },
@@ -82,7 +101,7 @@ test("revalidation failures record durably except read-only 403s", async () => {
 test("a container-less local-only create records a terminal failure", async () => {
   const { close, execSql } = await createTestExecSql("orphan-create-failure");
   try {
-    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await seedStoredDocument(execSql, "orphaned-local-only");
     const state = {
       localId: "orphaned-local-only",
       runtime: {
@@ -203,7 +222,7 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
 test("a stale terminal handler cannot recreate a deleted failure row", async () => {
   const { close, execSql } = await createTestExecSql("stale-terminal-handler");
   try {
-    await sqlDocumentsPersistence.ensureSchema(execSql);
+    await seedStoredDocument(execSql, "torn-down-doc");
     const doc = {} as unknown as DocumentState;
     const resolveProjectionUserKey = () => null;
     const state = {

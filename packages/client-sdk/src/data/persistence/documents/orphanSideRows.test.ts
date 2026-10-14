@@ -55,16 +55,6 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
       [OLD, OLD, FRESH, OLD],
     );
     await execSql(
-      `INSERT INTO document_sync_failures (
-        app_kind, local_id, status, message, attempted_at
-      ) VALUES
-        ('documents', 'live', 409, 'live', ?),
-        ('documents', 'orphan', 409, 'orphan', ?),
-        ('documents', 'fresh', 409, 'fresh', ?),
-        ('container-metadata', 'metadata', 409, 'metadata', ?)`,
-      [OLD, OLD, FRESH, OLD],
-    );
-    await execSql(
       `INSERT INTO document_pending_attachments (
         local_id, slot_id, name, storage_key, byte_length, content_sha256, created_at
       ) VALUES
@@ -92,7 +82,6 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
       "document_history_checkpoints",
       "document_history_updates",
       "document_pending_updates",
-      "document_sync_failures",
     ]) {
       expect(
         await execSql(

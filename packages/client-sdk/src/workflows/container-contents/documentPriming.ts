@@ -56,12 +56,7 @@ const PENDING_PRIME_LOCAL_ID_SQL = `
         WHERE pending.app_kind = 'documents'
           AND pending.local_id = stored.local_id
       )
-      OR EXISTS (
-        SELECT 1
-        FROM document_sync_failures failure
-        WHERE failure.app_kind = 'documents'
-          AND failure.local_id = stored.local_id
-      )
+      OR stored.sync_failure_message IS NOT NULL
       OR EXISTS (
         SELECT 1
         FROM document_pending_attachments attachment

@@ -6,6 +6,7 @@ import {
 } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
+import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../../data/sqlite/documentSyncFailurePersistence";
 import {
   organizationDataUsageCategories,
   organizationDataUsageSnapshots,
@@ -32,7 +33,6 @@ import {
   documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
-  documentSyncFailures,
   documents,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
@@ -176,19 +176,6 @@ async function clearScopedDocumentRows(
         ),
       )
       .run();
-    await tx
-      .delete(documentSyncFailures)
-      .where(
-        or(
-          ...documentBatch.map((row) =>
-            and(
-              eq(documentSyncFailures.appKind, row.appKind),
-              eq(documentSyncFailures.localId, row.localId),
-            ),
-          ),
-        ),
-      )
-      .run();
   }
 }
 
@@ -239,6 +226,7 @@ async function resetRemoteColumns(input: {
         lastCommitLsn: null,
         pullContinuation: null,
         recoveryDocumentId: row.documentId ?? row.recoveryDocumentId,
+        ...CLEARED_DOCUMENT_SYNC_FAILURE,
         updatedAt: now,
       })
       .where(

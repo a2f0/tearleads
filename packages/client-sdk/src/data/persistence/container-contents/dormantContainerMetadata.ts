@@ -3,7 +3,6 @@ import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
   documentPendingUpdates,
-  documentSyncFailures,
   documents,
   dormantContainerMetadata,
 } from "../../sqlite/schema";
@@ -93,15 +92,6 @@ export async function deleteContainerMetadataDocumentRowsInTransaction(
       and(
         eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
         inArray(documentPendingUpdates.localId, ids),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentSyncFailures)
-    .where(
-      and(
-        eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documentSyncFailures.localId, ids),
       ),
     )
     .run();

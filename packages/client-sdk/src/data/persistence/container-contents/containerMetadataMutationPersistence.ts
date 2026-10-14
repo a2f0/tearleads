@@ -8,11 +8,11 @@ import {
   enqueueDocumentPendingUpdate,
   type PendingUpdateFields,
 } from "../../sqlite/documentPersistence";
+import { clearDocumentSyncFailureInTransaction } from "../../sqlite/documentSyncFailurePersistence";
 import {
   containerCreateIntents,
   containerMoveIntents,
   documentPendingUpdates,
-  documentSyncFailures,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -154,19 +154,14 @@ async function deleteAcceptedPendingUpdates(
     .run();
 }
 
-async function clearSyncFailure(
+function clearMetadataSyncFailure(
   tx: ClientSQLiteTransactionScope,
   containerId: string,
 ): Promise<void> {
-  await tx
-    .delete(documentSyncFailures)
-    .where(
-      and(
-        eq(documentSyncFailures.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(documentSyncFailures.localId, containerId),
-      ),
-    )
-    .run();
+  return clearDocumentSyncFailureInTransaction(tx, {
+    appKind: CONTAINER_METADATA_APP_KIND,
+    localId: containerId,
+  });
 }
 
 async function hasPendingUpdates(
@@ -381,7 +376,7 @@ export async function commitStoredMetadataMutation(
           input.acceptedPendingUpdateIds,
         );
         if (input.clearSyncFailure) {
-          await clearSyncFailure(tx, input.container.id);
+          await clearMetadataSyncFailure(tx, input.container.id);
         }
         const { container, localUpdatedAt } =
           await prepareContainerMutationWrite({

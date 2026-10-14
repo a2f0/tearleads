@@ -203,7 +203,7 @@ test("a deferred-tail-only scope counts as queued work on retry", async () => {
 
     // The deferred-tail scope's row cleared; the covered scope's survived.
     const failures = await execSql(
-      "SELECT local_id AS localId FROM document_sync_failures",
+      "SELECT local_id AS localId FROM documents WHERE sync_failure_message IS NOT NULL",
     );
     expect(failures.map((row) => Reflect.get(row, "localId"))).toEqual([
       "covered-doc",
