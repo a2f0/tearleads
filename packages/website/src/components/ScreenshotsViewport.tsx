@@ -40,6 +40,12 @@ export function ScreenshotsViewport({
       ref={dialogRef}
       className="screenshots-browser__viewport"
       aria-label="Screenshot viewer"
+      onCancel={(event) => {
+        if (event.target === event.currentTarget) {
+          event.preventDefault();
+          onCollapse();
+        }
+      }}
       onClose={(event) => {
         // Closing the nested image lightbox should leave the gallery expanded.
         if (event.target === event.currentTarget) {

@@ -74,7 +74,6 @@ export function ScreenshotsToolbar({
         className="screenshots-browser__icon-button"
         onClick={onExpandToggle}
         aria-label={expandLabel}
-        aria-pressed={expanded}
         title={expandLabel}
       >
         <ExpandIcon aria-hidden="true" size={20} />
