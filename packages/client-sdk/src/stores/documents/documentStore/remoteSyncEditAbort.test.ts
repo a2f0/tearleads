@@ -111,7 +111,7 @@ test("failed on-demand waiters leave no remote signal after their retry cap", as
       fixture.writerProjection.documentId,
       "",
       undefined,
-      "on-demand",
+      { remoteSyncMode: "on-demand" },
     );
     expect(await store.ensureInitialized()).toBe(true);
     await settleCoordinator(runtime.state.domainScope);

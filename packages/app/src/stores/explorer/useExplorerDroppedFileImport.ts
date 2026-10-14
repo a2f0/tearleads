@@ -25,6 +25,7 @@ interface ExplorerDroppedFileDocumentStore {
   setStructuredFields: (
     kind: Exclude<StoredDocumentKind, "note">,
     patch: Readonly<Record<string, string | undefined>>,
+    options?: { deferRemoteSync?: boolean },
   ) => Promise<void>;
   setText: (value: string) => Promise<void>;
 }
@@ -46,6 +47,7 @@ export interface ExplorerDroppedFileImportResult
 
 interface ExplorerDroppedFileImportStoreInput {
   containerId: string;
+  deferInitialUpdate: boolean;
   initialDocumentKind: StoredDocumentKind;
   initialText: string;
   localId: string;
@@ -161,8 +163,13 @@ async function importExplorerDroppedFile(input: {
   );
   const localId = input.createLocalId();
   const importedFile = await importer.importFile(input.file);
+  // A binary file's attach follows in this call, so its update carries the
+  // birth and the metadata fields: one Loro update per uploaded file. A failed
+  // attach enqueues them on their own (see the SDK's deferred initial update).
+  const attachmentFollows = importedFile.attachment !== null;
   const store = input.createDocumentStore({
     containerId: input.containerId,
+    deferInitialUpdate: attachmentFollows,
     initialDocumentKind: importedFile.documentKind,
     initialText: importedFile.initialText,
     localId,
@@ -179,6 +186,7 @@ async function importExplorerDroppedFile(input: {
     await store.setStructuredFields(
       importedFile.documentKind,
       importedFile.structuredFields,
+      { deferRemoteSync: attachmentFollows },
     );
   }
   for (const row of importedFile.rows ?? []) {
@@ -306,12 +314,14 @@ export function useExplorerDroppedFileImport(params: {
         containerId,
         createDocumentStore: ({
           containerId: targetContainerId,
+          deferInitialUpdate,
           initialDocumentKind,
           initialText,
           localId,
         }) =>
           appData.openDocument({
             containerId: targetContainerId,
+            deferInitialUpdate,
             initialDocumentKind,
             initialText,
             localId,

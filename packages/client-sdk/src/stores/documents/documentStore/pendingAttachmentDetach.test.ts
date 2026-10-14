@@ -31,7 +31,7 @@ import {
   defaultDocumentsPersistence,
   reclaimDocumentOrphanBlobs,
 } from "../../../workflows/documents";
-import { removeAttachmentFromDocumentStore } from "./attachments";
+import { removeAttachmentFromDocumentStore } from "./attachmentRemoval";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
 import { createDocumentStoreState } from "./state";

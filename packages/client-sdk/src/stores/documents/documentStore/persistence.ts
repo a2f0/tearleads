@@ -16,6 +16,7 @@ import {
   persistDocumentState,
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
+import { requestDocumentStoreSync } from "../registry";
 import { maybeCompactDocumentHistory } from "./documentHistoryCompaction";
 import {
   importDurableDocumentHistory,
@@ -345,6 +346,12 @@ export function advancePendingBaseVersion(
   doc: DocumentState,
 ): void {
   state.pendingBaseVersion = encodeVersionVector(doc);
+  // Every op through here is enqueued or remote, so a deferred birth is now
+  // covered: lift its scheduled-sync hold and request the pass it skipped.
+  if (state.deferInitialUpdate) {
+    state.deferInitialUpdate = false;
+    requestDocumentStoreSync(state);
+  }
 }
 
 /**

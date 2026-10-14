@@ -30,8 +30,8 @@ import {
   reclaimDocumentOrphanBlobs,
 } from "../../../workflows/documents";
 import { clearRemoteSyncState } from "../../../workflows/sync/remoteReset";
+import { removeAttachmentFromDocumentStore } from "./attachmentRemoval";
 import { deleteUnreferencedStagedAttachmentBytes } from "./attachmentStaging";
-import { removeAttachmentFromDocumentStore } from "./attachments";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
 import { createDocumentStoreState } from "./state";

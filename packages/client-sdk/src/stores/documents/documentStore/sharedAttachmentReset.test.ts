@@ -29,7 +29,7 @@ import {
   reclaimDocumentOrphanBlobs,
 } from "../../../workflows/documents";
 import { clearRemoteSyncState } from "../../../workflows/sync/remoteReset";
-import { removeAttachmentFromDocumentStore } from "./attachments";
+import { removeAttachmentFromDocumentStore } from "./attachmentRemoval";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { ensureDocumentStoreReady } from "./initialization";
 import { setDocumentText } from "./mutations";

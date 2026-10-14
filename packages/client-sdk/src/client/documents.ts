@@ -167,7 +167,7 @@ class DocumentsService implements Documents {
       documentId,
       initialText,
       initialDocumentKind,
-      options.remoteSyncMode ?? "startup",
+      { remoteSyncMode: options.remoteSyncMode },
     );
   }
 
