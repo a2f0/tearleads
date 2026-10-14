@@ -30,14 +30,16 @@ import {
   assertCurrentContainerPath,
   assertManifestHeadCurrent,
   assertMutationHeadCanAdvance,
-  resolveHistoricalContainerManifests,
   verifyContainerManifestFromRequest,
 } from "./manifests";
 import { planContainerMutationBatchLocks } from "./mutationBatchLocks";
 import { persistVerifiedMutation } from "./persistence";
 import { assertPrincipalPoliciesCurrent } from "./principalPolicies";
 import { principalPoliciesFromRequest } from "./principalPolicyRecords";
-import { resolveVerifiedStoredContainerManifest } from "./storedManifestArtifacts";
+import {
+  resolveCitedContainerHistory,
+  resolveVerifiedStoredContainerManifest,
+} from "./storedManifestArtifacts";
 
 function collectReferencedPrincipalHeads(
   paths: readonly (
@@ -219,15 +221,16 @@ async function verifyMutationArtifacts(
     input.request.destinationParentContainerPathRefs,
     "destinationParentContainerPathRefs",
   );
-  const containerManifestHistory = await resolveHistoricalContainerManifests(
-    context,
-    input.request.containerManifestHistoryRefs,
-  );
   const previousManifest = await loadPreviousContainerManifest(
     context,
     input.request.previousManifestRef,
   );
   await assertPreviousManifestHeadCurrent(context, previousManifest);
+  const containerManifestHistory = await resolveCitedContainerHistory(
+    context,
+    input.request.containerManifestHistoryRefs,
+    previousManifest,
+  );
   const principalPolicies = await readCurrentPrincipalPolicies({
     executor: context.executor,
     request: input.request,

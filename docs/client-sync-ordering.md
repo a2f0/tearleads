@@ -219,7 +219,12 @@ staged and bound. Byte I/O uses a separate FIFO pool with four permits per API
 client, shared by sync hydration downloads and multipart uploads. Relink
 key-authentication downloads use their existing path. A permit
 covers upload encryption through the part response, or a complete download
-stream; permits are released on success and failure. Document lanes await their
+stream; permits are released on success and failure. A new stage's first
+parts are encrypted before the stage exists, to describe them in its
+initiation, so each holds its permit from encryption until its upload ends:
+the upload awaits one permit and takes further ones only if they are free,
+since two uploads each waiting for a second permit while holding a first
+would deadlock the pool. Document lanes await their
 transfers and retain ownership of binding and persistence.
 
 Unlinking an attachment from a synced document is the mirror case. The local

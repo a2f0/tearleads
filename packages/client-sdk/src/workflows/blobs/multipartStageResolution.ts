@@ -8,10 +8,12 @@ import type {
   UploadDocumentAttachmentInput,
 } from "../../data/documents/blob/shared/types";
 import {
+  type MultipartFirstParts,
   type MultipartPartSources,
-  type PreparedMultipartPart,
+  type PreparedFirstPart,
   prepareFirstMultipartParts,
   readIssuedPartSources,
+  releasePreparedParts,
 } from "./multipartFirstParts";
 import {
   assertMultipartStageReplaceable,
@@ -36,7 +38,7 @@ interface ResolveMultipartStageInput {
 }
 
 interface ResolvedMultipartStage {
-  readonly prepared: Map<number, PreparedMultipartPart>;
+  readonly prepared: Map<number, PreparedFirstPart>;
   readonly sources: MultipartPartSources;
   readonly status: MultipartBlobStageStatusResponse;
 }
@@ -74,16 +76,11 @@ async function resumeMultipartStage(
   return resumed;
 }
 
-// A new stage carries the parts the upload starts with, so their upload
-// sources come back with the stage instead of one authorization each.
-async function initiateMultipartStage(
+async function initiateWithFirstParts(
   input: ResolveMultipartStageInput,
+  firstParts: MultipartFirstParts,
 ): Promise<ResolvedMultipartStage> {
   const { byteLength, sha256 } = input.encryption;
-  const firstParts = await prepareFirstMultipartParts(
-    input.encryption,
-    input.concurrency,
-  );
   const stage = await input.apiClient.initiateMultipartBlobStage({
     organizationId: input.organizationId,
     byteLength,
@@ -115,6 +112,25 @@ async function initiateMultipartStage(
       ? stage
       : { ...stage, completed: false },
   };
+}
+
+// A new stage carries the parts the upload starts with, so their upload
+// sources come back with the stage instead of one authorization each. Their
+// bytes hold transfer-pool slots until uploaded, or until initiation fails.
+async function initiateMultipartStage(
+  input: ResolveMultipartStageInput,
+): Promise<ResolvedMultipartStage> {
+  const firstParts = await prepareFirstMultipartParts(
+    input.apiClient,
+    input.encryption,
+    input.concurrency,
+  );
+  try {
+    return await initiateWithFirstParts(input, firstParts);
+  } catch (error) {
+    releasePreparedParts(firstParts.prepared);
+    throw error;
+  }
 }
 
 export async function resolveMultipartStage(

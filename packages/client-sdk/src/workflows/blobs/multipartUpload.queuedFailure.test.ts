@@ -44,9 +44,10 @@ for (const failure of ["throw", "null"] as const) {
       ).rejects.toThrow(
         failure === "throw" ? "first part failed" : "part 1 upload failed",
       );
-      // Both first parts are encrypted once, before initiation, to describe
-      // them; the queued sibling is never uploaded or encrypted again.
-      expect(encrypted).toEqual([0, 1]);
+      // A first part's bytes hold a pool slot from description to upload, so
+      // with one slot free only part one is described and encrypted; the
+      // queued sibling is never encrypted beyond the shared bound.
+      expect(encrypted).toEqual([0]);
       expect(uploaded).toEqual([1]);
     } finally {
       release();

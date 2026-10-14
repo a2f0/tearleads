@@ -19,7 +19,10 @@ import {
   mutationStateStale,
 } from "../errors";
 import type { ContainerMutationContext } from "../types";
-import { resolveVerifiedStoredContainerManifest } from "./storedManifestArtifacts";
+import {
+  assertDistinctManifestRefs,
+  resolveVerifiedStoredContainerManifest,
+} from "./storedManifestArtifacts";
 
 interface VerifyContainerManifestFromRequestArtifacts {
   readonly destinationParentContainerPath?:
@@ -120,6 +123,7 @@ export async function assertCurrentContainerPath(
   if (refs === undefined) {
     return;
   }
+  assertDistinctManifestRefs(refs, label);
 
   const path: VerifiedContainerAccessManifest[] = [];
   for (const [index, ref] of refs.entries()) {
@@ -146,27 +150,6 @@ export async function assertCurrentContainerPath(
   }
   assertContainerPathEdges(path, label);
   return path;
-}
-
-export async function resolveHistoricalContainerManifests(
-  context: ContainerMutationContext,
-  refs: readonly ContainerManifestRef[] | undefined,
-): Promise<VerifiedContainerAccessManifest[] | undefined> {
-  if (refs === undefined) {
-    return;
-  }
-
-  const manifests: VerifiedContainerAccessManifest[] = [];
-  for (const [index, ref] of refs.entries()) {
-    manifests.push(
-      await resolveVerifiedStoredContainerManifest(
-        context,
-        ref,
-        `containerManifestHistoryRefs[${index}]`,
-      ),
-    );
-  }
-  return manifests;
 }
 
 export async function assertMutationHeadCanAdvance(

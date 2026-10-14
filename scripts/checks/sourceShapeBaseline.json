@@ -64,12 +64,12 @@
       "bytes": 23915
     },
     "docs/openapi.json": {
-      "lines": 61288,
-      "bytes": 2460821
+      "lines": 61348,
+      "bytes": 2463681
     },
     "docs/protocol-specification.md": {
-      "lines": 694,
-      "bytes": 36169
+      "lines": 700,
+      "bytes": 36650
     },
     "docs/security-guarantees.md": {
       "lines": 843,

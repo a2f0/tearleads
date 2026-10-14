@@ -23,10 +23,21 @@ import type {
 type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 
 // Requests cite stored manifests by hash, as the server resolves them from its
-// own store. This fake resolves them from every manifest it has seen: the ones
-// a caller supplies, the previous KEK's history, and every response it built.
-// Manifests are content-addressed, so a hash always names the same bundle.
+// own store. This fake resolves them from every manifest it has seen in the
+// current test: the ones a caller supplies, the previous KEK's history, and
+// every response it built. Manifests are content-addressed, so a hash always
+// names the same bundle. The client-sdk and app test preloads reset it after
+// each test, since Bun shares this module across every file in a run.
 const knownManifestByHash = new Map<string, AccessManifestBundleWireResponse>();
+
+/** Forget every registered manifest; test preloads call this after each test. */
+export function resetContainerManifestRegistry(): void {
+  knownManifestByHash.clear();
+}
+
+export function hasRegisteredContainerManifest(manifestHash: string): boolean {
+  return knownManifestByHash.has(manifestHash);
+}
 
 /** Teach the fake manifests that tests built outside of it. */
 export function registerContainerManifestBundles(

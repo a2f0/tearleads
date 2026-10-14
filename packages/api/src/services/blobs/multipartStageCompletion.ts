@@ -96,12 +96,43 @@ async function listUploadedParts(
 }
 
 /**
+ * The parts that assemble the declared object: parts 1..k, in order, whose
+ * lengths add up to exactly the declared byte length. A part numbered past
+ * them is left out (completing a subset discards it), so a stray part cannot
+ * change the object; a gap, or a run that misses the declared length, is
+ * refused before the upload is consumed, so the missing part can still come.
+ */
+function selectDeclaredParts(
+  parts: readonly BlobObjectPart[],
+  byteLength: number,
+): readonly BlobObjectPart[] {
+  const byNumber = new Map(parts.map((part) => [part.partNumber, part]));
+  const selected: BlobObjectPart[] = [];
+  let total = 0;
+  for (let partNumber = 1; total < byteLength; partNumber += 1) {
+    const part = byNumber.get(partNumber);
+    if (!part) break;
+    selected.push(part);
+    total += part.byteLength;
+  }
+  if (total !== byteLength) {
+    throw new MultipartBlobStageError(
+      parts.length === 0
+        ? "Blob multipart stage has no uploaded parts"
+        : "Blob multipart stage parts do not cover its declared length",
+      409,
+    );
+  }
+  return selected;
+}
+
+/**
  * Assemble a stage's uploaded parts and verify the object's exact length and
  * SHA-256 before marking the stage complete. Attachment binding calls this, so
- * a client sends no separate completion request. The parts are the ones the
- * object store holds for the stage's upload id, and whatever they assemble to
- * must match the size and digest declared at initiation, or the object is
- * deleted and the bind refused. Idempotent: a complete stage returns at once,
+ * a client sends no separate completion request. The parts are the run of
+ * parts the object store holds for the stage's upload id that covers the
+ * declared length, and what they assemble to must match the digest declared
+ * at initiation, or the object is deleted and the bind refused. Idempotent: a complete stage returns at once,
  * and an object assembled before a lost state flip is re-verified and adopted.
  */
 export async function completeOwnedMultipartStage(
@@ -115,12 +146,7 @@ export async function completeOwnedMultipartStage(
   if (parts === null) {
     return;
   }
-  if (parts.length === 0) {
-    throw new MultipartBlobStageError(
-      "Blob multipart stage has no uploaded parts",
-      409,
-    );
-  }
+  const declaredParts = selectDeclaredParts(parts, stage.byteLength);
 
   let completed: CompletedBlobObject;
   try {
@@ -130,7 +156,10 @@ export async function completeOwnedMultipartStage(
         sha256: stage.sha256,
       },
       key: stage.storageKey,
-      parts: parts.map(({ etag, partNumber }) => ({ etag, partNumber })),
+      parts: declaredParts.map(({ etag, partNumber }) => ({
+        etag,
+        partNumber,
+      })),
       uploadId: stage.uploadId,
     });
   } catch (error) {

@@ -305,7 +305,10 @@ Each signed mutation request carries:
 - optional `previousManifestRef`, `previousContainerPathRefs`,
   `parentContainerPathRefs`, `destinationParentContainerPathRefs`, and
   `containerManifestHistoryRefs`: `{containerId, manifestHash}` citations of
-  manifests the server already stores, never the bundles themselves
+  manifests the server already stores, never the bundles themselves. No list
+  may cite one manifest twice, and history cites only the mutated container
+  (the one `previousManifestRef` names), so both are refused with `400`
+  before any citation is read; the history then loads in one bulk read
 - referenced principal policy bundles
 - a container key epoch
 - a required nullable predecessor bridge (`null` for creates and same-epoch
@@ -436,12 +439,15 @@ so their clients never authorize a part; S3/R2 reject that proxy path before
 reading a body.
 
 There is no completion request. Attachment binding completes the stage: before
-its transaction it assembles the parts the object store holds for the stage's
-upload ID and verifies the object's exact length and SHA-256 against the
-stage, deleting a mismatched object and refusing with `409`. A stage with no
-uploaded parts is refused with `409`. Completion is idempotent: a stage already
-complete is used as is, and an object assembled before a lost state flip is
-re-verified before it is adopted.
+its transaction it assembles parts 1..k of the stage's upload, the run whose
+stored lengths add up to exactly the declared byte length, and verifies the
+object's length and SHA-256 against the stage, deleting a mismatched object
+and refusing with `409`. A part numbered past that run is left out, so a stray
+part cannot change the object. A stage with no uploaded parts, or whose parts
+leave a gap or miss the declared length, is refused with `409` before the
+upload is consumed, so the missing part can still be sent. Completion is
+idempotent: a stage already complete is used as is, and an object assembled
+before a lost state flip is re-verified before it is adopted.
 The API stores only object-store multipart metadata in `blob_stages`;
 encrypted payload bytes
 are never encoded into JSON or stored in the database. Staged objects are not

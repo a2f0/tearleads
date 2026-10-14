@@ -140,3 +140,39 @@ test("a store that cannot sign answers every first part with the API route", asy
     { ...firstPart, source: { kind: "api" } },
   ]);
 });
+
+// Sources are issued before the stage row exists: a signing failure aborts
+// the fresh upload and leaves no stage for expiry cleanup to find later.
+test("stage initiation aborts its upload when a first part cannot be signed", async () => {
+  const owner = await createBlobStageOwner();
+  const { createUploadPartUrl, runtime } = signingRuntime();
+  createUploadPartUrl.mockImplementation(async () => {
+    throw new Error("signing unavailable");
+  });
+  const abortMultipartUpload = mock(
+    async (_input: { readonly key: string; readonly uploadId: string }) => {},
+  );
+  runtime.blobObjectStore = {
+    ...runtime.blobObjectStore,
+    abortMultipartUpload,
+  };
+  const bytes = new Uint8Array(MIB);
+
+  await expect(
+    initiateMultipartBlobStage(runtime, {
+      ...owner,
+      byteLength: bytes.byteLength,
+      firstParts: [{ byteLength: MIB, contentMd5: md5(bytes), partNumber: 1 }],
+      sha256: sha256Hex(bytes),
+    }),
+  ).rejects.toThrow("signing unavailable");
+
+  expect(abortMultipartUpload).toHaveBeenCalledTimes(1);
+  const [abort] = abortMultipartUpload.mock.calls[0] ?? [];
+  expect(
+    await runtime.db
+      .select({ id: blobStages.id })
+      .from(blobStages)
+      .where(eq(blobStages.uploadId, abort?.uploadId ?? "")),
+  ).toEqual([]);
+});

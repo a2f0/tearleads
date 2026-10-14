@@ -251,8 +251,11 @@ expired stage cannot be completed. An accepted request is not aborted by a
 client-side five-minute timer.
 
 Attachment binding completes the stage: before its transaction it assembles
-the parts the store holds for the stage's upload ID and streams the object once
-to verify its complete length and SHA-256 before the stage can be promoted.
+parts 1..k of the stage's upload (the run covering exactly the declared length,
+so a stray higher part is left out) and streams the object once to verify its
+complete length and SHA-256 before the stage can be promoted. The first parts'
+upload sources are issued before the stage row is written, so a signing failure
+aborts the fresh upload instead of leaving a stage for expiry cleanup.
 There is no separate completion request. Content-MD5 is a transport checksum,
 not a replacement for that integrity check. Direct uploads remove the part
 payloads from the Worker but retain this final verification read. A completed

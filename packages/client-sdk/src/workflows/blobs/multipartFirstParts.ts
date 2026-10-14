@@ -7,11 +7,25 @@ import {
   type MultipartBlobPartUploadSource,
 } from "@tearleads/validators/util";
 import type { BlobBytes } from "../../data/blobContracts";
+import {
+  acquireBlobTransferPermit,
+  type BlobTransferPermit,
+  tryAcquireBlobTransferPermit,
+} from "../../data/blobs/transferPool";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 
 export interface PreparedMultipartPart {
   readonly bytes: BlobBytes;
   readonly sha256: string;
+}
+
+/**
+ * A first part's bytes and the transfer-pool permit that pays for them: the
+ * bytes exist before their upload can start, so they hold a slot of the
+ * client's byte-I/O bound until the upload that sends them releases it.
+ */
+export interface PreparedFirstPart extends PreparedMultipartPart {
+  readonly permit: BlobTransferPermit;
 }
 
 /**
@@ -21,7 +35,35 @@ export interface PreparedMultipartPart {
  */
 export interface MultipartFirstParts {
   readonly descriptors: readonly MultipartBlobPartDescriptor[];
-  readonly prepared: Map<number, PreparedMultipartPart>;
+  readonly prepared: Map<number, PreparedFirstPart>;
+}
+
+/** Return the pool slots of first parts no upload consumed. */
+export function releasePreparedParts(
+  prepared: Map<number, PreparedFirstPart>,
+): void {
+  for (const part of prepared.values()) {
+    part.permit.release();
+  }
+  prepared.clear();
+}
+
+/**
+ * One permit is awaited; more are taken only if free right now. Two uploads
+ * each waiting for a second slot while holding a first could otherwise
+ * deadlock the pool, since a held slot frees only when its part uploads.
+ */
+async function acquireFirstPartPermits(
+  client: object,
+  limit: number,
+): Promise<BlobTransferPermit[]> {
+  const permits = [await acquireBlobTransferPermit(client)];
+  while (permits.length < limit) {
+    const permit = tryAcquireBlobTransferPermit(client);
+    if (!permit) break;
+    permits.push(permit);
+  }
+  return permits;
 }
 
 /**
@@ -41,25 +83,31 @@ export async function sha256BytesHex(bytes: BlobBytes): Promise<string> {
 }
 
 export async function prepareFirstMultipartParts(
+  client: object,
   encryption: BlobEncryptionPlan,
   concurrency: number,
 ): Promise<MultipartFirstParts> {
-  const count = Math.min(
-    encryption.partCount,
-    concurrency,
-    MAX_INITIATE_PART_UPLOADS,
+  const permits = await acquireFirstPartPermits(
+    client,
+    Math.min(encryption.partCount, concurrency, MAX_INITIATE_PART_UPLOADS),
   );
   const descriptors: MultipartBlobPartDescriptor[] = [];
-  const prepared = new Map<number, PreparedMultipartPart>();
-  for (let partIndex = 0; partIndex < count; partIndex += 1) {
-    const bytes = await encryption.encryptPart(partIndex);
-    if (bytes.byteLength !== encryption.getPartByteLength(partIndex)) {
-      throw new Error(
-        `Encrypted blob part ${partIndex + 1} byte length mismatch: expected ${encryption.getPartByteLength(partIndex).toLocaleString()}, received ${bytes.byteLength.toLocaleString()}.`,
-      );
+  const prepared = new Map<number, PreparedFirstPart>();
+  try {
+    for (const [partIndex, permit] of permits.entries()) {
+      const bytes = await encryption.encryptPart(partIndex);
+      if (bytes.byteLength !== encryption.getPartByteLength(partIndex)) {
+        throw new Error(
+          `Encrypted blob part ${partIndex + 1} byte length mismatch: expected ${encryption.getPartByteLength(partIndex).toLocaleString()}, received ${bytes.byteLength.toLocaleString()}.`,
+        );
+      }
+      const sha256 = await sha256BytesHex(bytes);
+      prepared.set(partIndex, { bytes, permit, sha256 });
+      descriptors.push(describeMultipartBlobPart(partIndex + 1, bytes));
     }
-    prepared.set(partIndex, { bytes, sha256: await sha256BytesHex(bytes) });
-    descriptors.push(describeMultipartBlobPart(partIndex + 1, bytes));
+  } catch (error) {
+    for (const permit of permits) permit.release();
+    throw error;
   }
   return { descriptors, prepared };
 }

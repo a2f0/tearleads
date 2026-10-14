@@ -14,7 +14,9 @@ import type {
 } from "../../data/documents/blob/shared/types";
 import {
   type MultipartPartSources,
+  type PreparedFirstPart,
   type PreparedMultipartPart,
+  releasePreparedParts,
   sha256BytesHex,
   takePartSource,
 } from "./multipartFirstParts";
@@ -90,7 +92,7 @@ async function uploadMultipartPartTasks(input: {
   readonly concurrency: number;
   readonly encryption: BlobEncryptionPlan;
   readonly onPartUploaded?: (task: MultipartPartUploadTask) => void;
-  readonly prepared: Map<number, PreparedMultipartPart>;
+  readonly prepared: Map<number, PreparedFirstPart>;
   readonly sources: MultipartPartSources;
   readonly stageId: string;
   readonly tasks: readonly MultipartPartUploadTask[];
@@ -113,6 +115,8 @@ async function uploadMultipartPartTasks(input: {
       }
 
       try {
+        // A first part already holds the pool slot its prepared bytes use.
+        const heldPermit = input.prepared.get(task.partIndex)?.permit;
         await runBlobTransfer(
           input.apiClient,
           async (signal) => {
@@ -164,6 +168,7 @@ async function uploadMultipartPartTasks(input: {
               (task.byteLength * BLOB_TRANSFER_CONCURRENCY * 1000) /
                 MULTIPART_TRANSFER_BYTES_PER_SECOND,
             ),
+          heldPermit,
         );
       } catch (error) {
         recordFailure(error);
@@ -182,7 +187,7 @@ async function uploadMultipartPartTasks(input: {
 // over (and release them) instead of encrypting it again.
 async function encryptedPart(input: {
   readonly encryption: BlobEncryptionPlan;
-  readonly prepared: Map<number, PreparedMultipartPart>;
+  readonly prepared: Map<number, PreparedFirstPart>;
   readonly task: MultipartPartUploadTask;
 }): Promise<PreparedMultipartPart> {
   const prepared = input.prepared.get(input.task.partIndex);
@@ -202,7 +207,7 @@ async function encryptedPart(input: {
 async function uploadMultipartPartBytes(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
-  readonly prepared: Map<number, PreparedMultipartPart>;
+  readonly prepared: Map<number, PreparedFirstPart>;
   readonly sources: MultipartPartSources;
   readonly stageId: string;
   readonly task: MultipartPartUploadTask;
@@ -319,7 +324,7 @@ function assertMultipartPlanLimits(encryption: BlobEncryptionPlan): void {
   }
 }
 
-export async function stageMultipartBlobAttachment(input: {
+type StageMultipartBlobAttachmentInput = {
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
   readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
@@ -329,7 +334,11 @@ export async function stageMultipartBlobAttachment(input: {
   readonly onStageUnavailable?:
     | ((stageId: string) => Promise<void>)
     | undefined;
-}): Promise<string | null> {
+};
+
+export async function stageMultipartBlobAttachment(
+  input: StageMultipartBlobAttachmentInput,
+): Promise<string | null> {
   if (input.multipart.partSize !== input.encryption.chunkSize) {
     throw new Error(
       "Multipart part size must match the encryption chunk size exactly.",
@@ -339,7 +348,7 @@ export async function stageMultipartBlobAttachment(input: {
   const concurrency = normalizeMultipartUploadConcurrency(
     input.multipart.uploadConcurrency,
   );
-  const { prepared, sources, status } = await resolveMultipartStage({
+  const resolved = await resolveMultipartStage({
     apiClient: input.apiClient,
     concurrency,
     encryption: input.encryption,
@@ -347,6 +356,23 @@ export async function stageMultipartBlobAttachment(input: {
     organizationId: input.organizationId,
     onStageUnavailable: input.onStageUnavailable,
   });
+  try {
+    return await uploadResolvedMultipartStage(input, concurrency, resolved);
+  } finally {
+    // First parts no worker consumed (an early failure) return their slots.
+    releasePreparedParts(resolved.prepared);
+  }
+}
+
+async function uploadResolvedMultipartStage(
+  input: StageMultipartBlobAttachmentInput,
+  concurrency: number,
+  {
+    prepared,
+    sources,
+    status,
+  }: Awaited<ReturnType<typeof resolveMultipartStage>>,
+): Promise<string> {
   // Surface the stage id before any parts upload so the caller can persist it;
   // an upload interrupted mid-flight can then resume this same stage.
   await input.onStageResolved?.({

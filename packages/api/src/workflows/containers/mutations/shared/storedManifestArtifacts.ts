@@ -1,9 +1,12 @@
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
 import type { ContainerManifestRef } from "@tearleads/validators/request";
-import { loadContainerManifestBundleByHash } from "../../writerProjection/accessPaths";
+import {
+  loadContainerManifestBundleByHash,
+  prefetchContainerManifestHistory,
+} from "../../writerProjection/accessPaths";
 import { verifyStoredContainerManifest } from "../../writerProjection/storedManifestVerification";
 import { ContainerWriterProjectionError } from "../../writerProjection/types";
-import { ContainerMutationError } from "../errors";
+import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { ContainerMutationContext } from "../types";
 
 function assertReferencedContainer(
@@ -62,4 +65,70 @@ export async function resolveVerifiedStoredContainerManifest(
       409,
     );
   }
+}
+
+/**
+ * Refuse a citation list that repeats a manifest before reading any of it: a
+ * path visits each container once and KEK verification rejects a duplicate
+ * history entry, so a repeat is malformed rather than work to dedupe.
+ */
+export function assertDistinctManifestRefs(
+  refs: readonly ContainerManifestRef[],
+  label: string,
+): void {
+  const seen = new Set<string>();
+  for (const [index, ref] of refs.entries()) {
+    if (seen.has(ref.manifestHash)) {
+      throw mutationShapeError(`${label}[${index}] repeats a cited manifest`);
+    }
+    seen.add(ref.manifestHash);
+  }
+}
+
+const HISTORY_LABEL = "containerManifestHistoryRefs";
+
+/**
+ * Resolve the cited lineage of the container a mutation advances. Every entry
+ * must be that container's manifest (KEK verification refuses any other), so
+ * each citation is checked against it before any read, and the lineage loads
+ * in one bulk query: a long history costs one read, not one per entry.
+ */
+export async function resolveCitedContainerHistory(
+  context: ContainerMutationContext,
+  refs: readonly ContainerManifestRef[] | undefined,
+  previousManifest: VerifiedContainerAccessManifest | null,
+): Promise<VerifiedContainerAccessManifest[] | undefined> {
+  if (refs === undefined) {
+    return;
+  }
+  assertDistinctManifestRefs(refs, HISTORY_LABEL);
+  if (refs.length === 0) {
+    return [];
+  }
+  if (!previousManifest) {
+    throw mutationShapeError(`${HISTORY_LABEL} requires previousManifestRef`);
+  }
+  const { containerId } = previousManifest.state;
+  for (const [index, ref] of refs.entries()) {
+    if (ref.containerId !== containerId) {
+      throw mutationShapeError(
+        `${HISTORY_LABEL}[${index}] cites another container`,
+      );
+    }
+  }
+  await prefetchContainerManifestHistory(
+    context.writerProjectionContext,
+    containerId,
+  );
+  const manifests: VerifiedContainerAccessManifest[] = [];
+  for (const [index, ref] of refs.entries()) {
+    manifests.push(
+      await resolveVerifiedStoredContainerManifest(
+        context,
+        ref,
+        `${HISTORY_LABEL}[${index}]`,
+      ),
+    );
+  }
+  return manifests;
 }

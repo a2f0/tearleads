@@ -6,6 +6,7 @@ import type {
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
+import type { MultipartBlobPartUpload } from "@tearleads/validators/util";
 import { and, eq, inArray, lte } from "drizzle-orm";
 import type { BlobObjectPart } from "../../adapters/blobObjectStore";
 import {
@@ -207,7 +208,18 @@ export async function initiateMultipartBlobStage(
       key: storageKey,
     });
 
+    let partUploads: MultipartBlobPartUpload[];
     try {
+      // The first parts' upload sources ride on this response, so the parts
+      // the client starts at once need no authorization round trip of their
+      // own. They are issued before the stage row exists, so a signing
+      // failure leaves no row behind for the upload to outlive.
+      const stage = { expiresAt, storageKey, uploadId: upload.uploadId };
+      partUploads = await Promise.all(
+        input.firstParts.map((part) =>
+          issueMultipartPartUpload(runtime, stage, part),
+        ),
+      );
       await persistBlobStageInOrganization(
         runtime.db,
         {
@@ -224,25 +236,18 @@ export async function initiateMultipartBlobStage(
       );
     } catch (error) {
       // Without the stage row, expiry cleanup cannot discover this upload.
-      // Abort it best-effort and preserve the database failure.
+      // Abort it best-effort and preserve the original failure.
       await runtime.blobObjectStore
         .abortMultipartUpload({ key: storageKey, uploadId: upload.uploadId })
         .catch(() => {});
       throw error;
     }
 
-    // The first parts' upload sources ride on this response, so the parts the
-    // client starts at once need no authorization round trip of their own.
-    const stage = { expiresAt, storageKey, uploadId: upload.uploadId };
     return {
       organizationId,
       byteLength: input.byteLength,
       expiresAt: expiresAt.toISOString(),
-      partUploads: await Promise.all(
-        input.firstParts.map((part) =>
-          issueMultipartPartUpload(runtime, stage, part),
-        ),
-      ),
+      partUploads,
       sha256: input.sha256,
       stageId,
       uploadId: upload.uploadId,

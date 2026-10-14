@@ -37,6 +37,23 @@ async function bindScenario() {
 
 // Stage a real envelope's declared size and digest, uploading `uploaded`
 // (or nothing) as its only part.
+async function uploadPart(input: {
+  readonly bytes: Uint8Array;
+  readonly owner: TestUser;
+  readonly partNumber: number;
+  readonly stage: { readonly stageId: string; readonly uploadId: string };
+}): Promise<void> {
+  await uploadMultipartBlobPartBytes(runtime, {
+    byteLength: input.bytes.byteLength,
+    bytes: input.bytes,
+    partNumber: input.partNumber,
+    sha256: sha256Hex(input.bytes),
+    stageId: input.stage.stageId,
+    uploadId: input.stage.uploadId,
+    userId: input.owner.userId,
+  });
+}
+
 async function stageDeclaredEnvelope(input: {
   readonly blobId: string;
   readonly owner: TestUser;
@@ -56,20 +73,18 @@ async function stageDeclaredEnvelope(input: {
     userId: input.owner.userId,
   });
   if (input.uploaded !== "nothing") {
-    const partBytes =
-      input.uploaded === "envelope" ? bytes : bytes.map((byte) => byte ^ 1);
-    await uploadMultipartBlobPartBytes(runtime, {
-      byteLength: partBytes.byteLength,
-      bytes: partBytes,
+    await uploadPart({
+      bytes:
+        input.uploaded === "envelope" ? bytes : bytes.map((byte) => byte ^ 1),
+      owner: input.owner,
       partNumber: 1,
-      sha256: sha256Hex(partBytes),
-      stageId: stage.stageId,
-      uploadId: stage.uploadId,
-      userId: input.owner.userId,
+      stage,
     });
   }
   return {
+    bytes,
     key: `organizations/${organizationId}/blob-stages/${stage.stageId}`,
+    stage,
     stagedBlob: { sha256, stageId: stage.stageId },
   };
 }
@@ -184,6 +199,65 @@ test("a bind retried after it completed the stage promotes the same bytes", asyn
     .from(blobStages)
     .where(eq(blobStages.id, staged.stageId));
   expect(completed?.completedAt).not.toBeNull();
+  await expect(
+    bindForTest({ blobId, owner, request }),
+  ).resolves.toBeUndefined();
+  expect(await storedBlob(blobId)).toHaveLength(1);
+});
+
+// Completion assembles only parts 1..k covering the declared length: a stray
+// part numbered past them cannot change, or poison, the object.
+test("a bind ignores a stray part past the declared length", async () => {
+  const { document, owner, root } = await bindScenario();
+  const blobId = crypto.randomUUID();
+  const { stage, stagedBlob } = await stageDeclaredEnvelope({
+    blobId,
+    owner,
+    uploaded: "envelope",
+  });
+  await uploadPart({
+    bytes: new Uint8Array([1, 2, 3]),
+    owner,
+    partNumber: 2,
+    stage,
+  });
+  const { request } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    stagedBlob,
+  });
+
+  await expect(
+    bindForTest({ blobId, owner, request }),
+  ).resolves.toBeUndefined();
+  expect(await storedBlob(blobId)).toHaveLength(1);
+});
+
+test("a bind refuses parts that miss the declared length without consuming the upload", async () => {
+  const { document, owner, root } = await bindScenario();
+  const blobId = crypto.randomUUID();
+  const { bytes, stage, stagedBlob } = await stageDeclaredEnvelope({
+    blobId,
+    owner,
+    uploaded: "nothing",
+  });
+  await uploadPart({ bytes, owner, partNumber: 2, stage });
+  const { request } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    stagedBlob,
+  });
+  await expect(bindForTest({ blobId, owner, request })).rejects.toMatchObject({
+    status: 409,
+    message: "Blob multipart stage parts do not cover its declared length",
+  });
+
+  // The upload survives the refusal: sending the missing part completes it.
+  await uploadPart({ bytes, owner, partNumber: 1, stage });
   await expect(
     bindForTest({ blobId, owner, request }),
   ).resolves.toBeUndefined();

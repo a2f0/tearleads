@@ -351,7 +351,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -369,7 +368,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -871,7 +872,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -889,7 +889,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -1382,7 +1384,6 @@
                         "properties": {
                           "body": {},
                           "containerManifestHistoryRefs": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -1400,7 +1401,9 @@
                                 "manifestHash"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 4096,
+                            "type": "array"
                           },
                           "destinationParentContainerPathRefs": {
                             "items": {
@@ -1653,7 +1656,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -1671,7 +1673,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -2070,7 +2074,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -2088,7 +2091,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -2498,7 +2503,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -2516,7 +2520,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -3033,7 +3039,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -3051,7 +3056,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -3429,7 +3436,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -3447,7 +3453,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -3856,7 +3864,6 @@
                     "properties": {
                       "body": {},
                       "containerManifestHistoryRefs": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -3874,7 +3881,9 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 4096,
+                        "type": "array"
                       },
                       "destinationParentContainerPathRefs": {
                         "items": {
@@ -4127,7 +4136,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -4145,7 +4153,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -4523,7 +4533,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -4541,7 +4550,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -4953,7 +4964,6 @@
                         "properties": {
                           "body": {},
                           "containerManifestHistoryRefs": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -4971,7 +4981,9 @@
                                 "manifestHash"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 4096,
+                            "type": "array"
                           },
                           "destinationParentContainerPathRefs": {
                             "items": {
@@ -5224,7 +5236,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -5242,7 +5253,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -5641,7 +5654,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -5659,7 +5671,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -6097,7 +6111,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -6115,7 +6128,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -6493,7 +6508,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -6511,7 +6525,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -6925,7 +6941,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -6943,7 +6958,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -7196,7 +7213,6 @@
                                 "properties": {
                                   "body": {},
                                   "containerManifestHistoryRefs": {
-                                    "type": "array",
                                     "items": {
                                       "type": "object",
                                       "properties": {
@@ -7214,7 +7230,9 @@
                                         "manifestHash"
                                       ],
                                       "additionalProperties": {}
-                                    }
+                                    },
+                                    "maxItems": 4096,
+                                    "type": "array"
                                   },
                                   "destinationParentContainerPathRefs": {
                                     "items": {
@@ -7613,7 +7631,6 @@
                                 "properties": {
                                   "body": {},
                                   "containerManifestHistoryRefs": {
-                                    "type": "array",
                                     "items": {
                                       "type": "object",
                                       "properties": {
@@ -7631,7 +7648,9 @@
                                         "manifestHash"
                                       ],
                                       "additionalProperties": {}
-                                    }
+                                    },
+                                    "maxItems": 4096,
+                                    "type": "array"
                                   },
                                   "destinationParentContainerPathRefs": {
                                     "items": {
@@ -13017,7 +13036,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -13035,7 +13053,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -13541,7 +13561,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -13559,7 +13578,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -15252,7 +15273,6 @@
                     "properties": {
                       "body": {},
                       "containerManifestHistoryRefs": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -15270,7 +15290,9 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 4096,
+                        "type": "array"
                       },
                       "destinationParentContainerPathRefs": {
                         "items": {
@@ -15523,7 +15545,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -15541,7 +15562,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -17459,7 +17482,6 @@
                 "properties": {
                   "body": {},
                   "containerManifestHistoryRefs": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -17477,7 +17499,9 @@
                         "manifestHash"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "destinationParentContainerPathRefs": {
                     "items": {
@@ -17685,7 +17709,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -17703,7 +17726,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -19481,7 +19506,6 @@
                 "properties": {
                   "body": {},
                   "containerManifestHistoryRefs": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -19499,7 +19523,9 @@
                         "manifestHash"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "destinationParentContainerPathRefs": {
                     "items": {
@@ -19707,7 +19733,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -19725,7 +19750,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -21213,7 +21240,6 @@
                 "properties": {
                   "body": {},
                   "containerManifestHistoryRefs": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -21231,7 +21257,9 @@
                         "manifestHash"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "destinationParentContainerPathRefs": {
                     "items": {
@@ -21439,7 +21467,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -21457,7 +21484,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -22677,7 +22706,6 @@
                 "properties": {
                   "body": {},
                   "containerManifestHistoryRefs": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -22695,7 +22723,9 @@
                         "manifestHash"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "destinationParentContainerPathRefs": {
                     "items": {
@@ -24647,7 +24677,6 @@
                 "properties": {
                   "body": {},
                   "containerManifestHistoryRefs": {
-                    "type": "array",
                     "items": {
                       "type": "object",
                       "properties": {
@@ -24665,7 +24694,9 @@
                         "manifestHash"
                       ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "destinationParentContainerPathRefs": {
                     "items": {
@@ -26744,7 +26775,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -26762,7 +26792,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -29376,7 +29408,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -29394,7 +29425,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -30539,7 +30572,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -30557,7 +30589,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -32551,7 +32585,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -32569,7 +32602,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {
@@ -36886,7 +36921,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -36904,7 +36938,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -37391,7 +37427,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -37409,7 +37444,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -39538,7 +39575,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -39556,7 +39592,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -40987,7 +41025,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -41005,7 +41042,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -41492,7 +41531,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -41510,7 +41548,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -45335,7 +45375,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -45353,7 +45392,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -45855,7 +45896,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -45873,7 +45913,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -46366,7 +46408,6 @@
                         "properties": {
                           "body": {},
                           "containerManifestHistoryRefs": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -46384,7 +46425,9 @@
                                 "manifestHash"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 4096,
+                            "type": "array"
                           },
                           "destinationParentContainerPathRefs": {
                             "items": {
@@ -46637,7 +46680,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -46655,7 +46697,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -47054,7 +47098,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -47072,7 +47115,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -47482,7 +47527,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -47500,7 +47544,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -48017,7 +48063,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -48035,7 +48080,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -48413,7 +48460,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -48431,7 +48477,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -48840,7 +48888,6 @@
                     "properties": {
                       "body": {},
                       "containerManifestHistoryRefs": {
-                        "type": "array",
                         "items": {
                           "type": "object",
                           "properties": {
@@ -48858,7 +48905,9 @@
                             "manifestHash"
                           ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 4096,
+                        "type": "array"
                       },
                       "destinationParentContainerPathRefs": {
                         "items": {
@@ -49111,7 +49160,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -49129,7 +49177,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -49507,7 +49557,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -49525,7 +49574,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -49937,7 +49988,6 @@
                         "properties": {
                           "body": {},
                           "containerManifestHistoryRefs": {
-                            "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
@@ -49955,7 +50005,9 @@
                                 "manifestHash"
                               ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 4096,
+                            "type": "array"
                           },
                           "destinationParentContainerPathRefs": {
                             "items": {
@@ -50208,7 +50260,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -50226,7 +50277,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -50625,7 +50678,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -50643,7 +50695,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -51081,7 +51135,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -51099,7 +51152,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -51477,7 +51532,6 @@
                               "properties": {
                                 "body": {},
                                 "containerManifestHistoryRefs": {
-                                  "type": "array",
                                   "items": {
                                     "type": "object",
                                     "properties": {
@@ -51495,7 +51549,9 @@
                                       "manifestHash"
                                     ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "destinationParentContainerPathRefs": {
                                   "items": {
@@ -51909,7 +51965,6 @@
                           "properties": {
                             "body": {},
                             "containerManifestHistoryRefs": {
-                              "type": "array",
                               "items": {
                                 "type": "object",
                                 "properties": {
@@ -51927,7 +51982,9 @@
                                   "manifestHash"
                                 ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "destinationParentContainerPathRefs": {
                               "items": {
@@ -52180,7 +52237,6 @@
                                 "properties": {
                                   "body": {},
                                   "containerManifestHistoryRefs": {
-                                    "type": "array",
                                     "items": {
                                       "type": "object",
                                       "properties": {
@@ -52198,7 +52254,9 @@
                                         "manifestHash"
                                       ],
                                       "additionalProperties": {}
-                                    }
+                                    },
+                                    "maxItems": 4096,
+                                    "type": "array"
                                   },
                                   "destinationParentContainerPathRefs": {
                                     "items": {
@@ -52597,7 +52655,6 @@
                                 "properties": {
                                   "body": {},
                                   "containerManifestHistoryRefs": {
-                                    "type": "array",
                                     "items": {
                                       "type": "object",
                                       "properties": {
@@ -52615,7 +52672,9 @@
                                         "manifestHash"
                                       ],
                                       "additionalProperties": {}
-                                    }
+                                    },
+                                    "maxItems": 4096,
+                                    "type": "array"
                                   },
                                   "destinationParentContainerPathRefs": {
                                     "items": {
@@ -57132,7 +57191,6 @@
                       "properties": {
                         "body": {},
                         "containerManifestHistoryRefs": {
-                          "type": "array",
                           "items": {
                             "type": "object",
                             "properties": {
@@ -57150,7 +57208,9 @@
                               "manifestHash"
                             ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "destinationParentContainerPathRefs": {
                           "items": {

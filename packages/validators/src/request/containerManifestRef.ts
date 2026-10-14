@@ -5,7 +5,10 @@ import {
   loosePlainObject,
   nonEmptyStringSchema,
 } from "../schema";
-import { MAX_CONTAINER_PATH_LENGTH } from "../util/containerLimits";
+import {
+  MAX_CONTAINER_MANIFEST_HISTORY_REFS,
+  MAX_CONTAINER_PATH_LENGTH,
+} from "../util/containerLimits";
 
 /**
  * A reference to a container access manifest the server already stores, in lieu
@@ -39,8 +42,10 @@ export const OptionalContainerManifestPathSchema = arraySchema(
 
 /**
  * Stored manifests of one container, cited by reference. A container's lineage
- * has no fixed length, so this list keeps the request-body bound only.
+ * has no fixed length; the ceiling keeps the capacity inline bundles had under
+ * the request-body bound (see `MAX_CONTAINER_MANIFEST_HISTORY_REFS`).
  */
 export const ContainerManifestRefListSchema = arraySchema(
   ContainerManifestRefSchema,
+  MAX_CONTAINER_MANIFEST_HISTORY_REFS,
 );
