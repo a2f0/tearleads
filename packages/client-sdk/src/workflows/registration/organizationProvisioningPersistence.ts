@@ -10,7 +10,10 @@ import {
   buildOrganizationProfileBootstrapInput,
   buildRosterProfileBootstrapInput,
 } from "./profileBootstrapPersistence";
-import { provisioningAcknowledgedAccessHeads } from "./provisioningAcknowledgement";
+import {
+  provisioningAcknowledgedAccessHeads,
+  provisioningDiscoveryHeads,
+} from "./provisioningAcknowledgement";
 import {
   principalPolicyBundleFromInitialGroupRequest,
   principalPolicyBundleFromInitialOrganizationRequest,
@@ -167,6 +170,19 @@ async function buildProvisioningPersistenceArtifacts(
   ]);
   return {
     acknowledgedAccessHeads,
+    // Discovery lists the seeded profile documents; their signed heads are the
+    // ones this client just authored and the server acknowledged.
+    authoredDiscoveryHeads: provisioningDiscoveryHeads([
+      {
+        plan: input.rosterProfileBootstrap.profileDocument.plan,
+        response: input.response.rosterProfileDocument,
+      },
+      {
+        plan: input.organizationMetadataBootstrap.organizationProfileDocument
+          .plan,
+        response: input.response.organizationProfileDocument,
+      },
+    ]),
     initialAdminGroupPolicy,
     initialMemberGroupPolicy,
     initialOrganizationPolicy,
@@ -211,6 +227,7 @@ export async function persistOrganizationProvisioningState(
       createExecSql(input.dbClient),
       {
         acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
+        authoredDiscoveryHeads: artifacts.authoredDiscoveryHeads,
         canStartDurableMutation: input.canStartDurableMutation,
         onPersistQueued: input.onPersistQueued,
         containerId: input.containerId,

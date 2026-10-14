@@ -124,8 +124,10 @@ of heads new to the device. See the
 [acceptance evidence](../principal-history-acceptance.md#ordinary-workflow-cost)
 for the security tradeoff and measured byte costs.
 
-The current app fixtures measure 41 requests for personal bootstrap and 16 for
-creating and activating another organization, with ceilings of 43 and 16.
+The current app fixtures measure 40 requests for personal bootstrap and 12 for
+creating and activating another organization, with ceilings of 42 and 12.
+Provisioning seeds discovery evidence for the profile documents it signed, so
+neither flow fetches their writer projections.
 A cold Org Manager open uses three requests: one read-model read, one
 organization-policy read and one Admins-policy read. An active peer reconciles
 an ungranted group change with four policy/read-model requests and no container

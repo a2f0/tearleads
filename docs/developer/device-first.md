@@ -260,9 +260,9 @@ initial roster and organization-profile bodies are committed atomically with
 their manifests during provisioning, so another authorized session can recover
 the complete seed history and display the organization name immediately. Later
 profile edits still follow normal billing eligibility. The provisioning
-response explicitly acknowledges every committed seed update; the client
-persists those updates as settled, and a response that omits the acknowledgement
-does not satisfy the current wire contract. Ordinary document hints wake other
+response must acknowledge every committed seed update, which the client persists
+as settled. Acknowledged profile-document heads also seed discovery evidence
+([document links](document-links.md)). Ordinary document hints wake other
 entitled sessions, which eagerly materialize system-document bodies without a
 manual Refresh.
 
