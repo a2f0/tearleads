@@ -3,6 +3,10 @@ import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { containers } from "../sqlite/containerSchema";
 import {
+  documentDiscoveryHeads,
+  pendingDocumentDiscoveries,
+} from "../sqlite/documentDiscoveryEvidenceSchema";
+import {
   containerTables,
   documentContainerProjection,
   documentContainerProjectionTables,
@@ -18,6 +22,7 @@ import {
 } from "./verifiedManifestBundlePersistence";
 
 const ORGANIZATION = "organization-1";
+const FOREIGN = "organization-2";
 
 function hash(index: number): string {
   return index.toString(16).padStart(64, "0");
@@ -28,6 +33,7 @@ function entry(
   objectKind: string,
   objectId: string,
   epoch: number,
+  organizationId = ORGANIZATION,
 ) {
   return {
     bundle: {
@@ -36,7 +42,7 @@ function entry(
       manifestHash,
       state: { epoch },
     },
-    checkpoint: { objectKind, organizationId: ORGANIZATION, objectId, epoch },
+    checkpoint: { objectKind, organizationId, objectId, epoch },
   };
 }
 
@@ -47,28 +53,40 @@ async function seedTree(execSql: Parameters<typeof ensureSqlTables>[0]) {
   ]);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const now = new Date().toISOString();
-  for (const [id, parentId] of [
-    ["root", null],
-    ["child", "root"],
-    ["other", null],
+  for (const [id, parentId, organizationId, metadataDocumentId] of [
+    ["root", null, ORGANIZATION, null],
+    ["child", "root", ORGANIZATION, "child-metadata"],
+    ["other", null, ORGANIZATION, null],
+    ["foreign", null, FOREIGN, null],
   ] as const)
     await db
       .insert(containers)
       .values({
         id,
-        organizationId: ORGANIZATION,
+        organizationId,
         parentId,
+        metadataDocumentId,
         localCreatedAt: now,
         localUpdatedAt: now,
       })
       .run();
+  await db
+    .insert(pendingDocumentDiscoveries)
+    .values({
+      containerId: "child",
+      documentId: "listed-doc",
+      accessEpoch: 1,
+      generation: 1,
+      inputJson: "{}",
+    })
+    .run();
   await db
     .insert(documentContainerProjection)
     .values({ documentId: "doc", containerId: "child", updatedAt: now })
     .run();
 }
 
-test("a container cites its lineage, its ancestors', then recent rows", async () => {
+test("a read cites its lineage, its ancestors', then its organization's recent rows", async () => {
   const database = createNativeTestExecSql();
   try {
     await seedTree(database.execSql);
@@ -78,19 +96,22 @@ test("a container cites its lineage, its ancestors', then recent rows", async ()
       entry(hash(3), "container", "child", 1),
       entry(hash(4), "container", "other", 1),
       entry(hash(5), "document", "doc", 1),
+      entry(hash(6), "container", "foreign", 1, FOREIGN),
+      entry(hash(7), "document", "unlisted-doc", 1),
     ]);
     const cited = async (kind: "container" | "document", id: string) =>
       (await loadVerifiedManifestCitations(database.execSql, { kind, id })).map(
         (bundle) => bundle.manifestHash,
       );
     // Lineage first, newest epoch first; then the organization's most
-    // recently verified rows.
+    // recently verified rows. Another organization's rows never appear.
     expect(await cited("container", "child")).toEqual([
       hash(3),
       hash(2),
       hash(1),
       hash(4),
       hash(5),
+      hash(7),
     ]);
     expect(await cited("document", "doc")).toEqual([
       hash(5),
@@ -98,7 +119,9 @@ test("a container cites its lineage, its ancestors', then recent rows", async ()
       hash(2),
       hash(1),
       hash(4),
+      hash(7),
     ]);
+    expect(await cited("container", "foreign")).toEqual([hash(6)]);
     expect(
       await loadVerifiedManifestCitations(
         database.execSql,
@@ -106,14 +129,57 @@ test("a container cites its lineage, its ancestors', then recent rows", async ()
         2,
       ),
     ).toHaveLength(2);
-    // A target the device has not listed cites the most recent rows.
-    expect(await cited("container", "unknown")).toEqual([
+    // An unlisted object placed by its own verified rows stays in its
+    // organization; one the device cannot place cites nothing.
+    expect(await cited("document", "unlisted-doc")).toEqual([
+      hash(7),
       hash(1),
       hash(2),
       hash(3),
       hash(4),
       hash(5),
     ]);
+    expect(await cited("container", "unknown")).toEqual([]);
+    // A document still awaiting signed placement, or a container's metadata
+    // document, cites the containers that name it.
+    for (const id of ["listed-doc", "child-metadata"])
+      expect((await cited("document", id)).slice(0, 3)).toEqual([
+        hash(3),
+        hash(2),
+        hash(1),
+      ]);
+  } finally {
+    database.close();
+  }
+});
+
+test("a discovered document cites within its discovery head's organization", async () => {
+  const database = createNativeTestExecSql();
+  try {
+    await seedTree(database.execSql);
+    await rememberVerifiedManifestBundles(database.execSql, [
+      entry(hash(1), "container", "root", 1),
+      entry(hash(6), "container", "foreign", 1, FOREIGN),
+    ]);
+    const { db } = getClientSQLitePersistenceRuntime(database.execSql);
+    await db
+      .insert(documentDiscoveryHeads)
+      .values({
+        documentId: "discovered",
+        organizationId: FOREIGN,
+        manifestHash: hash(8),
+        accessEpoch: 1,
+        linksJson: "[]",
+      })
+      .run();
+    expect(
+      (
+        await loadVerifiedManifestCitations(database.execSql, {
+          kind: "document",
+          id: "discovered",
+        })
+      ).map((bundle) => bundle.manifestHash),
+    ).toEqual([hash(6)]);
   } finally {
     database.close();
   }

@@ -14,6 +14,10 @@ import {
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { containers } from "../sqlite/containerSchema";
 import {
+  documentDiscoveryHeads,
+  pendingDocumentDiscoveries,
+} from "../sqlite/documentDiscoveryEvidenceSchema";
+import {
   containerTables,
   documentContainerProjection,
   documentContainerProjectionTables,
@@ -178,35 +182,80 @@ async function citedObjects(
       kind: "container",
       id,
     }));
-  const links = await db
-    .select({ containerId: documentContainerProjection.containerId })
-    .from(documentContainerProjection)
-    .where(eq(documentContainerProjection.documentId, target.id));
+  // Linked containers, containers listing the document before its signed
+  // placement is checked, and a container whose metadata document it is.
+  const placements = [
+    ...(await db
+      .select({ containerId: documentContainerProjection.containerId })
+      .from(documentContainerProjection)
+      .where(eq(documentContainerProjection.documentId, target.id))),
+    ...(await db
+      .select({ containerId: pendingDocumentDiscoveries.containerId })
+      .from(pendingDocumentDiscoveries)
+      .where(eq(pendingDocumentDiscoveries.documentId, target.id))),
+    ...(await db
+      .select({ containerId: containers.id })
+      .from(containers)
+      .where(eq(containers.metadataDocumentId, target.id))),
+  ];
   const containerIds = new Set<string>();
-  for (const link of links)
-    for (const id of await containerLineage(db, link.containerId))
-      containerIds.add(id);
+  for (const { containerId } of placements)
+    if (containerId)
+      for (const id of await containerLineage(db, containerId))
+        containerIds.add(id);
   return [
     { kind: "document", id: target.id },
     ...[...containerIds].map((id) => ({ kind: "container", id })),
   ];
 }
 
-/** The organization of the first locally listed container among `objects`. */
+function soleOrganization(
+  rows: readonly { readonly organizationId: string }[],
+): string | null {
+  const organizations = new Set(rows.map((row) => row.organizationId));
+  const [organizationId] = organizations;
+  return organizations.size === 1 && organizationId ? organizationId : null;
+}
+
+/**
+ * The one organization the read's objects locally belong to: listed
+ * containers, then a document's discovery head, then the target's own
+ * verified rows. Null when unknown or ambiguous.
+ */
 async function targetOrganization(
   db: ClientSQLiteDatabase,
+  target: WriterProjectionTarget,
   objects: readonly { readonly kind: string; readonly id: string }[],
 ): Promise<string | null> {
   const containerIds = objects
     .filter((object) => object.kind === "container")
     .map((object) => object.id);
-  if (containerIds.length === 0) return null;
-  const [row] = await db
-    .select({ organizationId: containers.organizationId })
-    .from(containers)
-    .where(inArray(containers.id, containerIds))
-    .limit(1);
-  return row?.organizationId ?? null;
+  const listed =
+    containerIds.length === 0
+      ? []
+      : await db
+          .select({ organizationId: containers.organizationId })
+          .from(containers)
+          .where(inArray(containers.id, containerIds));
+  if (listed.length > 0) return soleOrganization(listed);
+  if (target.kind === "document") {
+    const discovered = await db
+      .select({ organizationId: documentDiscoveryHeads.organizationId })
+      .from(documentDiscoveryHeads)
+      .where(eq(documentDiscoveryHeads.documentId, target.id));
+    if (discovered.length > 0) return soleOrganization(discovered);
+  }
+  return soleOrganization(
+    await db
+      .select({ organizationId: bundles.organizationId })
+      .from(bundles)
+      .where(
+        and(
+          eq(bundles.objectKind, target.kind),
+          eq(bundles.objectId, target.id),
+        ),
+      ),
+  );
 }
 
 interface StoredBundleRow {
@@ -238,6 +287,7 @@ async function readStoredBundle(
 
 function objectRows(
   db: ClientSQLiteDatabase,
+  organizationId: string,
   object: { readonly kind: string; readonly id: string },
   limit: number,
 ) {
@@ -245,7 +295,11 @@ function objectRows(
     .select(storedColumns)
     .from(bundles)
     .where(
-      and(eq(bundles.objectKind, object.kind), eq(bundles.objectId, object.id)),
+      and(
+        eq(bundles.organizationId, organizationId),
+        eq(bundles.objectKind, object.kind),
+        eq(bundles.objectId, object.id),
+      ),
     )
     .orderBy(desc(bundles.epoch))
     .limit(limit);
@@ -253,17 +307,13 @@ function objectRows(
 
 function recentRows(
   db: ClientSQLiteDatabase,
-  organizationId: string | null,
+  organizationId: string,
   limit: number,
 ) {
   return db
     .select(storedColumns)
     .from(bundles)
-    .where(
-      organizationId === null
-        ? undefined
-        : eq(bundles.organizationId, organizationId),
-    )
+    .where(eq(bundles.organizationId, organizationId))
     .orderBy(desc(bundles.verifiedAt), asc(bundles.manifestHash))
     .limit(limit);
 }
@@ -271,9 +321,10 @@ function recentRows(
 /**
  * Verified bundles of the target's object and of the containers its
  * projection walks, newest epochs first; then the most recently verified rows
- * of its organization, or of any before the device has listed the target,
- * since a just-verified parent is the likeliest part of a new child's
- * projection. Damaged rows are dropped.
+ * of its organization, since a just-verified parent is the likeliest part of
+ * a new child's projection. Citations never leave the target's organization:
+ * an object whose organization the device cannot place cites nothing.
+ * Damaged rows are dropped.
  */
 export async function loadVerifiedManifestCitations(
   execSql: ExecSql,
@@ -297,17 +348,15 @@ export async function loadVerifiedManifestCitations(
     }
   };
   const objects = await citedObjects(db, target);
+  const organizationId = await targetOrganization(db, target, objects);
+  if (organizationId === null) return [];
   for (const object of objects)
     if (cited.size < limit)
-      await collect(await objectRows(db, object, limit - cited.size));
+      await collect(
+        await objectRows(db, organizationId, object, limit - cited.size),
+      );
   if (cited.size < limit)
-    await collect(
-      await recentRows(
-        db,
-        await targetOrganization(db, objects),
-        limit + cited.size,
-      ),
-    );
+    await collect(await recentRows(db, organizationId, limit + cited.size));
   if (damaged.length > 0)
     await getClientSQLitePersistenceRuntime(execSql)
       .runMutation((handle) =>

@@ -27,6 +27,7 @@ import { verifyDocumentProjectionManifests } from "./documentManifestVerificatio
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { throwKeyingVerificationShapeFailure } from "./error";
 import { verifyProjectionAuthorizationEvidence } from "./projectionAuthorizationEvidence";
+import { projectionLifetimeGuard } from "./projectionLifetimes";
 import { readAccessManifest } from "./readers";
 import type {
   PrincipalPolicyCache,
@@ -268,8 +269,9 @@ async function verifyDocumentWriterProjectionWithContext(
 function retainVerifiedDocumentProjection(
   input: Pick<
     DocumentWriterProjectionVerificationInput,
-    "execSql" | "projection"
+    "execSql" | "projection" | "stillCurrent"
   >,
+  checkpointContext: ProjectionCheckpointContext,
   authorization: DocumentWriterProjectionAuthorization,
 ): Promise<void> {
   const { projection } = input;
@@ -283,16 +285,21 @@ function retainVerifiedDocumentProjection(
       (bundle) => [bundle.manifestHash, bundle],
     ),
   );
-  return retainVerifiedProjectionBundles(input.execSql, [
-    ...verifiedProjectionBundles(
-      documentBundles,
-      authorization.documentManifestByHash,
-    ),
-    ...verifiedProjectionBundles(
-      collectDocumentProjectionContainerBundles(projection),
-      containerManifests,
-    ),
-  ]);
+  return retainVerifiedProjectionBundles(
+    input.execSql,
+    [
+      ...verifiedProjectionBundles(
+        documentBundles,
+        authorization.documentManifestByHash,
+      ),
+      ...verifiedProjectionBundles(
+        collectDocumentProjectionContainerBundles(projection),
+        containerManifests,
+      ),
+    ],
+    // The guard finalizeProjectionCheckpoints checked last.
+    projectionLifetimeGuard(checkpointContext, input.stillCurrent),
+  );
 }
 
 export async function verifyDocumentWriterProjection(
@@ -306,7 +313,11 @@ export async function verifyDocumentWriterProjection(
     checkpointContext,
   );
   await finalizeProjectionCheckpoints(checkpointContext, input);
-  await retainVerifiedDocumentProjection(input, verified.authorization);
+  await retainVerifiedDocumentProjection(
+    input,
+    checkpointContext,
+    verified.authorization,
+  );
   return verified.headManifest;
 }
 
@@ -322,7 +333,11 @@ export async function verifyDocumentWriterProjectionAuthorization(
       checkpointContext,
     );
     await finalizeProjectionCheckpoints(checkpointContext, input);
-    await retainVerifiedDocumentProjection(input, verified.authorization);
+    await retainVerifiedDocumentProjection(
+      input,
+      checkpointContext,
+      verified.authorization,
+    );
     return verified.authorization;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);

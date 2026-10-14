@@ -9,6 +9,7 @@ import {
 } from "@tearleads/validators/response";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
+import { PrincipalHistoryRequestContext } from "./principalHistoryRequestContext";
 import type {
   OperationRequestFn,
   OperationRequestResultFn,
@@ -42,7 +43,7 @@ function readProjection<T>(
     readonly validator: (value: unknown) => value is T;
   },
   held: HeldBundles,
-  options: RequestResultOptions,
+  context: PrincipalHistoryRequestContext,
 ): Promise<RequestResult<T>> {
   const container = input.kind === "container";
   return principalHistoryRequest(runtime, {
@@ -53,14 +54,7 @@ function readProjection<T>(
         ? decodeContainerWriterProjection(value, held)
         : decodeDocumentWriterProjection(value, held),
     method: "GET",
-    options:
-      held.size === 0
-        ? options
-        : {
-            ...options,
-            headers: { "x-known-manifests": [...held.keys()].join(",") },
-            reportErrors: false,
-          },
+    context,
     operation: container
       ? getContainerWriterProjectionOperation
       : getDocumentWriterProjectionOperation,
@@ -84,6 +78,15 @@ async function citedProjectionRead<T>(
   },
   options: RequestResultOptions,
 ): Promise<RequestResult<T>> {
+  // Bind the identity before citations load: an account switch while they
+  // load, or before the refetch, must not carry one identity's hints or
+  // answer into another's session. Each request rechecks this context.
+  const context = new PrincipalHistoryRequestContext(
+    runtime,
+    "GET",
+    input.path,
+    options,
+  );
   const id = PROJECTION_PATH.exec(input.path)?.[1];
   // Caller-specific headers make a request its own; it cites nothing.
   const held =
@@ -93,14 +96,23 @@ async function citedProjectionRead<T>(
           kind: input.kind,
           id: decodeURIComponent(id),
         });
-  if (held.size === 0) return readProjection(runtime, input, held, options);
-  const hinted = await readProjection(runtime, input, held, options);
+  if (held.size === 0) return readProjection(runtime, input, held, context);
+  const hinted = await readProjection(
+    runtime,
+    input,
+    held,
+    context.derive({
+      ...options,
+      headers: { "x-known-manifests": [...held.keys()].join(",") },
+      reportErrors: false,
+    }),
+  );
   if (hinted.ok) return hinted;
   if (hinted.kind !== "shape") {
     if (options.reportErrors !== false) hinted.report();
     return hinted;
   }
-  return readProjection(runtime, input, new Map(), options);
+  return readProjection(runtime, input, new Map(), context.derive(options));
 }
 
 export function writerProjectionRequests(

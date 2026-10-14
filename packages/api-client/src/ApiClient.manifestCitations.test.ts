@@ -1,5 +1,9 @@
 import { expect } from "bun:test";
 import {
+  getContainerWriterProjectionOperation,
+  operationRequestPath,
+} from "@tearleads/validators/operation";
+import {
   type ContainerWriterProjectionResponse,
   encodeContainerWriterProjection,
 } from "@tearleads/validators/response";
@@ -7,11 +11,14 @@ import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
   apiBaseUrl,
+  createDeferred,
   server,
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
+import { ApiRequestRuntime } from "./apiRequestRuntime";
 import type { VerifiedManifestCitations } from "./verifiedManifestCitations";
+import { writerProjectionRequests } from "./writerProjectionRequests";
 
 const LEAF = "a".repeat(64);
 const GENESIS = "b".repeat(64);
@@ -127,5 +134,101 @@ testApiClient(
     client.clearWriterProjectionCaches();
     await client.getContainerWriterProjection(projection().containerId);
     expect(hints).toEqual([null, null, null]);
+  },
+);
+
+function recordAuthorizedHints() {
+  const seen: { authorization: string | null; hint: string | null }[] = [];
+  server.use(
+    http.get(
+      `${apiBaseUrl}/containers/:containerId/writer-projection`,
+      ({ request }) => {
+        const hint = request.headers.get("x-known-manifests");
+        seen.push({
+          authorization: request.headers.get("authorization"),
+          hint,
+        });
+        return HttpResponse.json(
+          encodeContainerWriterProjection(
+            projection(),
+            new Set(hint ? hint.split(",") : []),
+          ),
+        );
+      },
+    ),
+  );
+  return seen;
+}
+
+testApiClient(
+  "an account switch while citations load sends no hint under the new identity",
+  async () => {
+    const seen = recordAuthorizedHints();
+    const citing = createDeferred<void>();
+    const release = createDeferred<void>();
+    const client = new ApiClient(apiBaseUrl);
+    client.setAuthToken("first-user");
+    const { cite } = held(LEAF);
+    client.setVerifiedManifestCitations({
+      cite: async (target) => {
+        citing.resolve();
+        await release.promise;
+        return cite(target);
+      },
+    });
+    const read = client.getContainerWriterProjectionResult(
+      projection().containerId,
+      { reportErrors: false },
+    );
+    await citing.promise;
+    client.setAuthToken("second-user");
+    release.resolve();
+    expect(await read).toMatchObject({ kind: "cancelled", ok: false });
+    expect(seen).toEqual([]);
+  },
+);
+
+testApiClient(
+  "an account switch before the complete refetch cancels it",
+  async () => {
+    const seen: string[] = [];
+    server.use(
+      http.get(
+        `${apiBaseUrl}/containers/:containerId/writer-projection`,
+        ({ request }) => {
+          seen.push(
+            `${request.headers.get("authorization")} ${request.headers.get("x-known-manifests") ?? "-"}`,
+          );
+          // Omits a manifest the request never cited: a rebuild gap.
+          return HttpResponse.json(
+            encodeContainerWriterProjection(
+              projection(),
+              new Set([LEAF, GENESIS]),
+            ),
+          );
+        },
+      ),
+    );
+    const runtime = new ApiRequestRuntime(apiBaseUrl);
+    runtime.setAuthToken("first-user");
+    const { requestResult } = writerProjectionRequests(runtime, () =>
+      held(LEAF),
+    );
+    const result = await requestResult(
+      operationRequestPath(getContainerWriterProjectionOperation, {
+        containerId: projection().containerId,
+      }),
+      // The unusable answer arrives; the account changes before the refetch.
+      (value): value is unknown => {
+        if (value === null) runtime.setAuthToken("second-user");
+        return value !== null;
+      },
+      "GET",
+      undefined,
+      { reportErrors: false },
+      getContainerWriterProjectionOperation,
+    );
+    expect(result).toMatchObject({ kind: "cancelled", ok: false });
+    expect(seen).toEqual([`Bearer first-user ${LEAF}`]);
   },
 );

@@ -85,6 +85,7 @@ export async function verifyContainerDestinationProjection(input: {
   await retainVerifiedProjectionBundles(
     input.execSql,
     verifiedProjectionBundles(bundlesByHash, verifiedByHash),
+    current,
   );
   return { path, verifiedByHash };
 }

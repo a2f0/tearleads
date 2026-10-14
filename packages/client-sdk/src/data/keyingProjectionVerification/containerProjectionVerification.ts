@@ -309,7 +309,7 @@ export async function verifyContainerWriterProjectionWithContext(
 function retainVerifiedContainerProjection(
   input: Pick<
     ContainerWriterProjectionVerificationInput,
-    "execSql" | "projection"
+    "execSql" | "projection" | "stillCurrent"
   >,
   verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
 ): Promise<void> {
@@ -319,6 +319,7 @@ function retainVerifiedContainerProjection(
       collectContainerProjectionBundles(input.projection),
       verifiedByHash,
     ),
+    input.stillCurrent,
   );
 }
 

@@ -56,9 +56,9 @@ intent revision; unconditional settlement is not supported.
 
 Reset local tables with obsolete columns; startup performs no schema upgrades.
 Verified writer projections leave their access-manifest bundles in the local
-`verified_access_manifest_bundles` table (at most 1,024 rows, least recently
-verified evicted first, cleared with an organization's remote reset). Later
-projection reads cite up to 48 of them so the API omits those bytes; the SDK
+`verified_access_manifest_bundles` table (at most 1,024 rows, oldest evicted
+first, cleared with an organization's remote reset). Later reads cite up to 48
+from the read object's organization so the API omits those bytes; the SDK
 refills and re-verifies them. The table is a byte cache, not a checkpoint:
 losing it only makes reads larger. See
 [incremental evidence](../projection-policy-evidence.md#cost-and-retained-history-tradeoff).
