@@ -93,7 +93,11 @@ retained raw logs into the durable audit directory before checkpointing, and
 inspect bounded excerpts with `agent-tool logs <path>`.
 
 1. Create or load the checkpoint as described in `references/batching.md`.
-   Record `git rev-parse HEAD` and dirty paths. Audit committed code only.
+   Record `git rev-parse HEAD` and dirty paths. Audit committed code only:
+   when the requested revision is not `HEAD`, or dirty paths touch anything a
+   canary, build, or probe would read, measure from a separate clean checkout
+   at that revision (`git worktree add --detach <audit-directory>/checkout
+   <revision>`) so measurements cannot include uncommitted changes.
 2. If `packages/client-sdk/dist` is older than the SDK source, rebuild it once
    with `bun run agent:run -- bun run --filter='@tearleads/client-sdk' build`.
    The app canaries refuse a stale dist; API probes silently use it.

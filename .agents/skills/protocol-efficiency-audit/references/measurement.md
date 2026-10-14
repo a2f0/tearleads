@@ -21,7 +21,7 @@ a detailed text profile naming repeated exact paths.
 | `src/shell/pane/tests/FolderMutationRequestVolume.test.tsx` | create, link, unlink, trash, restore |
 | `src/shell/pane/tests/GroupMutationRequestVolume.test.tsx` | group create and member add |
 | `src/shell/pane/tests/DeviceFirstOfflineRequestVolume.test.tsx` | offline writes and recovery |
-| `src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx` | peer reconciling an ungranted change |
+| `src/shell/pane/tests/DualPaneProvider.activePeerRequestVolume.test.tsx` | peer reconciling an ungranted change (asserts counts only; it does not invoke the profile recorder, so it yields no per-endpoint or byte table) |
 | `src/shell/pane/tests/DualPaneProvider.groupsRequestVolume.test.tsx` | Admins enrollment and peer convergence |
 | `src/shell/pane/tests/DualPaneProvider.sharing.test.tsx` | root share with attachment, post-share settle |
 
@@ -33,10 +33,12 @@ DUAL_PANE_REQUEST_PROFILE=1 DUAL_PANE_REQUEST_PROFILE_DETAIL=1 \
 ```
 
 Keep one log per canary with its exit code and wall time. Extract the
-per-endpoint tables into `measurements/baseline.md`; the issue reproduces
-them. The ceilings asserted inside each canary are the current contract; a
-shipped proposal must lower them, so the report names the ceiling each
-proposal changes.
+per-endpoint tables into `measurements/baseline.md`; the issue reproduces them.
+A canary that does not call the profile recorder contributes only the ceilings
+asserted in its source; say so in the baseline rather than leaving its row
+empty. The ceilings asserted inside each canary are the current contract; a
+shipped proposal must lower them, so the report names the ceiling each proposal
+changes.
 
 `docs/request-budget-closeout.md` holds ten-run byte profiles per endpoint
 for the sharing and Admins scenarios. Reuse them for byte claims unless the
