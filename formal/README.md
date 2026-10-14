@@ -299,6 +299,7 @@ be restored by an authorization result that outlived revocation or socket close,
 that an ended session's socket never outlives the next session read the store
 answers, and that a session the store cannot confirm closes at its deadline.
 See the [production mapping and bounds](./realtime/ContainerInterest.md).
+[Read-model stamps](./realtime/OrganizationReadModelStamps.md) never skip a change.
 
 ## Attachment Key Reachability
 

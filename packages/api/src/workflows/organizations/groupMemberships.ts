@@ -1,10 +1,13 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { groups as groupsTable } from "@tearleads/api-shared/schema";
+import {
+  groups as groupsTable,
+  organizationGroupTombstones,
+} from "@tearleads/api-shared/schema";
 import type {
   OrganizationGroupMemberResponse,
   OrganizationReadModelGroupMembershipsResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, gt } from "drizzle-orm";
 import {
   getCurrentPrincipalStates,
   listPrincipalProjectionMembersForStates,
@@ -18,9 +21,9 @@ interface OrganizationGroupCatalogRow {
 }
 
 interface GroupMembershipLoadInput {
-  readonly deletedGroupIds?: readonly string[];
+  /** Load only groups whose membership changed after this cursor. */
+  readonly changedAfterCursor?: bigint;
   readonly executor: DatabaseSession;
-  readonly groupIds?: readonly string[];
   readonly organizationId: string;
 }
 
@@ -49,15 +52,32 @@ async function loadOrganizationGroupRows(
     })
     .from(groupsTable)
     .where(
-      input.groupIds
-        ? and(
+      input.changedAfterCursor === undefined
+        ? eq(groupsTable.organizationId, input.organizationId)
+        : and(
             eq(groupsTable.organizationId, input.organizationId),
-            inArray(groupsTable.id, [...input.groupIds]),
-          )
-        : eq(groupsTable.organizationId, input.organizationId),
+            gt(groupsTable.membershipCursor, input.changedAfterCursor),
+          ),
     )
     .orderBy(asc(groupsTable.id));
   return rows;
+}
+
+async function loadDeletedGroupIdsAfter(input: {
+  readonly cursor: bigint;
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+}): Promise<string[]> {
+  const rows = await input.executor
+    .select({ groupId: organizationGroupTombstones.groupId })
+    .from(organizationGroupTombstones)
+    .where(
+      and(
+        eq(organizationGroupTombstones.organizationId, input.organizationId),
+        gt(organizationGroupTombstones.deletedCursor, input.cursor),
+      ),
+    );
+  return rows.map((row) => row.groupId);
 }
 
 function listOrderedGroupStates(
@@ -70,12 +90,26 @@ function listOrderedGroupStates(
   });
 }
 
-function listDeletedGroupIds(
+/**
+ * A delta reports tombstoned groups and changed group rows that have no
+ * current state as deletions; a snapshot omits both.
+ */
+async function listDeletedGroupIds(
   input: GroupMembershipLoadInput,
+  groupRows: readonly OrganizationGroupCatalogRow[],
   currentStates: ReadonlyMap<string, StoredPrincipalState>,
-): string[] {
-  const deletedGroupIds = new Set(input.deletedGroupIds ?? []);
-  for (const groupId of input.groupIds ?? []) {
+): Promise<string[]> {
+  if (input.changedAfterCursor === undefined) {
+    return [];
+  }
+  const deletedGroupIds = new Set(
+    await loadDeletedGroupIdsAfter({
+      cursor: input.changedAfterCursor,
+      executor: input.executor,
+      organizationId: input.organizationId,
+    }),
+  );
+  for (const { groupId } of groupRows) {
     if (!currentStates.has(groupId)) {
       deletedGroupIds.add(groupId);
     }
@@ -122,14 +156,6 @@ async function loadMemberEnrichment(input: {
 export async function loadOrganizationGroupMembershipsInTransaction(
   input: GroupMembershipLoadInput,
 ): Promise<OrganizationReadModelGroupMembershipsResponse> {
-  if (input.groupIds?.length === 0) {
-    return {
-      organizationId: input.organizationId,
-      deletedGroupIds: listDeletedGroupIds(input, new Map()),
-      groups: [],
-    };
-  }
-
   const groupRows = await loadOrganizationGroupRows(input);
   const currentStates = await getCurrentPrincipalStates(
     "group",
@@ -137,7 +163,11 @@ export async function loadOrganizationGroupMembershipsInTransaction(
     input.executor,
   );
   const orderedStates = listOrderedGroupStates(groupRows, currentStates);
-  const deletedGroupIds = listDeletedGroupIds(input, currentStates);
+  const deletedGroupIds = await listDeletedGroupIds(
+    input,
+    groupRows,
+    currentStates,
+  );
   const projectionsByState = await listPrincipalProjectionMembersForStates(
     "group",
     orderedStates,

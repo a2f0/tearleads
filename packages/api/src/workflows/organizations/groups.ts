@@ -159,14 +159,11 @@ async function deleteOrganizationGroupInTransaction(input: {
     expectedPrincipalType: "organization",
     requesterUserId: input.sessionUserId,
   });
-  for (const lane of ["groups", "groupMemberships"] as const) {
-    await appendOrganizationReadModelChangeInTransaction(input.tx, {
-      organizationId: input.organizationId,
-      lane,
-      entityId: input.groupId,
-      operation: "delete",
-    });
-  }
+  await appendOrganizationReadModelChangeInTransaction(input.tx, {
+    deletedGroupIds: [input.groupId],
+    lanes: ["groups"],
+    organizationId: input.organizationId,
+  });
   const result: DeleteOrganizationGroupResponse = {
     deleted: true,
     groupId: input.groupId,

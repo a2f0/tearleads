@@ -7,6 +7,7 @@ import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyN
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
 import { PURGE_SCOPE_NEGATIVE_CONTROLS } from "./protocolPurgeScopeNegativeControls";
+import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNegativeControls";
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
 import { SESSION_RETRY_NEGATIVE_CONTROLS } from "./protocolSessionRetryNegativeControls";
 import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls";
@@ -50,6 +51,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,
+  ...READ_MODEL_STAMP_NEGATIVE_CONTROLS,
   {
     id: "purged-queue-starts-remote-create",
     module: "formal/local-trust/QueuedDocumentCreate.tla",

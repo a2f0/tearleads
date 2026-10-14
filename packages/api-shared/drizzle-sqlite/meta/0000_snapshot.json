@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "de1ccbe6-f11f-452a-9057-4858a2cb4758",
+  "id": "fd4d93ad-b197-4a6a-b6a6-dcdbe0eb4de0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -3170,6 +3170,14 @@
           "notNull": false,
           "autoincrement": false
         },
+        "membership_cursor": {
+          "name": "membership_cursor",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -4226,6 +4234,14 @@
           "notNull": true,
           "autoincrement": false
         },
+        "deleted_cursor": {
+          "name": "deleted_cursor",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
         "deleted_at": {
           "name": "deleted_at",
           "type": "integer",
@@ -4238,74 +4254,8 @@
       "indexes": {
         "organization_group_tombstones_org_idx": {
           "name": "organization_group_tombstones_org_idx",
-          "columns": ["organization_id", "deleted_at"],
+          "columns": ["organization_id", "deleted_cursor"],
           "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "organization_read_model_changes": {
-      "name": "organization_read_model_changes",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "cursor": {
-          "name": "cursor",
-          "type": "numeric",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "lane": {
-          "name": "lane",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "entity_id": {
-          "name": "entity_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "operation": {
-          "name": "operation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
-        }
-      },
-      "indexes": {
-        "organization_read_model_changes_org_cursor_idx": {
-          "name": "organization_read_model_changes_org_cursor_idx",
-          "columns": ["organization_id", "cursor"],
-          "isUnique": true
         }
       },
       "foreignKeys": {},
@@ -4325,6 +4275,46 @@
         },
         "cursor": {
           "name": "cursor",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "directory_cursor": {
+          "name": "directory_cursor",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "grants_cursor": {
+          "name": "grants_cursor",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "group_memberships_cursor": {
+          "name": "group_memberships_cursor",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "groups_cursor": {
+          "name": "groups_cursor",
+          "type": "numeric",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "0"
+        },
+        "organization_policy_cursor": {
+          "name": "organization_policy_cursor",
           "type": "numeric",
           "primaryKey": false,
           "notNull": true,

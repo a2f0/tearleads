@@ -49,10 +49,7 @@ export {
   type OrganizationBillingLifecycleEventType,
   organizationBillingLifecycleEvents,
 } from "./organizationBillingLifecycleEvents";
-export {
-  organizationReadModelChanges,
-  organizationReadModelHeads,
-} from "./organizationReadModels";
+export { organizationReadModelHeads } from "./organizationReadModels";
 export {
   organizationBilling,
   organizationBillingSeatAssignments,
@@ -86,8 +83,6 @@ export type {
   OrganizationBillingSeatEventSourceType,
   OrganizationBillingSeatEventType,
   OrganizationBillingStatus,
-  OrganizationReadModelLane,
-  OrganizationReadModelOperation,
   OrganizationRosterStatus,
 } from "./shared";
 export { users } from "./users";

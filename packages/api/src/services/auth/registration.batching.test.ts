@@ -13,7 +13,7 @@ import {
   documentUpdates,
   groups,
   organizationBilling,
-  organizationReadModelChanges,
+  organizationReadModelHeads,
   organizationRosterEntries,
   organizations,
   principalHistoryProgress,
@@ -137,9 +137,9 @@ test("a corrupt final registration update rolls back provisioning and permits a 
       ),
     db
       .select()
-      .from(organizationReadModelChanges)
+      .from(organizationReadModelHeads)
       .where(
-        eq(organizationReadModelChanges.organizationId, request.organizationId),
+        eq(organizationReadModelHeads.organizationId, request.organizationId),
       ),
     db
       .select()

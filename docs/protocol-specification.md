@@ -210,8 +210,8 @@ A warm organization read-model client discards its opaque cursor and requests a
 fresh snapshot only for the exact `400 organization_read_model_cursor_invalid`
 failure. Other `400` responses, missing or malformed codes, unknown codes, and
 the cursor code on another status retain the last-known-good projection and are
-reported instead of triggering reset behavior. Ahead or retention-expired valid
-cursors continue to converge through a `200` snapshot response.
+reported instead of triggering reset behavior. Only a valid cursor ahead of the
+head converges through a `200` snapshot; others get a delta.
 
 Authentication uses challenge signing:
 

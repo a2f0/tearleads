@@ -56,9 +56,7 @@ export async function runUpdateOrganizationProfileWorkflow(
     if (updatedOrganization) {
       await appendOrganizationReadModelChangeInTransaction(tx, {
         organizationId,
-        lane: "directory",
-        entityId: organizationId,
-        operation: "replace",
+        lanes: ["directory"],
       });
     }
 
