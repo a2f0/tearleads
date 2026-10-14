@@ -2,7 +2,6 @@ import { asc, eq, inArray } from "drizzle-orm";
 import {
   containerCreateIntents,
   containerMoveIntents,
-  containerProjection,
   containers,
   documentContainerProjection,
   documentProjection,
@@ -171,11 +170,6 @@ export async function updateReparentedDescendantContainers(input: {
     })
     .where(inArray(containers.id, descendantIds))
     .run();
-  await tx
-    .update(containerProjection)
-    .set({ updatedAt })
-    .where(inArray(containerProjection.containerId, descendantIds))
-    .run();
 
   for (const reparent of descendantReparents) {
     await tx
@@ -222,14 +216,6 @@ export async function reparentLocalContainerChildren(input: {
     tx,
     updatedAt,
   } = input;
-  const childRows = await tx
-    .select({ id: containers.id })
-    .from(containers)
-    .where(eq(containers.parentId, fromContainerId));
-  const childContainerIds = childRows.flatMap((row) =>
-    row.id ? [row.id] : [],
-  );
-
   await tx
     .update(containers)
     .set({
@@ -239,13 +225,6 @@ export async function reparentLocalContainerChildren(input: {
     })
     .where(eq(containers.parentId, fromContainerId))
     .run();
-  if (childContainerIds.length > 0) {
-    await tx
-      .update(containerProjection)
-      .set({ updatedAt })
-      .where(inArray(containerProjection.containerId, childContainerIds))
-      .run();
-  }
   const createIntentRows = await tx
     .select({ containerId: containerCreateIntents.containerId })
     .from(containerCreateIntents)
@@ -293,10 +272,6 @@ export async function deleteLocalContainerRows(input: {
   await tx
     .delete(containerMoveIntents)
     .where(eq(containerMoveIntents.containerId, containerId))
-    .run();
-  await tx
-    .delete(containerProjection)
-    .where(eq(containerProjection.containerId, containerId))
     .run();
   await tx.delete(containers).where(eq(containers.id, containerId)).run();
   await deleteContainerMetadataDocumentRowsInTransaction(tx, [containerId]);

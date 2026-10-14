@@ -38,10 +38,7 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
       WHEN metadata_container.server_created_at IS NULL THEN NULL
       ELSE metadata_container.id
     END AS container_remote_id,
-    ${getContainerDisplayNameSql({
-      containerAlias: "metadata_container",
-      projectionAlias: "container_projection",
-    })} AS container_name,
+    ${getContainerDisplayNameSql("metadata_container")} AS container_name,
     metadata_container.id AS metadata_container_id,
     NULLIF(metadata_container.organization_id, '') AS metadata_organization_id,
     failure.message AS failure_message,
@@ -55,8 +52,6 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
   LEFT JOIN containers metadata_container
     ON stored.app_kind = 'container-metadata'
     AND metadata_container.id = stored.local_id
-  LEFT JOIN container_projection
-    ON container_projection.container_id = metadata_container.id
   LEFT JOIN document_sync_failures failure
     ON failure.app_kind = stored.app_kind
     AND failure.local_id = stored.local_id

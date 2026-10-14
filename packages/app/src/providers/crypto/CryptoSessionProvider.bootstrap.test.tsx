@@ -164,7 +164,7 @@ test("root bootstrap still reports a genuine SQLite query failure", async () => 
   const fixture = await createBootstrapFixture();
   try {
     await act(async () => {
-      await fixture.database.execSql("DROP TABLE container_projection");
+      await fixture.database.execSql("DROP TABLE containers");
       fixture.releaseQuery();
       await fixture.settled.promise;
     });
@@ -174,7 +174,7 @@ test("root bootstrap still reports a genuine SQLite query failure", async () => 
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).cause).toBeInstanceOf(Error);
     expect(String((error as Error).cause)).toContain(
-      "no such table: container_projection",
+      "no such table: containers",
     );
   } finally {
     fixture.releaseQuery();

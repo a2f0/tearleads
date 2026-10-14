@@ -74,7 +74,6 @@ import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
 export {
   containerHydrationTombstones,
-  containerProjection,
   containers,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,

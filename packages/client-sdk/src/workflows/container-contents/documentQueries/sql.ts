@@ -93,11 +93,8 @@ interface ContainerSystemFilterCounts {
   visibleSystemSlotCount: number;
 }
 
-export function getContainerDisplayNameSql(aliases: {
-  containerAlias: string;
-  projectionAlias: string;
-}): string {
-  return `COALESCE(${aliases.projectionAlias}.display_name, CASE WHEN ${aliases.containerAlias}.parent_id IS NULL THEN '/' ELSE 'Untitled' END)`;
+export function getContainerDisplayNameSql(containerAlias: string): string {
+  return `COALESCE(${containerAlias}.display_name, CASE WHEN ${containerAlias}.parent_id IS NULL THEN '/' ELSE 'Untitled' END)`;
 }
 
 /**
@@ -130,7 +127,7 @@ function getContainerContentsContainerSystemSlotFilter(
       () => "?",
     ).join(", ");
     clauses.push(
-      `(c.organization_id != '' AND c.organization_id != ? AND ${getContainerDisplayNameSql({ containerAlias: "c", projectionAlias: "cp" })} IN (${visibleSystemNameBindMarkers}))`,
+      `(c.organization_id != '' AND c.organization_id != ? AND ${getContainerDisplayNameSql("c")} IN (${visibleSystemNameBindMarkers}))`,
     );
   }
 
@@ -191,17 +188,16 @@ export function getContainerContentsContainerItemsBaseSql(
         c.local_updated_at AS local_updated_at,
         c.server_created_at AS server_created_at,
         c.server_updated_at AS server_updated_at,
-        cp.icon AS icon,
+        c.icon AS icon,
         COALESCE(container_updates.pending_update_count, 0) AS pending_update_count,
         0 AS pending_attachment_count,
         0 AS pending_attachment_bytes,
         create_intent.last_error AS sync_last_error,
-        ${getContainerDisplayNameSql({ containerAlias: "c", projectionAlias: "cp" })} AS name,
+        ${getContainerDisplayNameSql("c")} AS name,
         'folder' AS type_sort,
         COALESCE(c.server_created_at, c.local_created_at) AS created_at,
         COALESCE(c.server_updated_at, c.local_updated_at) AS updated_at
       FROM containers c
-      LEFT JOIN container_projection cp ON cp.container_id = c.id
       LEFT JOIN container_metadata_pending_update_counts container_updates
         ON container_updates.local_id = c.id
       LEFT JOIN pending_container_create_intents create_intent

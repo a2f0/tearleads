@@ -9,10 +9,7 @@ import type {
 } from "./aggregation";
 import { readNumber, readString } from "./rowReaders";
 
-const CONTAINER_DISPLAY_NAME_SQL = getContainerDisplayNameSql({
-  containerAlias: "container",
-  projectionAlias: "container_projection",
-});
+const CONTAINER_DISPLAY_NAME_SQL = getContainerDisplayNameSql("container");
 const DOCUMENT_ORGANIZATION_SQL = getContainerOrganizationAttributionSql({
   containerAlias: "container",
   projectionAlias: "projection",
@@ -118,8 +115,6 @@ const PENDING_WRITE_SOURCE_SQL = `
     'always' AS inclusion
   FROM pending_update_groups updates
   LEFT JOIN containers container ON container.id = updates.local_id
-  LEFT JOIN container_projection
-    ON container_projection.container_id = updates.local_id
   LEFT JOIN document_sync_failures failure
     ON failure.app_kind = 'container-metadata'
     AND failure.local_id = updates.local_id
@@ -154,8 +149,6 @@ const PENDING_WRITE_SOURCE_SQL = `
     'unless-item-covered' AS inclusion
   FROM document_sync_failures failure
   JOIN containers container ON container.id = failure.local_id
-  LEFT JOIN container_projection
-    ON container_projection.container_id = failure.local_id
   WHERE failure.app_kind = 'container-metadata'
 
   UNION ALL
@@ -242,8 +235,6 @@ const PENDING_WRITE_SOURCE_SQL = `
     'always' AS inclusion
   FROM container_create_intents intent
   LEFT JOIN containers container ON container.id = intent.container_id
-  LEFT JOIN container_projection
-    ON container_projection.container_id = intent.container_id
   WHERE intent.intent_type = 'container.create'
     AND intent.sync_status = 'pending'
 
@@ -269,8 +260,6 @@ const PENDING_WRITE_SOURCE_SQL = `
     'always' AS inclusion
   FROM container_move_intents intent
   LEFT JOIN containers container ON container.id = intent.container_id
-  LEFT JOIN container_projection
-    ON container_projection.container_id = intent.container_id
   WHERE intent.intent_type = 'container.move'
 
   UNION ALL
@@ -355,8 +344,6 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS last_attempted_at,
     'unless-operation-covered' AS inclusion
   FROM containers container
-  LEFT JOIN container_projection
-    ON container_projection.container_id = container.id
   LEFT JOIN documents metadata
     ON metadata.app_kind = 'container-metadata'
     AND metadata.local_id = container.id
@@ -385,8 +372,6 @@ const PENDING_WRITE_SOURCE_SQL = `
     NULL AS last_attempted_at,
     'unless-item-covered' AS inclusion
   FROM containers container
-  LEFT JOIN container_projection
-    ON container_projection.container_id = container.id
   WHERE container.local_updated_at IS NOT NULL
     AND (
       container.server_updated_at IS NULL
