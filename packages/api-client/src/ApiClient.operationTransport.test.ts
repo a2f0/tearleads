@@ -45,6 +45,7 @@ testApiClient(
           organizationId: "organization-1",
           token: "token-1",
           userId: "user-1",
+          wsTicket: "ticket-1",
         });
       }),
     );
@@ -62,6 +63,7 @@ testApiClient(
       organizationId: "organization-1",
       token: "token-1",
       userId: "user-1",
+      wsTicket: "ticket-1",
     });
 
     expect(calls).toHaveLength(2);

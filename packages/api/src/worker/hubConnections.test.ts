@@ -7,7 +7,6 @@ import { HubSocketStore } from "./hubSocketStore";
 test("ordinary hints do not rewrite unchanged snapshots but declarations persist", async () => {
   const gateway = createRealtimeGateway({
     revalidation: { intervalMs: 0 },
-    interestStore: { load: async () => [], apply: async () => {} },
     validateSession: async () => true,
   });
   const db = new Database(":memory:");

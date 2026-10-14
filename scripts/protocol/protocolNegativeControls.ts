@@ -2,6 +2,7 @@ import { ACKNOWLEDGEMENT_NEGATIVE_CONTROLS } from "./protocolAcknowledgementNega
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
+import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInterestNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
@@ -45,6 +46,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...HISTORY_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
+  ...CONTAINER_INTEREST_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,
@@ -75,86 +77,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { RefreshMissingCitations: "FALSE" },
     expect: { kind: "invariant", name: "HonestWritesRemainReadable" },
     why: "A write may cite a head committed after the reader fetched its projection; verify one fresh projection before refusing the frozen response.",
-  },
-  {
-    id: "ended-session-socket-survives-revalidation",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { CheckSessionLiveness: "FALSE" },
-    expect: { kind: "invariant", name: "EndedSessionsCloseByNextPass" },
-    why: "Revocation publishes at most once and expiry never, so revalidation must recheck the session and close an ended session's socket (#2365 finding 27).",
-  },
-  {
-    id: "unconfirmed-session-outlives-deadline",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { EnforceSessionDeadline: "FALSE" },
-    expect: { kind: "invariant", name: "UnconfirmedSessionsLapse" },
-    why: "A session store that keeps failing would defer the close forever; like proofs, an unconfirmed session must lapse at its deadline (#2420).",
-  },
-  {
-    id: "failed-session-read-rearms-deadline",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { ConfirmOnlyLiveReads: "FALSE" },
-    expect: { kind: "invariant", name: "UnconfirmedSessionsLapse" },
-    why: "Only a live answer confirms a session; a failed or timed-out read that re-armed the deadline would extend it without limit (#2420).",
-  },
-  {
-    id: "stale-reconnect-proof-handoff",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { CheckRestoreDependencies: "FALSE" },
-    expect: { kind: "invariant", name: "OnlyReadableInterests" },
-    why: "A fresh reconnect proof may be reused only before an observed access change.",
-  },
-  {
-    id: "principal-change-keeps-container-interest",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { NotifyPrincipalChanges: "FALSE" },
-    expect: { kind: "invariant", name: "OnlyReadableInterests" },
-    why: "A group membership removal changes read access even if no container manifest changes; principal notifications must evict its subscriptions (#2266).",
-  },
-  {
-    id: "unrelated-container-authorization-retry",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { ScopeQueryChanges: "FALSE" },
-    expect: { kind: "invariant", name: "NoUnrelatedRetries" },
-    why: "Retrying a denied declaration on another tenant's mutation consumes its retry budget without changing access (#2266).",
-  },
-  {
-    id: "unrelated-container-interest-eviction",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { ScopeInvalidation: "FALSE" },
-    expect: { kind: "invariant", name: "UnrelatedInterestsPreserved" },
-    why: "Global eviction removes a different tenant's independent subscription instead of following verified ancestry (#2266).",
-  },
-  {
-    id: "unauthorized-container-interest",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { AuthorizeInterest: "FALSE" },
-    expect: { kind: "invariant", name: "OnlyReadableInterests" },
-    why: "Removing authorization admits a denied subscription and violates OnlyReadableInterests (#2266).",
-  },
-  {
-    id: "stale-container-interest-authorization",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { InvalidateOnAccessChange: "FALSE" },
-    expect: { kind: "invariant", name: "OnlyReadableInterests" },
-    why: "Removing dependency invalidation keeps a revoked subscription and violates OnlyReadableInterests (#2266).",
-  },
-  {
-    id: "closed-socket-interest-authorization",
-    module: "formal/realtime/ContainerInterest.tla",
-    config: "formal/realtime/ContainerInterest.cfg",
-    constants: { CheckSocketOpen: "FALSE" },
-    expect: { kind: "invariant", name: "ClosedSocketsNeverIndexed" },
-    why: "Removing the live-socket guard lets a late result violate ClosedSocketsNeverIndexed (#2266).",
   },
   {
     id: "sync-publishes-before-durable-claim",

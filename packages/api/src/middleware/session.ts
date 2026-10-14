@@ -417,13 +417,19 @@ export const destroyUserSession = createDestroyUserSession(
   notifySessionRevoked,
 );
 
+/** A newly stored session: its bearer token and the session's own id. */
+export interface IssuedSession {
+  readonly sessionId: string;
+  readonly token: string;
+}
+
 export function createSessionTokenIssuer(
   setSession: SessionStoreSet,
   addSetMember: SessionStoreAddSetMember,
   expireKey: SessionStoreExpire,
   recordUserActivity?: UserActivityRecorder,
 ) {
-  return async (data: SessionCreateInput): Promise<string> => {
+  return async (data: SessionCreateInput): Promise<IssuedSession> => {
     const token = bytesToHex(generateChallenge(32));
     const ipAddress = normalizeRequestIpAddress(data.ipAddress);
     const session: SessionData = {
@@ -458,7 +464,7 @@ export function createSessionTokenIssuer(
       }
     }
 
-    return token;
+    return { sessionId: session.id, token };
   };
 }
 

@@ -28,7 +28,7 @@ test("periodic revalidation evicts a subscription the workflow no longer grants"
       return granted;
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER, OTHER]);
   readable = new Set([OTHER]);
   expect([...(await revalidated.promise)].sort()).toEqual([CONTAINER, OTHER]);
@@ -38,10 +38,6 @@ test("periodic revalidation evicts a subscription the workflow no longer grants"
   expect(resyncFrames(f.sent)).toEqual([
     { type: "resync_required", containerIds: [CONTAINER] },
   ]);
-  expect(f.persisted).toContainEqual({
-    kind: "remove",
-    containerIds: [CONTAINER],
-  });
   expect(f.closed).toEqual([]);
   f.gateway.stop();
 });
@@ -57,7 +53,7 @@ test("revalidation leaves a still-authorized subscription silent and re-arms", a
       return ids;
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   await third.promise;
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
@@ -74,7 +70,7 @@ test("closing a socket stops its revalidation", async () => {
       return ids;
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   f.gateway.websocket.close(f.socket);
   const after = calls;
@@ -99,7 +95,7 @@ test("a revalidation failure keeps the socket and retries next interval", async 
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     await retried.promise;
     expect(f.closed).toEqual([]);
@@ -120,7 +116,7 @@ test("a pub/sub reconnect re-verifies every live socket and resyncs all it holds
       return ids.filter((id) => readable.has(id));
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER, OTHER]);
   // The invalidation for this revocation was published while the subscriber
   // was disconnected and is gone for good.
@@ -136,10 +132,6 @@ test("a pub/sub reconnect re-verifies every live socket and resyncs all it holds
   expect(resyncFrames(f.sent)).toEqual([
     { type: "resync_required", containerIds: [CONTAINER, OTHER] },
   ]);
-  expect(f.persisted.at(-1)).toEqual({
-    kind: "remove",
-    containerIds: [CONTAINER],
-  });
   f.gateway.stop();
 });
 
@@ -151,7 +143,7 @@ test("a reconnect with no held interest verifies nothing but re-lists shares", a
       return ids;
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   f.reconnect();
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(calls).toBe(0);
@@ -159,39 +151,6 @@ test("a reconnect with no held interest verifies nothing but re-lists shares", a
   // A share granted during the outage reached no socket; the client re-lists
   // its roots on this frame.
   expect(f.sent.at(-1)).toEqual({ type: "shared_with_you", userId: "user" });
-  f.gateway.stop();
-});
-
-test("a revalidation eviction invalidates the reconnect handoff for a matching declaration", async () => {
-  let readable = new Set([CONTAINER, OTHER]);
-  let calls = 0;
-  const f = fixture({
-    cached: [CONTAINER, OTHER],
-    authorize: async (_user, ids) => {
-      calls++;
-      return ids.filter((id) => readable.has(id));
-    },
-  });
-  await f.gateway.websocket.open(f.socket);
-  expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
-  // Revoked while the subscriber was down: the invalidation never arrives, so
-  // only the reconnect-triggered re-verification evicts it.
-  readable = new Set([OTHER]);
-  f.reconnect();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  expect(calls).toBe(2);
-  expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-  // The client's authoritative declaration matches the cached set inside the
-  // handoff window; it must reauthorize instead of reinstalling the stale proof.
-  await f.declare("known_containers", [CONTAINER, OTHER]);
-  expect(calls).toBe(3);
-  expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-  expect(f.router.interestedSocketCount(OTHER)).toBe(1);
-  expect(f.sent.at(-1)).toEqual({
-    type: "known_containers_ack",
-    containerIds: [OTHER],
-    declarationId: "declaration",
-  });
   f.gateway.stop();
 });
 
@@ -211,7 +170,7 @@ test("a failed reconnect verification holds the full resync until a pass succeed
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     f.reconnect();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -251,7 +210,7 @@ test("failing passes evict proofs past the max age and a success resets it", asy
     await new Promise((resolve) => setTimeout(resolve, 0));
   };
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     failing = true;
     now = 20;
@@ -278,10 +237,6 @@ test("failing passes evict proofs past the max age and a success resets it", asy
       type: "resync_required",
       containerIds: [CONTAINER, OTHER],
     });
-    expect(f.persisted.at(-1)).toEqual({
-      kind: "remove",
-      containerIds: [CONTAINER, OTHER],
-    });
     expect(f.closed).toEqual([]);
     // The client recovers through fresh authorization.
     failing = false;
@@ -306,7 +261,7 @@ test("repeated periodic timeouts evict a socket's subscriptions instead of keepi
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     const deadline = Date.now() + 2_000;
     while (resyncFrames(f.sent).length === 0 && Date.now() < deadline)
@@ -333,7 +288,7 @@ test("a saturated declaration queue cannot shelter proofs past the max age", asy
   });
   let queued: Promise<void>[] = [];
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     // Fill the socket's queue to its limit with declarations that never
     // complete, so no revalidation pass can be enqueued behind them.
@@ -355,10 +310,6 @@ test("a saturated declaration queue cannot shelter proofs past the max age", asy
     expect(resyncFrames(f.sent)).toEqual([
       { type: "resync_required", containerIds: [CONTAINER, OTHER] },
     ]);
-    expect(f.persisted.at(-1)).toEqual({
-      kind: "remove",
-      containerIds: [CONTAINER, OTHER],
-    });
     // The overflow close is untouched: the queue is still full, not closed.
     expect(f.closed).toEqual([]);
   } finally {
@@ -381,7 +332,7 @@ test("proof age is enforced by wall clock while a pass waits behind slow declara
   });
   let queued: Promise<void>[] = [];
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     // A nearly full queue of slow but successful declarations, then a pass
     // queued behind them that cannot run until they finish.
@@ -428,7 +379,7 @@ test("an in-flight pass that outlives the max age cannot reinstall evicted proof
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     f.reconnect();
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -446,10 +397,6 @@ test("an in-flight pass that outlives the max age cannot reinstall evicted proof
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
     expect(f.router.interestedSocketCount(OTHER)).toBe(0);
     expect(resyncFrames(f.sent)).toHaveLength(1);
-    expect(f.persisted.at(-1)).toEqual({
-      kind: "remove",
-      containerIds: [CONTAINER, OTHER],
-    });
     expect(f.closed).toEqual([]);
   } finally {
     release.resolve();
@@ -469,7 +416,7 @@ test("periodic ticks keep checking proof age while a pass is stuck in the queue"
   });
   let stuck: Promise<void> = Promise.resolve();
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     // One declaration that never finishes blocks the queue; every pass the
     // scheduler enqueues waits behind it.

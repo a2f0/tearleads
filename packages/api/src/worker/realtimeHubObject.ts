@@ -185,7 +185,6 @@ export class RealtimeHub
     else failures.push(outcome.reason);
     for (const complete of [
       () => checks,
-      () => hub.gateway.flush(),
       () => hub.connections.saveDirty(),
       () => this.scheduler.flush(),
     ]) {

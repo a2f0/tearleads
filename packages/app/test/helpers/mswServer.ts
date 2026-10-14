@@ -202,6 +202,7 @@ const server = setupServer(
       organizationId: context.organizationId,
       token: randomHex(64),
       userId: context.userId,
+      wsTicket: randomHex(32),
     });
   }),
   http.get("http://localhost:3001/auth/sessions", () => {

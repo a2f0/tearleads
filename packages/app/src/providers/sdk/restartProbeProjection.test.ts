@@ -22,7 +22,7 @@ import { routeIncomingWsMessage } from "./serverEventsRouting";
  * authoritative declaration is sent and which acknowledgement matches. The
  * recorded trace is replayed through TLC by
  * scripts/protocol/checkRestartProbeProjection.ts, so an ordering the model rejects —
- * a declaration before the interest baseline, an acknowledgement without a
+ * a declaration before the socket opens, an acknowledgement without a
  * declaration — fails `check:fast`. Probe-side actions are recorded by the
  * client-sdk scenario that owns those kernels.
  */
@@ -70,7 +70,6 @@ interface InterestHarness {
 }
 
 function startInterestHarness(
-  baseline: readonly string[],
   recorder: RestartProbeTraceRecorder | null,
 ): InterestHarness {
   const { sent, ws } = createFakeSocket(recorder);
@@ -81,27 +80,19 @@ function startInterestHarness(
   } as unknown as Tearleads;
   const acknowledged: string[] = [];
   const hints: WsInvalidationHint[] = [];
-  let handle: ReturnType<typeof startContainerInterestDeclaration> | null =
-    null;
+
+  // The binding starts the declaration machine from the socket's open event.
+  // The open action is recorded before the machine reacts, so the declaration
+  // that follows is observed at its own seam rather than authored.
+  recorder?.record({ action: "OpenEventsSocket" });
+  const handle = startContainerInterestDeclaration(tearleads, ws);
 
   const route = (rawFrame: string): void => {
     routeIncomingWsMessage(rawFrame, {
       onContainerInterestAcknowledged: (declarationId, containerIds) => {
-        if (handle?.acknowledge(declarationId, containerIds)) {
+        if (handle.acknowledge(declarationId, containerIds)) {
           acknowledged.push(declarationId);
         }
-      },
-      onInterestState: (interestBaseline) => {
-        // The baseline action is recorded inside the routing handler, before
-        // the declaration machine reacts, so the two orderings are observed
-        // rather than authored.
-        recorder?.record({ action: "ReceiveInterestBaseline" });
-        handle?.stop();
-        handle = startContainerInterestDeclaration(
-          tearleads,
-          ws,
-          new Set(interestBaseline),
-        );
       },
       onOrganizationInterestAcknowledged: () => undefined,
       onOrganizationReadModelChanged: () => undefined,
@@ -113,19 +104,12 @@ function startInterestHarness(
     });
   };
 
-  route(
-    serializeWsServerMessage({
-      containerIds: [...baseline],
-      type: "interest_state",
-    }),
-  );
-
   return {
     acknowledged,
     hints,
     route,
     sent,
-    stop: () => handle?.stop(),
+    stop: () => handle.stop(),
   };
 }
 
@@ -151,7 +135,7 @@ test("interest barrier seams replay onto the RestartProbeConvergence model", () 
   const recorder = createRestartProbeTraceRecorder("interest-barrier-seams");
 
   // Pre-trace settle to the model's Init: connected, declared, acknowledged.
-  let harness = startInterestHarness([CONTAINER_ID], null);
+  let harness = startInterestHarness(null);
   harness.route(acknowledgeFrame(sentDeclarationId(harness.sent)));
   expect(harness.acknowledged).toHaveLength(1);
 
@@ -162,12 +146,12 @@ test("interest barrier seams replay onto the RestartProbeConvergence model", () 
   // A peer commits while disconnected: no hint can be delivered.
   recorder.record({ action: "RemoteBodyAdvance", delivered: false });
 
-  // Reconnect: the server's interest baseline restores protocol context, and
-  // the real declaration machine — seeing a ready container tree — sends the
+  // Reconnect: the socket opens with no server interest, and the real
+  // declaration machine — seeing a ready container tree — sends the
   // authoritative declaration immediately. Both actions are recorded at their
-  // seams (the routing handler and the observed frame), so the ordering the
+  // seams (the open handler and the observed frame), so the ordering the
   // model checks is the implementation's own.
-  harness = startInterestHarness([CONTAINER_ID], recorder);
+  harness = startInterestHarness(recorder);
   expect(harness.sent).toHaveLength(1);
   const declarationId = sentDeclarationId(harness.sent);
 
@@ -197,7 +181,7 @@ test("interest barrier seams replay onto the RestartProbeConvergence model", () 
   expect(trace.steps.map((step) => step.action)).toEqual([
     "DisconnectEvents",
     "RemoteBodyAdvance",
-    "ReceiveInterestBaseline",
+    "OpenEventsSocket",
     "DeclareKnownContainers",
     "AcknowledgeKnownContainers",
     "RemoteBodyAdvance",

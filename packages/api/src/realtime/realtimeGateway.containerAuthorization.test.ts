@@ -6,7 +6,7 @@ import {
 } from "../../test/helpers/realtimeContainerAuthorization";
 import * as sentry from "../diagnostics/sentry";
 
-test("denied declarations acknowledge processing without indexing or persisting inaccessible ids", async () => {
+test("denied declarations acknowledge processing without indexing inaccessible ids", async () => {
   const calls: string[][] = [];
   const f = fixture({
     authorize: async (_user, ids) => {
@@ -14,7 +14,7 @@ test("denied declarations acknowledge processing without indexing or persisting 
       return [];
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   f.publish({
     type: "document_update_created",
@@ -30,27 +30,43 @@ test("denied declarations acknowledge processing without indexing or persisting 
     declarationId: "declaration",
     containerIds: [],
   });
-  expect(
-    f.persisted.some(
-      (action) =>
-        action?.kind !== "remove" && action?.containerIds.includes(CONTAINER),
-    ),
-  ).toBe(false);
   f.gateway.stop();
 });
 
-test("reconnect reauthorizes cached interest and removes inaccessible ids", async () => {
+test("a socket receives no container hint before its own declaration", async () => {
+  const calls: string[][] = [];
   const f = fixture({
-    cached: [CONTAINER, OTHER],
-    authorize: async () => [OTHER],
+    authorize: async (_user, ids) => {
+      calls.push(ids);
+      return ids;
+    },
   });
-  await f.gateway.websocket.open(f.socket);
-  await Promise.resolve();
+  f.gateway.websocket.open(f.socket);
+  const hint = {
+    type: "document_update_created",
+    containerIds: [CONTAINER],
+    documentId: "document",
+    updateIds: ["update"],
+  };
+  f.publish(hint);
+  f.publish({
+    type: "container_mutation_created",
+    containerId: CONTAINER,
+    eventType: "container.move",
+    parentId: OTHER,
+    previousParentId: null,
+    updatedAt: "2026-09-13T00:00:00.000Z",
+  });
+  // Opening authorizes nothing and sends nothing: interest starts empty and
+  // only the client's declaration fills it.
+  expect(calls).toEqual([]);
+  expect(f.sent).toEqual([]);
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-  expect(f.router.interestedSocketCount(OTHER)).toBe(1);
-  expect(f.sent).toEqual([{ type: "interest_state", containerIds: [OTHER] }]);
-  expect(f.persisted).toContainEqual({
-    kind: "remove",
+  await f.declare("known_containers");
+  expect(calls).toEqual([[CONTAINER]]);
+  f.publish(hint);
+  expect(f.sent.at(-1)).toMatchObject({
+    type: "document_update_created",
     containerIds: [CONTAINER],
   });
   f.gateway.stop();
@@ -65,7 +81,7 @@ test("pending container authorization cannot index a closed socket", async () =>
       return authorization.promise;
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   const pending = f.declare();
   await started.promise;
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
@@ -73,25 +89,20 @@ test("pending container authorization cannot index a closed socket", async () =>
   authorization.resolve([CONTAINER]);
   await pending;
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-  expect(f.sent).toEqual([{ type: "interest_state", containerIds: [] }]);
-  expect(f.persisted).toEqual([]);
+  expect(f.sent).toEqual([]);
   f.gateway.stop();
 });
 
 test("a later remove wins over an in-flight add", async () => {
   const authorization = Promise.withResolvers<string[]>();
   const f = fixture({ authorize: () => authorization.promise });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   const adding = f.declare();
   const removing = f.declare("known_containers.remove");
   authorization.resolve([CONTAINER]);
   await Promise.all([adding, removing]);
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-  expect(f.persisted.at(-1)).toMatchObject({
-    kind: "remove",
-    containerIds: [CONTAINER],
-  });
   f.gateway.stop();
 });
 
@@ -106,7 +117,7 @@ test("ancestor changes invalidate in-flight authorization", async () => {
       return ++calls === 1 ? authorization.promise : Promise.resolve([]);
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   const pending = f.declare();
   await started.promise;
   f.publish({ type: "access_changed", containerId: OTHER });
@@ -125,7 +136,7 @@ test("ancestor changes invalidate in-flight authorization", async () => {
 
 test("an unrelated access change preserves authorized interest", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   f.publish({ type: "access_changed", containerId: OTHER });
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
@@ -139,7 +150,7 @@ test("an unrelated access change preserves authorized interest", async () => {
 
 test("a mixed initial declaration filters revoked IDs and remains usable for reconciliation", async () => {
   const f = fixture({ authorize: async () => [OTHER] });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER, OTHER]);
   expect(f.closed).toEqual([]);
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
@@ -151,12 +162,6 @@ test("a mixed initial declaration filters revoked IDs and remains usable for rec
   });
   await f.declare("known_containers.remove", [CONTAINER]);
   expect(f.router.interestedSocketCount(OTHER)).toBe(1);
-  expect(
-    f.persisted.some(
-      (action) =>
-        action?.kind !== "remove" && action?.containerIds.includes(CONTAINER),
-    ),
-  ).toBe(false);
   f.gateway.stop();
 });
 
@@ -165,14 +170,14 @@ test("ancestor eviction reaches descendants and does not affect an unrelated ten
     paths: { [CONTAINER]: [OTHER, CONTAINER] },
     authorize: async (_user, ids) => ids,
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   const unrelatedId = "00000000-0000-4000-8000-000000000003";
   const unrelated = {
     ...f.socket,
     data: { userId: "unrelated", sessionId: "unrelated" },
   };
-  await f.gateway.websocket.open(unrelated);
+  f.gateway.websocket.open(unrelated);
   await f.declare("known_containers", [unrelatedId], unrelated);
   f.publish({ type: "access_changed", containerId: OTHER });
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
@@ -196,7 +201,7 @@ test("unrelated access changes do not restart an in-flight authorization", async
       return authorization.promise;
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   const pending = f.declare();
   await started.promise;
   f.publish({ type: "access_changed", containerId: OTHER });
@@ -218,7 +223,7 @@ test("authorization errors report and close without indexing or persistence", as
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     expect(capture).toHaveBeenCalledWith(
       failure,
@@ -227,8 +232,7 @@ test("authorization errors report and close without indexing or persistence", as
     );
     expect(f.closed).toEqual([1011]);
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-    expect(f.persisted).toEqual([]);
-    expect(f.sent).toEqual([{ type: "interest_state", containerIds: [] }]);
+    expect(f.sent).toEqual([]);
   } finally {
     capture.mockRestore();
     f.gateway.stop();
@@ -249,28 +253,27 @@ test("a timed-out query cannot index late or multiply across session reconnects"
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     expect(f.closed).toEqual([1011]);
     expect(capture.mock.calls[0]?.[0]).toMatchObject({
       message: "Container authorization timed out",
     });
     const replacement = { ...f.socket };
-    await f.gateway.websocket.open(replacement);
+    f.gateway.websocket.open(replacement);
     await f.declare("known_containers", [CONTAINER], replacement);
     expect(calls).toBe(1);
     expect(f.closed).toEqual([1011, 1011]);
     authorization.resolve([CONTAINER]);
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-    expect(f.persisted).toEqual([]);
     expect(
       f.sent.some(
         (message) => Reflect.get(message, "type") === "known_containers_ack",
       ),
     ).toBe(false);
     const recovered = { ...f.socket };
-    await f.gateway.websocket.open(recovered);
+    f.gateway.websocket.open(recovered);
     await f.declare("known_containers", [CONTAINER], recovered);
     expect(calls).toBe(2);
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
@@ -293,12 +296,11 @@ test("repeated relevant access changes have a bounded authorization retry budget
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     expect(calls).toBe(3);
     expect(f.closed).toEqual([1011]);
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
-    expect(f.persisted).toEqual([]);
   } finally {
     capture.mockRestore();
     f.gateway.stop();
@@ -309,7 +311,7 @@ test("replacing a subscription replaces its verified ancestry", async () => {
   const formerParent = "00000000-0000-4000-8000-000000000003";
   const paths = { [CONTAINER]: [formerParent, CONTAINER] };
   const f = fixture({ paths, authorize: async (_user, ids) => ids });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   paths[CONTAINER] = [OTHER, CONTAINER];
   await f.declare("known_containers");
@@ -390,7 +392,7 @@ test("an observed grant retries a denied query before acknowledging", async () =
       return ++calls === 1 ? authorization.promise : Promise.resolve(ids);
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   const pending = f.declare();
   await started.promise;
   f.publish({ type: "access_changed", containerId: CONTAINER });
@@ -431,7 +433,7 @@ test("shared query invalidation lets both tabs retry with one fresh query", asyn
 
 test("the router indexes only IDs carried by verified proofs", async () => {
   const f = fixture({ authorize: async () => [] });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   f.router.applyAuthorizedContainerInterest(
     f.socket,
     { kind: "add", containerIds: [CONTAINER] },
@@ -439,7 +441,7 @@ test("the router indexes only IDs carried by verified proofs", async () => {
   );
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
   f.publish({ type: "access_changed", containerId: CONTAINER });
-  expect(f.sent).toEqual([{ type: "interest_state", containerIds: [] }]);
+  expect(f.sent).toEqual([]);
   f.gateway.stop();
 });
 
@@ -452,7 +454,7 @@ test("unrelated changes do not retry a denied declaration", async () => {
       return [];
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   expect(calls).toBe(1);
   expect(f.closed).toEqual([]);
@@ -467,7 +469,7 @@ test("unrelated changes do not retry a denied declaration", async () => {
 test("a fresh denied re-add evicts an earlier subscription after a missed hint", async () => {
   let readable = true;
   const f = fixture({ authorize: async (_user, ids) => (readable ? ids : []) });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
   readable = false;

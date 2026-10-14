@@ -61,7 +61,7 @@ test("a session tick closes the socket of an ended session", async () => {
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     await clock.advance(50);
     expect(f.closed).toEqual([]);
@@ -87,9 +87,9 @@ test("a session's sockets share one store read per tick", async () => {
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     for (const sessionId of ["session", "session", "other-session"]) {
-      await f.gateway.websocket.open(recordingSocket("user", sessionId).socket);
+      f.gateway.websocket.open(recordingSocket("user", sessionId).socket);
     }
     await clock.advance(50);
     expect(reads.sort()).toEqual(["other-session", "session"]);
@@ -113,7 +113,7 @@ test("a tick still re-verifies proofs when the session store fails", async () =>
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     const before = calls;
     await clock.advance(50);
@@ -133,7 +133,7 @@ test("a subscriber reconnect closes an ended session's socket", async () => {
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     live = false;
     f.reconnect();
@@ -149,7 +149,7 @@ test("a subscriber reconnect closes an ended session's socket", async () => {
 test("a reconnect keeps a live session's socket and resyncs it", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     f.reconnect();
     await flush();
@@ -170,7 +170,7 @@ test("a hung session read does not hold back the reconnect resync", async () => 
   });
   try {
     for (const g of [f, hung]) {
-      await g.gateway.websocket.open(g.socket);
+      g.gateway.websocket.open(g.socket);
       await g.declare();
       g.reconnect();
       await flush();
@@ -198,9 +198,9 @@ test("a reconnect checks each session once and reports one failure", async () =>
   const sameSession = recordingSocket("user", "session");
   const otherSession = recordingSocket("user", "other-session");
   try {
-    await f.gateway.websocket.open(f.socket);
-    await f.gateway.websocket.open(sameSession.socket);
-    await f.gateway.websocket.open(otherSession.socket);
+    f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(sameSession.socket);
+    f.gateway.websocket.open(otherSession.socket);
     await f.declare();
     f.reconnect();
     await flush();
@@ -237,7 +237,7 @@ test("a reconnect keeps at most 16 session reads in flight", async () => {
   });
   try {
     for (let index = 0; index < 40; index++) {
-      await f.gateway.websocket.open(
+      f.gateway.websocket.open(
         recordingSocket("user", `session-${index}`).socket,
       );
     }

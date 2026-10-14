@@ -175,19 +175,18 @@ function resolveContainerInterestStore(tearleads: Tearleads) {
 }
 
 /**
- * Retain the restored server baseline until the local tree is ready, send one
- * acknowledged authoritative declaration, then push add/remove deltas.
- * Interest is routing state, not an authorization grant.
+ * A socket opens with no server-side interest. Once the local tree is ready,
+ * send one acknowledged authoritative declaration, then push add/remove
+ * deltas. Interest is routing state, not an authorization grant.
  */
 export function startContainerInterestDeclaration(
   tearleads: Tearleads,
   ws: WebSocket,
-  baseline: ReadonlySet<string>,
 ): ContainerInterestDeclaration {
   const store = resolveContainerInterestStore(tearleads);
   if (!store) return INACTIVE_DECLARATION;
 
-  let declared = new Set(baseline);
+  let declared = new Set<string>();
   const acknowledgments = new ContainerInterestAcknowledgments();
   let treeGeneration = 0;
   let initialAcknowledged = false;
@@ -216,8 +215,8 @@ export function startContainerInterestDeclaration(
     syncRequested = false;
     const snapshot = store.getSnapshot();
     if (!snapshot.ready) {
-      // A cold tree starts as ready=false/nodes=[]. Removing the hydrated
-      // baseline against that placeholder would reopen the event-loss window.
+      // A cold tree starts as ready=false/nodes=[]. Declaring that placeholder
+      // would clear the reconnect barrier before the real tree is covered.
       return;
     }
     const current = new Set(snapshot.nodes.map((node) => node.id));

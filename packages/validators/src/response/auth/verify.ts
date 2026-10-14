@@ -10,6 +10,8 @@ export const VerifySuccessResponseSchema = loosePlainObject({
   rootContainerId: nonEmptyStringSchema.nullable(),
   token: nonEmptyStringSchema,
   userId: nonEmptyStringSchema,
+  /** Single-use upgrade ticket for this session's first websocket connect. */
+  wsTicket: nonEmptyStringSchema,
 });
 
 export const VerifyFailureResponseSchema = loosePlainObject({
@@ -20,6 +22,7 @@ export const VerifyFailureResponseSchema = loosePlainObject({
   rootContainerId: z.never().optional(),
   token: z.never().optional(),
   userId: z.never().optional(),
+  wsTicket: z.never().optional(),
 });
 
 export type VerifySuccessResponse = z.infer<typeof VerifySuccessResponseSchema>;
