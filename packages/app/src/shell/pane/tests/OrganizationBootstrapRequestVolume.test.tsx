@@ -52,9 +52,10 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        // Measured 41 calls: private metadata-root authority adds one directory
+        // Measured 40 calls: private metadata-root authority adds one directory
         // discovery read per operation and the first read of each new head.
-        total: 43,
+        // Login returns the first websocket ticket, so no ticket request.
+        total: 42,
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 8,
           "GET /principals/group/:groupId/policy": 2,
@@ -70,7 +71,7 @@ test(
           "GET /organizations/:organizationId/billing": 1,
           "POST /auth/register": 1,
           "POST /auth/verify": 1,
-          "POST /auth/ws-ticket": 1,
+          "POST /auth/ws-ticket": 0,
           "POST /containers/with-metadata-document": 1,
           "POST /documents": 1,
         },

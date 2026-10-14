@@ -179,6 +179,7 @@ test("login refuses a swapped root for the same organization and records an inci
     authenticate: async () => ({
       rootContainerId,
       authenticated: true,
+      wsTicket: "ws-ticket",
       isRoot: false,
       organizationId: "org-personal",
       token: `token-${rootContainerId}`,
@@ -235,6 +236,7 @@ test("overlapping acknowledgements for different organizations are both kept", a
       return {
         ...response,
         authenticated: true,
+        wsTicket: "ws-ticket",
         isRoot: false,
         token: `token-${response.rootContainerId}`,
         userId: "user-1",
@@ -312,6 +314,7 @@ test("a refused login never logs out a newer login that completed during its rep
       return {
         ...response,
         authenticated: true,
+        wsTicket: "ws-ticket",
         isRoot: false,
         token: `token-${responses.length}`,
         userId: "user-1",

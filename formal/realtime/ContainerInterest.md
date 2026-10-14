@@ -1,19 +1,23 @@
 # Container interest authorization
 
 [ContainerInterest.tla](./ContainerInterest.tla) models the authorization window
-between a declaration or reconnect-cache restore and indexing a socket. Cached
-IDs request interest; they do not prove access. A late result cannot index a
-closed socket.
+between a client declaration and indexing a socket. Declared IDs request
+interest; they do not prove access. A late result cannot index a closed socket,
+and a reconnected socket starts with no container interest: no server-side
+cache restores it, so the socket's own client must declare again.
 
 | Model action or predicate | Production implementation |
 | --- | --- |
-| `BeginAuthorization` | `ContainerInterestQueries.run` calls `authorizeContainerAccessWithWorkflow` |
+| `BeginAuthorization` | `WsEventRouter.handleClientMessage` parses the socket's own `known_containers` frame; `ContainerInterestAuthorizer.apply` queues it and `ContainerInterestQueries.run` calls `authorizeContainerAccessWithWorkflow` |
 | `Dependencies` | `ContainerInterestDependencies` indexes verified container paths and principal policies |
-| `ApplyAuthorization` | `ContainerInterestAuthorizer.apply` and `ContainerInterestAuthorizer.open` call `WsEventRouter.applyAuthorizedContainerInterest` synchronously within the query observation window |
-| `ReuseRestoredAuthorization` | `ContainerInterestRestoration.take` checks observed dependency changes for its one-time proof handoff |
+| `ApplyAuthorization` | `ContainerInterestAuthorizer.apply` calls `WsEventRouter.applyAuthorizedContainerInterest` synchronously within the query observation window, then sends `known_containers_ack` |
+| `QuerySocketOpen` | `ContainerInterestAuthorizer.isOpen` checks the query's own socket object, so another socket of the session cannot receive its result |
+| `SettleOrphanedAuthorization` | A closed socket's query settles; `ContainerInterestAuthorizer.enqueue` drops its install because the socket has no state |
+| `ReopenSocket` | A fresh-ticket upgrade calls `ContainerInterestAuthorizer.open` and `WsEventRouter.open`, which start the socket with an empty interest set and send no frame |
 | `RetryAuthorization` | `authorizationWasInvalidated` checks requested IDs and accepted proof dependencies |
 | `ChangeAccess` | Container mutation and principal policy routes publish invalidations; `ContainerInterestAuthorizer.invalidateAccess` and `WsEventRouter.routeServerEvent` observe them |
 | `CloseSocket` | `ContainerInterestAuthorizer.close` and `WsEventRouter.close` |
+| `UndeclaredSocketsReceiveNoHints` | `WsEventRouter.routeHint` reaches only sockets indexed by their own authorized declaration |
 | `EndSession` | `destroyUserSession` publishes `session_revoked` once through `createSessionRevocationNotifier`, and `WsEventRouter.closeSession` closes the session's sockets if it arrives; expiry publishes nothing |
 | `ReadSession` | Each session's own `RevalidationSchedule` tick in `WsSessionLiveness`, and every `addSubscriberReconnectListener` pass through `WsSessionLiveness.checkAll` (16 sessions at a time), reads `isLiveUserSession` once per session. A check joins a read already in flight and waits at most `sessionReadTimeoutMs`; only a live answer reaches `WsSessionLiveness.confirm` |
 | `CompletePass` | The read's own continuation in `WsSessionLiveness.startRead` calls `WsEventRouter.closeSession` for an ended session, even when its check already timed out |
@@ -29,7 +33,10 @@ to an ancestor or the group invalidates the child; an unrelated change must
 preserve both subscriptions. A pending query captures read access and records
 changes. Accepted results depend on their verified paths and policies. Denied
 results retry only changes to the requested ID, since they have no verified
-path. An unrelated mutation must never consume that query's retry budget.
+path. An unrelated mutation must never consume that query's retry budget. The
+socket may close and its client reconnect on a fresh ticket for the same live
+session; the new socket indexes "child" only after its own declaration, even
+while a query from the closed socket is still pending.
 
 Production bounds retries to three attempts within one timeout budget, scaled
 to one base interval per 100 requested IDs, capped at six intervals (60 seconds
@@ -41,21 +48,27 @@ Tabs in one session share identical queries and wait for different queries. A ti
 retains the raw query's slot until it settles. The separate 10,000-change
 observation cap may reject a query during a pub/sub flood; that availability
 limit is outside this bounded two-change model. Declarations acknowledge the
-accepted IDs even when some were refused. A failed cache load or authorization
-returns an empty live baseline. A matching first full declaration can reuse the
-freshly checked result once, within its timeout window and before any observed
-dependency change; later declarations reauthorize. The client records those
-results and retries after a tree change or grant notification, without a
-denial-driven loop.
+accepted IDs even when some were refused. Every declaration, including the first
+full declaration after a reconnect, runs its own authorization; a socket opens
+with no interest and nothing is cached for it. The client records those results
+and retries after a tree change or grant notification, without a denial-driven
+loop.
 
 The model assumes the signed HTTP access workflow answers correctly at the
 query snapshot. Notification delivery is the point at which this process
 observes a change; cross-process delay and lost pub/sub messages are outside the
 boundary. `ApplyAuthorization` also removes a previously indexed child when a
 fresh declaration is refused; the missed-hint recovery is exercised at runtime.
-No fairness or eventual-delivery guarantee is claimed. Runtime tests
-cover per-socket ordering, filtered persistence, timeouts, multi-tab sharing,
-principal notifications, accepted-ID acknowledgments, and client retry races.
+No fairness or eventual-delivery guarantee is claimed here. Hints published
+while a reconnecting client holds no interest are recovered by the client, not
+the router: the acknowledgement of its first declaration advances the
+connection generation and the client then reconciles over HTTP.
+[RestartProbeConvergence](../document-sync/RestartProbeConvergence.md) checks
+that barrier: opening the socket is not readiness, and the acknowledgement arms
+a probe that covers every version committed before it. Runtime tests cover
+per-socket ordering, timeouts, multi-tab sharing, principal notifications,
+accepted-ID acknowledgments, an undeclared socket receiving no hint, and client
+retry races.
 
 Production bounds the lost-message window the model leaves open. Pub/sub is
 at-most-once, so an `access_changed` published during a subscriber outage never
@@ -67,11 +80,8 @@ client to resync everything it holds; the subscriber's first held subscription
 counts as such a reconnect, so sockets opened while that subscription was still
 pending catch up on the hints published before it. That resync request is held
 per socket until a verification succeeds, so a failed pass cannot discard it.
-The reconnect proof handoff is cleared the moment a reconnect pass begins and
-again by every successful pass, so a matching declaration reauthorizes instead
-of reinstalling a proof verified before the outage or an evicted one, even when
-the fresh pass fails. Verification failures never extend the bound: each socket
-records when a full verification last confirmed its installed proofs and arms a
+Verification failures never extend the bound: each socket records when a full
+verification last confirmed its installed proofs and arms a
 per-socket deadline timer at exactly `verifiedAt + maxProofAgeMs` (three
 intervals, fifteen minutes by default). If no verification completes before it
 fires, every subscription is evicted with one `resync_required`, whether the
@@ -176,9 +186,9 @@ disabled (`intervalMs` 0) a session is checked only on reconnect and has no
 deadline.
 
 Negative controls remove authorization, dependency invalidation, the live-socket
-guard, scoped eviction, query relevance, principal-change notification, the
-reconnect proof dependency guard, the session recheck, the session deadline,
-and the rule that only a live answer confirms a session. Each exposes the
-corresponding unreadable interest, closed socket, unrelated eviction,
-unnecessary retry, ended session served past a pass, or unconfirmed session
-served past its deadline.
+guard, the per-socket ownership of a query result, scoped eviction, query
+relevance, principal-change notification, the session recheck, the session
+deadline, and the rule that only a live answer confirms a session. Each exposes
+the corresponding unreadable interest, closed socket, undeclared reconnected
+socket, unrelated eviction, unnecessary retry, ended session served past a pass,
+or unconfirmed session served past its deadline.

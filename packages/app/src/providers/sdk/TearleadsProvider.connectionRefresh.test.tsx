@@ -108,7 +108,6 @@ test("replaces the socket on native refresh and reconciles the acknowledged gap"
     }
     act(() => {
       firstSocket.dispatchEvent(new Event("open"));
-      firstSocket.dispatchInterestState([]);
       firstSocket.acknowledgeLastContainerInterest();
     });
     expect(tearleads.events.connectionGeneration).toBe(1);
@@ -129,7 +128,6 @@ test("replaces the socket on native refresh and reconciles the acknowledged gap"
     }
     act(() => {
       refreshedSocket.dispatchEvent(new Event("open"));
-      refreshedSocket.dispatchInterestState([]);
       refreshedSocket.acknowledgeLastContainerInterest();
     });
     expect(tearleads.events.connected).toBe(true);

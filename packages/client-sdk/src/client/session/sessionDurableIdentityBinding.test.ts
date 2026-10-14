@@ -27,6 +27,7 @@ test("a fresh session refuses login rebinding a durably pinned signing fingerpri
     const api = new ApiClient(identityTrustDomain);
     api.authenticate = async () => ({
       authenticated: true,
+      wsTicket: "ws-ticket",
       isRoot: false,
       organizationId: "organization",
       rootContainerId: null,
@@ -110,6 +111,7 @@ test("registration declines a key already bound to a user, before contacting the
   const api = new ApiClient(identityTrustDomain);
   api.authenticate = async () => ({
     authenticated: true,
+    wsTicket: "ws-ticket",
     isRoot: false,
     organizationId: "organization",
     rootContainerId: null,
