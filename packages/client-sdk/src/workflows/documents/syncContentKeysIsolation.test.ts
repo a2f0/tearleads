@@ -148,7 +148,6 @@ test("raw history reports the lowest unavailable epoch regardless of response or
         targetHash: unavailableTargetHash,
         targets: [unavailableTarget],
       },
-      currentBundle,
     ],
     updates: [epochTwoUpdate, epochOneUpdate],
   };
@@ -214,7 +213,6 @@ test("a missing bundle outranks an earlier unavailable epoch", async () => {
         targetHash: unavailableTargetHash,
         targets: [unavailableTarget],
       },
-      currentBundle,
     ],
     updates: [
       {
@@ -291,7 +289,7 @@ test("a forged old-epoch header cannot bypass poison isolation through a missing
     };
     const response = await createSyncResponse(materializedPlan.plan, {
       acceptedOutgoingUpdateIds: [],
-      contentKeyBundles: [currentBundle],
+      contentKeyBundles: [],
       updates: [forgedUpdate],
     });
 
@@ -388,11 +386,7 @@ test("a malformed later epoch outranks raw-history unavailability", async () => 
   });
   const response = await createSyncResponse(materializedPlan.plan, {
     acceptedOutgoingUpdateIds: [],
-    contentKeyBundles: [
-      unavailableEpochOneBundle,
-      malformedEpochTwoBundle,
-      currentBundle,
-    ],
+    contentKeyBundles: [unavailableEpochOneBundle, malformedEpochTwoBundle],
     updates: [epochOneUpdate, epochTwoUpdate],
   });
 
@@ -452,7 +446,7 @@ test("raw response validation poison-isolates a future content-key epoch", async
     });
     const response = await createSyncResponse(materializedPlan.plan, {
       acceptedOutgoingUpdateIds: [],
-      contentKeyBundles: [currentBundle],
+      contentKeyBundles: [],
       updates: [futureUpdate],
     });
 

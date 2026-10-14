@@ -218,10 +218,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
   const priorContentKeyResponse = await createSyncResponse(
     rotatedMaterialized.plan,
     {
-      contentKeyBundles: [
-        writerProjection.contentKeyBundle,
-        rotatedProjection.contentKeyBundle,
-      ],
+      contentKeyBundles: [writerProjection.contentKeyBundle],
       updates: [priorContentKeyUpdate],
     },
   );
@@ -241,7 +238,7 @@ test("persistedDocumentSyncStateFromResponse verifies accepted writes and return
       rotatedMaterialized.plan,
       {
         ...priorContentKeyResponse,
-        contentKeyBundles: [rotatedProjection.contentKeyBundle],
+        contentKeyBundles: [],
       },
       {
         resolveWriterPublicKey,
