@@ -61,8 +61,9 @@ test("a read-model request verifies organization access once", async () => {
   // Measured with PGlite / SQLite: snapshot 63 / 65 and empty delta 52 / 54
   // when access was verified both before and after the head lock; 39 / 41 and
   // 28 / 30 with a one-statement screen before the lock; empty delta 27 / 29
-  // once lane stamps on the locked head row replaced the change-log read.
-  expect(snapshot.statements).toBeLessThanOrEqual(45);
+  // once lane stamps on the locked head row replaced the change-log read;
+  // snapshot 38 / 40 once member rows stopped loading users for their keys.
+  expect(snapshot.statements).toBeLessThanOrEqual(44);
   expect(delta.statements).toBeLessThanOrEqual(33);
 });
 
