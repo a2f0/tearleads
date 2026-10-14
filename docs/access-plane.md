@@ -30,13 +30,12 @@ The authority chain is:
 The durable tables are:
 
 - `access_events`
-- `access_manifests`
+- `access_manifests` (its `verification_mac` column holds the MAC'd
+  stored-history verification marker)
 - `access_manifest_heads`
 - `access_event_dependency_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
-- `access_manifest_verifications` (MAC'd stored-history verification markers;
-  deleted with the manifests they cover)
 - `container_key_epochs`
 - `container_key_wraps`
 - `document_content_key_epochs`

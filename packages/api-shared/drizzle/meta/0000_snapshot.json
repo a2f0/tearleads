@@ -1,5 +1,5 @@
 {
-  "id": "0360655f-eedc-4ab6-be2d-92782c60e436",
+  "id": "84e8f4d0-d0e7-407d-b33d-b0c9048bcc19",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -892,38 +892,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.access_manifest_verifications": {
-      "name": "access_manifest_verifications",
-      "schema": "",
-      "columns": {
-        "manifest_hash": {
-          "name": "manifest_hash",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "mac": {
-          "name": "mac",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.access_manifests": {
       "name": "access_manifests",
       "schema": "",
@@ -1012,6 +980,12 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "verification_mac": {
+          "name": "verification_mac",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

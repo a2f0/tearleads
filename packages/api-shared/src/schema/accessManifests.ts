@@ -30,11 +30,12 @@ import {
  * object-specific verifier `state` alongside those fields so APIs can return
  * complete manifest bundles without re-deriving state from event bodies.
  *
- * This table is append-only in practice. Inserts are idempotent by
+ * The signed columns are append-only. Inserts are idempotent by
  * `manifestHash`: replaying the same verified manifest is accepted, while
- * conflicting data for an existing hash is rejected. Separate projection tables
- * expand dependencies such as referenced principal heads and document link-set
- * container membership for indexed reads.
+ * conflicting data for an existing hash is rejected. Only `verificationMac` is
+ * ever updated. Separate projection tables expand dependencies such as
+ * referenced principal heads and document link-set container membership for
+ * indexed reads.
  *
  * Columns:
  * - `id`: Surrogate database primary key. Domain identity is `manifestHash`.
@@ -68,6 +69,17 @@ import {
  * - `state`: Object-specific verified state used to rehydrate a complete
  *   container/document manifest bundle. It is checked for consistency on
  *   replay but is not the generic access manifest itself.
+ * - `verificationMac`: Tamper-evident record that stored-history verification
+ *   accepted this manifest after accepting every manifest it depends on, or
+ *   `null` until it has. The database is not a trust boundary, so the marker
+ *   is honored only when it verifies under a key derived from a server secret
+ *   the database never holds. The MAC binds the manifest hash, a digest of the
+ *   complete stored bundle (manifest, state and signed event), the signer's
+ *   stored public key and the current verification rule revisions. Changed
+ *   bytes, a changed signer key, a forged or copied marker, a rotated secret or
+ *   changed rules therefore fall back to full verification of that manifest.
+ *   Written by mutations for what they store and after reads that verified
+ *   unmarked history; it is not part of the manifest hash.
  * - `createdAt`: Server-side insertion timestamp. It is not part of the
  *   manifest hash.
  *
@@ -99,6 +111,7 @@ export const accessManifests = pgTable(
     keyTargetHash: text("key_target_hash").notNull(),
     manifestHash: text("manifest_hash").notNull(),
     state: jsonb("state").$type<KeyingCanonicalJson>().notNull(),
+    verificationMac: text("verification_mac"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -161,33 +174,6 @@ export const accessManifestHeads = pgTable(
     ),
     index("access_manifest_heads_manifest_hash_idx").on(table.manifestHash),
   ],
-);
-
-/**
- * Tamper-evident record that stored-history verification accepted a manifest
- * after accepting every manifest it depends on.
- *
- * The database is not a trust boundary, so a marker is only honored when its
- * `mac` verifies under a key derived from a server secret the database never
- * holds. The MAC binds the manifest hash, a digest of its own complete stored
- * bundle (manifest, state and signed event), the signer's stored public key
- * and the current verification rule revisions. A row whose bytes changed, a
- * changed signer key, a forged marker, a rotated secret or changed rules
- * therefore fall back to full verification of that manifest.
- *
- * Columns:
- * - `manifestHash`: Verified manifest. Joins to `accessManifests.manifestHash`.
- * - `mac`: HMAC over the domain, rule revisions, manifest hash, bundle digest
- *   and signer key.
- * - `createdAt`: Server-side insertion timestamp.
- */
-export const accessManifestVerifications = pgTable(
-  "access_manifest_verifications",
-  {
-    manifestHash: text("manifest_hash").primaryKey(),
-    mac: text("mac").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
 );
 
 /**

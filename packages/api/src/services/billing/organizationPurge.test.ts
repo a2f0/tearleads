@@ -2,7 +2,6 @@ import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   accessManifests,
-  accessManifestVerifications,
   blobAuditObjects,
   blobs,
   containers,
@@ -119,11 +118,14 @@ test("organization purge removes one organization's remote state and retains its
       ]),
     );
   await db
-    .insert(accessManifestVerifications)
-    .values(
-      markedManifests.map(({ manifestHash }) => ({ manifestHash, mac: "m" })),
-    )
-    .onConflictDoNothing();
+    .update(accessManifests)
+    .set({ verificationMac: "m" })
+    .where(
+      inArray(
+        accessManifests.manifestHash,
+        markedManifests.map(({ manifestHash }) => manifestHash),
+      ),
+    );
   const published: PublishedRealtimeEvent[] = [];
 
   expect(
@@ -192,12 +194,15 @@ test("organization purge removes one organization's remote state and retains its
     await db.select().from(blobs).where(eq(blobs.id, unrelatedBlobId)),
   ).toHaveLength(1);
   const remainingMarkers = await db
-    .select({ manifestHash: accessManifestVerifications.manifestHash })
-    .from(accessManifestVerifications)
+    .select({ manifestHash: accessManifests.manifestHash })
+    .from(accessManifests)
     .where(
-      inArray(
-        accessManifestVerifications.manifestHash,
-        markedManifests.map(({ manifestHash }) => manifestHash),
+      and(
+        inArray(
+          accessManifests.manifestHash,
+          markedManifests.map(({ manifestHash }) => manifestHash),
+        ),
+        eq(accessManifests.verificationMac, "m"),
       ),
     );
   expect(

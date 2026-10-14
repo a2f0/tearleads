@@ -73,12 +73,6 @@ CREATE TABLE "access_manifest_principal_head_projection" (
 	CONSTRAINT "access_manifest_principal_head_projection_version_range" CHECK ("access_manifest_principal_head_projection"."version" >= 1 AND "access_manifest_principal_head_projection"."version" <= 9007199254740991)
 );
 --> statement-breakpoint
-CREATE TABLE "access_manifest_verifications" (
-	"manifest_hash" text PRIMARY KEY NOT NULL,
-	"mac" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "access_manifests" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"version" integer NOT NULL,
@@ -94,6 +88,7 @@ CREATE TABLE "access_manifests" (
 	"key_target_hash" text NOT NULL,
 	"manifest_hash" text NOT NULL,
 	"state" jsonb NOT NULL,
+	"verification_mac" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint

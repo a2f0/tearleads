@@ -96,12 +96,6 @@ CREATE TABLE `access_manifest_principal_head_projection` (
 CREATE INDEX `access_manifest_principal_projection_manifest_idx` ON `access_manifest_principal_head_projection` (`manifest_hash`);--> statement-breakpoint
 CREATE INDEX `access_manifest_principal_projection_principal_idx` ON `access_manifest_principal_head_projection` (`principal_type`,`principal_id`);--> statement-breakpoint
 CREATE UNIQUE INDEX `access_manifest_principal_projection_unique_idx` ON `access_manifest_principal_head_projection` (`manifest_hash`,`principal_type`,`principal_id`);--> statement-breakpoint
-CREATE TABLE `access_manifest_verifications` (
-	`manifest_hash` text PRIMARY KEY NOT NULL,
-	`mac` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE `access_manifests` (
 	`id` text PRIMARY KEY NOT NULL,
 	`version` integer NOT NULL,
@@ -117,6 +111,7 @@ CREATE TABLE `access_manifests` (
 	`key_target_hash` text NOT NULL,
 	`manifest_hash` text NOT NULL,
 	`state` text NOT NULL,
+	`verification_mac` text,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint

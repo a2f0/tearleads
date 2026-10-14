@@ -6,7 +6,6 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-  accessManifestVerifications,
   attachmentBindings,
   blobs,
   documentAttachmentAuditEvents,
@@ -176,20 +175,6 @@ async function deleteDocumentAccessHistory(
         eq(accessEvents.objectId, documentId),
       ),
     );
-  await executor.delete(accessManifestVerifications).where(
-    inArray(
-      accessManifestVerifications.manifestHash,
-      executor
-        .select({ manifestHash: accessManifests.manifestHash })
-        .from(accessManifests)
-        .where(
-          and(
-            eq(accessManifests.objectKind, "document"),
-            eq(accessManifests.objectId, documentId),
-          ),
-        ),
-    ),
-  );
   await executor
     .delete(accessManifests)
     .where(

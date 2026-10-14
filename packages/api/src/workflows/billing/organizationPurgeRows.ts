@@ -7,7 +7,6 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-  accessManifestVerifications,
   blobStages,
   blobs,
   containerBuiltinGrants,
@@ -113,9 +112,6 @@ async function deleteAccessRows(
       .where(inArray(accessEventDependencyProjection.eventHash, eventBatch));
   }
   for (const manifestBatch of organizationPurgeBatches(manifestHashes)) {
-    await executor
-      .delete(accessManifestVerifications)
-      .where(inArray(accessManifestVerifications.manifestHash, manifestBatch));
     await executor
       .delete(accessManifestContainerGrantProjection)
       .where(
