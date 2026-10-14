@@ -10693,13 +10693,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        containerId: string;
-                        containerKeks: ({
-                            accessManifestHash: string;
-                            containerId: string;
-                            containerKeyEpoch: number;
-                            containerKeyEpochId: string;
-                            containerManifestHistory: ({
+                        bundles: {
+                            [key: string]: {
                                 event: {
                                     body: unknown;
                                     event: {
@@ -10718,7 +10713,15 @@ export interface operations {
                                 };
                             } & {
                                 [key: string]: unknown;
-                            })[];
+                            };
+                        };
+                        containerId: string;
+                        containerKeks: ({
+                            accessManifestHash: string;
+                            containerId: string;
+                            containerKeyEpoch: number;
+                            containerKeyEpochId: string;
+                            containerManifestHistory: string[];
                             keyEpoch: {
                                 [key: string]: unknown;
                             };
@@ -10751,26 +10754,7 @@ export interface operations {
                             key: string;
                         }[];
                         organizationId: string;
-                        path: ({
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        })[];
+                        path: string[];
                         policyEvidence: {
                             groups: ({
                                 grant: string;
@@ -14408,26 +14392,7 @@ export interface operations {
                                 containerId: string;
                                 containerKeyEpoch: number;
                                 containerKeyEpochId: string;
-                                containerManifestHistory: ({
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
+                                containerManifestHistory: string[];
                                 keyEpoch: {
                                     [key: string]: unknown;
                                 };
@@ -14455,7 +14420,12 @@ export interface operations {
                                 [key: string]: unknown;
                             })[];
                             organizationId: string;
-                            path: ({
+                            path: string[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        bundles: {
+                            [key: string]: {
                                 event: {
                                     body: unknown;
                                     event: {
@@ -14474,10 +14444,8 @@ export interface operations {
                                 };
                             } & {
                                 [key: string]: unknown;
-                            })[];
-                        } & {
-                            [key: string]: unknown;
-                        })[];
+                            };
+                        };
                         contentKeyBundle: {
                             contentKeyEpoch: number;
                             documentId: string;
@@ -14500,26 +14468,7 @@ export interface operations {
                         };
                         /** @constant */
                         contentKeyBundleStale?: true;
-                        documentContainerManifestHistory: ({
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        })[];
+                        documentContainerManifestHistory: string[];
                         documentId: string;
                         documentKekTargets: {
                             documentId: string;
@@ -14533,66 +14482,9 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        documentManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        documentManifestContainerPaths: ({
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        })[][];
-                        documentManifestHistory: ({
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        })[];
+                        documentManifest: string;
+                        documentManifestContainerPaths: string[][];
+                        documentManifestHistory: string[];
                         historyPrefixes?: {
                             count: number;
                             digest: string;

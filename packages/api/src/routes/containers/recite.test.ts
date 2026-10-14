@@ -25,6 +25,7 @@ import {
 } from "../../../test/helpers/containerRecite";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { decodeServedContainerProjection } from "../../../test/helpers/servedWriterProjection";
 import { routeApp } from "../../routeApp";
 
 test.each(["billing_inactive", "sync_seat_unassigned"] as const)(
@@ -106,7 +107,9 @@ test("re-citing an empty child advances its manifest and preserves every KEK row
     projectionResponse.status,
     await projectionResponse.clone().text(),
   ).toBe(200);
-  const projection: unknown = await projectionResponse.json();
+  const projection = decodeServedContainerProjection(
+    await projectionResponse.json(),
+  );
   if (!isContainerWriterProjectionResponse(projection))
     throw new Error("Expected projection");
   expect(projection.path.at(-1)?.manifestHash).toBe(
@@ -273,7 +276,9 @@ test("the SDK verifies and unwraps an API recitation without new KEK material", 
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(projectionResponse.status).toBe(200);
-  const projection: unknown = await projectionResponse.json();
+  const projection = decodeServedContainerProjection(
+    await projectionResponse.json(),
+  );
   if (!isContainerWriterProjectionResponse(projection))
     throw new Error("Expected projection");
   const context = await createAncestorSdkContext(

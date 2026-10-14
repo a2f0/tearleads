@@ -111,7 +111,10 @@ manifest chain or directory payload array. The server performs its ordinary
 authorization
 and stored-evidence checks, then omits only matching prefixes and identifies them
 in the response's `historyPrefixes`. Unknown or changed bases receive full
-history. The routes disable HTTP response caching.
+history. The server trims these prefixes before it collects each remaining
+manifest bundle once into the response's `bundles` map, and the client resolves
+those hash citations before it restores the prefixes. The routes disable HTTP
+response caching.
 
 The client accepts omissions only from the exact prefixes it requested and still
 holds. It reconstructs the evidence before normal SDK verification. Current

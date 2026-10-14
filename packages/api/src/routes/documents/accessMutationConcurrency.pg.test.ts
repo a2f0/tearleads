@@ -39,6 +39,7 @@ import {
   waitForPostgresLockWait,
 } from "../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { decodeServedContainerProjection } from "../../../test/helpers/servedWriterProjection";
 import { routeApp } from "../../routeApp";
 import { runStartOrganizationTrialWorkflow } from "../../workflows/billing/organizationBilling";
 
@@ -96,7 +97,7 @@ async function loadRootFixture(input: {
     `/containers/${input.rootContainerId}/writer-projection`,
     { headers: { Authorization: `Bearer ${input.ownerToken}` } },
   );
-  const value = await response.json();
+  const value = decodeServedContainerProjection(await response.json());
   if (!response.ok || !isContainerWriterProjectionResponse(value)) {
     throw new Error("Expected a root container writer projection");
   }

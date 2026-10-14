@@ -4,7 +4,11 @@ import {
   omitProjectionHistory,
   restoreProjectionHistory,
 } from "@tearleads/crypto";
-import { SESSION_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
+  SESSION_ERROR_CODES,
+} from "@tearleads/validators/response";
 import { parseProjectionHistoryHints } from "@tearleads/validators/util";
 import { HttpResponse, http } from "msw";
 import {
@@ -125,11 +129,13 @@ testApiClient(
               { status: 401 },
             );
           return HttpResponse.json(
-            omitProjectionHistory(
-              full,
-              parseProjectionHistoryHints(
-                request.headers.get("x-projection-history") ?? "[]",
-              ) ?? [],
+            encodeContainerWriterProjection(
+              omitProjectionHistory(
+                full,
+                parseProjectionHistoryHints(
+                  request.headers.get("x-projection-history") ?? "[]",
+                ) ?? [],
+              ),
             ),
           );
         },
@@ -203,11 +209,13 @@ testApiClient(
           Reflect.set(kek.keyEpoch, "containerId", id);
           requested.push(request.headers.has("x-projection-history"));
           return HttpResponse.json(
-            omitProjectionHistory(
-              full,
-              parseProjectionHistoryHints(
-                request.headers.get("x-projection-history") ?? "[]",
-              ) ?? [],
+            encodeContainerWriterProjection(
+              omitProjectionHistory(
+                full,
+                parseProjectionHistoryHints(
+                  request.headers.get("x-projection-history") ?? "[]",
+                ) ?? [],
+              ),
             ),
           );
         },
@@ -258,8 +266,14 @@ function fixture() {
   const kek = projection.containerKeks[0];
   const manifest = projection.path[0];
   if (!kek || !manifest) throw new Error("Expected fixture path");
+  // A distinct manifest needs a distinct hash: the wire carries one bundle
+  // per hash.
   kek.containerManifestHistory = [
-    { ...manifest, manifest: { ...manifest.manifest, epoch: 1 } },
+    {
+      ...manifest,
+      manifest: { ...manifest.manifest, epoch: 1 },
+      manifestHash: `${manifest.manifestHash}-epoch-1`,
+    },
   ];
   return projection;
 }
@@ -281,7 +295,7 @@ testApiClient(
             parseProjectionHistoryHints(hint) ?? [],
           );
           bytes.push(JSON.stringify(wire).length);
-          return HttpResponse.json(wire);
+          return HttpResponse.json(encodeContainerWriterProjection(wire));
         },
       ),
     );
@@ -336,7 +350,7 @@ testApiClient(
           );
           if (corrupt && wire.historyPrefixes?.[0])
             wire.historyPrefixes[0].digest = "0".repeat(64);
-          return HttpResponse.json(wire);
+          return HttpResponse.json(encodeContainerWriterProjection(wire));
         },
       ),
     );
@@ -350,7 +364,7 @@ testApiClient(
     ).toBe(false);
     server.use(
       http.get(`${apiBaseUrl}/containers/:id/writer-projection`, () =>
-        HttpResponse.json(full),
+        HttpResponse.json(encodeContainerWriterProjection(full)),
       ),
     );
     const client = new ApiClient(apiBaseUrl);
@@ -371,7 +385,7 @@ testApiClient(
           if (corrupt && wire.historyPrefixes?.[0])
             wire.historyPrefixes[0].digest = "0".repeat(64);
           else wire.organizationId = "different-organization";
-          return HttpResponse.json(wire);
+          return HttpResponse.json(encodeContainerWriterProjection(wire));
         },
       ),
     );
@@ -405,7 +419,7 @@ testApiClient(
         `${apiBaseUrl}/containers/:id/writer-projection`,
         ({ request }) => {
           hints.push(request.headers.get("x-projection-history") ?? "[]");
-          return HttpResponse.json(full);
+          return HttpResponse.json(encodeContainerWriterProjection(full));
         },
       ),
     );
@@ -446,6 +460,7 @@ testApiClient(
         {
           ...ancestor,
           manifest: { ...ancestor.manifest, objectId: "historical-child" },
+          manifestHash: "historical-child-manifest-hash",
         },
       ],
     ];
@@ -460,7 +475,7 @@ testApiClient(
             ) ?? [];
           const wire = omitProjectionHistory(full, hints);
           compressed = (wire.historyPrefixes?.length ?? 0) > 0;
-          return HttpResponse.json(wire);
+          return HttpResponse.json(encodeDocumentWriterProjection(wire));
         },
       ),
     );

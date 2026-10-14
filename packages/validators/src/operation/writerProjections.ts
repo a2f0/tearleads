@@ -3,13 +3,13 @@ import { projectionHistoryHeaderRefinement } from "../projectionHistoryRefinemen
 import {
   ContainerNotFoundErrorResponseSchema,
   ContainerWriterProjectionErrorResponseSchema,
-  ContainerWriterProjectionResponseSchema,
+  ContainerWriterProjectionWireResponseSchema,
   DocumentNotFoundErrorResponseSchema,
   DocumentWriterProjectionErrorResponseSchema,
-  DocumentWriterProjectionResponseSchema,
+  DocumentWriterProjectionWireResponseSchema,
   ErrorResponseSchema,
-  isContainerWriterProjectionResponse,
-  isDocumentWriterProjectionResponse,
+  isContainerWriterProjectionWireResponse,
+  isDocumentWriterProjectionWireResponse,
   SessionFailureResponseSchema,
 } from "../response";
 import { PrincipalHistoryPreparationResponseSchema } from "../response/principalHistoryPreparation";
@@ -49,7 +49,7 @@ export const getContainerWriterProjectionOperation = defineJsonOperation({
   params: ContainerWriterProjectionPathParamsSchema,
   path: "/containers/{containerId}/writer-projection",
   responses: {
-    200: ContainerWriterProjectionResponseSchema,
+    200: ContainerWriterProjectionWireResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
   runtimeRefinements: [
@@ -75,7 +75,7 @@ export const getDocumentWriterProjectionOperation = defineJsonOperation({
   params: DocumentWriterProjectionPathParamsSchema,
   path: "/documents/{documentId}/writer-projection",
   responses: {
-    200: DocumentWriterProjectionResponseSchema,
+    200: DocumentWriterProjectionWireResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
   runtimeRefinements: [
@@ -85,6 +85,6 @@ export const getDocumentWriterProjectionOperation = defineJsonOperation({
 });
 
 export const isGetContainerWriterProjectionOperationResponse =
-  isContainerWriterProjectionResponse;
+  isContainerWriterProjectionWireResponse;
 export const isGetDocumentWriterProjectionOperationResponse =
-  isDocumentWriterProjectionResponse;
+  isDocumentWriterProjectionWireResponse;

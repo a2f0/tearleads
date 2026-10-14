@@ -7,6 +7,8 @@ import {
   DOCUMENT_PROJECTION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
   DocumentWriterProjectionErrorResponseSchema,
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
 } from "../response";
 import { writerProjectionResponseRuntimeRefinements } from "../writerProjectionRefinements";
 import { openApiDocument } from "./openApi";
@@ -89,21 +91,25 @@ test("writer projection operations own their complete wire metadata", () => {
   ).toBe(true);
 });
 
-test("writer projection operation guards derive from the response schemas", () => {
+test("writer projection operation guards validate the hash-cited wire", () => {
+  const container = encodeContainerWriterProjection(
+    createContainerWriterProjectionResponse(),
+  );
+  expect(isGetContainerWriterProjectionOperationResponse(container)).toBe(true);
+  expect(
+    isGetDocumentWriterProjectionOperationResponse(
+      encodeDocumentWriterProjection(createDocumentWriterProjectionResponse()),
+    ),
+  ).toBe(true);
+  // A decoded projection is not the wire shape.
   expect(
     isGetContainerWriterProjectionOperationResponse(
       createContainerWriterProjectionResponse(),
     ),
-  ).toBe(true);
-  expect(
-    isGetDocumentWriterProjectionOperationResponse(
-      createDocumentWriterProjectionResponse(),
-    ),
-  ).toBe(true);
-
+  ).toBe(false);
   expect(
     isGetContainerWriterProjectionOperationResponse({
-      ...createContainerWriterProjectionResponse(),
+      ...container,
       containerKeks: [],
     }),
   ).toBe(false);
@@ -137,7 +143,7 @@ test("document writer projection conflict codes remain explicit", () => {
   ).toBe(false);
 });
 
-test("OpenAPI declares the runtime-only path and KEK count invariant", () => {
+test("OpenAPI declares the runtime-only path, KEK count, and bundle invariants", () => {
   const operation =
     openApiDocument.paths["/containers/{containerId}/writer-projection"]?.get;
   const responseSchema =
@@ -151,14 +157,19 @@ test("OpenAPI declares the runtime-only path and KEK count invariant", () => {
     projectionHistoryHeaderRefinement,
   ]);
 
-  const mismatched = jsonRoundTrip({
-    ...createContainerWriterProjectionResponse(),
-    containerKeks: [],
-  });
+  const wire = encodeContainerWriterProjection(
+    createContainerWriterProjectionResponse(),
+  );
   const validate = new Ajv2020({ strict: true }).compile(responseSchema);
-  expect(validate(mismatched)).toBe(true);
-  expect(
-    getContainerWriterProjectionOperation.responses[200].safeParse(mismatched)
-      .success,
-  ).toBe(false);
+  for (const mismatched of [
+    { ...wire, containerKeks: [] },
+    { ...wire, bundles: {} },
+    { ...wire, path: ["uncited-elsewhere"] },
+  ].map(jsonRoundTrip)) {
+    expect(validate(mismatched)).toBe(true);
+    expect(
+      getContainerWriterProjectionOperation.responses[200].safeParse(mismatched)
+        .success,
+    ).toBe(false);
+  }
 });

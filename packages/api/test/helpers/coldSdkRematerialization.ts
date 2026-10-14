@@ -37,6 +37,10 @@ import {
   projectionRouteHistory,
   projectionRouteRequest,
 } from "./projectionRouteHistory";
+import {
+  decodeServedContainerProjection,
+  decodeServedDocumentProjection,
+} from "./servedWriterProjection";
 
 export const COLD_DOCUMENT_TEXT = "cold login decrypts rotated group data";
 
@@ -77,12 +81,14 @@ export function createRouteSdkClient(token: string) {
       return value;
     },
     getContainerWriterProjection: async (containerId: string) => {
-      const value = await requireJson(
-        await projectionRouteRequest(
-          `/containers/${containerId}/writer-projection`,
-          token,
+      const value = decodeServedContainerProjection(
+        await requireJson(
+          await projectionRouteRequest(
+            `/containers/${containerId}/writer-projection`,
+            token,
+          ),
+          "container writer projection",
         ),
-        "container writer projection",
       );
       if (!isContainerWriterProjectionResponse(value)) {
         throw new Error("container writer projection is invalid");
@@ -107,12 +113,14 @@ export function createRouteSdkClient(token: string) {
       if (primed && isDocumentWriterProjectionResponse(primed)) {
         return primed;
       }
-      const value = await requireJson(
-        await projectionRouteRequest(
-          `/documents/${documentId}/writer-projection`,
-          token,
+      const value = decodeServedDocumentProjection(
+        await requireJson(
+          await projectionRouteRequest(
+            `/documents/${documentId}/writer-projection`,
+            token,
+          ),
+          "document writer projection",
         ),
-        "document writer projection",
       );
       if (!isDocumentWriterProjectionResponse(value)) {
         throw new Error("document writer projection is invalid");

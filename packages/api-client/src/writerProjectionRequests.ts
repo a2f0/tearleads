@@ -2,11 +2,19 @@ import {
   getContainerWriterProjectionOperation,
   getDocumentWriterProjectionOperation,
 } from "@tearleads/validators/operation";
+import {
+  decodeContainerWriterProjection,
+  decodeDocumentWriterProjection,
+} from "@tearleads/validators/response";
 import type { ApiRequestRuntime } from "./apiRequestRuntime";
 import { principalHistoryRequest } from "./principalHistoryRequest";
 import type { OperationRequestFn, OperationRequestResultFn } from "./types";
 
-/** Preparation and body deadlines sit inside projection-history negotiation. */
+/**
+ * Preparation and body deadlines sit inside projection-history negotiation.
+ * The wire cites each manifest bundle by hash; decoding resolves every
+ * citation before any validator, cache, or verifier sees the projection.
+ */
 export function writerProjectionRequests(runtime: ApiRequestRuntime): {
   request: OperationRequestFn;
   requestResult: OperationRequestResultFn;
@@ -19,20 +27,23 @@ export function writerProjectionRequests(runtime: ApiRequestRuntime): {
     options,
     operation,
   ) => {
-    if (
-      method === "GET" &&
-      (operation.id === "containers.writerProjection.get" ||
-        operation.id === "documents.writerProjection.get")
-    )
+    if (method === "GET" && operation.id === "containers.writerProjection.get")
       return principalHistoryRequest(runtime, {
         path,
         validator,
+        decode: decodeContainerWriterProjection,
         method,
         options: options ?? {},
-        operation:
-          operation.id === "containers.writerProjection.get"
-            ? getContainerWriterProjectionOperation
-            : getDocumentWriterProjectionOperation,
+        operation: getContainerWriterProjectionOperation,
+      });
+    if (method === "GET" && operation.id === "documents.writerProjection.get")
+      return principalHistoryRequest(runtime, {
+        path,
+        validator,
+        decode: decodeDocumentWriterProjection,
+        method,
+        options: options ?? {},
+        operation: getDocumentWriterProjectionOperation,
       });
     return runtime.requestResult(
       path,

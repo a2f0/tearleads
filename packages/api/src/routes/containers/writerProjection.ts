@@ -2,7 +2,7 @@ import {
   getContainerWriterProjectionOperation,
   operationRoutePath,
 } from "@tearleads/validators/operation";
-import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { ContainerWriterProjectionWireResponse } from "@tearleads/validators/response";
 import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
@@ -42,7 +42,7 @@ export function createContainerWriterProjectionRoute({
 
       c.header("Cache-Control", "no-store");
       try {
-        return c.json<ContainerWriterProjectionResponse>(
+        return c.json<ContainerWriterProjectionWireResponse>(
           await getContainerWriterProjection(runtime, {
             containerId,
             userId: session.userId,

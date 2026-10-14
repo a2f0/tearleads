@@ -16,6 +16,8 @@ export async function principalHistoryRequest<T>(
   input: {
     readonly path: string;
     readonly validator: (value: unknown) => value is T;
+    /** Maps a schema-valid 200 body to the value the validator checks. */
+    readonly decode?: (value: unknown) => unknown;
     readonly method: HttpMethod;
     readonly body?: string;
     readonly options?: RequestResultOptions;
@@ -50,7 +52,8 @@ export async function principalHistoryRequest<T>(
         });
       continue;
     }
-    if (decoded.data.status !== 200 || !input.validator(decoded.data.data)) {
+    const data = decodeSuccess(decoded.data, input.decode);
+    if (decoded.data.status !== 200 || !input.validator(data)) {
       const failure = runtime.responseRequest.reportFailure({
         kind: "shape",
         message: `Invalid principal policy response for ${path}`,
@@ -63,8 +66,17 @@ export async function principalHistoryRequest<T>(
       });
       return preserveCommitUncertainty(method, context, failure);
     }
-    return { ok: true, data: decoded.data.data };
+    return { ok: true, data };
   }
+}
+
+function decodeSuccess(
+  response: { readonly data: unknown; readonly status: number },
+  decode: ((value: unknown) => unknown) | undefined,
+): unknown {
+  return response.status === 200 && decode
+    ? decode(response.data)
+    : response.data;
 }
 
 function preserveCommitUncertainty(

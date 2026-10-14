@@ -75,6 +75,10 @@ import {
 import { moveContainer } from "../../test/helpers/keyingWriterProjectionMove";
 import { buildRootRevokeRequest } from "../../test/helpers/keyingWriterProjectionRevoke";
 import { registerUser } from "../../test/helpers/registerUser";
+import {
+  decodeServedContainerProjection,
+  decodeServedDocumentProjection,
+} from "../../test/helpers/servedWriterProjection";
 import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
 import { verifyDocumentAuditHistory } from "../documents/auditHistory.testUtils";
 import { routeApp } from "../routeApp";
@@ -181,7 +185,9 @@ test("POST /documents applies optional container rekeys before target validation
     },
   );
   expect(projectionResponse.status).toBe(200);
-  const projection = await projectionResponse.json();
+  const projection = decodeServedContainerProjection(
+    await projectionResponse.json(),
+  );
   expect(isContainerWriterProjectionResponse(projection)).toBe(true);
   expect(
     projection.containerKeks[0]?.containerManifestHistory?.map(
@@ -426,18 +432,20 @@ test("GET /containers/:containerId/writer-projection returns signed path and KEK
   );
 
   expect(response.status).toBe(200);
-  const body = await response.json();
+  const body = decodeServedContainerProjection(await response.json());
   expect(isContainerWriterProjectionResponse(body)).toBe(true);
   expect(body.containerId).toBe(root.kekState.containerId);
   expect(
     body.path.map((entry: { manifestHash: string }) => entry.manifestHash),
   ).toEqual([root.bundle.manifestHash]);
-  expect(body.path[0].event.eventHash).toBe(
+  expect(body.path[0]?.event.eventHash).toBe(
     asVerifiedContainerManifest(root.bundle).event.eventHash,
   );
-  expect(body.path[0].event.body.eventType).toBe("container.create");
+  expect(body.path[0]?.event.body).toMatchObject({
+    eventType: "container.create",
+  });
   expect(body.containerKeks).toHaveLength(1);
-  expect(body.containerKeks[0].containerKeyEpochId).toBe(
+  expect(body.containerKeks[0]?.containerKeyEpochId).toBe(
     root.kekState.containerKeyEpochId,
   );
 });
@@ -459,13 +467,13 @@ test("GET /containers/:containerId/writer-projection verifies inherited parent K
   );
 
   expect(response.status).toBe(200);
-  const body = await response.json();
+  const body = decodeServedContainerProjection(await response.json());
   expect(isContainerWriterProjectionResponse(body)).toBe(true);
   expect(
     body.path.map((entry: { manifestHash: string }) => entry.manifestHash),
   ).toEqual([root.bundle.manifestHash, child.accessManifest.manifestHash]);
   expect(body.containerKeks).toHaveLength(2);
-  expect(body.containerKeks[1].parentContainerKeyEpochId).toBe(
+  expect(body.containerKeks[1]?.parentContainerKeyEpochId).toBe(
     root.kekState.containerKeyEpochId,
   );
 });
@@ -519,7 +527,7 @@ test("GET /containers/:containerId/writer-projection includes historical parent 
   );
 
   expect(response.status).toBe(200);
-  const body = await response.json();
+  const body = decodeServedContainerProjection(await response.json());
   expect(isContainerWriterProjectionResponse(body)).toBe(true);
   expect(
     body.path.map((entry: { manifestHash: string }) => entry.manifestHash),
@@ -577,7 +585,9 @@ test("container projections and mutations preserve current KEKs across damaged h
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(rootProjectionResponse.status).toBe(200);
-  const rootProjection = await rootProjectionResponse.json();
+  const rootProjection = decodeServedContainerProjection(
+    await rootProjectionResponse.json(),
+  );
   expect(isContainerWriterProjectionResponse(rootProjection)).toBe(true);
   expect(rootProjection.containerKeks[0]).toMatchObject({
     containerKeyEpochId: firstRekey.kekState.containerKeyEpochId,
@@ -589,7 +599,9 @@ test("container projections and mutations preserve current KEKs across damaged h
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(childProjectionResponse.status).toBe(200);
-  const childProjection = await childProjectionResponse.json();
+  const childProjection = decodeServedContainerProjection(
+    await childProjectionResponse.json(),
+  );
   expect(isContainerWriterProjectionResponse(childProjection)).toBe(true);
   expect(childProjection.containerKeks).toHaveLength(2);
   expect(childProjection.containerKeks[0]?.keyring).toEqual(
@@ -717,7 +729,9 @@ test("GET /documents/:documentId/writer-projection returns document targets and 
   );
 
   expect(projectionResponse.status).toBe(200);
-  const projection = await projectionResponse.json();
+  const projection = decodeServedDocumentProjection(
+    await projectionResponse.json(),
+  );
   expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
   expect(projection.documentId).toBe(created.id);
   expect(projection.documentManifest.manifestHash).toBe(
@@ -726,9 +740,9 @@ test("GET /documents/:documentId/writer-projection returns document targets and 
   expect(projection.documentManifest.event.eventHash).toBe(
     Reflect.get(created.accessManifest.event, "eventHash"),
   );
-  expect(projection.documentManifest.event.body.eventType).toBe(
-    "document.link",
-  );
+  expect(projection.documentManifest.event.body).toMatchObject({
+    eventType: "document.link",
+  });
   expect(projection.documentKekTargets.documentKeyTargetHash).toBe(
     created.documentKekTargets.documentKeyTargetHash,
   );
@@ -795,7 +809,9 @@ test("read-only document sync works for a user with read access to a linked cont
     },
   );
   expect(projectionResponse.status).toBe(200);
-  const projection = await projectionResponse.json();
+  const projection = decodeServedDocumentProjection(
+    await projectionResponse.json(),
+  );
   expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
 
   const syncResponse = await routeApp.request(`/documents/${created.id}/sync`, {
@@ -937,7 +953,9 @@ test("GET /documents/:documentId/writer-projection blocks revoked users after ro
     },
   );
   expect(ownerProjectionResponse.status).toBe(200);
-  const ownerProjection = await ownerProjectionResponse.json();
+  const ownerProjection = decodeServedDocumentProjection(
+    await ownerProjectionResponse.json(),
+  );
   expect(isDocumentWriterProjectionResponse(ownerProjection)).toBe(true);
   expect(ownerProjection.contentKeyBundle.targets).toEqual([
     expect.objectContaining({
@@ -1550,7 +1568,9 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
   );
 
   expect(projectionResponse.status).toBe(200);
-  const projection = await projectionResponse.json();
+  const projection = decodeServedDocumentProjection(
+    await projectionResponse.json(),
+  );
   expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
   expect(projection.contentKeyBundle.contentKeyEpoch).toBe(
     created.contentKeyBundle.contentKeyEpoch,
@@ -1564,7 +1584,7 @@ test("GET /documents/:documentId/writer-projection refreshes same-epoch root sha
   expect(projection.documentKekTargets.linkedContainerManifestHashes).toEqual([
     shared.manifestHead.manifestHash,
   ]);
-  expect(projection.contentKeyBundle.targets).toEqual([
+  expect<unknown>(projection.contentKeyBundle.targets).toEqual([
     {
       ...created.contentKeyBundle.targets[0],
       containerManifestHash: shared.manifestHead.manifestHash,
@@ -1775,7 +1795,9 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
   );
 
   expect(projectionResponse.status).toBe(200);
-  const projection = await projectionResponse.json();
+  const projection = decodeServedDocumentProjection(
+    await projectionResponse.json(),
+  );
   expect(isDocumentWriterProjectionResponse(projection)).toBe(true);
   const writerProjection = projection as DocumentWriterProjectionResponse;
   expect(
@@ -1858,9 +1880,9 @@ test("GET /documents/:documentId/writer-projection returns multi-linked containe
     },
   );
   expect(healthyPathResponse.status).toBe(200);
-  const healthyPathProjection = (await healthyPathResponse.json()) as
-    | DocumentWriterProjectionResponse
-    | undefined;
+  const healthyPathProjection = decodeServedDocumentProjection(
+    await healthyPathResponse.json(),
+  );
   expect(
     healthyPathProjection?.authorizingContainerPaths
       .map((path) => path.containerId)

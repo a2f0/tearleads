@@ -4,7 +4,7 @@ import { db } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
 import {
-  ContainerWriterProjectionResponseSchema,
+  ContainerWriterProjectionWireResponseSchema,
   PrincipalPolicyBundleResponseSchema,
 } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
@@ -77,7 +77,7 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
       )
         return response;
       const text = await response.clone().text();
-      const value = ContainerWriterProjectionResponseSchema.parse(
+      const value = ContainerWriterProjectionWireResponseSchema.parse(
         JSON.parse(text),
       );
       samples.push({

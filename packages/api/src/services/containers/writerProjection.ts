@@ -1,4 +1,5 @@
 import { omitProjectionHistory } from "@tearleads/crypto";
+import { encodeContainerWriterProjection } from "@tearleads/validators/response";
 import { parseProjectionHistoryHints } from "@tearleads/validators/util";
 import { runContainerWriterProjectionWorkflow } from "../../workflows/containers/writerProjection";
 import { createDatabaseWorkflowService } from "../databaseWorkflowService";
@@ -18,8 +19,11 @@ export async function getContainerWriterProjection(
   },
 ) {
   const projection = await getFullProjection(runtime, input);
-  return omitProjectionHistory(
-    projection,
-    parseProjectionHistoryHints(input.historyPrefixes ?? "[]") ?? [],
+  // Each distinct manifest bundle travels once; every position cites it by hash.
+  return encodeContainerWriterProjection(
+    omitProjectionHistory(
+      projection,
+      parseProjectionHistoryHints(input.historyPrefixes ?? "[]") ?? [],
+    ),
   );
 }

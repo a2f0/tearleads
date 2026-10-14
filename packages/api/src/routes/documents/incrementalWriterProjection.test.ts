@@ -12,7 +12,7 @@ import {
   wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { DocumentWriterProjectionResponseSchema } from "@tearleads/validators/response";
+import { DocumentWriterProjectionWireResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { writerResolver } from "../../../test/helpers/coldSdkRematerialization";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
@@ -59,7 +59,7 @@ test("real document incremental projections verify linked histories, rotations a
           new URL(request.url).pathname,
         )
       ) {
-        const wire = DocumentWriterProjectionResponseSchema.parse(
+        const wire = DocumentWriterProjectionWireResponseSchema.parse(
           await response.clone().json(),
         );
         samples.push({

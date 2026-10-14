@@ -19,8 +19,17 @@ import {
   ContainerKekKeyringWireRecordSchema,
 } from "../util";
 import { ProjectionHistoryPrefixesSchema } from "../util/projectionHistoryWire";
-import { containerWriterProjectionPathKekCountRefinement } from "../writerProjectionRefinements";
+import {
+  containerWriterProjectionPathKekCountRefinement,
+  writerProjectionManifestBundlesRefinement,
+} from "../writerProjectionRefinements";
 import { EffectiveAccessLevelSchema } from "./accessLevel";
+import {
+  containerKeyingPathReferences,
+  ManifestBundlesSchema,
+  ManifestHashReferenceSchema,
+  refineManifestBundleReferences,
+} from "./manifestBundleReferences";
 import {
   ReferencedPrincipalStateResponseSchema,
   ReferencedPrincipalStateResponseShape,
@@ -60,16 +69,32 @@ const containerKekResponseShape = {
   wraps: nonEmptyArraySchema(plainObjectSchema),
 };
 
+function refineContainerKekKeyring(
+  value: { readonly containerKeyEpoch: number; readonly keyring: unknown },
+  context: z.RefinementCtx,
+) {
+  if ((value.keyring === null) !== (value.containerKeyEpoch === 1)) {
+    context.addIssue({
+      code: "custom",
+      message: "container keyring must be null exactly at epoch 1",
+      path: ["keyring"],
+    });
+  }
+}
+
 const ContainerKekResponseSchema = registerJsonSchemaRuntimeRefinements(
-  loosePlainObject(containerKekResponseShape).superRefine((value, context) => {
-    if ((value.keyring === null) !== (value.containerKeyEpoch === 1)) {
-      context.addIssue({
-        code: "custom",
-        message: "container keyring must be null exactly at epoch 1",
-        path: ["keyring"],
-      });
-    }
-  }),
+  loosePlainObject(containerKekResponseShape).superRefine(
+    refineContainerKekKeyring,
+  ),
+  [organizationProvisioningContainerKeyringRefinement],
+);
+
+/** On the writer-projection wire, KEK history cites manifests by hash. */
+const ContainerKekWireResponseSchema = registerJsonSchemaRuntimeRefinements(
+  loosePlainObject({
+    ...containerKekResponseShape,
+    containerManifestHistory: arraySchema(ManifestHashReferenceSchema),
+  }).superRefine(refineContainerKekKeyring),
   [organizationProvisioningContainerKeyringRefinement],
 );
 
@@ -243,6 +268,10 @@ export const ContainerKeyingPathResponseSchema =
 export type ContainerKeyingPathResponse = z.infer<
   typeof ContainerKeyingPathResponseSchema
 >;
+/**
+ * The decoded projection a client verifies: every manifest position holds
+ * its bundle. `decodeContainerWriterProjection` builds it from the wire.
+ */
 export const ContainerWriterProjectionResponseSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject({
@@ -255,6 +284,49 @@ export const ContainerWriterProjectionResponseSchema =
 
 export type ContainerWriterProjectionResponse = z.infer<
   typeof ContainerWriterProjectionResponseSchema
+>;
+
+const containerKeyingPathWireShape = {
+  containerId: z.string(),
+  containerKeks: arraySchema(ContainerKekWireResponseSchema),
+  organizationId: z.string(),
+  path: nonEmptyArraySchema(ManifestHashReferenceSchema),
+};
+export const ContainerKeyingPathWireResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject(containerKeyingPathWireShape).superRefine(
+      refineContainerKeyingPath,
+    ),
+    [containerWriterProjectionPathKekCountRefinement],
+  );
+export type ContainerKeyingPathWireResponse = z.infer<
+  typeof ContainerKeyingPathWireResponseSchema
+>;
+
+/** The served shape: manifest positions cite `bundles` by hash. */
+export const ContainerWriterProjectionWireResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      bundles: ManifestBundlesSchema,
+      ...containerKeyingPathWireShape,
+      policyEvidence: ProjectionPolicyEvidenceResponseSchema,
+      historyPrefixes: ProjectionHistoryPrefixesSchema.optional(),
+    }).superRefine((projection, context) => {
+      refineContainerKeyingPath(projection, context);
+      refineManifestBundleReferences(
+        projection.bundles,
+        containerKeyingPathReferences(projection),
+        context,
+      );
+    }),
+    [
+      containerWriterProjectionPathKekCountRefinement,
+      writerProjectionManifestBundlesRefinement,
+    ],
+  );
+
+export type ContainerWriterProjectionWireResponse = z.infer<
+  typeof ContainerWriterProjectionWireResponseSchema
 >;
 
 export const ContainerSummaryResponseSchema = loosePlainObject({
@@ -321,4 +393,10 @@ export function isContainerWriterProjectionResponse(
   value: unknown,
 ): value is ContainerWriterProjectionResponse {
   return ContainerWriterProjectionResponseSchema.safeParse(value).success;
+}
+
+export function isContainerWriterProjectionWireResponse(
+  value: unknown,
+): value is ContainerWriterProjectionWireResponse {
+  return ContainerWriterProjectionWireResponseSchema.safeParse(value).success;
 }

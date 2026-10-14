@@ -1,0 +1,159 @@
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection the `containerKeks/items/containerManifestHistory/items/` response's property `type` changed from `object` to `string` for status `200`
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection the `path/items/` response's property `type` changed from `object` to `string` for status `200`
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection removed the required property `containerKeks/items/containerManifestHistory/items/event` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection removed the required property `containerKeks/items/containerManifestHistory/items/manifest` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection removed the required property `containerKeks/items/containerManifestHistory/items/manifestHash` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection removed the required property `containerKeks/items/containerManifestHistory/items/state` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection removed the required property `path/items/event` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection removed the required property `path/items/manifest` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection removed the required property `path/items/manifestHash` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /containers/{containerId}/writer-projection removed the required property `path/items/state` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection the `authorizingContainerPaths/items/containerKeks/items/containerManifestHistory/items/` response's property `type` changed from `object` to `string` for status `200`
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection the `authorizingContainerPaths/items/path/items/` response's property `type` changed from `object` to `string` for status `200`
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection the `documentContainerManifestHistory/items/` response's property `type` changed from `object` to `string` for status `200`
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection the `documentManifest` response's property `type` changed from `object` to `string` for status `200`
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection the `documentManifestContainerPaths/items/items/` response's property `type` changed from `object` to `string` for status `200`
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection the `documentManifestHistory/items/` response's property `type` changed from `object` to `string` for status `200`
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `authorizingContainerPaths/items/containerKeks/items/containerManifestHistory/items/event` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `authorizingContainerPaths/items/containerKeks/items/containerManifestHistory/items/manifest` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `authorizingContainerPaths/items/containerKeks/items/containerManifestHistory/items/manifestHash` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `authorizingContainerPaths/items/containerKeks/items/containerManifestHistory/items/state` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `authorizingContainerPaths/items/path/items/event` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `authorizingContainerPaths/items/path/items/manifest` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `authorizingContainerPaths/items/path/items/manifestHash` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `authorizingContainerPaths/items/path/items/state` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentContainerManifestHistory/items/event` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentContainerManifestHistory/items/manifest` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentContainerManifestHistory/items/manifestHash` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentContainerManifestHistory/items/state` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifest/event` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifest/manifest` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifest/manifestHash` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifest/state` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifestContainerPaths/items/items/event` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifestContainerPaths/items/items/manifest` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifestContainerPaths/items/items/manifestHash` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifestContainerPaths/items/items/state` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifestHistory/items/event` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifestHistory/items/manifest` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifestHistory/items/manifestHash` from the response with the `200` status
+
+# #2522 (#3): writer projections cite one manifest bundle per hash.
+# Remove this exact diagnostic once main contains the new contract.
+GET /documents/{documentId}/writer-projection removed the required property `documentManifestHistory/items/state` from the response with the `200` status

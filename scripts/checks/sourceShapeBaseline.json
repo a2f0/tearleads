@@ -68,8 +68,8 @@
       "bytes": 2984719
     },
     "docs/protocol-specification.md": {
-      "lines": 665,
-      "bytes": 34249
+      "lines": 678,
+      "bytes": 35100
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -144,8 +144,8 @@
       "bytes": 42660
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2265,
-      "bytes": 73501
+      "lines": 2287,
+      "bytes": 74088
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 854,
@@ -316,8 +316,8 @@
       "bytes": 1110759
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 529,
-      "bytes": 18578
+      "lines": 538,
+      "bytes": 18916
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 587,

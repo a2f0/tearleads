@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
-import { ContainerWriterProjectionResponseSchema } from "@tearleads/validators/response";
+import { ContainerWriterProjectionWireResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { createOwnedTree } from "../../../test/helpers/ownedContainerTree";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
@@ -25,7 +25,7 @@ test("incremental manifest projections verify rotations while hints never grant 
         response.ok &&
         new URL(request.url).pathname.endsWith("/writer-projection")
       ) {
-        const wire = ContainerWriterProjectionResponseSchema.parse(
+        const wire = ContainerWriterProjectionWireResponseSchema.parse(
           await response.clone().json(),
         );
         samples.push({

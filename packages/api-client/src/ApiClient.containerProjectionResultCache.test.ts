@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { encodeContainerWriterProjection } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -69,7 +70,9 @@ testApiClient(
           calls.push(await captureHttpCall(request));
           fetchStarted.resolve();
           await finishFetch.promise;
-          return HttpResponse.json(staleProjection);
+          return HttpResponse.json(
+            encodeContainerWriterProjection(staleProjection),
+          );
         },
       ),
     );
@@ -114,7 +117,9 @@ testApiClient(
             fetchStarted.resolve();
             await finishFetch.promise;
           }
-          return HttpResponse.json(staleProjection);
+          return HttpResponse.json(
+            encodeContainerWriterProjection(staleProjection),
+          );
         },
       ),
     );
@@ -147,7 +152,11 @@ testApiClient(
         `${apiBaseUrl}/containers/:containerId/writer-projection`,
         async ({ request }) => {
           calls.push(await captureHttpCall(request));
-          return HttpResponse.json(createContainerWriterProjectionResponse());
+          return HttpResponse.json(
+            encodeContainerWriterProjection(
+              createContainerWriterProjectionResponse(),
+            ),
+          );
         },
       ),
     );
@@ -190,7 +199,7 @@ testApiClient(
           calls.push(await captureHttpCall(request));
           fetchStarted.resolve();
           await finishFetch.promise;
-          return HttpResponse.json(projection);
+          return HttpResponse.json(encodeContainerWriterProjection(projection));
         },
       ),
     );
@@ -241,9 +250,13 @@ testApiClient(
           if (calls.length === 1) {
             fetchStarted.resolve();
             await finishFirstFetch.promise;
-            return HttpResponse.json(staleProjection);
+            return HttpResponse.json(
+              encodeContainerWriterProjection(staleProjection),
+            );
           }
-          return HttpResponse.json(freshProjection);
+          return HttpResponse.json(
+            encodeContainerWriterProjection(freshProjection),
+          );
         },
       ),
     );
@@ -289,9 +302,13 @@ testApiClient(
           if (calls.length === 1) {
             firstStarted.resolve();
             await finishFirst.promise;
-            return HttpResponse.json(oldProjection);
+            return HttpResponse.json(
+              encodeContainerWriterProjection(oldProjection),
+            );
           }
-          return HttpResponse.json(newProjection);
+          return HttpResponse.json(
+            encodeContainerWriterProjection(newProjection),
+          );
         },
       ),
     );
@@ -345,7 +362,9 @@ testApiClient(
           calls.push(await captureHttpCall(request));
           fetchStarted.resolve();
           await finishFetch.promise;
-          return HttpResponse.json(staleProjection);
+          return HttpResponse.json(
+            encodeContainerWriterProjection(staleProjection),
+          );
         },
       ),
     );

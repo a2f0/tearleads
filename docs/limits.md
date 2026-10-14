@@ -68,7 +68,8 @@ wherever the server verifies it; a rotated secret or new rule revision
 re-verifies each object's history once, on its next projection read or
 mutation. Serving a
 writer projection still loads every retained manifest its key history cites,
-in a few batched queries. Writer-projection responses can omit exact prefixes
+in a few batched queries, and carries each distinct manifest bundle once however
+many paths and histories cite it. Writer-projection responses can omit exact prefixes
 retained after successful device verification; see
 [the incremental evidence contract](./projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 For N ancestor

@@ -3,7 +3,6 @@ import { db } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { signWriteHeader, type WriteHeader } from "@tearleads/crypto";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   bindForTest,
@@ -17,6 +16,7 @@ import {
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { decodeServedDocumentProjection } from "../../../test/helpers/servedWriterProjection";
 import { listDocumentContentWriteDependencyHashes } from "../../access/read/contentWriteDependencies";
 import { routeApp } from "../../routeApp";
 
@@ -102,8 +102,9 @@ test("the API requires exact signed write paths and retains their dependency bun
     },
   );
   expect(projectionResponse.status).toBe(200);
-  const material =
-    (await projectionResponse.json()) as DocumentWriterProjectionResponse;
+  const material = decodeServedDocumentProjection(
+    await projectionResponse.json(),
+  );
   expect(
     material.documentManifestContainerPaths
       .flat()

@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { encodeContainerWriterProjection } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -30,9 +31,13 @@ testApiClient(
           if (calls.length === 1) {
             fetchStarted.resolve();
             await finishFetch.promise;
-            return HttpResponse.json(staleProjection);
+            return HttpResponse.json(
+              encodeContainerWriterProjection(staleProjection),
+            );
           }
-          return HttpResponse.json(freshProjection);
+          return HttpResponse.json(
+            encodeContainerWriterProjection(freshProjection),
+          );
         },
       ),
     );
