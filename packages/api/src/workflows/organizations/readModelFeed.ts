@@ -18,7 +18,10 @@ import type {
 } from "@tearleads/validators/response";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
-import { requireDirectOrganizationAccess } from "./access";
+import {
+  requireDirectOrganizationAccess,
+  requireOrganizationAccessCandidate,
+} from "./access";
 import { loadOrganizationDirectoryInTransaction } from "./directory";
 import { listOrganizationContainerGrantResponsesInTransaction } from "./grants";
 import { loadOrganizationGroupMembershipsInTransaction } from "./groupMemberships";
@@ -254,7 +257,9 @@ async function getReadModelInTransaction(input: {
     organizationId: input.organizationId,
     userId: input.sessionUserId,
   };
-  await requireDirectOrganizationAccess(accessInput);
+  // Screen before the shared head lock so a caller without organization access
+  // never holds it; the verified check below is the authoritative decision.
+  await requireOrganizationAccessCandidate(accessInput);
   const currentHead = await lockOrganizationReadModelHeadInTransaction(
     input.tx,
     input.organizationId,

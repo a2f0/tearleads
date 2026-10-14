@@ -67,6 +67,14 @@ Every feed response carries `currentUser` at the top level, even when no lane
 changed, so one identity advancing the shared cursor cannot strand another
 identity's requester state.
 
+A feed request screens the caller with one statement before taking the
+organization's shared head lock: the organization must exist, and the user must
+appear in the current stored projection of its reserved `Admins` or `Members`
+group. Under the lock, the server then verifies the signed `Admins`, `Members`,
+and organization policies once; that verification is the authoritative access
+decision. A caller without access therefore never holds the lock while signed
+policy verification runs.
+
 ## Ordering and replay
 
 Every authoritative mutation that changes an organization read model locks and
