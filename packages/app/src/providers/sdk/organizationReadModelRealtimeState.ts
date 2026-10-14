@@ -24,21 +24,12 @@ export interface ReconciliationState {
 }
 
 interface DeferredSelfHint {
-  /** `hintSequence` when the latest held hint arrived. */
-  readonly hintSequence: number;
   readonly owner: ProjectionSubscription;
-  readonly scope: OrganizationReadModelScope;
-}
-
-/** A completed feed pass that sent its request after `hintSequence` hints. */
-interface CompletedCatchUp {
-  readonly hintSequence: number;
   readonly scope: OrganizationReadModelScope;
 }
 
 export interface OrganizationRealtimeState {
   acknowledgedOrganizationId: string | null | undefined;
-  readonly catchUpByOrganizationId: Map<string, CompletedCatchUp>;
   caughtUpScope: OrganizationReadModelScope | null;
   declarationSequence: number;
   declaredOrganizationId: string | null | undefined;
@@ -47,8 +38,6 @@ export interface OrganizationRealtimeState {
     string,
     ReturnType<typeof setTimeout>
   >;
-  /** Count of organization hints received, in arrival order. */
-  hintSequence: number;
   readonly listenersByOrganizationId: Map<string, Set<ProjectionSubscription>>;
   pendingDeclaration: {
     readonly declarationId: string;
@@ -69,13 +58,11 @@ export function stateFor(tearleads: Tearleads): OrganizationRealtimeState {
   if (!state) {
     state = {
       acknowledgedOrganizationId: undefined,
-      catchUpByOrganizationId: new Map(),
       caughtUpScope: null,
       declarationSequence: 0,
       declaredOrganizationId: undefined,
       deferredSelfHintByOrganizationId: new Map(),
       disconnectedFallbackByOrganizationId: new Map(),
-      hintSequence: 0,
       listenersByOrganizationId: new Map(),
       pendingDeclaration: null,
       reconciliationsByOrganizationId: new Map(),
@@ -168,73 +155,4 @@ export function activeDemandOrganizationId(
   state: OrganizationRealtimeState,
 ): string | null {
   return leasedDemandScope(tearleads, state)?.organizationId ?? null;
-}
-
-/**
- * Run a feed pass that starts its request no earlier than this call, such as
- * the SDK's post-mutation barrier. A hint is published after its change
- * commits, so a pass whose request follows the hint's arrival observes that
- * change whichever session made it. A pass whose feed request succeeded
- * therefore covers every hint received before the call. A declined pass, or a
- * failed one that kept its last-known-good projection, covers nothing.
- */
-export async function trackOrganizationReadModelCatchUp<
-  T extends { readonly reconciled: boolean },
->(tearleads: Tearleads, run: () => Promise<T>): Promise<T> {
-  const state = stateFor(tearleads);
-  const scope = currentOrganizationReadModelScope(tearleads);
-  const hintSequence = state.hintSequence;
-  const result = await run();
-  if (
-    !result.reconciled ||
-    !scope ||
-    !isSameOrganizationReadModelScope(
-      scope,
-      currentOrganizationReadModelScope(tearleads, scope.organizationId),
-    )
-  ) {
-    return result;
-  }
-  const previous = state.catchUpByOrganizationId.get(scope.organizationId);
-  if (
-    !previous ||
-    !isSameOrganizationReadModelScope(previous.scope, scope) ||
-    previous.hintSequence < hintSequence
-  ) {
-    state.catchUpByOrganizationId.set(scope.organizationId, {
-      hintSequence,
-      scope,
-    });
-  }
-  return result;
-}
-
-/**
- * Drop recorded coverage once the rows a covering pass applied may be gone or
- * belong to another scope: a projection purge or remote reset, a pass that
- * did not reconcile, or the end of the scope's demand. Releasing a held hint
- * then reconciles the feed instead of settling over missing rows.
- */
-export function forgetOrganizationReadModelCatchUp(
-  state: OrganizationRealtimeState,
-  organizationId: string,
-): void {
-  state.catchUpByOrganizationId.delete(organizationId);
-}
-
-/** Whether a completed pass already covers a held hint. Coverage recorded
- * for another scope (an identity transition) is dropped, never applied. */
-export function isOrganizationReadModelHintCaughtUp(
-  state: OrganizationRealtimeState,
-  hint: Pick<DeferredSelfHint, "hintSequence" | "scope">,
-): boolean {
-  const catchUp = state.catchUpByOrganizationId.get(hint.scope.organizationId);
-  if (!catchUp) {
-    return false;
-  }
-  if (!isSameOrganizationReadModelScope(catchUp.scope, hint.scope)) {
-    forgetOrganizationReadModelCatchUp(state, hint.scope.organizationId);
-    return false;
-  }
-  return hint.hintSequence <= catchUp.hintSequence;
 }

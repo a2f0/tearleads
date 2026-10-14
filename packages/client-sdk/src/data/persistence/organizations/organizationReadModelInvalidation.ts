@@ -10,11 +10,11 @@ const listenersByExecutor = new WeakMap<
 >();
 
 /**
- * Observe purges of the durable organization read-model projection outside a
- * reconcile pass: load-path purges (protocol mismatch or stored-row integrity
- * failure) and remote sync resets. Such a purge leaves realtime consumers
- * believing they are caught up while the rows they painted are gone;
- * subscribers drop that state and schedule a fresh authoritative catch-up.
+ * Observe load-path purges of the durable organization read-model projection
+ * (protocol mismatch or stored-row integrity failure). A purge outside a
+ * reconcile pass leaves realtime consumers believing they are caught up while
+ * the rows they painted are gone; subscribers drop that state and schedule a
+ * fresh authoritative catch-up.
  */
 export function subscribeOrganizationReadModelInvalidation(
   execSql: ExecSql,

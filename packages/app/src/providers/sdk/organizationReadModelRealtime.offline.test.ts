@@ -24,11 +24,11 @@ function createRuntimeHarness(input?: {
   };
   const loadDirectoryAndGroupsAfterMutation = async () => {
     reconcileCalls += 1;
-    const directoryAndGroups =
-      await (input?.loadDirectoryAndGroupsAfterMutation?.() ??
-        input?.loadDirectoryAndGroups?.() ??
-        null);
-    return { directoryAndGroups, reconciled: directoryAndGroups !== undefined };
+    return (
+      input?.loadDirectoryAndGroupsAfterMutation?.() ??
+      input?.loadDirectoryAndGroups?.() ??
+      null
+    );
   };
   const tearleads = {
     organizations: {

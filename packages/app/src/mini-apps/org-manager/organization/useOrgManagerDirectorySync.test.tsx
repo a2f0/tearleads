@@ -19,10 +19,7 @@ test("loads locally offline and establishes reconciliation demand when online", 
   const tearleads = {
     organizations: {
       loadDirectoryAndGroups,
-      loadDirectoryAndGroupsAfterMutation: async () => ({
-        directoryAndGroups: await loadDirectoryAndGroups(),
-        reconciled: true,
-      }),
+      loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
     },
     runtime: {
       input: () => ({

@@ -12,15 +12,12 @@ import {
   type OrganizationGroupPolicyHistory,
   type OrganizationPolicyHistory,
   type OrganizationUserDetail,
+  reconcileOrganizationDirectoryAndGroups,
 } from "../../workflows/organizations";
 import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
 } from "../../workflows/organizations/organizationPresentationAccessState";
-import {
-  type OrganizationReadModelReconciliation,
-  reconcileOrganizationDirectoryAndGroupsWithOutcome,
-} from "../../workflows/organizations/readModelProjection";
 import type { InternalRuntime } from "../workflowRuntime";
 import { recoverOrganizationAccess } from "./organizationAccessRestoration";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
@@ -76,42 +73,17 @@ export interface OrganizationReadModelCoordinator {
   reconcile(
     organizationId?: string | undefined,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
-  /**
-   * Start a fresh pass after any in-flight one. `reconciled` is true only when
-   * that pass's feed request succeeded; a failure that kept the last-known-good
-   * projection still returns it in `directoryAndGroups`.
-   */
-  reconcileAfterMutation(organizationId?: string | undefined): Promise<{
-    readonly directoryAndGroups:
-      | OrganizationDirectoryAndGroups
-      | null
-      | undefined;
-    readonly reconciled: boolean;
-  }>;
+  reconcileAfterMutation(
+    organizationId?: string | undefined,
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined>;
 }
-
-const DECLINED: OrganizationReadModelReconciliation = {
-  directoryAndGroups: undefined,
-  reconciled: false,
-};
-
-/** One in-flight pass, shared by every caller that joins it. */
-interface ReconciliationEntry {
-  readonly outcome: Promise<OrganizationReadModelReconciliation>;
-  readonly value: Promise<OrganizationDirectoryAndGroups | null | undefined>;
-}
-
-const DECLINED_ENTRY: ReconciliationEntry = {
-  outcome: Promise.resolve(DECLINED),
-  value: Promise.resolve(undefined),
-};
 
 class OrganizationReadModelCoordinatorImpl
   implements OrganizationReadModelCoordinator
 {
   private readonly reconciliationsByScope = new WeakMap<
     DomainScope,
-    Map<string, ReconciliationEntry>
+    Map<string, Promise<OrganizationDirectoryAndGroups | null | undefined>>
   >();
   constructor(private readonly runtimeService: InternalRuntime) {}
 
@@ -254,16 +226,12 @@ class OrganizationReadModelCoordinatorImpl
   reconcile(
     organizationId?: string,
   ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
-    return this.startOrJoin(organizationId).value;
-  }
-
-  private startOrJoin(organizationId?: string): ReconciliationEntry {
     const active = activeOrganizationDataRuntime(
       this.runtimeService,
       organizationId,
     );
     if (!active?.runtime.state.online) {
-      return DECLINED_ENTRY;
+      return Promise.resolve(undefined);
     }
 
     const byKey = this.reconciliationMap(active);
@@ -300,19 +268,15 @@ class OrganizationReadModelCoordinatorImpl
         domainScope,
       );
 
-    const superseded: OrganizationReadModelReconciliation = {
-      directoryAndGroups: null,
-      reconciled: false,
-    };
-    const reconciliation = reconcileOrganizationDirectoryAndGroupsWithOutcome({
+    const reconciliation = reconcileOrganizationDirectoryAndGroups({
       apiClient: active.runtime.apiClient,
       currentUserId: active.userId,
       execSql: active.runtime.infra.execSql,
       logError: active.runtime.util.logError,
       organizationId: active.organizationId,
     })
-      .then(async ({ directoryAndGroups, reconciled }) => {
-        if (!stillCurrent()) return superseded;
+      .then(async (directoryAndGroups) => {
+        if (!stillCurrent()) return null;
         // Feed success restores retry eligibility even if name decryption fails.
         const accessWasRestored =
           accessWasDenied &&
@@ -324,50 +288,40 @@ class OrganizationReadModelCoordinatorImpl
             domainScope,
             stillCurrent,
           });
-        if (!stillCurrent()) return superseded;
-        return {
-          directoryAndGroups: await hydrateOrganizationGroupNamesForRuntime(
-            this.runtimeService,
-            active,
-            domainScope,
-            directoryAndGroups,
-          ),
-          reconciled,
-        };
+        if (!stillCurrent()) return null;
+        return hydrateOrganizationGroupNamesForRuntime(
+          this.runtimeService,
+          active,
+          domainScope,
+          directoryAndGroups,
+        );
       })
       .finally(() => {
-        if (byKey.get(key) === entry) {
+        if (byKey.get(key) === reconciliation) {
           byKey.delete(key);
         }
       });
-    const entry: ReconciliationEntry = {
-      outcome: reconciliation,
-      value: reconciliation.then((outcome) => outcome.directoryAndGroups),
-    };
-    // Callers awaiting either view still observe a failure; a view nobody
-    // awaits must not surface as an unhandled rejection.
-    void entry.value.catch(() => undefined);
-    byKey.set(key, entry);
-    return entry;
+    byKey.set(key, reconciliation);
+    return reconciliation;
   }
 
   async reconcileAfterMutation(
     organizationId?: string,
-  ): Promise<OrganizationReadModelReconciliation> {
+  ): Promise<OrganizationDirectoryAndGroups | null | undefined> {
     const active = activeOrganizationDataRuntime(
       this.runtimeService,
       organizationId,
     );
     if (!active?.runtime.state.online) {
-      return DECLINED;
+      return undefined;
     }
     const existing = this.reconciliationMap(active).get(
       organizationAccessScopeKey(active.organizationId, active.userId),
     );
     if (existing) {
-      await existing.outcome.catch(() => null);
+      await existing.catch(() => null);
     }
-    return this.startOrJoin(active.organizationId).outcome;
+    return this.reconcile(active.organizationId);
   }
 }
 

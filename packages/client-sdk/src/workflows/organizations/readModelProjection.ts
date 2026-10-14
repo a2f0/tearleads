@@ -127,26 +127,8 @@ type ReconciliationStep =
   | { readonly kind: "continue" }
   | {
       readonly kind: "done";
-      /** The feed request succeeded and every page applied. */
-      readonly reconciled: boolean;
       readonly value: OrganizationDirectoryAndGroups | null | undefined;
     };
-
-/** The pass result and whether its feed request actually succeeded. */
-export interface OrganizationReadModelReconciliation {
-  readonly directoryAndGroups:
-    | OrganizationDirectoryAndGroups
-    | null
-    | undefined;
-  readonly reconciled: boolean;
-}
-
-/** A finished pass that did not reconcile the feed. */
-function unreconciled(
-  value: OrganizationDirectoryAndGroups | null | undefined,
-): ReconciliationStep {
-  return { kind: "done", reconciled: false, value };
-}
 
 type PageRequestStep =
   | ReconciliationStep
@@ -167,17 +149,16 @@ function localResult(
       state.accessAttempt,
     ) && isOrganizationPresentationAccessReadable(accessInput, "readModel");
   if (!readable) {
-    return unreconciled(null);
+    return { kind: "done", value: null };
   }
   const value = toDirectoryAndGroups(state.projection);
   // A failed pass that retained nothing must not read as a completed (null)
   // pass: consumers mark a scope caught up only on completed passes, and this
-  // scope still needs a fresh catch-up. A failed pass that retained a
-  // projection returns it, but never reports the feed as reconciled.
+  // scope still needs a fresh catch-up.
   if (value === null && outcome.failed) {
-    return unreconciled(undefined);
+    return { kind: "done", value: undefined };
   }
-  return { kind: "done", reconciled: !outcome.failed && value !== null, value };
+  return { kind: "done", value };
 }
 
 function resetRequestCursor(state: ReconciliationState): void {
@@ -234,7 +215,7 @@ async function requestReadModelPage(
     } catch (error) {
       input.logError?.("Failed to purge denied organization access", error);
     }
-    return unreconciled(null);
+    return { kind: "done", value: null };
   }
   if (
     isInvalidReadModelCursorFailure(result) &&
@@ -316,7 +297,7 @@ async function applyResponse(
       input.organizationId,
     );
     if (!reconciliationIsCurrent(input, state)) {
-      return unreconciled(null);
+      return { kind: "done", value: null };
     }
     state.projection = null;
     resetRequestCursor(state);
@@ -342,10 +323,10 @@ async function prepareDeniedProjectionForApply(
     );
   } catch (error) {
     input.logError?.("Failed to replace denied organization read model", error);
-    return unreconciled(null);
+    return { kind: "done", value: null };
   }
   if (!reconciliationIsCurrent(input, state)) {
-    return unreconciled(null);
+    return { kind: "done", value: null };
   }
   state.expectedLocalCursor = null;
   state.preparedDeniedProjection = true;
@@ -365,7 +346,7 @@ async function applyReadModelPage(
   const accessInput = organizationPresentationAccessInput(input);
   return runOrganizationPresentationMutation(input.execSql, async () => {
     if (!reconciliationIsCurrent(input, state)) {
-      return unreconciled(null);
+      return { kind: "done", value: null };
     }
     const preparation = await prepareDeniedProjectionForApply(input, state);
     if (preparation) {
@@ -379,7 +360,7 @@ async function applyReadModelPage(
 
     state.projection = await loadRawProjection(input);
     if (!reconciliationIsCurrent(input, state)) {
-      return unreconciled(null);
+      return { kind: "done", value: null };
     }
     if (applied.result === "stale") {
       if (state.staleRetries >= MAX_STALE_RETRIES) {
@@ -397,7 +378,7 @@ async function applyReadModelPage(
         state.accessAttempt,
       )
         ? localResult(input, state, { failed: false })
-        : unreconciled(null);
+        : { kind: "done", value: null };
     }
     state.requestCursor = response.nextCursor;
     return { kind: "continue" };
@@ -427,16 +408,14 @@ export async function loadLocalOrganizationGroupMembers(
 }
 
 /**
- * Run one reconciliation pass. `directoryAndGroups` is the reconciled
- * projection, `null` when the pass completed authoritatively with nothing
- * presentable (including a denial that purged the projection), or `undefined`
- * when the feed failed and no local projection was retained — a pass that
- * must not count as caught up. A failed pass that retained the last-known-good
- * projection returns it with `reconciled: false`.
+ * Resolves the reconciled projection, `null` when the pass completed
+ * authoritatively with nothing presentable (including a denial that purged
+ * the projection), or `undefined` when the feed failed and no local
+ * projection was retained — a pass that must not count as caught up.
  */
-export async function reconcileOrganizationDirectoryAndGroupsWithOutcome(
+export async function reconcileOrganizationDirectoryAndGroups(
   input: ReconcileOrganizationDirectoryAndGroupsInput,
-): Promise<OrganizationReadModelReconciliation> {
+): Promise<OrganizationDirectoryAndGroups | null | undefined> {
   const accessInput = organizationPresentationAccessInput(input);
   const accessAttempt = captureOrganizationPresentationAccessAttempt(
     accessInput,
@@ -457,14 +436,14 @@ export async function reconcileOrganizationDirectoryAndGroupsWithOutcome(
   for (let page = 0; page < MAX_READ_MODEL_PAGES; page += 1) {
     const request = await requestReadModelPage(input, state);
     if (request.kind === "done") {
-      return toReconciliation(request);
+      return request.value;
     }
     if (request.kind === "continue") {
       continue;
     }
     const applied = await applyReadModelPage(input, state, request.response);
     if (applied.kind === "done") {
-      return toReconciliation(applied);
+      return applied.value;
     }
   }
 
@@ -472,26 +451,5 @@ export async function reconcileOrganizationDirectoryAndGroupsWithOutcome(
     "Organization read-model reconciliation exceeded page limit",
   );
   const retained = localResult(input, state, { failed: true });
-  return retained.kind === "done"
-    ? toReconciliation(retained)
-    : { directoryAndGroups: null, reconciled: false };
-}
-
-function toReconciliation(
-  step: Extract<ReconciliationStep, { readonly kind: "done" }>,
-): OrganizationReadModelReconciliation {
-  return { directoryAndGroups: step.value, reconciled: step.reconciled };
-}
-
-/**
- * Resolves the reconciled projection, `null` when the pass completed
- * authoritatively with nothing presentable (including a denial that purged
- * the projection), or `undefined` when the feed failed and no local
- * projection was retained — a pass that must not count as caught up.
- */
-export async function reconcileOrganizationDirectoryAndGroups(
-  input: ReconcileOrganizationDirectoryAndGroupsInput,
-): Promise<OrganizationDirectoryAndGroups | null | undefined> {
-  return (await reconcileOrganizationDirectoryAndGroupsWithOutcome(input))
-    .directoryAndGroups;
+  return retained.kind === "done" ? retained.value : null;
 }

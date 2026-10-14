@@ -1,14 +1,12 @@
 import type { Tearleads } from "@tearleads/client-sdk";
 import {
   activeDemandScope,
-  forgetOrganizationReadModelCatchUp,
   hasOpenOrganizationReadModelSocket,
   isSameOrganizationReadModelScope,
   type OrganizationReadModelScope,
   type OrganizationRealtimeState,
   type ReconciliationState,
   stateFor,
-  trackOrganizationReadModelCatchUp,
 } from "./organizationReadModelRealtimeState";
 
 async function notifyProjectionListeners(
@@ -40,7 +38,6 @@ async function settleSameScopePass(
     if (isSameOrganizationReadModelScope(state.caughtUpScope, passScope)) {
       state.caughtUpScope = null;
     }
-    forgetOrganizationReadModelCatchUp(state, passScope.organizationId);
     return;
   }
   if (
@@ -60,14 +57,8 @@ async function reconcileFeed(
   tearleads: Tearleads,
   useSdkBarrier: boolean,
 ): Promise<boolean> {
-  // Only the SDK barrier starts a fresh pass after this call; an ordinary pass
-  // may join one that began before a hint, so it cannot cover held hints.
   const result = useSdkBarrier
-    ? (
-        await trackOrganizationReadModelCatchUp(tearleads, () =>
-          tearleads.organizations.loadDirectoryAndGroupsAfterMutation(),
-        )
-      ).directoryAndGroups
+    ? await tearleads.organizations.loadDirectoryAndGroupsAfterMutation()
     : await tearleads.organizations.loadDirectoryAndGroups();
   return result !== undefined;
 }
@@ -163,20 +154,6 @@ function scheduleOrganizationReadModelReconciliationPass(
   });
   state.reconciliationsByOrganizationId.set(organizationId, reconciliation);
   return reconciliation.promise;
-}
-
-/**
- * Settle a released hint that a completed pass already covered, as a
- * reconciled pass would: renew the caught-up lease and repaint every
- * same-scope consumer from the local rows that pass committed, without another
- * feed request. Coverage is recorded only after the pass's page applied, so
- * consumers never read the rows before it.
- */
-export function settleCoveredOrganizationReadModelHint(
-  tearleads: Tearleads,
-  scope: OrganizationReadModelScope,
-): Promise<void> {
-  return settleSameScopePass(stateFor(tearleads), scope, true);
 }
 
 export function scheduleOrganizationReadModelReconciliation(

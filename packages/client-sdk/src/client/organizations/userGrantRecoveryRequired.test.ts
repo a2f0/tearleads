@@ -60,7 +60,6 @@ for (const missing of ["custody", "pages"] as const) {
         readModelCoordinator: {
           reconcileAfterMutation: async () => {
             f.calls.push("host:reconcileAfterMutation");
-            return { directoryAndGroups: null, reconciled: false };
           },
         } as OrganizationReadModelCoordinator,
       }).catch((error: unknown) => error);

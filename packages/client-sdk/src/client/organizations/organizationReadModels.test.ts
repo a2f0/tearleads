@@ -69,10 +69,7 @@ test("concurrent read-model reconciliation is single-flight", async () => {
       state: { ...workflowInput.state, online: false },
     };
     await expect(coordinator.reconcile()).resolves.toBeUndefined();
-    await expect(coordinator.reconcileAfterMutation()).resolves.toEqual({
-      directoryAndGroups: undefined,
-      reconciled: false,
-    });
+    await expect(coordinator.reconcileAfterMutation()).resolves.toBeUndefined();
     expect(readModelRequests).toBe(1);
   } finally {
     close();
@@ -175,16 +172,11 @@ test("post-mutation reconciliation waits for an older request and coalesces one 
       afterMutationB,
     ]);
     expect(olderResult?.readModelCursor).toBe("cursor-1");
-    expect(trailingResultA.reconciled).toBe(true);
-    expect(trailingResultA.directoryAndGroups?.readModelCursor).toBe(
-      "cursor-2",
+    expect(trailingResultA?.readModelCursor).toBe("cursor-2");
+    expect(trailingResultB?.readModelCursor).toBe("cursor-2");
+    expect(trailingResultA?.groups[0]?.currentState?.stateHash).toBe(
+      "state-Admins after mutation",
     );
-    expect(trailingResultB.directoryAndGroups?.readModelCursor).toBe(
-      "cursor-2",
-    );
-    expect(
-      trailingResultA.directoryAndGroups?.groups[0]?.currentState?.stateHash,
-    ).toBe("state-Admins after mutation");
     expect(readModelRequests).toBe(2);
 
     const olderScopeRequest = coordinator.reconcile();
@@ -199,10 +191,7 @@ test("post-mutation reconciliation waits for an older request and coalesces one 
       ok: true,
     });
     await olderScopeRequest;
-    await expect(afterScopeMutation).resolves.toEqual({
-      directoryAndGroups: undefined,
-      reconciled: false,
-    });
+    await expect(afterScopeMutation).resolves.toBeUndefined();
     expect(readModelRequests).toBe(3);
   } finally {
     close();

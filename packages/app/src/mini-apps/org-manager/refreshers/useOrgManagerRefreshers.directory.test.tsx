@@ -44,13 +44,7 @@ function createRefresherHarness(input: {
     dataUsageRef: { current: null },
     orgManagerActions: {
       loadDirectoryAndGroups: input.loadDirectoryAndGroups,
-      loadDirectoryAndGroupsAfterMutation: async () => {
-        const directoryAndGroups = await input.loadDirectoryAndGroups();
-        return {
-          directoryAndGroups,
-          reconciled: directoryAndGroups !== undefined,
-        };
-      },
+      loadDirectoryAndGroupsAfterMutation: input.loadDirectoryAndGroups,
       loadLocalDirectoryAndGroups: input.loadLocalDirectoryAndGroups,
     },
     resetSelectedRosterUser: noop,

@@ -12,7 +12,6 @@ import {
   useMemo,
   useRef,
 } from "react";
-import { trackOrganizationReadModelCatchUp } from "../../providers/sdk/organizationReadModelRealtime";
 import {
   defineFacadeKeys,
   projectBoundFacade,
@@ -298,8 +297,7 @@ function useEnsureOrganizationProfileDocument(
 }
 
 export function OrgManagerProvider({ children }: PropsWithChildren) {
-  const tearleads = useTearleads();
-  const { organizations } = tearleads;
+  const { organizations } = useTearleads();
   const { captureOperationScope, isOperationScopeActive } =
     useOrgManagerOperationScope();
   const { containerStore: containerContentsStore } =
@@ -325,8 +323,8 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
     });
 
   const value = useMemo(
-    () => ({
-      ...createOrgManagerContextValue(organizations, {
+    () =>
+      createOrgManagerContextValue(organizations, {
         captureOperationScope,
         ensureOrganizationMetadataContainer,
         ensureOrganizationProfileDocument,
@@ -334,13 +332,6 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
         ensureRosterProfileDocument,
         isOperationScopeActive,
       }),
-      // The explicit post-mutation pass covers hints held during the mutation
-      // that arrived before it started, so their release sends no request.
-      loadDirectoryAndGroupsAfterMutation: () =>
-        trackOrganizationReadModelCatchUp(tearleads, () =>
-          organizations.loadDirectoryAndGroupsAfterMutation(),
-        ),
-    }),
     [
       captureOperationScope,
       ensureOrganizationMetadataContainer,
@@ -349,7 +340,6 @@ export function OrgManagerProvider({ children }: PropsWithChildren) {
       ensureRosterProfileDocument,
       isOperationScopeActive,
       organizations,
-      tearleads,
     ],
   );
 

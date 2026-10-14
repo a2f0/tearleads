@@ -95,7 +95,7 @@ function coordinatorWithMembers(
       return null;
     },
     async reconcileAfterMutation() {
-      return { directoryAndGroups: null, reconciled: false };
+      return null;
     },
   };
 }

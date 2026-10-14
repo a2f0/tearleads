@@ -7,28 +7,23 @@ import {
   activeDemandOrganizationId,
   activeDemandScope,
   currentOrganizationReadModelScope,
-  forgetOrganizationReadModelCatchUp,
   hasOpenOrganizationReadModelSocket,
-  isOrganizationReadModelHintCaughtUp,
   isSameOrganizationReadModelScope,
   type OrganizationReadModelScope,
   type OrganizationRealtimeState,
   type ProjectionListener,
   type ProjectionSubscription,
   stateFor,
-  trackOrganizationReadModelCatchUp,
 } from "./organizationReadModelRealtimeState";
 import {
   ensureOrganizationReadModelReconciliation,
   scheduleOrganizationReadModelReconciliation,
   scheduleOrganizationReadModelReconciliationAfterActivePass,
-  settleCoveredOrganizationReadModelHint,
 } from "./organizationReadModelReconciliation";
 
 export {
   ensureOrganizationReadModelReconciliation,
   scheduleOrganizationReadModelReconciliation,
-  trackOrganizationReadModelCatchUp,
 };
 
 const DISCONNECTED_RECONCILIATION_FALLBACK_MS = 2_000;
@@ -137,7 +132,6 @@ function subscribeProjectionInvalidation(
       if (state.caughtUpScope?.organizationId === organizationId) {
         state.caughtUpScope = null;
       }
-      forgetOrganizationReadModelCatchUp(state, organizationId);
       void scheduleOrganizationReadModelReconciliationAfterActivePass(
         tearleads,
         organizationId,
@@ -228,7 +222,6 @@ export function subscribeOrganizationReadModelRealtime(
       if (listeners.size === 0) {
         state.listenersByOrganizationId.delete(organizationId);
         state.deferredSelfHintByOrganizationId.delete(organizationId);
-        forgetOrganizationReadModelCatchUp(state, organizationId);
         clearDisconnectedReconciliationFallback(state, organizationId);
       }
       syncOrganizationInterest(tearleads, state);
@@ -323,7 +316,6 @@ export function handleOrganizationReadModelHint(
   originatedFromSession: boolean,
 ): void {
   const state = stateFor(tearleads);
-  state.hintSequence += 1;
   const subscriptions = state.listenersByOrganizationId.get(organizationId);
   const scope = activeDemandScope(tearleads, state, organizationId);
   const mutationSubscription =
@@ -337,7 +329,6 @@ export function handleOrganizationReadModelHint(
       : undefined;
   if (mutationSubscription && scope) {
     state.deferredSelfHintByOrganizationId.set(organizationId, {
-      hintSequence: state.hintSequence,
       owner: mutationSubscription,
       scope,
     });
@@ -352,11 +343,8 @@ export function handleOrganizationReadModelHint(
 /**
  * Release author hints held during an Org Manager mutation. Session-scoped
  * origin flags cannot prove the deferred change was this client's own echo (a
- * sibling client on the same login session sets the same flag), so a release
- * never trusts a repaint shortcut. It reconciles the feed unless a completed
- * pass, such as the explicit post-mutation reconciliation, sent its request
- * after the latest held hint arrived and so already observed its change; then
- * it settles the scope as that pass would and repaints every consumer.
+ * sibling client on the same login session sets the same flag), so the release
+ * always reconciles the feed rather than trusting a repaint shortcut.
  */
 export function releaseDeferredOrganizationReadModelHint(
   tearleads: Tearleads,
@@ -373,12 +361,8 @@ export function releaseDeferredOrganizationReadModelHint(
   if (!isSameOrganizationReadModelScope(deferredHint.scope, activeScope)) {
     return;
   }
-  // A covered hint needs no request, but every other same-scope consumer
-  // (Explorer beside Org Manager) must still repaint the covering pass's rows.
-  void (isOrganizationReadModelHintCaughtUp(state, deferredHint)
-    ? settleCoveredOrganizationReadModelHint(tearleads, deferredHint.scope)
-    : scheduleOrganizationReadModelReconciliationAfterActivePass(
-        tearleads,
-        organizationId,
-      ));
+  void scheduleOrganizationReadModelReconciliationAfterActivePass(
+    tearleads,
+    organizationId,
+  );
 }
