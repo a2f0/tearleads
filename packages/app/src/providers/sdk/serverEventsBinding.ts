@@ -75,11 +75,14 @@ const activeRootResyncByInstance = new WeakMap<
 // this drives the root lane (the same sweep Explorer runs on open) rather than
 // resyncContainerAccess's single-container path.
 //
-// The reconciler already single-flights concurrent sweeps, so this never issues
-// redundant parallel re-lists; the coalescing here additionally schedules one
-// trailing sweep when events land while a sweep is in flight, so a share whose
-// grant commits after the active sweep already fetched the root list is still
-// picked up rather than waiting for the next event or manual refresh.
+// The reconciler single-flights concurrent sweeps, so this never issues
+// redundant parallel re-lists. A fresh-listing request never joins a sweep that
+// was already running when the event arrived (an explorer catch-up, say), whose
+// root list may predate the share; it queues behind it instead. The coalescing
+// here additionally schedules one trailing sweep when events land while this
+// sweep is in flight, so a share whose grant commits after the active sweep
+// already fetched the root list is still picked up rather than waiting for the
+// next event or manual refresh.
 async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
   const active = activeRootResyncByInstance.get(tearleads);
   if (active) {
@@ -91,7 +94,7 @@ async function resyncRootContainers(tearleads: Tearleads): Promise<void> {
     try {
       await tearleads.deviceFirst
         .open()
-        .reconciler.reconcileRootContainersNow();
+        .reconciler.reconcileRootContainersNow({ freshListing: true });
     } catch {
       // Runtime not ready; the next reconnect or manual refresh re-lists roots.
     }
@@ -210,19 +213,6 @@ export function useServerEventsBinding(
             }
             markServerEventsConnected(tearleads, log);
           },
-          onInterestState: (baseline) => {
-            interestHandle?.stop();
-            interestHandle = startContainerInterestDeclaration(
-              tearleads,
-              ws,
-              new Set(baseline),
-            );
-            // Transport open and the persisted baseline are not enough: the
-            // ready local tree may add containers missing from that baseline.
-            // The matching acknowledgement is the ordering barrier after the
-            // server has synchronously installed the authoritative current set.
-            log(`WebSocket: interest baseline containers=${baseline.length}`);
-          },
           onOrganizationInterestAcknowledged: (
             declarationId,
             organizationId,
@@ -256,6 +246,12 @@ export function useServerEventsBinding(
         });
       },
       onOpen: (ws) => {
+        // A socket opens with no container interest and routes no container
+        // hint until this declaration is installed. Transport open is not the
+        // ordering barrier: the matching acknowledgement is, after the server
+        // has synchronously installed the authoritative current set.
+        interestHandle?.stop();
+        interestHandle = startContainerInterestDeclaration(tearleads, ws);
         detachOrganizationSocket?.();
         detachOrganizationSocket = attachOrganizationReadModelSocket(
           tearleads,

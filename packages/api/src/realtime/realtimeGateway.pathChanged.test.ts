@@ -21,8 +21,8 @@ test("an ancestor mutation tells dependents which held containers cite it, evict
     authorize: async (_user, ids) => ids,
   });
   const sibling = recordingSocket("sibling", "session-2");
-  await f.gateway.websocket.open(f.socket);
-  await f.gateway.websocket.open(sibling.socket);
+  f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(sibling.socket);
   await f.declare("known_containers", [CONTAINER]);
   await f.declare("known_containers", [OTHER], sibling.socket);
 
@@ -43,7 +43,6 @@ test("an ancestor mutation tells dependents which held containers cite it, evict
   expect(framesOf(f.sent, "resync_required")).toEqual([]);
   expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
   expect(framesOf(sibling.sent, "container_path_changed")).toEqual([]);
-  expect(f.persisted.filter((action) => action?.kind === "remove")).toEqual([]);
   f.gateway.stop();
 });
 
@@ -52,7 +51,7 @@ test("the mutated container itself is left to its own hint", async () => {
     paths: { [CONTAINER]: [CONTAINER] },
     authorize: async (_user, ids) => ids,
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER]);
   f.publish({
     type: "container_mutation_created",

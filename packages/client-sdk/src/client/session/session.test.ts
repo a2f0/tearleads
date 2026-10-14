@@ -175,6 +175,7 @@ describe("session", () => {
         return {
           rootContainerId: "server-root",
           authenticated: true,
+          wsTicket: "ws-ticket",
           isRoot: true,
           organizationId: "org-1",
           token: "test-token",
@@ -222,6 +223,7 @@ describe("session", () => {
           ? {
               rootContainerId: null,
               authenticated: true,
+              wsTicket: "ws-ticket",
               isRoot: true,
               organizationId: "org-1",
               token: "test-token",
@@ -256,6 +258,7 @@ describe("session", () => {
         return {
           rootContainerId: null,
           authenticated: true,
+          wsTicket: "ws-ticket",
           isRoot: false,
           organizationId: "identity-a-organization",
           token: "identity-a-token",

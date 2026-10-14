@@ -59,7 +59,7 @@ test("a reconnect discards an in-flight pass and verifies afresh", async () => {
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     f.reconnect();
     await flush();
@@ -78,10 +78,6 @@ test("a reconnect discards an in-flight pass and verifies afresh", async () => {
     expect(resyncFrames(f.sent)).toEqual([
       { type: "resync_required", containerIds: [CONTAINER, OTHER] },
     ]);
-    expect(f.persisted.at(-1)).toEqual({
-      kind: "remove",
-      containerIds: [CONTAINER],
-    });
     expect(f.closed).toEqual([]);
   } finally {
     release.resolve();
@@ -111,7 +107,7 @@ test("failing verifications evict at the proof deadline, not at the next tick", 
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     failing = true;
     await clock.advanceTo(24);
@@ -125,10 +121,6 @@ test("failing verifications evict at the proof deadline, not at the next tick", 
     expect(resyncFrames(f.sent)).toEqual([
       { type: "resync_required", containerIds: [CONTAINER, OTHER] },
     ]);
-    expect(f.persisted.at(-1)).toEqual({
-      kind: "remove",
-      containerIds: [CONTAINER, OTHER],
-    });
     await clock.advanceTo(30);
     expect(resyncFrames(f.sent)).toHaveLength(1);
     expect(f.closed).toEqual([]);
@@ -158,7 +150,7 @@ test("a successful verification re-arms the proof deadline from its own time", a
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
     failing = true;
     await clock.advanceTo(25);
@@ -203,7 +195,7 @@ test("stopping the gateway disarms every proof deadline", async () => {
       return ids;
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER, OTHER]);
   failing = true;
   const framesBeforeStop = f.sent.length;
@@ -235,7 +227,7 @@ test("a declaration straddling the proof deadline re-authorizes instead of insta
     },
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER]);
     const adding = f.declare("known_containers.add", [OTHER]);
     await flush();

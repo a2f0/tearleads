@@ -11,14 +11,14 @@ a startup HTTP probe. A retained disconnect preserves work already accepted by
 the document store, while peer hints emitted during the disconnected interval
 may be missed.
 
-Raw socket open and `interest_state` do not establish readiness. The model waits
-for a ready container tree, sends an authoritative `known_containers`
-declaration covering the document, and accepts only its matching acknowledgement.
-That acknowledgement proves the server installed the interest before the SDK
-increments its connection generation and queues a reconnect probe. Peer writes
-may occur while stopped, before the tree or acknowledgement, or while a probe is
-in flight. The acknowledgement captures the body and slot targets that gap
-recovery must cover.
+A socket opens with no server-side container interest, so raw socket open does
+not establish readiness. The model waits for a ready container tree, sends an
+authoritative `known_containers` declaration covering the document, and accepts
+only its matching acknowledgement. That acknowledgement proves the server
+installed the interest before the SDK increments its connection generation and
+queues a reconnect probe. Peer writes may occur while stopped, before the tree
+or acknowledgement, or while a probe is in flight. The acknowledgement captures
+the body and slot targets that gap recovery must cover.
 
 A probe has separate begin and finish actions. Begin consumes the coalesced
 queued bit and captures one server snapshot. A delivered peer hint or matching
@@ -33,20 +33,20 @@ must cover its target. This abstracts the runtime remote-update signal sequence.
 | `Restart` | document-store and in-memory event teardown across process restart, re-entered through `initializeDocumentStore` on the next load |
 | `InitializeOpenedPersistedDocument` | `initializeDocumentStore` arming `remoteUpdatePending` for a loaded remote record |
 | `DisconnectEvents` | server-events disconnect (`setConnected` drops the connected flag) while retaining accepted document work |
-| `ReceiveInterestBaseline` | `interest_state` starting restoration without marking events connected |
+| `OpenEventsSocket` | the socket `open` event starting `startContainerInterestDeclaration` without marking events connected; the server installs no interest for it |
 | `MarkContainerTreeReady` | the `containerStore` snapshot publishing its ready, hydrated node set |
 | `DeclareKnownContainers` | authoritative current set sent by `startContainerInterestDeclaration` with a fresh declaration id |
 | `AcknowledgeKnownContainers` | matching `known_containers_ack` proving coverage, advancing the connection generation, and requesting revalidation |
 | `BeginProbe` | document lane captures `remoteUpdateSignalSeq` and starts `requestRemoteDocumentSync` |
 | `FinishProbe` | captured updates are applied and persisted; `canClearRemoteUpdateSignalAfterSync` preserves a newer sequence |
 
-Weak fairness requires initialization, tree readiness, baseline/declaration/ack
-restoration, and continuously enabled probe actions to run. TLC checks that a
-raw baseline cannot arm reconnect, declaration requires a ready tree, ack proves
-coverage before the reconnect request, begin captures one body-plus-slot
-snapshot, and finish preserves newer work. Every accepted request eventually
-covers its recorded target, and restart/reconnect recovery covers the versions
-observed at its acknowledgement barrier.
+Weak fairness requires initialization, tree readiness, socket open,
+declaration, acknowledgement, and continuously enabled probe actions to run.
+TLC checks that socket open cannot arm reconnect, declaration requires a ready
+tree, ack proves coverage before the reconnect request, begin captures one
+body-plus-slot snapshot, and finish preserves newer work. Every accepted
+request eventually covers its recorded target, and restart/reconnect recovery
+covers the versions observed at its acknowledgement barrier.
 
 The bounded configuration uses versions zero and one, at most one restart, and
 at most one retained-process disconnect. TLC explores 6,757 generated states,
@@ -71,9 +71,9 @@ actions:
   recording the implementation-projected `probeRequested` bit after each step.
 - `packages/app/src/providers/sdk/restartProbeProjection.test.ts` drives the
   interest-barrier seams (`routeIncomingWsMessage`,
-  `startContainerInterestDeclaration`) through a disconnect, reconnect
-  baseline, authoritative declaration, a stale-acknowledgement refusal, and
-  the matching acknowledgement, recording the observed frame ordering.
+  `startContainerInterestDeclaration`) through a disconnect, reconnect socket
+  open, authoritative declaration, a stale-acknowledgement refusal, and the
+  matching acknowledgement, recording the observed frame ordering.
 
 The check generates a TLC module per trace whose next-state relation conjoins
 the model's own action (and the recorded observation bits) for each step; a

@@ -39,8 +39,8 @@ interface ApiServer {
 
 /**
  * Authenticate and perform a websocket upgrade. The handshake must carry a
- * single-use `ticket` query param minted by `POST /auth/ws-ticket`; it is
- * consumed atomically here. A missing/expired/already-used ticket is rejected
+ * single-use `ticket` query param returned by `POST /auth/verify` or minted by
+ * `POST /auth/ws-ticket`; it is consumed atomically here. A missing/expired/already-used ticket is rejected
  * before the upgrade, and the resolved identity is bound to the socket via
  * `ws.data` for later scoped routing. Exported (with an injectable consumer) so
  * the auth gate is unit-testable without a live Bun socket.

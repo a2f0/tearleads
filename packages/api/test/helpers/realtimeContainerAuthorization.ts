@@ -2,10 +2,7 @@ import type { ServerWebSocket } from "bun";
 import type { RevalidationScheduleOptions } from "../../src/realtime/containerInterestRevalidation";
 import { createRealtimeGateway } from "../../src/realtime/realtimeGateway";
 import type { WebSocketTicketIdentity } from "../../src/realtime/wsIdentity";
-import {
-  type AppliedInterest,
-  WsEventRouter,
-} from "../../src/realtime/wsRouting";
+import { WsEventRouter } from "../../src/realtime/wsRouting";
 
 export const CONTAINER = "00000000-0000-4000-8000-000000000001";
 export const OTHER = "00000000-0000-4000-8000-000000000002";
@@ -66,8 +63,6 @@ export function virtualClock() {
 
 export function fixture(input: {
   authorize: (userId: string, ids: string[]) => Promise<string[]>;
-  cached?: string[];
-  load?: () => Promise<string[]>;
   paths?: Readonly<Record<string, string[]>>;
   timeoutMs?: number;
   principalKeys?: readonly string[];
@@ -80,7 +75,6 @@ export function fixture(input: {
 }) {
   const sent: Array<Record<string, unknown>> = [];
   const closed: number[] = [];
-  const persisted: AppliedInterest[] = [];
   const router = new WsEventRouter();
   let listener: ((message: string) => void) | undefined;
   let reconnectListener: (() => void) | undefined;
@@ -107,12 +101,6 @@ export function fixture(input: {
     ...(input.timeoutMs === undefined
       ? {}
       : { containerAuthorizationTimeoutMs: input.timeoutMs }),
-    interestStore: {
-      load: input.load ?? (async () => input.cached ?? []),
-      apply: async (_userId, _sessionId, action) => {
-        persisted.push(action);
-      },
-    },
     router,
     subscribe: (callback) => {
       listener = callback;
@@ -130,7 +118,6 @@ export function fixture(input: {
   return {
     closed,
     gateway,
-    persisted,
     router,
     sent,
     socket,

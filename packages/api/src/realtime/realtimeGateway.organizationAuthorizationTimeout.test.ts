@@ -2,7 +2,6 @@ import { expect, test } from "bun:test";
 import type { ServerWebSocket } from "bun";
 import { createRealtimeGateway } from "./realtimeGateway";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
-import type { AppliedInterest } from "./wsRouting";
 import { WsEventRouter } from "./wsRouting";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
@@ -31,19 +30,6 @@ function serverSocket(
   ws: FakeSocket,
 ): ServerWebSocket<WebSocketTicketIdentity> {
   return ws as unknown as ServerWebSocket<WebSocketTicketIdentity>;
-}
-
-function createInterestStore() {
-  return {
-    async apply(
-      _userId: string,
-      _sessionId: string,
-      _applied: AppliedInterest,
-    ): Promise<void> {},
-    async load(): Promise<string[]> {
-      return [];
-    },
-  };
 }
 
 function createFakeBus() {
@@ -104,13 +90,12 @@ test("authorization timeout acknowledges denial and leaves late success inert", 
   const router = new WsEventRouter();
   const gateway = createRealtimeGateway({
     authorizeOrganizationAccess: () => authorization,
-    interestStore: createInterestStore(),
     organizationAuthorizationTimeoutMs: 5,
     router,
   });
   const socket = fakeSocket(USER_ID, "session-a");
   const ws = serverSocket(socket);
-  await gateway.websocket.open(ws);
+  gateway.websocket.open(ws);
 
   await settleWithin(
     gateway.websocket.message(
@@ -123,7 +108,6 @@ test("authorization timeout acknowledges denial and leaves late success inert", 
     ),
   );
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
-    { type: "interest_state", containerIds: [] },
     {
       type: "known_organizations_ack",
       declarationId: DECLARATION_ID,
@@ -141,7 +125,7 @@ test("authorization timeout acknowledges denial and leaves late success inert", 
       recipientUserIds: [USER_ID],
     }),
   );
-  expect(socket.sent).toHaveLength(2);
+  expect(socket.sent).toHaveLength(1);
   gateway.stop();
 });
 
@@ -151,7 +135,6 @@ test("a stalled declaration cannot strand events for authorized recipients", asy
   const gateway = createRealtimeGateway({
     authorizeOrganizationAccess: (userId) =>
       userId === USER_ID ? Promise.resolve(true) : neverAuthorized,
-    interestStore: createInterestStore(),
     organizationAuthorizationTimeoutMs: 5,
     subscribe: bus.subscribe,
   });
@@ -160,10 +143,8 @@ test("a stalled declaration cannot strand events for authorized recipients", asy
   const stalledSocket = fakeSocket(SECOND_USER_ID, "session-b");
   const authorizedWs = serverSocket(authorizedSocket);
   const stalledWs = serverSocket(stalledSocket);
-  await Promise.all([
-    gateway.websocket.open(authorizedWs),
-    gateway.websocket.open(stalledWs),
-  ]);
+  gateway.websocket.open(authorizedWs);
+  gateway.websocket.open(stalledWs);
   await gateway.websocket.message(
     authorizedWs,
     JSON.stringify({
@@ -187,10 +168,9 @@ test("a stalled declaration cannot strand events for authorized recipients", asy
     recipientUserIds: [USER_ID, SECOND_USER_ID],
   });
   await settleWithin(stalledDeclaration);
-  await waitForSentMessageCount(authorizedSocket, 3);
+  await waitForSentMessageCount(authorizedSocket, 2);
 
   expect(authorizedSocket.sent.map((message) => JSON.parse(message))).toEqual([
-    { type: "interest_state", containerIds: [] },
     {
       type: "known_organizations_ack",
       declarationId: DECLARATION_ID,
@@ -204,7 +184,6 @@ test("a stalled declaration cannot strand events for authorized recipients", asy
     },
   ]);
   expect(stalledSocket.sent.map((message) => JSON.parse(message))).toEqual([
-    { type: "interest_state", containerIds: [] },
     {
       type: "known_organizations_ack",
       declarationId: "organization-interest-b",
