@@ -13,6 +13,7 @@ import {
   resolveAttachmentUploadSlot,
 } from "../../src/document-types/shared/documentAttachmentUtils";
 import { EQUIPMENT_ATTACHMENT_SLOTS } from "../../src/document-types/shared/equipmentDocumentDefinition";
+import { seedTrackerRow } from "./seedTrackerRows";
 import type { SeedFile } from "./seedTypes";
 
 export type OpenSeedDocument = (
@@ -62,7 +63,7 @@ export async function seedFiles(
     const store = openDocument(file.kind, containerId);
     await store.ensureInitialized();
     if (file.fields) await store.setStructuredFields(file.kind, file.fields);
-    for (const row of file.rows ?? []) await store.addRow(row);
+    for (const row of file.rows ?? []) await store.addRow(seedTrackerRow(row));
     const used = new Set<string>();
     for (const attachment of file.attachments) {
       const bytes = await readAttachment(attachment.file);

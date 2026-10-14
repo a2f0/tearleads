@@ -59,6 +59,10 @@ builds and restores the pinned data into a separate database and blob store.
 Tracker `rows` go through `addRow`; repeated `equipment-photos` entries append
 independent images, while single-image attachment slots reject duplicates.
 
+Tracker seeds preserve Continuity’s recorded wall-clock time when converting
+offset-bearing timestamps to the app’s `datetime-local` fields. The restore
+test verifies that every seeded reading is accepted by the chart parser.
+
 ## Verification harness
 
 For agent sessions, wrap verification and other noisy commands with the shared

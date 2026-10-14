@@ -3,6 +3,7 @@ import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
+import { trackerGraphTimestamp } from "../../src/document-types/shared/timeSeriesGraphData";
 import { restoreBackupPayload } from "../../src/providers/db/localBackupData";
 import { decodeBackupFile } from "../../src/providers/db/localBackupFormat";
 import { unexpectedSecurityIncidents } from "../helpers/unexpectedSecurityIncidents";
@@ -81,8 +82,16 @@ test("pinned Continuity restores every promised document, photo, and tracker row
         expect(snapshot.fieldValidationIssues).toEqual([]);
         expect(snapshot.structuredFields).toMatchObject(fixture?.fields ?? {});
         expect(snapshot.rows.map((row) => row.fields)).toEqual([
-          ...(fixture?.rows ?? []),
+          ...(fixture?.rows ?? []).map(({ measuredAt = "", ...fields }) => ({
+            ...fields,
+            measuredAt: measuredAt.slice(0, 19),
+          })),
         ]);
+        for (const {
+          fields: { measuredAt = "" },
+        } of snapshot.rows) {
+          expect(Number.isFinite(trackerGraphTimestamp(measuredAt))).toBe(true);
+        }
         expect(snapshot.attachments).toHaveLength(detail.imageCount ?? 0);
         expect(
           new Set(snapshot.attachments.map((attachment) => attachment.slotId))
