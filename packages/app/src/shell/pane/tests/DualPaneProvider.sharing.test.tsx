@@ -58,8 +58,9 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
   // Private metadata-root authority adds one directory discovery read per
   // operation; completed policy stages need no confirmation read. Measured
-  // 65–66 calls and about 2.0 MB received; keep eight calls of scheduling room.
-  total: 74,
+  // 65–71 calls (settle timing) and about 2.0–2.1 MB received; keep eight
+  // calls of scheduling room.
+  total: 79,
   // Preserve the request-byte cap and room for two extra document projections.
   bodyBytes: { request: 380_000, response: 2_250_000 },
   byRequest: {
@@ -81,7 +82,7 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /organizations/:organizationId/billing": 0,
     "GET /organizations/:organizationId/read-model": 6,
     "GET /principals/group/:groupId/policy": 0,
-    "GET /principals/organization/:organizationId/policy": 20,
+    "GET /principals/organization/:organizationId/policy": 23,
     "GET /organizations/:organizationId/groups": 0,
     "POST /containers/with-metadata-document": 1,
     "POST /containers/:containerId/share": 1,

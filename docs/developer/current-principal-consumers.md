@@ -149,8 +149,8 @@ The Admins enrollment fixture measured 73–76 completed requests; its ceiling i
 79, plus explicitly counted validated preparation continuations. It caps
 organization-policy reads at 20, group-policy reads at 3 and public history
 reads at 7. Body ceilings are 450,000 request bytes and 2,650,000 response
-bytes. The root attachment-sharing fixture measured 65–66 requests and permits
-74, with body ceilings of 380,000 request bytes and 2,250,000 response bytes.
+bytes. The root attachment-sharing fixture measured 65–71 requests and permits
+79, with body ceilings of 380,000 request bytes and 2,250,000 response bytes.
 The small Explorer upload fixture measured 10 calls and permits 11.
 
 Folder mutation ceilings also include private current-policy reads:

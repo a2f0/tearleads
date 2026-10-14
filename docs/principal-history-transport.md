@@ -147,7 +147,7 @@ refusing (no-brick).
 Measured on the app fixtures at that change, the single-file upload fell from
 33 to 10 requests (three discovery reads, no public history reads),
 personal-organization bootstrap from 93 to 41, the Admins-group addition from
-202 to 74–77, and the root attachment-sharing test from 182 to 65–66. The
+202 to 74–77, and the root attachment-sharing test from 182 to 65–71. The
 remaining policy reads are one discovery read per operation and reads of heads
 that are new to the device. These are measured request counts, not latency
 benchmarks.

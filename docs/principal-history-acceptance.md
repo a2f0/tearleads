@@ -115,7 +115,7 @@ The app's request-budget regressions measured these fixed fixtures:
 | Single small Explorer upload | 33 | 10 | 3 |
 | Personal organization bootstrap | 93 | 41 | 13 |
 | Admins enrollment (add + settle) | 202 | 74–77 | 29–30 |
-| Root attachment sharing (whole test) | 182 | 65–66 | 18 |
+| Root attachment sharing (whole test) | 182 | 65–71 | 18–21 |
 
 The sharing scenario's phases are timing-dependent; its whole-test count is the
 stable comparison. Response bytes fell with the requests: the Admins enrollment
