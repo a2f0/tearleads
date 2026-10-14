@@ -268,10 +268,12 @@ async function resolveStoredDocumentManifest(
       `Document link-set manifest ${manifestHash} is missing from the access manifest store`,
     );
   }
+  const containerContext = createContainerWriterProjectionContext(executor);
+  containerContext.verificationMarkers.seed(stored);
   try {
     return await verifyStoredDocumentManifest({
       bundle: toManifestBundleResponse(stored),
-      containerContext: createContainerWriterProjectionContext(executor),
+      containerContext,
     });
   } catch (error) {
     if (error instanceof StoredDocumentManifestError) {

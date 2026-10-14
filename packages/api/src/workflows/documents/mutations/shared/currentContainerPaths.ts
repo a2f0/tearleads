@@ -53,6 +53,7 @@ async function resolveCurrentContainerManifestRefs(
       throw new DocumentMutationError(`${refLabel} head missing`, 409);
     }
 
+    context.verificationMarkers.seed(stored);
     let manifest: VerifiedContainerAccessManifest;
     try {
       manifest = await verifyStoredContainerManifest({
