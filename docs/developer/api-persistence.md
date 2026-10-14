@@ -27,7 +27,7 @@ credentials are separate.
 
 Schema changes update the Drizzle definitions and regenerate both baseline
 bundles. They require fresh server and client databases. Local database startup
-checks the current table shape, and backup imports require format version 8.
+checks the current table shape, and backup imports require format version 9.
 Request validation and signed-history verification enforce the active protocol
 throughout normal operation.
 
@@ -58,6 +58,12 @@ following onto a database that predates it requires the greenfield reset above
   verification.
 - #2275: content write headers require `dependencyManifestHashes`; headers
   stored without a citation are refused on read and cannot be re-served.
+- #2522: the client SDK's outbound write queue is folded into
+  `document_history_updates` (`update_id` plus the queue columns), and
+  `document_pending_updates` is gone. A local database without `update_id` is
+  refused at startup with the obsolete-schema "reset the local database"
+  error; queued edits it had not synced are discarded with that reset. Local
+  backups move to format 9 and refuse older ones.
 - #2276: container manifests require `systemSlot`; pre-#2276 manifests fail the
   exact-key check.
 - #2271: container path references are resolved against live `containers`
@@ -252,10 +258,13 @@ client-side five-minute timer.
 
 Attachment binding completes the stage: before its transaction it assembles
 parts 1..k of the stage's upload (the run covering exactly the declared length,
-so a stray higher part is left out) and streams the object once to verify its
-complete length and SHA-256 before the stage can be promoted. The first parts'
-upload sources are issued before the stage row is written, so a signing failure
-aborts the fresh upload instead of leaving a stage for expiry cleanup.
+so a stray higher part is left out) and reads the assembled object once. That
+one read, the store's completion readback, verifies the complete length and
+SHA-256 and also parses the envelope header, which is judged only after the
+digest matches. A bind retried after an earlier bind completed the stage reads
+the object once itself. The first parts' upload sources are issued before the
+stage row is written, so a signing failure aborts the fresh upload instead of
+leaving a stage for expiry cleanup.
 There is no separate completion request. Content-MD5 is a transport checksum,
 not a replacement for that integrity check. Direct uploads remove the part
 payloads from the Worker but retain this final verification read. A completed

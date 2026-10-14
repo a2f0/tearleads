@@ -37,7 +37,7 @@ points before the environment reset and coordinated release.
   machinery, with no historical data conversion to remove.
 - SDK SQLite startup creates current tables and rejects obsolete required
   columns. It does not add historical columns or backfill stored records.
-- Local backup payloads and encrypted envelopes require format version 8.
+- Local backup payloads and encrypted envelopes require format version 9.
   Previous versions are refused, with no conversion path. Security-anchor
   merging during a current-format restore prevents rollback and remains required.
 - IndexedDB's version-one creation handler initializes the local keyring store.

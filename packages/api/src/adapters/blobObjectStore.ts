@@ -49,6 +49,12 @@ export interface BlobObjectStore {
   completeMultipartUpload(input: {
     readonly expected: CompletedBlobObject;
     readonly key: string;
+    /**
+     * Sees every byte of the assembled object, in order, during the one read
+     * that digests it, so a caller needing more than the digest (the blob
+     * envelope header) never reads the object a second time.
+     */
+    readonly observe?: ((chunk: Uint8Array) => void) | undefined;
     readonly parts: readonly CompleteMultipartUploadPart[];
     readonly uploadId: string;
   }): Promise<CompletedBlobObject>;
@@ -178,7 +184,7 @@ function createCompleteMultipartUpload(
   uploadIdsByKey: Map<string, string>,
   uploads: Map<string, MultipartUploadState>,
 ): BlobObjectStore["completeMultipartUpload"] {
-  return async ({ key, parts, uploadId }) => {
+  return async ({ key, observe, parts, uploadId }) => {
     const upload = requireUpload(uploads, { key, uploadId });
     if (parts.length === 0) {
       throw new BlobObjectStoreError(
@@ -211,6 +217,7 @@ function createCompleteMultipartUpload(
         return storedPart.bytes;
       });
     const bytes = concatenateBytes(storedParts);
+    observe?.(bytes);
 
     objects.set(key, bytes);
     uploads.delete(uploadId);

@@ -30,7 +30,12 @@ type ProjectionKek = ContainerWriterProjectionResponse["containerKeks"][number];
 // each test, since Bun shares this module across every file in a run.
 const knownManifestByHash = new Map<string, AccessManifestBundleWireResponse>();
 
-/** Forget every registered manifest; test preloads call this after each test. */
+/**
+ * Forget every registered manifest. A package whose tests use this fake must
+ * call it after each test from its test preload (see `packages/client-sdk/
+ * test/preload.ts`): Bun shares this module across every file in a run, so
+ * without the reset one test's manifests satisfy another test's citations.
+ */
 export function resetContainerManifestRegistry(): void {
   knownManifestByHash.clear();
 }
@@ -39,7 +44,11 @@ export function hasRegisteredContainerManifest(manifestHash: string): boolean {
   return knownManifestByHash.has(manifestHash);
 }
 
-/** Teach the fake manifests that tests built outside of it. */
+/**
+ * Teach the fake manifests that tests built outside of it. Registrations last
+ * until `resetContainerManifestRegistry`, which a consuming package's test
+ * preload must run after each test.
+ */
 export function registerContainerManifestBundles(
   bundles: Iterable<AccessManifestBundleWireResponse>,
 ): void {

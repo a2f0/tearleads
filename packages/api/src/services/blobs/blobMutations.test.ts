@@ -887,11 +887,11 @@ test("bindBlobAttachment prevalidates multipart object bytes before opening the 
     ...baseRuntime,
     blobObjectStore: {
       ...baseRuntime.blobObjectStore,
-      getObjectStream: async (key: string) => {
+      // A first bind's one object read is the completion's readback.
+      completeMultipartUpload: async (input) => {
         expect(transactionDepth).toBe(0);
         readObjectOutsideTransaction = true;
-
-        return baseRuntime.blobObjectStore.getObjectStream(key);
+        return baseRuntime.blobObjectStore.completeMultipartUpload(input);
       },
     },
     db: trackingDb,

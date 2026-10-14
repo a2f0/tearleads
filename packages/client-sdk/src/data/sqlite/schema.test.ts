@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { readTableColumns } from "../../../test/helpers/sqlitePragma";
-import { clientSqlTables, principalPolicyTables } from "./schema";
+import {
+  clientSqlTables,
+  documentTables,
+  principalPolicyTables,
+} from "./schema";
 import type { ExecSql, SqlRow } from "./sqlSchema";
 import { ensureSqlTables } from "./sqlTableSchema";
 
@@ -456,6 +460,29 @@ test("principal policy schema rejects a legacy database that cannot authenticate
       ensureSqlTables(execSql, [currentPolicyTable]),
     ).rejects.toThrow(
       "Local database schema for principal_policies is obsolete; reset the local database before continuing",
+    );
+  } finally {
+    close();
+  }
+});
+
+// #2522 flag day: the write queue moved into the update log. A database from
+// before it is refused at startup, never migrated; its queue goes with it.
+test("document schema rejects a database from before the unified update log", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-update-log-legacy-schema-test",
+  );
+  try {
+    await execSql(`CREATE TABLE document_pending_updates (
+      id TEXT PRIMARY KEY, app_kind TEXT NOT NULL, local_id TEXT NOT NULL,
+      update_data TEXT NOT NULL, created_at TEXT NOT NULL
+    )`);
+    await execSql(`CREATE TABLE document_history_updates (
+      id TEXT PRIMARY KEY, app_kind TEXT NOT NULL, local_id TEXT NOT NULL,
+      update_data TEXT NOT NULL, origin TEXT NOT NULL, created_at TEXT NOT NULL
+    )`);
+    await expect(ensureSqlTables(execSql, documentTables)).rejects.toThrow(
+      "Local database schema for document_history_updates is obsolete; reset the local database before continuing",
     );
   } finally {
     close();

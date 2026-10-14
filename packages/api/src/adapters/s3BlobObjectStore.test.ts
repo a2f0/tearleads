@@ -49,12 +49,14 @@ test("S3 blob object store completes multipart uploads by part number", async ()
       await store.listParts({ key: "blob-stages/s3-complete", uploadId }),
     ),
   ).toEqual([1, 2]);
+  const observed: Uint8Array[] = [];
   const completed = await store.completeMultipartUpload({
     expected: {
       byteLength: Buffer.byteLength("first-second", "utf8"),
       sha256: await sha256Hex("first-second"),
     },
     key: "blob-stages/s3-complete",
+    observe: (chunk) => observed.push(chunk),
     parts: [
       { etag: secondPart.etag, partNumber: 2 },
       { etag: firstPart.etag, partNumber: 1 },
@@ -62,9 +64,11 @@ test("S3 blob object store completes multipart uploads by part number", async ()
     uploadId,
   });
 
+  // The one readback both digests the object and feeds the observer.
   expect(
     client.commands.filter((command) => command instanceof GetObjectCommand),
   ).toHaveLength(1);
+  expect(Buffer.concat(observed).toString("utf8")).toBe("first-second");
   expect(completed).toEqual({
     byteLength: Buffer.byteLength("first-second", "utf8"),
     sha256: await sha256Hex("first-second"),

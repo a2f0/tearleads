@@ -179,3 +179,23 @@ test("a mutation refuses history citing another container before reading it", as
     token: owner.token,
   });
 }, 15_000);
+
+test("a mutation refuses a path citing one manifest twice before reading it", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const request = await buildChildCreateRequest({ root, signer: owner });
+  const [parent] = request.parentContainerPathRefs ?? [];
+  if (!parent) throw new Error("expected a parent manifest reference");
+  // Unstored, so a resolving server would report it missing instead.
+  const unstored = { ...parent, manifestHash: "f".repeat(64) };
+  request.parentContainerPathRefs = [unstored, unstored];
+
+  await expectRejection({
+    error: "parentContainerPathRefs[1] repeats a cited manifest",
+    path: "/containers",
+    request,
+    status: 400,
+    token: owner.token,
+  });
+}, 15_000);

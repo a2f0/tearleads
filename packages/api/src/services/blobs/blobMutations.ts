@@ -15,7 +15,10 @@ import {
 } from "../../workflows/blobs/mutations";
 import { loadOwnedActiveBlobStage } from "../../workflows/blobs/stageAccess";
 import type { ApiServiceRuntime } from "../runtime";
-import { summarizeBlobEnvelopeStage } from "./blobEnvelopeStage";
+import {
+  createDeferredEnvelopeReader,
+  summarizeBlobEnvelopeStage,
+} from "./blobEnvelopeStage";
 import {
   MultipartBlobStageError,
   toMultipartBlobStageError,
@@ -93,9 +96,10 @@ export async function publishAttachmentDocumentEvent(input: {
 async function completeStagedUpload(
   runtime: ApiServiceRuntime,
   stage: Parameters<typeof completeOwnedMultipartStage>[1],
-): Promise<void> {
+  reader: Parameters<typeof completeOwnedMultipartStage>[2],
+): ReturnType<typeof completeOwnedMultipartStage> {
   try {
-    await completeOwnedMultipartStage(runtime, stage);
+    return await completeOwnedMultipartStage(runtime, stage, reader);
   } catch (error) {
     const stageError =
       error instanceof MultipartBlobStageError
@@ -106,6 +110,27 @@ async function completeStagedUpload(
     }
     throw new BlobMutationError(stageError.message, stageError.status);
   }
+}
+
+// One read of the object per bind: the completion that assembles it digests
+// it while the envelope header is observed, so only a stage completed by an
+// earlier bind is read here.
+async function readStagedEnvelope(
+  runtime: ApiServiceRuntime,
+  stage: Parameters<typeof completeOwnedMultipartStage>[1],
+) {
+  const envelope = createDeferredEnvelopeReader();
+  const assembled = await completeStagedUpload(runtime, stage, envelope);
+  if (assembled !== null) {
+    return { ...assembled, envelopeHeader: envelope.judge(assembled) };
+  }
+  const objectStream = await runtime.blobObjectStore.getObjectStream(
+    stage.storageKey,
+  );
+  if (objectStream === null) {
+    throw new BlobMutationError("Blob staged bytes are missing", 409);
+  }
+  return summarizeBlobEnvelopeStage(objectStream);
 }
 
 async function prevalidateMultipartBlobStage(
@@ -123,15 +148,7 @@ async function prevalidateMultipartBlobStage(
     userId: input.userId,
   });
 
-  await completeStagedUpload(runtime, stage);
-
-  const objectStream = await runtime.blobObjectStore.getObjectStream(
-    stage.storageKey,
-  );
-  if (objectStream === null) {
-    throw new BlobMutationError("Blob staged bytes are missing", 409);
-  }
-  const objectSummary = await summarizeBlobEnvelopeStage(objectStream);
+  const objectSummary = await readStagedEnvelope(runtime, stage);
   if (objectSummary.byteLength !== stage.byteLength) {
     throw new BlobMutationError(
       "Blob byteLength does not match staged bytes",

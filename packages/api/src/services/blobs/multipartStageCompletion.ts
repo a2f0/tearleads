@@ -62,7 +62,8 @@ export async function recoverAssembledMultipartStage(
   runtime: ApiServiceRuntime,
   stage: OwnedActiveBlobStage,
   error: unknown,
-): Promise<void> {
+  reader?: AssembledObjectReader,
+): Promise<CompletedBlobObject> {
   if (
     !(error instanceof BlobObjectStoreError) ||
     error.code !== "multipart_upload_not_found"
@@ -75,23 +76,47 @@ export async function recoverAssembledMultipartStage(
   if (!existing) {
     throw error;
   }
-  const assembled = await summarizeSha256Stream(existing);
+  reader?.restart();
+  const assembled = await summarizeSha256Stream(existing, reader?.observe);
   await assertCompletedMultipartObjectMatches(runtime, stage, assembled);
   await markMultipartStageComplete(runtime, stage);
+  return assembled;
 }
+
+/**
+ * Sees every byte of the assembled object during the one read that digests
+ * it. `restart` precedes each read, so a reader never mixes two reads' bytes.
+ */
+export interface AssembledObjectReader {
+  readonly observe: (chunk: Uint8Array) => void;
+  restart(): void;
+}
+
+type UploadedParts =
+  | { readonly parts: readonly BlobObjectPart[] }
+  | { readonly recovered: CompletedBlobObject };
 
 async function listUploadedParts(
   runtime: ApiServiceRuntime,
   stage: OwnedActiveBlobStage,
-): Promise<readonly BlobObjectPart[] | null> {
+  reader: AssembledObjectReader | undefined,
+): Promise<UploadedParts> {
   try {
-    return await runtime.blobObjectStore.listParts({
-      key: stage.storageKey,
-      uploadId: stage.uploadId,
-    });
+    return {
+      parts: await runtime.blobObjectStore.listParts({
+        key: stage.storageKey,
+        uploadId: stage.uploadId,
+      }),
+    };
   } catch (error) {
-    await recoverAssembledMultipartStage(runtime, stage, error);
-    return null;
+    return {
+      recovered: await recoverAssembledMultipartStage(
+        runtime,
+        stage,
+        error,
+        reader,
+      ),
+    };
   }
 }
 
@@ -106,20 +131,30 @@ function selectDeclaredParts(
   parts: readonly BlobObjectPart[],
   byteLength: number,
 ): readonly BlobObjectPart[] {
+  if (parts.length === 0) {
+    throw new MultipartBlobStageError(
+      "Blob multipart stage has no uploaded parts",
+      409,
+    );
+  }
   const byNumber = new Map(parts.map((part) => [part.partNumber, part]));
   const selected: BlobObjectPart[] = [];
   let total = 0;
   for (let partNumber = 1; total < byteLength; partNumber += 1) {
     const part = byNumber.get(partNumber);
-    if (!part) break;
+    if (!part) {
+      // Name the first gap: it is the part an upload resume must send.
+      throw new MultipartBlobStageError(
+        `Blob multipart stage is missing part ${partNumber}`,
+        409,
+      );
+    }
     selected.push(part);
     total += part.byteLength;
   }
   if (total !== byteLength) {
     throw new MultipartBlobStageError(
-      parts.length === 0
-        ? "Blob multipart stage has no uploaded parts"
-        : "Blob multipart stage parts do not cover its declared length",
+      "Blob multipart stage parts do not cover its declared length",
       409,
     );
   }
@@ -132,30 +167,36 @@ function selectDeclaredParts(
  * a client sends no separate completion request. The parts are the run of
  * parts the object store holds for the stage's upload id that covers the
  * declared length, and what they assemble to must match the digest declared
- * at initiation, or the object is deleted and the bind refused. Idempotent: a complete stage returns at once,
- * and an object assembled before a lost state flip is re-verified and adopted.
+ * at initiation, or the object is deleted and the bind refused. Returns the
+ * digest of the one read that verified the object, which `reader` also saw;
+ * null when the stage was already complete, so this call read nothing.
+ * Idempotent: an object assembled before a lost state flip is re-verified and
+ * adopted.
  */
 export async function completeOwnedMultipartStage(
   runtime: ApiServiceRuntime,
   stage: OwnedActiveBlobStage,
-): Promise<void> {
+  reader?: AssembledObjectReader,
+): Promise<CompletedBlobObject | null> {
   if (stage.completedAt !== null) {
-    return;
+    return null;
   }
-  const parts = await listUploadedParts(runtime, stage);
-  if (parts === null) {
-    return;
+  const uploaded = await listUploadedParts(runtime, stage, reader);
+  if ("recovered" in uploaded) {
+    return uploaded.recovered;
   }
-  const declaredParts = selectDeclaredParts(parts, stage.byteLength);
+  const declaredParts = selectDeclaredParts(uploaded.parts, stage.byteLength);
 
   let completed: CompletedBlobObject;
   try {
+    reader?.restart();
     completed = await runtime.blobObjectStore.completeMultipartUpload({
       expected: {
         byteLength: stage.byteLength,
         sha256: stage.sha256,
       },
       key: stage.storageKey,
+      observe: reader?.observe,
       parts: declaredParts.map(({ etag, partNumber }) => ({
         etag,
         partNumber,
@@ -163,10 +204,10 @@ export async function completeOwnedMultipartStage(
       uploadId: stage.uploadId,
     });
   } catch (error) {
-    await recoverAssembledMultipartStage(runtime, stage, error);
-    return;
+    return recoverAssembledMultipartStage(runtime, stage, error, reader);
   }
 
   await assertCompletedMultipartObjectMatches(runtime, stage, completed);
   await markMultipartStageComplete(runtime, stage);
+  return completed;
 }

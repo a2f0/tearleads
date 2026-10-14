@@ -69,7 +69,7 @@
     },
     "docs/protocol-specification.md": {
       "lines": 700,
-      "bytes": 36650
+      "bytes": 36649
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -164,8 +164,8 @@
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1299,
-      "bytes": 39259
+      "lines": 1198,
+      "bytes": 36441
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 700,

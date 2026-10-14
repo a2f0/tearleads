@@ -235,7 +235,7 @@ test("a bind ignores a stray part past the declared length", async () => {
   expect(await storedBlob(blobId)).toHaveLength(1);
 });
 
-test("a bind refuses parts that miss the declared length without consuming the upload", async () => {
+test("a bind names a missing part without consuming the upload", async () => {
   const { document, owner, root } = await bindScenario();
   const blobId = crypto.randomUUID();
   const { bytes, stage, stagedBlob } = await stageDeclaredEnvelope({
@@ -253,7 +253,7 @@ test("a bind refuses parts that miss the declared length without consuming the u
   });
   await expect(bindForTest({ blobId, owner, request })).rejects.toMatchObject({
     status: 409,
-    message: "Blob multipart stage parts do not cover its declared length",
+    message: "Blob multipart stage is missing part 1",
   });
 
   // The upload survives the refusal: sending the missing part completes it.
@@ -261,5 +261,46 @@ test("a bind refuses parts that miss the declared length without consuming the u
   await expect(
     bindForTest({ blobId, owner, request }),
   ).resolves.toBeUndefined();
+  expect(await storedBlob(blobId)).toHaveLength(1);
+});
+
+// The completion that assembles the object digests it while the envelope
+// header is observed, so a first bind never reads the object a second time.
+test("a first bind reads the assembled object once", async () => {
+  const { document, owner, root } = await bindScenario();
+  const blobId = crypto.randomUUID();
+  const { stagedBlob } = await stageDeclaredEnvelope({
+    blobId,
+    owner,
+    uploaded: "envelope",
+  });
+  const { request } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    stagedBlob,
+  });
+  const store = runtime.blobObjectStore;
+  const reads: string[] = [];
+  runtime.blobObjectStore = {
+    ...store,
+    completeMultipartUpload: (input) => {
+      reads.push(input.observe ? "completion observed" : "completion");
+      return store.completeMultipartUpload(input);
+    },
+    getObjectStream: (key) => {
+      reads.push("object read");
+      return store.getObjectStream(key);
+    },
+  };
+  try {
+    await expect(
+      bindForTest({ blobId, owner, request }),
+    ).resolves.toBeUndefined();
+  } finally {
+    runtime.blobObjectStore = store;
+  }
+  expect(reads).toEqual(["completion observed"]);
   expect(await storedBlob(blobId)).toHaveLength(1);
 });

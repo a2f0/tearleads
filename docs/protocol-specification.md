@@ -443,11 +443,11 @@ its transaction it assembles parts 1..k of the stage's upload, the run whose
 stored lengths add up to exactly the declared byte length, and verifies the
 object's length and SHA-256 against the stage, deleting a mismatched object
 and refusing with `409`. A part numbered past that run is left out, so a stray
-part cannot change the object. A stage with no uploaded parts, or whose parts
-leave a gap or miss the declared length, is refused with `409` before the
-upload is consumed, so the missing part can still be sent. Completion is
-idempotent: a stage already complete is used as is, and an object assembled
-before a lost state flip is re-verified before it is adopted.
+part cannot change the object. No uploaded parts, a gap (the 409 names its
+first missing part), or parts that miss the declared length are refused
+before the upload is consumed, so that part can still be sent.
+Completion is idempotent: a stage already complete is used as is, and an
+object assembled before a lost state flip is re-verified before it is adopted.
 The API stores only object-store multipart metadata in `blob_stages`;
 encrypted payload bytes
 are never encoded into JSON or stored in the database. Staged objects are not
