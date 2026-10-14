@@ -18,7 +18,7 @@ if (
   throw new Error("Expected the registered probe identity");
 }
 // The parent initializes the shared database before starting this route process.
-const token = await createSession({
+const { token } = await createSession({
   createdAt: Date.now(),
   userId: identity.userId,
   fingerprint: identity.fingerprint,

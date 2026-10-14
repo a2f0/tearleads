@@ -31,7 +31,7 @@ export const ACTION_TEMPLATES: Readonly<Record<string, string>> = {
   FinishProbe: "FinishProbe",
   InitializeOpenedPersistedDocument: "InitializeOpenedPersistedDocument",
   MarkContainerTreeReady: "MarkContainerTreeReady",
-  ReceiveInterestBaseline: "ReceiveInterestBaseline",
+  OpenEventsSocket: "OpenEventsSocket",
   RemoteBodyAdvance: "RemoteBodyAdvance(%DELIVERED%)",
   RemoteSlotAdvance: "RemoteSlotAdvance(%DELIVERED%)",
   Restart: "Restart",
