@@ -396,16 +396,16 @@ test("marks SDK events disconnected when the WebSocket binding changes URL", asy
       throw new Error("Expected the WebSocket to initialize.");
     }
 
-    act(() => firstSocket.dispatchEvent(new Event("open")));
-    expect(tearleads.events.connected).toBe(false);
-    expect(tearleads.events.connectionGeneration).toBe(0);
-
     const deviceFirst = tearleads.deviceFirst.open();
     spyOn(tearleads.deviceFirst, "open").mockReturnValue({
       ...deviceFirst,
       containerStore: readyEmptyContainerTree as never,
     });
-    act(() => firstSocket.dispatchInterestState([]));
+    act(() => firstSocket.dispatchEvent(new Event("open")));
+    expect(firstSocket.lastSentJson()).toMatchObject({
+      type: "known_containers",
+      containerIds: [],
+    });
     expect(tearleads.events.connected).toBe(false);
     expect(tearleads.events.connectionGeneration).toBe(0);
 

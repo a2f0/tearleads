@@ -56,7 +56,7 @@ TypeOK ==
   /\ recoveryTargetSlotVersion \in 0..MaxVersion
   /\ process \in {"running", "stopped"}
   /\ interestState \in
-       {"ready", "awaitingBaseline", "baselineReceived", "awaitingAck"}
+       {"ready", "awaitingSocket", "socketOpen", "awaitingAck"}
   /\ containerTreeReady \in BOOLEAN
   /\ declarationCoversDocument \in BOOLEAN
   /\ serverCoversDocument \in BOOLEAN
@@ -159,7 +159,7 @@ DisconnectEvents ==
   /\ process = "running"
   /\ interestState = "ready"
   /\ disconnectsUsed < MaxDisconnects
-  /\ interestState' = "awaitingBaseline"
+  /\ interestState' = "awaitingSocket"
   /\ declarationCoversDocument' = FALSE
   /\ serverCoversDocument' = FALSE
   /\ recoveryPending' = TRUE
@@ -169,19 +169,19 @@ DisconnectEvents ==
                   recoveryTargetBodyVersion, recoveryTargetSlotVersion,
                   restartUsed >>
 
-(* A raw interest baseline restores protocol context but is not readiness.   *)
+(* A socket opens with no server interest, so opening is not readiness.     *)
 (* The client must first obtain its authoritative local container tree.      *)
-ReceiveInterestBaseline ==
+OpenEventsSocket ==
   /\ process = "running"
-  /\ interestState = "awaitingBaseline"
+  /\ interestState = "awaitingSocket"
   /\ recoveryPending
-  /\ interestState' = "baselineReceived"
+  /\ interestState' = "socketOpen"
   /\ serverCoversDocument' = FALSE
   /\ UNCHANGED << versionVars, process, containerTreeReady,
                   declarationCoversDocument, probeVars,
                   recoveryVars, restartUsed, disconnectsUsed >>
 
-(* SQLite/container reconciliation may become ready before or after baseline. *)
+(* SQLite/container reconciliation may become ready before or after open.    *)
 MarkContainerTreeReady ==
   /\ process = "running"
   /\ ~containerTreeReady
@@ -195,7 +195,7 @@ MarkContainerTreeReady ==
 (* acknowledgement from an older connection cannot cross another state.     *)
 DeclareKnownContainers ==
   /\ process = "running"
-  /\ interestState = "baselineReceived"
+  /\ interestState = "socketOpen"
   /\ containerTreeReady
   /\ interestState' = "awaitingAck"
   /\ declarationCoversDocument' = TRUE
@@ -230,7 +230,7 @@ Restart ==
   /\ process = "running"
   /\ ~restartUsed
   /\ process' = "stopped"
-  /\ interestState' = "awaitingBaseline"
+  /\ interestState' = "awaitingSocket"
   /\ containerTreeReady' = FALSE
   /\ declarationCoversDocument' = FALSE
   /\ serverCoversDocument' = FALSE
@@ -253,7 +253,7 @@ InitializeOpenedPersistedDocument ==
   /\ process = "stopped"
   /\ recoveryPending
   /\ process' = "running"
-  /\ interestState' = "awaitingBaseline"
+  /\ interestState' = "awaitingSocket"
   /\ containerTreeReady' = FALSE
   /\ declarationCoversDocument' = FALSE
   /\ serverCoversDocument' = FALSE
@@ -318,7 +318,7 @@ Next ==
   \/ \E delivered \in BOOLEAN : RemoteBodyAdvance(delivered)
   \/ \E delivered \in BOOLEAN : RemoteSlotAdvance(delivered)
   \/ DisconnectEvents
-  \/ ReceiveInterestBaseline
+  \/ OpenEventsSocket
   \/ MarkContainerTreeReady
   \/ DeclareKnownContainers
   \/ AcknowledgeKnownContainers
@@ -332,7 +332,7 @@ Spec ==
   /\ Init
   /\ [][Next]_vars
   /\ WF_vars(InitializeOpenedPersistedDocument)
-  /\ WF_vars(ReceiveInterestBaseline)
+  /\ WF_vars(OpenEventsSocket)
   /\ WF_vars(MarkContainerTreeReady)
   /\ WF_vars(DeclareKnownContainers)
   /\ WF_vars(AcknowledgeKnownContainers)
@@ -348,8 +348,8 @@ ProbeWorkIsWellFormed ==
   /\ newerRequestDuringFlight => probeInFlight /\ probeRequested
   /\ requestObligationPending => probeRequested \/ probeInFlight
 
-StoppedProcessAwaitsBaseline ==
-  process = "stopped" => interestState = "awaitingBaseline"
+StoppedProcessAwaitsSocket ==
+  process = "stopped" => interestState = "awaitingSocket"
 
 ReadyInterestCoversDocument ==
   (interestState = "ready") <=> serverCoversDocument
@@ -368,7 +368,7 @@ RestartClearsVolatileState == [][RestartClearsVolatile]_vars
 InitializationArmsStartupProbe ==
   (process = "stopped" /\ process' = "running")
     => /\ probeRequested'
-       /\ interestState' = "awaitingBaseline"
+       /\ interestState' = "awaitingSocket"
 
 OpenedInitializationArmsStartupProbe ==
   [][InitializationArmsStartupProbe]_vars
@@ -376,7 +376,7 @@ OpenedInitializationArmsStartupProbe ==
 DisconnectPreservesAcceptedWork ==
   (process = "running" /\ process' = "running"
     /\ interestState = "ready"
-    /\ interestState' = "awaitingBaseline")
+    /\ interestState' = "awaitingSocket")
     => /\ probeRequested' = probeRequested
        /\ probeInFlight' = probeInFlight
        /\ newerRequestDuringFlight' = newerRequestDuringFlight
@@ -384,19 +384,19 @@ DisconnectPreservesAcceptedWork ==
 RetainedDisconnectPreservesAcceptedWork ==
   [][DisconnectPreservesAcceptedWork]_vars
 
-BaselineWaitsForAuthoritativeDeclaration ==
+SocketOpenWaitsForAuthoritativeDeclaration ==
   (process = "running"
-    /\ interestState = "awaitingBaseline"
-    /\ interestState' = "baselineReceived")
+    /\ interestState = "awaitingSocket"
+    /\ interestState' = "socketOpen")
     => /\ ~serverCoversDocument'
        /\ probeRequested' = probeRequested
        /\ probeInFlight' = probeInFlight
 
-InterestBaselineWaitsForAuthoritativeDeclaration ==
-  [][BaselineWaitsForAuthoritativeDeclaration]_vars
+OpenSocketWaitsForAuthoritativeDeclaration ==
+  [][SocketOpenWaitsForAuthoritativeDeclaration]_vars
 
 DeclarationUsesReadyContainerTree ==
-  (interestState = "baselineReceived" /\ interestState' = "awaitingAck")
+  (interestState = "socketOpen" /\ interestState' = "awaitingAck")
     => /\ containerTreeReady
        /\ containerTreeReady'
        /\ declarationCoversDocument'

@@ -35,9 +35,10 @@ export interface WorkflowRuntimeStateInput {
   readonly events: ReadonlyArray<unknown>;
   readonly online: boolean;
   /**
-   * Increments after each restored server-events interest baseline. Unlike a
-   * boolean connection edge, this survives coalesced runtime notifications and
-   * document stores retained while their host provider is unmounted.
+   * Increments after each acknowledged server-events interest declaration.
+   * Unlike a boolean connection edge, this survives coalesced runtime
+   * notifications and document stores retained while their host provider is
+   * unmounted.
    */
   readonly serverEventsConnectionGeneration?: number | undefined;
   /**

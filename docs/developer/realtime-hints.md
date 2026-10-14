@@ -5,6 +5,17 @@ The gateway routes container mutations to watchers of the container and its
 current and previous parents, then constructs a frame for each recipient's
 verified interests.
 
+Interest belongs to one open socket. A socket opens with no container interest
+and the server sends nothing on open; the client declares its authoritative
+`known_containers` set once its local tree is ready, and the gateway indexes
+only the subset `containerInterestAuthorization` verifies. No server-side copy
+of a socket's interest outlives it, so a reconnecting socket, or another tab on
+the same session, receives no container hint until its own declaration is
+installed. Hints published before then are recovered by the client:
+`known_containers_ack` follows installation, and the client reconciles over
+HTTP after that acknowledgement (see
+[client sync ordering](../client-sync-ordering.md#remote-pull-eligibility)).
+
 - A watcher of the mutated container receives `container_mutation_created` with
   its id and event type. Parent ids appear only when that socket watches them;
   a null parent denotes the root.
@@ -44,40 +55,37 @@ carries a small server-written attachment containing its identity and storage
 key. The hub's SQLite storage holds that socket's verified container dependency
 paths, organization declaration, session confirmation time, and next check
 schedule. Large snapshots are chunked below SQLite's per-value limit. The
-per-session reconnect cache remains an optimization for new connections; it
-cannot restore distinct interest sets on tabs sharing a session.
+snapshot serves only a socket that stays connected across eviction; a new
+connection starts empty and declares its own interest.
 
 Every entry point restores all connected sockets before routing, including an
 HTTP publish that wakes an idle hub. Restoration preserves absolute proof and
 session deadlines and runs overdue callbacks before the waking event can route.
-It does not consume another ticket, send another initial interest frame, or
-extend authorization merely because the object woke up. A missing snapshot
-closes its socket so the client reconnects through fresh authorization.
+It does not consume another ticket, send any frame, or extend authorization
+merely because the object woke up. A missing snapshot closes its socket so the
+client reconnects through fresh authorization.
 
 One durable alarm schedules the earliest periodic check or expiry. While an
 event is awaiting I/O, a temporary timer also enforces deadlines independently
 of that event; the last completed event cancels it. No idle JavaScript timer or
-database pool keeps the hub resident. Event completion drains ordered interest
-writes, saves changed socket state, updates the alarm, and closes its database
-pool. Ordinary hints do not serialize unchanged snapshots. HTTP publications
-acknowledge completed routing while `waitUntil` owns trailing checks and cleanup,
-so unrelated slow rechecks do not delay the caller. Closing a socket removes its
-state, and a restored hub prunes abandoned rows. Publication failures are reported
-but remain best effort, so a failed wake-up cannot fail a committed mutation.
+database pool keeps the hub resident. Event completion saves changed socket
+state, updates the alarm, and closes its database pool. Ordinary hints do not
+serialize unchanged snapshots. HTTP publications acknowledge completed routing
+while `waitUntil` owns trailing checks and cleanup, so unrelated slow rechecks
+do not delay the caller. Closing a socket removes its state, and a restored hub
+prunes abandoned rows. Publication failures are reported but remain best
+effort, so a failed wake-up cannot fail a committed mutation.
 
-A new connection waits for its initial interest hydration before the upgrade
-response completes. This can add the authorization timeout during an outage;
-a failed hydration uses the gateway's empty baseline for client redeclaration.
-Fatal socket setup errors close the accepted connection for a fresh retry.
-HTTP publications also pay cold restoration cost; organization events await
-bounded authorization (up to ten seconds) before routing. Unrelated periodic
-checks remain in the trailing phase.
+A new connection completes its upgrade without reading any interest: socket
+setup registers it with an empty interest set, and its first declaration pays
+the authorization query. Fatal socket setup errors close the accepted
+connection for a fresh retry. HTTP publications also pay cold restoration
+cost; organization events await bounded authorization (up to ten seconds)
+before routing. Unrelated periodic checks remain in the trailing phase.
 
 Cloudflare's [state API](https://developers.cloudflare.com/durable-objects/api/state/#waituntil)
 documents that `waitUntil` prevents eviction until completion, up to fifteen
 minutes. Every event also retains its temporary deadline timer until cleanup.
-The interest flush captures only currently queued writes so future declarations
-cannot extend an earlier event indefinitely.
 
 The Postgres concurrency lane runs `workerRuntime.hibernation.pg.test.ts` against
 the real Worker configuration through Wrangler's test harness. It evicts the

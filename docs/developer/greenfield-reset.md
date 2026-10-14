@@ -12,7 +12,7 @@ versions, credentials, build numbers, or Terraform plans from a previous run.
 | Production database | Replace the independent PlanetScale database and its runtime/migration roles. |
 | Staging database | Replace the staging PlanetScale database and its roles, then initialize the current baseline. |
 | Encrypted blobs | Empty and replace only the selected application bucket and its bucket-scoped R2 credentials. |
-| Worker state | Delete the API Worker (`wrangler delete --env <tier>`) before redeploying it: sessions, tickets, and interest live in its Durable Objects' SQLite storage, which a plain redeploy keeps. Deleting the Worker drops both objects; the redeploy recreates them empty. |
+| Worker state | Delete the API Worker (`wrangler delete --env <tier>`) before redeploying it: sessions, tickets, and hibernated socket state live in its Durable Objects' SQLite storage, which a plain redeploy keeps. Deleting the Worker drops both objects; the redeploy recreates them empty. |
 | Website, web app, demos | Redeploy; retain their domain/account identities. |
 | Desktop/mobile releases | Build and publish selected tiers using the release matrix. |
 | Terraform backend and release buckets | Retain, including historical immutable downloads. |
@@ -102,7 +102,7 @@ Run examples from the repository root.
 
 Detach the tier's hostnames so no client can reach the old deployment, then
 delete the API Worker. Deleting the Worker also deletes its Durable Objects:
-every session, login challenge, WebSocket ticket, and persisted interest set.
+every session, login challenge, and WebSocket ticket.
 It also stops API writes, blob garbage collection, and the billing
 maintenance Cron Trigger.
 
