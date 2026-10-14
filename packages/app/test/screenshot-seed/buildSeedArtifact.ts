@@ -1,15 +1,12 @@
 import {
   type BlobBytes,
   type BlobStore,
-  type DocumentAttachmentUpload,
   defaultDocumentsPersistence,
   type Logger,
-  type StoredDocumentKind,
   Tearleads,
 } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { CONTACT_AVATAR_SLOT_ID } from "../../src/document-types/contact/contactAvatarSlot";
-import { DRIVER_LICENSE_ATTACHMENT_SLOTS } from "../../src/document-types/drivers-license/driverLicenseDocument";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { createBackupPayload } from "../../src/providers/db/localBackupData";
 import { encodeBackupFile } from "../../src/providers/db/localBackupFormat";
@@ -18,7 +15,9 @@ import {
   deriveUserSystemContainers,
   findUserSystemContainer,
 } from "../../src/stores/systemContainers";
-import type { SeedFile, SeedSpec } from "./seedTypes";
+import { type OpenSeedDocument, seedFiles } from "./seedDocuments";
+import type { SeedSpec } from "./seedTypes";
+import { validateSeedSpec } from "./validateSeedSpec";
 
 // Core of the screenshot seeder: interpret a SeedSpec against the REAL client-sdk
 // write path (documents.open -> setStructuredFields/setText/attachFiles) and emit
@@ -77,24 +76,6 @@ interface SeedArtifact {
   readonly summary: { readonly rowCount: number; readonly blobCount: number };
 }
 
-function resolveDriverLicenseSlotId(slot: string): string {
-  const match = DRIVER_LICENSE_ATTACHMENT_SLOTS.find((candidate) =>
-    candidate.slotId.toLowerCase().includes(slot.toLowerCase()),
-  );
-  if (!match) {
-    throw new Error(`Unknown driver's license attachment slot: ${slot}`);
-  }
-  return match.slotId;
-}
-
-type SeedDocumentLinks = ReturnType<
-  InstanceType<typeof Tearleads>["containerContents"]["documentLinks"]
->;
-type OpenSeedDocument = (
-  kind: StoredDocumentKind,
-  containerId: string,
-) => ReturnType<SeedDocumentLinks["openDocument"]>;
-
 // Create the identity-scoped Contacts system container so the Contacts mini-app
 // (which resolves it by slot) surfaces the seeded contacts after a same-phrase
 // restore. Offline + unauthenticated, ensureSystemContainer takes the local
@@ -129,48 +110,11 @@ async function ensureContactsContainer(
   return contactsNode.id;
 }
 
-// Seed non-note documents (images, driver's license, ...) with their structured
-// fields + attachment blobs into the given container.
-async function seedFiles(
-  openDocument: OpenSeedDocument,
-  containerId: string,
-  files: readonly SeedFile[],
-  readAttachment: (fileRef: string) => Promise<BlobBytes>,
-): Promise<void> {
-  for (const file of files) {
-    const store = openDocument(file.kind, containerId);
-    await store.ensureInitialized();
-    if (file.fields && Object.keys(file.fields).length > 0) {
-      await store.setStructuredFields(file.kind, file.fields);
-    }
-    for (const attachment of file.attachments) {
-      const upload: DocumentAttachmentUpload = {
-        bytes: await readAttachment(attachment.file),
-        mimeType: attachment.mimeType,
-        name: attachment.file,
-      };
-      if (attachment.slot) {
-        const slotId =
-          file.kind === "drivers_license"
-            ? resolveDriverLicenseSlotId(attachment.slot)
-            : attachment.slot;
-        await store.replaceAttachment(slotId, upload);
-      } else {
-        // attachFiles is typed void but returns the write-chain promise at
-        // runtime; cast to Promise<void> so the await is explicit. A plain
-        // Promise.resolve() wrapper reads as redundant and invites a
-        // refactor that would drop the await and race the persistence.
-        await (store.attachFiles([upload]) as unknown as Promise<void>);
-      }
-    }
-    store.requestSync();
-  }
-}
-
 export async function buildSeedArtifact(
   spec: SeedSpec,
   deps: BuildSeedArtifactDeps,
 ): Promise<SeedArtifact> {
+  validateSeedSpec(spec);
   const sdk = new Tearleads({
     blobStoreFactory: () => deps.blobStore,
     database: { execSql: deps.execSql, id: SEED_DATABASE_ID },
@@ -179,76 +123,80 @@ export async function buildSeedArtifact(
     online: false,
   });
 
-  // Import the fixed seed phrase for a deterministic (unlocked) identity:
-  // attachFiles needs the encapsulation keypair, and the deterministic signing
-  // key makes the Contacts system slot reproducible. Unlike generate(),
-  // importSeedPhrase does not bootstrap a root, so create it explicitly.
-  await sdk.identity.importSeedPhrase(spec.identitySeedPhrase);
-  const signingKeyPair = sdk.identity.signingKeyPair;
-  if (!signingKeyPair) {
-    throw new Error("Seed identity is missing its signing key pair.");
-  }
-  const { containerId: rootContainerId } =
-    await sdk.session.bootstrapLocalRootContainer();
-  await defaultDocumentsPersistence.ensureSchema(deps.execSql);
-
-  // Contacts live in the identity-scoped Contacts container; notes + files stay
-  // in the root (Explorer / Notes surface them by kind).
-  const contactsContainerId = await ensureContactsContainer(
-    sdk,
-    signingKeyPair.signingPrivateKey,
-  );
-
-  const links = sdk.containerContents.documentLinks();
-  const openDocument: OpenSeedDocument = (kind, containerId) =>
-    links.openDocument({
-      containerId,
-      initialDocumentKind: kind,
-      initialText: "",
-      localId: crypto.randomUUID(),
-    });
-
-  for (const contact of spec.contacts ?? []) {
-    const store = openDocument("contact", contactsContainerId);
-    await store.ensureInitialized();
-    await store.setStructuredFields("contact", contact.fields);
-    if (contact.avatar) {
-      await store.replaceAttachment(CONTACT_AVATAR_SLOT_ID, {
-        bytes: await deps.readAttachment(contact.avatar.file),
-        mimeType: contact.avatar.mimeType,
-        name: contact.avatar.file,
-      });
+  try {
+    // Import the fixed seed phrase for a deterministic (unlocked) identity:
+    // attachFiles needs the encapsulation keypair, and the deterministic signing
+    // key makes the Contacts system slot reproducible. Unlike generate(),
+    // importSeedPhrase does not bootstrap a root, so create it explicitly.
+    await sdk.identity.importSeedPhrase(spec.identitySeedPhrase);
+    const signingKeyPair = sdk.identity.signingKeyPair;
+    if (!signingKeyPair) {
+      throw new Error("Seed identity is missing its signing key pair.");
     }
-    store.requestSync();
+    const { containerId: rootContainerId } =
+      await sdk.session.bootstrapLocalRootContainer();
+    await defaultDocumentsPersistence.ensureSchema(deps.execSql);
+
+    // Contacts live in the identity-scoped Contacts container; notes + files stay
+    // in the root (Explorer / Notes surface them by kind).
+    const contactsContainerId = await ensureContactsContainer(
+      sdk,
+      signingKeyPair.signingPrivateKey,
+    );
+
+    const links = sdk.containerContents.documentLinks();
+    const openDocument: OpenSeedDocument = (kind, containerId) =>
+      links.openDocument({
+        containerId,
+        initialDocumentKind: kind,
+        initialText: "",
+        localId: crypto.randomUUID(),
+      });
+
+    for (const contact of spec.contacts ?? []) {
+      const store = openDocument("contact", contactsContainerId);
+      await store.ensureInitialized();
+      await store.setStructuredFields("contact", contact.fields);
+      if (contact.avatar) {
+        await store.replaceAttachment(CONTACT_AVATAR_SLOT_ID, {
+          bytes: await deps.readAttachment(contact.avatar.file),
+          mimeType: contact.avatar.mimeType,
+          name: contact.avatar.file,
+        });
+      }
+      store.requestSync();
+    }
+
+    for (const note of spec.notes ?? []) {
+      const store = openDocument("note", rootContainerId);
+      await store.ensureInitialized();
+      await store.setText(note.text);
+      store.requestSync();
+    }
+
+    await seedFiles(
+      openDocument,
+      rootContainerId,
+      spec.files ?? [],
+      deps.readAttachment,
+    );
+
+    const payload = await createBackupPayload({
+      blobStore: deps.blobStore,
+      databaseId: SEED_DATABASE_ID,
+      execSql: deps.execSql,
+      signingFingerprint: sdk.identity.signingFingerprint,
+    });
+    const text = await encodeBackupFile({ password: spec.password, payload });
+
+    return {
+      summary: {
+        blobCount: payload.summary.blobCount,
+        rowCount: payload.summary.rowCount,
+      },
+      text,
+    };
+  } finally {
+    sdk.dispose();
   }
-
-  for (const note of spec.notes ?? []) {
-    const store = openDocument("note", rootContainerId);
-    await store.ensureInitialized();
-    await store.setText(note.text);
-    store.requestSync();
-  }
-
-  await seedFiles(
-    openDocument,
-    rootContainerId,
-    spec.files ?? [],
-    deps.readAttachment,
-  );
-
-  const payload = await createBackupPayload({
-    blobStore: deps.blobStore,
-    databaseId: SEED_DATABASE_ID,
-    execSql: deps.execSql,
-    signingFingerprint: sdk.identity.signingFingerprint,
-  });
-  const text = await encodeBackupFile({ password: spec.password, payload });
-
-  return {
-    summary: {
-      blobCount: payload.summary.blobCount,
-      rowCount: payload.summary.rowCount,
-    },
-    text,
-  };
 }
