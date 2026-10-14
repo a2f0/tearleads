@@ -218,7 +218,8 @@ Authentication uses challenge signing:
 1. `POST /auth/challenge` stores a short-lived challenge for a registered
  signing-key fingerprint.
 2. `POST /auth/verify` verifies the signature over the challenge and this API's
- origin, then issues a session token.
+ origin, then issues a session token and its first single-use, sixty-second
+ websocket ticket; later connects mint one with `POST /auth/ws-ticket`.
 3. `GET /auth/sessions`, `DELETE /auth/sessions/:sessionId`, and
  `POST /auth/logout` manage authenticated session tokens.
 4. Authenticated mutation routes require the session user and fingerprint to

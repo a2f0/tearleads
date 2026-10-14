@@ -49,8 +49,8 @@ export const SESSION_UNVERIFIED_CLOSE: SessionClose = {
 };
 
 /**
- * A requested interest change. The gateway authorizes it before indexing or
- * mirroring the change into Redis. Null for malformed or unrelated messages.
+ * A requested interest change. The gateway authorizes it before indexing it.
+ * Null for malformed or unrelated messages.
  */
 export type AppliedInterest = {
   readonly declarationId?: string | undefined;
@@ -62,14 +62,6 @@ type ClientMessageAction =
   | Exclude<AppliedInterest, null>
   | OrganizationInterestDeclaration
   | null;
-
-// An interest the router dropped on an access change, returned so the caller can
-// remove it from the persisted set too.
-interface InterestEviction {
-  readonly userId: string;
-  readonly sessionId: string;
-  readonly containerId: string;
-}
 
 function containerInterestAction(
   kind: Exclude<AppliedInterest, null>["kind"],
@@ -235,33 +227,29 @@ export class WsEventRouter {
     ws.stateChanged?.();
   }
 
-  /**
-   * Route one published event. Returns the interest evictions an access-change
-   * caused, so the impure shell can mirror them into the persisted set
-   * (otherwise a reconnect would re-hydrate an interest the access change just
-   * dropped). Non-access events return no evictions.
-   */
-  routeServerEvent(rawMessage: string): InterestEviction[] {
+  /** Route one published event to the sockets it concerns. */
+  routeServerEvent(rawMessage: string): void {
     const event = parsePublishedRealtimeEvent(rawMessage);
     if (!event) {
-      return [];
+      return;
     }
     switch (event.type) {
       case "session_revoked":
         this.closeSession(event.userId, event.sessionId, SESSION_REVOKED_CLOSE);
-        return [];
+        return;
       case "access_changed":
-        return this.handleAccessChanged(event.containerId);
+        this.handleAccessChanged(event.containerId);
+        return;
       case "principal_access_changed":
-        return this.handleAccessChanged(principalInterestKey(event));
+        this.handleAccessChanged(principalInterestKey(event));
+        return;
       case "organization_read_model_changed":
         this.organizationRouter.routeReadModelChanged(event);
-        return [];
+        return;
       default:
         this.routeHint(event);
         if (event.type === "container_mutation_created")
           this.routePathChanged(event.containerId);
-        return [];
     }
   }
 
@@ -338,26 +326,19 @@ export class WsEventRouter {
   }
 
   /** Evict only subscriptions whose verified read path depends on this head. */
-  private handleAccessChanged(ancestorId: string): InterestEviction[] {
-    const evictions: InterestEviction[] = [];
+  private handleAccessChanged(ancestorId: string): void {
     const affected = new Map<WsConnection, string[]>();
     for (const { ws, containerId } of this.dependencies.affected(ancestorId)) {
       const ids = affected.get(ws) ?? [];
       ids.push(containerId);
       affected.set(ws, ids);
       this.removeInterest(ws, [containerId]);
-      evictions.push({
-        containerId,
-        sessionId: ws.data.sessionId,
-        userId: ws.data.userId,
-      });
     }
     for (const [ws, containerIds] of affected)
       sendSafely(
         ws,
         serializeWsServerMessage({ containerIds, type: "resync_required" }),
       );
-    return evictions;
   }
 
   /** Closes every socket of a session that was revoked, ended or lapsed. */

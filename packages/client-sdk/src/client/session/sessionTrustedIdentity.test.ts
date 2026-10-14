@@ -21,6 +21,7 @@ async function createLoginHarness(
   api.authenticate = async () => ({
     rootContainerId: null,
     authenticated: true,
+    wsTicket: "ws-ticket",
     isRoot: false,
     organizationId: "organization-1",
     token: "token-1",
@@ -116,6 +117,7 @@ test("logout retains the acknowledged identity binding for the next login", asyn
   session.logout();
   api.authenticate = async () => ({
     authenticated: true,
+    wsTicket: "ws-ticket",
     isRoot: false,
     organizationId: "organization-1",
     rootContainerId: "root-1",

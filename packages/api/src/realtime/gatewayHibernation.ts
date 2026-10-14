@@ -40,10 +40,7 @@ export function createGatewayHibernation(input: {
         organization: input.organizationInterest.snapshot(ws),
       };
     },
-    async restore(
-      ws: GatewaySocket,
-      saved: GatewaySocketSnapshot,
-    ): Promise<void> {
+    restore(ws: GatewaySocket, saved: GatewaySocketSnapshot): void {
       input.router.open(ws);
       input.router.applyAuthorizedContainerInterest(
         ws,
@@ -56,7 +53,7 @@ export function createGatewayHibernation(input: {
       input.organizationInterest.restore(ws, saved.organization);
       input.liveness.open(ws, saved.session);
       input.revalidation.open(ws, saved.nextCheckAt);
-      await input.containerInterest.open(ws, saved);
+      input.containerInterest.open(ws, saved);
     },
   };
 }

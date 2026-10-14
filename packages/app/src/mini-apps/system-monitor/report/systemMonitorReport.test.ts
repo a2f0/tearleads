@@ -73,7 +73,7 @@ test("copied telemetry logs retain subsecond precision", () => {
     environment: [],
     logEntries: [
       createLogEntry(1, {
-        message: "interest baseline containers=2",
+        message: "interest declaration acknowledged",
         timestamp,
       }),
     ],
@@ -81,7 +81,7 @@ test("copied telemetry logs retain subsecond precision", () => {
   });
 
   expect(report).toMatch(
-    /\[\d{2}:\d{2}:\d{2}\.006\] interest baseline containers=2/u,
+    /\[\d{2}:\d{2}:\d{2}\.006\] interest declaration acknowledged/u,
   );
 });
 
@@ -226,9 +226,6 @@ test("report retains only anchored content-free telemetry", () => {
       createLogEntry(11, {
         message: "Documents: remote revalidation result=unavailable",
       }),
-      createLogEntry(12, {
-        message: "WebSocket: interest baseline containers=12",
-      }),
       createLogEntry(13, {
         message: "WebSocket: interest declaration acknowledged",
       }),
@@ -274,7 +271,6 @@ test("report retains only anchored content-free telemetry", () => {
     "remote revalidation result=applied incomingUpdates=2 attachmentSlots=1",
   );
   expect(report).toContain("remote revalidation result=unavailable");
-  expect(report).toContain("interest baseline containers=12");
   expect(report).toContain("interest declaration acknowledged");
   expect(report).toContain(
     "_Omitted 4 free-form log entries to protect decrypted customer data._",
