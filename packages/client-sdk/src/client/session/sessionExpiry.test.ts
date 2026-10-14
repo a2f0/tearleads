@@ -56,6 +56,7 @@ describe("session expiry", () => {
         return jsonResponse({
           rootContainerId: null,
           authenticated: true,
+          wsTicket: "ws-ticket",
           isRoot: false,
           organizationId: "org-2",
           token: "fresh-token",

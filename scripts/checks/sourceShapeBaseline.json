@@ -68,8 +68,8 @@
       "bytes": 2984719
     },
     "docs/protocol-specification.md": {
-      "lines": 665,
-      "bytes": 34249
+      "lines": 666,
+      "bytes": 34359
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -84,8 +84,8 @@
       "bytes": 24037
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1978,
-      "bytes": 62836
+      "lines": 1980,
+      "bytes": 62981
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
