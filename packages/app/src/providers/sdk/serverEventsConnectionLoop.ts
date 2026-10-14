@@ -218,9 +218,10 @@ class ServerEventsConnectionLoop {
 }
 
 /**
- * Keep the lossy event channel connected. Every retry mints a fresh one-time
- * ticket; watchdogs bound a hung ticket request or opening handshake; and one
- * settled guard coalesces the browser's usual error+close pair.
+ * Keep the lossy event channel connected. Every attempt asks for a fresh
+ * one-time ticket (the SDK hands the first connect after login the ticket the
+ * login returned); watchdogs bound a hung ticket request or opening handshake;
+ * and one settled guard coalesces the browser's usual error+close pair.
  */
 export function startServerEventsConnectionLoop(
   input: ServerEventsConnectionLoopInput,

@@ -39,6 +39,7 @@ interface ReconciliationState extends IdleBackfillState {
   pendingRefresh: {
     readonly promise: Promise<void>;
     readonly scope: RefreshScope;
+    readonly started: { value: boolean };
   } | null;
 }
 
@@ -211,8 +212,11 @@ async function refreshAndReconcileContainers(input: {
 
 // Sweeps share the queue and discovered set, so they must run serially.
 // Root requests join either kind of sweep; a full request after a root sweep
-// must wait for it and then refresh the whole tree.
+// must wait for it and then refresh the whole tree. A fresh-listing request
+// joins only a sweep that has not started: one already running may have listed
+// before the event behind the request, so it queues a trailing sweep instead.
 function requestContainerRefresh(input: {
+  freshListing: boolean;
   host: ReconciliationHost;
   state: ReconciliationState;
   refreshTree: () => Promise<void>;
@@ -221,28 +225,34 @@ function requestContainerRefresh(input: {
 }): Promise<void> {
   const { state, scope } = input;
   const pending = state.pendingRefresh;
-  if (pending && (scope === "root" || pending.scope === "full")) {
+  if (
+    pending &&
+    (scope === "root" || pending.scope === "full") &&
+    !(input.freshListing && pending.started.value)
+  ) {
     return pending.promise;
   }
 
+  const started = { value: false };
   const promise = (pending?.promise ?? Promise.resolve())
-    // A failed root sweep must not prevent the queued full refresh.
+    // A failed earlier sweep must not prevent the queued refresh.
     .catch(() => undefined)
-    .then(() =>
-      refreshAndReconcileContainers({
+    .then(() => {
+      started.value = true;
+      return refreshAndReconcileContainers({
         forceAllDocumentContentPulls: scope === "full",
         host: input.host,
         listContainerIds: input.listContainerIds,
         refreshTree: input.refreshTree,
         state,
-      }),
-    )
+      });
+    })
     .finally(() => {
       if (state.pendingRefresh?.promise === promise) {
         state.pendingRefresh = null;
       }
     });
-  state.pendingRefresh = { promise, scope };
+  state.pendingRefresh = { promise, scope, started };
   return promise;
 }
 
@@ -409,8 +419,9 @@ export function createReconciliationService(
       state.discoveredContainerIds.clear();
       state.initialDocumentProbe.resetSkippedListings();
     },
-    reconcileRootContainersNow: () =>
+    reconcileRootContainersNow: (options) =>
       requestContainerRefresh({
+        freshListing: options?.freshListing === true,
         host,
         state,
         refreshTree: host.refreshRootTree,
@@ -419,6 +430,7 @@ export function createReconciliationService(
       }),
     reconcileNow: () =>
       requestContainerRefresh({
+        freshListing: false,
         host,
         state,
         refreshTree: host.refreshTree,

@@ -54,8 +54,9 @@ test(
         // root-lane pass; signed destination reads remain bounded at four.
         // Private metadata-root authority adds 31 bounded directory/group reads.
         // Batched discovery lists the four lanes queued at startup in one
-        // request and a later-surfaced lane in a second (measured 90).
-        total: 92,
+        // request and a later-surfaced lane in a second. Login returns the
+        // first websocket ticket, so no ticket request (measured 89).
+        total: 91,
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 19,
           "GET /principals/group/:groupId/policy": 12,
@@ -70,7 +71,7 @@ test(
           "GET /organizations/:organizationId/billing": 1,
           "POST /auth/register": 1,
           "POST /auth/verify": 1,
-          "POST /auth/ws-ticket": 1,
+          "POST /auth/ws-ticket": 0,
           "POST /containers/with-metadata-document": 1,
           "POST /documents": 1,
         },

@@ -28,10 +28,6 @@ export class ServerEventsTestWebSocket extends EventTarget {
     );
   }
 
-  dispatchInterestState(containerIds: string[]): void {
-    this.dispatchJsonMessage({ type: "interest_state", containerIds });
-  }
-
   acknowledgeLastContainerInterest(): void {
     const declarationId = Reflect.get(this.lastSentJson(), "declarationId");
     if (typeof declarationId !== "string") {

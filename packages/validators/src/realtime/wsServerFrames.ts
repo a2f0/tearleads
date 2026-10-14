@@ -13,14 +13,9 @@ import { parseWsJson, wsDeclarationIdSchema } from "./wsShared";
  * frames a client may receive; anything else fails closed on both sides.
  */
 
-// The reconnect baseline frame: the container ids the server already holds for
-// this session. The matching declaration acknowledgement — not this frame — is
-// the client's ordering barrier for closing the lossy reconnect interval.
-export const WsInterestStateFrameSchema = z.object({
-  type: z.literal("interest_state"),
-  containerIds: z.array(z.string().min(1)),
-});
-
+// A socket opens with no container interest. The acknowledgement of its first
+// authoritative declaration is the client's ordering barrier for closing the
+// lossy reconnect interval.
 export const WsKnownContainersAckFrameSchema = z.object({
   type: z.literal("known_containers_ack"),
   containerIds: z.array(z.string().min(1)),
@@ -53,7 +48,6 @@ export const WsOrganizationReadModelAccessRevokedFrameSchema = z.object({
 });
 
 export const WsServerControlFrameSchema = z.discriminatedUnion("type", [
-  WsInterestStateFrameSchema,
   WsKnownContainersAckFrameSchema,
   WsKnownOrganizationsAckFrameSchema,
   WsResyncRequiredFrameSchema,

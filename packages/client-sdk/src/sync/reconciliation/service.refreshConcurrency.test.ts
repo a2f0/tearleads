@@ -136,3 +136,67 @@ test("an old refresh cannot clear the pending refresh after restart", async () =
     service.stop();
   }
 });
+
+test("a fresh-listing root request queues behind a sweep already running", async () => {
+  const listings: number[] = [];
+  const firstStarted = createGate();
+  const finishFirst = createGate();
+  const service = createReconciliationService(
+    createReconciliationTestHost({
+      refreshRootTree: async () => {
+        listings.push(listings.length + 1);
+        if (listings.length === 1) {
+          firstStarted.open();
+          await finishFirst.wait;
+        }
+      },
+    }),
+  );
+
+  const running = service.reconcileRootContainersNow();
+  await firstStarted.wait;
+  // An ordinary catch-up joins the running sweep.
+  expect(service.reconcileRootContainersNow()).toBe(running);
+  // A root created or shared after that sweep listed is visible only to a
+  // listing that starts after the event, so the discovery request queues.
+  const fresh = service.reconcileRootContainersNow({ freshListing: true });
+  expect(fresh).not.toBe(running);
+  // The queued sweep has not listed yet, so later requests of either kind join.
+  expect(service.reconcileRootContainersNow({ freshListing: true })).toBe(
+    fresh,
+  );
+  expect(service.reconcileRootContainersNow()).toBe(fresh);
+
+  finishFirst.open();
+  await running;
+  await fresh;
+  expect(listings).toEqual([1, 2]);
+});
+
+test("a fresh-listing root request joins a sweep that has not started", async () => {
+  const calls: string[] = [];
+  const rootStarted = createGate();
+  const finishRoot = createGate();
+  const service = createReconciliationService(
+    createReconciliationTestHost({
+      refreshRootTree: async () => {
+        calls.push("root");
+        rootStarted.open();
+        await finishRoot.wait;
+      },
+      refreshTree: async () => {
+        calls.push("full");
+      },
+    }),
+  );
+
+  const root = service.reconcileRootContainersNow();
+  await rootStarted.wait;
+  const full = service.reconcileNow();
+  expect(service.reconcileRootContainersNow({ freshListing: true })).toBe(full);
+
+  finishRoot.open();
+  await root;
+  await full;
+  expect(calls).toEqual(["root", "full"]);
+});

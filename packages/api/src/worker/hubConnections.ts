@@ -61,8 +61,8 @@ export class HubConnections {
         open: async () => {
           // Register the connection before restoration can expire and close it.
           await Promise.resolve();
-          if (saved) await gateway.hibernation.restore(socket, saved);
-          else await gateway.websocket.open(socket);
+          if (saved) gateway.hibernation.restore(socket, saved);
+          else gateway.websocket.open(socket);
         },
         message: (data) => gateway.websocket.message(socket, data),
         close: () => gateway.websocket.close(socket),

@@ -1,5 +1,6 @@
 import { bytesToHex, generateChallenge } from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import { WS_TICKET_TTL_SECONDS } from "@tearleads/validators/realtime";
 import { hasStringProperty, isUuidV4String } from "@tearleads/validators/util";
 import { getdel, set } from "../adapters/redis";
 import { isLiveUserSession } from "../middleware/session";
@@ -9,10 +10,10 @@ import type { WebSocketTicketIdentity, WsSessionValidator } from "./wsIdentity";
 // One-time, short-lived ticket that authenticates a websocket upgrade. Browsers
 // cannot attach an Authorization header to a WebSocket handshake, so an
 // authenticated HTTP request mints a ticket that the upgrade consumes from the
-// query string. The ticket is the only Redis state this adds: a single key with
-// a short TTL, deleted on first use.
+// query string: login (`POST /auth/verify`) returns the first one, and
+// `POST /auth/ws-ticket` mints each later one. The ticket is the only Redis
+// state this adds: a single key with a short TTL, deleted on first use.
 const WS_TICKET_PREFIX = "ws-ticket:";
-const WS_TICKET_TTL_SECONDS = 60;
 
 function ticketKey(ticket: string): string {
   return `${WS_TICKET_PREFIX}${ticket}`;
