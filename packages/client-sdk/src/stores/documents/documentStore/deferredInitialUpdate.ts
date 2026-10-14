@@ -6,12 +6,13 @@ import {
   isAttachmentWriteGenerationCurrent,
 } from "./attachmentWriteGeneration";
 import { reloadDocumentFromDurableHistory } from "./durableDocumentReload";
+import { ensureDocumentStoreInitialized } from "./initialization";
 import {
   advancePendingBaseVersion,
   pendingDeltaSinceBase,
   persistDocument,
 } from "./persistence";
-import type { DocumentStoreState } from "./state";
+import { type DocumentStoreState, resetDocumentStore } from "./state";
 import {
   captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
@@ -39,9 +40,22 @@ export async function settleDeferredInitialUpdate(
   writeGeneration: AttachmentWriteGeneration,
 ): Promise<void> {
   if (!state.deferInitialUpdate) return;
-  // A pass exports the live doc, so the hold stays until it holds only
-  // durable content (see restoreDurableLiveDocument).
-  if (!(await restoreDurableLiveDocument(state))) return;
+  // A pass exports the live doc, so it must hold only durable content (see
+  // restoreDurableLiveDocument) before the hold lifts. When that cannot be
+  // shown, even after a transient failure, reinitialize from durable history
+  // rather than latch the hold: the reset lifts it and drops the live doc.
+  let durable = false;
+  try {
+    durable = await restoreDurableLiveDocument(state);
+  } finally {
+    if (!durable && state.deferInitialUpdate) {
+      resetDocumentStore(state);
+      ensureDocumentStoreInitialized(state, () =>
+        requestDocumentStoreSync(state),
+      );
+    }
+  }
+  if (!durable) return;
   state.deferInitialUpdate = false;
   try {
     await enqueueDeferredTail(state, writeGeneration);

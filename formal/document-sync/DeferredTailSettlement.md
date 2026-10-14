@@ -88,9 +88,10 @@ until that attach settles, a write advances the marker, or the store resets, so
 no pass ships the birth on its own. A hold only removes interleavings; the
 model keeps `Prime` enabled, so it checks the pass-before-attach order as well.
 Before lifting the hold, production reloads durable history if the live
-document holds operations the record frontier does not, so a failed attach
-whose rollback could not run never ships its slot. The model's
-`PublishedHistoryIsDurable` keeps that precondition throughout.
+document holds operations the record frontier does not, and reinitializes the
+store if that reload fails, so a failed attach whose rollback could not run
+never ships its slot. The model's `PublishedHistoryIsDurable` keeps that
+precondition throughout.
 
 The abstraction maps to production at these seams:
 

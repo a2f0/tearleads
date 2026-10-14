@@ -17,6 +17,7 @@ import {
   readQueuedUpdates,
 } from "./deferredInitialUpdate.testFixtures";
 import { reloadDocumentFromDurableHistory } from "./durableDocumentReload";
+import { ensureDocumentStoreReady } from "./initialization";
 import { setDocumentStructuredFields } from "./mutations";
 import type { DocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
@@ -166,4 +167,70 @@ test("a failed rollback reloads durable history before releasing the hold", asyn
   // The slot never reaches a pass: the live doc was replaced by durable history.
   expect(state.doc).not.toBe(liveDoc);
   expect(getDocumentAttachments(state.doc)).toEqual([]);
+});
+
+test("a transient reload failure reinitializes instead of latching the hold", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "deferred-birth-transient-reload",
+  );
+  let failNextReload = false;
+  const persistence: DocumentsPersistence = Object.assign(
+    Object.create(defaultDocumentsPersistence) as DocumentsPersistence,
+    {
+      loadDocumentWithHistoryRestoreState: async (
+        ...args: Parameters<
+          DocumentsPersistence["loadDocumentWithHistoryRestoreState"]
+        >
+      ) => {
+        if (failNextReload) {
+          failNextReload = false;
+          throw new Error("database is busy");
+        }
+        return defaultDocumentsPersistence.loadDocumentWithHistoryRestoreState(
+          ...args,
+        );
+      },
+    },
+  );
+  const stateRef: { current: DocumentStoreState | null } = { current: null };
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const state = await openPdfStore({
+      // The rollback reload is refused (stale generation) and the settlement
+      // reload then fails once, so neither proves the live doc durable.
+      blobStore: blobStoreWithWrite(async (current) => {
+        const { apiClient } = current.runtime;
+        current.runtime = {
+          ...current.runtime,
+          apiClient: Object.create(apiClient) as typeof apiClient,
+        };
+        failNextReload = true;
+        throw new Error("blob store is full");
+      }, stateRef),
+      deferInitialUpdate: true,
+      execSql,
+      localId: "transient-reload-pdf",
+      persistence,
+    });
+    stateRef.current = state;
+    await setDocumentStructuredFields(state, noopSchedule, "pdf", PDF_FIELDS, {
+      deferRemoteSync: true,
+    });
+
+    await attachFilesToDocumentStore(state, noopSchedule, [PDF_UPLOAD]);
+
+    // Sync is no longer held, and the store reloads clean durable content
+    // whose deferred birth the next pass will materialize.
+    expect(failNextReload).toBe(false);
+    expect(state.deferInitialUpdate).toBe(false);
+    expect(await ensureDocumentStoreReady(state, noopSchedule)).toBe(true);
+    if (!state.doc) throw new Error("Expected the store to reinitialize");
+    expect(getDocumentAttachments(state.doc)).toEqual([]);
+    expect(state.snapshot.structuredFields).toEqual(PDF_FIELDS);
+    expect(await hasDeferredTailScopeWork(execSql, SCOPE(state.localId))).toBe(
+      true,
+    );
+  } finally {
+    close();
+  }
 });
