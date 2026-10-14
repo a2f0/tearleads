@@ -13,6 +13,7 @@ import {
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
+import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -38,8 +39,12 @@ import { assertOrganizationReadModelResponse } from "./organizationReadModelResp
 
 export type { OrganizationReadModelProjection } from "./organizationReadModelProjection";
 
-const DIRECTORY_INSERT_BATCH_SIZE = 64;
-const GROUP_INSERT_BATCH_SIZE = 90;
+const DIRECTORY_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
+  organizationReadModelDirectoryUsers,
+);
+const GROUP_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
+  organizationReadModelGroups,
+);
 
 type ApplyOrganizationReadModelResponseResult =
   | "already-applied"

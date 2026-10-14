@@ -7,12 +7,21 @@ import {
   organizationReadModelGroupMembers,
   organizationReadModelGroups,
 } from "../../sqlite/organizationReadModelSchema";
+import {
+  sqliteInsertBatchSize,
+  sqliteRowsPerStatement,
+} from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
-const GROUP_MEMBERSHIP_BATCH_SIZE = 90;
-// Each head binds three variables: two in the CASE arm and one in the IN list.
-const GROUP_HEAD_UPDATE_BATCH_SIZE = 300;
-const GROUP_MEMBER_INSERT_BATCH_SIZE = 30;
+// Group ID lists bind one value per group; the head-clearing update also
+// binds its null value beside the organization ID.
+const GROUP_MEMBERSHIP_BATCH_SIZE = sqliteRowsPerStatement(1, 2);
+// Each head binds two values in its CASE arm and one in the IN list, plus the
+// organization ID.
+const GROUP_HEAD_UPDATE_BATCH_SIZE = sqliteRowsPerStatement(3, 1);
+const GROUP_MEMBER_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
+  organizationReadModelGroupMembers,
+);
 
 export class OrganizationReadModelBindingError extends Error {
   constructor(message: string) {
