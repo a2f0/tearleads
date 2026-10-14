@@ -11,28 +11,69 @@ import {
   type RecoveredPolicyDirectory,
   recoverPolicyDirectory,
 } from "./principalRecoveryDirectory";
+import {
+  adminsMemoValidity,
+  directoryMemoValidity,
+  type PrincipalRecoveryMemoValidity,
+} from "./principalRecoveryMemoValidity";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
-type Memo<T> = Map<string, Promise<{ value: T; stillCurrent: () => boolean }>>;
+interface MemoEntry<T> {
+  readonly value: T;
+  /** The producing call's private lease and caller lifetime. */
+  readonly stillCurrent: () => boolean;
+  /** Organization hint epoch observed before production. */
+  readonly epoch: number;
+}
+
+type Memo<T> = Map<string, Promise<MemoEntry<T>>>;
 
 export interface PrincipalRecoveryMemo {
   readonly directories: Memo<RecoveredPolicyDirectory>;
   readonly admins: Memo<RecoveredPrincipalPolicyHistory>;
 }
 
-/** Only share authenticated results within one projection collection lifetime. */
+/** Evict an entry whose producer lease ended or whose evidence went stale. */
+async function reusableEntry<T>(
+  memo: Memo<T> | undefined,
+  key: string,
+  validity: PrincipalRecoveryMemoValidity<T>,
+): Promise<MemoEntry<T> | undefined> {
+  const pending = memo?.get(key);
+  if (!pending) return undefined;
+  const entry = await pending.catch(() => undefined);
+  if (
+    entry &&
+    entry.epoch === validity.epoch() &&
+    (await validity.covers(entry.value)) &&
+    entry.stillCurrent()
+  )
+    return entry;
+  if (memo?.get(key) === pending) memo.delete(key);
+  return undefined;
+}
+
+/**
+ * Share authenticated results within one workflow operation. A later caller
+ * never receives a result whose producer lease ended, that predates an
+ * organization hint, or that a durable pin has moved past; it recovers again.
+ */
 async function memoPrincipalRecovery<T>(
   memo: Memo<T> | undefined,
   key: string,
   stillCurrent: () => boolean,
+  validity: PrincipalRecoveryMemoValidity<T>,
   work: () => Promise<T>,
 ): Promise<T> {
   assertProjectionVerificationCurrent(stillCurrent);
-  let pending = memo?.get(key);
-  if (!pending) {
-    pending = work().then((value) => ({ value, stillCurrent }));
-    memo?.set(key, pending);
+  const reused = await reusableEntry(memo, key, validity);
+  if (reused) {
+    assertProjectionVerificationCurrent(stillCurrent);
+    return reused.value;
   }
+  const epoch = validity.epoch();
+  const pending = work().then((value) => ({ value, stillCurrent, epoch }));
+  memo?.set(key, pending);
   const result = await pending.catch((error: unknown) => {
     if (memo?.get(key) === pending) memo.delete(key);
     throw error;
@@ -40,6 +81,17 @@ async function memoPrincipalRecovery<T>(
   assertProjectionVerificationCurrent(result.stillCurrent);
   assertProjectionVerificationCurrent(stillCurrent);
   return result.value;
+}
+
+function fallsBackOnline(
+  input: PrincipalRecoveryContext,
+  error: unknown,
+): boolean {
+  return (
+    !input.offline &&
+    error instanceof KeyingVerificationError &&
+    error.code === "missing_dependency"
+  );
 }
 
 async function readMemoizedAdmins(
@@ -59,40 +111,40 @@ async function readMemoizedAdmins(
       { ...expectedHead },
       selected.map((reference) => ({ ...reference })),
     ]);
-  const known = memo?.get(key([]));
-  let sourceCurrent = () => true;
+  const validity = adminsMemoValidity(input, expectedHead);
+  const known = await reusableEntry(memo, key([]), validity);
+  const sourceCurrent = known?.stillCurrent ?? (() => true);
   const current = () =>
     !input.signal?.aborted && input.stillCurrent() && sourceCurrent();
-  return memoPrincipalRecovery(memo, key(references), current, async () => {
-    const options = {
-      ...input,
-      expectedHead,
-      retainedReferences,
-      historyVerification: "direct-admins" as const,
-      stillCurrent: current,
-    };
-    if (known) {
-      sourceCurrent = (await known).stillCurrent;
-      assertProjectionVerificationCurrent(current);
-      try {
-        // A freshly verified exact head only needs local proofs for additional
-        // citations; their signature and private-root checks still run.
-        return await recoverPrincipalPolicyHistory({
-          ...options,
-          offline: true,
-        });
-      } catch (error) {
-        assertProjectionVerificationCurrent(current);
-        if (
-          input.offline ||
-          !(error instanceof KeyingVerificationError) ||
-          error.code !== "missing_dependency"
-        )
-          throw error;
+  return memoPrincipalRecovery(
+    memo,
+    key(references),
+    current,
+    validity,
+    async () => {
+      const options = {
+        ...input,
+        expectedHead,
+        retainedReferences,
+        historyVerification: "direct-admins" as const,
+        stillCurrent: current,
+      };
+      if (known) {
+        try {
+          // A freshly verified exact head only needs local proofs for additional
+          // citations; their signature and private-root checks still run.
+          return await recoverPrincipalPolicyHistory({
+            ...options,
+            offline: true,
+          });
+        } catch (error) {
+          assertProjectionVerificationCurrent(current);
+          if (!fallsBackOnline(input, error)) throw error;
+        }
       }
-    }
-    return recoverPrincipalPolicyHistory(options);
-  });
+      return recoverPrincipalPolicyHistory(options);
+    },
+  );
 }
 
 async function readMemoizedDirectory(
@@ -101,38 +153,40 @@ async function readMemoizedDirectory(
   key: (references: readonly ReferencedPrincipalHead[]) => string,
   references: readonly ReferencedPrincipalHead[],
 ) {
-  const known = references.length > 0 ? memo?.get(key([])) : undefined;
-  let sourceCurrent = () => true;
+  const validity = directoryMemoValidity(input);
+  const known =
+    references.length > 0
+      ? await reusableEntry(memo, key([]), validity)
+      : undefined;
+  const sourceCurrent = known?.stillCurrent ?? (() => true);
   const current = () =>
     !input.signal?.aborted && input.stillCurrent() && sourceCurrent();
-  return memoPrincipalRecovery(memo, key(references), current, async () => {
-    if (!known) return recoverPolicyDirectory(input, references);
-    const source = await known;
-    sourceCurrent = source.stillCurrent;
-    assertProjectionVerificationCurrent(current);
-    try {
-      // Add authenticated historical citations to this batch's exact directory
-      // view. A newer private prefix must not silently replace that view.
-      return await recoverPolicyDirectory(
-        { ...input, offline: true, stillCurrent: current },
+  return memoPrincipalRecovery(
+    memo,
+    key(references),
+    current,
+    validity,
+    async () => {
+      if (!known) return recoverPolicyDirectory(input, references);
+      try {
+        // Add authenticated historical citations to this operation's exact
+        // directory view. A newer private prefix must not silently replace it.
+        return await recoverPolicyDirectory(
+          { ...input, offline: true, stillCurrent: current },
+          references,
+          known.value,
+        );
+      } catch (error) {
+        assertProjectionVerificationCurrent(current);
+        if (!fallsBackOnline(input, error)) throw error;
+      }
+      return recoverPolicyDirectory(
+        { ...input, stillCurrent: current },
         references,
-        source.value,
+        known.value,
       );
-    } catch (error) {
-      assertProjectionVerificationCurrent(current);
-      if (
-        input.offline ||
-        !(error instanceof KeyingVerificationError) ||
-        error.code !== "missing_dependency"
-      )
-        throw error;
-    }
-    return recoverPolicyDirectory(
-      { ...input, stillCurrent: current },
-      references,
-      source.value,
-    );
-  });
+    },
+  );
 }
 
 export function createPrincipalRecoveryReader(
@@ -167,8 +221,7 @@ export function createPrincipalRecoveryReader(
         references.length > 0 &&
         !memo.directories.has(unselectedKey)
       )
-        // Keep the original lease: its expiry requires a new batch, even if
-        // a later caller still has a live lease of its own.
+        // The alias keeps the original lease and validity; either ending evicts it.
         memo.directories.set(unselectedKey, selected);
       return value;
     },

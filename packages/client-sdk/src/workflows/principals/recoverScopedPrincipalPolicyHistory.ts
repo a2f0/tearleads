@@ -232,7 +232,7 @@ async function selectDisplayHistory(
   };
 }
 
-/** Internal runtime batch: shared results never outlive one caller's collection. */
+/** Internal runtime batch: shared results never outlive its operation or caller. */
 export function createScopedPrincipalPolicyHistoryBatch(
   memo: PrincipalRecoveryMemo = {
     directories: new Map(),

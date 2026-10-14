@@ -155,7 +155,7 @@ Principal state models cover
 [version availability](./container-keying/PrincipalHistory.md)
 and [page verification](./container-keying/PrincipalHistoryPages.md), including
 [authenticated resumption](./container-keying/PrincipalHistoryResume.md) and
-[reuse of completed stages](./container-keying/PrincipalRecoveryReuse.md).
+[recovery reuse](./container-keying/PrincipalRecoveryReuse.md).
 
 ## No Bricked Device
 

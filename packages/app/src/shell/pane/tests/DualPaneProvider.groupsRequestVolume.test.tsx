@@ -63,16 +63,18 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // a separately committed repair would reintroduce the recovery gap this flow is
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
-  // Private metadata-root authority adds directory discovery reads and the
-  // first reads of each new head. Measured completed calls are 74–75; allow
-  // three more bounded reads. Preparation continuations are counted below.
-  total: 78,
+  // Private metadata-root authority adds one directory discovery read per
+  // operation and the first read of each new head. Measured completed calls
+  // are 73–76; allow three more bounded reads. Preparation continuations are
+  // counted below.
+  total: 79,
   // Public parent keys measure 389.5 KB sent with one descendant recitation;
   // retain room for the second 60 KB recitation already allowed below.
   // Completing child hydration adds the peer's system-slot proofs and their
-  // metadata paths and private current policy proofs: 2.49 MB received. Each
-  // document carries one shared proof bundle for all of its authorizing paths.
-  bodyBytes: { request: 450_000, response: 2_600_000 },
+  // metadata paths and private current policy proofs: 2.44–2.54 MB received.
+  // Each document carries one shared proof bundle for all of its authorizing
+  // paths.
+  bodyBytes: { request: 450_000, response: 2_650_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

@@ -52,11 +52,11 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        // Measured 43 calls: private metadata-root authority adds directory
-        // discovery reads and the first reads of each new policy head.
-        total: 45,
+        // Measured 41 calls: private metadata-root authority adds one directory
+        // discovery read per operation and the first read of each new head.
+        total: 43,
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 10,
+          "GET /principals/organization/:organizationId/policy": 8,
           "GET /principals/group/:groupId/policy": 2,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.

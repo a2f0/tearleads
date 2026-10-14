@@ -96,29 +96,35 @@ Private metadata-root authority and scoped projection recovery add bounded
 directory and group reads. Before
 [#2522](https://github.com/a2f0/tearleads/issues/2522) most of them re-read
 heads the device had already verified: every projection verification confirmed
-each completed public source with a pinned history read, and every scoped
-recovery confirmed its completed directory and Admins stages with a pinned
-policy read. A completed stage of the exact pinned head is now used without that
-read. Each recovery batch's bare directory discovery read remains, so
-server-current heads and live read authorization of the organization policy are
-still observed by every scoped recovery; see
+each completed public source with a pinned history read, every scoped recovery
+confirmed its completed directory and Admins stages with a pinned policy read,
+and every projection collection discovered the directory again. A completed
+stage of the exact pinned head is now used without a confirmation read, and one
+workflow operation (one policy warmer) discovers the directory once and shares
+the recovered view across its collections. That view never outlives the
+operation; an organization read-model hint, a durable pin past a head it names,
+or the end of the producing lease evicts it first. Every operation still
+observes the server-current head and live read authorization of the
+organization policy; see
 [warm projection request cost](principal-history-transport.md#warm-projection-request-cost).
 
 The app's request-budget regressions measured these fixed fixtures:
 
 | Workflow | Before | After | Policy reads after |
 | --- | ---: | ---: | ---: |
-| Single small Explorer upload | 33 | 11 | 4 |
-| Personal organization bootstrap | 93 | 43 | 15 |
-| Admins enrollment (add + settle) | 202 | 75 | 30 |
-| Root attachment sharing (whole test) | 182 | 68–73 | 21–24 |
+| Single small Explorer upload | 33 | 10 | 3 |
+| Personal organization bootstrap | 93 | 41 | 13 |
+| Admins enrollment (add + settle) | 202 | 74–77 | 29–30 |
+| Root attachment sharing (whole test) | 182 | 65–66 | 18 |
 
 The sharing scenario's phases are timing-dependent; its whole-test count is the
 stable comparison. Response bytes fell with the requests: the Admins enrollment
-received about 2.49 MB instead of 4.31 MB, the sharing test about 2.1 MB instead
-of 3.53 MB. Explicit per-route and aggregate budgets retain mutation-count and
-response-byte checks. These are local fixed-cardinality measurements, not
-estimates for arbitrary policy sizes or the earlier full-boundary runs.
+received about 2.46–2.56 MB instead of 4.31 MB, the sharing test about 2.0 MB
+instead of 3.53 MB. Explicit per-route and aggregate budgets retain
+mutation-count and response-byte checks. These are local fixed-cardinality
+measurements, not estimates for arbitrary policy sizes or the earlier
+full-boundary runs. Mutation flows keep a fresh batch per authority load, so
+their reads after a commit or a refused predecessor still rediscover.
 
 `principalPolicyCacheForVerifiedPolicies` retains signatures and exact
 references but does not bind entries to an organization, dependency set or live
@@ -147,5 +153,5 @@ The worker limits apply per API process, not across replicas. Retained signed
 evidence and exact outcome receipts grow with accepted history. Disposable index
 nodes and old protection generations currently have no automatic reclamation.
 Future garbage collection must preserve concurrent readers and resumable rebuilds.
-Discovery reads remain one per recovery batch; sharing them more widely must
-preserve current access checks, artifact validation and operation lifetimes.
+Discovery reads remain one per operation; sharing them across operations would
+need a freshness argument that the per-operation read currently supplies.

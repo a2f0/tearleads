@@ -53,30 +53,33 @@ async function fixture() {
       key.fill(0);
     }
   };
-  const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: createMockApiClient({
-      getPrincipalPolicyPages:
-        source.options.apiClient.getPrincipalPolicyPages.bind(
-          source.options.apiClient,
-        ),
-      getCurrentPrincipalPolicy: async () => {
-        state.fullReads += 1;
-        throw new Error("Full history is unavailable");
+  // Each warmer is one workflow operation with its own recovery memo.
+  const createWarmer = () =>
+    createRuntimePrincipalPolicyWarmer({
+      apiClient: createMockApiClient({
+        getPrincipalPolicyPages:
+          source.options.apiClient.getPrincipalPolicyPages.bind(
+            source.options.apiClient,
+          ),
+        getCurrentPrincipalPolicy: async () => {
+          state.fullReads += 1;
+          throw new Error("Full history is unavailable");
+        },
+      }),
+      infra: { execSql: source.options.execSql },
+      state,
+      withPrincipalHistoryProtection: lease,
+      resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
+      util: {
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
+        },
       },
-    }),
-    infra: { execSql: source.options.execSql },
-    state,
-    withPrincipalHistoryProtection: lease,
-    resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
-    util: {
-      reportSecurityIncident: async (error) => {
-        incidents.push(error);
-      },
-    },
-  });
+    });
+  const warmer = createWarmer();
   const collect = async (
     cache: PrincipalPolicyCache = new Map(),
-    selectedWarmer: ReferencedPrincipalPolicyWarmer = warmer,
+    selectedWarmer: ReferencedPrincipalPolicyWarmer = createWarmer(),
     stillCurrent: () => boolean = () => state.current,
   ) => {
     const context = createProjectionCheckpointContext(source.options);
@@ -91,7 +94,15 @@ async function fixture() {
     });
     return { context, policies };
   };
-  return { ...source, state, collect, warmer, ownedKeys, incidents };
+  return {
+    ...source,
+    state,
+    collect,
+    createWarmer,
+    warmer,
+    ownedKeys,
+    incidents,
+  };
 }
 
 test("runtime projection recovery carries bounded history and dependencies through atomic admission and offline reuse", async () => {
@@ -369,6 +380,7 @@ test("one projection batch reuses directory and Admins recovery for several grou
     await commitProjectionCheckpoints(context);
     const laterDirectory = await history.advanceDirectory(directory, second);
     f.policies.set(history.organizationId, laterDirectory);
+    // A new operation discovers the advance.
     const nextContext = createProjectionCheckpointContext(f.options);
     await collectReferencedPrincipalPolicies({
       checkpointContext: nextContext,
@@ -376,7 +388,7 @@ test("one projection batch reuses directory and Admins recovery for several grou
       principalPolicyCache: new Map(),
       references: [principalPolicyHead(second)],
       resolveUserKey: f.options.resolveTrustedUserIdentity,
-      warmReferencedPrincipalPolicies: f.warmer,
+      warmReferencedPrincipalPolicies: f.createWarmer(),
     });
     expect(
       nextContext.policies.find(

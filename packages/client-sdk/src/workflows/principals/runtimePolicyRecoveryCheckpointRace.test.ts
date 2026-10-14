@@ -46,7 +46,6 @@ async function fixture(kind: "target" | "dependency", updateServer = true) {
   const context = createProjectionCheckpointContext(f.options);
   const collect = () =>
     resolveReferencedPrincipalPolicy({
-      recoveryBatch: {},
       checkpointContext: context,
       organizationId: history.organizationId,
       principalPolicyCache: new Map(),

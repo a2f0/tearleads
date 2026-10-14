@@ -35,16 +35,17 @@ afterEach(async () => {
 // bytes upload -> attachment binding). Run with DUAL_PANE_REQUEST_PROFILE=1 to
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
-  // Seven mutation/blob requests and four directory discovery reads measured
-  // 11 calls. Held bytes match the authenticated attachment intent, so local
-  // settlement needs no binding listing. Keep one request of scheduling headroom.
-  total: 12,
+  // Seven mutation/blob requests and three directory discovery reads (one per
+  // workflow operation) measured 10 calls. Held bytes match the authenticated
+  // attachment intent, so local settlement needs no binding listing. Keep one
+  // request of scheduling headroom.
+  total: 11,
   byRequest: {
     // Completed public stages of the cited heads need no confirmation read.
     "GET /principals/history": 0,
-    // Each scoped recovery batch discovers the server-current directory head;
+    // Each workflow operation discovers the server-current directory head once;
     // its completed directory and Admins stages need no pinned read.
-    "GET /principals/organization/:organizationId/policy": 4,
+    "GET /principals/organization/:organizationId/policy": 3,
     "GET /principals/group/:groupId/policy": 0,
     // Create the image document shell, upload + bind its attachment blob, and
     // probe the remote document before blob staging, then sync the document

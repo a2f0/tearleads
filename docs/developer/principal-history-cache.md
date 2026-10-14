@@ -11,7 +11,10 @@ or prefix of the exact pinned head serves online recovery without a
 confirmation read; if its stored current artifacts fail verification, the stage
 is discarded and signed history is replayed online once
 ([#2522](https://github.com/a2f0/tearleads/issues/2522)). Evicting such a stage
-costs only requests while online.
+costs only requests while online. Above these durable rows, one workflow
+operation keeps its recovered directory and Admins views in memory only; an
+organization read-model hint, a durable pin past a memoized head, or the end of
+the producing lease evicts them, and nothing is persisted from that memo.
 
 Encrypted member envelopes are retained separately for each principal key
 fingerprint before progress is removed. Candidate retention checks the envelope

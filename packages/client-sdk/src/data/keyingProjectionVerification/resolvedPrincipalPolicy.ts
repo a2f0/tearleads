@@ -60,7 +60,6 @@ async function meetsCheckpoints(
 }
 
 export async function resolveReferencedPrincipalPolicy(input: {
-  readonly recoveryBatch?: object | undefined;
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly organizationId: string;
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -87,7 +86,7 @@ export async function resolveReferencedPrincipalPolicy(input: {
   if (!result) {
     const resolve = input.warmReferencedPrincipalPolicies?.resolveReference;
     if (!resolve) return null;
-    const read = async (recoveryBatch: object | undefined) => {
+    const read = async (recoveryBatch?: object) => {
       assertProjectionVerificationCurrent(input.stillCurrent);
       const recovered = await resolve({
         recoveryBatch,
@@ -99,9 +98,9 @@ export async function resolveReferencedPrincipalPolicy(input: {
       assertProjectionVerificationCurrent(recovered.stillCurrent);
       return recovered;
     };
-    result = await read(input.recoveryBatch);
+    result = await read();
     // A concurrent admission may advance a pin after recovery verified it.
-    // Refresh once outside the old batch's pinned directory view; the fresh
+    // Refresh once outside the operation's directory view; the fresh
     // recovery and final checkpoint check still reject rollback/equivocation.
     if (!(await meetsCheckpoints(input.checkpointContext, result, true))) {
       assertProjectionVerificationCurrent(result.stillCurrent);

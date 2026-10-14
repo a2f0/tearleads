@@ -127,25 +127,30 @@ recovery takes the same local path while online. An incomplete stage, a new
 head, or lost proof material still reads the bounded pages it needs; each
 returned head artifact is checked against the private root as before.
 
-Server currency stays with the organization discovery read: a bare `GET
-/principals/organization/:organizationId/policy` without `stateHash`, issued by
-every scoped recovery batch. It selects the server-current directory head and
-applies live read authorization to the organization policy. A group revocation
-rotates the group and commits a directory successor with it, so the next batch
-recovers that successor. Dropping the confirmation read removes only refusals of
-evidence the device already verified: a 403 or 409 for a completed head, or
-served head bytes that differ from the stored ones. It cannot admit an
-unverified head, bypass the rollback, fork or checkpoint checks, or extend write
-authority, which the API still decides against live state. Stored current
-artifacts that fail their signed-history check discard the stage and replay
-signed history online once rather than refusing (no-brick).
+Server currency stays with the organization discovery read, a bare
+`GET /principals/organization/:organizationId/policy` without `stateHash`.
+Every workflow operation that needs private policy authority issues it once.
+It selects the server-current directory head and applies live read
+authorization to the organization policy. A group revocation rotates the group
+and commits a directory successor with it, so the next operation recovers that
+successor. Within one operation, later projection collections reuse its
+recovered directory until an organization hint, a durable pin past a memoized
+head, or the end of the producing lease evicts it. Dropping the confirmation
+read removes only refusals of evidence the device already verified: a 403 or
+409 for a completed head, or served head bytes that differ from the stored
+ones. It cannot admit an unverified head, bypass the rollback, fork or
+checkpoint checks, or extend write authority, which the API still decides
+against live state. Stored current artifacts that fail their signed-history
+check discard the stage and replay signed history online once rather than
+refusing (no-brick).
 
 Measured on the app fixtures at that change, the single-file upload fell from
-33 to 11 requests (no public history reads), personal-organization bootstrap
-from 93 to 43, the Admins-group addition from 202 to 75, and the root
-attachment-sharing test from 182 to 68–73. The remaining policy reads are
-discovery reads and reads of heads that are new to the device. These are
-measured request counts, not latency benchmarks.
+33 to 10 requests (three discovery reads, no public history reads),
+personal-organization bootstrap from 93 to 41, the Admins-group addition from
+202 to 74–77, and the root attachment-sharing test from 182 to 65–66. The
+remaining policy reads are one discovery read per operation and reads of heads
+that are new to the device. These are measured request counts, not latency
+benchmarks.
 
 ## Measuring HTTP work
 
