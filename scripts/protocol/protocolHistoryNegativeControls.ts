@@ -42,6 +42,14 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "An organization hint must evict the in-flight operation's recovered directory (#2522).",
   },
   {
+    id: "principal-reuse-stamps-post-read-epoch",
+    module: "formal/container-keying/PrincipalRecoveryReuse.tla",
+    config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
+    constants: { StampObservedEpoch: "FALSE" },
+    expect: { kind: "invariant", name: "NoStaleAfterHint" },
+    why: "A memo entry must keep the epoch observed before its reads, not the one current when it is stored (#2522).",
+  },
+  {
     id: "principal-reuse-ignores-advanced-pin",
     module: "formal/container-keying/PrincipalRecoveryReuse.tla",
     config: "formal/container-keying/PrincipalRecoveryReuse.cfg",

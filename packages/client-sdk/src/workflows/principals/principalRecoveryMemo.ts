@@ -22,7 +22,7 @@ interface MemoEntry<T> {
   readonly value: T;
   /** The producing call's private lease and caller lifetime. */
   readonly stillCurrent: () => boolean;
-  /** Organization hint epoch observed before production. */
+  /** Organization hint epoch observed before the reads that produced value. */
   readonly epoch: number;
 }
 
@@ -33,23 +33,48 @@ export interface PrincipalRecoveryMemo {
   readonly admins: Memo<RecoveredPrincipalPolicyHistory>;
 }
 
-/** Evict an entry whose producer lease ended or whose evidence went stale. */
+/** Synchronous: no hint and no lease end since the entry's reads began. */
+function entryLive<T>(
+  entry: MemoEntry<T>,
+  validity: PrincipalRecoveryMemoValidity<T>,
+): boolean {
+  return entry.epoch === validity.epoch() && entry.stillCurrent();
+}
+
+function evict<T>(
+  memo: Memo<T> | undefined,
+  key: string,
+  pending: Promise<MemoEntry<T>>,
+): void {
+  if (memo?.get(key) === pending) memo.delete(key);
+}
+
+/**
+ * Return a live entry, evicting one whose producer lease ended, that predates
+ * an organization hint, or that a durable pin has moved past. Liveness is
+ * checked again after every await, so a hint or lease end during the pin
+ * reads also evicts. The caller rechecks synchronously before use. A pin read
+ * is a snapshot; a pin that advances later is caught by the checkpoint reload
+ * in recovery, the caller's checkpoint refresh, and atomic admission.
+ */
 async function reusableEntry<T>(
   memo: Memo<T> | undefined,
   key: string,
   validity: PrincipalRecoveryMemoValidity<T>,
-): Promise<MemoEntry<T> | undefined> {
+): Promise<
+  { entry: MemoEntry<T>; pending: Promise<MemoEntry<T>> } | undefined
+> {
   const pending = memo?.get(key);
   if (!pending) return undefined;
   const entry = await pending.catch(() => undefined);
   if (
     entry &&
-    entry.epoch === validity.epoch() &&
+    entryLive(entry, validity) &&
     (await validity.covers(entry.value)) &&
-    entry.stillCurrent()
+    entryLive(entry, validity)
   )
-    return entry;
-  if (memo?.get(key) === pending) memo.delete(key);
+    return { entry, pending };
+  evict(memo, key, pending);
   return undefined;
 }
 
@@ -57,27 +82,37 @@ async function reusableEntry<T>(
  * Share authenticated results within one workflow operation. A later caller
  * never receives a result whose producer lease ended, that predates an
  * organization hint, or that a durable pin has moved past; it recovers again.
+ * A result derived from a reused source keeps the source's epoch, so a hint
+ * that arrives before it is stored still evicts it.
  */
 async function memoPrincipalRecovery<T>(
   memo: Memo<T> | undefined,
   key: string,
   stillCurrent: () => boolean,
   validity: PrincipalRecoveryMemoValidity<T>,
+  sourceEpoch: number | undefined,
   work: () => Promise<T>,
 ): Promise<T> {
   assertProjectionVerificationCurrent(stillCurrent);
   const reused = await reusableEntry(memo, key, validity);
   if (reused) {
-    assertProjectionVerificationCurrent(stillCurrent);
-    return reused.value;
+    if (entryLive(reused.entry, validity)) {
+      assertProjectionVerificationCurrent(stillCurrent);
+      return reused.entry.value;
+    }
+    evict(memo, key, reused.pending);
   }
-  const epoch = validity.epoch();
+  // Observed before work starts its reads; a derived result keeps its source's.
+  const epoch = sourceEpoch ?? validity.epoch();
   const pending = work().then((value) => ({ value, stillCurrent, epoch }));
   memo?.set(key, pending);
   const result = await pending.catch((error: unknown) => {
-    if (memo?.get(key) === pending) memo.delete(key);
+    evict(memo, key, pending);
     throw error;
   });
+  // A hint during production leaves this caller's in-flight view, never a
+  // stored one: the stale epoch would evict it anyway.
+  if (result.epoch !== validity.epoch()) evict(memo, key, pending);
   assertProjectionVerificationCurrent(result.stillCurrent);
   assertProjectionVerificationCurrent(stillCurrent);
   return result.value;
@@ -112,7 +147,7 @@ async function readMemoizedAdmins(
       selected.map((reference) => ({ ...reference })),
     ]);
   const validity = adminsMemoValidity(input, expectedHead);
-  const known = await reusableEntry(memo, key([]), validity);
+  const known = (await reusableEntry(memo, key([]), validity))?.entry;
   const sourceCurrent = known?.stillCurrent ?? (() => true);
   const current = () =>
     !input.signal?.aborted && input.stillCurrent() && sourceCurrent();
@@ -121,6 +156,7 @@ async function readMemoizedAdmins(
     key(references),
     current,
     validity,
+    known?.epoch,
     async () => {
       const options = {
         ...input,
@@ -156,7 +192,7 @@ async function readMemoizedDirectory(
   const validity = directoryMemoValidity(input);
   const known =
     references.length > 0
-      ? await reusableEntry(memo, key([]), validity)
+      ? (await reusableEntry(memo, key([]), validity))?.entry
       : undefined;
   const sourceCurrent = known?.stillCurrent ?? (() => true);
   const current = () =>
@@ -166,6 +202,7 @@ async function readMemoizedDirectory(
     key(references),
     current,
     validity,
+    known?.epoch,
     async () => {
       if (!known) return recoverPolicyDirectory(input, references);
       try {

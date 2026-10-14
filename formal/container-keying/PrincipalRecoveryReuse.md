@@ -20,15 +20,25 @@ pin past a memoized head evicts it. The memo never outlives its operation.
 | `Interrupt` | `savePrincipalHistoryStage` persists an incomplete page boundary |
 | `StoreRejectedCurrent` | `acceptPage` saves a completed stage before `verifyPrincipalPolicyCurrent` checks its current artifacts |
 | `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer |
-| `ReuseMemo` / `MemoUsable` | `reusableEntry` checks the producer lease, the hint epoch, and `directoryMemoValidity` pin coverage |
-| `Collect` | `recoverPolicyDirectory` runs `discoverDirectoryHead`, then recovers that exact head |
-| `Recover` | `readRecoveryPages` skips the read for a completed stage of the pinned head; `StoredPrincipalCurrentRejectedError` discards the stage and replays online |
+| `ReuseMemo` / `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `memoPrincipalRecovery` rechecks `entryLive` synchronously before use |
+| `BeginCollect` | `memoPrincipalRecovery` observes the epoch before `recoverPolicyDirectory` runs `discoverDirectoryHead` |
+| `BeginDerive` | `readMemoizedDirectory` and `readMemoizedAdmins` derive a citation from a reused entry and pass its epoch as `sourceEpoch` |
+| `FinishCollect` | `readRecoveryPages` skips the read for a completed stage of the pinned head; `StoredPrincipalCurrentRejectedError` discards the stage and replays online; the entry is stored with the observed epoch |
+| `AbortCollect` | `PrincipalHistoryRecoveryRaceError` when the durable pin changes during recovery |
 | `FreshPerOperation` | the bare discovery read in `discoverDirectoryHead` runs once per operation |
-| `NoStaleAfterHint` | `principalRecoveryEpoch` changes after a hint, so the next collection rediscovers |
+| `NoStaleAfterHint` | `principalRecoveryEpoch` changes after a hint, so a collection that begins later rediscovers |
 | `NoRollback` | `directoryMemoValidity` reloads every named head's durable pin through `loadPrincipalPolicyCheckpoint` |
 
+Production is not atomic. A collection reads the server and local pins, then
+stores its entry; a hint or pin change can land in between. The model splits
+that into `BeginCollect` or `BeginDerive` and `FinishCollect`, and holds each
+collection to the hint floor at which its reads began: one in flight when a
+hint arrives may finish with its pre-hint view, but its stored entry carries
+the pre-read epoch and is evicted before any later collection uses it. Reuse is
+one step because production rechecks liveness synchronously with the use.
+
 The positive configuration explores three heads, three operations and two
-hints. Six negative controls in
+hints. Seven negative controls in
 `scripts/protocol/protocolHistoryNegativeControls.ts` disable one guard each:
 
 - `DiscoverEachOperation = FALSE` (with hints disabled) violates
@@ -48,6 +58,11 @@ hints. Six negative controls in
   organization pin and the pin of every group head the directory names; a pin
   advanced exactly to a memoized head keeps it, since the device admitted what
   the memo holds.
+- `StampObservedEpoch = FALSE` violates `NoStaleAfterHint`: stamping an entry
+  with the epoch current when it is stored, rather than the one observed before
+  its reads (or its source's), lets a hint that arrived mid-collection go
+  unnoticed by later collections. This is the race the Codex review of
+  e262ab3ff found; `principalRecoveryMemoHintRace.test.ts` reproduces it.
 
 Public projection sources follow the completed-stage rule: `readPublicPages`
 skips its pinned read once progress is complete, and every read that does occur
@@ -56,7 +71,8 @@ so `FreshPerOperation` rests on the discovery read alone; hint eviction only
 shortens reuse inside an operation. The model abstracts signatures, pages, the
 public/private split, the producer lease, and concurrent recovery writers; the
 signed SDK regressions in `principalHistoryRecovery.test.ts`,
-`principalRecoveryMemo.test.ts`, `principalRecoveryOperation.test.ts` and
+`principalRecoveryMemo.test.ts`, `principalRecoveryOperation.test.ts`,
+`principalRecoveryMemoHintRace.test.ts` and
 `runtimeProjectionPolicyRecovery.test.ts` cover those boundaries. It does not
 model the server's read authorization: dropping a confirmation read removes a
 refusal of evidence the device already verified, and writes stay authorized

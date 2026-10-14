@@ -14,14 +14,15 @@ lease and durable pins. Missing evidence or a different cached current head uses
 the bounded online reader; other verification failures remain failures. This
 does not discover newer server state or replace live object authorization.
 Metadata verification uses the organization head supplied by its live writer
-projection. Directory discovery and cited recovery share one caller's batch.
-A policy warmer is one workflow operation: every projection collection it
-verifies shares one batch, so the operation discovers the directory once
+projection. Directory discovery and cited recovery share one caller's batch. A
+policy warmer is one workflow operation: every projection collection it verifies
+shares one batch, so the operation discovers the directory once
 ([#2522](https://github.com/a2f0/tearleads/issues/2522)). A batch entry is
 reused only while its producing lease is live, no organization read-model hint
-has been applied since it was produced, and no durable pin has moved past or
-forked from a head it names; otherwise it is evicted and the later caller
-recovers again under its own lease. The batch dies with its operation.
+has been applied since its reads began (a citation derived from a reused entry
+keeps that entry's epoch), and no durable pin has moved past or forked from a
+head it names; otherwise it is evicted and the later caller recovers again under
+its own lease. The batch dies with its operation.
 Local attempts use a separate offline key in that batch.
 The discovery page passes through ordinary signature verification; continuation
 reads remain bound to its exact current artifacts. Additional historical
