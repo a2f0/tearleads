@@ -68,8 +68,8 @@
       "bytes": 2984719
     },
     "docs/protocol-specification.md": {
-      "lines": 673,
-      "bytes": 34749
+      "lines": 674,
+      "bytes": 34859
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -84,8 +84,8 @@
       "bytes": 24037
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1978,
-      "bytes": 62836
+      "lines": 1980,
+      "bytes": 62981
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -128,8 +128,8 @@
       "bytes": 21286
     },
     "packages/api/src/realtime/wsRouting.test.ts": {
-      "lines": 530,
-      "bytes": 16424
+      "lines": 506,
+      "bytes": 14829
     },
     "packages/api/src/routes/auth/register.test.ts": {
       "lines": 634,

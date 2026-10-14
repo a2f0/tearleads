@@ -10,7 +10,7 @@ const principalKeys = ["principal:group:readers"];
 
 test("membership changes evict subscriptions that depend on that principal", async () => {
   const f = fixture({ principalKeys, authorize: async (_user, ids) => ids });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare();
   f.publish({
     type: "principal_access_changed",
@@ -38,7 +38,7 @@ test("membership changes invalidate a pending authorization before installation"
       return ++calls === 1 ? authorization.promise : Promise.resolve([]);
     },
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   const pending = f.declare();
   await started.promise;
   f.publish({ type: "principal_access_changed", ...principal });
@@ -52,7 +52,7 @@ test("membership changes invalidate a pending authorization before installation"
 
 test("one principal change batches all affected interests into one frame per socket", async () => {
   const f = fixture({ principalKeys, authorize: async (_user, ids) => ids });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER, OTHER]);
   f.publish({ type: "principal_access_changed", ...principal });
   expect(

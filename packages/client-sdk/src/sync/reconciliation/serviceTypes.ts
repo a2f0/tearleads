@@ -81,7 +81,16 @@ export interface ReconciliationService {
    * retries need a fresh opportunity once the server is reachable again.
    */
   resetDiscovered: () => void;
-  reconcileRootContainersNow: () => Promise<void>;
+  /**
+   * Re-list root containers and reconcile the root catch-up set. By default a
+   * request joins a sweep already in flight. With `freshListing`, the returned
+   * sweep starts after this call: a discovery event (a root shared with or
+   * created for this user) must not be satisfied by a sweep that may have
+   * listed roots before the event committed.
+   */
+  reconcileRootContainersNow: (options?: {
+    readonly freshListing?: boolean;
+  }) => Promise<void>;
   reconcileNow: () => Promise<void>;
   stop: () => void;
 }

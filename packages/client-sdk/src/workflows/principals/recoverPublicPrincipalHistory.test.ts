@@ -10,6 +10,7 @@ import {
   principalHistoryPrefixes,
 } from "../../data/sqlite/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
+import { createExecSql } from "../../data/sqlite/sqlSchema";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -234,6 +235,35 @@ test("a warm public prefix authenticates its cited head locally without a read",
     expect(recovered.history.currentEntry.state.signature).toBe(
       history.bundle.currentState.signature,
     );
+    expect(f.requests).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("completed public evidence is returned only while its caller is current", async () => {
+  const f = await createPublicHistoryFixture(history);
+  try {
+    await recoverPublicPrincipalHistory(f.options);
+    f.requests.length = 0;
+    let current = true;
+    // The caller's lifetime ends after the completed prefix is read.
+    const execSql = createExecSql({
+      async exec({ sql, bind, rowMode }) {
+        const rows =
+          rowMode === "array"
+            ? await f.options.execSql(sql, bind, { rowMode: "array" })
+            : await f.options.execSql(sql, bind);
+        if (sql.includes('from "principal_history_prefixes"')) current = false;
+        return { rows };
+      },
+    });
+    const error = await recoverPublicPrincipalHistory({
+      ...f.options,
+      execSql,
+      stillCurrent: () => current,
+    }).catch((error: unknown) => error);
+    expect(isProjectionVerificationCancelledError(error)).toBe(true);
     expect(f.requests).toEqual([]);
   } finally {
     f.close();

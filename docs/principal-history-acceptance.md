@@ -115,11 +115,11 @@ The app's request-budget regressions measured these fixed fixtures:
 | Single small Explorer upload | 33 | 10 | 3 |
 | Personal organization bootstrap | 93 | 41 | 13 |
 | Admins enrollment (add + settle) | 202 | 74–77 | 29–30 |
-| Root attachment sharing (whole test) | 182 | 65–66 | 18 |
+| Root attachment sharing (whole test) | 182 | 65–71 | 18–21 |
 
 Provisioning later primed the founding organization, Admins and Members heads
 and seeded discovery evidence for the profile documents it signed. Personal
-bootstrap fell from 41 to 38 requests (13 to 11 policy reads), and creating and
+bootstrap fell from 40 to 37 requests (13 to 11 policy reads), and creating and
 activating another organization from 16 to 9 (7 to 1).
 
 The sharing scenario's phases are timing-dependent; its whole-test count is the

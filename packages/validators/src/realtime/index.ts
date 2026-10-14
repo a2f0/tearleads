@@ -22,7 +22,6 @@ export {
 export {
   parseWsServerMessage,
   serializeWsServerMessage,
-  WsInterestStateFrameSchema,
   WsKnownContainersAckFrameSchema,
   WsKnownOrganizationsAckFrameSchema,
   WsOrganizationReadModelAccessRevokedFrameSchema,
@@ -33,4 +32,7 @@ export {
   type WsServerMessage,
   WsServerMessageSchema,
 } from "./wsServerFrames";
-export { MAX_WS_DECLARATION_ID_LENGTH } from "./wsShared";
+export {
+  MAX_WS_DECLARATION_ID_LENGTH,
+  WS_TICKET_TTL_SECONDS,
+} from "./wsShared";

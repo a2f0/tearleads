@@ -32,7 +32,6 @@ test("a routed publication does not await an unrelated revalidation read", async
           publish: async () => {
             routed.resolve();
           },
-          flush: async () => {},
         },
         connections: { saveDirty: () => {} },
       }),
@@ -53,7 +52,7 @@ test("a routed publication does not await an unrelated revalidation read", async
   }
 });
 
-test("failed checks and interest writes still save sockets and schedule the next alarm", async () => {
+test("failed checks still save sockets and schedule the next alarm", async () => {
   const steps: string[] = [];
   const hub: InstanceType<typeof RealtimeHub> = Object.assign(
     Object.create(RealtimeHub.prototype),
@@ -78,12 +77,6 @@ test("failed checks and interest writes still save sockets and schedule the next
             steps.push("database closed");
           }
         },
-        gateway: {
-          flush: async () => {
-            steps.push("interest");
-            throw new Error("write failed");
-          },
-        },
         connections: {
           saveDirty: () => {
             steps.push("snapshots");
@@ -93,20 +86,13 @@ test("failed checks and interest writes still save sockets and schedule the next
     },
   );
   await expect(hub.alarm()).rejects.toThrow("Realtime event failed");
-  expect(steps).toEqual([
-    "interest",
-    "snapshots",
-    "alarm",
-    "database closed",
-    "leave",
-  ]);
+  expect(steps).toEqual(["snapshots", "alarm", "database closed", "leave"]);
 });
 
 test("a failed restoration can retry on the next event", async () => {
   let attempts = 0;
   const loaded = {
     withDatabase: (work: () => Promise<void>) => work(),
-    gateway: { flush: async () => {} },
     connections: { saveDirty: () => {} },
   };
   const hub: InstanceType<typeof RealtimeHub> = Object.assign(
@@ -183,7 +169,6 @@ test("a failed upgrade releases its accepted server socket", async () => {
   const loaded = {
     consumeTicket: async () => ({ userId: "user", sessionId: "session" }),
     withDatabase: (work: () => Promise<unknown>) => work(),
-    gateway: { flush: async () => {} },
     connections: {
       countSession: () => 0,
       attach: async () => {},

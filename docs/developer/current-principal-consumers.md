@@ -14,14 +14,21 @@ lease and durable pins. Missing evidence or a different cached current head uses
 the bounded online reader; other verification failures remain failures. This
 does not discover newer server state or replace live object authorization.
 Metadata verification uses the organization head supplied by its live writer
-projection. Directory discovery and cited recovery share one caller's batch.
-A policy warmer is one workflow operation: every projection collection it
-verifies shares one batch, so the operation discovers the directory once
+projection. Directory discovery and cited recovery share one caller's batch. A
+policy warmer is one workflow operation: every projection collection it verifies
+shares one batch, so the operation discovers the directory once
 ([#2522](https://github.com/a2f0/tearleads/issues/2522)). A batch entry is
 reused only while its producing lease is live, no organization read-model hint
-has been applied since it was produced, and no durable pin has moved past or
-forked from a head it names; otherwise it is evicted and the later caller
-recovers again under its own lease. The batch dies with its operation.
+has been applied since its reads began (a citation derived from a reused entry
+keeps that entry's epoch), and no durable pin has moved past or forked from a
+head it names; otherwise it is evicted and the later caller recovers again under
+its own lease. The batch dies with its operation. It is the only reuse of
+scoped evidence: a caller's policy cache keeps bare verified policies and
+resolves every scoped citation through the batch, so a cache shared across
+operations cannot skip a later operation's discovery or bypass the batch's
+hint and pin rules. Evidence handed out from the batch keeps its producer's
+lifetime alongside the consumer's until it is used: projection admission
+rechecks that composite and cancels a use whose producer has expired.
 Local attempts use a separate offline key in that batch.
 The discovery page passes through ordinary signature verification; continuation
 reads remain bound to its exact current artifacts. Additional historical
@@ -124,8 +131,8 @@ of heads new to the device. See the
 [acceptance evidence](../principal-history-acceptance.md#ordinary-workflow-cost)
 for the security tradeoff and measured byte costs.
 
-The current app fixtures measure 38 requests for personal bootstrap and 9 for
-creating and activating another organization, with ceilings of 40 and 9.
+The current app fixtures measure 37 requests for personal bootstrap and 9 for
+creating and activating another organization, with ceilings of 39 and 9.
 Provisioning seeds discovery evidence for the profile documents it signed and
 primes recovery of the founding policy heads, so neither flow fetches those
 documents' writer projections or reads the founding groups' history.
@@ -146,8 +153,8 @@ The Admins enrollment fixture measured 73–76 completed requests; its ceiling i
 79, plus explicitly counted validated preparation continuations. It caps
 organization-policy reads at 20, group-policy reads at 3 and public history
 reads at 7. Body ceilings are 450,000 request bytes and 2,650,000 response
-bytes. The root attachment-sharing fixture measured 65–66 requests and permits
-74, with body ceilings of 380,000 request bytes and 2,250,000 response bytes.
+bytes. The root attachment-sharing fixture measured 65–71 requests and permits
+79, with body ceilings of 380,000 request bytes and 2,250,000 response bytes.
 The small Explorer upload fixture measured 10 calls and permits 11.
 
 Folder mutation ceilings also include private current-policy reads:

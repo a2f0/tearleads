@@ -174,6 +174,7 @@ test("isVerifyResponse", () => {
     organizationId: "org-1",
     token: "abc123",
     userId: "user-1",
+    wsTicket: "ticket-1",
   };
   const successResult = VerifySuccessResponseSchema.safeParse(successResponse);
   expect(successResult.success).toBe(true);
@@ -189,6 +190,13 @@ test("isVerifyResponse", () => {
 
   expect(isVerifyResponse({ authenticated: true })).toBe(false);
   expect(isVerifyResponse(successResponse)).toBe(true);
+  // The first websocket ticket is a required part of a successful login.
+  const { wsTicket: _omitted, ...withoutTicket } = successResponse;
+  expect(isVerifyResponse(withoutTicket)).toBe(false);
+  expect(isVerifyResponse({ ...successResponse, wsTicket: "" })).toBe(false);
+  expect(isVerifyResponse({ authenticated: false, wsTicket: "ticket-1" })).toBe(
+    false,
+  );
   expect(isVerifyResponse({ authenticated: true, token: "abc123" })).toBe(
     false,
   );

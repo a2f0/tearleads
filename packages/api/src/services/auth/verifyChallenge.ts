@@ -21,6 +21,8 @@ interface VerifyChallengeResult {
   isRoot: boolean;
   organizationId: string;
   rootContainerId: string | null;
+  /** The new session's id, which a websocket ticket for it binds to. */
+  sessionId: string;
   token: string;
   userId: string;
 }
@@ -92,7 +94,7 @@ export async function verifyChallenge(
     throw new VerifyChallengeError("Invalid signature", "invalid_signature");
   }
 
-  const token = await runtime.sessionTokenIssuer.createSession({
+  const { sessionId, token } = await runtime.sessionTokenIssuer.createSession({
     userId: user.id,
     fingerprint: input.fingerprint,
     createdAt: Date.now(),
@@ -114,6 +116,7 @@ export async function verifyChallenge(
     rootContainerId: root?.id ?? null,
     isRoot: user.isRoot,
     organizationId: user.defaultOrganizationId,
+    sessionId,
     token,
     userId: user.id,
   };

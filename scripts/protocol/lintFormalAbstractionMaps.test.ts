@@ -233,14 +233,14 @@ test("a seam surviving only in comments or strings is not production code", () =
 test("snake_case wire tags match as quoted string contracts", () => {
   const tagged = {
     ...cleanInput,
-    docs: [doc(["| `Serve` | `interest_state` |"])],
+    docs: [doc(["| `Serve` | `resync_required` |"])],
   };
   expect(
     verifyAbstractionMaps({
       ...tagged,
       productionFiles: [
         {
-          content: 'z.literal("interest_state")',
+          content: 'z.literal("resync_required")',
           path: "packages/a/src/a.ts",
         },
       ],
@@ -251,11 +251,11 @@ test("snake_case wire tags match as quoted string contracts", () => {
     verifyAbstractionMaps({
       ...tagged,
       productionFiles: [
-        { content: "const interest_state = 1;", path: "packages/a/src/a.ts" },
+        { content: "const resync_required = 1;", path: "packages/a/src/a.ts" },
       ],
     }),
   ).toEqual([
-    `${DOC_PATH}:7: \`interest_state\` not found together in any production package source file`,
+    `${DOC_PATH}:7: \`resync_required\` not found together in any production package source file`,
   ]);
 });
 
@@ -275,20 +275,20 @@ test("VARIABLES declarations consume only comma-continued lines", () => {
 test("a wire tag quoted only in a comment is not the live contract", () => {
   const tagged = {
     ...cleanInput,
-    docs: [doc(["| `Serve` | `interest_state` |"])],
+    docs: [doc(["| `Serve` | `resync_required` |"])],
   };
   expect(
     verifyAbstractionMaps({
       ...tagged,
       productionFiles: [
         {
-          content: '// old type: "interest_state" removed in the scrub',
+          content: '// old type: "resync_required" removed in the scrub',
           path: "packages/a/src/a.ts",
         },
       ],
     }),
   ).toEqual([
-    `${DOC_PATH}:7: \`interest_state\` not found together in any production package source file`,
+    `${DOC_PATH}:7: \`resync_required\` not found together in any production package source file`,
   ]);
 });
 

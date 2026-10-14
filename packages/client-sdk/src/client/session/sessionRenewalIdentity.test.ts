@@ -57,6 +57,7 @@ for (const expiredUserId of [userA, null]) {
           return jsonResponse({
             rootContainerId: null,
             authenticated: true,
+            wsTicket: "ws-ticket",
             isRoot: false,
             organizationId: "org",
             token: "token-renewed",
