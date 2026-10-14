@@ -21,6 +21,7 @@ import {
   cleanupPaneTestEnvironment,
   waitForPaneRuntimeToSettle,
 } from "../../../../test/helpers/paneTestUtils";
+import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 import { measureWorkflowRequests } from "../../../../test/helpers/workflowRequestBudget";
 
 afterEach(cleanupPaneTestEnvironment);
@@ -39,6 +40,8 @@ test("offline folder creation, cached note edits and Trash use zero requests and
   useTestApiAppHandlers();
   const pane = getPaneRoot(renderSinglePane(), "left");
   await waitForSinglePaneProvisioning(pane);
+  // Initial Contacts/self promotion must finish before measuring offline work.
+  await waitForPersonalBootstrap();
   await openExplorer(pane);
   await createNoteInContainer(pane, "/", "Cached before outage");
   await waitForPaneRuntimeToSettle();

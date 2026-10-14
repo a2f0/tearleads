@@ -26,4 +26,6 @@ export const seedExpectations = JSON.parse(
   note: { title: string; bodyLine: string };
   driversLicense: DocumentExpectation;
   passport: DocumentExpectation;
+  birthCertificate: DocumentExpectation;
+  creditCard: DocumentExpectation;
 };

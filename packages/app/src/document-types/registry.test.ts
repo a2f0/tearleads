@@ -20,6 +20,7 @@ test("document type registry covers the supported inline document kinds", () => 
     "drivers_license",
     "credit_card",
     "passport",
+    "birth_certificate",
     "env_file",
     "blood_pressure",
     "weight",
@@ -46,6 +47,9 @@ test("document type registry covers the supported inline document kinds", () => 
   );
   expect(getDocumentTypeDefinition("credit_card").createLabel).toBe(
     "Credit Card",
+  );
+  expect(getDocumentTypeDefinition("birth_certificate").createLabel).toBe(
+    "Birth Certificate",
   );
   expect(getDocumentTypeDefinition("passport").createLabel).toBe("Passport");
   expect(getDocumentTypeDefinition("env_file").createLabel).toBe(".env File");
@@ -78,6 +82,7 @@ test("creatable document types exclude upload-only file kinds", () => {
     "drivers_license",
     "credit_card",
     "passport",
+    "birth_certificate",
     "env_file",
     "blood_pressure",
     "weight",

@@ -56,6 +56,26 @@ function openDocumentDetail(expected: DocumentExpectation): OpenDetail {
   };
 }
 
+function openDocumentImage(
+  expected: DocumentExpectation,
+  label: string,
+): OpenDetail {
+  return async (scope) => {
+    await openDocumentDetail(expected)(scope);
+    await scope
+      .getByRole("button", { name: `Open ${label}`, exact: true })
+      .click();
+    await assertImagesDecoded(
+      scope.locator("img.explorer-blob-preview-media"),
+      1,
+    );
+    await scope.locator(".explorer-blob-preview-open").click();
+    const image = scope.locator("img.mini-app-image-viewer-image");
+    await expect(image).toBeVisible();
+    await assertImagesDecoded(image, 1);
+  };
+}
+
 interface DetailScreen {
   name: string;
   route: string;
@@ -81,6 +101,33 @@ export const DETAIL_SCREENS: readonly DetailScreen[] = [
     route: "/app/explorer",
     menuLabel: "Explorer",
     open: openDocumentDetail(seedExpectations.driversLicense),
+  },
+  {
+    name: "credit-card-detail",
+    route: "/app/explorer",
+    menuLabel: "Explorer",
+    open: openDocumentDetail(seedExpectations.creditCard),
+  },
+  {
+    name: "birth-certificate-detail",
+    route: "/app/explorer",
+    menuLabel: "Explorer",
+    open: openDocumentDetail(seedExpectations.birthCertificate),
+  },
+  {
+    name: "birth-certificate-image",
+    route: "/app/explorer",
+    menuLabel: "Explorer",
+    open: openDocumentImage(
+      seedExpectations.birthCertificate,
+      "Birth Certificate Image",
+    ),
+  },
+  {
+    name: "credit-card-image",
+    route: "/app/explorer",
+    menuLabel: "Explorer",
+    open: openDocumentImage(seedExpectations.creditCard, "Front Image"),
   },
   {
     name: "passport-detail",

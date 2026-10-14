@@ -4,7 +4,7 @@
   "license": "UNLICENSED",
   "packageManager": "bun@1.4.2",
   "catalog": {
-    "@a2f0/continuity": "github:a2f0/continuity#1e93f3c2f4d3a23da220066e7a56ca843a29c62d",
+    "@a2f0/continuity": "github:a2f0/continuity#9d9cc078f0b28470699a13d30c4c1141bc2960aa",
     "@types/bun": "1.4.2",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",

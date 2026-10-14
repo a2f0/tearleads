@@ -4,6 +4,10 @@ import { dirname, join } from "node:path";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { BIRTH_CERTIFICATE_ATTACHMENT_SLOTS } from "../../src/document-types/birth-certificate/birthCertificateDocument";
+import { CREDIT_CARD_ATTACHMENT_SLOTS } from "../../src/document-types/credit-card/creditCardDocument";
+import { DRIVER_LICENSE_ATTACHMENT_SLOTS } from "../../src/document-types/drivers-license/driverLicenseDocument";
+import { PASSPORT_ATTACHMENT_SLOTS } from "../../src/document-types/passport/passportDocument";
 import { APP_DOCUMENT_PROJECTOR_DEFINITIONS } from "../../src/document-types/projectors";
 import { decodeBackupFile } from "../../src/providers/db/localBackupFormat";
 import { buildSeedArtifact } from "./buildSeedArtifact";
@@ -47,7 +51,9 @@ test("pinned Continuity data builds the documents and images promised to screens
     expect(payload.summary.blobCount).toBe(
       avatarCount +
         expected.driversLicense.imageCount +
-        expected.passport.imageCount,
+        expected.passport.imageCount +
+        expected.birthCertificate.imageCount +
+        expected.creditCard.imageCount,
     );
 
     const contacts = await sdk.documents.list({ documentKind: "contact" });
@@ -66,18 +72,31 @@ test("pinned Continuity data builds the documents and images promised to screens
       ),
     ).toBe(true);
 
-    for (const [kind, detail] of [
-      ["drivers_license", expected.driversLicense],
-      ["passport", expected.passport],
+    for (const [kind, detail, slots] of [
+      [
+        "drivers_license",
+        expected.driversLicense,
+        DRIVER_LICENSE_ATTACHMENT_SLOTS,
+      ],
+      ["passport", expected.passport, PASSPORT_ATTACHMENT_SLOTS],
+      [
+        "birth_certificate",
+        expected.birthCertificate,
+        BIRTH_CERTIFICATE_ATTACHMENT_SLOTS,
+      ],
+      ["credit_card", expected.creditCard, CREDIT_CARD_ATTACHMENT_SLOTS],
     ] as const) {
       const documents = await sdk.documents.list({ documentKind: kind });
       expect(documents?.totalCount).toBe(1);
       expect(documents?.rows[0]?.title).toBe(detail.title);
       const attachments = (await database.execSql(
-        "SELECT COUNT(*) AS count FROM document_pending_attachments AS a JOIN document_projection AS d ON a.local_id = d.local_id WHERE d.document_kind = ?",
+        "SELECT a.slot_id AS slotId FROM document_pending_attachments AS a JOIN document_projection AS d ON a.local_id = d.local_id WHERE d.document_kind = ?",
         [kind],
-      )) as Array<{ count: number }>;
-      expect(attachments[0]?.count).toBe(detail.imageCount);
+      )) as Array<{ slotId: string }>;
+      expect(attachments).toHaveLength(detail.imageCount);
+      expect(attachments.map((attachment) => attachment.slotId).sort()).toEqual(
+        slots.map((slot) => slot.slotId).sort(),
+      );
     }
   } finally {
     sdk.dispose();
