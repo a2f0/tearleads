@@ -39,6 +39,7 @@ const attachments: ReadonlyArray<DocumentAttachment> = [
 ];
 
 function renderAttachmentSlots(params?: {
+  slots?: ReadonlyArray<DocumentAttachmentSlot>;
   attachments?: ReadonlyArray<DocumentAttachment>;
   attachmentStorageKeyBySlotId?: Readonly<Record<string, string | undefined>>;
   blobPicker?: Parameters<typeof DocumentAttachmentSlots>[0]["blobPicker"];
@@ -59,7 +60,7 @@ function renderAttachmentSlots(params?: {
       imageUrlBySlotId={params?.imageUrlBySlotId ?? {}}
       onClearAttachment={params?.onClearAttachment ?? (() => undefined)}
       onSelectedAttachment={() => undefined}
-      slots={slots}
+      slots={params?.slots ?? slots}
     />
   );
 
@@ -84,6 +85,29 @@ test("a caller class joins the attachments root", () => {
   ).toBe(
     "structured-document-attachments structured-document-attachments--single",
   );
+});
+
+test("a photo collection renders, opens, and clears each image independently", () => {
+  const cleared: string[] = [];
+  const opened: DocumentBlobOpenRequest[] = [];
+  const view = renderAttachmentSlots({
+    slots: [{ label: "Photos", slotId: "photos", multiple: true }],
+    attachments: attachments.map((attachment, index) => ({
+      ...attachment,
+      slotId: `photos:${index}`,
+    })),
+    attachmentStorageKeyBySlotId: { "photos:0": "first", "photos:1": "second" },
+    imageUrlBySlotId: { "photos:0": "blob:first", "photos:1": "blob:second" },
+    onClearAttachment: (slotId) => cleared.push(slotId),
+    onOpenBlob: (request) => opened.push(request),
+  });
+  expect(view.container.querySelectorAll("img")).toHaveLength(2);
+  expect(view.getByLabelText("Photos").hasAttribute("multiple")).toBe(true);
+  fireEvent.click(view.getByRole("button", { name: "Open Photos 2" }));
+  fireEvent.click(view.getByRole("button", { name: "Clear Photos 1" }));
+  expect(opened).toEqual([{ storageKey: "second" }]);
+  expect(cleared).toEqual(["photos:0"]);
+  expect(view.getByRole("button", { name: "Add Photos" })).toBeTruthy();
 });
 
 test("clear image buttons forward the front and back slot ids", () => {
@@ -150,16 +174,25 @@ test("opens the bound blob when a slot image is clicked", () => {
   expect(openRequests).toEqual([{ storageKey: "front-storage-key" }]);
 });
 
-test("image attachment actions are hidden when attachments cannot be changed", () => {
+test("photo collection actions and append card are hidden in read mode", () => {
   const view = renderAttachmentSlots({
     canAttach: false,
+    slots: [{ label: "Photos", slotId: "photos", multiple: true }],
+    attachments: attachments.map((attachment, index) => ({
+      ...attachment,
+      slotId: `photos:${index}`,
+    })),
     blobPicker: { onRequestBlobPick: () => undefined },
   });
 
+  expect(
+    view.container.querySelectorAll(".structured-document-slot"),
+  ).toHaveLength(2);
+  expect(view.queryByRole("button", { name: "Add Photos" })).toBeNull();
   expect(view.queryAllByRole("button", { name: "Replace Image" })).toEqual([]);
   expect(view.queryAllByRole("button", { name: "Choose Blob" })).toEqual([]);
-  expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
-  expect(view.queryByRole("button", { name: "Clear Back Image" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Clear Photos 1" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Clear Photos 2" })).toBeNull();
 });
 
 test("empty image upload actions are hidden when attachments cannot be changed", () => {
@@ -171,4 +204,11 @@ test("empty image upload actions are hidden when attachments cannot be changed",
 
   expect(view.queryAllByRole("button", { name: "Upload Image" })).toEqual([]);
   expect(view.queryAllByRole("button", { name: "Choose Blob" })).toEqual([]);
+});
+
+test("stored single-image actions remain hidden in read mode", () => {
+  const view = renderAttachmentSlots({ canAttach: false });
+  expect(view.getByText("front.png")).toBeTruthy();
+  expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Replace Image" })).toBeNull();
 });

@@ -206,12 +206,7 @@ function EquipmentDocument(params: EquipmentDocumentProps) {
   };
   return (
     <StructuredDocument
-      attachments={
-        <DocumentAttachmentSlots
-          {...doc.slotsProps}
-          className="structured-document-attachments--single"
-        />
-      }
+      attachments={<DocumentAttachmentSlots {...doc.slotsProps} />}
       fields={
         <EquipmentDocumentFieldsPane
           canWrite={doc.canWrite}
