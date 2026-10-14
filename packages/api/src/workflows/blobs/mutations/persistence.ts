@@ -5,15 +5,8 @@ import {
   blobStages,
   blobs,
 } from "@tearleads/api-shared/schema";
-import type {
-  VerifiedAttachmentBinding,
-  VerifiedAttachmentDetach,
-  VerifiedDocumentLinkSetManifest,
-} from "@tearleads/crypto";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
-import { appendDocumentAttachmentAuditEntries } from "../../../documents/documentAttachmentAuditEvents";
-import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import {
   lockRowForUpdate,
   nowExpression,
@@ -133,11 +126,11 @@ export async function promoteStagedBlobIfPresent(input: {
     return null;
   }
 
-  // Blob ids are generation identifiers. Once an id appears in immutable
-  // audit history it may not be promoted again, even after live-state pruning:
-  // a pending object-deletion work item for the old generation must never be
-  // able to target a newly uploaded object with the same id. Retained ownership
-  // lets us conceal historical ids from every other organization.
+  // Blob ids are generation identifiers. Once an id is in the blob registry
+  // (`blob_audit_objects`) it may not be promoted again, even after live-state
+  // pruning: a pending object-deletion work item for the old generation must
+  // never be able to target a newly uploaded object with the same id. Retained
+  // ownership lets us conceal historical ids from every other organization.
   const [auditedBlob] = await input.executor
     .select({
       blobId: blobAuditObjects.blobId,
@@ -234,8 +227,8 @@ export async function reviveBlobIfDereferenced(input: {
 
 /**
  * Start the delayed-reclamation clock when a detach or replacement removes the
- * final active reference to a blob. Detached bindings and audit events preserve
- * history metadata, but neither keeps live bytes or key material reachable.
+ * final active reference to a blob. Detached bindings and the blob registry
+ * preserve metadata, but neither keeps live bytes or key material reachable.
  *
  * Locking the blob row serializes this decision against bind and GC, which lock
  * the same row. A concurrent bind therefore either becomes visible to the
@@ -290,61 +283,4 @@ export async function detachActiveSlotBinding(input: {
     .update(attachmentBindings)
     .set({ detachedAt: nowExpression() })
     .where(eq(attachmentBindings.id, input.activeBinding.id));
-}
-
-export async function appendAttachmentAuditEvent(input: {
-  readonly activeBinding: ActiveAttachmentBindingRow | null;
-  readonly binding: VerifiedAttachmentBinding;
-  readonly executor: DatabaseTransaction;
-  readonly fingerprint: string;
-  readonly manifest: VerifiedDocumentLinkSetManifest;
-  readonly userId: string;
-}): Promise<void> {
-  const auditAccess = await documentAuditAccessFromManifest(input.manifest);
-
-  await appendDocumentAttachmentAuditEntries(input.executor, {
-    ...auditAccess,
-    actorFingerprint: input.fingerprint,
-    actorUserId: input.userId,
-    documentId: input.binding.documentId,
-    organizationId: input.manifest.state.organizationId,
-    events: [
-      {
-        action: input.activeBinding ? "replace" : "attach",
-        bindingId: input.binding.bindingId,
-        blobId: input.binding.blobId,
-        previousBindingId: input.activeBinding?.id ?? null,
-        previousBlobId: input.activeBinding?.blobId ?? null,
-        slotId: input.binding.slotId,
-      },
-    ],
-  });
-}
-
-export async function appendAttachmentDetachAuditEvent(input: {
-  readonly detach: VerifiedAttachmentDetach;
-  readonly executor: DatabaseTransaction;
-  readonly fingerprint: string;
-  readonly manifest: VerifiedDocumentLinkSetManifest;
-  readonly userId: string;
-}): Promise<void> {
-  const auditAccess = await documentAuditAccessFromManifest(input.manifest);
-
-  await appendDocumentAttachmentAuditEntries(input.executor, {
-    ...auditAccess,
-    actorFingerprint: input.fingerprint,
-    actorUserId: input.userId,
-    documentId: input.detach.documentId,
-    organizationId: input.manifest.state.organizationId,
-    events: [
-      {
-        action: "detach",
-        bindingId: input.detach.bindingId,
-        blobId: input.detach.blobId,
-        previousBindingId: null,
-        previousBlobId: null,
-        slotId: input.detach.slotId,
-      },
-    ],
-  });
 }

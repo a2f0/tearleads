@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  documentAuditCheckpoints,
+  documentBaselines,
   documentContentWriteHeaders,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
@@ -186,16 +186,11 @@ async function insertBaselineCheckpoint(input: {
     headerHash: `header-${input.baselineUpdateId}`,
     header: { metadataHash } as unknown as WriteHeader,
   });
-  await db.insert(documentAuditCheckpoints).values({
+  await db.insert(documentBaselines).values({
     documentId: input.documentId,
     baselineUpdateId: input.baselineUpdateId,
     checkpointKind: "rotate_baseline",
     sourceVersionVector: input.sourceVersionVector,
-    checkpointHash: `checkpoint-${input.baselineUpdateId}`,
-    accessEpoch: 1,
-    accessManifestHash: `checkpoint-manifest-${input.baselineUpdateId}`,
-    actorUserId: randomUUID(),
-    actorFingerprint: "baseline-redirect-test",
   });
   return insertedUpdate.sequence;
 }
