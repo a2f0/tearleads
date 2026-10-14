@@ -7,6 +7,7 @@ import type { ExecSql } from "../sqlite/sqlSchema";
 import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
+  observeVerifiedProjectionBundles,
 } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { addContainerWriterProjectionBundles } from "./containerProjectionVerification";
@@ -17,10 +18,6 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
 import { assertProjectionVerificationCurrent } from "./types";
-import {
-  retainVerifiedProjectionBundles,
-  verifiedProjectionBundles,
-} from "./verifiedProjectionBundles";
 
 /** Authenticate immutable destination roles without advancing write-authority pins. */
 export async function verifyContainerDestinationProjection(input: {
@@ -76,17 +73,16 @@ export async function verifyContainerDestinationProjection(input: {
     checkpointContext,
     input.stillCurrent,
   );
+  // Authenticated bytes, not authority: a later read may cite them.
+  observeVerifiedProjectionBundles(
+    checkpointContext,
+    bundlesByHash,
+    verifiedByHash,
+  );
   await finalizeProjectionCheckpoints(checkpointContext, {
     stillCurrent: current,
     persistVerificationCheckpoints: false,
   });
   assertProjectionVerificationCurrent(current);
-  // Authenticated bytes, not authority: a later read may cite them.
-  await retainVerifiedProjectionBundles(
-    input.execSql,
-    verifiedProjectionBundles(bundlesByHash, verifiedByHash),
-    checkpointContext,
-    current,
-  );
   return { path, verifiedByHash };
 }

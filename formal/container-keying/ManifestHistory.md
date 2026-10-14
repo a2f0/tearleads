@@ -10,7 +10,7 @@ lost or retired, and reaching a verification budget must not prevent revocation.
 | `IterativeVerification` | `verifyStoredManifestGraph` walks dependencies with an explicit stack rather than rejecting a lifetime history depth |
 | `Restart` / `warm` | `access_manifest_verifications` markers only accelerate reads; a cleared table, rotated secret or new verifier version must preserve acceptance |
 | `Commit` / `Revoke` | `verifyStoredContainerManifest` verifies the previous manifest before mutation authorization; history length adds no new mutation refusal |
-| `held` / `Evict` | `rememberVerifiedManifestBundles` stores bundles after projection verification, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
+| `held` / `Evict` | `writeVerifiedManifestBundlesInTransaction` stores bundles in the transaction that finalizes their projection's checkpoints, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
 | `Citable` / `CiteHeldBytes` | `heldManifestCitations` copies the exact stored bytes a request cites, at most `KNOWN_MANIFEST_HINT_LIMIT` hashes |
 | `Omitted` / `OmitOnlyCited` | `encodeContainerWriterProjection` and `encodeDocumentWriterProjection` omit only hashes the request cited, after the ordinary build, authorization and stored-evidence verification |
 | `Rebuilds` / `RefetchUncited` | `decodeContainerWriterProjection` and `decodeDocumentWriterProjection` fill omissions only from the cited bytes; a gap makes `citedProjectionRead` refetch once with no hints |

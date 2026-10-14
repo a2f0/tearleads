@@ -141,16 +141,18 @@ evidence and current heads, keys and key material always travel. Stored rows
 carry a SHA-256 digest of their exact JSON; a mismatched row is dropped instead
 of cited.
 
-Storing verified bundles never delays a verified projection by more than 250 ms
-and rechecks the verification's generation and leases afterwards. The table
-keeps at most 1,024 bundles and evicts the least recently verified first;
-eviction and an organization's remote reset only remove citations. The API
-cannot skip loading a cited manifest: its own KEK verification consumes the same
-states, and the policy evidence it serves must cover every bundle the device
-re-verifies. Citation saves response bytes, not server work. The [manifest
-history model](../formal/container-keying/ManifestHistory.md) checks that citing
-only held bytes and omitting only cited hashes keep every honest read available
-under any eviction.
+Verified bundles are stored inside the transaction that advances, or for a move
+destination re-validates, the projection's checkpoints. They commit only under
+that transaction's generation and lease guard, and no cache write outlives the
+verification or holds the database after it settles. The table keeps at most
+1,024 bundles and evicts the least recently verified first; eviction and an
+organization's remote reset only remove citations. The API cannot skip loading a
+cited manifest: its own KEK verification consumes the same states, and the
+policy evidence it serves must cover every bundle the device re-verifies.
+Citation saves response bytes, not server work. The [manifest history
+model](../formal/container-keying/ManifestHistory.md) checks that citing only
+held bytes and omitting only cited hashes keep every honest read available under
+any eviction.
 
 Principal-state and access-event signature results are separately memoized by
 the exact signature, message bytes, and resolved public key. Only successful

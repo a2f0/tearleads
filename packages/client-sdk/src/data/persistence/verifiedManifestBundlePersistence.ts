@@ -76,21 +76,24 @@ async function pruneInTransaction(
     await tx.delete(bundles).where(inArray(bundles.manifestHash, batch)).run();
 }
 
+/** A verified bundle's exact JSON and that JSON's digest. */
+export type VerifiedManifestBundleRow = Omit<
+  typeof bundles.$inferInsert,
+  "verifiedAt"
+>;
+
 /**
- * Records bundles that just passed projection verification. Freshly verified
- * bytes replace any stored copy. Callers treat this as best effort: a cache
- * write must never turn a verified projection into a refusal.
+ * Prepares rows for bundles that just passed projection verification. The
+ * digests are computed here, before the checkpoint transaction that writes
+ * them begins.
  */
-export async function rememberVerifiedManifestBundles(
-  execSql: ExecSql,
+export function verifiedManifestBundleRows(
   entries: readonly VerifiedManifestBundle[],
-): Promise<void> {
+): Promise<VerifiedManifestBundleRow[]> {
   const unique = new Map(
     entries.map((entry) => [entry.bundle.manifestHash, entry]),
   );
-  if (unique.size === 0) return;
-  const verifiedAt = new Date().toISOString();
-  const rows = await Promise.all(
+  return Promise.all(
     [...unique.values()].map(async ({ bundle, checkpoint }) => {
       const bundleJson = JSON.stringify(bundle);
       return {
@@ -101,39 +104,47 @@ export async function rememberVerifiedManifestBundles(
         epoch: checkpoint.epoch,
         bundleJson,
         bundleDigest: await sha256Hex(bundleJson),
-        verifiedAt,
       };
     }),
   );
-  await ensureSqlTables(execSql, verifiedManifestBundleTables);
-  await getClientSQLitePersistenceRuntime(execSql).transaction(
-    async (tx) => {
-      const stored = await storedDigests(
-        tx,
-        rows.map((row) => row.manifestHash),
-      );
-      // An identical stored row only needs its recency refreshed.
-      const unchanged = rows.filter(
-        (row) => stored.get(row.manifestHash) === row.bundleDigest,
-      );
-      for (const batch of batches(unchanged.map((row) => row.manifestHash)))
-        await tx
-          .update(bundles)
-          .set({ verifiedAt })
-          .where(inArray(bundles.manifestHash, batch))
-          .run();
-      for (const row of rows) {
-        if (stored.get(row.manifestHash) === row.bundleDigest) continue;
-        await tx
-          .insert(bundles)
-          .values(row)
-          .onConflictDoUpdate({ target: bundles.manifestHash, set: row })
-          .run();
-      }
-      await pruneInTransaction(tx);
-    },
-    { behavior: "immediate" },
+}
+
+/**
+ * Records verified bundles inside the transaction that finalizes their
+ * projection's checkpoints, so they commit or roll back with it and no cache
+ * work outlives the verification. Freshly verified bytes replace any stored
+ * copy.
+ */
+export async function writeVerifiedManifestBundlesInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  rows: readonly VerifiedManifestBundleRow[],
+  verifiedAt: string,
+): Promise<void> {
+  if (rows.length === 0) return;
+  const stored = await storedDigests(
+    tx,
+    rows.map((row) => row.manifestHash),
   );
+  // An identical stored row only needs its recency refreshed.
+  const unchanged = rows.filter(
+    (row) => stored.get(row.manifestHash) === row.bundleDigest,
+  );
+  for (const batch of batches(unchanged.map((row) => row.manifestHash)))
+    await tx
+      .update(bundles)
+      .set({ verifiedAt })
+      .where(inArray(bundles.manifestHash, batch))
+      .run();
+  for (const row of rows) {
+    if (stored.get(row.manifestHash) === row.bundleDigest) continue;
+    const verified = { ...row, verifiedAt };
+    await tx
+      .insert(bundles)
+      .values(verified)
+      .onConflictDoUpdate({ target: bundles.manifestHash, set: verified })
+      .run();
+  }
+  await pruneInTransaction(tx);
 }
 
 async function storedDigests(

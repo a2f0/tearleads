@@ -12,7 +12,10 @@ import {
 import { sharedReplacementBindingFixture } from "../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../workflows/containers/root/create";
 import { savePrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
+import { accessManifestCheckpoints } from "../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../sqlite/sqlSchema";
+import { verifiedAccessManifestBundles } from "../sqlite/verifiedManifestBundleSchema";
 import { verifyContainerDestinationProjection } from "./containerDestinationVerification";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
@@ -27,7 +30,7 @@ const verifiers = [
 ] as const;
 
 for (const [entry, verify] of verifiers) {
-  test(`container ${entry} verification rechecks its policy-history lease after the bundle write`, async () => {
+  test(`container ${entry} verification commits its bundles only under its policy-history lease`, async () => {
     const setup = createNativeTestExecSql();
     const cold = createNativeTestExecSql();
     try {
@@ -68,10 +71,11 @@ for (const [entry, verify] of verifiers) {
         );
       if (!recover) throw new Error("Missing recovery capability");
       // The lease, not the caller's generation, expires while the verified
-      // bundles are being written: every earlier check passes.
+      // bundles are written inside the checkpoint transaction: every earlier
+      // check passes.
       let leaseCurrent = true;
       const execSql = (async (...args: Parameters<ExecSql>) => {
-        if (args[0].includes("verified_access_manifest_bundles"))
+        if (/^insert into "verified_access_manifest_bundles"/.test(args[0]))
           leaseCurrent = false;
         return cold.execSql(...args);
       }) as ExecSql;
@@ -99,6 +103,10 @@ for (const [entry, verify] of verifiers) {
       );
       expect(leaseCurrent).toBe(false);
       expect(isProjectionVerificationCancelledError(error)).toBe(true);
+      // The transaction rolled back: neither the advance nor a bundle landed.
+      const { db } = getClientSQLitePersistenceRuntime(cold.execSql);
+      expect(await db.select().from(accessManifestCheckpoints)).toEqual([]);
+      expect(await db.select().from(verifiedAccessManifestBundles)).toEqual([]);
     } finally {
       setup.close();
       cold.close();

@@ -12,13 +12,14 @@ import {
   documentContainerProjectionTables,
 } from "../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
-import { ensureSqlTables } from "../sqlite/sqlSchema";
+import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 import { verifiedAccessManifestBundles } from "../sqlite/verifiedManifestBundleSchema";
+import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpointAdvancePersistence";
 import {
   createVerifiedManifestCitations,
   loadVerifiedManifestCitations,
   MAX_VERIFIED_MANIFEST_BUNDLES,
-  rememberVerifiedManifestBundles,
+  type VerifiedManifestBundle,
 } from "./verifiedManifestBundlePersistence";
 
 const ORGANIZATION = "organization-1";
@@ -44,6 +45,19 @@ function entry(
     },
     checkpoint: { objectKind, organizationId, objectId, epoch },
   };
+}
+
+/** Stores bundles the way a finalized projection does. */
+function remember(
+  execSql: ExecSql,
+  verifiedBundles: readonly VerifiedManifestBundle[],
+): Promise<void> {
+  return advanceKeyingCheckpointsAtomically({
+    access: [],
+    execSql,
+    policies: [],
+    verifiedBundles,
+  });
 }
 
 async function seedTree(execSql: Parameters<typeof ensureSqlTables>[0]) {
@@ -90,7 +104,7 @@ test("a read cites its lineage, its ancestors', then its organization's recent r
   const database = createNativeTestExecSql();
   try {
     await seedTree(database.execSql);
-    await rememberVerifiedManifestBundles(database.execSql, [
+    await remember(database.execSql, [
       entry(hash(1), "container", "root", 1),
       entry(hash(2), "container", "root", 2),
       entry(hash(3), "container", "child", 1),
@@ -157,7 +171,7 @@ test("a discovered document cites within its discovery head's organization", asy
   const database = createNativeTestExecSql();
   try {
     await seedTree(database.execSql);
-    await rememberVerifiedManifestBundles(database.execSql, [
+    await remember(database.execSql, [
       entry(hash(1), "container", "root", 1),
       entry(hash(6), "container", "foreign", 1, FOREIGN),
     ]);
@@ -235,7 +249,7 @@ test("any disagreement about an object's organization cites nothing", async () =
           linksJson: "[]",
         })
         .run();
-    await rememberVerifiedManifestBundles(database.execSql, [
+    await remember(database.execSql, [
       entry(hash(1), "container", "root", 1),
       entry(hash(3), "container", "child", 1),
       entry(hash(6), "container", "foreign", 1, FOREIGN),
@@ -269,7 +283,7 @@ test("a damaged row is dropped instead of cited", async () => {
   const database = createNativeTestExecSql();
   try {
     await seedTree(database.execSql);
-    await rememberVerifiedManifestBundles(database.execSql, [
+    await remember(database.execSql, [
       entry(hash(1), "container", "root", 1),
       entry(hash(2), "container", "root", 2),
     ]);
@@ -296,11 +310,9 @@ test("a damaged row is dropped instead of cited", async () => {
 test("the table keeps the most recently verified bundles", async () => {
   const database = createNativeTestExecSql();
   try {
-    await rememberVerifiedManifestBundles(database.execSql, [
-      entry(hash(0), "container", "root", 1),
-    ]);
+    await remember(database.execSql, [entry(hash(0), "container", "root", 1)]);
     await new Promise((resolve) => setTimeout(resolve, 5));
-    await rememberVerifiedManifestBundles(
+    await remember(
       database.execSql,
       Array.from({ length: MAX_VERIFIED_MANIFEST_BUNDLES }, (_, index) =>
         entry(hash(index + 1), "container", "root", index + 2),
@@ -321,23 +333,21 @@ test("re-verifying a stored bundle keeps it ahead of eviction", async () => {
   const database = createNativeTestExecSql();
   const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
   try {
-    await rememberVerifiedManifestBundles(database.execSql, [
+    await remember(database.execSql, [
       entry(hash(0), "container", "root", 1),
       entry(hash(1), "container", "root", 2),
     ]);
     await tick();
-    await rememberVerifiedManifestBundles(
+    await remember(
       database.execSql,
       Array.from({ length: MAX_VERIFIED_MANIFEST_BUNDLES - 2 }, (_, index) =>
         entry(hash(index + 2), "container", "child", index + 1),
       ),
     );
     await tick();
-    await rememberVerifiedManifestBundles(database.execSql, [
-      entry(hash(0), "container", "root", 1),
-    ]);
+    await remember(database.execSql, [entry(hash(0), "container", "root", 1)]);
     await tick();
-    await rememberVerifiedManifestBundles(database.execSql, [
+    await remember(database.execSql, [
       entry(hash(5000), "container", "other", 1),
     ]);
     const { db } = getClientSQLitePersistenceRuntime(database.execSql);

@@ -7,7 +7,12 @@ import {
 import { createAuthor } from "../../../test/helpers/documentFixturePrimitives";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../test/helpers/trustedUserIdentity";
+import { clearRemoteSyncState } from "../../workflows/sync/remoteReset";
+import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpointAdvancePersistence";
+import { accessManifestCheckpoints } from "../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../sqlite/sqlSchema";
+import { verifiedAccessManifestBundles } from "../sqlite/verifiedManifestBundleSchema";
 import { verifyContainerDestinationProjection } from "./containerDestinationVerification";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
@@ -18,23 +23,31 @@ import {
   verifyDocumentWriterProjectionAuthorization,
 } from "./documentProjectionVerification";
 import { ProjectionVerificationCancelledError } from "./types";
-import { BUNDLE_RETENTION_DEADLINE_MS } from "./verifiedProjectionBundles";
+
+/** The verified-bundle write inside the checkpoint transaction. */
+const BUNDLE_INSERT = /^insert into "verified_access_manifest_bundles"/;
 
 /**
- * An executor whose generation expires while the verified-bundle cache write
- * is in flight: every check before that write passes.
+ * An executor whose generation expires while the verified bundles are being
+ * written inside the checkpoint transaction: every check before passes.
  */
 async function expiringDuringBundleWrite(name: string) {
   const database = await createTestExecSql(name);
   let expired = false;
   const execSql = (async (...args: Parameters<ExecSql>) => {
-    if (args[0].includes("verified_access_manifest_bundles")) expired = true;
+    if (BUNDLE_INSERT.test(args[0])) expired = true;
     return database.execSql(...args);
   }) as ExecSql;
+  const { db } = getClientSQLitePersistenceRuntime(database.execSql);
   return {
     close: () => database.close(),
     execSql,
     stillCurrent: () => !expired,
+    /** Rows the expired verification left behind: none, it rolled back. */
+    committed: async () => [
+      ...(await db.select().from(accessManifestCheckpoints)),
+      ...(await db.select().from(verifiedAccessManifestBundles)),
+    ],
   };
 }
 
@@ -81,6 +94,7 @@ for (const [entry, verify] of containerVerifiers) {
         }),
       ).rejects.toBeInstanceOf(ProjectionVerificationCancelledError);
       expect(database.stillCurrent()).toBe(false);
+      expect(await database.committed()).toEqual([]);
     } finally {
       database.close();
     }
@@ -110,34 +124,61 @@ for (const [entry, verify] of documentVerifiers) {
         }),
       ).rejects.toBeInstanceOf(ProjectionVerificationCancelledError);
       expect(database.stillCurrent()).toBe(false);
+      expect(await database.committed()).toEqual([]);
     } finally {
       database.close();
     }
   });
 }
 
-test("a stalled bundle write delays container verification by at most its bound", async () => {
+test("a stalled bundle write holds only its own verification", async () => {
   const fixture = await containerFixture();
   const database = await createTestExecSql("stalled-bundle-write");
-  const execSql = (async (...args: Parameters<ExecSql>) =>
-    args[0].includes("verified_access_manifest_bundles")
-      ? new Promise<never>(() => {})
-      : database.execSql(...args)) as ExecSql;
+  let releaseWrite = () => {};
+  const writeReleased = new Promise<void>((resolve) => {
+    releaseWrite = resolve;
+  });
+  let stalled = false;
+  let inFlight = 0;
+  const execSql = (async (...args: Parameters<ExecSql>) => {
+    inFlight += 1;
+    try {
+      if (BUNDLE_INSERT.test(args[0])) {
+        stalled = true;
+        await writeReleased;
+      }
+      return await database.execSql(...args);
+    } finally {
+      inFlight -= 1;
+    }
+  }) as ExecSql;
   try {
-    const verified = await Promise.race([
-      verifyContainerWriterProjection({
-        execSql,
-        projection: fixture.projection,
-        resolveUserKey: fixture.resolveUserKey,
-      }).then(() => "verified"),
-      new Promise((resolve) =>
-        setTimeout(
-          () => resolve("stalled"),
-          BUNDLE_RETENTION_DEADLINE_MS + 1_000,
-        ),
-      ),
-    ]);
-    expect(verified).toBe("verified");
+    let settled = false;
+    const verification = verifyContainerWriterProjection({
+      execSql,
+      projection: fixture.projection,
+      resolveUserKey: fixture.resolveUserKey,
+    }).finally(() => {
+      settled = true;
+    });
+    while (!stalled) await new Promise((resolve) => setTimeout(resolve, 1));
+    // The write belongs to the verification's own checkpoint transaction.
+    expect(settled).toBe(false);
+    releaseWrite();
+    const path = await verification;
+    // Nothing the verification started outlives it ...
+    expect(inFlight).toBe(0);
+    // ... so a later checkpoint write and remote reset run at once.
+    await advanceKeyingCheckpointsAtomically({
+      access: path.map((head) => ({ head, predecessors: [] })),
+      execSql,
+      policies: [],
+    });
+    await clearRemoteSyncState(execSql, {
+      organizationId: fixture.projection.organizationId,
+    });
+    const { db } = getClientSQLitePersistenceRuntime(database.execSql);
+    expect(await db.select().from(verifiedAccessManifestBundles)).toEqual([]);
   } finally {
     database.close();
   }
