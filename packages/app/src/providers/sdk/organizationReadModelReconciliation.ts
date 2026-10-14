@@ -7,6 +7,7 @@ import {
   type OrganizationRealtimeState,
   type ReconciliationState,
   stateFor,
+  trackOrganizationReadModelCatchUp,
 } from "./organizationReadModelRealtimeState";
 
 async function notifyProjectionListeners(
@@ -57,8 +58,12 @@ async function reconcileFeed(
   tearleads: Tearleads,
   useSdkBarrier: boolean,
 ): Promise<boolean> {
+  // Only the SDK barrier starts a fresh pass after this call; an ordinary pass
+  // may join one that began before a hint, so it cannot cover held hints.
   const result = useSdkBarrier
-    ? await tearleads.organizations.loadDirectoryAndGroupsAfterMutation()
+    ? await trackOrganizationReadModelCatchUp(tearleads, () =>
+        tearleads.organizations.loadDirectoryAndGroupsAfterMutation(),
+      )
     : await tearleads.organizations.loadDirectoryAndGroups();
   return result !== undefined;
 }

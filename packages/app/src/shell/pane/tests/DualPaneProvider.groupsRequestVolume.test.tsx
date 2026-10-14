@@ -33,9 +33,10 @@ import { waitForCondition } from "../../../../test/helpers/waitForCondition";
 import type { PaneSide } from "../dual-pane";
 
 // Separate navigation from mutation so UI reads cannot conceal sync churn.
-// The deferred author-echo release still reads the feed: a sibling client can
-// share this login session, so session origin alone cannot prove an own echo.
-// Keep that correctness read; #1512's speculative protocol work is retired.
+// Session origin alone cannot prove a held author hint is an own echo (a sibling
+// client can share this login session), so its release reads the feed unless
+// a completed pass was sent after the hint arrived; #1512's speculative
+// protocol work is retired.
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Cold bounded recovery discovers/verifies the directory and Admins head.
   total: 3,
