@@ -133,7 +133,7 @@ interface ReconciliationService {
   enqueueContainer(containerId, priority, force?, documentId?): void;
   enqueueIdleBackfill(): void;           // known-container catch-up
   resetDiscovered(): void;                // re-arm after reconnect/relogin
-  reconcileRootContainersNow(): Promise<void>; // root-lane catch-up
+  reconcileRootContainersNow(o?: { freshListing?: boolean }): Promise<void>;
   reconcileNow(): Promise<void>;         // explicit user "Refresh"
   stop(): void;
 }
