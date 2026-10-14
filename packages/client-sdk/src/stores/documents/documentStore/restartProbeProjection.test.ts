@@ -182,7 +182,7 @@ test("probe signal kernels replay onto the RestartProbeConvergence model", () =>
 
   // Scripted interest recovery: the app package records these seams from its
   // own scenario; here they sequence the barrier the model requires.
-  recorder.record({ action: "ReceiveInterestBaseline" });
+  recorder.record({ action: "OpenEventsSocket" });
   recorder.record({ action: "MarkContainerTreeReady" });
   recorder.record({ action: "DeclareKnownContainers" });
 
@@ -211,7 +211,7 @@ test("probe signal kernels replay onto the RestartProbeConvergence model", () =>
     "InitializeOpenedPersistedDocument",
     "BeginProbe",
     "FinishProbe",
-    "ReceiveInterestBaseline",
+    "OpenEventsSocket",
     "MarkContainerTreeReady",
     "DeclareKnownContainers",
     "AcknowledgeKnownContainers",

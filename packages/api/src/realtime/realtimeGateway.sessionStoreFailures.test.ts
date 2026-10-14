@@ -45,7 +45,7 @@ test("a session the store cannot confirm closes at its deadline", async () => {
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await f.declare();
     await clock.advance(299);
     // Ticks at 50 to 250 each fail, and each failure only delays the close.
@@ -70,7 +70,7 @@ test("failing reads never extend the deadline past the last confirmation", async
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     // The tick at 100 is the last confirmation.
     await clock.advance(399);
     expect(f.closed).toEqual([]);
@@ -88,7 +88,7 @@ test("a confirmed session outlives its deadline", async () => {
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await clock.advance(1_000);
     expect(f.closed).toEqual([]);
   } finally {
@@ -112,10 +112,10 @@ test("a ticket upgrade confirms the session, and older reads never undo it", asy
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     // The tick at 50 starts a read that answers only after the upgrade below.
     await clock.advance(200);
-    await f.gateway.websocket.open(recordingSocket("user", "session").socket);
+    f.gateway.websocket.open(recordingSocket("user", "session").socket);
     answer(true);
     await flush();
     // The upgrade at 200 confirmed the session; the read from 50 cannot move
@@ -143,7 +143,7 @@ test("a hung session read times out and the next tick joins it", async () => {
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await clock.advance(55);
     expect(report).toHaveBeenCalledTimes(1);
     expect(report).toHaveBeenCalledWith(expect.any(Error), "websocket.session");
@@ -170,7 +170,7 @@ test("a read that answers after its timeout still closes an ended session", asyn
     authorize: async (_user, ids) => ids,
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     await clock.advance(55);
     expect(report).toHaveBeenCalledTimes(1);
     answer(false);
@@ -193,7 +193,7 @@ test("a stopped gateway reports no session check still in flight", async () => {
       }),
     authorize: async (_user, ids) => ids,
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await clock.advance(50);
   f.gateway.stop();
   fail(new Error("Session store unavailable"));
@@ -228,8 +228,8 @@ test("closing a session's last socket stops its rechecks and deadline", async ()
   });
   const second = recordingSocket("user", "session");
   try {
-    await f.gateway.websocket.open(f.socket);
-    await f.gateway.websocket.open(second.socket);
+    f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(second.socket);
     // One of two sockets closing keeps the session tracked.
     f.gateway.websocket.close(second.socket);
     await clock.advance(50);
@@ -258,7 +258,7 @@ test("a hung store holds at most one read per session", async () => {
   });
   try {
     for (let index = 0; index < 40; index++) {
-      await f.gateway.websocket.open(
+      f.gateway.websocket.open(
         recordingSocket("user", `session-${index}`).socket,
       );
     }
@@ -280,7 +280,7 @@ test("a failure without a reason is still reported", async () => {
     validateSession: () => Promise.reject(),
   });
   try {
-    await f.gateway.websocket.open(f.socket);
+    f.gateway.websocket.open(f.socket);
     f.reconnect();
     await flush();
     await flush();

@@ -11007,6 +11007,10 @@
                     "userId": {
                       "type": "string",
                       "minLength": 1
+                    },
+                    "wsTicket": {
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -11015,7 +11019,8 @@
                     "organizationId",
                     "rootContainerId",
                     "token",
-                    "userId"
+                    "userId",
+                    "wsTicket"
                   ],
                   "additionalProperties": {}
                 }
@@ -11069,6 +11074,9 @@
                     },
                     "userId": {
                       "not": {}
+                    },
+                    "wsTicket": {
+                      "not": {}
                     }
                   },
                   "required": [
@@ -11106,6 +11114,9 @@
                       "not": {}
                     },
                     "userId": {
+                      "not": {}
+                    },
+                    "wsTicket": {
                       "not": {}
                     }
                   },

@@ -101,12 +101,12 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Only a live answer confirms a session; a failed or timed-out read that re-armed the deadline would extend it without limit (#2420).",
   },
   {
-    id: "stale-reconnect-proof-handoff",
+    id: "closed-socket-query-indexes-reconnect",
     module: "formal/realtime/ContainerInterest.tla",
     config: "formal/realtime/ContainerInterest.cfg",
-    constants: { CheckRestoreDependencies: "FALSE" },
-    expect: { kind: "invariant", name: "OnlyReadableInterests" },
-    why: "A fresh reconnect proof may be reused only before an observed access change.",
+    constants: { CheckQueryOwner: "FALSE" },
+    expect: { kind: "invariant", name: "UndeclaredSocketsReceiveNoHints" },
+    why: "A reconnected socket starts with no container interest; a query its closed predecessor left pending must not index it before its own client declares.",
   },
   {
     id: "principal-change-keeps-container-interest",

@@ -4618,6 +4618,7 @@ export interface operations {
                         rootContainerId: string | null;
                         token: string;
                         userId: string;
+                        wsTicket: string;
                     } & {
                         [key: string]: unknown;
                     };
@@ -4651,6 +4652,7 @@ export interface operations {
                         rootContainerId?: unknown;
                         token?: unknown;
                         userId?: unknown;
+                        wsTicket?: unknown;
                     } & {
                         [key: string]: unknown;
                     };
@@ -4671,6 +4673,7 @@ export interface operations {
                         rootContainerId?: unknown;
                         token?: unknown;
                         userId?: unknown;
+                        wsTicket?: unknown;
                     } & {
                         [key: string]: unknown;
                     };

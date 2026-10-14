@@ -64,12 +64,12 @@
       "bytes": 23915
     },
     "docs/openapi.json": {
-      "lines": 61348,
-      "bytes": 2463681
+      "lines": 61359,
+      "bytes": 2464025
     },
     "docs/protocol-specification.md": {
-      "lines": 700,
-      "bytes": 36649
+      "lines": 701,
+      "bytes": 36759
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -84,8 +84,8 @@
       "bytes": 24635
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1961,
-      "bytes": 62373
+      "lines": 1963,
+      "bytes": 62518
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -128,8 +128,8 @@
       "bytes": 21286
     },
     "packages/api/src/realtime/wsRouting.test.ts": {
-      "lines": 530,
-      "bytes": 16424
+      "lines": 506,
+      "bytes": 14829
     },
     "packages/api/src/routes/auth/register.test.ts": {
       "lines": 634,
@@ -312,8 +312,8 @@
       "bytes": 37744
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 22594,
-      "bytes": 914622
+      "lines": 22597,
+      "bytes": 914752
     },
     "packages/validators/src/response/index.ts": {
       "lines": 523,

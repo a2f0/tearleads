@@ -60,7 +60,6 @@ import {
   updateOrganizationRosterEntryOperation,
   userIdentityOperation,
   verifyOperation,
-  webSocketTicketOperation,
 } from "@tearleads/validators/operation";
 import type {
   BlobAttachmentBindRequest,
@@ -194,6 +193,7 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "./types";
+import { WebSocketTickets } from "./webSocketTickets";
 import {
   CitingProjectionCache,
   evictWriterProjectionsCiting,
@@ -256,6 +256,7 @@ export class ApiClient {
   >();
   private readonly principalPolicyRequests: PrincipalPolicyRequests;
   private readonly transport: OperationTransport;
+  private readonly webSocketTickets: WebSocketTickets;
   private readonly request: OperationRequestFn;
   private readonly requestResult: OperationRequestResultFn;
   constructor(
@@ -281,6 +282,9 @@ export class ApiClient {
     );
     this.documentAttributionRequests = new DocumentAttributionRequests(
       this.transport,
+    );
+    this.webSocketTickets = new WebSocketTickets(this.transport, () =>
+      this.getAuthToken(),
     );
   }
   private clearAuthScopedCaches(): void {
@@ -462,11 +466,8 @@ export class ApiClient {
     return this.requestRuntime.getRequestFailure(input);
   }
 
-  async requestWebSocketTicket(): Promise<string | null> {
-    const response = await this.transport.request(webSocketTicketOperation, {
-      params: {},
-    });
-    return response?.ticket ?? null;
+  requestWebSocketTicket(): Promise<string | null> {
+    return this.webSocketTickets.next();
   }
 
   getHealth() {
@@ -551,8 +552,9 @@ export class ApiClient {
       },
       { retryOnSessionExpired: false },
     );
-
-    return response?.authenticated ? response : null;
+    if (!response?.authenticated) return null;
+    this.webSocketTickets.rememberLogin(response);
+    return response;
   }
 
   getUserIdentity(userId: string) {

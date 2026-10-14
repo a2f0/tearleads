@@ -115,21 +115,22 @@ without opening unregistered ones. System-container documents remain the eager
 exception because their projections may have no document window to open them.
 
 The server sends `known_containers_ack` immediately after authorizing and
-installing the declaration's readable subset in its process-local event router,
-before asynchronously persisting it for a later reconnect. The acknowledgment
-includes the accepted IDs, so a refused ID is not retained as subscribed. It
-confirms processing despite denials; a stale local ID must not block HTTP
-reconciliation. A refused re-add also removes any older subscription. The client
-retries only refused interests after a grant notification or tree change,
-including a change that arrived while authorization was pending.
-Cached reconnect IDs are reauthorized through the same signed read-access
-workflow. Access-change notifications evict only interests whose verified paths
-depend on the changed head. One resync frame carries all affected IDs per socket,
-and the client refreshes root and distinct parent lanes once for that batch.
-Group policy commits also invalidate subscriptions using that group,
-including membership removals that do not change any container manifest.
-Until that acknowledgment arrives, a cold `ready=false` tree cannot remove the
-restored baseline and the SDK continues to report server events as disconnected.
+installing the declaration's readable subset in its process-local event router.
+The acknowledgment includes the accepted IDs, so a refused ID is not retained as
+subscribed. It confirms processing despite denials; a stale local ID must not
+block HTTP reconciliation. A refused re-add also removes any older subscription.
+The client retries only refused interests after a grant notification or tree
+change, including a change that arrived while authorization was pending. A
+socket opens with no interest and the server keeps none for a later reconnect,
+so every connect's declaration is authorized through the same signed
+read-access workflow. Access-change notifications evict only interests whose
+verified paths depend on the changed head. One resync frame carries all
+affected IDs per socket, and the client refreshes root and distinct parent
+lanes once for that batch. Group policy commits also invalidate subscriptions
+using that group, including membership removals that do not change any
+container manifest. Until that acknowledgment arrives, the SDK continues to
+report server events as disconnected, and a cold `ready=false` tree is never
+declared.
 
 On every acknowledged reconnect, the client also clears cached writer
 projections and runs one full reconciliation after the live interest set is in
@@ -254,8 +255,8 @@ settles it. Re-running the document owner through Manual Sync cannot directly
 clear a blob error or turn partial part counts into a synthetic completion.
 
 System Monitor clipboard reports allowlist only content-free revalidation
-telemetry: interest-baseline container counts, `startup`/`reconnect` scheduling
-reasons, applied incoming-update and attachment-slot counts, and an
+telemetry: interest declaration acknowledgements, `startup`/`reconnect`
+scheduling reasons, applied incoming-update and attachment-slot counts, and an
 `unavailable` outcome. These entries never include document text, structured
 fields, attachment names, blob bytes, keys, or decrypted payloads.
 
