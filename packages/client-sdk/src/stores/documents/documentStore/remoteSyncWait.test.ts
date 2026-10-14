@@ -98,7 +98,7 @@ test("a failed continuation keeps a paginated remote probe incomplete", async ()
       fixture.writerProjection.documentId,
       "",
       undefined,
-      "on-demand",
+      { remoteSyncMode: "on-demand" },
     );
     expect(await store.ensureInitialized()).toBe(true);
 
@@ -222,7 +222,7 @@ test("aborting a cold on-demand probe prevents its late response from persisting
       fixture.writerProjection.documentId,
       "",
       undefined,
-      "on-demand",
+      { remoteSyncMode: "on-demand" },
     );
     store.updateRuntime(runtime);
     const abortController = new AbortController();

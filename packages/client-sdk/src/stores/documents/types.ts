@@ -23,6 +23,16 @@ export interface DocumentMutationOptions {
   deferRemoteSync?: boolean | undefined;
 }
 
+export interface DocumentStoreOpenOptions {
+  /**
+   * The caller attaches a file immediately after creating the document. The
+   * birth commits locally without its own pending update, so the attach's
+   * delta carries it; a failed attach enqueues the birth on its own.
+   */
+  deferInitialUpdate?: boolean | undefined;
+  remoteSyncMode?: "on-demand" | "startup" | undefined;
+}
+
 export interface DocumentAttachmentUpload {
   bytes: BlobByteSourceInput;
   name: string;

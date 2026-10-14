@@ -2,12 +2,7 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
-import {
-  addDocumentAttachments,
-  getDocumentAttachments,
-  removeDocumentAttachment,
-} from "../../../data/documents/documentContent";
-import { createPendingUpdateFields } from "../../../data/documents/documentSync";
+import { addDocumentAttachments } from "../../../data/documents/documentContent";
 import type { PendingAttachmentRecord } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
 import type { DocumentAttachmentUpload } from "../types";
@@ -20,10 +15,6 @@ import {
   restoreFailedAttachmentMutation,
 } from "./attachmentMutationPersistence";
 import {
-  assignLocalAttachmentSlots,
-  removeLocalAttachmentSlot,
-} from "./attachmentPersistence";
-import {
   deleteUnreferencedStagedAttachmentBytes,
   installPendingAttachmentRows,
   stagePendingAttachments,
@@ -34,24 +25,23 @@ import {
   isAttachmentWriteGenerationCurrent,
   shouldAbortAttachmentPersistFollowup,
 } from "./attachmentWriteGeneration";
+import { settleDeferredInitialUpdate } from "./deferredInitialUpdate";
 import { ensureDocumentStoreReady } from "./initialization";
-import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   advancePendingBaseVersion,
   pendingDeltaSinceBase,
-  persistDocument,
 } from "./persistence";
 import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
 import {
   canAttachFiles,
   canWriteDocument,
   type DocumentStoreState,
-  setReadySnapshot,
 } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 
 // Fixed literal: a reported message must never carry file names or slot ids.
-const ATTACHMENT_FAILURE_MESSAGE = "Documents: attachment mutation failed";
+export const ATTACHMENT_FAILURE_MESSAGE =
+  "Documents: attachment mutation failed";
 
 function logAttachedFiles(state: DocumentStoreState, count: number) {
   state.runtime.util.log(
@@ -249,148 +239,46 @@ async function persistSlotAttachmentFile(
   requestDocumentStoreSync(state);
 }
 
-function installCommittedAttachmentRemoval(input: {
-  currentDoc: NonNullable<DocumentStoreState["doc"]>;
-  slotId: string;
-  state: DocumentStoreState;
-  storageKey: string | undefined;
-  syncedAttachment: boolean;
-}): void {
-  const { slotId, state, storageKey } = input;
-  if (!storageKey) return;
-  const pending = state.pendingAttachments.find(
-    (attachment) =>
-      attachment.slotId === slotId && attachment.storageKey === storageKey,
-  );
-  if (input.syncedAttachment && pending?.upload) {
-    assignLocalAttachmentSlots(state, [
-      {
-        slotId,
-        storageKey,
-        blobId: pending.upload.blobId,
-        contentSha256: pending.contentSha256,
-      },
-    ]);
+async function captureReadyAttachWrite(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  callGeneration: AttachmentWriteGeneration | null,
+) {
+  let ready: boolean;
+  try {
+    ready = await ensureDocumentStoreReady(state, scheduleSync);
+  } catch (error) {
+    reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
+    return null;
   }
-  state.pendingAttachments = state.pendingAttachments.filter(
-    (attachment) =>
-      attachment.slotId !== slotId || attachment.storageKey !== storageKey,
-  );
-  // The committed removal queued this key. A reset can leave another document
-  // uploading from the same copy; a detached marker keeps it until sync.
-  void runDocumentOrphanMaintenance(state);
+  if (!ready || !state.doc || !canWriteDocument(state)) return null;
+  // A reset or relink while this call waited owns the replacement document.
   if (
-    input.syncedAttachment ||
-    state.attachmentStorageKeyBySlotId[slotId] !== storageKey
+    callGeneration &&
+    !isAttachmentWriteGenerationCurrent(state, callGeneration)
   ) {
-    return;
+    return null;
   }
-  removeLocalAttachmentSlot(state, slotId);
-  setReadySnapshot(
-    state,
-    input.currentDoc,
-    state.snapshot.syncing,
-    state.snapshot.text,
-    state.snapshot.structuredFields,
-  );
+  return captureAttachmentWriteGeneration(state);
 }
 
-async function persistRemovedAttachment(
+async function attachThenSettle(
   state: DocumentStoreState,
-  slotId: string,
-  writeGeneration: AttachmentWriteGeneration,
+  scheduleSync: () => void,
+  files: ReadonlyArray<DocumentAttachmentUpload>,
+  callGeneration: AttachmentWriteGeneration | null,
 ) {
-  if (!isAttachmentWriteGenerationCurrent(state, writeGeneration)) return;
-  const currentDoc = state.doc;
-  if (!currentDoc) {
-    return;
-  }
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) {
-    return;
-  }
-
-  const existingAttachment = getDocumentAttachments(currentDoc).find(
-    (attachment) => attachment.slotId === slotId,
-  );
-  if (!existingAttachment) {
-    return;
-  }
-
-  // After a reset, a store opened cold holds the slot only as a pending upload.
-  const storageKey =
-    state.attachmentStorageKeyBySlotId[slotId] ??
-    state.pendingAttachments.find((attachment) => attachment.slotId === slotId)
-      ?.storageKey;
-  if (
-    !isAttachmentWriteGenerationCurrent(state, writeGeneration) ||
-    state.doc !== currentDoc
-  )
-    return;
-  const rollbackSnapshot = exportFullHistorySnapshot(currentDoc).slice();
-  removeDocumentAttachment(currentDoc, slotId);
-  const attachmentUpdate = pendingDeltaSinceBase(state, currentDoc);
-  const coveredVersion = encodeVersionVector(currentDoc);
-  const pendingUpdate = createPendingUpdateFields(attachmentUpdate);
-  const syncedAttachment = Boolean(state.record?.documentId);
-
-  // Preserve the optimistic text/structured fields (see persistAttachedFiles):
-  // removing an attachment while typing must not regress the editor.
-  let persisted: Awaited<ReturnType<typeof persistDocument>>;
+  const writeGeneration =
+    files.length === 0
+      ? null
+      : await captureReadyAttachWrite(state, scheduleSync, callGeneration);
   try {
-    persisted = await persistDocument(
-      state,
-      currentDoc,
-      { snapshotEndVersion: coveredVersion },
-      {
-        ...(storageKey
-          ? {
-              attachmentRemoval: {
-                mode: syncedAttachment
-                  ? ("detach" as const)
-                  : ("delete" as const),
-                slotId,
-                storageKey,
-              },
-            }
-          : {}),
-        ...(pendingUpdate ? { pendingUpdate } : {}),
-        preserveSnapshotStructuredFields: true,
-        preserveSnapshotText: true,
-      },
-      generation,
-    );
-  } catch (error) {
-    await restoreFailedAttachmentMutation({
-      generation,
-      rollbackSnapshot,
-      state,
-    });
-    throw error;
+    if (writeGeneration) {
+      await persistAttachedFiles(state, files, writeGeneration);
+    }
+  } finally {
+    await settleDeferredInitialUpdate(state, writeGeneration);
   }
-  if (
-    shouldAbortAttachmentPersistFollowup(
-      state,
-      writeGeneration,
-      generation,
-      persisted,
-    )
-  ) {
-    // See persistAttachedFiles: only durable same-identity work re-arms sync.
-    return;
-  }
-  installCommittedAttachmentRemoval({
-    currentDoc,
-    slotId,
-    state,
-    storageKey,
-    syncedAttachment,
-  });
-  advancePendingBaseVersion(state, currentDoc);
-  state.runtime.util.log(
-    `Removed attachment ${existingAttachment.name} from document ${state.localId}.`,
-  );
-  requestDocumentStoreSync(state);
 }
 
 export async function attachFilesToDocumentStore(
@@ -398,55 +286,16 @@ export async function attachFilesToDocumentStore(
   scheduleSync: () => void,
   files: ReadonlyArray<DocumentAttachmentUpload>,
 ) {
-  if (files.length === 0) {
-    return;
-  }
-
-  let ready: boolean;
-  try {
-    ready = await ensureDocumentStoreReady(state, scheduleSync);
-  } catch (error) {
-    reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
-    return;
-  }
-
-  if (!ready || !state.doc || !canWriteDocument(state)) {
-    return;
-  }
-
-  const writeGeneration = captureAttachmentWriteGeneration(state);
-  if (!writeGeneration) return;
+  // Join the chain before awaiting readiness so settlements keep call order,
+  // and settle even when nothing attaches: a deferred birth's sync hold lifts
+  // only behind every earlier attach, never while one is still staging. The
+  // caller's document is captured now (a cold store captures once ready).
+  const callGeneration = captureAttachmentWriteGeneration(state);
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(async () => persistAttachedFiles(state, files, writeGeneration))
-    .catch((error: unknown) => {
-      reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
-    });
-  return state.writeChain;
-}
-
-export async function removeAttachmentFromDocumentStore(
-  state: DocumentStoreState,
-  scheduleSync: () => void,
-  slotId: string,
-) {
-  let ready: boolean;
-  try {
-    ready = await ensureDocumentStoreReady(state, scheduleSync);
-  } catch (error) {
-    reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
-    return;
-  }
-
-  if (!ready || !state.doc || !canWriteDocument(state)) {
-    return;
-  }
-
-  const writeGeneration = captureAttachmentWriteGeneration(state);
-  if (!writeGeneration) return;
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () => persistRemovedAttachment(state, slotId, writeGeneration))
+    .then(async () =>
+      attachThenSettle(state, scheduleSync, files, callGeneration),
+    )
     .catch((error: unknown) => {
       reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     });

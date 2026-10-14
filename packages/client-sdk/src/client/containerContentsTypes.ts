@@ -71,6 +71,8 @@ export type MergeDocumentSummary = (nextDocument: DocumentSummary) => void;
 
 export interface OpenContainerDocumentInput {
   readonly containerId: string | null;
+  /** A file attach follows creation and carries the birth; see the store. */
+  readonly deferInitialUpdate?: boolean | undefined;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
   readonly initialText?: string | undefined;

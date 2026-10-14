@@ -170,6 +170,15 @@ shared by pending uploads after reset. Custom `DocumentsPersistence` adapters
 provide the required `orphanBlobs` queue and reference methods described in
 [custom persistence](./custom-document-persistence.md).
 
+A host that attaches a file right after creating its document can open it with
+`documentLinks().openDocument({ ..., deferInitialUpdate: true })`. The birth
+commits without its own pending update and scheduled sync waits, so the first
+`attachFiles` delta carries it and the import costs one Loro update; if that
+attach does not land, the store enqueues the birth on its own. The
+`createDocumentStore`, `getOrCreateDocumentStore`, and `openDocumentStore`
+factories take the option, with `remoteSyncMode`, in a trailing
+`DocumentStoreOpenOptions` object.
+
 For bounded UI hydration, resolve `localId` with
 `tearleads.documents.findLocalIdByDocumentId(documentId)`, open with
 `remoteSyncMode: "on-demand"`, and await `requestRemoteSyncAndWait(signal)`.

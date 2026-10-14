@@ -95,13 +95,13 @@ Init ==
   /\ responseDeletes = FALSE /\ responsePending = FALSE
   /\ responseWellFormed = TRUE /\ responseValidated = FALSE
   /\ durableOp = "none" /\ allPublicationsMatchedContext = TRUE
-QueueEdit(op) ==
+(* Durably queue the base-to-snapshot tail plus newOps; request a pass.    *)
+QueueSinceBase(newOps) ==
   /\ localPresent
-  /\ op \in Ops \ snapshot
-  /\ snapshot' = snapshot \cup {op}
-  /\ durableSnapshot' = durableSnapshot \cup {op}
-  /\ queued' = queued \cup (snapshot \ workingBase) \cup {op}
-  /\ workingBase' = snapshot \cup {op}
+  /\ snapshot' = snapshot \cup newOps
+  /\ durableSnapshot' = durableSnapshot \cup newOps
+  /\ queued' = queued \cup (snapshot \ workingBase) \cup newOps
+  /\ workingBase' = snapshot \cup newOps
   /\ lane' = IF lane \in {"idle", "complete"} THEN "running" ELSE lane
   /\ rerunRequested' = (rerunRequested \/ ActivePass)
   /\ UNCHANGED << durableBase, remote, durableRemoteRows,
@@ -109,6 +109,13 @@ QueueEdit(op) ==
                   capturedGeneration, capturedIdentity, presenceVars,
                   liveIdentity, liveGeneration, responseVars, durableOpVars,
                   auditVars >>
+QueueEdit(op) ==
+  /\ op \in Ops \ snapshot
+  /\ QueueSinceBase({op})
+(* A deferred birth is DeferEdit from Init; a failed attach then queues it. *)
+QueueRetainedTail ==
+  /\ snapshot \ workingBase # {}
+  /\ QueueSinceBase({})
 DeferEdit(op) ==
   /\ localPresent
   /\ op \in Ops \ snapshot
@@ -450,6 +457,7 @@ DiscardSettledLocal ==
 Next ==
   \/ \E op \in Ops : QueueEdit(op)
   \/ \E op \in Ops : DeferEdit(op)
+  \/ QueueRetainedTail
   \/ Prime
   \/ CapturePreparation
   \/ MaterializeCapturedTail

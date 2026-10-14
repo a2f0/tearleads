@@ -308,6 +308,7 @@ export {
 export type {
   DocumentSnapshot,
   DocumentStoreFacade,
+  DocumentStoreOpenOptions,
   DocumentStoreRelinkInput,
   DocumentStructuredFieldPatch,
 } from "./stores/documents";

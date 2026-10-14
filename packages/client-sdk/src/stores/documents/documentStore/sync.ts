@@ -50,6 +50,9 @@ import {
 
 function canRunScheduledSync(state: DocumentStoreState): boolean {
   return (
+    // A deferred birth waits for its attach to carry it (see
+    // deferredInitialUpdate.ts); a pass now would ship it on its own.
+    state.deferInitialUpdate !== true &&
     state.doc !== null &&
     state.snapshot.ready &&
     state.runtime.state.online &&
