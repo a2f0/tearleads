@@ -6,6 +6,8 @@ import type { VerifyResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { readRequestIpAddress } from "../../middleware/requestIp";
 import type { SessionEnv } from "../../middleware/session";
+import type { WebSocketTicketIdentity } from "../../realtime/wsIdentity";
+import { issueWebSocketTicket } from "../../realtime/wsTicket";
 import {
   VerifyChallengeError,
   verifyChallenge,
@@ -15,11 +17,17 @@ import { jsonRequestValidator } from "../../validators/jsonRequest";
 
 /**
  * `publicOrigin` is the configured origin login challenges must be signed
- * for; null lets each request's own origin stand in (development only).
+ * for; null lets each request's own origin stand in (development only). A
+ * successful login also returns the new session's first websocket ticket, the
+ * same single-use ticket `POST /auth/ws-ticket` mints, so the first connect
+ * needs no extra request.
  */
 export function createVerifyRoute(
   runtime: ApiServiceRuntime,
   publicOrigin: string | null,
+  issueTicket: (
+    identity: WebSocketTicketIdentity,
+  ) => Promise<string> = issueWebSocketTicket,
 ) {
   const verifyRoute = new Hono<SessionEnv>();
 
@@ -34,6 +42,10 @@ export function createVerifyRoute(
           apiOrigin: publicOrigin ?? new URL(c.req.url).origin,
           ipAddress: readRequestIpAddress(c),
         });
+        const wsTicket = await issueTicket({
+          sessionId: result.sessionId,
+          userId: result.userId,
+        });
 
         return c.json<VerifyResponse>({
           authenticated: true,
@@ -42,6 +54,7 @@ export function createVerifyRoute(
           rootContainerId: result.rootContainerId,
           token: result.token,
           userId: result.userId,
+          wsTicket,
         });
       } catch (error) {
         if (error instanceof VerifyChallengeError) {

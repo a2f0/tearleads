@@ -1,10 +1,13 @@
 import { CaretLeftIcon } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { CaretRightIcon } from "@phosphor-icons/react/dist/csr/CaretRight";
+import { CornersInIcon } from "@phosphor-icons/react/dist/csr/CornersIn";
+import { CornersOutIcon } from "@phosphor-icons/react/dist/csr/CornersOut";
 import { DesktopTowerIcon } from "@phosphor-icons/react/dist/csr/DesktopTower";
 import { DeviceMobileIcon } from "@phosphor-icons/react/dist/csr/DeviceMobile";
 import { DeviceTabletIcon } from "@phosphor-icons/react/dist/csr/DeviceTablet";
 import type { Icon } from "@phosphor-icons/react/dist/lib/types";
 import { ThemeInvertIcon } from "@tearleads/ui";
+import type { RefObject } from "react";
 import { projectLabel, screenLabel, themeLabel } from "./screenshotsManifest";
 
 const PROJECT_ICONS: Readonly<Record<string, Icon>> = {
@@ -21,6 +24,9 @@ export function ScreenshotsToolbar({
   activeName,
   onProjectChange,
   onThemeChange,
+  expanded,
+  onExpandToggle,
+  expandRef,
 }: {
   projects: string[];
   themes: string[];
@@ -29,7 +35,12 @@ export function ScreenshotsToolbar({
   activeName: string | undefined;
   onProjectChange: (id: string) => void;
   onThemeChange: (id: string) => void;
+  expanded: boolean;
+  onExpandToggle: () => void;
+  expandRef: RefObject<HTMLButtonElement | null>;
 }) {
+  const ExpandIcon = expanded ? CornersInIcon : CornersOutIcon;
+  const expandLabel = expanded ? "Collapse viewer" : "Expand viewer";
   return (
     <header className="screenshots-browser__toolbar">
       {/* Announces the new screen when the arrows or filmstrip step. */}
@@ -57,6 +68,16 @@ export function ScreenshotsToolbar({
         })}
       </fieldset>
       <ThemeSwitcher themes={themes} theme={theme} onChange={onThemeChange} />
+      <button
+        ref={expandRef}
+        type="button"
+        className="screenshots-browser__icon-button"
+        onClick={onExpandToggle}
+        aria-label={expandLabel}
+        title={expandLabel}
+      >
+        <ExpandIcon aria-hidden="true" size={20} />
+      </button>
     </header>
   );
 }

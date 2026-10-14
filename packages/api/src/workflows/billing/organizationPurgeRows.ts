@@ -1,6 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
-  accessEventDependencyProjection,
   accessEvents,
   accessManifestContainerGrantProjection,
   accessManifestDocumentLinkProjection,
@@ -88,23 +87,11 @@ async function deleteAccessRows(
   executor: DatabaseTransaction,
   organizationId: string,
 ): Promise<void> {
-  const [events, manifests] = await Promise.all([
-    executor
-      .select({ hash: accessEvents.eventHash })
-      .from(accessEvents)
-      .where(eq(accessEvents.organizationId, organizationId)),
-    executor
-      .select({ hash: accessManifests.manifestHash })
-      .from(accessManifests)
-      .where(eq(accessManifests.organizationId, organizationId)),
-  ]);
-  const eventHashes = events.map((row) => row.hash);
+  const manifests = await executor
+    .select({ hash: accessManifests.manifestHash })
+    .from(accessManifests)
+    .where(eq(accessManifests.organizationId, organizationId));
   const manifestHashes = manifests.map((row) => row.hash);
-  for (const eventBatch of organizationPurgeBatches(eventHashes)) {
-    await executor
-      .delete(accessEventDependencyProjection)
-      .where(inArray(accessEventDependencyProjection.eventHash, eventBatch));
-  }
   for (const manifestBatch of organizationPurgeBatches(manifestHashes)) {
     await executor
       .delete(accessManifestContainerGrantProjection)

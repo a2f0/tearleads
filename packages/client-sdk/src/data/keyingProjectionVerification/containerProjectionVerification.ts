@@ -19,6 +19,7 @@ import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
   observeAccessManifestCheckpoints,
+  observeVerifiedProjectionBundles,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import { verifyContainerManifestBundle } from "./containerManifestVerification";
@@ -42,10 +43,6 @@ import {
   generationGuardedPrincipalPolicyWarmer,
   withGenerationGuardedPolicyWarmer,
 } from "./types";
-import {
-  retainVerifiedProjectionBundles,
-  verifiedProjectionBundles,
-} from "./verifiedProjectionBundles";
 
 async function collectContainerUserRecipientKeys(input: {
   readonly containerManifest: VerifiedContainerAccessManifest;
@@ -306,22 +303,6 @@ export async function verifyContainerWriterProjectionWithContext(
   return verifiedPath;
 }
 
-function retainVerifiedContainerProjection(
-  input: Pick<
-    ContainerWriterProjectionVerificationInput,
-    "execSql" | "projection"
-  >,
-  verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
-): Promise<void> {
-  return retainVerifiedProjectionBundles(
-    input.execSql,
-    verifiedProjectionBundles(
-      collectContainerProjectionBundles(input.projection),
-      verifiedByHash,
-    ),
-  );
-}
-
 export async function verifyContainerWriterProjection(
   input: ContainerWriterProjectionVerificationInput,
 ): Promise<VerifiedContainerAccessManifest[]> {
@@ -343,9 +324,13 @@ export async function verifyContainerWriterProjection(
       checkpointContext,
     );
     assertProjectionVerificationCurrent(input.stillCurrent);
+    observeVerifiedProjectionBundles(
+      checkpointContext,
+      collectContainerProjectionBundles(input.projection),
+      verifiedByHash,
+    );
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
-    await retainVerifiedContainerProjection(input, verifiedByHash);
     return verifiedPath;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);
@@ -392,9 +377,13 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
       warmReferencedPrincipalPolicies,
     });
     assertProjectionVerificationCurrent(input.stillCurrent);
+    observeVerifiedProjectionBundles(
+      checkpointContext,
+      collectContainerProjectionBundles(input.projection),
+      verifiedByHash,
+    );
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
-    await retainVerifiedContainerProjection(input, verifiedByHash);
     return policies;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);

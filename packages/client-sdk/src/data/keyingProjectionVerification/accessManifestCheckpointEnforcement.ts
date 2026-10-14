@@ -9,6 +9,7 @@ import {
   advanceKeyingCheckpointsAtomically,
   validateKeyingCheckpointsAtomically,
 } from "../persistence/keyingCheckpointAdvancePersistence";
+import type { VerifiedManifestBundle } from "../persistence/verifiedManifestBundlePersistence";
 import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
@@ -71,6 +72,7 @@ export async function validateAccessManifestCheckpoints(input: {
     | readonly VerifiedPrincipalPolicySelection[]
     | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
+  readonly verifiedBundles?: readonly VerifiedManifestBundle[] | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
@@ -80,6 +82,7 @@ export async function validateAccessManifestCheckpoints(input: {
     policies: input.policies,
     authorizationPolicies: input.authorizationPolicies,
     stillCurrent: input.stillCurrent,
+    verifiedBundles: input.verifiedBundles,
   });
 }
 
@@ -92,6 +95,7 @@ export async function enforceAccessManifestCheckpoints(input: {
     | readonly VerifiedPrincipalPolicySelection[]
     | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
+  readonly verifiedBundles?: readonly VerifiedManifestBundle[] | undefined;
   readonly verifiedHeads: readonly VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: readonly VerifiedAccessManifestCheckpointEvidence[];
 }): Promise<void> {
@@ -103,5 +107,6 @@ export async function enforceAccessManifestCheckpoints(input: {
     policies: input.policies,
     authorizationPolicies: input.authorizationPolicies,
     stillCurrent: input.stillCurrent,
+    verifiedBundles: input.verifiedBundles,
   });
 }

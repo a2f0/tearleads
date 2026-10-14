@@ -1,27 +1,17 @@
 import { serializeWsServerMessage } from "@tearleads/validators/realtime";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
-import {
-  beforeDeadline,
-  ContainerInterestQueries,
-} from "./containerInterestQueries";
-import { ContainerInterestRestoration } from "./containerInterestRestoration";
+import { ContainerInterestQueries } from "./containerInterestQueries";
 import type { ProofAgePolicy } from "./containerInterestRevalidation";
 import type {
   AuthorizeContainerAccess,
   VerifiedContainerInterest,
 } from "./containerInterestTypes";
 import { closeSafely, sendSafely, type WsConnection } from "./wsConnection";
-import type { wsInterestStore } from "./wsInterestStore";
 import type { AppliedInterest, WsEventRouter } from "./wsRouting";
 
 type Interest = Exclude<AppliedInterest, null>;
 const MAX_PENDING_DECLARATIONS = 32;
 const MAX_PENDING_CONTAINER_IDS = 20_000;
-type PersistInterest = (
-  userId: string,
-  sessionId: string,
-  action: Interest,
-) => void;
 
 interface SocketState {
   pending: Promise<void>;
@@ -43,13 +33,10 @@ export class ContainerInterestAuthorizer {
   private readonly states = new WeakMap<WsConnection, SocketState>();
   private stopped = false;
   private readonly queries: ContainerInterestQueries;
-  private readonly restoration = new ContainerInterestRestoration();
 
   constructor(
     authorize: AuthorizeContainerAccess,
-    private readonly authorizationTimeoutMs: number,
-    private readonly interestStore: Pick<typeof wsInterestStore, "load">,
-    private readonly persist: PersistInterest,
+    authorizationTimeoutMs: number,
     private readonly router: WsEventRouter,
     private readonly proofAge: ProofAgePolicy,
   ) {
@@ -63,12 +50,13 @@ export class ContainerInterestAuthorizer {
     return this.states.get(ws)?.verifiedAt ?? 0;
   }
 
-  open(
-    ws: WsConnection,
-    restored?: { readonly verifiedAt: number },
-  ): Promise<void> {
-    this.restoration.clear(ws);
-    this.states.set(ws, {
+  /**
+   * A new socket starts with no container interest, so it receives no
+   * container hint until its own declaration is authorized. A hibernation
+   * restore keeps the saved proof age instead of re-dating its proofs.
+   */
+  open(ws: WsConnection, restored?: { readonly verifiedAt: number }): void {
+    const state: SocketState = {
       pending: Promise.resolve(),
       declarations: 0,
       containerIds: 0,
@@ -77,78 +65,12 @@ export class ContainerInterestAuthorizer {
       epoch: 0,
       revalidation: null,
       deadline: null,
-    });
-    this.armDeadline(ws, this.states.get(ws));
-    if (restored) return Promise.resolve();
-    return this.enqueue(ws, async () => {
-      try {
-        const cached = await beforeDeadline(
-          this.interestStore.load(ws.data.userId, ws.data.sessionId),
-          Date.now() + this.authorizationTimeoutMs,
-        );
-        await this.queries.run(
-          ws,
-          cached,
-          () => this.isOpen(ws),
-          (proofs) => this.installRestored(ws, cached, proofs),
-        );
-      } catch (error) {
-        console.error("Failed to hydrate websocket interest:", error);
-        reportBackgroundFailure(error, "websocket.hydrate");
-        if (!this.isOpen(ws)) return;
-        // Reconnect cache is only an optimization. An empty baseline lets the
-        // client's authoritative declaration recover without trusting the cache.
-        this.router.applyAuthorizedContainerInterest(
-          ws,
-          { kind: "replace", containerIds: [] },
-          [],
-        );
-        sendSafely(
-          ws,
-          serializeWsServerMessage({
-            type: "interest_state",
-            containerIds: [],
-          }),
-        );
-      }
-    });
-  }
-
-  private installRestored(
-    ws: WsConnection,
-    cached: string[],
-    proofs: VerifiedContainerInterest[],
-  ): void {
-    const state = this.states.get(ws);
-    if (!state) return;
-    this.confirm(ws, state);
-    this.restoration.put(
-      ws,
-      cached,
-      proofs,
-      Date.now() + this.authorizationTimeoutMs,
-    );
-    const containerIds = proofs.map((proof) => proof.containerId);
-    this.router.applyAuthorizedContainerInterest(
-      ws,
-      { kind: "replace", containerIds },
-      proofs,
-    );
-    sendSafely(
-      ws,
-      serializeWsServerMessage({ type: "interest_state", containerIds }),
-    );
-    const accepted = new Set(containerIds);
-    const refused = cached.filter((id) => !accepted.has(id));
-    if (refused.length > 0)
-      this.persist(ws.data.userId, ws.data.sessionId, {
-        kind: "remove",
-        containerIds: refused,
-      });
+    };
+    this.states.set(ws, state);
+    this.armDeadline(ws, state);
   }
 
   close(ws: WsConnection): void {
-    this.restoration.clear(ws);
     this.states.get(ws)?.deadline?.();
     this.states.delete(ws);
   }
@@ -196,7 +118,6 @@ export class ContainerInterestAuthorizer {
   }
 
   invalidateAccess(containerId: string): void {
-    this.restoration.invalidate(containerId);
     this.queries.invalidate(containerId);
   }
 
@@ -229,10 +150,6 @@ export class ContainerInterestAuthorizer {
     if (!state) return Promise.resolve();
     if (options.resyncAll) {
       state.resyncAll = true;
-      // The reconnect handoff was verified before the outage; a matching
-      // declaration during or after the fresh pass must reauthorize even if
-      // that pass fails.
-      this.restoration.clear(ws);
       if (state.revalidation) {
         state.epoch++;
         state.revalidation = null;
@@ -310,7 +227,6 @@ export class ContainerInterestAuthorizer {
       return;
     }
     state.epoch++;
-    this.restoration.clear(ws);
     this.router.applyAuthorizedContainerInterest(
       ws,
       { kind: "replace", containerIds: [] },
@@ -320,10 +236,6 @@ export class ContainerInterestAuthorizer {
       ws,
       serializeWsServerMessage({ type: "resync_required", containerIds: ids }),
     );
-    this.persist(ws.data.userId, ws.data.sessionId, {
-      kind: "remove",
-      containerIds: ids,
-    });
     state.resyncAll = false;
     this.confirm(ws, state);
   }
@@ -347,9 +259,6 @@ export class ContainerInterestAuthorizer {
     this.confirm(ws, state);
     const accepted = new Set(proofs.map((proof) => proof.containerId));
     const refused = ids.filter((id) => !accepted.has(id));
-    // The reconnect handoff predates this verification; a matching declaration
-    // inside its window must reauthorize, not reinstall an evicted proof.
-    this.restoration.clear(ws);
     // Re-adding the held set refreshes each surviving proof's dependency path
     // (a move re-parents it) and drops the refused ids in one step.
     this.router.applyAuthorizedContainerInterest(
@@ -367,11 +276,6 @@ export class ContainerInterestAuthorizer {
           containerIds: resync,
         }),
       );
-    if (refused.length > 0)
-      this.persist(ws.data.userId, ws.data.sessionId, {
-        kind: "remove",
-        containerIds: refused,
-      });
   }
 
   apply(ws: WsConnection, declaration: Interest): Promise<void> {
@@ -380,11 +284,6 @@ export class ContainerInterestAuthorizer {
       async () => {
         const ids = [...new Set(declaration.containerIds)];
         const install = (proofs: VerifiedContainerInterest[]): void => {
-          const containerIds =
-            declaration.kind === "remove"
-              ? ids
-              : proofs.map((proof) => proof.containerId);
-          const action = { ...declaration, containerIds };
           this.router.applyAuthorizedContainerInterest(ws, declaration, proofs);
           // A replace leaves only proofs verified just now installed.
           const state = this.states.get(ws);
@@ -396,27 +295,15 @@ export class ContainerInterestAuthorizer {
               ws,
               serializeWsServerMessage({
                 type: "known_containers_ack",
-                containerIds,
+                containerIds:
+                  declaration.kind === "remove"
+                    ? ids
+                    : proofs.map((proof) => proof.containerId),
                 declarationId: declaration.declarationId,
               }),
             );
-          if (declaration.kind === "add") {
-            const accepted = new Set(containerIds);
-            const refused = ids.filter((id) => !accepted.has(id));
-            if (refused.length > 0)
-              this.persist(ws.data.userId, ws.data.sessionId, {
-                kind: "remove",
-                containerIds: refused,
-              });
-          }
-          this.persist(ws.data.userId, ws.data.sessionId, action);
         };
-        const restored = this.restoration.take(
-          ws,
-          declaration.kind === "replace" ? ids : null,
-        );
         if (declaration.kind === "remove") install([]);
-        else if (restored) install(restored);
         else await this.queries.run(ws, ids, () => this.isOpen(ws), install);
       },
       declaration.containerIds.length,

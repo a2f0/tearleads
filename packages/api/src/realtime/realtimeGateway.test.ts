@@ -5,7 +5,6 @@ import type { SessionData } from "../validators/session";
 import { createRealtimeGateway } from "./realtimeGateway";
 import { createSessionRevocationNotifier } from "./sessionRevocation";
 import type { WebSocketTicketIdentity } from "./wsIdentity";
-import type { AppliedInterest } from "./wsRouting";
 
 const ORGANIZATION_ID = "00000000-0000-4000-8000-00000000000a";
 const USER_ID = "10000000-0000-4000-8000-00000000000a";
@@ -69,40 +68,6 @@ function createFakeBus() {
   };
 }
 
-function createMemoryInterestStore() {
-  const sets = new Map<string, Set<string>>();
-  function key(userId: string, sessionId: string): string {
-    return `${userId}:${sessionId}`;
-  }
-  return {
-    async apply(
-      userId: string,
-      sessionId: string,
-      applied: AppliedInterest,
-    ): Promise<void> {
-      if (!applied) {
-        return;
-      }
-      const interestKey = key(userId, sessionId);
-      const current =
-        applied.kind === "replace"
-          ? new Set<string>()
-          : (sets.get(interestKey) ?? new Set<string>());
-      for (const containerId of applied.containerIds) {
-        if (applied.kind === "remove") {
-          current.delete(containerId);
-        } else {
-          current.add(containerId);
-        }
-      }
-      sets.set(interestKey, current);
-    },
-    async load(userId: string, sessionId: string): Promise<string[]> {
-      return [...(sets.get(key(userId, sessionId)) ?? [])];
-    },
-  };
-}
-
 function sessionData(userId: string, sessionId: string): SessionData {
   return {
     createdAt: 1,
@@ -132,13 +97,12 @@ test("rejects unauthorized organization declarations before indexing", async () 
       authorizationCalls.push({ organizationId, userId });
       return false;
     },
-    interestStore: createMemoryInterestStore(),
     subscribe: bus.subscribe,
   });
   gateway.start();
   const socket = fakeSocket(USER_ID, "session-a");
   const ws = serverSocket(socket);
-  await gateway.websocket.open(ws);
+  gateway.websocket.open(ws);
 
   await gateway.websocket.message(
     ws,
@@ -160,7 +124,6 @@ test("rejects unauthorized organization declarations before indexing", async () 
     { organizationId: ORGANIZATION_ID, userId: USER_ID },
   ]);
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
-    { type: "interest_state", containerIds: [] },
     {
       type: "known_organizations_ack",
       declarationId: DECLARATION_ID,
@@ -180,13 +143,12 @@ test("reauthorizes denied demand when a later audience restores access", async (
       authorizationCalls += 1;
       return authorized;
     },
-    interestStore: createMemoryInterestStore(),
     subscribe: bus.subscribe,
   });
   gateway.start();
   const socket = fakeSocket(USER_ID, "session-a");
   const ws = serverSocket(socket);
-  await gateway.websocket.open(ws);
+  gateway.websocket.open(ws);
   await gateway.websocket.message(
     ws,
     JSON.stringify({
@@ -203,7 +165,7 @@ test("reauthorizes denied demand when a later audience restores access", async (
   });
   await flushAsyncRouting();
   expect(authorizationCalls).toBe(2);
-  expect(socket.sent).toHaveLength(2);
+  expect(socket.sent).toHaveLength(1);
 
   authorized = true;
   await bus.publish({
@@ -215,7 +177,6 @@ test("reauthorizes denied demand when a later audience restores access", async (
 
   expect(authorizationCalls).toBe(3);
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
-    { type: "interest_state", containerIds: [] },
     {
       type: "known_organizations_ack",
       declarationId: DECLARATION_ID,
@@ -239,13 +200,12 @@ test("does not index an organization until asynchronous authorization resolves",
   });
   const gateway = createRealtimeGateway({
     authorizeOrganizationAccess: () => authorization,
-    interestStore: createMemoryInterestStore(),
     subscribe: bus.subscribe,
   });
   gateway.start();
   const socket = fakeSocket(USER_ID, "session-a");
   const ws = serverSocket(socket);
-  await gateway.websocket.open(ws);
+  gateway.websocket.open(ws);
 
   const declaration = gateway.websocket.message(
     ws,
@@ -260,14 +220,13 @@ test("does not index an organization until asynchronous authorization resolves",
     organizationId: ORGANIZATION_ID,
     recipientUserIds: [USER_ID],
   });
-  expect(socket.sent).toHaveLength(1);
+  expect(socket.sent).toHaveLength(0);
 
   resolveAuthorization?.(true);
   await declaration;
   await flushAsyncRouting();
 
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
-    { type: "interest_state", containerIds: [] },
     {
       type: "known_organizations_ack",
       declarationId: DECLARATION_ID,
@@ -291,13 +250,12 @@ test("a newer clear declaration defeats stale asynchronous authorization", async
   });
   const gateway = createRealtimeGateway({
     authorizeOrganizationAccess: () => authorization,
-    interestStore: createMemoryInterestStore(),
     subscribe: bus.subscribe,
   });
   gateway.start();
   const socket = fakeSocket(USER_ID, "session-a");
   const ws = serverSocket(socket);
-  await gateway.websocket.open(ws);
+  gateway.websocket.open(ws);
 
   const staleDeclaration = gateway.websocket.message(
     ws,
@@ -324,7 +282,6 @@ test("a newer clear declaration defeats stale asynchronous authorization", async
   });
 
   expect(socket.sent.map((message) => JSON.parse(message))).toEqual([
-    { type: "interest_state", containerIds: [] },
     {
       type: "known_organizations_ack",
       declarationId: CLEAR_DECLARATION_ID,
@@ -337,14 +294,8 @@ test("a newer clear declaration defeats stale asynchronous authorization", async
 
 test("cross-instance session revocation closes only the revoked session socket", async () => {
   const bus = createFakeBus();
-  const socketInstance = createRealtimeGateway({
-    interestStore: createMemoryInterestStore(),
-    subscribe: bus.subscribe,
-  });
-  const logoutInstance = createRealtimeGateway({
-    interestStore: createMemoryInterestStore(),
-    subscribe: bus.subscribe,
-  });
+  const socketInstance = createRealtimeGateway({ subscribe: bus.subscribe });
+  const logoutInstance = createRealtimeGateway({ subscribe: bus.subscribe });
   socketInstance.start();
   logoutInstance.start();
 
@@ -356,25 +307,16 @@ test("cross-instance session revocation closes only the revoked session socket",
   const sameUserOtherSession = fakeSocket(userId, otherSessionId);
   const otherUserSameSessionId = fakeSocket(otherUserId, revokedSessionId);
 
-  await socketInstance.websocket.open(serverSocket(revoked));
-  await socketInstance.websocket.open(serverSocket(sameUserOtherSession));
-  await socketInstance.websocket.open(serverSocket(otherUserSameSessionId));
+  socketInstance.websocket.open(serverSocket(revoked));
+  socketInstance.websocket.open(serverSocket(sameUserOtherSession));
+  socketInstance.websocket.open(serverSocket(otherUserSameSessionId));
 
-  const clearError = new Error("redis timeout");
-  const clearErrors: unknown[] = [];
   const notifySessionRevoked = createSessionRevocationNotifier({
-    async clearInterest() {
-      throw clearError;
-    },
-    onClearInterestError(error) {
-      clearErrors.push(error);
-    },
     publishEvent: bus.publish,
   });
 
   await notifySessionRevoked(sessionData(userId, revokedSessionId));
 
-  expect(clearErrors).toEqual([clearError]);
   expect(revoked.closed).toEqual([{ code: 1008, reason: "Session revoked" }]);
   expect(sameUserOtherSession.closed).toEqual([]);
   expect(otherUserSameSessionId.closed).toEqual([]);

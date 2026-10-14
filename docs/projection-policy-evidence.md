@@ -102,24 +102,34 @@ advancing principal checkpoints. See [principal-history recovery](developer/prin
 for the private lease, checkpoint and availability contracts.
 
 Writer projections carry each access-manifest bundle once, cited by hash (see
-the [protocol specification](protocol-specification.md#container-access-and-kek-protocol)).
+the [protocol
+specification](protocol-specification.md#container-access-and-kek-protocol)).
 After a projection verifies, the SDK stores its verified bundles in the local
 `verified_access_manifest_bundles` table, keyed by manifest hash. A later
 projection GET for any object may send an `x-known-manifests` header listing up
 to 48 of those hashes: the requested object's own lineage first, then the
-lineages of the containers its projection walks (its local ancestors, or a
-document's linked containers and theirs), then the organization's most recently
-verified bundles, which covers a child read before its row is listed locally.
-The citation is therefore shared across objects and survives restarts and
-reconnects. The server performs its
-ordinary authorization, lineage walk, stored-evidence verification and policy
-evidence loading, then omits the bundle bytes of exactly the cited hashes it
-would have served and lists them in the response's `omittedBundles`. Unknown
-hashes are ignored. The routes disable HTTP response caching.
+lineages of the containers its projection walks (its local ancestors, or the
+containers a document is linked to, listed in, or describes as metadata, and
+their ancestors), then the organization's most recently verified bundles, which
+covers a child read before its row is listed locally. Citations never leave the
+object's organization: every local source (verified bundles of the object and of
+the containers on its walk, a document's verified discovery head, and listed
+container rows) must name the same single organization, and any disagreement or
+absence cites nothing. Citing is bounded: a source that has not answered within
+250 ms, fails, or is overtaken by the caller's abort leaves the read uncited,
+and a late answer is discarded. The citation is therefore shared across objects
+and survives restarts and reconnects. The server performs its ordinary
+authorization, lineage walk, stored-evidence verification and policy evidence
+loading, then omits the bundle bytes of exactly the cited hashes it would have
+served and lists them in the response's `omittedBundles`. Unknown hashes are
+ignored. The routes disable HTTP response caching.
 
 The client fills each omission only from the exact bytes it cited for that
 request, copied before the request was sent, and rejects a response that omits
-anything else. A response it cannot rebuild is refetched once with no hints,
+anything else. The read binds its authentication context before citations
+load; an account switch while they load, or before the refetch, cancels the
+read rather than sending one identity's hints or answer under another's
+session. A response it cannot rebuild is refetched once with no hints,
 which an honest server answers in full; losing or emptying the table likewise
 yields complete responses, so no device depends on a cache to read. Rebuilt
 projections are verified from scratch: manifest hashes are recomputed,
@@ -131,14 +141,18 @@ evidence and current heads, keys and key material always travel. Stored rows
 carry a SHA-256 digest of their exact JSON; a mismatched row is dropped instead
 of cited.
 
-The table keeps at most 1,024 bundles and evicts the least recently verified
-first; eviction and an organization's remote reset only remove citations. The
-API cannot skip loading a cited manifest: its own KEK verification consumes the
-same states, and the policy evidence it serves must cover every bundle the
-device re-verifies. Citation saves response bytes, not server work. The
-[manifest history model](../formal/container-keying/ManifestHistory.md) checks
-that citing only held bytes and omitting only cited hashes keep every honest
-read available under any eviction.
+Verified bundles are stored inside the transaction that advances, or for a move
+destination re-validates, the projection's checkpoints. They commit only under
+that transaction's generation and lease guard, and no cache write outlives the
+verification or holds the database after it settles. The table keeps at most
+1,024 bundles and evicts the least recently verified first; eviction and an
+organization's remote reset only remove citations. The API cannot skip loading a
+cited manifest: its own KEK verification consumes the same states, and the
+policy evidence it serves must cover every bundle the device re-verifies.
+Citation saves response bytes, not server work. The [manifest history
+model](../formal/container-keying/ManifestHistory.md) checks that citing only
+held bytes and omitting only cited hashes keep every honest read available under
+any eviction.
 
 Principal-state and access-event signature results are separately memoized by
 the exact signature, message bytes, and resolved public key. Only successful

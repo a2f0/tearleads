@@ -54,7 +54,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Documents",
     package: "api",
     responsibility:
-      "Document update storage, version-vector spans, commit LSN, audit entries/checkpoints/hash history, sync baseline redirect, and edit attribution.",
+      "Document update storage, version-vector spans, commit LSN, rotation-baseline markers, sync baseline redirect, and edit attribution.",
     seam: "routes/documents; services/documents facade",
     paths: [
       `${api}/routes/documents/`,
@@ -162,7 +162,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Realtime Sync",
     package: "api",
     responsibility:
-      "Process-local fan-out of published realtime events to interested sockets: the WS lifecycle, interest index, persisted interest mirror, and upgrade tickets.",
+      "Process-local fan-out of published realtime events to interested sockets: the WS lifecycle, per-socket interest index, and upgrade tickets.",
     seam: "createRealtimeGateway, assembled and started by index.ts and the realtime hub Durable Object",
     paths: [
       `${api}/realtime/publishedRealtimeEvents.ts`,
@@ -173,14 +173,12 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/realtime/containerInterestAuthorization.ts`,
       `${api}/realtime/containerInterestDependencies.ts`,
       `${api}/realtime/containerInterestQueries.ts`,
-      `${api}/realtime/containerInterestRestoration.ts`,
       `${api}/realtime/containerInterestRevalidation.ts`,
       `${api}/realtime/containerInterestTypes.ts`,
       `${api}/realtime/hintScoping.ts`,
       `${api}/realtime/wsConnection.ts`,
       `${api}/realtime/wsOrganizationRouting.ts`,
       `${api}/realtime/wsRouting.ts`,
-      `${api}/realtime/wsInterestStore.ts`,
       `${api}/realtime/wsTicket.ts`,
       `${api}/realtime/wsIdentity.ts`,
       `${api}/realtime/wsSessionLiveness.ts`,
@@ -190,7 +188,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Session Lifecycle",
     package: "api",
     responsibility:
-      "Bearer-token session storage, activity/IP tracking, history request lifetime, request-IP binding, and session revocation (clear WS interest + publish session_revoked).",
+      "Bearer-token session storage, activity/IP tracking, history request lifetime, request-IP binding, and session revocation (publish session_revoked).",
     seam: "middleware/session.ts (requireAuth) and realtime/sessionRevocation.ts",
     paths: [
       `${api}/middleware/requestIp.ts`,

@@ -14,6 +14,10 @@ import {
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { containers } from "../sqlite/containerSchema";
 import {
+  documentDiscoveryHeads,
+  pendingDocumentDiscoveries,
+} from "../sqlite/documentDiscoveryEvidenceSchema";
+import {
   containerTables,
   documentContainerProjection,
   documentContainerProjectionTables,
@@ -72,21 +76,24 @@ async function pruneInTransaction(
     await tx.delete(bundles).where(inArray(bundles.manifestHash, batch)).run();
 }
 
+/** A verified bundle's exact JSON and that JSON's digest. */
+export type VerifiedManifestBundleRow = Omit<
+  typeof bundles.$inferInsert,
+  "verifiedAt"
+>;
+
 /**
- * Records bundles that just passed projection verification. Freshly verified
- * bytes replace any stored copy. Callers treat this as best effort: a cache
- * write must never turn a verified projection into a refusal.
+ * Prepares rows for bundles that just passed projection verification. The
+ * digests are computed here, before the checkpoint transaction that writes
+ * them begins.
  */
-export async function rememberVerifiedManifestBundles(
-  execSql: ExecSql,
+export function verifiedManifestBundleRows(
   entries: readonly VerifiedManifestBundle[],
-): Promise<void> {
+): Promise<VerifiedManifestBundleRow[]> {
   const unique = new Map(
     entries.map((entry) => [entry.bundle.manifestHash, entry]),
   );
-  if (unique.size === 0) return;
-  const verifiedAt = new Date().toISOString();
-  const rows = await Promise.all(
+  return Promise.all(
     [...unique.values()].map(async ({ bundle, checkpoint }) => {
       const bundleJson = JSON.stringify(bundle);
       return {
@@ -97,39 +104,47 @@ export async function rememberVerifiedManifestBundles(
         epoch: checkpoint.epoch,
         bundleJson,
         bundleDigest: await sha256Hex(bundleJson),
-        verifiedAt,
       };
     }),
   );
-  await ensureSqlTables(execSql, verifiedManifestBundleTables);
-  await getClientSQLitePersistenceRuntime(execSql).transaction(
-    async (tx) => {
-      const stored = await storedDigests(
-        tx,
-        rows.map((row) => row.manifestHash),
-      );
-      // An identical stored row only needs its recency refreshed.
-      const unchanged = rows.filter(
-        (row) => stored.get(row.manifestHash) === row.bundleDigest,
-      );
-      for (const batch of batches(unchanged.map((row) => row.manifestHash)))
-        await tx
-          .update(bundles)
-          .set({ verifiedAt })
-          .where(inArray(bundles.manifestHash, batch))
-          .run();
-      for (const row of rows) {
-        if (stored.get(row.manifestHash) === row.bundleDigest) continue;
-        await tx
-          .insert(bundles)
-          .values(row)
-          .onConflictDoUpdate({ target: bundles.manifestHash, set: row })
-          .run();
-      }
-      await pruneInTransaction(tx);
-    },
-    { behavior: "immediate" },
+}
+
+/**
+ * Records verified bundles inside the transaction that finalizes their
+ * projection's checkpoints, so they commit or roll back with it and no cache
+ * work outlives the verification. Freshly verified bytes replace any stored
+ * copy.
+ */
+export async function writeVerifiedManifestBundlesInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  rows: readonly VerifiedManifestBundleRow[],
+  verifiedAt: string,
+): Promise<void> {
+  if (rows.length === 0) return;
+  const stored = await storedDigests(
+    tx,
+    rows.map((row) => row.manifestHash),
   );
+  // An identical stored row only needs its recency refreshed.
+  const unchanged = rows.filter(
+    (row) => stored.get(row.manifestHash) === row.bundleDigest,
+  );
+  for (const batch of batches(unchanged.map((row) => row.manifestHash)))
+    await tx
+      .update(bundles)
+      .set({ verifiedAt })
+      .where(inArray(bundles.manifestHash, batch))
+      .run();
+  for (const row of rows) {
+    if (stored.get(row.manifestHash) === row.bundleDigest) continue;
+    const verified = { ...row, verifiedAt };
+    await tx
+      .insert(bundles)
+      .values(verified)
+      .onConflictDoUpdate({ target: bundles.manifestHash, set: verified })
+      .run();
+  }
+  await pruneInTransaction(tx);
 }
 
 async function storedDigests(
@@ -178,35 +193,88 @@ async function citedObjects(
       kind: "container",
       id,
     }));
-  const links = await db
-    .select({ containerId: documentContainerProjection.containerId })
-    .from(documentContainerProjection)
-    .where(eq(documentContainerProjection.documentId, target.id));
+  // Linked containers, containers listing the document before its signed
+  // placement is checked, and a container whose metadata document it is.
+  const placements = [
+    ...(await db
+      .select({ containerId: documentContainerProjection.containerId })
+      .from(documentContainerProjection)
+      .where(eq(documentContainerProjection.documentId, target.id))),
+    ...(await db
+      .select({ containerId: pendingDocumentDiscoveries.containerId })
+      .from(pendingDocumentDiscoveries)
+      .where(eq(pendingDocumentDiscoveries.documentId, target.id))),
+    ...(await db
+      .select({ containerId: containers.id })
+      .from(containers)
+      .where(eq(containers.metadataDocumentId, target.id))),
+  ];
   const containerIds = new Set<string>();
-  for (const link of links)
-    for (const id of await containerLineage(db, link.containerId))
-      containerIds.add(id);
+  for (const { containerId } of placements)
+    if (containerId)
+      for (const id of await containerLineage(db, containerId))
+        containerIds.add(id);
   return [
     { kind: "document", id: target.id },
     ...[...containerIds].map((id) => ({ kind: "container", id })),
   ];
 }
 
-/** The organization of the first locally listed container among `objects`. */
+/**
+ * The one organization every local source places the read in. Verified
+ * ownership (stored verified bundles of the target and of the containers on
+ * its walk, and a document's verified discovery head) and local placement
+ * (listed container rows reached through links, pending listings, metadata,
+ * or parents) must all agree: any disagreement, or no source at all, yields
+ * null, so the read is sent with no hints rather than another
+ * organization's.
+ */
 async function targetOrganization(
   db: ClientSQLiteDatabase,
+  target: WriterProjectionTarget,
   objects: readonly { readonly kind: string; readonly id: string }[],
 ): Promise<string | null> {
   const containerIds = objects
     .filter((object) => object.kind === "container")
     .map((object) => object.id);
-  if (containerIds.length === 0) return null;
-  const [row] = await db
-    .select({ organizationId: containers.organizationId })
-    .from(containers)
-    .where(inArray(containers.id, containerIds))
-    .limit(1);
-  return row?.organizationId ?? null;
+  const listed =
+    containerIds.length === 0
+      ? []
+      : await db
+          .select({ organizationId: containers.organizationId })
+          .from(containers)
+          .where(inArray(containers.id, containerIds));
+  const verifiedContainers =
+    containerIds.length === 0
+      ? []
+      : await db
+          .select({ organizationId: bundles.organizationId })
+          .from(bundles)
+          .where(
+            and(
+              eq(bundles.objectKind, "container"),
+              inArray(bundles.objectId, containerIds),
+            ),
+          );
+  const verifiedTarget = await db
+    .select({ organizationId: bundles.organizationId })
+    .from(bundles)
+    .where(
+      and(eq(bundles.objectKind, target.kind), eq(bundles.objectId, target.id)),
+    );
+  const discovered =
+    target.kind === "document"
+      ? await db
+          .select({ organizationId: documentDiscoveryHeads.organizationId })
+          .from(documentDiscoveryHeads)
+          .where(eq(documentDiscoveryHeads.documentId, target.id))
+      : [];
+  const sources = [listed, verifiedContainers, verifiedTarget, discovered];
+  const organizations = new Set(
+    sources.flat().map((row) => row.organizationId),
+  );
+  const [organizationId] = organizations;
+  return organizations.size === 1 && organizationId ? organizationId : null;
 }
 
 interface StoredBundleRow {
@@ -238,6 +306,7 @@ async function readStoredBundle(
 
 function objectRows(
   db: ClientSQLiteDatabase,
+  organizationId: string,
   object: { readonly kind: string; readonly id: string },
   limit: number,
 ) {
@@ -245,7 +314,11 @@ function objectRows(
     .select(storedColumns)
     .from(bundles)
     .where(
-      and(eq(bundles.objectKind, object.kind), eq(bundles.objectId, object.id)),
+      and(
+        eq(bundles.organizationId, organizationId),
+        eq(bundles.objectKind, object.kind),
+        eq(bundles.objectId, object.id),
+      ),
     )
     .orderBy(desc(bundles.epoch))
     .limit(limit);
@@ -253,17 +326,13 @@ function objectRows(
 
 function recentRows(
   db: ClientSQLiteDatabase,
-  organizationId: string | null,
+  organizationId: string,
   limit: number,
 ) {
   return db
     .select(storedColumns)
     .from(bundles)
-    .where(
-      organizationId === null
-        ? undefined
-        : eq(bundles.organizationId, organizationId),
-    )
+    .where(eq(bundles.organizationId, organizationId))
     .orderBy(desc(bundles.verifiedAt), asc(bundles.manifestHash))
     .limit(limit);
 }
@@ -271,9 +340,10 @@ function recentRows(
 /**
  * Verified bundles of the target's object and of the containers its
  * projection walks, newest epochs first; then the most recently verified rows
- * of its organization, or of any before the device has listed the target,
- * since a just-verified parent is the likeliest part of a new child's
- * projection. Damaged rows are dropped.
+ * of its organization, since a just-verified parent is the likeliest part of
+ * a new child's projection. Citations never leave the target's organization:
+ * an object whose organization the device cannot place cites nothing.
+ * Damaged rows are dropped.
  */
 export async function loadVerifiedManifestCitations(
   execSql: ExecSql,
@@ -297,17 +367,15 @@ export async function loadVerifiedManifestCitations(
     }
   };
   const objects = await citedObjects(db, target);
+  const organizationId = await targetOrganization(db, target, objects);
+  if (organizationId === null) return [];
   for (const object of objects)
     if (cited.size < limit)
-      await collect(await objectRows(db, object, limit - cited.size));
+      await collect(
+        await objectRows(db, organizationId, object, limit - cited.size),
+      );
   if (cited.size < limit)
-    await collect(
-      await recentRows(
-        db,
-        await targetOrganization(db, objects),
-        limit + cited.size,
-      ),
-    );
+    await collect(await recentRows(db, organizationId, limit + cited.size));
   if (damaged.length > 0)
     await getClientSQLitePersistenceRuntime(execSql)
       .runMutation((handle) =>

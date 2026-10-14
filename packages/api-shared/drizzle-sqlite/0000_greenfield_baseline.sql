@@ -1,16 +1,3 @@
-CREATE TABLE `access_event_dependency_projection` (
-	`id` text PRIMARY KEY NOT NULL,
-	`event_hash` text NOT NULL,
-	`object_kind` text NOT NULL,
-	`object_id` text NOT NULL,
-	`dependency_manifest_hash` text NOT NULL,
-	`dependency_index` integer NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `access_event_dependency_projection_event_idx` ON `access_event_dependency_projection` (`event_hash`);--> statement-breakpoint
-CREATE INDEX `access_event_dependency_projection_dependency_idx` ON `access_event_dependency_projection` (`dependency_manifest_hash`);--> statement-breakpoint
-CREATE UNIQUE INDEX `access_event_dependency_projection_unique_idx` ON `access_event_dependency_projection` (`event_hash`,`dependency_manifest_hash`);--> statement-breakpoint
 CREATE TABLE `access_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`version` integer NOT NULL,
@@ -336,60 +323,14 @@ CREATE INDEX `containers_parent_id_idx` ON `containers` (`parent_id`);--> statem
 CREATE INDEX `containers_parent_updated_idx` ON `containers` (`parent_id`,`updated_at`,`id`);--> statement-breakpoint
 CREATE INDEX `containers_org_depth_updated_idx` ON `containers` (`organization_id`,`depth`,`updated_at`,`id`);--> statement-breakpoint
 CREATE INDEX `containers_parent_depth_idx` ON `containers` (`parent_id`,`depth`);--> statement-breakpoint
-CREATE TABLE `document_attachment_audit_events` (
-	`audit_entry_id` text PRIMARY KEY NOT NULL,
-	`action` text NOT NULL,
-	`slot_id` text NOT NULL,
-	`binding_id` text,
-	`previous_binding_id` text,
-	`blob_id` text,
-	`previous_blob_id` text,
-	`retention_mode` text NOT NULL,
-	FOREIGN KEY (`audit_entry_id`) REFERENCES `document_audit_entries`(`id`) ON UPDATE no action ON DELETE no action
-);
---> statement-breakpoint
-CREATE TABLE `document_audit_checkpoints` (
-	`id` text NOT NULL,
+CREATE TABLE `document_baselines` (
+	`baseline_update_id` text PRIMARY KEY NOT NULL,
 	`document_id` text NOT NULL,
-	`sequence` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`baseline_update_id` text NOT NULL,
 	`checkpoint_kind` text NOT NULL,
-	`source_version_vector` text NOT NULL,
-	`covered_audit_entry_hash` text,
-	`previous_checkpoint_hash` text,
-	`checkpoint_hash` text NOT NULL,
-	`access_epoch` integer NOT NULL,
-	`access_manifest_hash` text NOT NULL,
-	`access_state_hash` text,
-	`actor_user_id` text NOT NULL,
-	`actor_fingerprint` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
+	`source_version_vector` text NOT NULL
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `document_audit_checkpoints_id_unique` ON `document_audit_checkpoints` (`id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `document_audit_checkpoints_baseline_update_id_unique` ON `document_audit_checkpoints` (`baseline_update_id`);--> statement-breakpoint
-CREATE INDEX `document_audit_checkpoints_document_sequence_idx` ON `document_audit_checkpoints` (`document_id`,`sequence`);--> statement-breakpoint
-CREATE UNIQUE INDEX `document_audit_checkpoints_document_hash_idx` ON `document_audit_checkpoints` (`document_id`,`checkpoint_hash`);--> statement-breakpoint
-CREATE INDEX `document_audit_checkpoints_document_created_idx` ON `document_audit_checkpoints` (`document_id`,`created_at`);--> statement-breakpoint
-CREATE TABLE `document_audit_entries` (
-	`id` text NOT NULL,
-	`document_id` text NOT NULL,
-	`sequence` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
-	`event_type` text NOT NULL,
-	`access_epoch` integer NOT NULL,
-	`access_manifest_hash` text NOT NULL,
-	`access_state_hash` text,
-	`actor_user_id` text NOT NULL,
-	`actor_fingerprint` text NOT NULL,
-	`prev_entry_hash` text,
-	`entry_hash` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `document_audit_entries_id_unique` ON `document_audit_entries` (`id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `document_audit_entries_document_sequence_idx` ON `document_audit_entries` (`document_id`,`sequence`);--> statement-breakpoint
-CREATE UNIQUE INDEX `document_audit_entries_document_hash_idx` ON `document_audit_entries` (`document_id`,`entry_hash`);--> statement-breakpoint
-CREATE INDEX `document_audit_entries_document_created_idx` ON `document_audit_entries` (`document_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `document_baselines_document_idx` ON `document_baselines` (`document_id`);--> statement-breakpoint
 CREATE TABLE `document_content_key_epochs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`document_id` text NOT NULL,
@@ -458,19 +399,6 @@ CREATE TABLE `document_manifest_observations` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `document_manifest_observations_user_document_hash_idx` ON `document_manifest_observations` (`user_id`,`document_id`,`manifest_hash`);--> statement-breakpoint
 CREATE INDEX `document_manifest_observations_document_idx` ON `document_manifest_observations` (`document_id`);--> statement-breakpoint
-CREATE TABLE `document_update_audit_events` (
-	`audit_entry_id` text PRIMARY KEY NOT NULL,
-	`live_update_id` text NOT NULL,
-	`partial_start_version_vector` text NOT NULL,
-	`partial_end_version_vector` text NOT NULL,
-	`source_version_vector` text,
-	`plaintext_hash` text NOT NULL,
-	`encrypted_update_sha256` text NOT NULL,
-	`encrypted_update_byte_length` integer NOT NULL,
-	FOREIGN KEY (`audit_entry_id`) REFERENCES `document_audit_entries`(`id`) ON UPDATE no action ON DELETE no action
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `document_update_audit_events_live_update_id_unique` ON `document_update_audit_events` (`live_update_id`);--> statement-breakpoint
 CREATE TABLE `document_update_spans` (
 	`document_id` text NOT NULL,
 	`update_id` text NOT NULL,

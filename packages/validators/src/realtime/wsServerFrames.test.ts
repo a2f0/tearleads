@@ -10,8 +10,6 @@ const ORG = "33333333-3333-4333-8333-333333333333";
 const DOC = "44444444-4444-4444-8444-444444444444";
 
 const controlFrames: WsServerMessage[] = [
-  { containerIds: [C1], type: "interest_state" },
-  { containerIds: [], type: "interest_state" },
   {
     declarationId: "d-1",
     containerIds: ["container-1"],
@@ -86,8 +84,11 @@ test("malformed and unknown server frames fail closed", () => {
   expect(parseWsServerMessage(JSON.stringify(null))).toBeNull();
   expect(parseWsServerMessage(JSON.stringify({}))).toBeNull();
   expect(parseWsServerMessage(JSON.stringify({ type: "mystery" }))).toBeNull();
+  // The retired reconnect-baseline frame is unknown and fails closed.
   expect(
-    parseWsServerMessage(JSON.stringify({ type: "interest_state" })),
+    parseWsServerMessage(
+      JSON.stringify({ containerIds: [], type: "interest_state" }),
+    ),
   ).toBeNull();
   expect(
     parseWsServerMessage(

@@ -20,6 +20,28 @@
   color: var(--site-ink);
 }
 
+/* The modal top layer hides the page and keeps focus inside the viewer. */
+.screenshots-browser__viewport {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: var(--site-bg);
+}
+
+.screenshots-browser__viewport > .screenshots-browser {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+}
+
 /* --- Shared controls --- */
 
 .screenshots-browser__toggle-button,
@@ -395,7 +417,7 @@
   }
 
   /* Screen label on its own row; the layout toggle fills the row beneath it,
-   * beside the theme button. */
+   * beside the theme and expand buttons. */
   .screenshots-browser__title {
     flex-basis: 100%;
     padding: var(--site-space-1) var(--site-space-2) 0;

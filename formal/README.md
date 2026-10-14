@@ -1,10 +1,10 @@
 # Protocol Models
 
-This directory contains executable protocol safety models. The
-models complement the runtime grammar in
+This directory holds executable protocol safety models. They complement the
+runtime grammar in
 [`docs/protocol-specification.md`](../docs/protocol-specification.md); they do
-not replace Zod validation, cryptographic verification, database constraints,
-or integration tests.
+not replace Zod validation, cryptographic verification, database constraints, or
+integration tests.
 
 Run every bounded model with:
 
@@ -13,8 +13,8 @@ mise install java github:tlaplus/tlaplus
 bun run check:protocol-models
 ```
 
-The repository pins Java 25 LTS and the prebuilt TLA+ tools; TLC itself requires
-Java 11 or newer. No generated state directory or tool binary is committed.
+The repository pins Java 25 LTS and the prebuilt TLA+ tools; TLC requires Java
+11 or newer. No generated state directory or tool binary is committed.
 
 [`protocol-models.txt`](./protocol-models.txt) registers `model|config` pairs.
 The checker validates every pair and rejects unregistered configurations before
@@ -59,11 +59,11 @@ The [F1/F2 gate audit](./verification-gates.md) maps #2192's no-brick and
 verifier-property requirements to executable evidence, records their bounds,
 and identifies the remaining Lean proof and vector work.
 
-To add a model, commit its `.tla` and bounded `.cfg` files and register the pair.
-One module may appear with multiple configurations, but each configuration must
-appear exactly once. Keep registered bounds small enough for `check:fast`;
-broader configurations should use a separate scheduled suite rather than
-silently increasing pull-request check time.
+To add a model, commit its `.tla` and bounded `.cfg` files and register the
+pair. One module may appear with multiple configurations, but each configuration
+must appear exactly once. Keep registered bounds small enough for `check:fast`;
+put broader configurations in a separate scheduled suite instead of lengthening
+pull-request checks.
 
 ## Sync Lane Concurrency
 
@@ -147,10 +147,10 @@ before an additive join hands that key out. See the
 ## Manifest History Availability
 
 [`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
-models cold reads, revocation, and reads citing a device's held bundles.
-Negative controls show why lifetime caps fail and why citations need held bytes
-and cited-only omission. The read and revocation predicates hold by
-definition; it does not explore a verifier algorithm or resource bounds. See the
+models cold reads, revocation, and citing held bundles. Negative controls show
+why lifetime caps fail and citing needs held bytes and cited-only omission. Read
+and revocation predicates hold by definition; no verifier or resource bound is
+modeled. See the
 [mapping and runtime regressions](./container-keying/ManifestHistory.md).
 Principal state models cover
 [version availability](./container-keying/PrincipalHistory.md)
@@ -297,9 +297,10 @@ See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
 [`realtime/ContainerInterest.tla`](./realtime/ContainerInterest.tla) checks that
 container subscriptions require current read access before indexing and cannot
 be restored by an authorization result that outlived revocation or socket close,
+that a reconnected socket gets no container hint before its client declares,
 that an ended session's socket never outlives the next session read the store
-answers, and that a session the store cannot confirm closes at its deadline.
-See the [production mapping and bounds](./realtime/ContainerInterest.md).
+answers, and that a session the store cannot confirm closes at its deadline. See
+the [production mapping and bounds](./realtime/ContainerInterest.md).
 
 ## Attachment Key Reachability
 

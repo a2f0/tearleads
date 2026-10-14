@@ -1,13 +1,3 @@
-CREATE TABLE "access_event_dependency_projection" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"event_hash" text NOT NULL,
-	"object_kind" text NOT NULL,
-	"object_id" uuid NOT NULL,
-	"dependency_manifest_hash" text NOT NULL,
-	"dependency_index" integer NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "access_events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"version" integer NOT NULL,
@@ -263,51 +253,11 @@ CREATE TABLE "containers" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "document_attachment_audit_events" (
-	"audit_entry_id" uuid PRIMARY KEY NOT NULL,
-	"action" text NOT NULL,
-	"slot_id" text NOT NULL,
-	"binding_id" uuid,
-	"previous_binding_id" uuid,
-	"blob_id" uuid,
-	"previous_blob_id" uuid,
-	"retention_mode" text NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "document_audit_checkpoints" (
-	"id" uuid DEFAULT gen_random_uuid() NOT NULL,
+CREATE TABLE "document_baselines" (
+	"baseline_update_id" uuid PRIMARY KEY NOT NULL,
 	"document_id" uuid NOT NULL,
-	"sequence" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "document_audit_checkpoints_sequence_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
-	"baseline_update_id" uuid NOT NULL,
 	"checkpoint_kind" text NOT NULL,
-	"source_version_vector" text NOT NULL,
-	"covered_audit_entry_hash" text,
-	"previous_checkpoint_hash" text,
-	"checkpoint_hash" text NOT NULL,
-	"access_epoch" integer NOT NULL,
-	"access_manifest_hash" text NOT NULL,
-	"access_state_hash" text,
-	"actor_user_id" uuid NOT NULL,
-	"actor_fingerprint" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "document_audit_checkpoints_id_unique" UNIQUE("id"),
-	CONSTRAINT "document_audit_checkpoints_baseline_update_id_unique" UNIQUE("baseline_update_id")
-);
---> statement-breakpoint
-CREATE TABLE "document_audit_entries" (
-	"id" uuid DEFAULT gen_random_uuid() NOT NULL,
-	"document_id" uuid NOT NULL,
-	"sequence" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "document_audit_entries_sequence_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
-	"event_type" text NOT NULL,
-	"access_epoch" integer NOT NULL,
-	"access_manifest_hash" text NOT NULL,
-	"access_state_hash" text,
-	"actor_user_id" uuid NOT NULL,
-	"actor_fingerprint" text NOT NULL,
-	"prev_entry_hash" text,
-	"entry_hash" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "document_audit_entries_id_unique" UNIQUE("id")
+	"source_version_vector" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "document_content_key_epochs" (
@@ -361,18 +311,6 @@ CREATE TABLE "document_manifest_observations" (
 	"document_id" uuid NOT NULL,
 	"manifest_hash" text NOT NULL,
 	"observed_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "document_update_audit_events" (
-	"audit_entry_id" uuid PRIMARY KEY NOT NULL,
-	"live_update_id" uuid NOT NULL,
-	"partial_start_version_vector" text NOT NULL,
-	"partial_end_version_vector" text NOT NULL,
-	"source_version_vector" text,
-	"plaintext_hash" text NOT NULL,
-	"encrypted_update_sha256" text NOT NULL,
-	"encrypted_update_byte_length" integer NOT NULL,
-	CONSTRAINT "document_update_audit_events_live_update_id_unique" UNIQUE("live_update_id")
 );
 --> statement-breakpoint
 CREATE TABLE "document_update_spans" (
@@ -762,12 +700,7 @@ CREATE TABLE "users" (
 );
 --> statement-breakpoint
 ALTER TABLE "blob_content_key_targets" ADD CONSTRAINT "blob_content_key_targets_blob_content_key_epoch_id_blob_content_key_epochs_id_fk" FOREIGN KEY ("blob_content_key_epoch_id") REFERENCES "public"."blob_content_key_epochs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "document_attachment_audit_events" ADD CONSTRAINT "document_attachment_audit_events_audit_entry_id_document_audit_entries_id_fk" FOREIGN KEY ("audit_entry_id") REFERENCES "public"."document_audit_entries"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "document_content_key_targets" ADD CONSTRAINT "document_content_key_targets_document_content_key_epoch_id_document_content_key_epochs_id_fk" FOREIGN KEY ("document_content_key_epoch_id") REFERENCES "public"."document_content_key_epochs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "document_update_audit_events" ADD CONSTRAINT "document_update_audit_events_audit_entry_id_document_audit_entries_id_fk" FOREIGN KEY ("audit_entry_id") REFERENCES "public"."document_audit_entries"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "access_event_dependency_projection_event_idx" ON "access_event_dependency_projection" USING btree ("event_hash");--> statement-breakpoint
-CREATE INDEX "access_event_dependency_projection_dependency_idx" ON "access_event_dependency_projection" USING btree ("dependency_manifest_hash");--> statement-breakpoint
-CREATE UNIQUE INDEX "access_event_dependency_projection_unique_idx" ON "access_event_dependency_projection" USING btree ("event_hash","dependency_manifest_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "access_events_event_id_idx" ON "access_events" USING btree ("event_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "access_events_event_hash_idx" ON "access_events" USING btree ("event_hash");--> statement-breakpoint
 CREATE INDEX "access_events_object_idx" ON "access_events" USING btree ("object_kind","object_id");--> statement-breakpoint
@@ -837,12 +770,7 @@ CREATE INDEX "containers_parent_id_idx" ON "containers" USING btree ("parent_id"
 CREATE INDEX "containers_parent_updated_idx" ON "containers" USING btree ("parent_id","updated_at","id");--> statement-breakpoint
 CREATE INDEX "containers_org_depth_updated_idx" ON "containers" USING btree ("organization_id","depth","updated_at","id");--> statement-breakpoint
 CREATE INDEX "containers_parent_depth_idx" ON "containers" USING btree ("parent_id","depth");--> statement-breakpoint
-CREATE INDEX "document_audit_checkpoints_document_sequence_idx" ON "document_audit_checkpoints" USING btree ("document_id","sequence");--> statement-breakpoint
-CREATE UNIQUE INDEX "document_audit_checkpoints_document_hash_idx" ON "document_audit_checkpoints" USING btree ("document_id","checkpoint_hash");--> statement-breakpoint
-CREATE INDEX "document_audit_checkpoints_document_created_idx" ON "document_audit_checkpoints" USING btree ("document_id","created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "document_audit_entries_document_sequence_idx" ON "document_audit_entries" USING btree ("document_id","sequence");--> statement-breakpoint
-CREATE UNIQUE INDEX "document_audit_entries_document_hash_idx" ON "document_audit_entries" USING btree ("document_id","entry_hash");--> statement-breakpoint
-CREATE INDEX "document_audit_entries_document_created_idx" ON "document_audit_entries" USING btree ("document_id","created_at");--> statement-breakpoint
+CREATE INDEX "document_baselines_document_idx" ON "document_baselines" USING btree ("document_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_content_key_epochs_document_epoch_idx" ON "document_content_key_epochs" USING btree ("document_id","content_key_epoch");--> statement-breakpoint
 CREATE INDEX "document_content_key_epochs_document_idx" ON "document_content_key_epochs" USING btree ("document_id");--> statement-breakpoint
 CREATE INDEX "document_content_key_epochs_target_idx" ON "document_content_key_epochs" USING btree ("target_hash");--> statement-breakpoint

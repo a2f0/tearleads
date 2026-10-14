@@ -14,6 +14,7 @@ import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
   observeAccessManifestCheckpoints,
+  observeVerifiedProjectionBundles,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
@@ -34,10 +35,6 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
 import { withGenerationGuardedPolicyWarmer } from "./types";
-import {
-  retainVerifiedProjectionBundles,
-  verifiedProjectionBundles,
-} from "./verifiedProjectionBundles";
 
 type VerifiedManifestMap = Map<string, VerifiedContainerAccessManifest>;
 type PolicyWarmer = ReferencedPrincipalPolicyWarmer | undefined;
@@ -265,34 +262,30 @@ async function verifyDocumentWriterProjectionWithContext(
   };
 }
 
-function retainVerifiedDocumentProjection(
-  input: Pick<
-    DocumentWriterProjectionVerificationInput,
-    "execSql" | "projection"
-  >,
+/** Each served bundle, document and container, whose manifest verified. */
+function observeVerifiedDocumentProjectionBundles(
+  checkpointContext: ProjectionCheckpointContext,
+  projection: DocumentWriterProjectionResponse,
   authorization: DocumentWriterProjectionAuthorization,
-): Promise<void> {
-  const { projection } = input;
-  const containerManifests = new Map(
-    [...authorization.containerPathByManifestHash.values()]
-      .flat()
-      .map((manifest) => [manifest.manifestHash, manifest]),
+): void {
+  observeVerifiedProjectionBundles(
+    checkpointContext,
+    new Map(
+      [projection.documentManifest, ...projection.documentManifestHistory].map(
+        (bundle) => [bundle.manifestHash, bundle],
+      ),
+    ),
+    authorization.documentManifestByHash,
   );
-  const documentBundles = new Map(
-    [projection.documentManifest, ...projection.documentManifestHistory].map(
-      (bundle) => [bundle.manifestHash, bundle],
+  observeVerifiedProjectionBundles(
+    checkpointContext,
+    collectDocumentProjectionContainerBundles(projection),
+    new Map(
+      [...authorization.containerPathByManifestHash.values()]
+        .flat()
+        .map((manifest) => [manifest.manifestHash, manifest]),
     ),
   );
-  return retainVerifiedProjectionBundles(input.execSql, [
-    ...verifiedProjectionBundles(
-      documentBundles,
-      authorization.documentManifestByHash,
-    ),
-    ...verifiedProjectionBundles(
-      collectDocumentProjectionContainerBundles(projection),
-      containerManifests,
-    ),
-  ]);
 }
 
 export async function verifyDocumentWriterProjection(
@@ -305,8 +298,12 @@ export async function verifyDocumentWriterProjection(
     withGenerationGuardedPolicyWarmer(input),
     checkpointContext,
   );
+  observeVerifiedDocumentProjectionBundles(
+    checkpointContext,
+    input.projection,
+    verified.authorization,
+  );
   await finalizeProjectionCheckpoints(checkpointContext, input);
-  await retainVerifiedDocumentProjection(input, verified.authorization);
   return verified.headManifest;
 }
 
@@ -321,8 +318,12 @@ export async function verifyDocumentWriterProjectionAuthorization(
       withGenerationGuardedPolicyWarmer(input),
       checkpointContext,
     );
+    observeVerifiedDocumentProjectionBundles(
+      checkpointContext,
+      input.projection,
+      verified.authorization,
+    );
     await finalizeProjectionCheckpoints(checkpointContext, input);
-    await retainVerifiedDocumentProjection(input, verified.authorization);
     return verified.authorization;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);

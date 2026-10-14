@@ -4,7 +4,6 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import {
-  accessEventDependencyProjection,
   accessEvents,
   accessManifestContainerGrantProjection,
   accessManifestDocumentLinkProjection,
@@ -37,7 +36,6 @@ import {
   documentLinkSetState,
   isContainerDirectGrant,
   isReferencedPrincipalHead,
-  isString,
   readAccessVersion,
   readJsonArray,
   referencedPrincipalHeadsCanonicalJson,
@@ -58,14 +56,6 @@ interface StoredAccessManifestHead {
   readonly epoch: number;
   readonly manifestHash: string;
   readonly updatedAt: Date;
-}
-
-interface StoredAccessEventDependencyProjection {
-  readonly eventHash: string;
-  readonly objectKind: AccessObjectKind;
-  readonly objectId: string;
-  readonly dependencyManifestHash: string;
-  readonly dependencyIndex: number;
 }
 
 interface StoredAccessManifestPrincipalHeadProjection
@@ -111,8 +101,7 @@ export async function storeVerifiedAccessEventInTransaction(
   verifiedEvent: VerifiedAccessEvent,
   tx: DatabaseTransaction,
 ): Promise<VerifiedAccessEvent> {
-  const storedEvent = await insertAccessEvent(verifiedEvent, tx);
-  await regenerateAccessEventDependencyProjection(storedEvent, tx);
+  await insertAccessEvent(verifiedEvent, tx);
   return verifiedEvent;
 }
 
@@ -228,20 +217,6 @@ async function loadAccessManifestRow(
   );
 }
 
-async function loadAccessEventRow(
-  eventHash: string,
-  executor: DatabaseSession,
-): Promise<typeof accessEvents.$inferSelect> {
-  return selectOneOrThrow(
-    executor
-      .select()
-      .from(accessEvents)
-      .where(eq(accessEvents.eventHash, eventHash))
-      .limit(1),
-    "Access event not found",
-  );
-}
-
 export async function getAccessManifestBundle(
   manifestHash: string,
   executor: DatabaseSession,
@@ -291,35 +266,6 @@ export async function getAccessManifestBundles(
   }
 
   return bundles;
-}
-
-async function regenerateAccessEventDependencyProjection(
-  event: typeof accessEvents.$inferSelect,
-  executor: DatabaseSession,
-): Promise<void> {
-  await executor
-    .delete(accessEventDependencyProjection)
-    .where(eq(accessEventDependencyProjection.eventHash, event.eventHash));
-
-  const dependencyHashes = readJsonArray<string>(
-    event.dependencyManifestHashes,
-    "access event dependency projection source",
-    isString,
-  );
-
-  if (dependencyHashes.length === 0) {
-    return;
-  }
-
-  await executor.insert(accessEventDependencyProjection).values(
-    dependencyHashes.map((dependencyManifestHash, dependencyIndex) => ({
-      eventHash: event.eventHash,
-      objectKind: event.objectKind,
-      objectId: event.objectId,
-      dependencyManifestHash,
-      dependencyIndex,
-    })),
-  );
 }
 
 async function regenerateAccessManifestPrincipalProjection(
@@ -486,9 +432,7 @@ async function regenerateAccessManifestProjectionsInTransaction(
   tx: DatabaseTransaction,
 ): Promise<void> {
   const manifest = await loadAccessManifestRow(manifestHash, tx);
-  const event = await loadAccessEventRow(manifest.eventHash, tx);
 
-  await regenerateAccessEventDependencyProjection(event, tx);
   await regenerateAccessManifestPrincipalProjection(manifest, tx);
   await regenerateAccessManifestContainerGrantProjection(manifest, tx);
 }
@@ -677,24 +621,6 @@ export async function getCurrentAccessManifestHeads(
   return new Map(
     heads.map((head) => [head.objectId, toStoredAccessManifestHead(head)]),
   );
-}
-
-export async function listAccessEventDependencyProjection(
-  eventHash: string,
-  executor: DatabaseSession,
-): Promise<StoredAccessEventDependencyProjection[]> {
-  return executor
-    .select({
-      eventHash: accessEventDependencyProjection.eventHash,
-      objectKind: accessEventDependencyProjection.objectKind,
-      objectId: accessEventDependencyProjection.objectId,
-      dependencyManifestHash:
-        accessEventDependencyProjection.dependencyManifestHash,
-      dependencyIndex: accessEventDependencyProjection.dependencyIndex,
-    })
-    .from(accessEventDependencyProjection)
-    .where(eq(accessEventDependencyProjection.eventHash, eventHash))
-    .orderBy(asc(accessEventDependencyProjection.dependencyIndex));
 }
 
 export async function listAccessManifestPrincipalHeadProjection(

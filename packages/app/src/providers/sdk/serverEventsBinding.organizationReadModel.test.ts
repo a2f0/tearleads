@@ -64,7 +64,6 @@ test("routes valid organization controls outside the domain event queue", () => 
     }),
     {
       onContainerInterestAcknowledged: () => undefined,
-      onInterestState: () => undefined,
       onOrganizationInterestAcknowledged: (...acknowledgement) =>
         acknowledgements.push(acknowledgement),
       onOrganizationReadModelChanged: () => undefined,
@@ -87,7 +86,6 @@ test("routes valid organization controls outside the domain event queue", () => 
       }),
       {
         onContainerInterestAcknowledged: () => undefined,
-        onInterestState: () => undefined,
         onOrganizationInterestAcknowledged: () => undefined,
         onOrganizationReadModelChanged: (organizationId) =>
           organizationHints.push(organizationId),
@@ -109,7 +107,6 @@ test("drops malformed read-model controls instead of entering domain sync", () =
   let genericEvents = 0;
   const handlers = {
     onContainerInterestAcknowledged: () => undefined,
-    onInterestState: () => undefined,
     onOrganizationInterestAcknowledged: () => {
       acknowledgements += 1;
     },

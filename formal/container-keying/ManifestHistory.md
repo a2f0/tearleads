@@ -10,7 +10,7 @@ lost or retired, and reaching a verification budget must not prevent revocation.
 | `IterativeVerification` | `verifyStoredManifestGraph` walks dependencies with an explicit stack rather than rejecting a lifetime history depth |
 | `Restart` / `warm` | `accessManifests.verificationMac` markers only accelerate reads; cleared markers, a rotated secret or new verifier version must preserve acceptance |
 | `Commit` / `Revoke` | `verifyStoredContainerManifest` verifies the previous manifest before mutation authorization; history length adds no new mutation refusal |
-| `held` / `Evict` | `rememberVerifiedManifestBundles` stores bundles after projection verification, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
+| `held` / `Evict` | `writeVerifiedManifestBundlesInTransaction` stores bundles in the transaction that finalizes their projection's checkpoints, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
 | `Citable` / `CiteHeldBytes` | `heldManifestCitations` copies the exact stored bytes a request cites, at most `KNOWN_MANIFEST_HINT_LIMIT` hashes |
 | `Omitted` / `OmitOnlyCited` | `encodeContainerWriterProjection` and `encodeDocumentWriterProjection` omit only hashes the request cited, after the ordinary build, authorization and stored-evidence verification |
 | `Rebuilds` / `RefetchUncited` | `decodeContainerWriterProjection` and `decodeDocumentWriterProjection` fill omissions only from the cited bytes; a gap makes `citedProjectionRead` refetch once with no hints |
@@ -57,14 +57,17 @@ two rules that keep honest reads available whatever the device evicted: cite
 only held bytes (`CiteHeldBytes`) and omit only what was cited
 (`OmitOnlyCited`). The registered configuration proves them sufficient without
 the production refetch; each negative control drops one rule and TLC finds an
-honest refusal. `RefetchUncited` models the production fallback: a rebuild gap
-refetches once with no citations, which an honest API serves in full. Losing
-the table (`Evict` to nothing) therefore yields a complete response, and no
-device depends on another's cache. The API still walks and verifies every
-manifest it cites, because its own KEK verification consumes those states and
-the served policy evidence must cover every bundle the device re-verifies;
-citation saves bytes, not server work. See
-[the transport contract](../../docs/projection-policy-evidence.md#cost-and-retained-history-tradeoff).
+honest refusal. `Read` lets a request cite any subset of held bytes, so the
+production selection (the read object's lineage and its organization's recent
+rows, never another organization's) needs no separate abstraction; the identity
+a read is bound to is outside this model. `RefetchUncited` models the production
+fallback: a rebuild gap refetches once with no citations, which an honest API
+serves in full. Losing the table (`Evict` to nothing) therefore yields a
+complete response, and no device depends on another's cache. The API still walks
+and verifies every manifest it cites, because its own KEK verification consumes
+those states and the served policy evidence must cover every bundle the device
+re-verifies; citation saves bytes, not server work. See [the transport
+contract](../../docs/projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 No existing history is trusted merely because its depth is large.
 Regressions cover a full 4,098-entry verification without markers, a marked
 history that is neither walked nor re-signed, edited rows, forged markers and a
