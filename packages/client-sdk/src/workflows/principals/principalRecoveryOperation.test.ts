@@ -8,7 +8,10 @@ import {
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicyVerification";
-import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification/types";
+import type {
+  PrincipalPolicyCache,
+  ReferencedPrincipalPolicyWarmer,
+} from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { invalidatePrincipalRecovery } from "../../data/principals/principalRecoveryEpoch";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
@@ -55,12 +58,15 @@ async function fixture() {
         },
       },
     });
-  const collect = async (warmer: ReferencedPrincipalPolicyWarmer) => {
+  const collect = async (
+    warmer: ReferencedPrincipalPolicyWarmer,
+    principalPolicyCache: PrincipalPolicyCache = new Map(),
+  ) => {
     const context = createProjectionCheckpointContext(source.options);
     await collectReferencedPrincipalPolicies({
       checkpointContext: context,
       organizationId: history.organizationId,
-      principalPolicyCache: new Map(),
+      principalPolicyCache,
       references: [principalPolicyHead(history.created)],
       resolveUserKey: source.options.resolveTrustedUserIdentity,
       warmReferencedPrincipalPolicies: warmer,
@@ -85,6 +91,15 @@ async function fixture() {
     directoryHash,
     incidents,
   };
+}
+
+/** A rotation commits an Admins successor together with its directory. */
+async function advanceAdmins(f: Awaited<ReturnType<typeof fixture>>) {
+  const admin = await history.extend(history.admin, 67);
+  const directory = await history.advanceDirectory(history.directory, admin);
+  f.policies.set(admin.currentState.principalId, admin);
+  f.policies.set(history.organizationId, directory);
+  return directory.currentState.stateHash;
 }
 
 test("collections in one operation share one directory discovery", async () => {
@@ -142,6 +157,43 @@ test("an organization hint evicts the operation's directory", async () => {
     expect(f.directoryHash(await f.collect(warmer))).toBe(
       directory.currentState.stateHash,
     );
+    expect(f.discoveries()).toBe(discovered + 1);
+    expect(f.incidents).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a shared policy cache does not carry evidence into the next operation", async () => {
+  const f = await fixture();
+  try {
+    const cache: PrincipalPolicyCache = new Map();
+    await f.collect(f.operation(), cache);
+    const successor = await advanceAdmins(f);
+    const discovered = f.discoveries();
+    expect(f.directoryHash(await f.collect(f.operation(), cache))).toBe(
+      successor,
+    );
+    expect(f.discoveries()).toBe(discovered + 1);
+    expect(f.incidents).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("a hint evicts evidence remembered in a shared policy cache", async () => {
+  const f = await fixture();
+  try {
+    const cache: PrincipalPolicyCache = new Map();
+    const warmer = f.operation();
+    await f.collect(warmer, cache);
+    const discovered = f.discoveries();
+    // The same operation and cache reuse remembered evidence without a read.
+    await f.collect(warmer, cache);
+    expect(f.discoveries()).toBe(discovered);
+    const successor = await advanceAdmins(f);
+    invalidatePrincipalRecovery(f.options.execSql, history.organizationId);
+    expect(f.directoryHash(await f.collect(warmer, cache))).toBe(successor);
     expect(f.discoveries()).toBe(discovered + 1);
     expect(f.incidents).toEqual([]);
   } finally {

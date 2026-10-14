@@ -109,7 +109,8 @@ test("runtime projection recovery carries bounded history and dependencies throu
   const f = await fixture();
   try {
     const cache: PrincipalPolicyCache = new Map();
-    const first = await f.collect(cache);
+    const operation = f.createWarmer();
+    const first = await f.collect(cache, operation);
     expect(first.context.policies).toHaveLength(3);
     const directory = first.context.policies[0];
     if (!directory) throw new Error("Missing directory evidence");
@@ -138,15 +139,19 @@ test("runtime projection recovery carries bounded history and dependencies throu
     );
     const requests = f.requests.length;
     const keys = f.ownedKeys.length;
-    const cached = await f.collect(cache);
+    // The same operation reuses its remembered evidence without a lease.
+    const cached = await f.collect(cache, operation);
     expect(cached.context.policies).toHaveLength(3);
     expect(f.requests).toHaveLength(requests);
     expect(f.ownedKeys).toHaveLength(keys);
+    // A new operation sharing the cache still discovers the directory itself.
+    await f.collect(cache);
+    expect(f.requests).toHaveLength(requests + 1);
     f.state.online = false;
     const offline = await f.collect();
     expect(offline.context.policies).toHaveLength(3);
     await commitProjectionCheckpoints(offline.context);
-    expect(f.requests).toHaveLength(requests);
+    expect(f.requests).toHaveLength(requests + 1);
     expect(f.state.fullReads).toBe(0);
     expect(f.ownedKeys.every((key) => key.every((byte) => byte === 0))).toBe(
       true,
@@ -193,7 +198,8 @@ test.each(["target", "dependency"] as const)(
     const f = await fixture();
     try {
       const cache: PrincipalPolicyCache = new Map();
-      await f.collect(cache);
+      const operation = f.createWarmer();
+      await f.collect(cache, operation);
       const policy = kind === "target" ? history.group : history.admin;
       await f.db
         .insert(principalPolicyCheckpoints)
@@ -206,7 +212,7 @@ test.each(["target", "dependency"] as const)(
         })
         .run();
       const requests = f.requests.length;
-      await expect(f.collect(cache)).rejects.toMatchObject({
+      await expect(f.collect(cache, operation)).rejects.toMatchObject({
         code: "equivocation",
       });
       expect(f.requests).toHaveLength(requests);

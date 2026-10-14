@@ -106,6 +106,25 @@ export function assertProjectionVerificationCurrent(
   }
 }
 
+// The workflow operation each warmer serves. Evidence remembered from one
+// operation is never reused by another, even through a shared policy cache.
+const warmerOperations = new WeakMap<object, object>();
+
+/** Bind a warmer to the operation that owns its recovery memo. */
+export function bindPrincipalPolicyWarmerOperation<T extends object>(
+  warmer: T,
+  operation: object,
+): T {
+  warmerOperations.set(warmer, operation);
+  return warmer;
+}
+
+export function principalPolicyWarmerOperation(
+  warmer: object | undefined,
+): object | undefined {
+  return warmer ? warmerOperations.get(warmer) : undefined;
+}
+
 export function generationGuardedPrincipalPolicyWarmer(
   warmer: ReferencedPrincipalPolicyWarmer | undefined,
   stillCurrent: (() => boolean) | undefined,
@@ -156,7 +175,11 @@ export function generationGuardedPrincipalPolicyWarmer(
         : {}),
     });
   };
-  return guardWithCapabilities(warmer);
+  const guarded = guardWithCapabilities(warmer);
+  const operation = principalPolicyWarmerOperation(warmer);
+  return operation
+    ? bindPrincipalPolicyWarmerOperation(guarded, operation)
+    : guarded;
 }
 
 export function withGenerationGuardedPolicyWarmer<

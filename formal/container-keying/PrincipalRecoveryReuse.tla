@@ -14,8 +14,11 @@ EXTENDS Naturals
 (* memo never outlives its operation. Production is not atomic: hints and  *)
 (* pins may change between a collection's reads and the entry it stores,   *)
 (* so an entry carries the epoch observed before its reads (a derived      *)
-(* citation keeps its source's). Each parameter is a production guard;     *)
-(* negative controls disable one at a time.                                *)
+(* citation keeps its source's). memo abstracts every in-memory reuse of   *)
+(* recovered evidence: the warmer's recovery memo and evidence remembered  *)
+(* in a caller's policy cache, which carries the same operation and epoch  *)
+(* binding. Each parameter is a production guard; negative controls       *)
+(* disable one at a time.                                                  *)
 (***************************************************************************)
 
 CONSTANTS MaxHead, MaxOps, MaxHints,

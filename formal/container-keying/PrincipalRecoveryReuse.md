@@ -19,8 +19,8 @@ pin past a memoized head evicts it. The memo never outlives its operation.
 | `AdmitPin` | `advanceKeyingCheckpointsAtomically` admits a verified head as the durable pin |
 | `Interrupt` | `savePrincipalHistoryStage` persists an incomplete page boundary |
 | `StoreRejectedCurrent` | `acceptPage` saves a completed stage before `verifyPrincipalPolicyCurrent` checks its current artifacts |
-| `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer |
-| `ReuseMemo` / `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `memoPrincipalRecovery` rechecks `entryLive` synchronously before use |
+| `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer, and `bindPrincipalPolicyWarmerOperation` names it for guarded wrappers |
+| `ReuseMemo` / `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `memoPrincipalRecovery` rechecks `entryLive` synchronously before use; `rememberedEvidence` reuses a policy cache's evidence only for the same `principalPolicyWarmerOperation` and epoch |
 | `BeginCollect` | `memoPrincipalRecovery` observes the epoch before `recoverPolicyDirectory` runs `discoverDirectoryHead` |
 | `BeginDerive` | `readMemoizedDirectory` and `readMemoizedAdmins` derive a citation from a reused entry and pass its epoch as `sourceEpoch` |
 | `FinishCollect` | `readRecoveryPages` skips the read for a completed stage of the pinned head; `StoredPrincipalCurrentRejectedError` discards the stage and replays online; the entry is stored with the observed epoch |
@@ -50,7 +50,11 @@ hints. Seven negative controls in
   completed stage holding rejected current artifacts would refuse the honest
   server forever, the bricked-device shape `NoBrickedDevice` forbids.
 - `MemoPerOperation = FALSE` violates `FreshPerOperation`: a memo that outlives
-  its operation serves a directory older than the next operation's start.
+  its operation serves a directory older than the next operation's start. A
+  caller's policy cache shared across operations was such a memo until its
+  remembered evidence was bound to the producing operation (Codex re-review of
+  9c9c8dcc2); `principalRecoveryOperation.test.ts` reuses one cache across two
+  operations and across a hint.
 - `EvictOnHint = FALSE` violates `NoStaleAfterHint`: a hinted advance would not
   reach later collections of an operation already in flight.
 - `EvictOnCheckpoint = FALSE` violates `NoRollback`: another operation's newer

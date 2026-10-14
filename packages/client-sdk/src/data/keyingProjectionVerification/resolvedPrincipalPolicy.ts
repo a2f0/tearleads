@@ -5,6 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
+import { principalRecoveryEpoch } from "../principals/principalRecoveryEpoch";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,
@@ -16,17 +17,27 @@ import {
 import {
   assertProjectionVerificationCurrent,
   type PrincipalPolicyCache,
+  principalPolicyWarmerOperation,
   type ReferencedPrincipalPolicyWarmer,
   type ResolvedPrincipalPolicyEvidence,
 } from "./types";
 
 // Sparse cache hits must carry the organization binding and every dependency
 // into each new admission batch; a bare current-policy capability is insufficient.
-// The caller owns this cache. Cross-generation reuse is deliberately disabled by
-// the saved guard; a new lifetime restores authenticated persistent evidence.
+// The caller owns this cache, but a remembered entry is bound to the workflow
+// operation and organization hint epoch that produced it, like the warmer's
+// recovery memo: a shared cache never carries evidence into another operation
+// or past a hint, and an ended producer lifetime disables reuse.
+interface RememberedPrincipalPolicyEvidence
+  extends ResolvedPrincipalPolicyEvidence {
+  readonly operation: object;
+  /** Organization hint epoch observed before the reads that produced it. */
+  readonly epoch: number;
+}
+
 const recoveredByCache = new WeakMap<
   PrincipalPolicyCache,
-  Map<string, ResolvedPrincipalPolicyEvidence>
+  Map<string, RememberedPrincipalPolicyEvidence>
 >();
 
 async function meetsCheckpoints(
@@ -59,7 +70,7 @@ async function meetsCheckpoints(
   return true;
 }
 
-export async function resolveReferencedPrincipalPolicy(input: {
+interface ResolveReferencedPrincipalPolicyInput {
   readonly checkpointContext: ProjectionCheckpointContext;
   readonly organizationId: string;
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -68,45 +79,90 @@ export async function resolveReferencedPrincipalPolicy(input: {
   readonly warmReferencedPrincipalPolicies?:
     | ReferencedPrincipalPolicyWarmer
     | undefined;
-}): Promise<VerifiedPrincipalPolicyCurrent | null> {
+}
+
+function recoveryEpoch(input: ResolveReferencedPrincipalPolicyInput): number {
+  return principalRecoveryEpoch(
+    input.checkpointContext.execSql,
+    input.organizationId,
+  );
+}
+
+/** Reuse only this operation's live evidence that still meets durable pins. */
+async function rememberedEvidence(
+  input: ResolveReferencedPrincipalPolicyInput,
+  key: string,
+  operation: object | undefined,
+): Promise<RememberedPrincipalPolicyEvidence | undefined> {
+  const remembered = recoveredByCache.get(input.principalPolicyCache)?.get(key);
+  const live = (entry: RememberedPrincipalPolicyEvidence) =>
+    operation !== undefined &&
+    entry.operation === operation &&
+    entry.epoch === recoveryEpoch(input) &&
+    entry.stillCurrent();
+  if (
+    !remembered ||
+    remembered.organizationId !== input.organizationId ||
+    remembered.policy !== input.principalPolicyCache.get(key) ||
+    !live(remembered)
+  )
+    return undefined;
+  if (!(await meetsCheckpoints(input.checkpointContext, remembered, true)))
+    return undefined;
+  // A hint or lifetime end during the pin reads also disables reuse.
+  return live(remembered) ? remembered : undefined;
+}
+
+async function recoverEvidence(
+  input: ResolveReferencedPrincipalPolicyInput,
+  resolve: NonNullable<ReferencedPrincipalPolicyWarmer["resolveReference"]>,
+): Promise<{ result: ResolvedPrincipalPolicyEvidence; epoch: number }> {
+  const read = async (recoveryBatch?: object) => {
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    const recovered = await resolve({
+      recoveryBatch,
+      organizationId: input.organizationId,
+      reference: input.reference,
+      stillCurrent: input.stillCurrent,
+    });
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    assertProjectionVerificationCurrent(recovered.stillCurrent);
+    return recovered;
+  };
+  let epoch = recoveryEpoch(input);
+  let result = await read();
+  // A concurrent admission may advance a pin after recovery verified it.
+  // Refresh once outside the operation's directory view; the fresh
+  // recovery and final checkpoint check still reject rollback/equivocation.
+  if (!(await meetsCheckpoints(input.checkpointContext, result, true))) {
+    assertProjectionVerificationCurrent(result.stillCurrent);
+    epoch = recoveryEpoch(input);
+    result = await read({});
+    await meetsCheckpoints(input.checkpointContext, result, false);
+  }
+  return { result, epoch };
+}
+
+export async function resolveReferencedPrincipalPolicy(
+  input: ResolveReferencedPrincipalPolicyInput,
+): Promise<VerifiedPrincipalPolicyCurrent | null> {
   assertProjectionVerificationCurrent(input.stillCurrent);
   const key = referencedPrincipalPolicyKey(input.reference);
-  const remembered = recoveredByCache.get(input.principalPolicyCache)?.get(key);
-  let result =
-    remembered?.organizationId === input.organizationId &&
-    remembered.policy === input.principalPolicyCache.get(key) &&
-    remembered.stillCurrent()
-      ? remembered
+  const operation = principalPolicyWarmerOperation(
+    input.warmReferencedPrincipalPolicies,
+  );
+  const candidate = await rememberedEvidence(input, key, operation);
+  // Recheck synchronously with use: a hint may land while awaiting.
+  const remembered =
+    candidate?.epoch === recoveryEpoch(input) && candidate.stillCurrent()
+      ? candidate
       : undefined;
-  if (
-    result &&
-    !(await meetsCheckpoints(input.checkpointContext, result, true))
-  )
-    result = undefined;
+  let result: ResolvedPrincipalPolicyEvidence | undefined = remembered;
+  let epoch = remembered?.epoch;
   if (!result) {
     const resolve = input.warmReferencedPrincipalPolicies?.resolveReference;
     if (!resolve) return null;
-    const read = async (recoveryBatch?: object) => {
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      const recovered = await resolve({
-        recoveryBatch,
-        organizationId: input.organizationId,
-        reference: input.reference,
-        stillCurrent: input.stillCurrent,
-      });
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      assertProjectionVerificationCurrent(recovered.stillCurrent);
-      return recovered;
-    };
-    result = await read();
-    // A concurrent admission may advance a pin after recovery verified it.
-    // Refresh once outside the operation's directory view; the fresh
-    // recovery and final checkpoint check still reject rollback/equivocation.
-    if (!(await meetsCheckpoints(input.checkpointContext, result, true))) {
-      assertProjectionVerificationCurrent(result.stillCurrent);
-      result = await read({});
-      await meetsCheckpoints(input.checkpointContext, result, false);
-    }
+    ({ result, epoch } = await recoverEvidence(input, resolve));
   }
   assertProjectionVerificationCurrent(input.stillCurrent);
   assertProjectionVerificationCurrent(result.stillCurrent);
@@ -126,15 +182,24 @@ export async function resolveReferencedPrincipalPolicy(input: {
       policy,
       input.organizationId,
     );
+  if (operation && epoch !== undefined)
+    rememberEvidence(input, key, { ...result, operation, epoch });
+  input.principalPolicyCache.set(key, result.policy);
+  return result.policy;
+}
+
+function rememberEvidence(
+  input: ResolveReferencedPrincipalPolicyInput,
+  key: string,
+  evidence: RememberedPrincipalPolicyEvidence,
+): void {
   let rememberedPolicies = recoveredByCache.get(input.principalPolicyCache);
   if (!rememberedPolicies) {
     rememberedPolicies = new Map();
     recoveredByCache.set(input.principalPolicyCache, rememberedPolicies);
   }
   rememberedPolicies.set(key, {
-    ...result,
-    dependencies: [...result.dependencies],
+    ...evidence,
+    dependencies: [...evidence.dependencies],
   });
-  input.principalPolicyCache.set(key, result.policy);
-  return result.policy;
 }
