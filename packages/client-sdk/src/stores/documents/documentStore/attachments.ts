@@ -34,10 +34,7 @@ import {
   isAttachmentWriteGenerationCurrent,
   shouldAbortAttachmentPersistFollowup,
 } from "./attachmentWriteGeneration";
-import {
-  releaseDeferredInitialUpdate,
-  settleDeferredInitialUpdate,
-} from "./deferredInitialUpdate";
+import { settleDeferredInitialUpdate } from "./deferredInitialUpdate";
 import { ensureDocumentStoreReady } from "./initialization";
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
@@ -421,14 +418,15 @@ export async function attachFilesToDocumentStore(
     files.length === 0
       ? null
       : await captureReadyAttachWrite(state, scheduleSync);
-  if (!writeGeneration) {
-    // Nothing reaches the write chain, so no settlement will lift the hold.
-    releaseDeferredInitialUpdate(state);
-    return;
-  }
+  // Settle even when nothing attaches, so a deferred birth's sync hold lifts,
+  // but only on the chain, behind any attach that is still staging.
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(async () => persistAttachedFiles(state, files, writeGeneration))
+    .then(async () => {
+      if (writeGeneration) {
+        await persistAttachedFiles(state, files, writeGeneration);
+      }
+    })
     .catch((error: unknown) => {
       reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     })

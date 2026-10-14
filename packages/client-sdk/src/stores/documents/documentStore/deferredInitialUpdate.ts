@@ -3,6 +3,7 @@ import { createPendingUpdateFields } from "../../../data/documents/documentSync"
 import { requestDocumentStoreSync } from "../registry";
 import {
   type AttachmentWriteGeneration,
+  captureAttachmentWriteGeneration,
   isAttachmentWriteGenerationCurrent,
 } from "./attachmentWriteGeneration";
 import { reloadDocumentFromDurableHistory } from "./durableDocumentReload";
@@ -18,13 +19,6 @@ import {
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
 
-/** The promised attach will not run: stop holding scheduled sync for it. */
-export function releaseDeferredInitialUpdate(state: DocumentStoreState): void {
-  if (!state.deferInitialUpdate) return;
-  state.deferInitialUpdate = false;
-  requestDocumentStoreSync(state);
-}
-
 /**
  * Runs after the first attach on a store opened with `deferInitialUpdate`.
  * Creation committed the birth without a pending update, leaving the marker at
@@ -37,7 +31,7 @@ export function releaseDeferredInitialUpdate(state: DocumentStoreState): void {
  */
 export async function settleDeferredInitialUpdate(
   state: DocumentStoreState,
-  writeGeneration: AttachmentWriteGeneration,
+  writeGeneration: AttachmentWriteGeneration | null,
 ): Promise<void> {
   if (!state.deferInitialUpdate) return;
   // A pass exports the live doc, so it must hold only durable content (see
@@ -48,11 +42,14 @@ export async function settleDeferredInitialUpdate(
   try {
     durable = await restoreDurableLiveDocument(state);
   } finally {
-    if (!durable && state.deferInitialUpdate) {
+    if (!durable && state.deferInitialUpdate && state.doc) {
       resetDocumentStore(state);
       ensureDocumentStoreInitialized(state, () =>
         requestDocumentStoreSync(state),
       );
+    } else if (!durable) {
+      // No live doc to leak (the store never became ready): just lift it.
+      state.deferInitialUpdate = false;
     }
   }
   if (!durable) return;
@@ -98,19 +95,23 @@ async function restoreDurableLiveDocument(
 
 async function enqueueDeferredTail(
   state: DocumentStoreState,
-  writeGeneration: AttachmentWriteGeneration,
+  writeGeneration: AttachmentWriteGeneration | null,
 ): Promise<void> {
   // A reset or relink owns the replacement store; its deferred tail stays
-  // durable and the next write or sync pass materializes it.
-  if (!isAttachmentWriteGenerationCurrent(state, writeGeneration)) return;
+  // durable and the next write or sync pass materializes it. With no attach
+  // (nothing to attach, or the store was not writable) the live store owns it.
+  const generation = writeGeneration ?? captureAttachmentWriteGeneration(state);
+  if (!generation || !isAttachmentWriteGenerationCurrent(state, generation)) {
+    return;
+  }
   const currentDoc = state.doc;
   const baseVersion = state.pendingBaseVersion;
   if (!currentDoc || baseVersion === null) return;
   const documentVersion = encodeVersionVector(currentDoc);
   // Settled: the attach (or an earlier write) already enqueued the birth.
   if (satisfiesVersionVector(baseVersion, documentVersion)) return;
-  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
-  if (!generation) return;
+  const syncGeneration = captureDocumentStoreSyncGeneration(state, currentDoc);
+  if (!syncGeneration) return;
   const pendingUpdate = createPendingUpdateFields(
     pendingDeltaSinceBase(state, currentDoc),
   );
@@ -124,9 +125,12 @@ async function enqueueDeferredTail(
       preserveSnapshotStructuredFields: true,
       preserveSnapshotText: true,
     },
-    generation,
+    syncGeneration,
   );
-  if (!persisted || !isDocumentStoreSyncGenerationCurrent(state, generation)) {
+  if (
+    !persisted ||
+    !isDocumentStoreSyncGenerationCurrent(state, syncGeneration)
+  ) {
     return;
   }
   advancePendingBaseVersion(state, currentDoc);

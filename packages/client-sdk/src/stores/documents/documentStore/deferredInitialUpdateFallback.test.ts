@@ -234,3 +234,55 @@ test("a transient reload failure reinitializes instead of latching the hold", as
     close();
   }
 });
+
+test("an overlapping empty attach keeps the hold until the staging attach settles", async () => {
+  let releaseStaging: () => void = () => undefined;
+  const stagingBlocked = new Promise<void>((resolve) => {
+    releaseStaging = resolve;
+  });
+  let stagingStarted = false;
+  const stateRef: { current: DocumentStoreState | null } = { current: null };
+  const blobStore = blobStoreWithWrite(async () => {
+    stagingStarted = true;
+    await stagingBlocked;
+    throw new Error("blob store is full");
+  }, stateRef);
+  const { close, execSql } = await createTestExecSql(
+    "deferred-birth-overlapping-attach",
+  );
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const state = await openPdfStore({
+      blobStore,
+      deferInitialUpdate: true,
+      execSql,
+      localId: "overlapping-attach-pdf",
+    });
+    stateRef.current = state;
+    await setDocumentStructuredFields(state, noopSchedule, "pdf", PDF_FIELDS, {
+      deferRemoteSync: true,
+    });
+
+    const staging = attachFilesToDocumentStore(state, noopSchedule, [
+      PDF_UPLOAD,
+    ]);
+    while (!stagingStarted) await Bun.sleep(1);
+    const empty = attachFilesToDocumentStore(state, noopSchedule, []);
+    await Bun.sleep(10);
+    // The live doc now holds the staging attach's uncommitted slot, so no
+    // pass may run until that attach settles.
+    expect(state.deferInitialUpdate).toBe(true);
+
+    releaseStaging();
+    await Promise.all([staging, empty]);
+    expect(state.deferInitialUpdate).toBe(false);
+    expect(await readQueuedUpdates(state)).toEqual({
+      attachmentNames: [],
+      documentKind: "pdf",
+      rowCount: 1,
+      structuredFields: PDF_FIELDS,
+    });
+  } finally {
+    close();
+  }
+});

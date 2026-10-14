@@ -158,7 +158,7 @@ test("a sync pass after a restart ships a deferred birth with no further writes"
   }
 });
 
-test("an attach that never reaches the write chain releases the sync hold", async () => {
+test("an attach with nothing to attach settles the deferred birth", async () => {
   const { close, execSql } = await createTestExecSql(
     "deferred-birth-no-attach",
   );
@@ -181,6 +181,11 @@ test("an attach that never reaches the write chain releases the sync hold", asyn
 
     expect(state.deferInitialUpdate).toBe(false);
     expect(syncRequests).toBe(1);
+    expect(await readQueuedUpdates(state)).toMatchObject({
+      attachmentNames: [],
+      documentKind: "pdf",
+      rowCount: 1,
+    });
   } finally {
     close();
   }
