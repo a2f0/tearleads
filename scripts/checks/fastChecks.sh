@@ -2,6 +2,14 @@
 # Shared by check:fast (CI) and pre-push. The caller sources stepTimings.sh
 # and starts its timer so each check remains visible in the push timing log.
 
+run_protocol_check() {
+  if [ "${CI_TURBO_PROTOCOL_CACHE:-}" = "1" ]; then
+    bun scripts/checks/runCachedProtocolCheck.ts "$1"
+  else
+    bun run "$1"
+  fi
+}
+
 run_fast_checks() {
   step_timings_run devkit bun run --cwd packages/app-electrobun prepare:devkit
   step_timings_run biome bun run lint:biome
@@ -20,10 +28,10 @@ run_fast_checks() {
   step_timings_run openapi-compatibility bun run lint:openapi:compatibility
   step_timings_run openapi-tests bun run test:openapi:compatibility
   step_timings_run protocol-model-tests bun run test:protocol-models
-  step_timings_run protocol-models bun run check:protocol-models
+  step_timings_run protocol-models run_protocol_check check:protocol-models
   step_timings_run protocol-traces bun run check:protocol-traces
   step_timings_run protocol-projection bun run check:protocol-projection
-  step_timings_run protocol-negative-controls bun run check:protocol-negative-controls
+  step_timings_run protocol-negative-controls run_protocol_check check:protocol-negative-controls
   step_timings_run no-brick-projection bun run check:no-brick-projection
   step_timings_run formal-maps bun run lint:formal-maps
   step_timings_run protocol-conformance bun run test:protocol-conformance
