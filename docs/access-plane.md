@@ -32,7 +32,6 @@ The durable tables are:
 - `access_events`
 - `access_manifests`
 - `access_manifest_heads`
-- `access_event_dependency_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
 - `access_manifest_verifications` (MAC'd stored-history verification markers;

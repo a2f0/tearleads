@@ -52,8 +52,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1209,
-      "bytes": 59141
+      "lines": 1208,
+      "bytes": 59102
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 550,
@@ -88,8 +88,8 @@
       "bytes": 18333
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 788,
-      "bytes": 23585
+      "lines": 689,
+      "bytes": 20709
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,
@@ -136,8 +136,8 @@
       "bytes": 126688
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1238,
-      "bytes": 40793
+      "lines": 1233,
+      "bytes": 40792
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2256,
@@ -152,8 +152,8 @@
       "bytes": 30275
     },
     "packages/api/src/schema.test.ts": {
-      "lines": 544,
-      "bytes": 17116
+      "lines": 526,
+      "bytes": 16513
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 572,

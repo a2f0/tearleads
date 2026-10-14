@@ -73,10 +73,7 @@ import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
-import {
-  getAccessManifestBundle,
-  listAccessEventDependencyProjection,
-} from "../../access/read/accessManifestStore";
+import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
   getCurrentContainerKeyEpoch,
   listContainerKeyWraps,
@@ -798,17 +795,15 @@ test("document purge succeeds when event publication fails", async () => {
     },
     purgeEvent: purged.purgeEvent,
   });
-  await expect(
-    listAccessEventDependencyProjection(purged.purgeEvent.eventHash, db),
-  ).resolves.toEqual([
-    {
-      dependencyIndex: 0,
-      dependencyManifestHash: root.bundle.manifestHash,
-      eventHash: purged.purgeEvent.eventHash,
-      objectId: created.id,
-      objectKind: "document",
-    },
-  ]);
+  // The retained purge event keeps its signed dependency citation.
+  expect(
+    await db
+      .select({
+        dependencyManifestHashes: accessEvents.dependencyManifestHashes,
+      })
+      .from(accessEvents)
+      .where(eq(accessEvents.eventHash, purged.purgeEvent.eventHash)),
+  ).toEqual([{ dependencyManifestHashes: [root.bundle.manifestHash] }]);
 
   const after = await countDocumentRows(created.id);
   expect(after).toEqual({

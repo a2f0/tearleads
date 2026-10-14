@@ -1,16 +1,3 @@
-CREATE TABLE `access_event_dependency_projection` (
-	`id` text PRIMARY KEY NOT NULL,
-	`event_hash` text NOT NULL,
-	`object_kind` text NOT NULL,
-	`object_id` text NOT NULL,
-	`dependency_manifest_hash` text NOT NULL,
-	`dependency_index` integer NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `access_event_dependency_projection_event_idx` ON `access_event_dependency_projection` (`event_hash`);--> statement-breakpoint
-CREATE INDEX `access_event_dependency_projection_dependency_idx` ON `access_event_dependency_projection` (`dependency_manifest_hash`);--> statement-breakpoint
-CREATE UNIQUE INDEX `access_event_dependency_projection_unique_idx` ON `access_event_dependency_projection` (`event_hash`,`dependency_manifest_hash`);--> statement-breakpoint
 CREATE TABLE `access_events` (
 	`id` text PRIMARY KEY NOT NULL,
 	`version` integer NOT NULL,

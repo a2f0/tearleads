@@ -76,8 +76,10 @@ following onto a database that predates it requires the greenfield reset above
   `document_audit_entries`, `document_update_audit_events`, and
   `document_attachment_audit_events` are dropped, and
   `document_audit_checkpoints` is replaced by `document_baselines`, which keeps
-  only the baseline metadata its readers consume. Both generated baselines were
-  replaced; existing databases require the coordinated reset.
+  only the baseline metadata its readers consume. `access_event_dependency_projection`
+  is dropped; `access_events.dependency_manifest_hashes` is the only copy of an
+  event's dependency citations. Both generated baselines were replaced;
+  existing databases require the coordinated reset.
 - #2365 finding 25: login challenges are signed for the API origin
   (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`.
   A client built before it cannot log in, so the reset release ships every

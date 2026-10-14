@@ -1087,7 +1087,6 @@ Core server tables:
 
 Projection/cache tables include:
 
-- `access_event_dependency_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
 - `document_container_links`

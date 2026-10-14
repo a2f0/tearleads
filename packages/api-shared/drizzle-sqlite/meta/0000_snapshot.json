@@ -1,85 +1,9 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1d7fe202-3c7f-4b4f-a1a6-d3fce9f04088",
+  "id": "08b4e599-a1f4-41b4-9110-f8cc4e52117c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
-    "access_event_dependency_projection": {
-      "name": "access_event_dependency_projection",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "event_hash": {
-          "name": "event_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "object_kind": {
-          "name": "object_kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "object_id": {
-          "name": "object_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "dependency_manifest_hash": {
-          "name": "dependency_manifest_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "dependency_index": {
-          "name": "dependency_index",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
-        }
-      },
-      "indexes": {
-        "access_event_dependency_projection_event_idx": {
-          "name": "access_event_dependency_projection_event_idx",
-          "columns": ["event_hash"],
-          "isUnique": false
-        },
-        "access_event_dependency_projection_dependency_idx": {
-          "name": "access_event_dependency_projection_dependency_idx",
-          "columns": ["dependency_manifest_hash"],
-          "isUnique": false
-        },
-        "access_event_dependency_projection_unique_idx": {
-          "name": "access_event_dependency_projection_unique_idx",
-          "columns": ["event_hash", "dependency_manifest_hash"],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "access_events": {
       "name": "access_events",
       "columns": {

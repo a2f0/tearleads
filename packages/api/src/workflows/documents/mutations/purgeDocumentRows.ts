@@ -1,6 +1,5 @@
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
 import {
-  accessEventDependencyProjection,
   accessEvents,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
@@ -120,14 +119,6 @@ async function deleteDocumentAccessHistory(
   await executor
     .delete(documentManifestObservations)
     .where(eq(documentManifestObservations.documentId, documentId));
-  await executor
-    .delete(accessEventDependencyProjection)
-    .where(
-      and(
-        eq(accessEventDependencyProjection.objectKind, "document"),
-        eq(accessEventDependencyProjection.objectId, documentId),
-      ),
-    );
   await executor
     .delete(accessManifestDocumentLinkProjection)
     .where(eq(accessManifestDocumentLinkProjection.documentId, documentId));

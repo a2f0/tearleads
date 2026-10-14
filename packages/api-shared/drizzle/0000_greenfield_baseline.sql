@@ -1,13 +1,3 @@
-CREATE TABLE "access_event_dependency_projection" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"event_hash" text NOT NULL,
-	"object_kind" text NOT NULL,
-	"object_id" uuid NOT NULL,
-	"dependency_manifest_hash" text NOT NULL,
-	"dependency_index" integer NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "access_events" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"version" integer NOT NULL,
@@ -732,9 +722,6 @@ CREATE TABLE "users" (
 --> statement-breakpoint
 ALTER TABLE "blob_content_key_targets" ADD CONSTRAINT "blob_content_key_targets_blob_content_key_epoch_id_blob_content_key_epochs_id_fk" FOREIGN KEY ("blob_content_key_epoch_id") REFERENCES "public"."blob_content_key_epochs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "document_content_key_targets" ADD CONSTRAINT "document_content_key_targets_document_content_key_epoch_id_document_content_key_epochs_id_fk" FOREIGN KEY ("document_content_key_epoch_id") REFERENCES "public"."document_content_key_epochs"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "access_event_dependency_projection_event_idx" ON "access_event_dependency_projection" USING btree ("event_hash");--> statement-breakpoint
-CREATE INDEX "access_event_dependency_projection_dependency_idx" ON "access_event_dependency_projection" USING btree ("dependency_manifest_hash");--> statement-breakpoint
-CREATE UNIQUE INDEX "access_event_dependency_projection_unique_idx" ON "access_event_dependency_projection" USING btree ("event_hash","dependency_manifest_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "access_events_event_id_idx" ON "access_events" USING btree ("event_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "access_events_event_hash_idx" ON "access_events" USING btree ("event_hash");--> statement-breakpoint
 CREATE INDEX "access_events_object_idx" ON "access_events" USING btree ("object_kind","object_id");--> statement-breakpoint

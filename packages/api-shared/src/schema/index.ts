@@ -1,7 +1,4 @@
-export {
-  accessEventDependencyProjection,
-  accessEvents,
-} from "./accessEvents";
+export { accessEvents } from "./accessEvents";
 export {
   accessManifestContainerGrantProjection,
   accessManifestDocumentLinkProjection,

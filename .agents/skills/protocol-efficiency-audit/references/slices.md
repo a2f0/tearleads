@@ -130,8 +130,7 @@ Tables: API `container_sync_tombstones`,
 
 ## `projections-and-keying`
 
-Tables: API `access_events`, `access_event_dependency_projection`,
-`access_manifests`, `access_manifest_heads`,
+Tables: API `access_events`, `access_manifests`, `access_manifest_heads`,
 `access_manifest_container_grant_projection`,
 `access_manifest_document_link_projection`,
 `access_manifest_principal_head_projection`,
@@ -144,9 +143,9 @@ Tables: API `access_events`, `access_event_dependency_projection`,
   bundles, KEK state, and the keyring. Which parts does a client with
   checkpoints already hold verified, and could it cite them by hash so the
   response carries only what is new?
-- For each of the four `access_manifest_*_projection` tables and
-  `access_event_dependency_projection`, name the route that reads it and the
-  query it answers. Could an index on the canonical manifest serve it?
+- For each `access_manifest_*_projection` table, name the route that reads
+  it and the query it answers. Could an index on the canonical manifest serve
+  it?
 - `access_manifest_verifications` caches the server's own verification. What
   is its hit pattern, and does a stored-artifact verification on read remain
   necessary once commit-time verification is trusted?
