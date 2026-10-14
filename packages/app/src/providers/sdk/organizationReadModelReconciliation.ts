@@ -61,9 +61,11 @@ async function reconcileFeed(
   // Only the SDK barrier starts a fresh pass after this call; an ordinary pass
   // may join one that began before a hint, so it cannot cover held hints.
   const result = useSdkBarrier
-    ? await trackOrganizationReadModelCatchUp(tearleads, () =>
-        tearleads.organizations.loadDirectoryAndGroupsAfterMutation(),
-      )
+    ? (
+        await trackOrganizationReadModelCatchUp(tearleads, () =>
+          tearleads.organizations.loadDirectoryAndGroupsAfterMutation(),
+        )
+      ).directoryAndGroups
     : await tearleads.organizations.loadDirectoryAndGroups();
   return result !== undefined;
 }

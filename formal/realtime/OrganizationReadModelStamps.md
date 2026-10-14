@@ -17,9 +17,9 @@ Manager mutation is active are held. See the
 | `Deliver` | `handleOrganizationReadModelHint` counts every hint and holds it while the Org Manager mutation is active; otherwise it schedules a pass |
 | `Lose` | `publishOrganizationReadModelChanged` is best-effort, and a socket can drop a hint |
 | `EndMutation` | `releaseDeferredOrganizationReadModelHint` drops held hints that `isOrganizationReadModelHintCaughtUp` reports covered and schedules a pass otherwise |
-| `Send` | `trackOrganizationReadModelCatchUp` records the hint count before `loadDirectoryAndGroupsAfterMutation` starts a fresh pass |
+| `Send` | `trackOrganizationReadModelCatchUp` records the hint count before `loadDirectoryAndGroupsAfterMutation` starts a fresh pass; a pass sent for a scheduled trigger consumes it, while held hints stay held |
 | `Read` | `lockOrganizationReadModelHeadInTransaction` reads the head and lane stamps under the shared lock, and `loadDeltaResponse` reloads every lane stamped after the cursor |
-| `Finish` / `Fail` | `applyOrganizationReadModelResponse` applies the page and cursor atomically; a failure in `reconcileOrganizationDirectoryAndGroups` keeps the last-known-good projection |
+| `Finish` / `Fail` | `applyOrganizationReadModelResponse` applies the page and cursor atomically, and `reconcileOrganizationDirectoryAndGroupsWithOutcome` reports `reconciled` only then; a failure keeps the last-known-good projection, covers no held hint, and excuses staleness only when it consumed a scheduled trigger |
 | `CursorCoversChanges` | `loadDeltaResponse` never lets `applyOrganizationReadModelResponse` adopt a cursor that covers a change the page did not carry |
 | `CaughtUpClientIsCurrent` | After `applyOrganizationReadModelResponse` adopts the head cursor, the local projection equals the server's current lanes |
 | `BehindClientHasTrigger` | A client behind a committed change still has a hint, held hint, or pass from `scheduleOrganizationReadModelReconciliationAfterActivePass` owed, unless a hint was lost or a pass failed |
@@ -35,7 +35,7 @@ tombstone, written by a later statement in the same transaction. Hints carry no
 origin in the model: a held hint may come from this client or a sibling client
 of the same session.
 
-Four negative controls independently break the contract and the invariants
+Five negative controls independently break the contract and the invariants
 fail. `SerializeAllocation = FALSE` allocates the cursor outside the head row
 lock, as a database sequence would, so a later cursor can commit first and a
 client can advance past the earlier one. `StampUnderHeadLock = FALSE` computes a
@@ -44,9 +44,12 @@ commit that cursor first and the client skips the group change.
 `ReleaseChecksCoverage = FALSE` drops held hints at release without a covering
 pass. `CoverFromSend = FALSE` counts hints received while a pass was in flight
 as covered by it, although its server read may predate their commits.
+`CoverOnlyOnSuccess = FALSE` lets a failed pass that returned its
+last-known-good projection cover held hints, so their release reads nothing.
 
 Lane contents, signed policy verification, authorization, and the cross-lane
 consistency the client checks when it applies a page are outside the model.
-Lost hints and failed passes are accepted staleness windows: the next hint,
-reconnect, or explicit refresh retries. Runtime tests cover the SQL statements,
-both database dialects, the response shapes, and the release decision.
+Lost hints and failed passes that consumed a scheduled trigger are accepted
+staleness windows: the next hint, reconnect, or explicit refresh retries.
+Runtime tests cover the SQL statements, both database dialects, the response
+shapes, and the release decision.

@@ -8,6 +8,9 @@ export const USER_B = "00000000-0000-4000-8000-00000000001b";
 
 export function createRuntimeHarness(input?: {
   readonly execSql?: (sql: string) => Promise<unknown[]>;
+  /** Whether a post-mutation pass's feed request succeeded; default when it
+   * returned a projection or authoritative null. */
+  readonly feedSucceeded?: () => boolean;
   readonly loadDirectoryAndGroups?: () => Promise<unknown>;
 }) {
   let auth = {
@@ -26,6 +29,15 @@ export function createRuntimeHarness(input?: {
     reconcileCalls += 1;
     return input?.loadDirectoryAndGroups ? input.loadDirectoryAndGroups() : {};
   };
+  const loadDirectoryAndGroupsAfterMutation = async () => {
+    const directoryAndGroups = await loadDirectoryAndGroups();
+    return {
+      directoryAndGroups,
+      reconciled: input?.feedSucceeded
+        ? input.feedSucceeded()
+        : directoryAndGroups !== undefined,
+    };
+  };
   const tearleads = {
     containerContents: {
       openTree: () => {
@@ -41,7 +53,7 @@ export function createRuntimeHarness(input?: {
     },
     organizations: {
       loadDirectoryAndGroups,
-      loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
+      loadDirectoryAndGroupsAfterMutation,
     },
     runtime: {
       // Invalidation subscriptions register only against a ready database;

@@ -33,4 +33,12 @@ export const READ_MODEL_STAMP_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "BehindClientHasTrigger" },
     why: "A pass covers only hints received before its request was sent; its server read may predate a hint that arrives while it is in flight (#2522).",
   },
+  {
+    id: "read-model-held-hint-covered-by-failed-pass",
+    module: "formal/realtime/OrganizationReadModelStamps.tla",
+    config: "formal/realtime/OrganizationReadModelStamps.cfg",
+    constants: { CoverOnlyOnSuccess: "FALSE" },
+    expect: { kind: "invariant", name: "BehindClientHasTrigger" },
+    why: "A failed pass that returned its last-known-good projection read nothing, so it must not cover held hints (#2522).",
+  },
 ];

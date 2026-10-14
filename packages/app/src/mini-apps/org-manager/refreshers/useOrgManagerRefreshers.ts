@@ -305,7 +305,8 @@ export function useOrgManagerRefreshers(params: OrgManagerRefreshersParams) {
       }
 
       const nextDirectoryState = options.afterMutation
-        ? await orgManagerActions.loadDirectoryAndGroupsAfterMutation()
+        ? (await orgManagerActions.loadDirectoryAndGroupsAfterMutation())
+            .directoryAndGroups
         : await orgManagerActions.loadDirectoryAndGroups();
       if (!isCurrentRequest()) {
         return { didLoad: false, groupId: null };

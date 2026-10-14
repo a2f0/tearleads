@@ -73,7 +73,10 @@ function createHarness(initialRuntime: RuntimeSnapshot) {
   const tearleads = {
     organizations: {
       loadDirectoryAndGroups,
-      loadDirectoryAndGroupsAfterMutation: loadDirectoryAndGroups,
+      loadDirectoryAndGroupsAfterMutation: async () => ({
+        directoryAndGroups: await loadDirectoryAndGroups(),
+        reconciled: true,
+      }),
       loadLocalDirectoryAndGroups,
     },
     runtime: { input: () => runtime },

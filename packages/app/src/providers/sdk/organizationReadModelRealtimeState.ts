@@ -174,20 +174,19 @@ export function activeDemandOrganizationId(
  * Run a feed pass that starts its request no earlier than this call, such as
  * the SDK's post-mutation barrier. A hint is published after its change
  * commits, so a pass whose request follows the hint's arrival observes that
- * change whichever session made it. A completed pass therefore covers every
- * hint received before the call. Undefined is a decline or a failure without a
- * retained projection and covers nothing.
+ * change whichever session made it. A pass whose feed request succeeded
+ * therefore covers every hint received before the call. A declined pass, or a
+ * failed one that kept its last-known-good projection, covers nothing.
  */
-export async function trackOrganizationReadModelCatchUp<T>(
-  tearleads: Tearleads,
-  run: () => Promise<T | undefined>,
-): Promise<T | undefined> {
+export async function trackOrganizationReadModelCatchUp<
+  T extends { readonly reconciled: boolean },
+>(tearleads: Tearleads, run: () => Promise<T>): Promise<T> {
   const state = stateFor(tearleads);
   const scope = currentOrganizationReadModelScope(tearleads);
   const hintSequence = state.hintSequence;
   const result = await run();
   if (
-    result === undefined ||
+    !result.reconciled ||
     !scope ||
     !isSameOrganizationReadModelScope(
       scope,

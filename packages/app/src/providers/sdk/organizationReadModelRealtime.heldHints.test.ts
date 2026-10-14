@@ -12,11 +12,9 @@ import {
 } from "./test/organizationReadModelRealtimeHarness";
 
 async function mutatingConsumer(
-  loadDirectoryAndGroups?: () => Promise<unknown>,
+  input?: Parameters<typeof createRuntimeHarness>[0],
 ) {
-  const runtime = createRuntimeHarness(
-    loadDirectoryAndGroups ? { loadDirectoryAndGroups } : undefined,
-  );
+  const runtime = createRuntimeHarness(input);
   const consumer = { mutating: false };
   subscribeOrganizationReadModelRealtime(
     runtime.tearleads,
@@ -34,7 +32,7 @@ async function mutatingConsumer(
 
 function postMutationPass(
   runtime: ReturnType<typeof createRuntimeHarness>,
-): Promise<unknown> {
+): Promise<{ readonly reconciled: boolean }> {
   return trackOrganizationReadModelCatchUp(runtime.tearleads, () =>
     runtime.tearleads.organizations.loadDirectoryAndGroupsAfterMutation(),
   );
@@ -68,11 +66,13 @@ test("a post-mutation pass started after a held hint absorbs its release", async
 test("a hint held after the post-mutation pass started is still reconciled", async () => {
   let finishPass: (value: unknown) => void = () => {};
   let holdNextPass = false;
-  const { consumer, runtime } = await mutatingConsumer(() => {
-    if (!holdNextPass) return Promise.resolve({});
-    return new Promise((resolve) => {
-      finishPass = resolve;
-    });
+  const { consumer, runtime } = await mutatingConsumer({
+    loadDirectoryAndGroups: () => {
+      if (!holdNextPass) return Promise.resolve({});
+      return new Promise((resolve) => {
+        finishPass = resolve;
+      });
+    },
   });
   handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
   holdNextPass = true;
@@ -90,13 +90,32 @@ test("a hint held after the post-mutation pass started is still reconciled", asy
 
 test("a post-mutation pass that declines covers no held hint", async () => {
   let declineNextPass = false;
-  const { consumer, runtime } = await mutatingConsumer(() =>
-    Promise.resolve(declineNextPass ? undefined : {}),
-  );
+  const { consumer, runtime } = await mutatingConsumer({
+    loadDirectoryAndGroups: () =>
+      Promise.resolve(declineNextPass ? undefined : {}),
+  });
   handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
   declineNextPass = true;
   await postMutationPass(runtime);
   declineNextPass = false;
+  expect(runtime.reconcileCalls).toBe(2);
+
+  consumer.mutating = false;
+  await release(runtime);
+  expect(runtime.reconcileCalls).toBe(3);
+});
+
+test("a post-mutation pass that failed with its retained projection covers no held hint", async () => {
+  let failNextPass = false;
+  // The failed pass still returns the last-known-good projection.
+  const { consumer, runtime } = await mutatingConsumer({
+    feedSucceeded: () => !failNextPass,
+  });
+  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
+  failNextPass = true;
+  const pass = await postMutationPass(runtime);
+  failNextPass = false;
+  expect(pass.reconciled).toBe(false);
   expect(runtime.reconcileCalls).toBe(2);
 
   consumer.mutating = false;

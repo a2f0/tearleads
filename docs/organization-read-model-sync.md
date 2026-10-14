@@ -276,11 +276,12 @@ identifier. While Org Manager itself is mutating, its own hints are held. A
 hint is published only after its change commits, so a feed request sent after
 the hint arrived observes that change, whichever client of the session made
 it. The explicit post-mutation reconciliation, like any SDK barrier pass, starts
-its request after it is called; once it completes, releasing the held hints
-sends no request if the latest of them arrived before that call. A hint that
-arrived later, or a pass that declined or failed without a retained projection,
-leaves the release to reconcile the feed. Other active clients reconcile
-immediately. A synchronous burst collapses before I/O, and a
+its request after it is called and reports whether that feed request
+succeeded. Once it succeeds, releasing the held hints sends no request if the
+latest of them arrived before that call. A hint that arrived later, or a pass
+that declined or failed, leaves the release to reconcile the feed, even when
+the failed pass returned the last-known-good projection. Other active clients
+reconcile immediately. A synchronous burst collapses before I/O, and a
 hint arriving during I/O sets one dirty bit for a sequential catch-up pass;
 parallel organization feed requests are never started for one SDK scope.
 

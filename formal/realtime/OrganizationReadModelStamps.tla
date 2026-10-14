@@ -10,9 +10,9 @@
 (* when a completed pass was sent after the latest held hint arrived.        *)
 EXTENDS Naturals
 CONSTANTS SerializeAllocation, StampUnderHeadLock, ReleaseChecksCoverage,
-          CoverFromSend
+          CoverFromSend, CoverOnlyOnSuccess
 ASSUME {SerializeAllocation, StampUnderHeadLock, ReleaseChecksCoverage,
-        CoverFromSend} \subseteq BOOLEAN
+        CoverFromSend, CoverOnlyOnSuccess} \subseteq BOOLEAN
 
 Writers == {"w1", "w2"}
 GroupRows == {"group"}
@@ -22,10 +22,11 @@ Max(a, b) == IF a > b THEN a ELSE b
 
 VARIABLES head, stamp, ver, wpc, target, alloc, early, seq, lock,
           cur, seen, inflight, hintSeq, heldSeq, coveredSeq, dirty, mutating,
-          req, reqSeq, snapHead, snapSeen, lostCursor, failed
+          req, reqSeq, reqDirty, snapHead, snapSeen, lostCursor, failed
 server == <<head, stamp, ver, wpc, target, alloc, early, seq, lock>>
 client == <<cur, seen, inflight, hintSeq, heldSeq, coveredSeq, dirty,
-            mutating, req, reqSeq, snapHead, snapSeen, lostCursor, failed>>
+            mutating, req, reqSeq, reqDirty, snapHead, snapSeen, lostCursor,
+            failed>>
 vars == <<server, client>>
 writerVars == <<wpc, target, alloc, early, seq>>
 
@@ -37,7 +38,7 @@ Init ==
   /\ cur = 0 /\ seen = [e \in Entities |-> 0]
   /\ inflight = FALSE /\ hintSeq = 0 /\ heldSeq = 0 /\ coveredSeq = 0
   /\ dirty = FALSE /\ mutating = "before"
-  /\ req = "idle" /\ reqSeq = 0 /\ snapHead = 0
+  /\ req = "idle" /\ reqSeq = 0 /\ reqDirty = FALSE /\ snapHead = 0
   /\ snapSeen = [e \in Entities |-> 0] /\ lostCursor = 0 /\ failed = FALSE
 
 (* A mutation starts and writes uncommitted domain rows. The negative controls *)
@@ -78,8 +79,8 @@ Commit(w) ==
   /\ wpc' = [wpc EXCEPT ![w] = "done"]
   /\ inflight' = TRUE
   /\ UNCHANGED <<target, alloc, early, seq, cur, seen, hintSeq, heldSeq,
-                 coveredSeq, dirty, mutating, req, reqSeq, snapHead, snapSeen,
-                 lostCursor, failed>>
+                 coveredSeq, dirty, mutating, req, reqSeq, reqDirty, snapHead,
+                 snapSeen, lostCursor, failed>>
 
 (* A rolled-back mutation leaves no head advance, stamp, change, or hint. *)
 Abort(w) ==
@@ -88,7 +89,8 @@ Abort(w) ==
   /\ wpc' = [wpc EXCEPT ![w] = "done"]
   /\ UNCHANGED <<head, stamp, ver, target, alloc, early, seq, client>>
 
-clientRest == <<cur, seen, coveredSeq, req, reqSeq, snapHead, snapSeen>>
+clientRest == <<cur, seen, coveredSeq, req, reqSeq, reqDirty, snapHead,
+                snapSeen>>
 
 (* Coalesced hints arrive. While the client's mutation is active they are   *)
 (* held with their arrival number; otherwise they schedule one feed pass.   *)
@@ -128,10 +130,12 @@ EndMutation ==
 
 (* A feed request is sent for a scheduled pass, or as the explicit         *)
 (* post-mutation pass, which may run at any point of the mutation window.  *)
+(* It consumes a scheduled trigger but leaves held hints held.             *)
 Send ==
   /\ req = "idle" /\ (dirty \/ mutating = "active")
   /\ req' = "sent"
   /\ reqSeq' = hintSeq
+  /\ reqDirty' = dirty
   /\ dirty' = FALSE
   /\ UNCHANGED <<server, cur, seen, coveredSeq, snapHead, snapSeen, inflight,
                  hintSeq, heldSeq, mutating, lostCursor, failed>>
@@ -143,8 +147,8 @@ Read ==
   /\ req' = "read"
   /\ snapHead' = head
   /\ snapSeen' = [e \in Entities |-> IF stamp[e] > cur THEN ver[e] ELSE seen[e]]
-  /\ UNCHANGED <<server, cur, seen, coveredSeq, reqSeq, inflight, hintSeq,
-                 heldSeq, dirty, mutating, lostCursor, failed>>
+  /\ UNCHANGED <<server, cur, seen, coveredSeq, reqSeq, reqDirty, inflight,
+                 hintSeq, heldSeq, dirty, mutating, lostCursor, failed>>
 
 (* The client applies the page and cursor in one transaction and records   *)
 (* that every hint received before the request was sent is covered.        *)
@@ -154,15 +158,19 @@ Finish ==
   /\ cur' = snapHead /\ seen' = snapSeen
   /\ coveredSeq' = Max(coveredSeq, IF CoverFromSend THEN reqSeq ELSE hintSeq)
   /\ failed' = FALSE
-  /\ UNCHANGED <<server, reqSeq, snapHead, snapSeen, inflight, hintSeq,
-                 heldSeq, dirty, mutating, lostCursor>>
+  /\ UNCHANGED <<server, reqSeq, reqDirty, snapHead, snapSeen, inflight,
+                 hintSeq, heldSeq, dirty, mutating, lostCursor>>
 
-(* A failed request keeps the last-known-good projection; the next trigger *)
-(* retries.                                                                *)
+(* A failed request keeps the last-known-good projection and covers no held *)
+(* hint. If it consumed a scheduled trigger, the client waits for the next  *)
+(* one; a failed explicit pass consumed nothing, so held hints still fire.  *)
 Fail ==
   /\ req \in {"sent", "read"}
-  /\ req' = "idle" /\ failed' = TRUE
-  /\ UNCHANGED <<server, cur, seen, coveredSeq, reqSeq, snapHead, snapSeen,
+  /\ req' = "idle"
+  /\ failed' = (failed \/ reqDirty)
+  /\ coveredSeq' = IF CoverOnlyOnSuccess THEN coveredSeq
+                   ELSE Max(coveredSeq, IF CoverFromSend THEN reqSeq ELSE hintSeq)
+  /\ UNCHANGED <<server, cur, seen, reqSeq, reqDirty, snapHead, snapSeen,
                  inflight, hintSeq, heldSeq, dirty, mutating, lostCursor>>
 
 Next ==
@@ -183,6 +191,7 @@ TypeOK ==
   /\ alloc \in [Writers -> 0..2] /\ early \in [Writers -> 0..3]
   /\ lock \in Writers \cup {NoLock}
   /\ inflight \in BOOLEAN /\ dirty \in BOOLEAN /\ failed \in BOOLEAN
+  /\ reqDirty \in BOOLEAN
   /\ {hintSeq, heldSeq, coveredSeq, reqSeq} \subseteq 0..2
   /\ mutating \in {"before", "active", "after"}
   /\ req \in {"idle", "sent", "read"} /\ lostCursor \in 0..2
@@ -195,7 +204,8 @@ CursorCoversChanges ==
 CaughtUpClientIsCurrent ==
   cur = head => \A e \in Entities: seen[e] = ver[e]
 (* A client behind a committed change still has a hint, held hint, owed or  *)
-(* in-flight pass to catch up, unless a hint was lost or a pass failed.     *)
+(* in-flight pass to catch up, unless a hint was lost or a failed pass      *)
+(* consumed the scheduled trigger.                                          *)
 BehindClientHasTrigger ==
   (\E e \in Entities: stamp[e] > cur) =>
     \/ inflight \/ heldSeq # 0 \/ dirty \/ req # "idle"
