@@ -15,6 +15,7 @@ export type {
   BlobBytesResponse,
   UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
+export { describeMultipartBlobPart } from "./routes/blobs/multipartUpload";
 export type {
   HttpMethod,
   ListDocumentEditAttributionRangesOptions,

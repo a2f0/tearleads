@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { bytesToHex } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type {
   BlobAttachmentBindRequest,
@@ -54,10 +55,6 @@ test("document store uploads attachment bytes with signed bindings", async () =>
   let syncCount = 0;
   let injectedSettlementRace = false;
   let storedDocument: DocumentCreateResponse | null = null;
-  let completedBlob: {
-    readonly byteLength: number;
-    readonly sha256: string;
-  } | null = null;
   const { getAssembledBytes, ...multipartApi } =
     createMultipartBlobStageFixture();
   const writerProjection = (): DocumentWriterProjectionResponse | null =>
@@ -71,13 +68,9 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       blobId: string,
       request: BlobAttachmentBindRequest,
     ) {
+      // Binding completes the stage: the assembled parts become the blob.
       const encryptedBytes = getAssembledBytes();
-      if (
-        !storedDocument ||
-        !request.stagedBlob ||
-        !encryptedBytes ||
-        !completedBlob
-      ) {
+      if (!storedDocument || !request.stagedBlob || !encryptedBytes) {
         return null;
       }
       const response = await createBlobAttachmentBindResponse({
@@ -89,18 +82,12 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       attachmentBinds.push({ blobId, request });
       attachments.push(attachmentSummaryFromBind(response));
       blobs.set(blobId, {
-        byteLength: completedBlob.byteLength,
+        byteLength: encryptedBytes.byteLength,
         encryptedBytes,
-        sha256: completedBlob.sha256,
+        sha256: bytesToHex(
+          new Uint8Array(await crypto.subtle.digest("SHA-256", encryptedBytes)),
+        ),
       });
-      return response;
-    },
-    completeMultipartBlobStage: async (stageId, request) => {
-      const response = await multipartApi.completeMultipartBlobStage(
-        stageId,
-        request,
-      );
-      completedBlob = response;
       return response;
     },
     async createDocument(

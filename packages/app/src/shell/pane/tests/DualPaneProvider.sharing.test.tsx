@@ -57,8 +57,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
   // Private metadata-root authority now uses bounded directory/Admins reads.
-  // Measured 182 calls and 3.56 MB received; keep eight calls of scheduling room.
-  total: 190,
+  // Measured 180–181 calls and 3.57 MB received; keep eight calls of
+  // scheduling room. The attachment's stage carries its part upload source and
+  // the bind completes it, so staging costs two fewer calls than before.
+  total: 188,
   // Container mutations cite stored manifests by hash, so the share and its
   // recitations no longer echo path bundles: 180 KB sent (was 352 KB). Keep
   // the same ~8% request headroom and room for two extra document projections.

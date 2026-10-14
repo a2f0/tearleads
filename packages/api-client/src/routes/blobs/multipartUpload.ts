@@ -7,7 +7,11 @@ import {
   uploadMultipartBlobPartBytesOperation,
 } from "@tearleads/validators/operation";
 import type { UploadMultipartBlobPartResponse } from "@tearleads/validators/response";
-import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
+import {
+  MAX_MULTIPART_BLOB_PART_BYTES,
+  type MultipartBlobPartDescriptor,
+  type MultipartBlobPartUploadSource,
+} from "@tearleads/validators/util";
 import type { OperationTransport } from "../../operationTransportFactory";
 import type { RequestResultOptions } from "../../types";
 import type { UploadMultipartBlobPartBytesRequest } from "./get";
@@ -36,6 +40,26 @@ async function retryStorageStatus(status: number, attempt: number) {
   return transient;
 }
 
+function contentMd5Base64(bytes: Uint8Array): string {
+  return btoa(String.fromCharCode(...md5(bytes)));
+}
+
+/**
+ * Describe an encrypted part the way a stage initiation lists the parts it
+ * will send first: number, exact length, and the Content-MD5 a signed upload
+ * URL binds.
+ */
+export function describeMultipartBlobPart(
+  partNumber: number,
+  encryptedBytes: Uint8Array,
+): MultipartBlobPartDescriptor {
+  return {
+    byteLength: encryptedBytes.byteLength,
+    contentMd5: contentMd5Base64(encryptedBytes),
+    partNumber,
+  };
+}
+
 async function preparePart(input: UploadMultipartBlobPartBytesRequest) {
   // File snapshots mutable buffers and preserves ciphertext across Capacitor's
   // native HTTP bridge. Uint8Array is UTF-8 decoded there; a plain Blob becomes
@@ -60,8 +84,91 @@ async function preparePart(input: UploadMultipartBlobPartBytesRequest) {
   ) {
     throw new TypeError("Multipart part SHA-256 does not match its bytes");
   }
-  const contentMd5 = btoa(String.fromCharCode(...md5(new Uint8Array(bytes))));
-  return { file, contentMd5 };
+  return { file, contentMd5: contentMd5Base64(new Uint8Array(bytes)) };
+}
+
+interface PartUploadContext {
+  readonly contentMd5: string;
+  readonly input: UploadMultipartBlobPartBytesRequest;
+  readonly options: RequestResultOptions;
+  readonly partNumber: number;
+  readonly path: string;
+  readonly stageId: string;
+  readonly transport: OperationTransport;
+}
+
+// Sign just in time for this part. The returned descriptor must name exactly
+// the part, upload, length, and checksum that were requested.
+async function authorizePart(
+  context: PartUploadContext,
+): Promise<MultipartBlobPartUploadSource | null> {
+  const operation = authorizeMultipartBlobPartUploadOperation;
+  const { input, partNumber, stageId } = context;
+  const result = await context.transport.requestResult(
+    operation,
+    {
+      params: { stageId, partNumber },
+      body: {
+        byteLength: input.byteLength,
+        contentMd5: context.contentMd5,
+        uploadId: input.uploadId,
+      },
+    },
+    context.options,
+  );
+  if (!result.ok) return null;
+  const descriptor = result.data;
+  if (
+    descriptor.stageId !== stageId ||
+    descriptor.uploadId !== input.uploadId ||
+    descriptor.partNumber !== partNumber ||
+    descriptor.byteLength !== input.byteLength ||
+    descriptor.contentMd5 !== context.contentMd5
+  ) {
+    context.transport.reportFailure({
+      kind: "shape",
+      method: operation.method,
+      path: context.path,
+      status: 200,
+      statusText: "",
+      message: "Multipart upload descriptor does not match its part",
+    });
+    return null;
+  }
+  return descriptor.source;
+}
+
+// Parts can wait behind other transfers in the shared pool. An issued URL that
+// is about to lapse would only spend this part's retry on a certain 403, so
+// authorize afresh instead; a skewed clock errs toward authorizing.
+const ISSUED_URL_MIN_REMAINING_MS = 30_000;
+
+function isUsableIssuedSource(
+  source: MultipartBlobPartUploadSource | undefined,
+): source is MultipartBlobPartUploadSource {
+  return (
+    source !== undefined &&
+    (source.kind === "api" ||
+      Date.parse(source.expiresAt) - Date.now() > ISSUED_URL_MIN_REMAINING_MS)
+  );
+}
+
+// A capability path for memory/custom stores; S3/R2 never proxy parts.
+function uploadThroughApi(context: PartUploadContext, file: File) {
+  const { input } = context;
+  return context.transport.requestBinaryRequest(
+    uploadMultipartBlobPartBytesOperation,
+    {
+      params: { stageId: context.stageId, partNumber: context.partNumber },
+      body: input.encryptedBytes,
+      headers: {
+        [blobWireHeaderKeys.partByteLength]: input.byteLength.toString(),
+        [blobWireHeaderKeys.partSha256]: input.sha256,
+        [blobWireHeaderKeys.partUploadId]: input.uploadId,
+      },
+    },
+    { ...context.options, encodeBody: () => file },
+  );
 }
 
 export async function uploadMultipartBlobPartBytes(
@@ -73,67 +180,39 @@ export async function uploadMultipartBlobPartBytes(
   options: RequestResultOptions = {},
 ): Promise<UploadMultipartBlobPartResponse | null> {
   if (options.signal?.aborted) return null;
-  const operation = authorizeMultipartBlobPartUploadOperation;
-  const params = { stageId, partNumber };
-  const path = operationRequestPath(operation, params);
+  const path = operationRequestPath(authorizeMultipartBlobPartUploadOperation, {
+    stageId,
+    partNumber,
+  });
   const prepared = await preparePart(input).catch(() =>
     invalidPart(transport, path),
   );
   if (!prepared) return null;
   const { file, contentMd5 } = prepared;
-  const body = {
-    byteLength: input.byteLength,
+  const context: PartUploadContext = {
     contentMd5,
-    uploadId: input.uploadId,
+    input,
+    options,
+    partNumber,
+    path,
+    stageId,
+    transport,
   };
   let status: number | null = null;
-  // Sign just in time for each part, not once for the entire file. A network
-  // failure may be an expired URL hidden by R2 CORS, or a lost success response;
-  // reauthorize once and send the same immutable bytes to the same part number.
+  // The first attempt uses the source the stage initiation issued, if any. A
+  // network failure may be an expired URL hidden by R2 CORS, or a lost success
+  // response; reauthorize once and send the same immutable bytes to the same
+  // part number.
   for (let attempt = 0; attempt < 2; attempt += 1) {
     if (options.signal?.aborted) return null;
-    const result = await transport.requestResult(
-      operation,
-      { params, body },
-      options,
-    );
-    if (!result.ok) return null;
-    const descriptor = result.data;
-    if (
-      descriptor.stageId !== stageId ||
-      descriptor.uploadId !== input.uploadId ||
-      descriptor.partNumber !== partNumber ||
-      descriptor.byteLength !== input.byteLength ||
-      descriptor.contentMd5 !== contentMd5
-    ) {
-      transport.reportFailure({
-        kind: "shape",
-        method: operation.method,
-        path,
-        status: 200,
-        statusText: "",
-        message: "Multipart upload descriptor does not match its part",
-      });
-      return null;
-    }
-    if (descriptor.source.kind === "api") {
-      // A capability path for memory/custom stores; S3/R2 never proxy parts.
-      return transport.requestBinaryRequest(
-        uploadMultipartBlobPartBytesOperation,
-        {
-          params,
-          body: input.encryptedBytes,
-          headers: {
-            [blobWireHeaderKeys.partByteLength]: input.byteLength.toString(),
-            [blobWireHeaderKeys.partSha256]: input.sha256,
-            [blobWireHeaderKeys.partUploadId]: input.uploadId,
-          },
-        },
-        { ...options, encodeBody: () => file },
-      );
-    }
+    const source =
+      attempt === 0 && isUsableIssuedSource(input.source)
+        ? input.source
+        : await authorizePart(context);
+    if (!source) return null;
+    if (source.kind === "api") return uploadThroughApi(context, file);
     try {
-      const response = await uploadFetch(descriptor.source.url, {
+      const response = await uploadFetch(source.url, {
         method: "PUT",
         body: file,
         headers: {

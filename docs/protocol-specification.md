@@ -415,28 +415,44 @@ Blob bytes are staged before attachment binding:
 - `GET /blobs/stages/multipart/:stageId`
 - `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload`
 - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` (non-signing stores)
-- `POST /blobs/stages/multipart/:stageId/complete`
 
 `InitiateMultipartBlobStageRequest` declares the completed encrypted object's
-`organizationId`, `byteLength`, and `sha256`. The caller must have direct
-organization access. Each part is authorized separately with its byte length,
-base64 Content-MD5, and upload ID. S3/R2 return a five-minute UploadPart URL,
-scoped to the stored key, upload ID, part number, checksum, and exact byte length.
-The client sends `application/octet-stream` directly to storage and retains the
-returned ETag. Later chunks and retries get fresh URLs for the same upload ID;
-URL expiry never invalidates completed parts or extends the one-hour stage.
-Non-signing stores use the API byte route; S3/R2 reject that proxy path.
-Completion verifies the full object's length and SHA-256 before promotion.
+`organizationId`, `byteLength`, and `sha256`, plus `firstParts`: the number,
+exact byte length, and base64 Content-MD5 of each part the client sends first
+(one to four, its upload concurrency). The caller must have direct
+organization access. Before creating any upload, the API refuses first parts
+that repeat a number, exceed the declared object alone or together, or (on
+S3/R2) name a part number the declared size cannot reach with 5 MiB parts.
+The response's `partUploads` carries one upload source per first part, so the
+parts the client starts at once need no authorization request of their own.
+Later parts, and a renewal after a URL expires or fails, are authorized one at
+a time with the same byte length, Content-MD5, and upload ID. S3/R2 sources are
+five-minute UploadPart URLs scoped to the stored key, upload ID, part number,
+checksum, and exact byte length; the client sends
+`application/octet-stream` directly to storage and confirms the returned ETag.
+URL expiry never invalidates uploaded parts or extends the one-hour stage.
+Non-signing stores answer every part with the API byte route (`kind: "api"`),
+so their clients never authorize a part; S3/R2 reject that proxy path before
+reading a body.
+
+There is no completion request. Attachment binding completes the stage: before
+its transaction it assembles the parts the object store holds for the stage's
+upload ID and verifies the object's exact length and SHA-256 against the
+stage, deleting a mismatched object and refusing with `409`. A stage with no
+uploaded parts is refused with `409`. Completion is idempotent: a stage already
+complete is used as is, and an object assembled before a lost state flip is
+re-verified before it is adopted.
 The API stores only object-store multipart metadata in `blob_stages`;
 encrypted payload bytes
 are never encoded into JSON or stored in the database. Staged objects are not
 readable as committed blobs and are promoted only by a successful attachment
-bind. Incomplete or expired stages fail closed during bind.
+bind. Expired stages, and stages whose parts do not assemble to the declared
+object, fail closed during bind.
 
 Object keys are `organizations/<organizationId>/blob-stages/<stageId>` and
 remain unchanged after promotion. The stage's immutable organization must match
 the destination document's verified organization, even when the uploader belongs
-to both organizations. Initiation, status, and completion responses include
+to both organizations. Initiation and status responses include
 `organizationId`; clients check it before resuming an upload.
 
 GC retains the full key and organization in durable deletion work, checks their
@@ -458,9 +474,9 @@ or completed staged object is absent, and
 status-and-code pairs permit opening a fresh stage. Uncoded, malformed, unknown,
 cross-status, proxy, route, and unrelated conflict failures are terminal so the
 client does not abandon resumable state on an ambiguous error.
-If the multipart upload was consumed while the completion response or database
-write was lost, the status lookup revalidates the surviving staged object,
-converges the stage to complete, and returns it instead of emitting absence.
+If a bind consumed the multipart upload but its completion write was lost, the
+status lookup revalidates the surviving staged object, converges the stage to
+complete, and returns it instead of emitting absence.
 
 ## Attachment Bind, Replace, Detach, And Slots
 

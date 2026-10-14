@@ -273,22 +273,6 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/blobs/stages/multipart/{stageId}/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["blobs.multipartStages.complete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/blobs/stages/multipart/{stageId}/parts/{partNumber}/bytes": {
         parameters: {
             query?: never;
@@ -5801,6 +5785,11 @@ export interface operations {
             content: {
                 "application/json": {
                     byteLength: number;
+                    firstParts: {
+                        byteLength: number;
+                        contentMd5: string;
+                        partNumber: number;
+                    }[];
                     organizationId: string;
                     sha256: string;
                 } & {
@@ -5819,6 +5808,21 @@ export interface operations {
                         byteLength: number;
                         expiresAt: string;
                         organizationId: string;
+                        partUploads: {
+                            byteLength: number;
+                            contentMd5: string;
+                            partNumber: number;
+                            source: {
+                                /** @constant */
+                                kind: "api";
+                            } | {
+                                /** Format: date-time */
+                                expiresAt: string;
+                                /** @constant */
+                                kind: "signed-url";
+                                url: string;
+                            };
+                        }[];
                         sha256: string;
                         stageId: string;
                         uploadedParts: ({
@@ -6031,143 +6035,6 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         code?: "multipart_blob_stage_expired";
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    "blobs.multipartStages.complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                stageId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    parts: ({
-                        etag: string;
-                        partNumber: number;
-                    } & {
-                        [key: string]: unknown;
-                    })[];
-                    uploadId: string;
-                } & {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        byteLength: number;
-                        expiresAt: string;
-                        organizationId: string;
-                        sha256: string;
-                        stageId: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        code?: "session_refresh_required";
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
                         error: string;
                     } & {
                         [key: string]: unknown;

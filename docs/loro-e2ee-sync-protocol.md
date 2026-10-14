@@ -83,9 +83,8 @@ Attachment write routes:
   - `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload`
   - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes`
     (non-signing stores)
-  - `POST /blobs/stages/multipart/:stageId/complete`
-  - store and complete large temporary encrypted blob uploads before a bind
-    promotes the stage
+  - store temporary encrypted blob parts; initiation returns the first parts'
+    upload sources, and the bind assembles, verifies, and promotes the stage
 - `POST /blobs/:blobId/attachment-bindings`
   - binds or same-slot replaces a blob attachment through signed
     `attachment.bind`
@@ -325,7 +324,6 @@ Logical operations:
 - `GET /blobs/stages/multipart/:stageId`
 - `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload`
 - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` (non-signing stores)
-- `POST /blobs/stages/multipart/:stageId/complete`
 - `POST /blobs/:blobId/attachment-bindings`
 - `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
 

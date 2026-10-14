@@ -63,11 +63,10 @@ Write surfaces:
 | Link document to container | `POST /documents/:documentId/link` | `DocumentLinkSetMutationRequest` |
 | Unlink document from container | `POST /documents/:documentId/unlink` | `DocumentLinkSetMutationRequest` |
 | Sync encrypted Loro updates | `POST /documents/:documentId/sync` | `DocumentSyncRequest` |
-| Initiate multipart blob stage | `POST /blobs/stages/multipart` | `InitiateMultipartBlobStageRequest` |
-| Authorize direct multipart blob part | `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload` | upload ID, byte length, Content-MD5 |
+| Initiate multipart blob stage (returns the first parts' upload sources) | `POST /blobs/stages/multipart` | `InitiateMultipartBlobStageRequest` |
+| Authorize a later or renewed direct multipart blob part | `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload` | upload ID, byte length, Content-MD5 |
 | Upload multipart blob part for non-signing stores | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` | headers plus octet stream |
-| Complete multipart blob stage | `POST /blobs/stages/multipart/:stageId/complete` | `CompleteMultipartBlobStageRequest` |
-| Bind or replace blob attachment | `POST /blobs/:blobId/attachment-bindings` | `BlobAttachmentBindRequest` |
+| Bind or replace blob attachment (completes a staged upload) | `POST /blobs/:blobId/attachment-bindings` | `BlobAttachmentBindRequest` |
 | Detach blob attachment | `POST /blobs/:blobId/attachment-bindings/:bindingId/detach` | `BlobAttachmentDetachRequest` |
 
 Read surfaces:

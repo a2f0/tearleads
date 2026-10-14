@@ -16,6 +16,11 @@ import {
 import { loadOwnedActiveBlobStage } from "../../workflows/blobs/stageAccess";
 import type { ApiServiceRuntime } from "../runtime";
 import { summarizeBlobEnvelopeStage } from "./blobEnvelopeStage";
+import {
+  MultipartBlobStageError,
+  toMultipartBlobStageError,
+} from "./multipartStageAccess";
+import { completeOwnedMultipartStage } from "./multipartStageCompletion";
 
 export { BlobMutationError } from "../../workflows/blobs/mutations";
 
@@ -82,6 +87,27 @@ export async function publishAttachmentDocumentEvent(input: {
   );
 }
 
+// Binding completes the stage: the parts the store holds are assembled and the
+// object's exact length and SHA-256 verified against the stage before anything
+// is promoted. A refusal keeps its status; an unexpected failure propagates.
+async function completeStagedUpload(
+  runtime: ApiServiceRuntime,
+  stage: Parameters<typeof completeOwnedMultipartStage>[1],
+): Promise<void> {
+  try {
+    await completeOwnedMultipartStage(runtime, stage);
+  } catch (error) {
+    const stageError =
+      error instanceof MultipartBlobStageError
+        ? error
+        : toMultipartBlobStageError(error);
+    if (stageError === null || stageError.status === 500) {
+      throw error;
+    }
+    throw new BlobMutationError(stageError.message, stageError.status);
+  }
+}
+
 async function prevalidateMultipartBlobStage(
   runtime: ApiServiceRuntime,
   input: BindBlobAttachmentInput,
@@ -97,9 +123,7 @@ async function prevalidateMultipartBlobStage(
     userId: input.userId,
   });
 
-  if (stage.completedAt === null) {
-    throw new BlobMutationError("Blob multipart stage is not complete", 409);
-  }
+  await completeStagedUpload(runtime, stage);
 
   const objectStream = await runtime.blobObjectStore.getObjectStream(
     stage.storageKey,

@@ -1,9 +1,5 @@
-import { bytesToHex, MAX_BLOB_CHUNK_COUNT } from "@tearleads/crypto";
-import type {
-  InitiateMultipartBlobStageResponse,
-  MultipartBlobStagePart,
-  MultipartBlobStageStatusResponse,
-} from "@tearleads/validators/response";
+import { MAX_BLOB_CHUNK_COUNT } from "@tearleads/crypto";
+import type { MultipartBlobStagePart } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import {
   BLOB_TRANSFER_CONCURRENCY,
@@ -17,10 +13,16 @@ import type {
   UploadDocumentAttachmentInput,
 } from "../../data/documents/blob/shared/types";
 import {
-  assertMultipartStageReplaceable,
+  type MultipartPartSources,
+  type PreparedMultipartPart,
+  sha256BytesHex,
+  takePartSource,
+} from "./multipartFirstParts";
+import {
   multipartApiFailureMessage,
   multipartStagePath,
 } from "./multipartStageFailures";
+import { resolveMultipartStage } from "./multipartStageResolution";
 
 const DEFAULT_MULTIPART_UPLOAD_CONCURRENCY = 4;
 const MAX_MULTIPART_UPLOAD_CONCURRENCY = 4;
@@ -57,12 +59,6 @@ function multipartPartRequest(input: {
     : { method: "PUT" as const, path: `${basePath}/bytes` };
 }
 
-async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
-  return bytesToHex(
-    new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)),
-  );
-}
-
 function normalizeMultipartUploadConcurrency(
   value: number | undefined,
 ): number {
@@ -94,6 +90,8 @@ async function uploadMultipartPartTasks(input: {
   readonly concurrency: number;
   readonly encryption: BlobEncryptionPlan;
   readonly onPartUploaded?: (task: MultipartPartUploadTask) => void;
+  readonly prepared: Map<number, PreparedMultipartPart>;
+  readonly sources: MultipartPartSources;
   readonly stageId: string;
   readonly tasks: readonly MultipartPartUploadTask[];
   readonly uploadId: string;
@@ -125,6 +123,8 @@ async function uploadMultipartPartTasks(input: {
               const uploaded = await uploadMultipartPartBytes({
                 apiClient: input.apiClient,
                 encryption: input.encryption,
+                prepared: input.prepared,
+                sources: input.sources,
                 stageId: input.stageId,
                 task,
                 uploadId: input.uploadId,
@@ -178,26 +178,41 @@ async function uploadMultipartPartTasks(input: {
   }
 }
 
+// A first part was encrypted once before the stage existed; hand its bytes
+// over (and release them) instead of encrypting it again.
+async function encryptedPart(input: {
+  readonly encryption: BlobEncryptionPlan;
+  readonly prepared: Map<number, PreparedMultipartPart>;
+  readonly task: MultipartPartUploadTask;
+}): Promise<PreparedMultipartPart> {
+  const prepared = input.prepared.get(input.task.partIndex);
+  if (prepared) {
+    input.prepared.delete(input.task.partIndex);
+    return prepared;
+  }
+  const bytes = await input.encryption.encryptPart(input.task.partIndex);
+  if (bytes.byteLength !== input.task.byteLength) {
+    throw new Error(
+      `Encrypted blob part ${input.task.partNumber} byte length mismatch: expected ${input.task.byteLength.toLocaleString()}, received ${bytes.byteLength.toLocaleString()}.`,
+    );
+  }
+  return { bytes, sha256: await sha256BytesHex(bytes) };
+}
+
 async function uploadMultipartPartBytes(input: {
   readonly apiClient: BlobAttachmentApi;
   readonly encryption: BlobEncryptionPlan;
+  readonly prepared: Map<number, PreparedMultipartPart>;
+  readonly sources: MultipartPartSources;
   readonly stageId: string;
   readonly task: MultipartPartUploadTask;
   readonly uploadId: string;
   readonly signal: AbortSignal;
 }): ReturnType<BlobAttachmentApi["uploadMultipartBlobPartBytes"]> {
   input.signal.throwIfAborted();
-  const encryptedPartBytes = await input.encryption.encryptPart(
-    input.task.partIndex,
-  );
-  if (encryptedPartBytes.byteLength !== input.task.byteLength) {
-    throw new Error(
-      `Encrypted blob part ${input.task.partNumber} byte length mismatch: expected ${input.task.byteLength.toLocaleString()}, received ${encryptedPartBytes.byteLength.toLocaleString()}.`,
-    );
-  }
-
-  const sha256 = await sha256BytesHex(encryptedPartBytes);
+  const { bytes: encryptedPartBytes, sha256 } = await encryptedPart(input);
   input.signal.throwIfAborted();
+  const source = takePartSource(input.sources, input.task.partNumber);
   const uploaded = await input.apiClient.uploadMultipartBlobPartBytes(
     input.stageId,
     input.task.partNumber,
@@ -205,6 +220,7 @@ async function uploadMultipartPartBytes(input: {
       byteLength: encryptedPartBytes.byteLength,
       encryptedBytes: encryptedPartBytes,
       sha256,
+      ...(source === undefined ? {} : { source }),
       uploadId: input.uploadId,
     },
     { signal: input.signal },
@@ -228,12 +244,6 @@ function uploadedPartsByPartNumber(
   parts: readonly MultipartBlobStagePart[],
 ): ReadonlyMap<number, MultipartBlobStagePart> {
   return new Map(parts.map((part) => [part.partNumber, part]));
-}
-
-function isMultipartStageStatus(
-  stage: InitiateMultipartBlobStageResponse | MultipartBlobStageStatusResponse,
-): stage is MultipartBlobStageStatusResponse {
-  return "completed" in stage && typeof stage.completed === "boolean";
 }
 
 interface MultipartUploadProgressState {
@@ -294,80 +304,6 @@ function planMultipartParts(input: {
   return { completeParts, progress, uploadTasks };
 }
 
-async function resolveMultipartStageStatus(input: {
-  readonly apiClient: BlobAttachmentApi;
-  readonly byteLength: number;
-  readonly multipart: NonNullable<UploadDocumentAttachmentInput["multipart"]>;
-  readonly organizationId: string;
-  readonly onStageUnavailable?:
-    | ((stageId: string) => Promise<void>)
-    | undefined;
-  readonly sha256: string;
-}): Promise<MultipartBlobStageStatusResponse> {
-  const resumeStageId = input.multipart.resumeStageId;
-  if (resumeStageId) {
-    const resumed = await input.apiClient.getMultipartBlobStage(resumeStageId);
-    if (!resumed) {
-      await assertMultipartStageReplaceable({
-        apiClient: input.apiClient,
-        onStageUnavailable: input.onStageUnavailable,
-        stageId: resumeStageId,
-      });
-    }
-    if (resumed && resumed.stageId !== resumeStageId) {
-      throw new Error(
-        `Multipart blob resume response does not match stage ${resumeStageId}.`,
-      );
-    }
-    if (resumed) {
-      // A successful lookup is authoritative: a metadata mismatch indicates
-      // inconsistent persisted state or a bad server response, not proof that
-      // the existing stage is safe to abandon.
-      if (
-        resumed.organizationId !== input.organizationId ||
-        resumed.byteLength !== input.byteLength ||
-        resumed.sha256 !== input.sha256
-      ) {
-        throw new Error(
-          `Multipart blob resume stage ${resumeStageId} does not match the requested organization or bytes.`,
-        );
-      }
-      return resumed;
-    }
-  }
-
-  const stage = await input.apiClient.initiateMultipartBlobStage({
-    organizationId: input.organizationId,
-    byteLength: input.byteLength,
-    sha256: input.sha256,
-  });
-  if (!stage) {
-    throw new Error(
-      multipartApiFailureMessage({
-        apiClient: input.apiClient,
-        fallback: `Multipart blob stage initiation failed for ${input.byteLength.toLocaleString()} bytes.`,
-        request: { method: "POST", path: "/blobs/stages/multipart" },
-      }),
-    );
-  }
-  if (
-    stage.organizationId !== input.organizationId ||
-    stage.byteLength !== input.byteLength ||
-    stage.sha256 !== input.sha256
-  ) {
-    throw new Error(
-      "Multipart blob stage initiation response does not match its request.",
-    );
-  }
-
-  return isMultipartStageStatus(stage)
-    ? stage
-    : {
-        ...stage,
-        completed: false,
-      };
-}
-
 function assertMultipartPlanLimits(encryption: BlobEncryptionPlan): void {
   if (encryption.partCount > MAX_BLOB_CHUNK_COUNT) {
     throw new Error(
@@ -400,13 +336,16 @@ export async function stageMultipartBlobAttachment(input: {
     );
   }
   assertMultipartPlanLimits(input.encryption);
-  const status = await resolveMultipartStageStatus({
+  const concurrency = normalizeMultipartUploadConcurrency(
+    input.multipart.uploadConcurrency,
+  );
+  const { prepared, sources, status } = await resolveMultipartStage({
     apiClient: input.apiClient,
-    byteLength: input.encryption.byteLength,
+    concurrency,
+    encryption: input.encryption,
     multipart: input.multipart,
     organizationId: input.organizationId,
     onStageUnavailable: input.onStageUnavailable,
-    sha256: input.encryption.sha256,
   });
   // Surface the stage id before any parts upload so the caller can persist it;
   // an upload interrupted mid-flight can then resume this same stage.
@@ -442,15 +381,15 @@ export async function stageMultipartBlobAttachment(input: {
   await uploadMultipartPartTasks({
     apiClient: input.apiClient,
     completeParts,
-    concurrency: normalizeMultipartUploadConcurrency(
-      input.multipart.uploadConcurrency,
-    ),
+    concurrency,
     encryption: input.encryption,
     onPartUploaded: (task) => {
       progress.partsCompleted += 1;
       progress.bytesUploaded += task.byteLength;
       reportMultipartProgress();
     },
+    prepared,
+    sources,
     stageId: status.stageId,
     tasks: uploadTasks,
     uploadId: status.uploadId,
@@ -462,35 +401,7 @@ export async function stageMultipartBlobAttachment(input: {
     );
   }
 
-  const completed = await input.apiClient.completeMultipartBlobStage(
-    status.stageId,
-    {
-      parts: committedParts,
-      uploadId: status.uploadId,
-    },
-  );
-  if (!completed) {
-    throw new Error(
-      multipartApiFailureMessage({
-        apiClient: input.apiClient,
-        fallback: `Multipart blob stage completion failed for stage ${status.stageId} with ${committedParts.length.toLocaleString()} committed parts.`,
-        request: {
-          method: "POST",
-          path: `${multipartStagePath(status.stageId)}/complete`,
-        },
-      }),
-    );
-  }
-  if (
-    completed.organizationId !== input.organizationId ||
-    completed.stageId !== status.stageId ||
-    completed.byteLength !== input.encryption.byteLength ||
-    completed.sha256 !== input.encryption.sha256
-  ) {
-    throw new Error(
-      `Multipart blob stage ${status.stageId} completion response does not match its request.`,
-    );
-  }
-
-  return completed.stageId;
+  // Binding the attachment completes the stage: the API assembles these parts
+  // and verifies the object's length and SHA-256 before promoting it.
+  return status.stageId;
 }

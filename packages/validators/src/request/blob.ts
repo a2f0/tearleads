@@ -1,15 +1,19 @@
 import type { z } from "zod";
 import {
   arraySchema,
+  boundedNonEmptyArraySchema,
   loosePlainObject,
-  nonEmptyArraySchema,
   nonEmptyStringSchema,
   plainObjectSchema,
   positiveIntegerSchema,
   requiredUnknownSchema,
   uuidV4StringSchema,
 } from "../schema";
-import { MAX_INLINE_CONTAINER_REKEYS } from "../util";
+import {
+  MAX_INITIATE_PART_UPLOADS,
+  MAX_INLINE_CONTAINER_REKEYS,
+} from "../util";
+import { MultipartBlobPartDescriptorSchema } from "../util/blobTransferSchemas";
 import { ContainerMutationRequestSchema } from "./container";
 import {
   ContentKeyWrappedKeySchema,
@@ -20,29 +24,17 @@ import { ContainerManifestRefArrayArraySchema } from "./document";
 export const InitiateMultipartBlobStageRequestSchema = loosePlainObject({
   organizationId: uuidV4StringSchema,
   byteLength: positiveIntegerSchema,
+  // The parts the client sends first, so the stage response can carry their
+  // upload sources and spare one authorization request per part.
+  firstParts: boundedNonEmptyArraySchema(
+    MultipartBlobPartDescriptorSchema,
+    MAX_INITIATE_PART_UPLOADS,
+  ),
   sha256: nonEmptyStringSchema,
 });
 
 export type InitiateMultipartBlobStageRequest = z.infer<
   typeof InitiateMultipartBlobStageRequestSchema
->;
-
-export const MultipartBlobPartCommitRequestSchema = loosePlainObject({
-  etag: nonEmptyStringSchema,
-  partNumber: positiveIntegerSchema,
-});
-
-export type MultipartBlobPartCommitRequest = z.infer<
-  typeof MultipartBlobPartCommitRequestSchema
->;
-
-export const CompleteMultipartBlobStageRequestSchema = loosePlainObject({
-  parts: nonEmptyArraySchema(MultipartBlobPartCommitRequestSchema),
-  uploadId: nonEmptyStringSchema,
-});
-
-export type CompleteMultipartBlobStageRequest = z.infer<
-  typeof CompleteMultipartBlobStageRequestSchema
 >;
 
 export const BlobContentKeyTargetEnvelopeRequestSchema = loosePlainObject({
@@ -113,12 +105,6 @@ export function isInitiateMultipartBlobStageRequest(
   value: unknown,
 ): value is InitiateMultipartBlobStageRequest {
   return InitiateMultipartBlobStageRequestSchema.safeParse(value).success;
-}
-
-export function isCompleteMultipartBlobStageRequest(
-  value: unknown,
-): value is CompleteMultipartBlobStageRequest {
-  return CompleteMultipartBlobStageRequestSchema.safeParse(value).success;
 }
 
 export function isBlobAttachmentBindRequest(

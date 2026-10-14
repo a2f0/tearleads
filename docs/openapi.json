@@ -11778,252 +11778,6 @@
         ]
       }
     },
-    "/blobs/stages/multipart/{stageId}/complete": {
-      "post": {
-        "operationId": "blobs.multipartStages.complete",
-        "parameters": [
-          {
-            "explode": false,
-            "in": "path",
-            "name": "stageId",
-            "required": true,
-            "schema": {
-              "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
-              "type": "string"
-            },
-            "style": "simple"
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "parts": {
-                    "minItems": 1,
-                    "type": "array",
-                    "items": {
-                      "type": "object",
-                      "properties": {
-                        "etag": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "partNumber": {
-                          "exclusiveMinimum": 0,
-                          "maximum": 1.7976931348623157e+308,
-                          "type": "integer"
-                        }
-                      },
-                      "required": [
-                        "etag",
-                        "partNumber"
-                      ],
-                      "additionalProperties": {}
-                    }
-                  },
-                  "uploadId": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "required": [
-                  "parts",
-                  "uploadId"
-                ],
-                "additionalProperties": {}
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "organizationId": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "byteLength": {
-                      "exclusiveMinimum": 0,
-                      "maximum": 1.7976931348623157e+308,
-                      "type": "integer"
-                    },
-                    "expiresAt": {
-                      "type": "string"
-                    },
-                    "sha256": {
-                      "type": "string",
-                      "minLength": 1
-                    },
-                    "stageId": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "organizationId",
-                    "byteLength",
-                    "expiresAt",
-                    "sha256",
-                    "stageId"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Successful JSON response"
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Failure JSON response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "const": "session_refresh_required"
-                    },
-                    "error": {
-                      "type": "string",
-                      "minLength": 1
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Failure JSON response"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Failure JSON response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Failure JSON response"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Failure JSON response"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Failure JSON response"
-          },
-          "503": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "type": "string"
-                    }
-                  },
-                  "required": [
-                    "error"
-                  ],
-                  "additionalProperties": {}
-                }
-              }
-            },
-            "description": "Failure JSON response"
-          }
-        },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ]
-      }
-    },
     "/blobs/stages/multipart/{stageId}/parts/{partNumber}/bytes": {
       "put": {
         "operationId": "blobs.multipartStages.parts.upload",
@@ -12382,14 +12136,6 @@
                       "minimum": 1,
                       "type": "integer"
                     },
-                    "stageId": {
-                      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
-                      "type": "string"
-                    },
-                    "uploadId": {
-                      "type": "string",
-                      "minLength": 1
-                    },
                     "source": {
                       "anyOf": [
                         {
@@ -12430,15 +12176,23 @@
                           "additionalProperties": false
                         }
                       ]
+                    },
+                    "stageId": {
+                      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+                      "type": "string"
+                    },
+                    "uploadId": {
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
                     "byteLength",
                     "contentMd5",
                     "partNumber",
+                    "source",
                     "stageId",
-                    "uploadId",
-                    "source"
+                    "uploadId"
                   ],
                   "additionalProperties": false
                 }
@@ -12861,6 +12615,36 @@
                     "maximum": 1.7976931348623157e+308,
                     "type": "integer"
                   },
+                  "firstParts": {
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "byteLength": {
+                          "maximum": 33554432,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "contentMd5": {
+                          "type": "string",
+                          "pattern": "^[A-Za-z0-9+/]{21}[AQgw]==$"
+                        },
+                        "partNumber": {
+                          "maximum": 10000,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "byteLength",
+                        "contentMd5",
+                        "partNumber"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 4,
+                    "minItems": 1,
+                    "type": "array"
+                  },
                   "sha256": {
                     "type": "string",
                     "minLength": 1
@@ -12869,6 +12653,7 @@
                 "required": [
                   "organizationId",
                   "byteLength",
+                  "firstParts",
                   "sha256"
                 ],
                 "additionalProperties": {}
@@ -12895,6 +12680,76 @@
                     },
                     "expiresAt": {
                       "type": "string"
+                    },
+                    "partUploads": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "byteLength": {
+                            "maximum": 33554432,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "contentMd5": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9+/]{21}[AQgw]==$"
+                          },
+                          "partNumber": {
+                            "maximum": 10000,
+                            "minimum": 1,
+                            "type": "integer"
+                          },
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "api"
+                                  }
+                                },
+                                "required": [
+                                  "kind"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "const": "signed-url"
+                                  },
+                                  "url": {
+                                    "type": "string",
+                                    "pattern": "^https?:\\/\\/"
+                                  },
+                                  "expiresAt": {
+                                    "type": "string",
+                                    "format": "date-time",
+                                    "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "url",
+                                  "expiresAt"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "byteLength",
+                          "contentMd5",
+                          "partNumber",
+                          "source"
+                        ],
+                        "additionalProperties": false
+                      }
                     },
                     "sha256": {
                       "type": "string",
@@ -12939,6 +12794,7 @@
                     "organizationId",
                     "byteLength",
                     "expiresAt",
+                    "partUploads",
                     "sha256",
                     "stageId",
                     "uploadedParts",

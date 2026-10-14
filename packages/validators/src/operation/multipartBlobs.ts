@@ -1,15 +1,11 @@
 import { z } from "zod";
 import {
-  CompleteMultipartBlobStageRequestSchema,
   InitiateMultipartBlobStageRequestSchema,
-  isCompleteMultipartBlobStageRequest,
   isInitiateMultipartBlobStageRequest,
 } from "../request";
 import {
-  CompleteMultipartBlobStageResponseSchema,
   ErrorResponseSchema,
   InitiateMultipartBlobStageResponseSchema,
-  isCompleteMultipartBlobStageResponse,
   isInitiateMultipartBlobStageResponse,
   isMultipartBlobStageStatusResponse,
   MultipartBlobStageConflictErrorResponseSchema,
@@ -71,34 +67,9 @@ export const getMultipartBlobStageOperation = defineJsonOperation({
   },
 });
 
-export const completeMultipartBlobStageOperation = defineJsonOperation({
-  auth: "session",
-  body: CompleteMultipartBlobStageRequestSchema,
-  failureResponses: {
-    400: ErrorResponseSchema,
-    401: SessionFailureResponseSchema,
-    403: ErrorResponseSchema,
-    404: ErrorResponseSchema,
-    409: ErrorResponseSchema,
-    500: ErrorResponseSchema,
-  },
-  failureStatuses: [400, 401, 403, 404, 409, 500],
-  id: "blobs.multipartStages.complete",
-  method: "POST",
-  params: MultipartBlobStagePathParamsSchema,
-  path: "/blobs/stages/multipart/{stageId}/complete",
-  responses: {
-    200: CompleteMultipartBlobStageResponseSchema,
-  },
-});
-
 export const isInitiateMultipartBlobStageOperationRequest =
   isInitiateMultipartBlobStageRequest;
 export const isInitiateMultipartBlobStageOperationResponse =
   isInitiateMultipartBlobStageResponse;
 export const isGetMultipartBlobStageOperationResponse =
   isMultipartBlobStageStatusResponse;
-export const isCompleteMultipartBlobStageOperationRequest =
-  isCompleteMultipartBlobStageRequest;
-export const isCompleteMultipartBlobStageOperationResponse =
-  isCompleteMultipartBlobStageResponse;

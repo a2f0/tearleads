@@ -1,10 +1,6 @@
 import { test } from "bun:test";
+import type { InitiateMultipartBlobStageRequest } from "../request";
 import type {
-  CompleteMultipartBlobStageRequest,
-  InitiateMultipartBlobStageRequest,
-} from "../request";
-import type {
-  CompleteMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponse,
   MultipartBlobStageStatusResponse,
 } from "../response";
@@ -51,11 +47,6 @@ type InitiateResponse =
 type GetOperation = operations["blobs.multipartStages.get"];
 type GetResponse =
   GetOperation["responses"][200]["content"]["application/json"];
-type CompleteOperation = operations["blobs.multipartStages.complete"];
-type CompleteRequest =
-  CompleteOperation["requestBody"]["content"]["application/json"];
-type CompleteResponse =
-  CompleteOperation["responses"][200]["content"]["application/json"];
 type PartUploadOperation = operations["blobs.multipartStages.parts.authorize"];
 
 function assertType<Condition extends true>(_condition?: Condition): void {}
@@ -110,22 +101,13 @@ test("generated OpenAPI types match multipart control contracts", () => {
       NormalizeWireType<MultipartBlobStageStatusResponse>
     >
   >();
+  // Binding the attachment completes the stage, so no completion route exists.
   assertType<
     IsEqual<
-      paths["/blobs/stages/multipart/{stageId}/complete"]["post"],
-      CompleteOperation
-    >
-  >();
-  assertType<
-    IsEqual<
-      NormalizeWireType<CompleteRequest>,
-      NormalizeWireType<CompleteMultipartBlobStageRequest>
-    >
-  >();
-  assertType<
-    IsEqual<
-      NormalizeWireType<CompleteResponse>,
-      NormalizeWireType<CompleteMultipartBlobStageResponse>
+      "/blobs/stages/multipart/{stageId}/complete" extends keyof paths
+        ? true
+        : false,
+      false
     >
   >();
 });

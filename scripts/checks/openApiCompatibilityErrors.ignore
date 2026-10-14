@@ -1269,3 +1269,11 @@ PUT /principals/{principalType}/{principalId}/policy removed the request propert
 # #2522 (#12): container mutations cite stored manifests by hash instead of echoing bundles.
 # Remove this exact diagnostic once main contains the new contract.
 PUT /principals/{principalType}/{principalId}/policy removed the request property `containerMutations/items/previousManifest`
+
+# #2522 (#24, #8): stage initiation carries first-part upload sources and the attachment bind completes the stage.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/stages/multipart added the new required request property `firstParts`
+
+# #2522 (#24, #8): stage initiation carries first-part upload sources and the attachment bind completes the stage.
+# Remove this exact diagnostic once main contains the new contract.
+POST /blobs/stages/multipart/{stageId}/complete api path removed without deprecation

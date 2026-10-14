@@ -1,13 +1,13 @@
 import type { TestUser } from "@tearleads/bob-and-alice";
 import type { BlobEnvelopeV2Header } from "@tearleads/crypto";
 import {
-  completeMultipartBlobStage,
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,
 } from "../../src/services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../src/services/runtime";
 import { sha256Hex } from "../../src/utils/sha256";
 import { createBlobEnvelopeFixture } from "./blobEnvelope";
+import { firstPartOf } from "./blobStageParts";
 import { getDefaultOrganizationId } from "./organizationMembership";
 
 export async function stageBlobEnvelopeFixture(
@@ -42,20 +42,16 @@ export async function stageBlobEnvelopeFixture(
   const staged = await initiateMultipartBlobStage(runtime, {
     organizationId,
     byteLength,
+    firstParts: firstPartOf(bytes),
     sha256,
     userId: input.owner.userId,
   });
-  const part = await uploadMultipartBlobPartBytes(runtime, {
+  // The attachment bind that follows completes the stage.
+  await uploadMultipartBlobPartBytes(runtime, {
     byteLength,
     bytes,
     partNumber: 1,
     sha256,
-    stageId: staged.stageId,
-    uploadId: staged.uploadId,
-    userId: input.owner.userId,
-  });
-  await completeMultipartBlobStage(runtime, {
-    parts: [{ etag: part.part.etag, partNumber: 1 }],
     stageId: staged.stageId,
     uploadId: staged.uploadId,
     userId: input.owner.userId,
