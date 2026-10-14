@@ -9,9 +9,9 @@ import {
   didRegainSyncPrerequisites,
   requestDocumentSyncLaneAndWait,
 } from "../../workflows/documents";
+import { removeAttachmentFromDocumentStore } from "./documentStore/attachmentRemoval";
 import {
   attachFilesToDocumentStore,
-  removeAttachmentFromDocumentStore,
   replaceAttachmentInDocumentStore,
 } from "./documentStore/attachments";
 import { discardDocumentStoreLocalState } from "./documentStore/discard";

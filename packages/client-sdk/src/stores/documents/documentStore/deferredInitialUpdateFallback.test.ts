@@ -286,3 +286,52 @@ test("an overlapping empty attach keeps the hold until the staging attach settle
     close();
   }
 });
+
+test("a back-to-back empty attach cannot overtake the attach before it", async () => {
+  let releaseStaging: () => void = () => undefined;
+  const stagingBlocked = new Promise<void>((resolve) => {
+    releaseStaging = resolve;
+  });
+  let stagingStarted = false;
+  const stateRef: { current: DocumentStoreState | null } = { current: null };
+  const blobStore = blobStoreWithWrite(async () => {
+    stagingStarted = true;
+    await stagingBlocked;
+  }, stateRef);
+  const { close, execSql } = await createTestExecSql(
+    "deferred-birth-back-to-back-attach",
+  );
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const state = await openPdfStore({
+      blobStore,
+      deferInitialUpdate: true,
+      execSql,
+      localId: "back-to-back-attach-pdf",
+    });
+    stateRef.current = state;
+    await setDocumentStructuredFields(state, noopSchedule, "pdf", PDF_FIELDS, {
+      deferRemoteSync: true,
+    });
+
+    // Neither call is awaited: the empty one must still settle second.
+    const attach = attachFilesToDocumentStore(state, noopSchedule, [
+      PDF_UPLOAD,
+    ]);
+    const empty = attachFilesToDocumentStore(state, noopSchedule, []);
+    while (!stagingStarted) await Bun.sleep(1);
+    expect(state.deferInitialUpdate).toBe(true);
+
+    releaseStaging();
+    await Promise.all([attach, empty]);
+    expect(state.deferInitialUpdate).toBe(false);
+    expect(await readQueuedUpdates(state)).toEqual({
+      attachmentNames: ["report.pdf"],
+      documentKind: "pdf",
+      rowCount: 1,
+      structuredFields: PDF_FIELDS,
+    });
+  } finally {
+    close();
+  }
+});
