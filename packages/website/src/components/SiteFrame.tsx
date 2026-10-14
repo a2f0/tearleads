@@ -61,7 +61,6 @@ function footerGroups(appUrl: string): readonly FooterGroup[] {
 function SiteFooter({ appUrl }: { readonly appUrl: string }) {
   // Build time, like the rest of the static page.
   const year = new Date().getUTCFullYear();
-  const location = legalDetails.location.replace(/, United States$/, "");
   return (
     <div className="site-footer">
       <nav
@@ -95,16 +94,6 @@ function SiteFooter({ appUrl }: { readonly appUrl: string }) {
       <div className="site-footer-meta">
         <p>
           © {year} <span className="site-nowrap">{legalDetails.operator}</span>
-          <span aria-hidden="true"> · </span>
-          <span className="visually-hidden">, </span>
-          <span className="site-nowrap">{location}</span>
-        </p>
-        <p>
-          {/* Quoted exactly from Privacy Policy section 6. */}
-          <a href="/privacy-policy#device-storage">
-            The marketing website does not use advertising trackers or analytics
-            cookies.
-          </a>
         </p>
       </div>
     </div>
