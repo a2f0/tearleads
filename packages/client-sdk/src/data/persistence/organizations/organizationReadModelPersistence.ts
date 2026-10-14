@@ -140,24 +140,6 @@ async function upsertRequester(input: {
   });
 }
 
-/** The directory lane is the authoritative roster: requester rows for users
- * it no longer lists as active must fall with it. */
-async function pruneRequestersForDirectoryLane(input: {
-  readonly currentUserId: string;
-  readonly directory: OrganizationReadModelDirectoryResponse;
-  readonly organizationId: string;
-  readonly tx: ClientSQLiteTransactionScope;
-}): Promise<void> {
-  await pruneInactiveOrganizationRequestersInTransaction({
-    activeUserIds: input.directory.users
-      .filter((user) => user.status === "active")
-      .map((user) => user.userId),
-    organizationId: input.organizationId,
-    retainUserId: input.currentUserId,
-    tx: input.tx,
-  });
-}
-
 async function replaceGroupsLane(input: {
   readonly groups: ListOrganizationGroupsResponse;
   readonly organizationId: string;
@@ -305,12 +287,12 @@ async function applyResponseLanes(
   input: ResponseLanesInput & { readonly currentUserId: string },
 ): Promise<string | null> {
   const memberGroupStateHash = await replaceResponseLanes(input);
-  const directoryLane = input.response.lanes.directory;
-  if (directoryLane) {
-    await pruneRequestersForDirectoryLane({
-      currentUserId: input.currentUserId,
-      directory: directoryLane,
+  // The directory lane is the authoritative roster, already persisted above:
+  // requester rows for users it no longer lists as active fall with it.
+  if (input.response.lanes.directory) {
+    await pruneInactiveOrganizationRequestersInTransaction({
       organizationId: input.response.organizationId,
+      retainUserId: input.currentUserId,
       tx: input.tx,
     });
   }
