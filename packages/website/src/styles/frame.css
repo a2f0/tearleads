@@ -375,24 +375,9 @@
   margin: 0;
 }
 
-/* Keeps a name or place ("Chattanooga, Tennessee") on one line. */
+/* Keeps the operator name on one line. */
 .site-nowrap {
   white-space: nowrap;
-}
-
-/* A prose link inside chrome: underlined, never marked by color alone. */
-.site-footer-meta a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--site-target);
-  color: inherit;
-  text-decoration: underline 1px;
-  text-underline-offset: 3px;
-}
-
-.site-footer-meta a:focus-visible {
-  color: var(--site-chrome-ink);
-  text-decoration-thickness: 2px;
 }
 
 @media (hover: hover) {
@@ -400,16 +385,10 @@
     color: var(--site-chrome-ink);
     text-decoration: underline 1px;
   }
-
-  .site-footer-meta a:hover {
-    color: var(--site-chrome-ink);
-    text-decoration-thickness: 2px;
-  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .site-footer-link,
-  .site-footer-meta a {
+  .site-footer-link {
     transition:
       color 120ms,
       text-decoration-thickness 120ms;
