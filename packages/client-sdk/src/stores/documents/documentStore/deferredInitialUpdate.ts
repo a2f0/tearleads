@@ -34,6 +34,14 @@ export async function settleDeferredInitialUpdate(
   writeGeneration: AttachmentWriteGeneration | null,
 ): Promise<void> {
   if (!state.deferInitialUpdate) return;
+  // Before initialization finishes no attach has touched a live doc, and a
+  // reload here would install one behind initialization's back (or mark a
+  // not-yet-created document removed). Lift the hold; initialization then
+  // restores the empty marker and schedules the pass that ships the birth.
+  if (!state.initialized) {
+    state.deferInitialUpdate = false;
+    return;
+  }
   // A pass exports the live doc, so it must hold only durable content (see
   // restoreDurableLiveDocument) before the hold lifts. When that cannot be
   // shown, even after a transient failure, reinitialize from durable history
@@ -48,7 +56,7 @@ export async function settleDeferredInitialUpdate(
         requestDocumentStoreSync(state),
       );
     } else if (!durable) {
-      // No live doc to leak (the store never became ready): just lift it.
+      // No live doc remains to leak (a concurrent removal): just lift it.
       state.deferInitialUpdate = false;
     }
   }

@@ -12,19 +12,26 @@ const testImportLabels = {
 
 interface DeferralStore {
   attachCount: number;
+  attachFileCounts: number[];
   deferInitialUpdate: boolean;
   documentKind: StoredDocumentKind;
   fieldWrites: Array<{ deferRemoteSync: boolean | undefined }>;
   rowCount: number;
 }
 
-function createDeferralStoreFactory(createdStores: DeferralStore[]) {
+type StoreFailure = "not-ready" | "set-text-rejects";
+
+function createDeferralStoreFactory(
+  createdStores: DeferralStore[],
+  failure?: StoreFailure,
+) {
   return (input: {
     deferInitialUpdate: boolean;
     initialDocumentKind: StoredDocumentKind;
   }) => {
     const created: DeferralStore = {
       attachCount: 0,
+      attachFileCounts: [],
       deferInitialUpdate: input.deferInitialUpdate,
       documentKind: input.initialDocumentKind,
       fieldWrites: [],
@@ -36,13 +43,14 @@ function createDeferralStoreFactory(createdStores: DeferralStore[]) {
         created.rowCount += 1;
         return `row-${created.rowCount}`;
       },
-      attachFiles: () => {
+      attachFiles: (files: ReadonlyArray<unknown>) => {
         created.attachCount += 1;
+        created.attachFileCounts.push(files.length);
       },
       getSnapshot: () => ({
         documentId: null,
         documentKind: created.documentKind,
-        ready: true,
+        ready: failure !== "not-ready",
         title: "",
       }),
       requestSync: () => undefined,
@@ -53,16 +61,24 @@ function createDeferralStoreFactory(createdStores: DeferralStore[]) {
       ) => {
         created.fieldWrites.push({ deferRemoteSync: options?.deferRemoteSync });
       },
-      setText: async () => undefined,
+      setText: async () => {
+        if (failure === "set-text-rejects") {
+          throw new Error("store initialization failed");
+        }
+      },
     };
   };
 }
 
-function importFiles(files: File[], createdStores: DeferralStore[]) {
+function importFiles(
+  files: File[],
+  createdStores: DeferralStore[],
+  failure?: StoreFailure,
+) {
   let nextLocalId = 0;
   return importExplorerDroppedFiles({
     containerId: "folder-1",
-    createDocumentStore: createDeferralStoreFactory(createdStores),
+    createDocumentStore: createDeferralStoreFactory(createdStores, failure),
     createLocalId: () => `local-${++nextLocalId}`,
     files,
     labels: testImportLabels,
@@ -89,6 +105,7 @@ test("only an attached binary file defers its birth and metadata to the attach",
   // The PDF's single attach update carries the birth and its metadata.
   expect(createdStores.find((store) => store.documentKind === "pdf")).toEqual({
     attachCount: 1,
+    attachFileCounts: [1],
     deferInitialUpdate: true,
     documentKind: "pdf",
     fieldWrites: [{ deferRemoteSync: true }],
@@ -142,3 +159,30 @@ test("a cancelled import never leaves a deferred birth without its attach", asyn
     ),
   ).toBe(true);
 });
+
+for (const failure of ["not-ready", "set-text-rejects"] as const) {
+  test(`a binary import that fails after opening (${failure}) releases its deferred birth`, async () => {
+    const createdStores: DeferralStore[] = [];
+    const result = await importFiles(
+      [
+        new File([new Uint8Array([1, 2, 3])], "report.pdf", {
+          type: "application/pdf",
+        }),
+        new File(["Plain text"], "notes.txt", { type: "text/plain" }),
+      ],
+      createdStores,
+      failure,
+    );
+
+    expect(result.failedCount).toBe(2);
+    // The PDF's store got one empty attach, which lifts its sync hold and
+    // queues the durable birth on its own. The text file deferred nothing.
+    const attachesByKind = Object.fromEntries(
+      createdStores.map((store) => [
+        store.documentKind,
+        store.attachFileCounts,
+      ]),
+    );
+    expect(attachesByKind).toEqual({ note: [], pdf: [0] });
+  });
+}

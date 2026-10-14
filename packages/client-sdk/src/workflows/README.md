@@ -196,9 +196,11 @@ A store opened with `DocumentStoreOpenOptions.deferInitialUpdate` (an Explorer
 file import) creates without that initial outgoing update and persists the
 empty version as its outgoing marker. Scheduled sync waits until the first
 `attachFiles` settles, so one update carries the birth and the attachment; a
-failed attach enqueues the birth alone, and any write that advances the marker
-also lifts the wait. The store factories take that option, with
-`remoteSyncMode`, as a trailing `DocumentStoreOpenOptions` object.
+failed attach enqueues the birth alone. A write that advances the marker, a
+reset, or a failed initialization also lifts the wait, and a caller that gives
+up before attaching releases it with `attachFiles([])`. The store factories
+take that option, with `remoteSyncMode`, as a trailing
+`DocumentStoreOpenOptions` object.
 
 The `blobs` facade also exports encrypted local blob store helpers, including
 `createLazyEncryptedBlobStore` for hosts that load encryption keys from an async
