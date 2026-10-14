@@ -1,8 +1,7 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import {
-  documentAuditEntries,
-  documentUpdateAuditEvents,
+  documentContentWriteHeaders,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
@@ -84,23 +83,18 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       expect(body.acceptedOutgoingUpdateIds).toEqual([updateId]);
     }
 
-    const [storedUpdates, auditEntries, auditEvents] = await Promise.all([
+    const [storedUpdates, writeHeaders] = await Promise.all([
       db
         .select({ id: documentUpdates.id })
         .from(documentUpdates)
-        .where(eq(documentUpdates.id, updateId)),
+        .where(eq(documentUpdates.documentId, created.id)),
       db
-        .select({ id: documentAuditEntries.id })
-        .from(documentAuditEntries)
-        .where(eq(documentAuditEntries.documentId, created.id)),
-      db
-        .select({ liveUpdateId: documentUpdateAuditEvents.liveUpdateId })
-        .from(documentUpdateAuditEvents)
-        .where(eq(documentUpdateAuditEvents.liveUpdateId, updateId)),
+        .select({ updateId: documentContentWriteHeaders.updateId })
+        .from(documentContentWriteHeaders)
+        .where(eq(documentContentWriteHeaders.documentId, created.id)),
     ]);
     expect(storedUpdates).toEqual([{ id: updateId }]);
-    expect(auditEntries).toHaveLength(1);
-    expect(auditEvents).toEqual([{ liveUpdateId: updateId }]);
+    expect(writeHeaders).toEqual([{ updateId }]);
   },
   concurrencyTimeoutMs,
 );

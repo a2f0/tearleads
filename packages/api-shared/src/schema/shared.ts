@@ -1,10 +1,5 @@
 export type BlobAuditRetentionMode = "live_only";
 export type ContainerSyncTombstoneReason = "access_revoked" | "deleted";
-export type DocumentAttachmentAuditAction =
-  | "attach"
-  | "replace"
-  | "detach"
-  | "rewrap";
 export type OrganizationBillingProvider = "revenuecat";
 export type OrganizationBillingSeatEventSourceType =
   | "billing_transition"

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  accessEventDependencyProjection,
+  accessEvents,
   accessManifestPrincipalHeadProjection,
 } from "@tearleads/api-shared/schema";
 import {
@@ -18,7 +18,6 @@ import {
 import { eq } from "drizzle-orm";
 import {
   getCurrentAccessManifestHead,
-  listAccessEventDependencyProjection,
   listAccessManifestPrincipalHeadProjection,
 } from "../read/accessManifestStore";
 import {
@@ -140,24 +139,14 @@ test("storeVerifiedAccessManifest persists event, manifest, head, and derived pr
     epoch: 1,
     manifestHash: verifiedManifest.manifestHash,
   });
-  await expect(
-    listAccessEventDependencyProjection(verifiedManifest.event.eventHash, db),
-  ).resolves.toEqual([
-    {
-      eventHash: verifiedManifest.event.eventHash,
-      objectKind: "container",
-      objectId: verifiedManifest.manifest.objectId,
-      dependencyManifestHash: hashOf("0"),
-      dependencyIndex: 0,
-    },
-    {
-      eventHash: verifiedManifest.event.eventHash,
-      objectKind: "container",
-      objectId: verifiedManifest.manifest.objectId,
-      dependencyManifestHash: hashOf("1"),
-      dependencyIndex: 1,
-    },
-  ]);
+  expect(
+    await db
+      .select({
+        dependencyManifestHashes: accessEvents.dependencyManifestHashes,
+      })
+      .from(accessEvents)
+      .where(eq(accessEvents.eventHash, verifiedManifest.event.eventHash)),
+  ).toEqual([{ dependencyManifestHashes: [hashOf("0"), hashOf("1")] }]);
   await expect(
     listAccessManifestPrincipalHeadProjection(
       verifiedManifest.manifestHash,
@@ -173,7 +162,7 @@ test("storeVerifiedAccessManifest persists event, manifest, head, and derived pr
   ]);
 });
 
-test("access manifest projections can be regenerated from stored event and manifest rows", async () => {
+test("access manifest projections can be regenerated from stored manifest rows", async () => {
   const verifiedManifest = await createVerifiedAccessManifest({
     dependencyManifestHashes: [hashOf("2")],
     referencedPrincipalHeads: [
@@ -190,14 +179,6 @@ test("access manifest projections can be regenerated from stored event and manif
   await storeVerifiedAccessManifest({ verifiedManifest }, db);
 
   await db
-    .delete(accessEventDependencyProjection)
-    .where(
-      eq(
-        accessEventDependencyProjection.eventHash,
-        verifiedManifest.event.eventHash,
-      ),
-    );
-  await db
     .delete(accessManifestPrincipalHeadProjection)
     .where(
       eq(
@@ -207,9 +188,6 @@ test("access manifest projections can be regenerated from stored event and manif
     );
 
   await expect(
-    listAccessEventDependencyProjection(verifiedManifest.event.eventHash, db),
-  ).resolves.toEqual([]);
-  await expect(
     listAccessManifestPrincipalHeadProjection(
       verifiedManifest.manifestHash,
       db,
@@ -218,9 +196,6 @@ test("access manifest projections can be regenerated from stored event and manif
 
   await regenerateAccessManifestProjections(verifiedManifest.manifestHash, db);
 
-  await expect(
-    listAccessEventDependencyProjection(verifiedManifest.event.eventHash, db),
-  ).resolves.toHaveLength(1);
   await expect(
     listAccessManifestPrincipalHeadProjection(
       verifiedManifest.manifestHash,

@@ -6,8 +6,6 @@ import {
   blobContentWriteHeaders,
   containerMetadataDocuments,
   containers,
-  documentAttachmentAuditEvents,
-  documentAuditEntries,
   documentContainerLinks,
   documentContentWriteHeaders,
   documents,
@@ -58,25 +56,7 @@ async function loadDocumentBlobIds(
       .select({ blobId: attachmentBindings.blobId })
       .from(attachmentBindings)
       .where(inArray(attachmentBindings.documentId, batch));
-    const auditRows = await executor
-      .select({
-        blobId: documentAttachmentAuditEvents.blobId,
-        previousBlobId: documentAttachmentAuditEvents.previousBlobId,
-      })
-      .from(documentAttachmentAuditEvents)
-      .innerJoin(
-        documentAuditEntries,
-        eq(documentAttachmentAuditEvents.auditEntryId, documentAuditEntries.id),
-      )
-      .where(inArray(documentAuditEntries.documentId, batch));
-    blobIds.push(
-      ...bindingRows.map((row) => row.blobId),
-      ...auditRows.flatMap((row) =>
-        [row.blobId, row.previousBlobId].filter(
-          (id): id is string => id !== null,
-        ),
-      ),
-    );
+    blobIds.push(...bindingRows.map((row) => row.blobId));
   }
   return blobIds;
 }

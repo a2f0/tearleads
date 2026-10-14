@@ -26,8 +26,9 @@ When a signed attachment mutation deactivates an attachment binding through
 - a failed live-state reclaim records `blobs.reclaimAttemptedAt`; maintenance
  reserves capacity for new work and retries without changing the original
  `dereferencedAt` lifecycle timestamp
-- audit metadata permanently retains the blob generation's `organizationId`,
- so pruned ids remain concealed from every other organization
+- the blob registry (`blob_audit_objects`) permanently retains the blob
+ generation's `organizationId`, so pruned ids remain concealed from every
+ other organization
 - pruning retains `blob_audit_objects.liveStorageKey` as durable physical-
  deletion work; maintenance records `objectDeleteAttemptedAt` before each try,
  reserves batch capacity for both new work and retries, and then clears the
@@ -37,7 +38,7 @@ When a signed attachment mutation deactivates an attachment binding through
  and make the maintenance command fail after independent stage cleanup finishes
 
 Detached attachment bindings are transient replacement metadata. They are not a
-historical attachment log, tombstone store, audit manifest, or recovery index.
+historical attachment log, tombstone store, history manifest, or recovery index.
 
 The database baseline includes lifecycle fields. Attachment mutations record
 `dereferencedAt` when the final active binding is removed.
@@ -93,27 +94,26 @@ This retention model does not provide:
 
 - durable old attachment bytes after replacement or detach
 - server-side historical attachment replay
-- detached binding retention as an audit log
+- detached binding retention as a history log
 - signed attachment tombstones or manifests
 - retroactive recovery of pruned blobs from the server
 
-## Separate Audit Layer
+## Attachment History
 
-Durable attachment history requires a separate audit/history layer rather than
-changes to detached binding retention.
+The server keeps no separate attachment audit ledger. Each bind and detach is a
+signed access event, persisted with its signed body in `access_events`, and each
+staged blob carries a signed write header, so a binding's authorship stays
+verifiable. Attach, replace, and detach
+register every referenced blob generation in `blob_audit_objects` before live
+pruning can remove its row; the registry records which generations existed and
+who owns them, not when they were bound.
 
-That audit/history layer should align with
-[document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md):
-
-- live sync remains compact
-- audit/history records are append-only and tamper-evident
-- baseline checkpoints commit to the history they include
-- attachment history explicitly states whether old blob bytes, tombstones, or
- manifests are retained
-
-The audit/history schema and verifier exist, and normal signed attachment
-mutations append attachment audit rows before live blob pruning can remove
-metadata needed by `blob_audit_objects`.
+Durable attachment history would need a separate design that states whether
+old blob bytes, tombstones, or manifests are retained, and it would sit beside
+the transparency track for signed content in
+[#2186](https://github.com/a2f0/tearleads/issues/2186). See
+[document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md)
+for what signed write headers do and do not detect.
 
 ## Operations
 
