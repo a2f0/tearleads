@@ -10,7 +10,8 @@ recovers that exact head. A completed local stage of the pinned head is accepted
 without a confirmation read, and stored current artifacts that fail verification
 are replayed online instead of refused. Later collections in the same operation
 reuse the recovered directory until a realtime organization hint or a durable
-pin past a memoized head evicts it. The memo never outlives its operation.
+pin past a memoized head evicts it. The memo never outlives its operation, and
+a value it hands out stays bound to its producer's lifetime until it is used.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -20,14 +21,19 @@ pin past a memoized head evicts it. The memo never outlives its operation.
 | `Interrupt` | `savePrincipalHistoryStage` persists an incomplete page boundary |
 | `StoreRejectedCurrent` | `acceptPage` saves a completed stage before `verifyPrincipalPolicyCurrent` checks its current artifacts |
 | `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer, and `bindPrincipalPolicyWarmerOperation` names it for guarded wrappers |
-| `ReuseMemo` / `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `memoPrincipalRecovery` rechecks `entryLive` synchronously before use; `rememberedEvidence` reuses a policy cache's evidence only for the same `principalPolicyWarmerOperation` and epoch |
+| `MemoUsable` | `reusableEntry` checks the hint epoch and producer lease before and after `directoryMemoValidity` pin coverage; `rememberedEvidence` reuses a policy cache's evidence only for the same `principalPolicyWarmerOperation` and epoch |
+| `BeginReuse` | `memoPrincipalRecovery` rechecks `entryLive` synchronously and hands out the value with the consumer's and producer's lifetime |
+| `ExpireProducer` | the producing call's `stillCurrent` (lease or caller lifetime) ends |
+| `FinishReuse` / `CancelDerive` | `resolveReferencedPrincipalPolicy` registers the composite lifetime with `observeProjectionLifetime`, so `commitProjectionCheckpoints` cancels a use whose producer expired |
 | `BeginCollect` | `memoPrincipalRecovery` observes the epoch before `recoverPolicyDirectory` runs `discoverDirectoryHead` |
 | `BeginDerive` | `readMemoizedDirectory` and `readMemoizedAdmins` derive a citation from a reused entry and pass its epoch as `sourceEpoch` |
 | `FinishCollect` | `readRecoveryPages` skips the read for a completed stage of the pinned head; `StoredPrincipalCurrentRejectedError` discards the stage and replays online; the entry is stored with the observed epoch |
 | `AbortCollect` | `PrincipalHistoryRecoveryRaceError` when the durable pin changes during recovery |
 | `FreshPerOperation` | the bare discovery read in `discoverDirectoryHead` runs once per operation |
 | `NoStaleAfterHint` | `principalRecoveryEpoch` changes after a hint, so a collection that begins later rediscovers |
-| `NoRollback` | `directoryMemoValidity` reloads every named head's durable pin through `loadPrincipalPolicyCheckpoint` |
+| `NoRollback` | the checkpoint reload in `finishRecovery` and admission's pin checks in `commitProjectionCheckpoints` |
+| `ReuseCoversPin` | `directoryMemoValidity` reloads every named head's durable pin through `loadPrincipalPolicyCheckpoint` |
+| `NoUseAfterProducerExpiry` | `createPrincipalRecoveryReader` collects every handed-out lifetime into the scoped recovery's `stillCurrent` |
 
 Production is not atomic. A collection reads the server and local pins, then
 stores its entry; a hint or pin change can land in between. The model splits
@@ -35,10 +41,12 @@ that into `BeginCollect` or `BeginDerive` and `FinishCollect`, and holds each
 collection to the hint floor at which its reads began: one in flight when a
 hint arrives may finish with its pre-hint view, but its stored entry carries
 the pre-read epoch and is evicted before any later collection uses it. Reuse is
-one step because production rechecks liveness synchronously with the use.
+two steps as well: a value handed out to one collection may outlive its
+producer, so the use checks the composite lifetime and is cancelled if the
+producer expired. Admission also rechecks durable pins at the use.
 
 The positive configuration explores three heads, three operations and two
-hints. Seven negative controls in
+hints. Eight negative controls in
 `scripts/protocol/protocolHistoryNegativeControls.ts` disable one guard each:
 
 - `DiscoverEachOperation = FALSE` (with hints disabled) violates
@@ -57,8 +65,9 @@ hints. Seven negative controls in
   operations and across a hint.
 - `EvictOnHint = FALSE` violates `NoStaleAfterHint`: a hinted advance would not
   reach later collections of an operation already in flight.
-- `EvictOnCheckpoint = FALSE` violates `NoRollback`: another operation's newer
-  durable pin would sit above the memoized directory. Production checks the
+- `EvictOnCheckpoint = FALSE` violates `ReuseCoversPin`: another operation's
+  newer durable pin would sit above the memoized directory, which admission
+  would then refuse on every reuse. Production checks the
   organization pin and the pin of every group head the directory names; a pin
   advanced exactly to a memoized head keeps it, since the device admitted what
   the memo holds.
@@ -67,6 +76,11 @@ hints. Seven negative controls in
   its reads (or its source's), lets a hint that arrived mid-collection go
   unnoticed by later collections. This is the race the Codex review of
   e262ab3ff found; `principalRecoveryMemoHintRace.test.ts` reproduces it.
+- `CarryProducerLifetime = FALSE` violates `NoUseAfterProducerExpiry`: a value
+  handed out under the consumer's lifetime alone stays usable after the
+  collection that produced it expired (Codex re-review of 5c8239daf).
+  `principalRecoveryOperation.test.ts` and `principalRecoveryMemo.test.ts` expire
+  the producer after hand-out and before the consumer's use.
 
 Public projection sources follow the completed-stage rule: `readPublicPages`
 skips its pinned read once progress is complete, and every read that does occur

@@ -6,11 +6,15 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpointContext";
+import {
+  commitProjectionCheckpoints,
+  createProjectionCheckpointContext,
+} from "../../data/keyingProjectionVerification/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicyVerification";
-import type {
-  PrincipalPolicyCache,
-  ReferencedPrincipalPolicyWarmer,
+import {
+  isProjectionVerificationCancelledError,
+  type PrincipalPolicyCache,
+  type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { invalidatePrincipalRecovery } from "../../data/principals/principalRecoveryEpoch";
@@ -61,6 +65,7 @@ async function fixture() {
   const collect = async (
     warmer: ReferencedPrincipalPolicyWarmer,
     principalPolicyCache: PrincipalPolicyCache = new Map(),
+    stillCurrent?: () => boolean,
   ) => {
     const context = createProjectionCheckpointContext(source.options);
     await collectReferencedPrincipalPolicies({
@@ -69,6 +74,7 @@ async function fixture() {
       principalPolicyCache,
       references: [principalPolicyHead(history.created)],
       resolveUserKey: source.options.resolveTrustedUserIdentity,
+      stillCurrent,
       warmReferencedPrincipalPolicies: warmer,
     });
     return context;
@@ -200,6 +206,33 @@ test("a hint evicts evidence remembered in a shared policy cache", async () => {
     f.close();
   }
 });
+
+test.each(["memo", "policy cache"] as const)(
+  "evidence reused through the %s expires with its producer",
+  async (path) => {
+    const f = await fixture();
+    try {
+      const warmer = f.operation();
+      const cache: PrincipalPolicyCache = new Map();
+      let producerCurrent = true;
+      await f.collect(warmer, cache, () => producerCurrent);
+      // A second collection of the same operation reuses the producer's
+      // evidence while both are live.
+      const consumer = await f.collect(
+        warmer,
+        path === "memo" ? new Map() : cache,
+      );
+      producerCurrent = false;
+      const error = await commitProjectionCheckpoints(consumer).catch(
+        (error: unknown) => error,
+      );
+      expect(isProjectionVerificationCancelledError(error)).toBe(true);
+      expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
+    } finally {
+      f.close();
+    }
+  },
+);
 
 test("a durable pin past the operation's directory evicts it", async () => {
   const f = await fixture();

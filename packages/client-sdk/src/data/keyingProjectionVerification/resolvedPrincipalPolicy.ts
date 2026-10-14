@@ -14,6 +14,7 @@ import {
   referencedPrincipalPolicyKey,
   verifiedPrincipalPolicyContainsReference,
 } from "./principalPolicyCache";
+import { observeProjectionLifetime } from "./projectionLifetimes";
 import {
   assertProjectionVerificationCurrent,
   type PrincipalPolicyCache,
@@ -164,8 +165,12 @@ export async function resolveReferencedPrincipalPolicy(
     if (!resolve) return null;
     ({ result, epoch } = await recoverEvidence(input, resolve));
   }
-  assertProjectionVerificationCurrent(input.stillCurrent);
-  assertProjectionVerificationCurrent(result.stillCurrent);
+  const evidenceCurrent = result.stillCurrent;
+  // The consumer's and every producer's lifetime guard the evidence where it
+  // is used: projection admission rechecks them through the context.
+  const lifetime = () => input.stillCurrent?.() !== false && evidenceCurrent();
+  assertProjectionVerificationCurrent(lifetime);
+  observeProjectionLifetime(input.checkpointContext, lifetime);
   if (result.organizationId !== input.organizationId)
     throw new KeyingVerificationError(
       "object_mismatch",

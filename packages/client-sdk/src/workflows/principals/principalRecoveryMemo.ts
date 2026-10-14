@@ -28,6 +28,13 @@ interface MemoEntry<T> {
 
 type Memo<T> = Map<string, Promise<MemoEntry<T>>>;
 
+/** A value handed out with every lifetime it depends on. */
+interface Leased<T> {
+  readonly value: T;
+  /** The consumer's lifetime and every producer lifetime behind value. */
+  readonly stillCurrent: () => boolean;
+}
+
 export interface PrincipalRecoveryMemo {
   readonly directories: Memo<RecoveredPolicyDirectory>;
   readonly admins: Memo<RecoveredPrincipalPolicyHistory>;
@@ -83,7 +90,9 @@ async function reusableEntry<T>(
  * never receives a result whose producer lease ended, that predates an
  * organization hint, or that a durable pin has moved past; it recovers again.
  * A result derived from a reused source keeps the source's epoch, so a hint
- * that arrives before it is stored still evicts it.
+ * that arrives before it is stored still evicts it. Every value is handed out
+ * with the consumer's lifetime and its producer's, so a producer that expires
+ * after hand-out still invalidates the consumer's use.
  */
 async function memoPrincipalRecovery<T>(
   memo: Memo<T> | undefined,
@@ -92,13 +101,17 @@ async function memoPrincipalRecovery<T>(
   validity: PrincipalRecoveryMemoValidity<T>,
   sourceEpoch: number | undefined,
   work: () => Promise<T>,
-): Promise<T> {
+): Promise<Leased<T>> {
   assertProjectionVerificationCurrent(stillCurrent);
   const reused = await reusableEntry(memo, key, validity);
   if (reused) {
-    if (entryLive(reused.entry, validity)) {
+    const { entry } = reused;
+    if (entryLive(entry, validity)) {
       assertProjectionVerificationCurrent(stillCurrent);
-      return reused.entry.value;
+      return {
+        value: entry.value,
+        stillCurrent: () => stillCurrent() && entry.stillCurrent(),
+      };
     }
     evict(memo, key, reused.pending);
   }
@@ -115,7 +128,8 @@ async function memoPrincipalRecovery<T>(
   if (result.epoch !== validity.epoch()) evict(memo, key, pending);
   assertProjectionVerificationCurrent(result.stillCurrent);
   assertProjectionVerificationCurrent(stillCurrent);
-  return result.value;
+  // stillCurrent already includes the lifetime of a derived value's source.
+  return { value: result.value, stillCurrent };
 }
 
 function fallsBackOnline(
@@ -240,13 +254,23 @@ export function createPrincipalRecoveryReader(
       ...scope,
       references.map((reference) => ({ ...reference })),
     ]);
+  // Every lifetime behind a value this reader handed out; its caller must
+  // keep checking them at the point of use.
+  const lifetimes: (() => boolean)[] = [];
+  const lease = <T>(leased: Leased<T>): T => {
+    lifetimes.push(leased.stillCurrent);
+    return leased.value;
+  };
   return {
+    stillCurrent: () => lifetimes.every((current) => current()),
     directory: async (references: readonly ReferencedPrincipalHead[]) => {
-      const value = await readMemoizedDirectory(
-        input,
-        memo?.directories,
-        directoryKey,
-        references,
+      const value = lease(
+        await readMemoizedDirectory(
+          input,
+          memo?.directories,
+          directoryKey,
+          references,
+        ),
       );
       // Retaining extra citations does not prevent this authenticated directory
       // from satisfying a later read with no selected historical references.
@@ -262,16 +286,18 @@ export function createPrincipalRecoveryReader(
         memo.directories.set(unselectedKey, selected);
       return value;
     },
-    admins: (
+    admins: async (
       expectedHead: ReferencedPrincipalHead,
       retainedReferences: readonly ReferencedPrincipalHead[] = [],
     ) =>
-      readMemoizedAdmins(
-        input,
-        memo?.admins,
-        scope,
-        expectedHead,
-        retainedReferences,
+      lease(
+        await readMemoizedAdmins(
+          input,
+          memo?.admins,
+          scope,
+          expectedHead,
+          retainedReferences,
+        ),
       ),
   };
 }

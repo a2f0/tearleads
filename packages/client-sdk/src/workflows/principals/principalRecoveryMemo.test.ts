@@ -227,3 +227,36 @@ test("a directory memo still authenticates an added historical citation", async 
     f.close();
   }
 });
+
+test.each(["directory", "admins"] as const)(
+  "a reused %s keeps its producer's lifetime after hand-out",
+  async (kind) => {
+    const f = await createAuthorityRecoveryFixture(history);
+    try {
+      const memo: PrincipalRecoveryMemo = {
+        directories: new Map(),
+        admins: new Map(),
+      };
+      let producerCurrent = true;
+      const producer = createPrincipalRecoveryReader(
+        { ...f.options, stillCurrent: () => producerCurrent },
+        memo,
+      );
+      const consumer = createPrincipalRecoveryReader(f.options, memo);
+      const read = (reader: typeof producer) =>
+        kind === "directory"
+          ? reader.directory([])
+          : reader.admins(principalPolicyHead(history.admin));
+      await read(producer);
+      const count = f.requests.length;
+      await read(consumer);
+      expect(f.requests).toHaveLength(count);
+      expect(consumer.stillCurrent()).toBe(true);
+      // The consumer holds the producer's evidence; its use must end with it.
+      producerCurrent = false;
+      expect(consumer.stillCurrent()).toBe(false);
+    } finally {
+      f.close();
+    }
+  },
+);

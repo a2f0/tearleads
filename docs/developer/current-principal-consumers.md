@@ -25,7 +25,9 @@ head it names; otherwise it is evicted and the later caller recovers again under
 its own lease. The batch dies with its operation. Evidence a caller's policy
 cache remembers carries the same binding: it is reused only by the operation
 and hint epoch that produced it, so a cache shared across operations cannot
-skip a later operation's discovery.
+skip a later operation's discovery. Evidence handed out from either cache keeps
+its producer's lifetime alongside the consumer's until it is used: projection
+admission rechecks that composite and cancels a use whose producer has expired.
 Local attempts use a separate offline key in that batch.
 The discovery page passes through ordinary signature verification; continuation
 reads remain bound to its exact current artifacts. Additional historical

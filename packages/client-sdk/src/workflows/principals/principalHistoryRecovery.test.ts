@@ -9,6 +9,7 @@ import { isProjectionVerificationCancelledError } from "../../data/keyingProject
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { createExecSql } from "../../data/sqlite/sqlSchema";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
@@ -61,6 +62,35 @@ test("a completed stage of the exact pinned head needs no confirmation read", as
     });
     expect(result.policy.stateHash).toBe(history.expectedHead.stateHash);
     expect(fixture.requests).toEqual([0, 32, 64]);
+  } finally {
+    fixture.close();
+  }
+});
+
+test("a completed stage is returned only while its caller is current", async () => {
+  const fixture = await createRecoveryFixture(history);
+  try {
+    await recoverPrincipalPolicyHistory(fixture.options);
+    fixture.requests.length = 0;
+    let current = true;
+    // The caller's lifetime ends after the stored stage is read.
+    const execSql = createExecSql({
+      async exec({ sql, bind, rowMode }) {
+        const rows =
+          rowMode === "array"
+            ? await fixture.options.execSql(sql, bind, { rowMode: "array" })
+            : await fixture.options.execSql(sql, bind);
+        if (sql.includes('from "principal_history_stages"')) current = false;
+        return { rows };
+      },
+    });
+    const error = await recoverPrincipalPolicyHistory({
+      ...fixture.options,
+      execSql,
+      stillCurrent: () => current,
+    }).catch((error: unknown) => error);
+    expect(isProjectionVerificationCancelledError(error)).toBe(true);
+    expect(fixture.requests).toEqual([]);
   } finally {
     fixture.close();
   }

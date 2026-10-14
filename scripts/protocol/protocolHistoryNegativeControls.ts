@@ -50,11 +50,19 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A memo entry must keep the epoch observed before its reads, not the one current when it is stored (#2522).",
   },
   {
+    id: "principal-reuse-after-producer-expiry",
+    module: "formal/container-keying/PrincipalRecoveryReuse.tla",
+    config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
+    constants: { CarryProducerLifetime: "FALSE" },
+    expect: { kind: "invariant", name: "NoUseAfterProducerExpiry" },
+    why: "A reused value must stay bound to its producer's lifetime until its point of use (#2522).",
+  },
+  {
     id: "principal-reuse-ignores-advanced-pin",
     module: "formal/container-keying/PrincipalRecoveryReuse.tla",
     config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
     constants: { EvictOnCheckpoint: "FALSE" },
-    expect: { kind: "invariant", name: "NoRollback" },
+    expect: { kind: "invariant", name: "ReuseCoversPin" },
     why: "A durable pin past the memoized directory must evict it (#2522).",
   },
   {
