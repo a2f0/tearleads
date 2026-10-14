@@ -1,6 +1,7 @@
 import type { Tearleads } from "@tearleads/client-sdk";
 import {
   activeDemandScope,
+  forgetOrganizationReadModelCatchUp,
   hasOpenOrganizationReadModelSocket,
   isSameOrganizationReadModelScope,
   type OrganizationReadModelScope,
@@ -39,6 +40,7 @@ async function settleSameScopePass(
     if (isSameOrganizationReadModelScope(state.caughtUpScope, passScope)) {
       state.caughtUpScope = null;
     }
+    forgetOrganizationReadModelCatchUp(state, passScope.organizationId);
     return;
   }
   if (

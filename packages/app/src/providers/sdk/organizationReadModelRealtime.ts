@@ -7,6 +7,7 @@ import {
   activeDemandOrganizationId,
   activeDemandScope,
   currentOrganizationReadModelScope,
+  forgetOrganizationReadModelCatchUp,
   hasOpenOrganizationReadModelSocket,
   isOrganizationReadModelHintCaughtUp,
   isSameOrganizationReadModelScope,
@@ -136,6 +137,7 @@ function subscribeProjectionInvalidation(
       if (state.caughtUpScope?.organizationId === organizationId) {
         state.caughtUpScope = null;
       }
+      forgetOrganizationReadModelCatchUp(state, organizationId);
       void scheduleOrganizationReadModelReconciliationAfterActivePass(
         tearleads,
         organizationId,
@@ -226,6 +228,7 @@ export function subscribeOrganizationReadModelRealtime(
       if (listeners.size === 0) {
         state.listenersByOrganizationId.delete(organizationId);
         state.deferredSelfHintByOrganizationId.delete(organizationId);
+        forgetOrganizationReadModelCatchUp(state, organizationId);
         clearDisconnectedReconciliationFallback(state, organizationId);
       }
       syncOrganizationInterest(tearleads, state);

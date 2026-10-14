@@ -209,15 +209,32 @@ export async function trackOrganizationReadModelCatchUp<
   return result;
 }
 
-/** Whether a completed pass already covers a held hint. */
+/**
+ * Drop recorded coverage once the rows a covering pass applied may be gone or
+ * belong to another scope: a projection purge or remote reset, a pass that
+ * did not reconcile, or the end of the scope's demand. Releasing a held hint
+ * then reconciles the feed instead of settling over missing rows.
+ */
+export function forgetOrganizationReadModelCatchUp(
+  state: OrganizationRealtimeState,
+  organizationId: string,
+): void {
+  state.catchUpByOrganizationId.delete(organizationId);
+}
+
+/** Whether a completed pass already covers a held hint. Coverage recorded
+ * for another scope (an identity transition) is dropped, never applied. */
 export function isOrganizationReadModelHintCaughtUp(
   state: OrganizationRealtimeState,
   hint: Pick<DeferredSelfHint, "hintSequence" | "scope">,
 ): boolean {
   const catchUp = state.catchUpByOrganizationId.get(hint.scope.organizationId);
-  return (
-    catchUp !== undefined &&
-    isSameOrganizationReadModelScope(catchUp.scope, hint.scope) &&
-    hint.hintSequence <= catchUp.hintSequence
-  );
+  if (!catchUp) {
+    return false;
+  }
+  if (!isSameOrganizationReadModelScope(catchUp.scope, hint.scope)) {
+    forgetOrganizationReadModelCatchUp(state, hint.scope.organizationId);
+    return false;
+  }
+  return hint.hintSequence <= catchUp.hintSequence;
 }

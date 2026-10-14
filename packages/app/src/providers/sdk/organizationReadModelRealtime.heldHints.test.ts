@@ -1,4 +1,6 @@
 import { expect, test } from "bun:test";
+import { clearRemoteSyncState } from "@tearleads/client-sdk";
+import { createTestExecSql } from "@tearleads/test-utils";
 import {
   ensureOrganizationReadModelReconciliation,
   handleOrganizationReadModelHint,
@@ -161,4 +163,35 @@ test("a covered release repaints every same-scope consumer without a request", a
   expect(runtime.reconcileCalls).toBe(2);
   expect(explorerRepaints).toBe(2);
   expect(orgManager.repaints).toBe(2);
+});
+
+test("a purge after coverage makes the held hint's release reconcile again", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-read-model-held-hint-purge",
+  );
+  let failing = false;
+  try {
+    const { consumer, runtime } = await mutatingConsumer({
+      execSql,
+      feedSucceeded: () => !failing,
+      loadDirectoryAndGroups: () => Promise.resolve(failing ? undefined : {}),
+    });
+    handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
+    await postMutationPass(runtime);
+    expect(runtime.reconcileCalls).toBe(2);
+
+    // A remote reset deletes the rows the covering pass applied, and the
+    // refetch it triggers fails.
+    failing = true;
+    await clearRemoteSyncState(execSql, { organizationId: ORGANIZATION_A });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(runtime.reconcileCalls).toBe(3);
+
+    failing = false;
+    consumer.mutating = false;
+    await release(runtime);
+    expect(runtime.reconcileCalls).toBe(4);
+  } finally {
+    close();
+  }
 });

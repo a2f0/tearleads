@@ -75,8 +75,7 @@ organization's shared head lock: the organization must exist, and the user must
 appear in the current stored projection of its reserved `Admins` or `Members`
 group. Under the lock, the server then verifies the signed `Admins`, `Members`,
 and organization policies once; that verification is the authoritative access
-decision. A caller without access therefore never holds the lock while signed
-policy verification runs.
+decision. An outsider never holds the lock during that verification.
 
 ## Ordering and replay
 
@@ -99,11 +98,11 @@ another commit cursor 11, and a client could advance past the later-committing
 10. A transactional organization head removes that race.
 
 Mutation workflows stamp only after actual domain transitions. Exact policy
-replays and no-op conditional updates advance nothing. A stamp records only that
-its lane or group changed after a cursor, never what changed, so a delta
-reloads that lane or group's current state. Invalidation is at-least-once:
-duplicate invalidations are safe because projection application is idempotent,
-and a transition from A to B and back to A still reloads the final state.
+replays and no-op conditional updates advance nothing. A stamp records that its
+lane or group changed, not what changed, so a delta reloads its current state.
+Invalidation is at-least-once: duplicate invalidations are safe because
+projection application is idempotent, and a transition from A to B and back to A
+still reloads the final state.
 
 A principal's members are users, never other principals, so a membership edit
 invalidates exactly the one principal it names. This is what bounds reverse
@@ -272,21 +271,21 @@ broker failure cannot turn a committed mutation into a retrying HTTP failure.
 Author sockets receive the hint because one auth session can own multiple client
 instances and session-wide suppression would strand siblings. The minimal frame
 marks whether it came from that socket's session without exposing the session
-identifier. While Org Manager itself is mutating, its own hints are held. A
-hint is published only after its change commits, so a feed request sent after
-the hint arrived observes that change, whichever client of the session made
-it. The explicit post-mutation reconciliation, like any SDK barrier pass, starts
-its request after it is called and reports whether that feed request
-succeeded. Once it succeeds, releasing the held hints sends no request if the
-latest of them arrived before that call; the release still renews the
-caught-up lease and repaints every mounted consumer of the scope, such as
-Explorer beside Org Manager, from the rows that pass applied. A hint that
-arrived later, or a pass
-that declined or failed, leaves the release to reconcile the feed, even when
-the failed pass returned the last-known-good projection. Other active clients
-reconcile immediately. A synchronous burst collapses before I/O, and a
-hint arriving during I/O sets one dirty bit for a sequential catch-up pass;
-parallel organization feed requests are never started for one SDK scope.
+identifier. While Org Manager itself is mutating, its own hints are held. A hint
+is published only after its change commits, so a feed request sent after the
+hint arrived observes that change, whichever client of the session made it. The
+explicit post-mutation reconciliation, like any SDK barrier pass, starts its
+request after it is called and reports whether that feed request succeeded. Once
+it succeeds, releasing the held hints sends no request if the latest of them
+arrived before that call; the release still renews the caught-up lease and
+repaints every mounted consumer of the scope, such as Explorer, from those rows.
+A purge, remote reset, failed pass, end of demand, or identity change drops that
+coverage. A hint that arrived later, or a pass that declined or failed, leaves
+the release to reconcile the feed, even when the failed pass returned the
+last-known-good projection. Other active clients reconcile immediately. A
+synchronous burst collapses before I/O, and a hint arriving during I/O sets one
+dirty bit for a sequential catch-up pass; parallel organization feed requests
+are never started for one SDK scope.
 
 Socket closure or error enters a cancellable exponential-backoff loop with
 jitter. Every attempt mints a fresh one-time websocket ticket. A handshake must

@@ -5,6 +5,7 @@ import {
   deleteDocumentPlacementRowsByDocumentIds,
 } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
+import { notifyOrganizationReadModelInvalidated } from "../../data/persistence/organizations/organizationReadModelInvalidation";
 import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
 import {
   organizationDataUsageCategories,
@@ -423,6 +424,18 @@ export async function clearRemoteSyncState(
   execSql: ExecSql,
   reset: RemoteResetInput,
   canCommit?: (() => boolean) | undefined,
+): Promise<ClearRemoteSyncStateResult> {
+  const result = await clearRemoteSyncStateRows(execSql, reset, canCommit);
+  // The reset deleted the organization's presentation rows outside a feed
+  // pass; realtime consumers drop any caught-up state over them.
+  notifyOrganizationReadModelInvalidated(execSql, reset.organizationId);
+  return result;
+}
+
+function clearRemoteSyncStateRows(
+  execSql: ExecSql,
+  reset: RemoteResetInput,
+  canCommit: (() => boolean) | undefined,
 ): Promise<ClearRemoteSyncStateResult> {
   return runOrganizationPresentationReset(
     execSql,
