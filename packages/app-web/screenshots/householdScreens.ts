@@ -54,17 +54,20 @@ function trackerDetail(
 ) {
   return async (scope: Page | Locator) => {
     await openExplorerDocument(scope, expected.title);
-    const chart = scope.getByRole("img", {
-      name:
-        kind === "weight"
-          ? "Weight over time (kg)"
-          : "Blood pressure over time",
-      exact: true,
-    });
-    await expect(chart).toBeVisible({ timeout: 20_000 });
-    await expect(chart.locator("circle")).toHaveCount(
-      expected.rowCount * (kind === "weight" ? 1 : 2),
-    );
+    const charts =
+      kind === "weight"
+        ? [...new Set(expected.rows.map(({ unit }) => unit))].map((unit) => ({
+            name: `Weight over time (${unit})`,
+            points: expected.rows.filter(
+              ({ unit: rowUnit }) => rowUnit === unit,
+            ).length,
+          }))
+        : [{ name: "Blood pressure over time", points: expected.rowCount * 2 }];
+    for (const { name, points } of charts) {
+      const chart = scope.getByRole("img", { name, exact: true });
+      await expect(chart).toBeVisible({ timeout: 20_000 });
+      await expect(chart.locator("circle")).toHaveCount(points);
+    }
     const table = scope.getByRole("table", {
       name: kind === "weight" ? "Entries" : "Readings",
       exact: true,

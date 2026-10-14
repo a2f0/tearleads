@@ -46,11 +46,26 @@ export const seedExpectations = JSON.parse(
   bloodPressure: TrackerExpectation;
 };
 
+// These positional IDs are the website gallery's explicit fixture contract.
+const galleryTitles = {
+  photos: ["Sunday dinner at Mom's.jpg", "Waterfront walk with Pepper.jpg"],
+  tools: ["Drill Alderforge AF-D18", "Circular Saw Alderforge AF-CS165"],
+  appliances: [
+    "Washing Machine Hearthmere HM-W8",
+    "Refrigerator Hearthmere HM-R320",
+  ],
+};
+const galleryMatches = Object.entries(galleryTitles).every(([kind, titles]) => {
+  const items = seedExpectations[kind as keyof typeof galleryTitles];
+  return (
+    items.length === titles.length &&
+    items.every((item, index) => item.title === titles[index])
+  );
+});
+
 if (
   seedExpectations.schemaVersion !== 2 ||
-  seedExpectations.photos.length < 2 ||
-  seedExpectations.tools.length < 2 ||
-  seedExpectations.appliances.length < 2 ||
+  !galleryMatches ||
   seedExpectations.weight.rowCount < 2 ||
   seedExpectations.bloodPressure.rowCount < 2
 ) {

@@ -52,8 +52,9 @@ and tracker table rows and graph points. The browser locale and time zone are
 pinned so the dated readings render consistently. `bun run build:website` also
 stages these captures into the website gallery.
 
-Add canonical facts and photographic assets in `~/github/continuity`, regenerate
-and ship them there, then update the root catalog commit pin and run `bun install`.
+Add canonical facts and photographic assets in [a2f0/continuity](https://github.com/a2f0/continuity),
+regenerate and ship them there, then update the root catalog commit pin and run
+`bun install`.
 The contract test in `packages/app/test/screenshot-seed/continuitySeed.test.ts`
 builds and restores the pinned data into a separate database and blob store.
 Tracker `rows` go through `addRow`; repeated `equipment-photos` entries append

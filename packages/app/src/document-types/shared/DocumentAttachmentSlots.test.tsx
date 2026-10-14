@@ -174,16 +174,25 @@ test("opens the bound blob when a slot image is clicked", () => {
   expect(openRequests).toEqual([{ storageKey: "front-storage-key" }]);
 });
 
-test("image attachment actions are hidden when attachments cannot be changed", () => {
+test("photo collection actions and append card are hidden in read mode", () => {
   const view = renderAttachmentSlots({
     canAttach: false,
+    slots: [{ label: "Photos", slotId: "photos", multiple: true }],
+    attachments: attachments.map((attachment, index) => ({
+      ...attachment,
+      slotId: `photos:${index}`,
+    })),
     blobPicker: { onRequestBlobPick: () => undefined },
   });
 
+  expect(
+    view.container.querySelectorAll(".structured-document-slot"),
+  ).toHaveLength(2);
+  expect(view.queryByRole("button", { name: "Add Photos" })).toBeNull();
   expect(view.queryAllByRole("button", { name: "Replace Image" })).toEqual([]);
   expect(view.queryAllByRole("button", { name: "Choose Blob" })).toEqual([]);
-  expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
-  expect(view.queryByRole("button", { name: "Clear Back Image" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Clear Photos 1" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Clear Photos 2" })).toBeNull();
 });
 
 test("empty image upload actions are hidden when attachments cannot be changed", () => {

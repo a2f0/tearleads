@@ -35,7 +35,13 @@ test("pinned Continuity restores every promised document, photo, and tracker row
       password: spec.password,
       text: artifact.text,
     });
-    expect(payload.summary.blobCount).toBe(24);
+    expect(payload.summary.blobCount).toBe(
+      (spec.contacts?.filter((contact) => contact.avatar).length ?? 0) +
+        (spec.files?.reduce(
+          (count, file) => count + file.attachments.length,
+          0,
+        ) ?? 0),
+    );
     await restoreBackupPayload({
       blobStore,
       execSql: target.execSql as ExecSql,
@@ -66,6 +72,7 @@ test("pinned Continuity restores every promised document, photo, and tracker row
       const documents = await sdk.documents.list({ documentKind: kind });
       const fixtures = spec.files?.filter((file) => file.kind === kind) ?? [];
       expect(documents?.totalCount).toBe(details.length);
+      expect(fixtures).toHaveLength(details.length);
       for (const [index, detail] of details.entries()) {
         const summary = documents?.rows.find(
           (row) => row.title === detail.title,
