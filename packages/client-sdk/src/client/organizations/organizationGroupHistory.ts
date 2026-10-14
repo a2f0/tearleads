@@ -38,7 +38,7 @@ export async function loadBoundedOrganizationGroupHistory(input: {
         ? {}
         : { beforeVersion: input.beforeVersion },
   });
-  assertProjectionVerificationCurrent(input.stillCurrent);
+  assertProjectionVerificationCurrent(resolved.stillCurrent);
   if (!resolved.historyPage)
     throw new Error("Verified history page is missing");
   return buildOrganizationGroupPolicyHistoryPage({

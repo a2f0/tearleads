@@ -146,8 +146,9 @@ test("a directory remaining behind the reference stops after one refresh", async
         reference: principalPolicyHead(group),
       }),
     ).rejects.toMatchObject({ code: "stale_predecessor" });
+    // The refresh rediscovers the directory; its completed stage needs no read.
     expect(fixture.requests.map((request) => request.afterVersion)).toEqual([
-      0, 32, 64, 0, 65,
+      0, 32, 64, 0,
     ]);
     expect(
       fixture.requests.every(

@@ -4,6 +4,7 @@ import type {
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
+import { invalidatePrincipalRecovery } from "../../principals/principalRecoveryEpoch";
 import { organizationDataUsageTables } from "../../sqlite/organizationDataUsageSchema";
 import {
   organizationReadModelDirectoryUsers,
@@ -346,8 +347,10 @@ export async function applyOrganizationReadModelResponse(input: {
     ...organizationDataUsageTables,
   ]);
 
-  return getClientSQLitePersistenceRuntime(input.execSql).transaction(
-    async (tx) => {
+  const disposition = await getClientSQLitePersistenceRuntime(
+    input.execSql,
+  ).transaction(
+    async (tx): Promise<ApplyOrganizationReadModelResponseResult> => {
       const current = await loadCurrentState(tx, input.response.organizationId);
       const disposition = resolveApplyDisposition({
         current,
@@ -406,6 +409,11 @@ export async function applyOrganizationReadModelResponse(input: {
       return "applied";
     },
   );
+  // An applied change follows an organization hint or mutation; in-flight
+  // operations recover the directory again instead of reusing their memo.
+  if (disposition === "applied")
+    invalidatePrincipalRecovery(input.execSql, input.response.organizationId);
+  return disposition;
 }
 
 export async function purgeOrganizationReadModelProjection(

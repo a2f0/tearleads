@@ -93,29 +93,52 @@ rejection.
 ## Ordinary workflow cost
 
 Private metadata-root authority and scoped projection recovery add bounded
-directory and group reads, including repeated reads of already signed policies.
-The app's request-budget regressions measure 42 calls for one small Explorer
-upload, 93 for personal organization bootstrap, 200–204 for an Admins enrollment,
-and 182 for the attachment-sharing scenario. The last two workflows receive
-about 4.35 MB and 3.56 MB respectively across their requests. Their explicit
-per-route and aggregate budgets retain mutation-count and response-byte checks.
-These are fixed fixtures measured after the runtime repairs in `c5cd337e6`,
-not estimates for arbitrary policy sizes or the earlier full-boundary runs.
+directory and group reads. Before
+[#2522](https://github.com/a2f0/tearleads/issues/2522) most of them re-read
+heads the device had already verified: every projection verification confirmed
+each completed public source with a pinned history read, every scoped recovery
+confirmed its completed directory and Admins stages with a pinned policy read,
+and every projection collection discovered the directory again. A completed
+stage of the exact pinned head is now used without a confirmation read, and one
+workflow operation (one policy warmer) discovers the directory once and shares
+the recovered view across its collections. That view never outlives the
+operation; an organization read-model hint, a durable pin past a head it names,
+or the end of the producing lease evicts it first. Every operation still
+observes the server-current head and live read authorization of the
+organization policy; see
+[warm projection request cost](principal-history-transport.md#warm-projection-request-cost).
 
-The counts combine metadata authority with scoped recovery; no isolated profile
-attributes every added read to one of them. `principalPolicyCacheForVerifiedPolicies`
-retains signatures and exact references but does not bind entries to an
-organization, dependency set or live recovery lease. Built-in verifiers therefore
-consult the scoped resolver first, even for entries produced earlier in the
-same caller. Current-only entries with `retainedHistory` were already excluded
-from the bare-cache fast path on base `461d5c324`; moving scoped resolution
-ahead of that cache removes the remaining complete-history bypass. This
-intentionally pays additional bounded authorization reads.
-`runtimePolicyRecoveryLocal.test.ts` proves that a held full bundle cannot replace
-protected evidence; recovery tests also reject expired lifetimes and changed or
-conflicting dependency pins. A future cache optimization needs explicit scope
-and lifetime evidence, with those checks preserved. The current work establishes
-bounded continuation and recoverability, not minimum request counts.
+The app's request-budget regressions measured these fixed fixtures:
+
+| Workflow | Before | After | Policy reads after |
+| --- | ---: | ---: | ---: |
+| Single small Explorer upload | 33 | 10 | 3 |
+| Personal organization bootstrap | 93 | 41 | 13 |
+| Admins enrollment (add + settle) | 202 | 74–77 | 29–30 |
+| Root attachment sharing (whole test) | 182 | 65–71 | 18–21 |
+
+The sharing scenario's phases are timing-dependent; its whole-test count is the
+stable comparison. Response bytes fell with the requests: the Admins enrollment
+received about 2.46–2.56 MB instead of 4.31 MB, the sharing test about 2.0 MB
+instead of 3.53 MB. Explicit per-route and aggregate budgets retain
+mutation-count and response-byte checks. These are local fixed-cardinality
+measurements, not estimates for arbitrary policy sizes or the earlier
+full-boundary runs. Mutation flows keep a fresh batch per authority load, so
+their reads after a commit or a refused predecessor still rediscover.
+
+`principalPolicyCacheForVerifiedPolicies` retains signatures and exact
+references but does not bind entries to an organization, dependency set or live
+recovery lease. Built-in verifiers therefore consult the scoped resolver first,
+even for entries produced earlier in the same caller. Current-only entries with
+`retainedHistory` were already excluded from the bare-cache fast path on base
+`461d5c324`; moving scoped resolution ahead of that cache removes the remaining
+complete-history bypass. `runtimePolicyRecoveryLocal.test.ts` proves that a held
+full bundle cannot replace protected evidence; recovery tests also reject
+expired lifetimes and changed or conflicting dependency pins. Reuse of a
+completed stage keeps those checks: its stored current artifacts are verified
+against the authenticated history, the durable checkpoint is reloaded and
+compared, and a stored current that fails verification is replayed online
+instead of refused.
 
 ## Limits of the evidence
 
@@ -130,5 +153,5 @@ The worker limits apply per API process, not across replicas. Retained signed
 evidence and exact outcome receipts grow with accepted history. Disposable index
 nodes and old protection generations currently have no automatic reclamation.
 Future garbage collection must preserve concurrent readers and resumable rebuilds.
-Repeated online authorization reads also add latency; deduplication must preserve
-current access checks, artifact validation and operation lifetimes.
+Discovery reads remain one per operation; sharing them across operations would
+need a freshness argument that the per-operation read currently supplies.

@@ -95,7 +95,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.32",
+      "version": "0.1.34",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -187,7 +187,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "dependencies": {
         "@stripe/stripe-js": "10.0.0",
         "@tearleads/client-sdk": "workspace:*",
@@ -219,7 +219,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.37",
+      "version": "0.1.38",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -335,7 +335,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.10",
+      "version": "0.1.11",
       "dependencies": {
         "@astrojs/react": "7.0.1",
         "@phosphor-icons/react": "2.1.10",
@@ -386,7 +386,7 @@
     },
   },
   "catalog": {
-    "@a2f0/continuity": "github:a2f0/continuity#9d9cc078f0b28470699a13d30c4c1141bc2960aa",
+    "@a2f0/continuity": "github:a2f0/continuity#d5ce89bfb3d48ca11fa39b75ecd609fb5f35790d",
     "@types/bun": "1.4.2",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
@@ -410,7 +410,7 @@
     },
   },
   "packages": {
-    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#9d9cc07", {}, "a2f0-continuity-9d9cc07", "sha512-GuUt1TmyIXKqP7lQMMbg+1Qu7tcKsQGrNbmL68ujc9X3ILPNaGIcWMeCkZzLqgpRTG7W8NjoOutxGlrf0waPVw=="],
+    "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#d5ce89b", {}, "a2f0-continuity-d5ce89b", "sha512-N7jNcJMgLx7WaRbvPOm7spPmdPdQYVFt+VMcvN7b2+55ME65gx52vAVTYnMT+byXdVyJimezCgbYk0X96fRi+g=="],
 
     "@astrojs/compiler-binding": ["@astrojs/compiler-binding@0.5.1", "", { "optionalDependencies": { "@astrojs/compiler-binding-android-arm64": "0.5.1", "@astrojs/compiler-binding-darwin-arm64": "0.5.1", "@astrojs/compiler-binding-darwin-x64": "0.5.1", "@astrojs/compiler-binding-linux-arm64-gnu": "0.5.1", "@astrojs/compiler-binding-linux-arm64-musl": "0.5.1", "@astrojs/compiler-binding-linux-x64-gnu": "0.5.1", "@astrojs/compiler-binding-linux-x64-musl": "0.5.1", "@astrojs/compiler-binding-wasm32-wasi": "0.5.1", "@astrojs/compiler-binding-win32-arm64-msvc": "0.5.1", "@astrojs/compiler-binding-win32-x64-msvc": "0.5.1" } }, "sha512-oczyolLUl9mNrtuBuNjuvn5thpHrFLXAHAWGTRg0JDHQ8cGVsVeFekOu2uSoQGgainJIi+A3/9m0DyYwz3Nlnw=="],
 

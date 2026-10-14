@@ -36,9 +36,14 @@ export interface EquipmentDocumentTypeDefinition
 
 const EQUIPMENT_RECEIPT_IMAGE_SLOT_ID = "receipt-image";
 
-// Every equipment kind keeps one picture of its purchase receipt.
+// Item photos form a collection; the receipt remains independently replaceable.
 export const EQUIPMENT_ATTACHMENT_SLOTS: ReadonlyArray<DocumentAttachmentSlot> =
   [
+    {
+      label: "Equipment Photos",
+      slotId: "equipment-photos",
+      multiple: true,
+    },
     {
       label: "Receipt Image",
       slotId: EQUIPMENT_RECEIPT_IMAGE_SLOT_ID,

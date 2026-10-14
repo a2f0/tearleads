@@ -52,16 +52,17 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        // Private metadata-root authority adds 31 bounded directory/group reads.
-        // Batched discovery lists the four lanes queued at startup in one
-        // request and a later-surfaced lane in a second. Login returns the
-        // first websocket ticket, so no ticket request (measured 89).
-        total: 91,
+        // Measured 40 calls before batched discovery (which lists the four
+        // startup lanes in one request and a later lane in a second, −3): private metadata-root authority adds one directory
+        // discovery read per operation and the first read of each new head.
+        // Login returns the first websocket ticket, so no ticket request.
+        total: 39,
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 19,
-          "GET /principals/group/:groupId/policy": 12,
-          // Compact projections move authorization history into bounded reads.
-          "GET /principals/history": 34,
+          "GET /principals/organization/:organizationId/policy": 8,
+          "GET /principals/group/:groupId/policy": 2,
+          // Compact projections read each new public head once; completed
+          // stages need no confirmation read.
+          "GET /principals/history": 3,
           "POST /containers/documents/query": 2,
           "POST /documents/:documentId/sync": 8,
           "POST /containers/parent-lanes/query": 5,
@@ -122,10 +123,10 @@ test(
       budget: {
         // Verify the new metadata root through private current policy evidence.
         // One batched listing covers every lane of the new organization.
-        total: 14,
+        total: 13,
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 3,
-          "GET /principals/group/:groupId/policy": 3,
+          "GET /principals/organization/:organizationId/policy": 2,
+          "GET /principals/group/:groupId/policy": 2,
           // The new organization metadata document needs signed discovery evidence.
           "GET /documents/:documentId/writer-projection": 1,
           "GET /principals/history": 3,
