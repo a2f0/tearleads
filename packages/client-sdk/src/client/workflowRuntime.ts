@@ -12,6 +12,10 @@ import {
   type TrustedUserIdentityResolver,
 } from "../data/trustedUserIdentity";
 import type { ContainerContentsRootAdopter } from "../workflows/container-contents/runtime";
+import {
+  createProvisionedPrincipalHistoryPrimer,
+  type ProvisionedPrincipalHistoryPrimer,
+} from "../workflows/registration/provisionedPrincipalHistory";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -75,6 +79,7 @@ export interface InternalRuntime {
     userId: string,
     candidate: LocalUserIdentityCandidate,
   ): Promise<void>;
+  readonly primeProvisionedPrincipalHistory: ProvisionedPrincipalHistoryPrimer;
   workflowInput(
     containerId?: string | null | undefined,
   ): InternalWorkflowRuntimeInput;
@@ -133,26 +138,28 @@ function createRuntimeMutationApi(
   });
 }
 
+function localIdentityCandidate(
+  identity: Identity,
+): LocalUserIdentityCandidate | null {
+  const { encapsulationKeyPair, signingKeyPair } = identity;
+  if (!encapsulationKeyPair || !signingKeyPair) return null;
+  return {
+    encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    signingKeyFingerprint: identity.signingFingerprint,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+  };
+}
+
 export function createRuntime(
   dependencies: WorkflowRuntimeDependencies,
 ): InternalRuntime {
+  const readyExecSql = () =>
+    dependencies.database.status === "ready"
+      ? dependencies.database.requireExecSql("trusted user identity")
+      : null;
   const trustedUserIdentityService = createTrustedUserIdentityService({
-    getExecSql: () =>
-      dependencies.database.status === "ready"
-        ? dependencies.database.requireExecSql("trusted user identity")
-        : null,
-    getLocalIdentity: () => {
-      const encapsulationKeyPair = dependencies.identity.encapsulationKeyPair;
-      const signingKeyPair = dependencies.identity.signingKeyPair;
-      if (!encapsulationKeyPair || !signingKeyPair) {
-        return null;
-      }
-      return {
-        encapsulationPublicKey: encapsulationKeyPair.publicKey,
-        signingKeyFingerprint: dependencies.identity.signingFingerprint,
-        signingPublicKey: signingKeyPair.signingPublicKey,
-      };
-    },
+    getExecSql: readyExecSql,
+    getLocalIdentity: () => localIdentityCandidate(dependencies.identity),
     getLocalUserId: () => dependencies.session.userId,
     identityTrustDomain: dependencies.identityTrustDomain,
     remoteSource: createApiUserIdentitySource(dependencies.api),
@@ -219,6 +226,14 @@ export function createRuntime(
         () => trustedUserIdentityService.pinLocal(userId, candidate),
       );
     },
+    primeProvisionedPrincipalHistory: createProvisionedPrincipalHistoryPrimer({
+      bindLease: historyProtection.bind,
+      execSql: readyExecSql,
+      localIdentity: () => localIdentityCandidate(dependencies.identity),
+      logError: dependencies.logError,
+      pinLocalUserIdentity: (userId, candidate) =>
+        trustedUserIdentityService.pinLocal(userId, candidate),
+    }),
     publicRuntime: {
       get version() {
         return runtimeSubscription.version;

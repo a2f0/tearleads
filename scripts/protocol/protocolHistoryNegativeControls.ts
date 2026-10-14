@@ -50,6 +50,14 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A durable pin past the memoized directory must evict it (#2522).",
   },
   {
+    id: "principal-reuse-primes-unacknowledged-head",
+    module: "formal/container-keying/PrincipalRecoveryReuse.tla",
+    config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
+    constants: { PrimeRequiresAcknowledgement: "FALSE" },
+    expect: { kind: "invariant", name: "NoRollback" },
+    why: "Provisioning may prime only founding heads the server acknowledged committing (#2522).",
+  },
+  {
     id: "principal-resume-saves-unchecked-progress",
     module: "formal/container-keying/PrincipalHistoryResume.tla",
     config: "formal/container-keying/PrincipalHistoryResume.cfg",

@@ -11,8 +11,11 @@ EXTENDS Naturals
 (* fails its check is replayed online instead of refused. Later            *)
 (* collections in the same operation reuse the recovered directory until a *)
 (* realtime hint or a durable pin past the memoized head evicts it; the    *)
-(* memo never outlives its operation. Each parameter is a production       *)
-(* guard; negative controls disable one at a time.                         *)
+(* memo never outlives its operation. Organization provisioning primes the *)
+(* founding head the device signed: once the server acknowledges the      *)
+(* commit, the device verifies its own states into a completed stage and   *)
+(* pins them. Each parameter is a production guard; negative controls     *)
+(* disable one at a time.                                                  *)
 (***************************************************************************)
 
 CONSTANTS MaxHead, MaxOps, MaxHints,
@@ -21,14 +24,15 @@ CONSTANTS MaxHead, MaxOps, MaxHints,
           ReplayRejectedStoredCurrent, \* a rejected stored current replays online
           MemoPerOperation,            \* the memo dies with its operation
           EvictOnHint,                 \* a realtime hint naming the organization evicts
-          EvictOnCheckpoint            \* a durable pin past the memoized head evicts
+          EvictOnCheckpoint,           \* a durable pin past the memoized head evicts
+          PrimeRequiresAcknowledgement \* priming follows the server's commit acknowledgement
 
 ASSUME /\ MaxHead \in Nat \ {0}
        /\ MaxOps \in Nat \ {0}
        /\ MaxHints \in Nat
        /\ {DiscoverEachOperation, ShortcutRequiresComplete,
            ReplayRejectedStoredCurrent, MemoPerOperation, EvictOnHint,
-           EvictOnCheckpoint} \subseteq BOOLEAN
+           EvictOnCheckpoint, PrimeRequiresAcknowledgement} \subseteq BOOLEAN
 
 Heads == 1..MaxHead
 StageStates == {"none", "partial", "complete", "rejected"}
@@ -95,6 +99,18 @@ Hint ==
 (* Another local operation recovers and admits a head the server served. *)
 AdmitPin(h) ==
   /\ pin < h /\ h <= serverHead
+  /\ pin' = h
+  /\ stage' = [stage EXCEPT ![h] = "complete"]
+  /\ UNCHANGED <<serverHead, op, active, startHead, memo, epoch, floor,
+                 lastUse, refused>>
+
+(* Provisioning, before the first operation: the device signed the         *)
+(* founding head and primes it only after the server acknowledged that      *)
+(* commit. Without the acknowledgement it could pin a head the honest       *)
+(* server never committed and later refuse the server's head as a rollback. *)
+PrimeProvisioned(h) ==
+  /\ op = 0 /\ pin = 0
+  /\ ~PrimeRequiresAcknowledgement \/ h <= serverHead
   /\ pin' = h
   /\ stage' = [stage EXCEPT ![h] = "complete"]
   /\ UNCHANGED <<serverHead, op, active, startHead, memo, epoch, floor,
@@ -183,6 +199,7 @@ Next ==
   \/ ServerAdvance \/ Hint \/ BeginOperation \/ EndOperation \/ Terminated
   \/ ReuseMemo \/ Collect
   \/ \E h \in Heads: AdmitPin(h) \/ Interrupt(h) \/ StoreRejectedCurrent(h)
+                    \/ PrimeProvisioned(h)
 
 Spec == Init /\ [][Next]_vars
 

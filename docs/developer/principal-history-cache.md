@@ -16,6 +16,17 @@ operation keeps its recovered directory and Admins views in memory only; an
 organization read-model hint, a durable pin past a memoized head, or the end of
 the producing lease evicts them, and nothing is persisted from that memo.
 
+Organization provisioning (registration and each additional organization)
+writes the first completed stages for the founding organization, Admins and
+Members heads. Once the provisioning response acknowledges the commit and the
+bootstrap pins those heads, the SDK runs scoped recovery over the states the
+device itself signed, served from memory rather than the network, under the
+runtime protection lease and the founder's pinned identity. The ordinary
+verifier checks signatures, the directory binding and the strict Admins rules
+before any progress is saved, so the first runtime recovery of a founding head
+reads only directory discovery. Priming never performs HTTP; a failure is
+logged and leaves the ordinary online recovery in place.
+
 Encrypted member envelopes are retained separately for each principal key
 fingerprint before progress is removed. Candidate retention checks the envelope
 commitment and never grants authorization. Newer envelopes for the same key

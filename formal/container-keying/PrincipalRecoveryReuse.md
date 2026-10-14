@@ -11,12 +11,16 @@ without a confirmation read, and stored current artifacts that fail verification
 are replayed online instead of refused. Later collections in the same operation
 reuse the recovered directory until a realtime organization hint or a durable
 pin past a memoized head evicts it. The memo never outlives its operation.
+Organization provisioning primes the founding heads the device signed: after
+the server acknowledges the commit, the ordinary verifier checks the device's
+own states into completed stages, so the first recovery reads only discovery.
 
 | Model action or predicate | Production seam |
 | --- | --- |
 | `ServerAdvance` | `commitOrganizationGroupPolicy` commits a group successor with its directory successor |
 | `Hint` | `applyOrganizationReadModelResponse` applies a hinted read-model change and calls `invalidatePrincipalRecovery` |
 | `AdmitPin` | `advanceKeyingCheckpointsAtomically` admits a verified head as the durable pin |
+| `PrimeProvisioned` | `persistOrganizationProvisioningState` pins the acknowledged founding heads, then `primeProvisionedPrincipalHistory` verifies them into completed stages |
 | `Interrupt` | `savePrincipalHistoryStage` persists an incomplete page boundary |
 | `StoreRejectedCurrent` | `acceptPage` saves a completed stage before `verifyPrincipalPolicyCurrent` checks its current artifacts |
 | `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer |
@@ -28,7 +32,7 @@ pin past a memoized head evicts it. The memo never outlives its operation.
 | `NoRollback` | `directoryMemoValidity` reloads every named head's durable pin through `loadPrincipalPolicyCheckpoint` |
 
 The positive configuration explores three heads, three operations and two
-hints. Six negative controls in
+hints. Seven negative controls in
 `scripts/protocol/protocolHistoryNegativeControls.ts` disable one guard each:
 
 - `DiscoverEachOperation = FALSE` (with hints disabled) violates
@@ -48,6 +52,9 @@ hints. Six negative controls in
   organization pin and the pin of every group head the directory names; a pin
   advanced exactly to a memoized head keeps it, since the device admitted what
   the memo holds.
+- `PrimeRequiresAcknowledgement = FALSE` violates `NoRollback`: priming a head
+  the server never acknowledged pins the device past the honest server, which
+  then refuses the server's own head as a rollback.
 
 Public projection sources follow the completed-stage rule: `readPublicPages`
 skips its pinned read once progress is complete, and every read that does occur

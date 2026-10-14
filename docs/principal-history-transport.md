@@ -149,8 +149,9 @@ Measured on the app fixtures at that change, the single-file upload fell from
 personal-organization bootstrap from 93 to 41, the Admins-group addition from
 202 to 74–77, and the root attachment-sharing test from 182 to 65–66. The
 remaining policy reads are one discovery read per operation and reads of heads
-that are new to the device. These are measured request counts, not latency
-benchmarks.
+that are new to the device. Provisioning primes the founding heads the device
+signed, so a new organization's Admins and Members heads are not new to it.
+These are measured request counts, not latency benchmarks.
 
 ## Measuring HTTP work
 

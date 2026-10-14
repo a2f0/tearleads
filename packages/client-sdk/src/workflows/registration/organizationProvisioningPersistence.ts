@@ -10,6 +10,7 @@ import {
   buildOrganizationProfileBootstrapInput,
   buildRosterProfileBootstrapInput,
 } from "./profileBootstrapPersistence";
+import type { ProvisionedPrincipalHistoryPrimer } from "./provisionedPrincipalHistory";
 import {
   provisioningAcknowledgedAccessHeads,
   provisioningDiscoveryHeads,
@@ -42,6 +43,10 @@ type PersistOrganizationProvisioningStateInput = Pick<
   readonly log?: ((message: string) => void) | undefined;
   readonly logError?:
     | ((message: string | Error, cause?: unknown) => void)
+    | undefined;
+  /** Seeds verified recovery progress once the bootstrap commits. */
+  readonly primePrincipalHistory?:
+    | ProvisionedPrincipalHistoryPrimer
     | undefined;
   readonly response: OrganizationProvisioningResponse;
 };
@@ -279,6 +284,16 @@ export async function persistOrganizationProvisioningState(
         ? "Local organization bootstrap persisted"
         : "Local organization bootstrap skipped: identity replaced",
     );
+    if (persisted)
+      await input.primePrincipalHistory?.({
+        organizationId: input.response.organizationId,
+        policies: {
+          adminGroup: artifacts.initialAdminGroupPolicy,
+          memberGroup: artifacts.initialMemberGroupPolicy,
+          organization: artifacts.initialOrganizationPolicy,
+        },
+        userId: input.response.userId,
+      });
   } catch (error: unknown) {
     if (input.logError) {
       input.logError("Failed to persist registration data", error);

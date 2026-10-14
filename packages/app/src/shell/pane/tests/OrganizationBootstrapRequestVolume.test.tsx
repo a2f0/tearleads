@@ -52,12 +52,13 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        // Measured 40 calls: private metadata-root authority adds one directory
-        // discovery read per operation and the first read of each new head.
-        total: 42,
+        // Measured 38 calls: private metadata-root authority adds one directory
+        // discovery read per operation. Provisioning primes the founding
+        // policy heads, so their first recovery reads no group history.
+        total: 40,
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 8,
-          "GET /principals/group/:groupId/policy": 2,
+          "GET /principals/group/:groupId/policy": 0,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
           "GET /principals/history": 3,
@@ -120,11 +121,12 @@ test(
       },
       mutations: [{ method: "POST", path: /^\/organizations$/u, count: 1 }],
       budget: {
-        // Verify the new metadata root through private current policy evidence.
-        total: 12,
+        // Verify the new metadata root through private current policy evidence;
+        // provisioning primed its founding heads, leaving one discovery read.
+        total: 9,
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 2,
-          "GET /principals/group/:groupId/policy": 2,
+          "GET /principals/organization/:organizationId/policy": 1,
+          "GET /principals/group/:groupId/policy": 0,
           // Provisioning seeds the organization profile document's signed
           // head, so discovery needs no projection or public history for it.
           "GET /documents/:documentId/writer-projection": 0,
