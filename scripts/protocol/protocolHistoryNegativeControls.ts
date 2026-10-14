@@ -74,6 +74,14 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Provisioning may prime only founding heads the server acknowledged committing (#2522).",
   },
   {
+    id: "principal-reuse-primes-after-scope-switch",
+    module: "formal/container-keying/PrincipalRecoveryReuse.tla",
+    config: "formal/container-keying/PrincipalRecoveryReuse.cfg",
+    constants: { PrimeChecksScope: "FALSE" },
+    expect: { kind: "invariant", name: "NoPrimeAfterScopeSwitch" },
+    why: "Priming must not write durable state after its provisioning identity or database changed (#2522).",
+  },
+  {
     id: "principal-resume-saves-unchecked-progress",
     module: "formal/container-keying/PrincipalHistoryResume.tla",
     config: "formal/container-keying/PrincipalHistoryResume.cfg",

@@ -4,11 +4,12 @@ import type { DomainScope } from "../data/domainScope";
 import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
 import type { PrincipalHistoryProtectionLease } from "../data/principals/principalHistoryProtection";
 import type { SecurityIncidentReporter } from "../data/securityIncidents";
-import { unavailableExecSql } from "../data/sqlite/sqlSchema";
+import { type ExecSql, unavailableExecSql } from "../data/sqlite/sqlSchema";
 import {
   createApiUserIdentitySource,
   createTrustedUserIdentityService,
   type LocalUserIdentityCandidate,
+  loadPinnedUserIdentity,
   type TrustedUserIdentityResolver,
 } from "../data/trustedUserIdentity";
 import type { ContainerContentsRootAdopter } from "../workflows/container-contents/runtime";
@@ -150,6 +151,29 @@ function localIdentityCandidate(
   };
 }
 
+/** Priming reads the runtime's database, identity and trust pins; it pins nothing. */
+function createRuntimeProvisioningPrimer(
+  dependencies: WorkflowRuntimeDependencies,
+  bindLease: () => PrincipalHistoryProtectionLease | undefined,
+  readyExecSql: () => ExecSql | null,
+): ProvisionedPrincipalHistoryPrimer {
+  return createProvisionedPrincipalHistoryPrimer({
+    bindLease,
+    execSqlFor: (database) =>
+      dependencies.database.client === database ? readyExecSql() : null,
+    loadPinnedIdentity: async (execSql, userId) =>
+      dependencies.identityTrustDomain
+        ? loadPinnedUserIdentity({
+            execSql,
+            identityTrustDomain: dependencies.identityTrustDomain,
+            userId,
+          })
+        : null,
+    logError: dependencies.logError,
+    signingFingerprint: () => dependencies.identity.signingFingerprint,
+  });
+}
+
 export function createRuntime(
   dependencies: WorkflowRuntimeDependencies,
 ): InternalRuntime {
@@ -226,14 +250,11 @@ export function createRuntime(
         () => trustedUserIdentityService.pinLocal(userId, candidate),
       );
     },
-    primeProvisionedPrincipalHistory: createProvisionedPrincipalHistoryPrimer({
-      bindLease: historyProtection.bind,
-      execSql: readyExecSql,
-      localIdentity: () => localIdentityCandidate(dependencies.identity),
-      logError: dependencies.logError,
-      pinLocalUserIdentity: (userId, candidate) =>
-        trustedUserIdentityService.pinLocal(userId, candidate),
-    }),
+    primeProvisionedPrincipalHistory: createRuntimeProvisioningPrimer(
+      dependencies,
+      historyProtection.bind,
+      readyExecSql,
+    ),
     publicRuntime: {
       get version() {
         return runtimeSubscription.version;

@@ -18,10 +18,11 @@ EXTENDS Naturals
 (* bound to its producer's lifetime until its point of use. memo is the    *)
 (* only in-memory reuse of recovered directory and Admins evidence; a      *)
 (* caller's policy cache keeps bare policies and resolves scoped evidence  *)
-(* through it. Organization provisioning primes the founding head the     *)
-(* device signed: after the server acknowledges the commit, the device     *)
-(* verifies its own states into a completed durable stage and pins them;  *)
-(* priming writes no memo entry, so later collections follow every rule   *)
+(* through it. Organization provisioning pins the founding head the      *)
+(* device signed once the server acknowledges the commit; priming then     *)
+(* verifies those states into a completed durable stage in a later step,   *)
+(* and writes nothing once the provisioning identity or database changed.  *)
+(* Priming writes no memo entry, so later collections follow every rule   *)
 (* above. Each parameter is a production guard; negative controls disable *)
 (* one at a time.                                                          *)
 (***************************************************************************)
@@ -35,7 +36,8 @@ CONSTANTS MaxHead, MaxOps, MaxHints,
           EvictOnCheckpoint,           \* a durable pin past the memoized head evicts
           StampObservedEpoch,          \* an entry keeps the epoch observed before its reads
           CarryProducerLifetime,       \* a reused value checks its producer at the point of use
-          PrimeRequiresAcknowledgement \* priming follows the server's commit acknowledgement
+          PrimeRequiresAcknowledgement,\* priming follows the server's commit acknowledgement
+          PrimeChecksScope             \* priming writes only in its provisioning scope
 
 ASSUME /\ MaxHead \in Nat \ {0}
        /\ MaxOps \in Nat \ {0}
@@ -43,7 +45,7 @@ ASSUME /\ MaxHead \in Nat \ {0}
        /\ {DiscoverEachOperation, ShortcutRequiresComplete,
            ReplayRejectedStoredCurrent, MemoPerOperation, EvictOnHint,
            EvictOnCheckpoint, StampObservedEpoch, CarryProducerLifetime,
-           PrimeRequiresAcknowledgement} \subseteq BOOLEAN
+           PrimeRequiresAcknowledgement, PrimeChecksScope} \subseteq BOOLEAN
 
 Heads == 1..MaxHead
 StageStates == {"none", "partial", "complete", "rejected"}
@@ -66,10 +68,15 @@ VARIABLES serverHead,  \* honest current directory head
           lastUse,     \* ghost: the last directory a collection accepted
           refused,     \* ghost: an honest server's directory was refused
           usedExpired, \* ghost: a value was used after its producer expired
-          behindPin    \* ghost: the memo handed out a head below the durable pin
+          behindPin,   \* ghost: the memo handed out a head below the durable pin
+          primeHead,   \* founding head awaiting priming (0: none)
+          switched,    \* the provisioning identity or database is no longer active
+          foreignPrime \* ghost: priming wrote after its scope switched
 
+primeVars == <<primeHead, switched, foreignPrime>>
 vars == <<serverHead, pin, stage, op, active, startHead, memo, pending, epoch,
-          floor, lastUse, refused, usedExpired, behindPin>>
+          floor, lastUse, refused, usedExpired, behindPin, primeHead, switched,
+          foreignPrime>>
 
 TypeOK ==
   /\ serverHead \in Heads
@@ -89,6 +96,9 @@ TypeOK ==
   /\ lastUse \in [head: 0..MaxHead, start: 0..MaxHead, floor: 0..MaxHead,
                   pin: 0..MaxHead, verified: BOOLEAN]
   /\ refused \in BOOLEAN
+  /\ primeHead \in 0..MaxHead
+  /\ switched \in BOOLEAN
+  /\ foreignPrime \in BOOLEAN
 
 Init ==
   /\ serverHead = 1
@@ -105,6 +115,9 @@ Init ==
   /\ refused = FALSE
   /\ usedExpired = FALSE
   /\ behindPin = FALSE
+  /\ primeHead = 0
+  /\ switched = FALSE
+  /\ foreignPrime = FALSE
 
 (* A membership removal or other directory successor; rotation advances.   *)
 ServerAdvance ==
@@ -130,15 +143,38 @@ AdmitPin(h) ==
                  floor, lastUse, refused, usedExpired, behindPin>>
 
 (* Provisioning, before the first operation: the device signed the       *)
-(* founding head and primes it only after the server acknowledged that    *)
-(* commit, as a durable stage and pin; the memo is untouched.             *)
-PrimeProvisioned(h) ==
-  /\ op = 0 /\ pin = 0
+(* founding head, and its bootstrap pins it (checking the identity inside *)
+(* that transaction) only after the server acknowledged that commit.       *)
+ProvisionPin(h) ==
+  /\ op = 0 /\ pin = 0 /\ primeHead = 0 /\ ~switched
   /\ ~PrimeRequiresAcknowledgement \/ h <= serverHead
   /\ pin' = h
-  /\ stage' = [stage EXCEPT ![h] = "complete"]
-  /\ UNCHANGED <<serverHead, op, active, startHead, memo, pending, epoch,
-                 floor, lastUse, refused, usedExpired, behindPin>>
+  /\ primeHead' = h
+  /\ UNCHANGED <<serverHead, stage, op, active, startHead, memo, pending,
+                 epoch, floor, lastUse, refused, usedExpired, behindPin,
+                 switched, foreignPrime>>
+
+(* The host replaces the identity or database the bootstrap committed to.   *)
+SwitchScope ==
+  /\ ~switched
+  /\ switched' = TRUE
+  /\ UNCHANGED <<serverHead, pin, stage, op, active, startHead, memo, pending,
+                 epoch, floor, lastUse, refused, usedExpired, behindPin,
+                 primeHead, foreignPrime>>
+
+(* Priming is a later step, not part of the bootstrap transaction. Its     *)
+(* progress write rechecks the provisioning scope inside its transaction;  *)
+(* after a switch it aborts and writes nothing.                            *)
+FinishPrime ==
+  /\ primeHead # 0
+  /\ IF PrimeChecksScope /\ switched
+       THEN UNCHANGED <<stage, foreignPrime>>
+       ELSE /\ stage' = [stage EXCEPT ![primeHead] = "complete"]
+            /\ foreignPrime' = (foreignPrime \/ switched)
+  /\ primeHead' = 0
+  /\ UNCHANGED <<serverHead, pin, op, active, startHead, memo, pending,
+                 epoch, floor, lastUse, refused, usedExpired, behindPin,
+                 switched>>
 
 (* An interrupted recovery leaves partial progress; an earlier dishonest  *)
 (* final page leaves a completed stage whose stored current is rejected.  *)
@@ -287,12 +323,16 @@ AbortCollect ==
 (* The bounded exploration ends after its last operation.                  *)
 Terminated == ~active /\ op = MaxOps /\ UNCHANGED vars
 
-Next ==
+RecoveryNext ==
   \/ ServerAdvance \/ Hint \/ BeginOperation \/ EndOperation \/ Terminated
   \/ BeginReuse \/ FinishReuse \/ ExpireProducer \/ CancelDerive
   \/ BeginCollect \/ BeginDerive \/ FinishCollect \/ AbortCollect
   \/ \E h \in Heads: AdmitPin(h) \/ Interrupt(h) \/ StoreRejectedCurrent(h)
-                    \/ PrimeProvisioned(h)
+
+Next ==
+  \/ RecoveryNext /\ UNCHANGED primeVars
+  \/ SwitchScope \/ FinishPrime
+  \/ \E h \in Heads: ProvisionPin(h)
 
 Spec == Init /\ [][Next]_vars
 
@@ -322,6 +362,10 @@ NoUseAfterProducerExpiry == ~usedExpired
 (* committed; otherwise every later collection refuses the server's head  *)
 (* as a rollback (AbortCollect forever), the bricked-device shape.        *)
 PinCommitted == pin <= serverHead
+
+(* Priming never writes durable state for an identity or database other   *)
+(* than the one that provisioned.                                          *)
+NoPrimeAfterScopeSwitch == ~foreignPrime
 
 (* A rejected stored current never refuses an honest server's head.        *)
 HonestServerNeverRefused == ~refused

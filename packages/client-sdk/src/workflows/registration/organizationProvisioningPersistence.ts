@@ -286,6 +286,8 @@ export async function persistOrganizationProvisioningState(
     );
     if (persisted)
       await input.primePrincipalHistory?.({
+        database: input.dbClient,
+        isCurrent: input.canStartDurableMutation ?? (() => true),
         organizationId: input.response.organizationId,
         policies: {
           adminGroup: artifacts.initialAdminGroupPolicy,

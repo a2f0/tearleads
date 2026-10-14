@@ -1,11 +1,11 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { PrincipalPolicyHistoryProgressOptions } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
-import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type {
-  LocalUserIdentityCandidate,
   TrustedUserIdentity,
   TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
@@ -22,9 +22,14 @@ interface ProvisionedPrincipalPolicies {
 /**
  * Records verified recovery progress for an organization's founding policy
  * heads, so the device's first scoped recovery of them needs no history read.
- * Failure leaves the ordinary online recovery in place.
+ * It is bound to the provisioning scope: the database the bootstrap committed
+ * to and the identity that signed it. Failure leaves the online path.
  */
 export type ProvisionedPrincipalHistoryPrimer = (input: {
+  /** The database client the provisioning bootstrap committed to. */
+  readonly database: ExecSqlClientLike;
+  /** Whether the identity that provisioned is still the active one. */
+  readonly isCurrent: () => boolean;
   readonly organizationId: string;
   readonly policies: ProvisionedPrincipalPolicies;
   readonly userId: string;
@@ -98,48 +103,80 @@ async function primeProvisionedPrincipalHistory(input: {
     });
 }
 
-/** Binds priming to the runtime's history custody and the founder's own keys. */
-export function createProvisionedPrincipalHistoryPrimer(dependencies: {
+/** The runtime seams priming reads; none of them writes durable state. */
+interface ProvisionedPrincipalHistoryRuntime {
   readonly bindLease: () => PrincipalHistoryProtectionLease | undefined;
-  readonly execSql: () => ExecSql | null;
-  readonly localIdentity: () => LocalUserIdentityCandidate | null;
+  /** The runtime executor, only while `database` is its ready database. */
+  readonly execSqlFor: (database: ExecSqlClientLike) => ExecSql | null;
   readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly pinLocalUserIdentity: (
+  /** Read-only: the identity the trust store already pins for a user. */
+  readonly loadPinnedIdentity: (
+    execSql: ExecSql,
     userId: string,
-    candidate: LocalUserIdentityCandidate,
-  ) => Promise<TrustedUserIdentity>;
-}): ProvisionedPrincipalHistoryPrimer {
-  return async ({ organizationId, policies, userId }) => {
+  ) => Promise<TrustedUserIdentity | null>;
+  readonly signingFingerprint: () => string | null;
+}
+
+/**
+ * Binds priming to the exact provisioning scope, captured before any await:
+ * the bootstrap's database and runtime executor, the identity whose key signed
+ * the founding states, and a protection lease for that identity. Every later
+ * step, and every progress write inside its transaction, rechecks that scope,
+ * so a switched identity or database aborts priming without a durable write.
+ * Priming never writes a trust pin; it only reads the founder's existing one.
+ */
+export function createProvisionedPrincipalHistoryPrimer(
+  runtime: ProvisionedPrincipalHistoryRuntime,
+): ProvisionedPrincipalHistoryPrimer {
+  return async (input) => {
     try {
-      const lease = dependencies.bindLease();
-      const execSql = dependencies.execSql();
-      const candidate = dependencies.localIdentity();
-      if (!lease || !execSql || !candidate) return;
-      // The founder signed every provisioned state with these keys and has
-      // just pinned them; no other signer can appear in this history.
-      const resolveTrustedUserIdentity: TrustedUserIdentityResolver = async (
-        signerUserId,
-      ) =>
-        signerUserId === userId
-          ? dependencies.pinLocalUserIdentity(userId, candidate)
-          : null;
-      await queuePrincipalRecovery(execSql, organizationId, () =>
-        lease(({ protection, stillCurrent }) =>
-          primeProvisionedPrincipalHistory({
-            execSql,
-            organizationId,
-            policies,
-            protection,
-            resolveTrustedUserIdentity,
-            stillCurrent,
-          }),
-        ),
-      );
+      await primeInProvisioningScope(runtime, input);
     } catch (error) {
-      dependencies.logError(
+      runtime.logError(
         "Provisioned principal history was not primed; recovery reads it online",
         error,
       );
     }
   };
+}
+
+async function primeInProvisioningScope(
+  runtime: ProvisionedPrincipalHistoryRuntime,
+  input: Parameters<ProvisionedPrincipalHistoryPrimer>[0],
+): Promise<void> {
+  // Everything below is captured synchronously, before the first await.
+  const founderFingerprint =
+    input.policies.organization.currentState.signerUserKeyFingerprint;
+  const execSql = runtime.execSqlFor(input.database);
+  const scopeCurrent = () =>
+    execSql !== null &&
+    input.isCurrent() &&
+    runtime.execSqlFor(input.database) === execSql &&
+    runtime.signingFingerprint() === founderFingerprint;
+  const lease = scopeCurrent() ? runtime.bindLease() : undefined;
+  if (!execSql || !lease) return;
+  const resolveTrustedUserIdentity: TrustedUserIdentityResolver = async (
+    signerUserId,
+  ) => {
+    if (signerUserId !== input.userId) return null;
+    assertProjectionVerificationCurrent(scopeCurrent);
+    const identity = await runtime.loadPinnedIdentity(execSql, input.userId);
+    assertProjectionVerificationCurrent(scopeCurrent);
+    return identity?.signingKeyFingerprint === founderFingerprint
+      ? identity
+      : null;
+  };
+  await queuePrincipalRecovery(execSql, input.organizationId, () =>
+    lease(({ protection, stillCurrent }) =>
+      primeProvisionedPrincipalHistory({
+        execSql,
+        organizationId: input.organizationId,
+        policies: input.policies,
+        protection,
+        resolveTrustedUserIdentity,
+        // Progress writes check this inside their transactions.
+        stillCurrent: () => stillCurrent() && scopeCurrent(),
+      }),
+    ),
+  );
 }
