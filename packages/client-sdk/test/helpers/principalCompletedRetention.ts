@@ -12,7 +12,7 @@ import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqliteP
 import { ensureSqlTables } from "../../src/data/sqlite/sqlSchema";
 
 /** A stored stage without its retention hints, as writers hand it in. */
-export const principalHistoryStageWorkColumns = {
+const principalHistoryStageWorkColumns = {
   id: principalHistoryStages.id,
   organizationId: principalHistoryStages.organizationId,
   currentJson: principalHistoryStages.currentJson,
