@@ -13,7 +13,7 @@ const UPDATED_AT = "2026-09-13T00:00:00.000Z";
 
 test("a destination-only watcher receives only a child-list refresh", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [DESTINATION]);
   f.publish({
     type: "container_mutation_created",
@@ -32,7 +32,7 @@ test("a destination-only watcher receives only a child-list refresh", async () =
 
 test("a source-only watcher receives only a child-list refresh", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [OTHER]);
   f.publish({
     type: "container_mutation_created",
@@ -51,7 +51,7 @@ test("a source-only watcher receives only a child-list refresh", async () => {
 
 test("a child watcher keeps the null parent on a root move", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER]);
   f.publish({
     type: "container_mutation_created",
@@ -106,7 +106,7 @@ test("a grant on a hot root does not evict its descendants' subscribers", async 
     paths: { [CONTAINER]: [OTHER, CONTAINER] },
     authorize: async (_user, ids) => ids,
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER]);
   const published: PublishedRealtimeEvent[] = [];
   await publishContainerMutationCreated({
@@ -137,7 +137,7 @@ test("a grant on a hot root does not evict its descendants' subscribers", async 
 
 test("a revoked socket is evicted before the revoke hint is routed", async () => {
   const f = fixture({ authorize: async (_user, ids) => ids });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER]);
   const before = f.sent.length;
   await publishContainerMutationCreated({
@@ -161,7 +161,7 @@ test("a move evicts a child watcher before sending its parent's generic hint", a
     paths: { [CONTAINER]: [OTHER, CONTAINER] },
     authorize: async (_user, ids) => ids,
   });
-  await f.gateway.websocket.open(f.socket);
+  f.gateway.websocket.open(f.socket);
   await f.declare("known_containers", [CONTAINER, OTHER]);
   const before = f.sent.length;
   await publishContainerMutationCreated({

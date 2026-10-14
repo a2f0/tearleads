@@ -22,7 +22,6 @@ export {
 export {
   parseWsServerMessage,
   serializeWsServerMessage,
-  WsInterestStateFrameSchema,
   WsKnownContainersAckFrameSchema,
   WsKnownOrganizationsAckFrameSchema,
   WsOrganizationReadModelAccessRevokedFrameSchema,

@@ -296,8 +296,10 @@ See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
 [`realtime/ContainerInterest.tla`](./realtime/ContainerInterest.tla) checks that
 container subscriptions require current read access before indexing and cannot
 be restored by an authorization result that outlived revocation or socket close,
-that an ended session's socket never outlives the next session read the store
-answers, and that a session the store cannot confirm closes at its deadline.
+that a reconnected socket receives no container hint before its own client
+declares, that an ended session's socket never outlives the next session read
+the store answers, and that a session the store cannot confirm closes at its
+deadline.
 See the [production mapping and bounds](./realtime/ContainerInterest.md).
 
 ## Attachment Key Reachability

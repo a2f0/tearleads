@@ -216,11 +216,11 @@ Three bounded probes close gaps that container discovery cannot observe:
   the intermediate disconnect, while ordering the probe after interest
   restoration rather than raw socket open.
 
-The reconnect handshake retains the server's persisted baseline while the local
-container tree is `ready=false`; its placeholder empty node list is never treated
-as an authoritative removal. `known_containers_ack` follows installation of the
-authorized subset and precedes best-effort persistence. It also acknowledges
-denied stale IDs so reconnect reconciliation can run.
+A socket opens with no server-side container interest, and the server keeps no
+copy of a closed socket's set. The client waits while the local container tree
+is `ready=false`; its placeholder empty node list is never declared.
+`known_containers_ack` follows installation of the authorized subset. It also
+acknowledges denied stale IDs so reconnect reconciliation can run.
 
 All three probes use normal document sync: verified Loro updates are projected
 before attachments and blob bytes hydrate. A coded `document_not_found` fetches
@@ -355,7 +355,7 @@ Ordinary container write:
 ## Privacy-safe reconciliation diagnostics
 
 The System Monitor clipboard allowlist exposes only bounded states and counts
-for this recovery path: `interest baseline containers=<count>`, revalidation
+for this recovery path: `interest declaration acknowledged`, revalidation
 scheduled for `startup` or `reconnect`, and revalidation result `applied` with
 incoming-update/attachment-slot counts or `unavailable`. It deliberately omits
 document and attachment identifiers, titles, names, structured fields, blob

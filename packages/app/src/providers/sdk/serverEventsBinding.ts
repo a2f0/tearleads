@@ -210,19 +210,6 @@ export function useServerEventsBinding(
             }
             markServerEventsConnected(tearleads, log);
           },
-          onInterestState: (baseline) => {
-            interestHandle?.stop();
-            interestHandle = startContainerInterestDeclaration(
-              tearleads,
-              ws,
-              new Set(baseline),
-            );
-            // Transport open and the persisted baseline are not enough: the
-            // ready local tree may add containers missing from that baseline.
-            // The matching acknowledgement is the ordering barrier after the
-            // server has synchronously installed the authoritative current set.
-            log(`WebSocket: interest baseline containers=${baseline.length}`);
-          },
           onOrganizationInterestAcknowledged: (
             declarationId,
             organizationId,
@@ -256,6 +243,12 @@ export function useServerEventsBinding(
         });
       },
       onOpen: (ws) => {
+        // A socket opens with no container interest and routes no container
+        // hint until this declaration is installed. Transport open is not the
+        // ordering barrier: the matching acknowledgement is, after the server
+        // has synchronously installed the authoritative current set.
+        interestHandle?.stop();
+        interestHandle = startContainerInterestDeclaration(tearleads, ws);
         detachOrganizationSocket?.();
         detachOrganizationSocket = attachOrganizationReadModelSocket(
           tearleads,

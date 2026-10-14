@@ -19,7 +19,6 @@ for (const initialPending of [false, true]) {
     const handle = startContainerInterestDeclaration(
       tearleadsWithStore(() => fakeStore.store),
       ws,
-      new Set(),
     );
     if (!initialPending) {
       acknowledgeInitialDeclaration(handle, sent);
@@ -62,7 +61,6 @@ test("splits an oversized declaration at the server cap and clears the barrier o
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   // The remainder waits for the first chunk's acknowledgment.
   expect(sent).toHaveLength(1);
@@ -111,7 +109,6 @@ test("declares the authoritative ready set, waits for its ack, then sends deltas
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
 
   expect(JSON.parse(sent[0] ?? "null")).toEqual({
@@ -153,7 +150,6 @@ test("re-declares an invalidated container on the next tree change", () => {
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(["a", "b"]),
   );
   acknowledgeInitialDeclaration(handle, sent);
   sent.length = 0;
@@ -177,7 +173,6 @@ test("re-declares an invalidated container after an unchanged access recheck", (
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(["a", "b"]),
   );
   acknowledgeInitialDeclaration(handle, sent);
   sent.length = 0;
@@ -192,32 +187,13 @@ test("re-declares an invalidated container after an unchanged access recheck", (
   });
 });
 
-test("replaces a hydrated baseline with the authoritative ready tree", () => {
-  const fakeStore = createFakeStore(["a", "b", "c"]);
-  const { sent, ws } = fakeSocket(WebSocket.OPEN);
-
-  startContainerInterestDeclaration(
-    tearleadsWithStore(() => fakeStore.store),
-    ws,
-    new Set(["a", "b"]),
-  );
-
-  expect(JSON.parse(sent[0] ?? "null")).toEqual({
-    type: "known_containers",
-    containerIds: ["a", "b", "c"],
-    declarationId: expect.any(String),
-  });
-  expect(sent).toHaveLength(1);
-});
-
-test("acknowledges an authoritative declaration even when baseline matches", () => {
+test("ignores an unknown acknowledgement after the initial declaration", () => {
   const fakeStore = createFakeStore(["a", "b"]);
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
 
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(["a", "b"]),
   );
 
   expect(JSON.parse(sent[0] ?? "null")).toEqual({
@@ -229,14 +205,13 @@ test("acknowledges an authoritative declaration even when baseline matches", () 
   expect(handle.acknowledge("stale", [])).toBe(false);
 });
 
-test("retains the hydrated baseline until the local tree is ready", () => {
+test("waits for the ready local tree before the initial declaration", () => {
   const fakeStore = createFakeStore([]);
   fakeStore.setReady(false);
   const { sent, ws } = fakeSocket(WebSocket.OPEN);
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(["a", "b"]),
   );
 
   expect(sent).toEqual([]);
@@ -259,7 +234,6 @@ test("skips interest when the container tree cannot be opened", () => {
       throw new Error("runtime not ready");
     }),
     ws,
-    new Set(),
   );
 
   expect(sent).toEqual([]);
@@ -274,7 +248,6 @@ test("does not send while the socket is not open", () => {
   startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
 
   expect(sent).toEqual([]);
@@ -307,7 +280,6 @@ test("reconnect with a revoked local ID reaches the acknowledgment barrier and r
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(["readable"]),
   );
   const ack = serverFrames.find(
     (frame) => Reflect.get(frame, "type") === "known_containers_ack",
@@ -330,7 +302,6 @@ test("a denied local container is retried on a later tree change without looping
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   const first = JSON.parse(sent[0] ?? "null");
   expect(handle.acknowledge(first.declarationId, [])).toBe(true);
@@ -353,7 +324,6 @@ test("a tree change during a refused addition causes exactly one fresh declarati
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   acknowledgeInitialDeclaration(handle, sent);
   fakeStore.setNodes(["pending"]);
@@ -374,7 +344,6 @@ test("an older refused declaration cannot erase a newer accepted subscription", 
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   const earlier = JSON.parse(sent[0] ?? "null");
   fakeStore.setNodes(["a", "b"]);
@@ -394,7 +363,6 @@ test("grant recovery re-declares only refused interests", () => {
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   const initial = JSON.parse(sent[0] ?? "null");
   expect(handle.acknowledge(initial.declarationId, ["readable"])).toBe(true);
@@ -412,7 +380,6 @@ test("a grant during initial authorization preserves its acknowledgment barrier"
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   const initial = JSON.parse(sent[0] ?? "null");
   handle.retryRefused();

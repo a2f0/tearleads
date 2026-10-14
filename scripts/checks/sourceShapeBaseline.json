@@ -128,8 +128,8 @@
       "bytes": 21286
     },
     "packages/api/src/realtime/wsRouting.test.ts": {
-      "lines": 530,
-      "bytes": 16424
+      "lines": 506,
+      "bytes": 14829
     },
     "packages/api/src/routes/auth/register.test.ts": {
       "lines": 634,
