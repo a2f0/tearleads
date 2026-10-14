@@ -5,6 +5,8 @@ import {
   type VerifiedManifestBundle,
 } from "../persistence/verifiedManifestBundlePersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
+import type { ProjectionCheckpointContext } from "./checkpointContext";
+import { projectionLifetimeGuard } from "./projectionLifetimes";
 import { assertProjectionVerificationCurrent } from "./types";
 
 /**
@@ -28,12 +30,15 @@ export function verifiedProjectionBundles(
  * Lets a later projection read cite these bundles instead of downloading
  * them again. Best effort: the projection already verified, and a cache
  * write must never turn that into a refusal. The write is the verifier's
- * last await, so `stillCurrent` — the guard the caller checked last — is
- * rechecked after it: a verification never succeeds past its generation.
+ * last await, so afterwards it rechecks the composite guard checkpoint
+ * finalization used — the caller's generation and every lease (such as a
+ * policy-history lease) observed on `checkpointContext` — so a verification
+ * never succeeds past either.
  */
 export async function retainVerifiedProjectionBundles(
   execSql: ExecSql,
   entries: readonly VerifiedManifestBundle[],
+  checkpointContext: ProjectionCheckpointContext,
   stillCurrent: (() => boolean) | undefined,
 ): Promise<void> {
   try {
@@ -41,5 +46,7 @@ export async function retainVerifiedProjectionBundles(
   } catch {
     // A missed write only means the next read carries these bundles again.
   }
-  assertProjectionVerificationCurrent(stillCurrent);
+  assertProjectionVerificationCurrent(
+    projectionLifetimeGuard(checkpointContext, stillCurrent),
+  );
 }

@@ -27,7 +27,6 @@ import { verifyDocumentProjectionManifests } from "./documentManifestVerificatio
 import { rejectPurgedDocumentProjection } from "./documentPurgeCheckpointEnforcement";
 import { throwKeyingVerificationShapeFailure } from "./error";
 import { verifyProjectionAuthorizationEvidence } from "./projectionAuthorizationEvidence";
-import { projectionLifetimeGuard } from "./projectionLifetimes";
 import { readAccessManifest } from "./readers";
 import type {
   PrincipalPolicyCache,
@@ -297,8 +296,8 @@ function retainVerifiedDocumentProjection(
         containerManifests,
       ),
     ],
-    // The guard finalizeProjectionCheckpoints checked last.
-    projectionLifetimeGuard(checkpointContext, input.stillCurrent),
+    checkpointContext,
+    input.stillCurrent,
   );
 }
 

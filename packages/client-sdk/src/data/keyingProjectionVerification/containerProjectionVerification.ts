@@ -311,6 +311,7 @@ function retainVerifiedContainerProjection(
     ContainerWriterProjectionVerificationInput,
     "execSql" | "projection" | "stillCurrent"
   >,
+  checkpointContext: ProjectionCheckpointContext,
   verifiedByHash: ReadonlyMap<string, VerifiedContainerAccessManifest>,
 ): Promise<void> {
   return retainVerifiedProjectionBundles(
@@ -319,6 +320,7 @@ function retainVerifiedContainerProjection(
       collectContainerProjectionBundles(input.projection),
       verifiedByHash,
     ),
+    checkpointContext,
     input.stillCurrent,
   );
 }
@@ -346,7 +348,11 @@ export async function verifyContainerWriterProjection(
     assertProjectionVerificationCurrent(input.stillCurrent);
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
-    await retainVerifiedContainerProjection(input, verifiedByHash);
+    await retainVerifiedContainerProjection(
+      input,
+      checkpointContext,
+      verifiedByHash,
+    );
     return verifiedPath;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);
@@ -395,7 +401,11 @@ export async function collectContainerWriterProjectionPrincipalPolicies(
     assertProjectionVerificationCurrent(input.stillCurrent);
     await finalizeProjectionCheckpoints(checkpointContext, input);
     assertProjectionVerificationCurrent(input.stillCurrent);
-    await retainVerifiedContainerProjection(input, verifiedByHash);
+    await retainVerifiedContainerProjection(
+      input,
+      checkpointContext,
+      verifiedByHash,
+    );
     return policies;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);
