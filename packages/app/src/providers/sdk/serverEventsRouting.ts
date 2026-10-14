@@ -14,7 +14,6 @@ export function routeIncomingWsMessage(
       declarationId: string,
       containerIds: string[],
     ) => void;
-    onInterestState: (baseline: string[]) => void;
     onOrganizationInterestAcknowledged: (
       declarationId: string,
       organizationId: string | null,
@@ -35,9 +34,6 @@ export function routeIncomingWsMessage(
   }
 
   switch (message.type) {
-    case "interest_state":
-      handlers.onInterestState(message.containerIds);
-      return;
     case "known_containers_ack":
       handlers.onContainerInterestAcknowledged(
         message.declarationId,

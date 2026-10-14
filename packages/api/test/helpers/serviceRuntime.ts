@@ -38,7 +38,10 @@ export function createServiceTestRuntime(
       },
     },
     sessionTokenIssuer: {
-      createSession: async () => "test-session",
+      createSession: async () => ({
+        sessionId: "test-session-id",
+        token: "test-session",
+      }),
     },
   };
 }

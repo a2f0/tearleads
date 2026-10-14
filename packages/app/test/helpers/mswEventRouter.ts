@@ -424,8 +424,6 @@ export function createMswEventRouter(
         absentOrganizationAudienceByClient.delete(client);
         socketIdentityByClient.delete(client);
       });
-
-      client.send(JSON.stringify({ type: "interest_state", containerIds: [] }));
     },
     publish: async (event: Record<string, unknown>): Promise<void> => {
       if (shouldDropServerEvent(event)) {

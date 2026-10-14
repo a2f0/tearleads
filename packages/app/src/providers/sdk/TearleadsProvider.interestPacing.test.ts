@@ -76,7 +76,6 @@ test("a 25,000-id tree is declared one acknowledged chunk at a time within the s
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   server.observe();
   // Only the first chunk leaves before any acknowledgment.
@@ -141,7 +140,6 @@ test("a tree change while chunks are still paced waits for the barrier and sends
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   const grown = [...ids, ...bigTree("grown", 3)];
   fakeStore.setNodes(grown);
@@ -168,7 +166,6 @@ test("stopping a paced declaration drops its unsent chunks", () => {
   const handle = startContainerInterestDeclaration(
     tearleadsWithStore(() => fakeStore.store),
     ws,
-    new Set(),
   );
   const first = JSON.parse(sent[0] ?? "null") as Frame;
   handle.stop();

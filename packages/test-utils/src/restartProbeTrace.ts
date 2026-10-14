@@ -18,7 +18,7 @@ export type RestartProbeActionName =
   | "FinishProbe"
   | "InitializeOpenedPersistedDocument"
   | "MarkContainerTreeReady"
-  | "ReceiveInterestBaseline"
+  | "OpenEventsSocket"
   | "RemoteBodyAdvance"
   | "RemoteSlotAdvance"
   | "Restart";

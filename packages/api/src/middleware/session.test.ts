@@ -125,13 +125,15 @@ test("issuing a session records the login as user activity", async () => {
     },
   );
 
-  const token = await createSession({
+  const { sessionId, token } = await createSession({
     createdAt: 1_700_000_000_000,
     fingerprint: "c".repeat(64),
     userId: ACTIVE_USER_ID,
   });
 
   expect(token).toHaveLength(64);
+  expect(sessionId).toHaveLength(64);
+  expect(sessionId).not.toBe(token);
   expect(recorded).toEqual([
     { lastActiveAt: 1_700_000_000_000, userId: ACTIVE_USER_ID },
   ]);

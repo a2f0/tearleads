@@ -12,23 +12,15 @@ const session: SessionData = {
   userId: "11111111-1111-4111-8111-111111111111",
 };
 
-test("publishes session revocation when interest cleanup fails", async () => {
-  const clearError = new Error("redis timeout");
-  const clearInterest = mock(async () => {
-    throw clearError;
-  });
-  const onClearInterestError = mock(() => {});
+test("publishes the revoked session for its sockets to close", async () => {
   const publishEvent = mock(async () => {});
   const notifySessionRevoked = createSessionRevocationNotifier({
-    clearInterest,
-    onClearInterestError,
     publishEvent,
   });
 
   await notifySessionRevoked(session);
 
-  expect(clearInterest).toHaveBeenCalledWith(session.userId, session.id);
-  expect(onClearInterestError).toHaveBeenCalledWith(clearError);
+  expect(publishEvent).toHaveBeenCalledTimes(1);
   expect(publishEvent).toHaveBeenCalledWith({
     sessionId: session.id,
     type: "session_revoked",
