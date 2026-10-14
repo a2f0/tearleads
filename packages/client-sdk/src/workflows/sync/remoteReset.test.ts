@@ -20,20 +20,18 @@ import {
 } from "../../data/sqlite/organizationReadModelSchema";
 import {
   clientSqlTables,
-  containerCreateIntents,
-  containerMoveIntents,
   containerSyncLaneChecks,
   containerSyncWatermarks,
   containers,
   documentAttachmentBlobProjection,
   documentContainerProjection,
   documentHistoryCheckpoints,
-  documentMoveIntents,
   documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
   documentProjectionText,
   documents,
+  localIntents,
   principalPolicies,
   securityIncidents,
   trustedUserIdentityPins,
@@ -213,10 +211,11 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         signingSuite: "ML-DSA-87",
         userId: "11111111-1111-4111-8111-111111111111",
       });
-      await tx.insert(documentMoveIntents).values({
+      await tx.insert(localIntents).values({
         id: "doc-move",
+        lane: "document.placement",
         localId: "doc-1",
-        documentId: "doc-remote-old",
+        subjectId: "doc-remote-old",
         targetContainerId: "child",
         sourceContainerId: "root",
         replaceLinkedContainers: false,
@@ -227,11 +226,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         createdAt: stale,
         updatedAt: stale,
       });
-      await tx.insert(containerMoveIntents).values({
+      await tx.insert(localIntents).values({
         id: "container-move",
-        containerId: "child",
-        parentContainerId: "root",
-        previousParentContainerId: null,
+        lane: "container.move",
+        subjectId: "child",
+        targetContainerId: "root",
+        sourceContainerId: null,
         intentType: "container.move",
         syncStatus: "pending",
         lastError: null,
@@ -239,10 +239,11 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         createdAt: stale,
         updatedAt: stale,
       });
-      await tx.insert(containerCreateIntents).values({
+      await tx.insert(localIntents).values({
         id: "old-create",
-        containerId: "child",
-        parentContainerId: "root",
+        lane: "container.create",
+        subjectId: "child",
+        targetContainerId: "root",
         intentType: "container.create",
         syncStatus: "synced",
         remoteContainerId: "child",
@@ -459,10 +460,13 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       }),
     ]);
 
-    expect(await db.select().from(containerCreateIntents)).toEqual([
+    // Only the re-queued create survives: the old create, the container
+    // move, and the document placement intent are all reset-scoped.
+    expect(await db.select().from(localIntents)).toEqual([
       expect.objectContaining({
-        containerId: "child",
-        parentContainerId: "root",
+        lane: "container.create",
+        subjectId: "child",
+        targetContainerId: "root",
         remoteContainerId: null,
         syncStatus: "pending",
       }),
@@ -476,8 +480,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     ]);
     for (const table of [
       documentContainerProjection,
-      documentMoveIntents,
-      containerMoveIntents,
       containerSyncWatermarks,
       containerSyncLaneChecks,
       organizationReadModelState,

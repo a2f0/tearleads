@@ -1,10 +1,12 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import {
-  containerCreateIntents,
-  containerMoveIntents,
   containers,
   documentContainerProjection,
   documentProjection,
+  inContainerIntentLanes,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { deleteContainerWatermarksInTransaction } from "../containers/containerSyncWatermarkPersistence";
@@ -189,14 +191,19 @@ export async function updateReparentedDescendantContainers(input: {
 
     if (reparent.parentContainerId) {
       await tx
-        .update(containerMoveIntents)
+        .update(localIntents)
         .set({
           id: crypto.randomUUID(),
-          parentContainerId: reparent.parentContainerId,
+          targetContainerId: reparent.parentContainerId,
           syncStatus: "pending",
           updatedAt,
         })
-        .where(eq(containerMoveIntents.containerId, reparent.containerId))
+        .where(
+          and(
+            inLocalIntentLane(LOCAL_INTENT_LANES.containerMove),
+            eq(localIntents.subjectId, reparent.containerId),
+          ),
+        )
         .run();
     }
   }
@@ -225,37 +232,39 @@ export async function reparentLocalContainerChildren(input: {
     })
     .where(eq(containers.parentId, fromContainerId))
     .run();
+  const createLane = inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate);
   const createIntentRows = await tx
-    .select({ containerId: containerCreateIntents.containerId })
-    .from(containerCreateIntents)
-    .where(eq(containerCreateIntents.parentContainerId, fromContainerId))
+    .select({ containerId: localIntents.subjectId })
+    .from(localIntents)
+    .where(and(createLane, eq(localIntents.targetContainerId, fromContainerId)))
     .all();
   for (const intent of createIntentRows) {
     await tx
-      .update(containerCreateIntents)
+      .update(localIntents)
       .set({
         id: crypto.randomUUID(),
-        parentContainerId: toContainerId,
+        targetContainerId: toContainerId,
         updatedAt,
       })
-      .where(eq(containerCreateIntents.containerId, intent.containerId))
+      .where(and(createLane, eq(localIntents.subjectId, intent.containerId)))
       .run();
   }
+  const moveLane = inLocalIntentLane(LOCAL_INTENT_LANES.containerMove);
   const moveIntentRows = await tx
-    .select({ containerId: containerMoveIntents.containerId })
-    .from(containerMoveIntents)
-    .where(eq(containerMoveIntents.parentContainerId, fromContainerId))
+    .select({ containerId: localIntents.subjectId })
+    .from(localIntents)
+    .where(and(moveLane, eq(localIntents.targetContainerId, fromContainerId)))
     .all();
   for (const intent of moveIntentRows) {
     await tx
-      .update(containerMoveIntents)
+      .update(localIntents)
       .set({
         id: crypto.randomUUID(),
-        parentContainerId: toContainerId,
+        targetContainerId: toContainerId,
         syncStatus: "pending",
         updatedAt,
       })
-      .where(eq(containerMoveIntents.containerId, intent.containerId))
+      .where(and(moveLane, eq(localIntents.subjectId, intent.containerId)))
       .run();
   }
 }
@@ -266,12 +275,10 @@ export async function deleteLocalContainerRows(input: {
 }): Promise<void> {
   const { containerId, tx } = input;
   await tx
-    .delete(containerCreateIntents)
-    .where(eq(containerCreateIntents.containerId, containerId))
-    .run();
-  await tx
-    .delete(containerMoveIntents)
-    .where(eq(containerMoveIntents.containerId, containerId))
+    .delete(localIntents)
+    .where(
+      and(inContainerIntentLanes(), eq(localIntents.subjectId, containerId)),
+    )
     .run();
   await tx.delete(containers).where(eq(containers.id, containerId)).run();
   await deleteContainerMetadataDocumentRowsInTransaction(tx, [containerId]);

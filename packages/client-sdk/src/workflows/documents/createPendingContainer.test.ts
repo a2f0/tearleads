@@ -19,10 +19,10 @@ test("a document create waits while its folder's create is pending", async () =>
   try {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     await execSql(
-      `INSERT INTO container_create_intents (
-        id, container_id, parent_container_id, intent_type, sync_status,
+      `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
         created_at, updated_at
-      ) VALUES ('intent-1', 'pending-folder', 'parent', 'container.create',
+      ) VALUES ('intent-1', 'container.create', 'pending-folder', 'parent', 'container.create',
         'pending', '2026-10-01T00:00:00.000Z', '2026-10-01T00:00:00.000Z')`,
     );
 

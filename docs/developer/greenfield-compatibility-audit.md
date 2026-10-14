@@ -41,9 +41,10 @@ points before the environment reset and coordinated release.
   onto the rows they describe: container display names and icons live on
   `containers`, a scope's last sync failure lives on its `documents` row, an
   organization usage snapshot carries its category breakdown as JSON that is
-  re-validated on every read, and a principal-history stage carries its own
-  scope and recency eviction hints. A database that predates a fold fails the required-column
-  check and is reset rather than converted.
+  re-validated on every read, a principal-history stage carries its own scope
+  and recency eviction hints, and container create, container move, and document
+  placement intents share the `local_intents` outbox. A database that predates a
+  fold fails the required-column check and is reset rather than converted.
 - Local backup payloads and encrypted envelopes require format version 9.
   Previous versions are refused, with no conversion path. Security-anchor
   merging during a current-format restore prevents rollback and remains required.

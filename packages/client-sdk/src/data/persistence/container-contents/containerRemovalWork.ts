@@ -1,10 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
-  containerCreateIntents,
-  containerMoveIntents,
-  documentMoveIntents,
   documentPendingUpdates,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
@@ -23,27 +23,34 @@ export async function containerIdsWithRemovalWork(
       ),
     );
   const creates = await tx
-    .select({ id: containerCreateIntents.containerId })
-    .from(containerCreateIntents)
+    .select({ id: localIntents.subjectId })
+    .from(localIntents)
     .where(
       and(
-        eq(containerCreateIntents.syncStatus, "pending"),
-        inArray(containerCreateIntents.containerId, ids),
+        inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate),
+        eq(localIntents.syncStatus, "pending"),
+        inArray(localIntents.subjectId, ids),
       ),
     );
   const moves = await tx
-    .select({ id: containerMoveIntents.containerId })
-    .from(containerMoveIntents)
+    .select({ id: localIntents.subjectId })
+    .from(localIntents)
     .where(
       and(
-        inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
-        inArray(containerMoveIntents.containerId, ids),
+        inLocalIntentLane(LOCAL_INTENT_LANES.containerMove),
+        inArray(localIntents.syncStatus, ["pending", "blocked"]),
+        inArray(localIntents.subjectId, ids),
       ),
     );
   const placements = await tx
-    .select({ id: documentMoveIntents.targetContainerId })
-    .from(documentMoveIntents)
-    .where(inArray(documentMoveIntents.targetContainerId, ids));
+    .select({ id: localIntents.targetContainerId })
+    .from(localIntents)
+    .where(
+      and(
+        inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+        inArray(localIntents.targetContainerId, ids),
+      ),
+    );
   const links = await tx
     .select({ id: documentIntentLinkTargets.containerId })
     .from(documentIntentLinkTargets)

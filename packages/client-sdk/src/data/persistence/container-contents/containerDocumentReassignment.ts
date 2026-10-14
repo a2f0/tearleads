@@ -3,8 +3,10 @@ import { uniqueSortedStrings } from "../../documents/shared/readers";
 import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   documentContainerProjection,
-  documentMoveIntents,
   documentProjection,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -94,21 +96,22 @@ async function reassignDocumentMoveIntentsForContainer(
   const { fromContainerId, toContainerId, tx, updatedAt } = input;
   const affectedIntents = await tx
     .select({
-      documentId: documentMoveIntents.documentId,
-      id: documentMoveIntents.id,
+      documentId: localIntents.subjectId,
+      id: localIntents.id,
     })
-    .from(documentMoveIntents)
+    .from(localIntents)
     .where(
       and(
-        inArray(documentMoveIntents.intentType, [
+        inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+        inArray(localIntents.intentType, [
           DOCUMENT_MOVE_INTENT_TYPE,
           DOCUMENT_LINK_INTENT_TYPE,
         ]),
         or(
-          eq(documentMoveIntents.sourceContainerId, fromContainerId),
-          eq(documentMoveIntents.targetContainerId, fromContainerId),
+          eq(localIntents.sourceContainerId, fromContainerId),
+          eq(localIntents.targetContainerId, fromContainerId),
           inArray(
-            documentMoveIntents.id,
+            localIntents.id,
             tx
               .select({ id: documentIntentLinkTargets.intentId })
               .from(documentIntentLinkTargets)
@@ -151,25 +154,30 @@ async function reassignDocumentMoveIntentsForContainer(
         )
         .run();
     await tx
-      .update(documentMoveIntents)
+      .update(localIntents)
       .set({
         id,
         lastAttemptedAt: null,
         lastError: null,
         sourceContainerId: sql`CASE
-          WHEN ${documentMoveIntents.sourceContainerId} = ${fromContainerId}
+          WHEN ${localIntents.sourceContainerId} = ${fromContainerId}
           THEN ${toContainerId}
-          ELSE ${documentMoveIntents.sourceContainerId}
+          ELSE ${localIntents.sourceContainerId}
         END`,
         syncStatus: "pending",
         targetContainerId: sql`CASE
-          WHEN ${documentMoveIntents.targetContainerId} = ${fromContainerId}
+          WHEN ${localIntents.targetContainerId} = ${fromContainerId}
           THEN ${toContainerId}
-          ELSE ${documentMoveIntents.targetContainerId}
+          ELSE ${localIntents.targetContainerId}
         END`,
-        updatedAt: sql`max(${documentMoveIntents.updatedAt}, ${updatedAt})`,
+        updatedAt: sql`max(${localIntents.updatedAt}, ${updatedAt})`,
       })
-      .where(eq(documentMoveIntents.documentId, intent.documentId))
+      .where(
+        and(
+          inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+          eq(localIntents.subjectId, intent.documentId),
+        ),
+      )
       .run();
   }
 }

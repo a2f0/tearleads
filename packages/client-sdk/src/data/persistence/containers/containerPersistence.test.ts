@@ -178,10 +178,11 @@ test("root reconciliation folds duplicate document links into the remote root", 
     ).resolves.toEqual(["remote-root"]);
     await expect(
       execSql(
-        `SELECT document_id, source_container_id, target_container_id,
-                sync_status, last_error, last_attempted_at
-         FROM document_move_intents
-         ORDER BY document_id ASC`,
+        `SELECT subject_id AS document_id, source_container_id,
+                target_container_id, sync_status, last_error, last_attempted_at
+         FROM local_intents
+         WHERE lane = 'document.placement'
+         ORDER BY subject_id ASC`,
       ),
     ).resolves.toEqual([
       {

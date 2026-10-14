@@ -26,9 +26,12 @@ test.each([false, true])(
         const rows = await target(...args);
         // Keep the durable move undiscovered while its destination-scoped edit
         // starts. The retry must then wake itself after that held edit settles.
+        const [sql, bind] = args;
         return replayPaused &&
-          args[0].startsWith("select") &&
-          args[0].includes('from "document_move_intents"')
+          sql.startsWith("select") &&
+          sql.includes('from "local_intents"') &&
+          Array.isArray(bind) &&
+          bind.includes("document.placement")
           ? []
           : rows;
       },
@@ -121,7 +124,7 @@ test.each([false, true])(
       if (sameContext) {
         await waitFor(async () => {
           const rows = await db.execSql(
-            'select "last_error" from "document_move_intents" where "document_id" = ?',
+            'select "last_error" from "local_intents" where "lane" = \'document.placement\' and "subject_id" = ?',
             [documentId],
           );
           expect(rows).toEqual([
@@ -137,7 +140,7 @@ test.each([false, true])(
           async () =>
             expect(
               await db.execSql(
-                'select "id" from "document_move_intents" where "document_id" = ?',
+                'select "id" from "local_intents" where "lane" = \'document.placement\' and "subject_id" = ?',
                 [documentId],
               ),
             ).toEqual([]),

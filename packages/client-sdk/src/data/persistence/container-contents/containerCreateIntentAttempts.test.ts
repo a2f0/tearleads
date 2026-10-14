@@ -9,10 +9,10 @@ test("recording a create intent error stamps the attempt time", async () => {
   try {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     await execSql(
-      `INSERT INTO container_create_intents (
-        id, container_id, parent_container_id, intent_type, sync_status,
+      `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
         created_at, updated_at
-      ) VALUES ('intent-1', 'container-1', 'root', 'container.create',
+      ) VALUES ('intent-1', 'container.create', 'container-1', 'root', 'container.create',
         'pending', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
     );
 
@@ -47,10 +47,10 @@ test("create intent settlement reports overtaking and generation races", async (
   try {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     await execSql(
-      `INSERT INTO container_create_intents (
-        id, container_id, parent_container_id, intent_type, sync_status,
+      `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
         created_at, updated_at
-      ) VALUES ('intent-1', 'container-1', 'root', 'container.create',
+      ) VALUES ('intent-1', 'container.create', 'container-1', 'root', 'container.create',
         'pending', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
     );
     const settlement = {

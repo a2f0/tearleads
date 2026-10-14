@@ -10,15 +10,15 @@ sync. A failed local commit publishes nothing. The preferred container and conte
 key epoch remain unchanged.
 
 Additional link targets live in `document_intent_link_targets`, keyed by the
-existing document move intent's revision. Sharing that revision gives additions
-the same protections as moves: stale discovery cannot replace pending placement,
-and an older response cannot settle a newer action. An explicit `document.link`
-discriminator distinguishes additive edits from coalesced round-trip moves.
-Multiple additions coalesce.
-Ordinary moves retain them; a replace move supersedes prior additions.
-Unlink records a removal under a new revision and cancels any queued addition for
-that target. A partially successful replay cannot resurrect the removed link.
-Replay reads the parent and its targets in one serialized transaction.
+revision of the document's placement intent in `local_intents`. Sharing that
+revision gives additions the same protections as moves: stale discovery cannot
+replace pending placement, and an older response cannot settle a newer action.
+An explicit `document.link` discriminator distinguishes additive edits from
+coalesced round-trip moves. Multiple additions coalesce. Ordinary moves retain
+them; a replace move supersedes prior additions. Unlink records a removal under
+a new revision and cancels any queued addition for that target. A partially
+successful replay cannot resurrect the removed link. Replay reads the parent and
+its targets in one serialized transaction.
 
 Replay uses current, verified writer projections to submit signed link mutations.
 It adds only explicitly queued targets, preserves unrelated remote links, and

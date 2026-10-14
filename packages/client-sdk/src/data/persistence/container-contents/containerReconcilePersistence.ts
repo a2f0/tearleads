@@ -1,9 +1,7 @@
 import { ensureDocumentTables } from "../../sqlite/documentPersistence";
 import {
-  containerCreateIntentTables,
-  containerMoveIntentTables,
   documentContainerProjectionTables,
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
   documentProjectionTables,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
@@ -41,7 +39,7 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
       const updatedAt = input.updatedAt ?? new Date().toISOString();
       await ensureSqlTables(lockedExecSql, [
         ...documentContainerProjectionTables,
-        ...documentMoveIntentTables,
+        ...documentPlacementIntentTables,
         ...documentProjectionTables,
       ]);
       if (input.stillCurrent?.() === false) {
@@ -76,10 +74,8 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = input.updatedAt ?? new Date().toISOString();
       await ensureSqlTables(lockedExecSql, [
-        ...containerCreateIntentTables,
-        ...containerMoveIntentTables,
         ...documentContainerProjectionTables,
-        ...documentMoveIntentTables,
+        ...documentPlacementIntentTables,
         ...documentProjectionTables,
       ]);
       await ensureContainerTables(lockedExecSql);
@@ -127,10 +123,8 @@ export const containerReconcilePersistence: ContainerReconcilePersistence = {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const updatedAt = input.updatedAt ?? new Date().toISOString();
       await ensureSqlTables(lockedExecSql, [
-        ...containerCreateIntentTables,
-        ...containerMoveIntentTables,
         ...documentContainerProjectionTables,
-        ...documentMoveIntentTables,
+        ...documentPlacementIntentTables,
         ...documentProjectionTables,
       ]);
       await ensureContainerTables(lockedExecSql);

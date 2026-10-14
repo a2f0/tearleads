@@ -25,7 +25,7 @@ test("a generation change while document move intents load abandons replacement 
     if (
       blockPendingList &&
       sql.toLowerCase().includes("select") &&
-      sql.includes("document_move_intents") &&
+      sql.includes("local_intents") &&
       sql.toLowerCase().includes("order by")
     ) {
       pendingListStarted = true;
@@ -156,7 +156,7 @@ test("a replacement executor gets its own denied move replay", async () => {
     });
 
     const rows = await replacementDatabase.execSql(
-      "SELECT sync_status AS syncStatus FROM document_move_intents",
+      "SELECT sync_status AS syncStatus FROM local_intents WHERE lane = 'document.placement'",
     );
     expect(rows).toEqual([{ syncStatus: "blocked" }]);
   } finally {
@@ -172,10 +172,7 @@ test("a generation change at error commit cannot park a document move", async ()
   let current = true;
   const guardedExecSql = (async (sql, bind, options) => {
     const rows = await database.execSql(sql, bind, options);
-    if (
-      sql.toLowerCase().includes("update") &&
-      sql.includes("document_move_intents")
-    ) {
+    if (sql.toLowerCase().includes("update") && sql.includes("local_intents")) {
       current = false;
     }
     return rows;
@@ -208,7 +205,7 @@ test("a generation change at error commit cannot park a document move", async ()
 
     const rows = await database.execSql(
       `SELECT sync_status AS syncStatus, last_error AS lastError
-       FROM document_move_intents`,
+       FROM local_intents WHERE lane = 'document.placement'`,
     );
     expect(rows).toEqual([{ lastError: null, syncStatus: "pending" }]);
   } finally {

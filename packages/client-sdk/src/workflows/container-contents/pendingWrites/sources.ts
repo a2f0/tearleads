@@ -1,3 +1,4 @@
+import { LOCAL_INTENT_LANES } from "../../../data/sqlite/schema";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   getContainerDisplayNameSql,
@@ -208,24 +209,25 @@ const PENDING_WRITE_SOURCE_SQL = `
   SELECT
     'container' AS object_kind,
     NULL AS namespace,
-    intent.container_id AS local_id,
+    intent.subject_id AS local_id,
     COALESCE(intent.remote_container_id, CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END) AS remote_id,
     ${CONTAINER_DISPLAY_NAME_SQL} AS name,
-    intent.container_id AS container_id,
+    intent.subject_id AS container_id,
     NULLIF(container.organization_id, '') AS organization_id,
     'create' AS operation_kind,
     1 AS operation_count,
     0 AS byte_length,
     intent.created_at AS created_at,
     intent.updated_at AS updated_at,
-    intent.parent_container_id AS target_container_id,
+    intent.target_container_id AS target_container_id,
     'pending' AS operation_status,
     intent.last_error AS last_error,
     intent.last_attempted_at AS last_attempted_at,
     'always' AS inclusion
-  FROM container_create_intents intent
-  LEFT JOIN containers container ON container.id = intent.container_id
-  WHERE intent.intent_type = 'container.create'
+  FROM local_intents intent
+  LEFT JOIN containers container ON container.id = intent.subject_id
+  WHERE intent.lane = '${LOCAL_INTENT_LANES.containerCreate}'
+    AND intent.intent_type = 'container.create'
     AND intent.sync_status = 'pending'
 
   UNION ALL
@@ -233,24 +235,25 @@ const PENDING_WRITE_SOURCE_SQL = `
   SELECT
     'container' AS object_kind,
     NULL AS namespace,
-    intent.container_id AS local_id,
+    intent.subject_id AS local_id,
     CASE WHEN container.server_created_at IS NULL THEN NULL ELSE container.id END AS remote_id,
     ${CONTAINER_DISPLAY_NAME_SQL} AS name,
-    intent.container_id AS container_id,
+    intent.subject_id AS container_id,
     NULLIF(container.organization_id, '') AS organization_id,
     'move' AS operation_kind,
     1 AS operation_count,
     0 AS byte_length,
     intent.created_at AS created_at,
     intent.updated_at AS updated_at,
-    intent.parent_container_id AS target_container_id,
+    intent.target_container_id AS target_container_id,
     CASE WHEN intent.sync_status = 'blocked' THEN 'blocked' ELSE 'pending' END AS operation_status,
     intent.last_error AS last_error,
     intent.last_attempted_at AS last_attempted_at,
     'always' AS inclusion
-  FROM container_move_intents intent
-  LEFT JOIN containers container ON container.id = intent.container_id
-  WHERE intent.intent_type = 'container.move'
+  FROM local_intents intent
+  LEFT JOIN containers container ON container.id = intent.subject_id
+  WHERE intent.lane = '${LOCAL_INTENT_LANES.containerMove}'
+    AND intent.intent_type = 'container.move'
 
   UNION ALL
 
@@ -258,7 +261,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     'document' AS object_kind,
     NULL AS namespace,
     intent.local_id AS local_id,
-    intent.document_id AS remote_id,
+    intent.subject_id AS remote_id,
     projection.title AS name,
     COALESCE(projection.container_id, intent.target_container_id) AS container_id,
     ${DOCUMENT_ORGANIZATION_SQL} AS organization_id,
@@ -272,7 +275,7 @@ const PENDING_WRITE_SOURCE_SQL = `
     COALESCE(NULLIF(intent.last_error, ''), stored.sync_failure_message) AS last_error,
     COALESCE(intent.last_attempted_at, stored.sync_failure_attempted_at) AS last_attempted_at,
     'always' AS inclusion
-  FROM document_move_intents intent
+  FROM local_intents intent
   LEFT JOIN documents stored
     ON stored.app_kind = 'documents'
     AND stored.local_id = intent.local_id
@@ -280,7 +283,8 @@ const PENDING_WRITE_SOURCE_SQL = `
     ON projection.local_id = intent.local_id
   LEFT JOIN containers container
     ON container.id = COALESCE(projection.container_id, intent.target_container_id)
-  WHERE intent.intent_type IN ('document.move', 'document.link')
+  WHERE intent.lane = '${LOCAL_INTENT_LANES.documentPlacement}'
+    AND intent.intent_type IN ('document.move', 'document.link')
 
   UNION ALL
 

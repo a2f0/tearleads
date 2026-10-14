@@ -1,3 +1,4 @@
+import { LOCAL_INTENT_LANES } from "../../../data/sqlite/schema";
 import { getOrphanedDocumentWhereSql } from "../orphanedDocumentSql";
 import { hydratedProjectionSql } from "./hydrationSql";
 import type { ContainerItemSort } from "./types";
@@ -170,12 +171,13 @@ export function getContainerContentsContainerItemsBaseSql(
     ),
     pending_container_create_intents AS (
       SELECT
-        container_id,
+        subject_id AS container_id,
         MAX(last_error) AS last_error
-      FROM container_create_intents
-      WHERE intent_type = 'container.create'
+      FROM local_intents
+      WHERE lane = '${LOCAL_INTENT_LANES.containerCreate}'
+        AND intent_type = 'container.create'
         AND sync_status = 'pending'
-      GROUP BY container_id
+      GROUP BY subject_id
     ),
     container_items AS (
       SELECT

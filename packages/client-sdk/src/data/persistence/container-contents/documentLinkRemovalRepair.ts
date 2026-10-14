@@ -2,13 +2,17 @@ import { and, asc, eq, inArray, or } from "drizzle-orm";
 import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   documentContainerProjection,
-  documentMoveIntents,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   DOCUMENT_LINK_INTENT_TYPE,
   DOCUMENT_MOVE_INTENT_TYPE,
 } from "./documentMoveIntentPersistence";
+
+const placementLane = inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement);
 
 function loadAffectedIntents(
   tx: ClientSQLiteTransactionScope,
@@ -17,10 +21,11 @@ function loadAffectedIntents(
 ) {
   return tx
     .select()
-    .from(documentMoveIntents)
+    .from(localIntents)
     .where(
       and(
-        inArray(documentMoveIntents.intentType, [
+        placementLane,
+        inArray(localIntents.intentType, [
           DOCUMENT_LINK_INTENT_TYPE,
           DOCUMENT_MOVE_INTENT_TYPE,
         ]),
@@ -28,11 +33,11 @@ function loadAffectedIntents(
           and(
             includePrimaryMoves
               ? undefined
-              : eq(documentMoveIntents.intentType, DOCUMENT_LINK_INTENT_TYPE),
-            inArray(documentMoveIntents.targetContainerId, containerIds),
+              : eq(localIntents.intentType, DOCUMENT_LINK_INTENT_TYPE),
+            inArray(localIntents.targetContainerId, containerIds),
           ),
           inArray(
-            documentMoveIntents.id,
+            localIntents.id,
             tx
               .select({ id: documentIntentLinkTargets.intentId })
               .from(documentIntentLinkTargets)
@@ -47,7 +52,7 @@ function loadAffectedIntents(
 
 async function survivingIntentTarget(input: {
   tx: ClientSQLiteTransactionScope;
-  intent: typeof documentMoveIntents.$inferSelect;
+  intent: typeof localIntents.$inferSelect;
   intentType: string;
   removed: ReadonlySet<string>;
   targets: ReadonlyArray<typeof documentIntentLinkTargets.$inferSelect>;
@@ -61,7 +66,7 @@ async function survivingIntentTarget(input: {
   const [remaining] = await tx
     .select()
     .from(documentContainerProjection)
-    .where(eq(documentContainerProjection.documentId, intent.documentId))
+    .where(eq(documentContainerProjection.documentId, intent.subjectId))
     .orderBy(asc(documentContainerProjection.containerId))
     .limit(1);
   return (
@@ -109,8 +114,8 @@ async function repairRemovedLinks(input: {
       .run();
     if (intentType === DOCUMENT_LINK_INTENT_TYPE && targets.length === 0) {
       await tx
-        .delete(documentMoveIntents)
-        .where(eq(documentMoveIntents.documentId, intent.documentId))
+        .delete(localIntents)
+        .where(and(placementLane, eq(localIntents.subjectId, intent.subjectId)))
         .run();
       continue;
     }
@@ -132,7 +137,7 @@ async function repairRemovedLinks(input: {
         .run();
     const unavailable = removed.has(targetContainerId);
     await tx
-      .update(documentMoveIntents)
+      .update(localIntents)
       .set({
         id,
         intentType,
@@ -150,7 +155,7 @@ async function repairRemovedLinks(input: {
         syncStatus: unavailable ? "unavailable" : "pending",
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(documentMoveIntents.documentId, intent.documentId))
+      .where(and(placementLane, eq(localIntents.subjectId, intent.subjectId)))
       .run();
   }
 }
@@ -189,7 +194,7 @@ export async function refreshPlacementIntentsAfterRemoval(input: {
       .where(eq(documentIntentLinkTargets.intentId, intent.id ?? ""))
       .run();
     await tx
-      .update(documentMoveIntents)
+      .update(localIntents)
       .set({
         id,
         syncStatus:
@@ -200,7 +205,7 @@ export async function refreshPlacementIntentsAfterRemoval(input: {
           intent.syncStatus === "unavailable" ? null : intent.lastAttemptedAt,
         updatedAt: new Date().toISOString(),
       })
-      .where(eq(documentMoveIntents.id, intent.id ?? ""))
+      .where(eq(localIntents.id, intent.id ?? ""))
       .run();
   }
 }

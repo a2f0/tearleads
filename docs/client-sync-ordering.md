@@ -56,6 +56,20 @@ remotely before a later move targets it. Moves run before document lanes so
 document creates, document Loro updates, and blob attachment binds derive their
 writer projections from the latest synced container path.
 
+These intents wait in one durable local outbox, the `local_intents` table. Each
+row belongs to a lane: `container.create`, `container.move`, or
+`document.placement` (a document move or link, which coalesce into one intent
+per document). A lane holds at most one intent per subject, so a container can
+carry a create and a move at once. Every lane shares one replay contract: the
+row id is a revision token rewritten on each enqueue or repair, settlement
+compares the revision and `updated_at` before acting, and replay runs in
+`created_at` order. A placement's extra link targets live in
+`document_intent_link_targets`, keyed by that revision. Remote reset deletes the
+scoped intents of every lane and re-queues creates for surviving containers.
+The principal mutation journal and organization provisioning attempts are not
+lanes: they hold signed or serialized requests that must survive a reset, so
+they keep their own tables.
+
 When a move is accepted, the lane updates the local snapshot, requests document
 sync for the domain, and requests a structural follow-up. Because that follow-up
 is structural, it drains before the requested document lanes.

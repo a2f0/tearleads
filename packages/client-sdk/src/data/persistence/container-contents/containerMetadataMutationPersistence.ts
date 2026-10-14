@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, or } from "drizzle-orm";
 import {
   assertHeldContainerBinding,
   heldContainerBinding,
@@ -10,9 +10,10 @@ import {
 } from "../../sqlite/documentPersistence";
 import { clearDocumentSyncFailureInTransaction } from "../../sqlite/documentSyncFailurePersistence";
 import {
-  containerCreateIntents,
-  containerMoveIntents,
   documentPendingUpdates,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -185,24 +186,24 @@ async function hasPendingStructuralIntent(
   tx: ClientSQLiteTransactionScope,
   containerId: string,
 ): Promise<boolean> {
-  const pendingCreates = await tx
-    .select({ id: containerCreateIntents.id })
-    .from(containerCreateIntents)
+  // A pending create or any surviving (unsynced) move of this container.
+  const structural = await tx
+    .select({ id: localIntents.id })
+    .from(localIntents)
     .where(
       and(
-        eq(containerCreateIntents.containerId, containerId),
-        eq(containerCreateIntents.syncStatus, "pending"),
+        eq(localIntents.subjectId, containerId),
+        or(
+          and(
+            inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate),
+            eq(localIntents.syncStatus, "pending"),
+          ),
+          inLocalIntentLane(LOCAL_INTENT_LANES.containerMove),
+        ),
       ),
     )
     .limit(1);
-  if (pendingCreates.length > 0) return true;
-
-  const unsyncedMoves = await tx
-    .select({ id: containerMoveIntents.id })
-    .from(containerMoveIntents)
-    .where(eq(containerMoveIntents.containerId, containerId))
-    .limit(1);
-  return unsyncedMoves.length > 0;
+  return structural.length > 0;
 }
 
 async function enqueuePendingUpdate(

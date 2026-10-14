@@ -15,7 +15,7 @@ const readStatus = async (
 ) =>
   (
     await execSql(
-      "SELECT sync_status AS syncStatus FROM document_move_intents WHERE document_id = 'remote'",
+      "SELECT sync_status AS syncStatus FROM local_intents WHERE lane = 'document.placement' AND subject_id = 'remote'",
     )
   ).map((row) => Reflect.get(row, "syncStatus"));
 

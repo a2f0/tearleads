@@ -4,8 +4,11 @@ import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentS
 import {
   documentContainerProjection,
   documentContainerProjectionTables,
-  documentMoveIntents,
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  LOCAL_INTENT_SUBJECT,
+  localIntents,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -41,7 +44,7 @@ type LinkTarget = { containerId: string; operation: "link" | "unlink" };
 
 async function loadSurvivingMoveTarget(
   execSql: ExecSql,
-  previous: typeof documentMoveIntents.$inferSelect | undefined,
+  previous: typeof localIntents.$inferSelect | undefined,
 ): Promise<string | null> {
   if (previous?.intentType !== "document.move") return null;
   const [link] = await getClientSQLitePersistenceRuntime(execSql)
@@ -49,7 +52,7 @@ async function loadSurvivingMoveTarget(
     .from(documentContainerProjection)
     .where(
       and(
-        eq(documentContainerProjection.documentId, previous.documentId),
+        eq(documentContainerProjection.documentId, previous.subjectId),
         eq(documentContainerProjection.containerId, previous.targetContainerId),
       ),
     )
@@ -96,7 +99,7 @@ function resolveTargets(
 
 function resolvePlacement(
   input: PlacementIntentInput,
-  previous: typeof documentMoveIntents.$inferSelect | undefined,
+  previous: typeof localIntents.$inferSelect | undefined,
   operation: "move" | "link" | "unlink",
 ) {
   if (operation === "unlink") {
@@ -139,14 +142,19 @@ async function enqueuePlacementIntent(
   operation: "move" | "link" | "unlink",
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-    await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+    await ensureSqlTables(lockedExecSql, documentPlacementIntentTables);
     await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);
     await runtime.transaction(async (tx) => {
       const [previous] = await tx
         .select()
-        .from(documentMoveIntents)
-        .where(eq(documentMoveIntents.documentId, input.documentId))
+        .from(localIntents)
+        .where(
+          and(
+            inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+            eq(localIntents.subjectId, input.documentId),
+          ),
+        )
         .limit(1);
       const previousTargets = previous?.id
         ? await loadDocumentIntentLinkTargets(lockedExecSql, previous.id)
@@ -166,7 +174,8 @@ async function enqueuePlacementIntent(
       // user additions may be replayed, never stale server-discovered links.
       const next = {
         id,
-        documentId: input.documentId,
+        lane: LOCAL_INTENT_LANES.documentPlacement,
+        subjectId: input.documentId,
         localId: input.localId,
         intentType:
           operation === "move" || previous?.intentType === "document.move"
@@ -179,10 +188,10 @@ async function enqueuePlacementIntent(
         ...resolvePlacement(input, previous, operation),
       };
       await tx
-        .insert(documentMoveIntents)
+        .insert(localIntents)
         .values({ ...next, createdAt: updatedAt })
         .onConflictDoUpdate({
-          target: documentMoveIntents.documentId,
+          target: LOCAL_INTENT_SUBJECT,
           set: next,
         })
         .run();

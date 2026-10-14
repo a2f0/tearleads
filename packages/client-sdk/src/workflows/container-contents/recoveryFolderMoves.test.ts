@@ -41,7 +41,9 @@ test("recovery distinguishes a queued folder move from an inaccessible shared pa
         currentOrganizationId: "other",
       }),
     ).toEqual([]);
-    await execSql("UPDATE container_move_intents SET sync_status = 'blocked'");
+    await execSql(
+      "UPDATE local_intents SET sync_status = 'blocked' WHERE lane = 'container.move'",
+    );
     expect(await queries.listRecoveryFolderMoveIds(scope)).toEqual(["moving"]);
     await saveTestSyncedContainer({
       execSql,

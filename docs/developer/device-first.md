@@ -337,7 +337,7 @@ container happens in the background.
 Ordinary container write:
 
 1. The mini-app calls `open().containerStore.moveContainer(...)`.
-2. The store persists the change/intent and updates subscribers.
+2. The store persists the change and its `local_intents` row, then notifies.
 3. The promise settles without waiting for HTTP; the sync lane converges later.
 
 ## Scope boundaries

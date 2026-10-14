@@ -336,7 +336,7 @@ test("replay waits for an enqueue transaction's parent and targets to commit tog
         bind,
         rowMode ? { rowMode } : undefined,
       );
-      if (sql.startsWith('insert into "document_move_intents"')) {
+      if (sql.startsWith('insert into "local_intents"')) {
         parentWritten.resolve();
         await releaseWriter.promise;
       }

@@ -25,10 +25,10 @@ async function settleAdoptedCreate(input: {
     await sqlContainerContentsPersistence.ensureSchema(execSql);
     const requeued = input.requeuedParent !== undefined;
     await execSql(
-      `INSERT INTO container_create_intents (
-        id, container_id, parent_container_id, intent_type, sync_status,
+      `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
         created_at, updated_at
-      ) VALUES (?, 'container-1', ?, 'container.create', 'pending', ?, ?)`,
+      ) VALUES (?, 'container.create', 'container-1', ?, 'container.create', 'pending', ?, ?)`,
       [
         requeued ? "intent-2" : "intent-1",
         input.requeuedParent ?? input.desiredParent,
@@ -38,11 +38,11 @@ async function settleAdoptedCreate(input: {
     );
     if (input.queuedMove) {
       await execSql(
-        `INSERT INTO container_move_intents (
-          id, container_id, parent_container_id, previous_parent_container_id,
+        `INSERT INTO local_intents (
+          id, lane, subject_id, target_container_id, source_container_id,
           intent_type, sync_status, created_at, updated_at
-        ) VALUES ('move-1', 'container-1', ?, ?, 'container.move', 'pending',
-          ?, ?)`,
+        ) VALUES ('move-1', 'container.move', 'container-1', ?, ?,
+          'container.move', 'pending', ?, ?)`,
         [input.queuedMove.to, input.queuedMove.from, QUEUED_AT, QUEUED_AT],
       );
     }

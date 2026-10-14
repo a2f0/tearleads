@@ -25,10 +25,8 @@ import {
   documentOrphanBlobReclaims,
   documentOrphanBlobReclaimTable,
 } from "./documentOrphanBlobReclaims";
-import {
-  documentIntentLinkTargets,
-  documentMoveIntents,
-} from "./documentPlacementIntentSchema";
+import { documentIntentLinkTargets } from "./documentPlacementIntentSchema";
+import { localIntents } from "./localIntentSchema";
 import * as organizationDataUsage from "./organizationDataUsageSchema";
 import { organizationFounders } from "./organizationFounderSchema";
 import * as provisioningAttempt from "./organizationProvisioningAttemptSchema";
@@ -80,7 +78,13 @@ export {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
 } from "./documentAttachmentSchema";
-export { documentMoveIntents } from "./documentPlacementIntentSchema";
+export {
+  inContainerIntentLanes,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  LOCAL_INTENT_SUBJECT,
+  localIntents,
+} from "./localIntentSchema";
 export {
   principalPolicies,
   principalPolicyBundleHistory,
@@ -479,108 +483,6 @@ export const documentProjectionText = sqliteTable(
 );
 
 /**
- * Offline create queue for containers.
- *
- * A user can create a local container before the API has assigned all remote
- * state for the container and its metadata document. This table keeps the sync
- * intent until container-create sync either records the remote ids or stores an
- * error for retry.
- *
- * Columns:
- * - `id`: Client-generated intent id.
- * - `containerId`: Local container id created optimistically.
- * - `parentContainerId`: Parent container id used when the intent is sent.
- * - `intentType`: Intent discriminator, currently `container.create`.
- * - `syncStatus`: Current sync state, currently `pending` or `synced`.
- * - `remoteContainerId`: Remote container id recorded after successful sync.
- * - `remoteMetadataDocumentId`: Remote metadata document id recorded after
- *   successful sync.
- * - `remoteMetadataAccessStateHash`: Access state hash for the synced metadata
- *   document.
- * - `lastError`: Last sync error message for retry/debug display.
- * - `createdAt`: Intent creation timestamp used for FIFO sync.
- * - `updatedAt`: Local timestamp for the latest status/error change.
- *
- * Indexes:
- * - `id` is the primary key.
- * - `containerId` is unique so each local container has one create intent.
- * - `(syncStatus, createdAt)` supports listing pending intents in creation
- *   order.
- */
-export const containerCreateIntents = sqliteTable(
-  "container_create_intents",
-  {
-    id: text("id"),
-    containerId: text("container_id").notNull().unique(),
-    parentContainerId: text("parent_container_id").notNull(),
-    intentType: text("intent_type").notNull(),
-    syncStatus: text("sync_status").notNull(),
-    remoteContainerId: text("remote_container_id"),
-    remoteMetadataDocumentId: text("remote_metadata_document_id"),
-    remoteMetadataAccessStateHash: text("remote_metadata_access_state_hash"),
-    lastError: text("last_error"),
-    lastAttemptedAt: text("last_attempted_at"),
-    createdAt: text("created_at").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.id] }),
-    index("container_create_intents_status_created_idx").on(
-      table.syncStatus,
-      table.createdAt,
-    ),
-  ],
-);
-
-/**
- * Offline move queue for synced containers.
- *
- * A user can move a container whose server identity is already known while the
- * API or writer context is unavailable. This table stores only the desired
- * final parent and replay diagnostics; the signed move request is rebuilt from
- * current writer projections when sync resumes.
- *
- * Columns:
- * - `id`: Client-generated intent id.
- * - `containerId`: Synced container moved optimistically in the local tree.
- * - `parentContainerId`: Desired final parent container id.
- * - `previousParentContainerId`: Parent observed when the move was queued.
- * - `intentType`: Intent discriminator, currently `container.move`.
- * - `syncStatus`: Current sync state, currently `pending` or `blocked`.
- * - `lastError`: Last sync error message for retry/debug display.
- * - `lastAttemptedAt`: Timestamp of the last replay attempt.
- * - `createdAt`: Intent creation timestamp used for FIFO sync.
- * - `updatedAt`: Local timestamp for the latest target/status/error change.
- *
- * Indexes:
- * - `id` is the primary key.
- * - `containerId` is unique so same-container moves coalesce to one intent.
- * - `(syncStatus, createdAt)` supports listing pending intents in queue order.
- */
-export const containerMoveIntents = sqliteTable(
-  "container_move_intents",
-  {
-    id: text("id"),
-    containerId: text("container_id").notNull().unique(),
-    parentContainerId: text("parent_container_id").notNull(),
-    previousParentContainerId: text("previous_parent_container_id"),
-    intentType: text("intent_type").notNull(),
-    syncStatus: text("sync_status").notNull(),
-    lastError: text("last_error"),
-    lastAttemptedAt: text("last_attempted_at"),
-    createdAt: text("created_at").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.id] }),
-    index("container_move_intents_status_created_idx").on(
-      table.syncStatus,
-      table.createdAt,
-    ),
-  ],
-);
-
-/**
  * Per-lane sync cursors for container data.
  *
  * Container sync is split into lanes, such as a parent-container child lane or
@@ -704,8 +606,12 @@ export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
     defineSqlTableSchema(documentDiscoverySequence),
   ];
 
-export const documentMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(documentMoveIntents),
+export const localIntentTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(localIntents),
+];
+
+export const documentPlacementIntentTables: ReadonlyArray<SqlTableSchema> = [
+  ...localIntentTables,
   defineSqlTableSchema(documentIntentLinkTargets),
 ];
 
@@ -723,14 +629,6 @@ export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
   documentOrphanBlobReclaimTable,
 ];
 
-export const containerCreateIntentTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(containerCreateIntents),
-];
-
-export const containerMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(containerMoveIntents),
-];
-
 export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
   defineSqlTableSchema(containerSyncWatermarks),
   defineSqlTableSchema(containerSyncLaneChecks),
@@ -745,10 +643,8 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...securityIncidentTables,
   ...containerTables,
   ...documentContainerProjectionTables,
-  ...documentMoveIntentTables,
+  ...documentPlacementIntentTables,
   ...documentProjectionTables,
-  ...containerCreateIntentTables,
-  ...containerMoveIntentTables,
   ...containerSyncWatermarkTables,
   ...organizationReadModelTables,
   ...organizationDataUsage.organizationDataUsageTables,
@@ -779,14 +675,12 @@ export const clientSQLiteSchema = {
   securityIncidents,
   ...containerSQLiteSchema,
   documentContainerProjection,
-  documentMoveIntents,
+  localIntents,
   documentIntentLinkTargets,
   documentProjection,
   documentPendingAttachments,
   documentAttachmentBlobProjection,
   documentOrphanBlobReclaims: documentOrphanBlobReclaims,
-  containerCreateIntents,
-  containerMoveIntents,
   containerSyncLaneChecks,
   containerSyncWatermarks,
   ...organizationReadModelSQLiteSchema,

@@ -1,14 +1,10 @@
 import { and, eq, isNotNull } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {
-  containerCreateIntents,
-  containerCreateIntentTables,
-  containerMoveIntents,
-  containerMoveIntentTables,
-  documentMoveIntents,
-  documentMoveIntentTables,
   documents,
   documentTables,
+  localIntents,
+  localIntentTables,
 } from "./schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -71,12 +67,7 @@ export async function recordDocumentSyncFailure(
 export async function hasRecordedTerminalSyncFailures(
   execSql: ExecSql,
 ): Promise<boolean> {
-  await ensureSqlTables(execSql, [
-    ...documentTables,
-    ...containerCreateIntentTables,
-    ...containerMoveIntentTables,
-    ...documentMoveIntentTables,
-  ]);
+  await ensureSqlTables(execSql, [...documentTables, ...localIntentTables]);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const [failure] = await db
     .select({ localId: documents.localId })
@@ -86,28 +77,12 @@ export async function hasRecordedTerminalSyncFailures(
   if (failure) {
     return true;
   }
-  const [createIntent] = await db
-    .select({ id: containerCreateIntents.id })
-    .from(containerCreateIntents)
-    .where(isNotNull(containerCreateIntents.lastError))
+  const [intent] = await db
+    .select({ id: localIntents.id })
+    .from(localIntents)
+    .where(isNotNull(localIntents.lastError))
     .limit(1);
-  if (createIntent) {
-    return true;
-  }
-  const [moveIntent] = await db
-    .select({ id: containerMoveIntents.id })
-    .from(containerMoveIntents)
-    .where(isNotNull(containerMoveIntents.lastError))
-    .limit(1);
-  if (moveIntent) {
-    return true;
-  }
-  const [documentMoveIntent] = await db
-    .select({ id: documentMoveIntents.id })
-    .from(documentMoveIntents)
-    .where(isNotNull(documentMoveIntents.lastError))
-    .limit(1);
-  return documentMoveIntent !== undefined;
+  return intent !== undefined;
 }
 
 /** Clear a scope's recorded failure inside a caller's transaction. */

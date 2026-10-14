@@ -7,8 +7,9 @@ import {
   resetDocumentPendingUpdateRekeyBudget,
 } from "../../data/sqlite/documentPersistence";
 import {
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
   documentTables,
+  LOCAL_INTENT_LANES,
 } from "../../data/sqlite/schema";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
@@ -112,7 +113,7 @@ async function hasQueuedScopeWork(
 ): Promise<boolean> {
   await ensureSqlTables(execSql, [
     ...documentTables,
-    ...documentMoveIntentTables,
+    ...documentPlacementIntentTables,
   ]);
   const rows = await execSql(
     `SELECT 1 AS present
@@ -125,8 +126,10 @@ async function hasQueuedScopeWork(
          WHERE attachment.local_id = ?
        )
        OR EXISTS (
-         SELECT 1 FROM document_move_intents intent
-         WHERE intent.local_id = ? AND intent.intent_type IN ('document.move', 'document.link')
+         SELECT 1 FROM local_intents intent
+         WHERE intent.lane = '${LOCAL_INTENT_LANES.documentPlacement}'
+           AND intent.local_id = ?
+           AND intent.intent_type IN ('document.move', 'document.link')
        )
        OR EXISTS (
          SELECT 1 FROM documents stored

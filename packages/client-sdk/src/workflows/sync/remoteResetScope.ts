@@ -1,15 +1,14 @@
 import { eq } from "drizzle-orm";
 import {
-  containerCreateIntents,
-  containerMoveIntents,
   containerSyncLaneChecks,
   containerSyncWatermarks,
   containers,
   documentContainerProjection,
-  documentMoveIntents,
   documentProjection,
   documents,
   dormantContainerMetadata,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { isRemoteResetSyncCursor } from "./remoteResetCursorScope";
@@ -169,12 +168,20 @@ async function loadSnapshotCounts(input: {
   const { organizationId, tx } = input;
   const containerIdSet = new Set(input.containerIds);
   const documentScopeKeys = new Set(input.documentRows.map(scopeKey));
-  const [principalScope, createRows, moveRows, docMoves] = await Promise.all([
+  const [principalScope, intents] = await Promise.all([
     loadRemoteResetPrincipalScope(tx, organizationId),
-    tx.select().from(containerCreateIntents),
-    tx.select().from(containerMoveIntents),
-    tx.select().from(documentMoveIntents),
+    tx
+      .select({
+        lane: localIntents.lane,
+        localId: localIntents.localId,
+        subjectId: localIntents.subjectId,
+      })
+      .from(localIntents),
   ]);
+  const containerIntentCount = (lane: string) =>
+    intents.filter(
+      (row) => row.lane === lane && containerIdSet.has(row.subjectId),
+    ).length;
   const principalKeys = principalScope.principalKeys;
   const principalKeySet = new Set(principalKeys.map(principalKeyOfRow));
   const scopedContainerIds = new Set(input.containerIds);
@@ -184,16 +191,19 @@ async function loadSnapshotCounts(input: {
   ]);
 
   return {
-    clearedContainerCreateIntentCount: createRows.filter((row) =>
-      containerIdSet.has(row.containerId),
-    ).length,
-    clearedContainerMoveIntentCount: moveRows.filter((row) =>
-      containerIdSet.has(row.containerId),
-    ).length,
-    clearedDocumentMoveIntentCount: docMoves.filter((row) =>
-      documentScopeKeys.has(
-        scopeKey({ appKind: "documents", localId: row.localId }),
-      ),
+    clearedContainerCreateIntentCount: containerIntentCount(
+      LOCAL_INTENT_LANES.containerCreate,
+    ),
+    clearedContainerMoveIntentCount: containerIntentCount(
+      LOCAL_INTENT_LANES.containerMove,
+    ),
+    clearedDocumentMoveIntentCount: intents.filter(
+      (row) =>
+        row.lane === LOCAL_INTENT_LANES.documentPlacement &&
+        row.localId !== null &&
+        documentScopeKeys.has(
+          scopeKey({ appKind: "documents", localId: row.localId }),
+        ),
     ).length,
     clearedPrincipalPolicyCount: principalScope.policyRows.filter((row) =>
       principalKeySet.has(`${row.type}\0${row.id}`),

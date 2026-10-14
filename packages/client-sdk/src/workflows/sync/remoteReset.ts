@@ -21,18 +21,19 @@ import {
 } from "../../data/sqlite/organizationReadModelSchema";
 import {
   clientSqlTables,
-  containerCreateIntents,
   containerHydrationTombstones,
-  containerMoveIntents,
   containers,
   documentAttachmentBlobProjection,
-  documentMoveIntents,
   documentPendingAttachments,
   documentPendingUpdates,
   documentProjection,
   documents,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
+  inContainerIntentLanes,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../data/sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -114,12 +115,13 @@ async function clearScopedContainerRows(
   )) {
     await deleteDocumentPlacementRowsByContainerIds(input.tx, containerBatch);
     await input.tx
-      .delete(containerMoveIntents)
-      .where(inArray(containerMoveIntents.containerId, containerBatch))
-      .run();
-    await input.tx
-      .delete(containerCreateIntents)
-      .where(inArray(containerCreateIntents.containerId, containerBatch))
+      .delete(localIntents)
+      .where(
+        and(
+          inContainerIntentLanes(),
+          inArray(localIntents.subjectId, containerBatch),
+        ),
+      )
       .run();
     await input.tx
       .delete(containerHydrationTombstones)
@@ -141,22 +143,23 @@ async function clearScopedDocumentRows(
     tx,
   });
   for (const localIdBatch of remoteResetBatches(snapshot.documentLocalIds)) {
+    const placementIntents = and(
+      inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+      inArray(localIntents.localId, localIdBatch),
+    );
     await tx
       .delete(documentIntentLinkTargets)
       .where(
         inArray(
           documentIntentLinkTargets.intentId,
           tx
-            .select({ id: documentMoveIntents.id })
-            .from(documentMoveIntents)
-            .where(inArray(documentMoveIntents.localId, localIdBatch)),
+            .select({ id: localIntents.id })
+            .from(localIntents)
+            .where(placementIntents),
         ),
       )
       .run();
-    await tx
-      .delete(documentMoveIntents)
-      .where(inArray(documentMoveIntents.localId, localIdBatch))
-      .run();
+    await tx.delete(localIntents).where(placementIntents).run();
   }
   for (const documentBatch of remoteResetBatches(snapshot.documentRows)) {
     await tx
@@ -309,12 +312,13 @@ async function queueResetContainerCreates(input: {
   if (rows.length === 0) return 0;
   for (const rowBatch of remoteResetBatches(rows)) {
     await input.tx
-      .insert(containerCreateIntents)
+      .insert(localIntents)
       .values(
         rowBatch.map((row) => ({
           id: crypto.randomUUID(),
-          containerId: row.id,
-          parentContainerId: row.parentId,
+          lane: LOCAL_INTENT_LANES.containerCreate,
+          subjectId: row.id,
+          targetContainerId: row.parentId,
           intentType: CONTAINER_CREATE_INTENT_TYPE,
           syncStatus: "pending" as const,
           remoteContainerId: null,
