@@ -242,6 +242,7 @@ async function persistSlotAttachmentFile(
 async function captureReadyAttachWrite(
   state: DocumentStoreState,
   scheduleSync: () => void,
+  callGeneration: AttachmentWriteGeneration | null,
 ) {
   let ready: boolean;
   try {
@@ -251,6 +252,13 @@ async function captureReadyAttachWrite(
     return null;
   }
   if (!ready || !state.doc || !canWriteDocument(state)) return null;
+  // A reset or relink while this call waited owns the replacement document.
+  if (
+    callGeneration &&
+    !isAttachmentWriteGenerationCurrent(state, callGeneration)
+  ) {
+    return null;
+  }
   return captureAttachmentWriteGeneration(state);
 }
 
@@ -258,11 +266,12 @@ async function attachThenSettle(
   state: DocumentStoreState,
   scheduleSync: () => void,
   files: ReadonlyArray<DocumentAttachmentUpload>,
+  callGeneration: AttachmentWriteGeneration | null,
 ) {
   const writeGeneration =
     files.length === 0
       ? null
-      : await captureReadyAttachWrite(state, scheduleSync);
+      : await captureReadyAttachWrite(state, scheduleSync, callGeneration);
   try {
     if (writeGeneration) {
       await persistAttachedFiles(state, files, writeGeneration);
@@ -279,10 +288,14 @@ export async function attachFilesToDocumentStore(
 ) {
   // Join the chain before awaiting readiness so settlements keep call order,
   // and settle even when nothing attaches: a deferred birth's sync hold lifts
-  // only behind every earlier attach, never while one is still staging.
+  // only behind every earlier attach, never while one is still staging. The
+  // caller's document is captured now (a cold store captures once ready).
+  const callGeneration = captureAttachmentWriteGeneration(state);
   state.writeChain = state.writeChain
     .catch(() => undefined)
-    .then(async () => attachThenSettle(state, scheduleSync, files))
+    .then(async () =>
+      attachThenSettle(state, scheduleSync, files, callGeneration),
+    )
     .catch((error: unknown) => {
       reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     });

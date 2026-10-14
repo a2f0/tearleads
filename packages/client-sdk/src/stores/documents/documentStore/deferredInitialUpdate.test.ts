@@ -10,7 +10,10 @@ import {
   PDF_UPLOAD,
   readQueuedUpdates,
 } from "./deferredInitialUpdate.testFixtures";
-import { ensureDocumentStoreReady } from "./initialization";
+import {
+  ensureDocumentStoreReady,
+  relinkDocumentStore,
+} from "./initialization";
 import { setDocumentStructuredFields } from "./mutations";
 import { resetDocumentStore } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
@@ -212,6 +215,53 @@ test("a reset lifts the hold and the reopened store still owes the birth", async
     expect(await hasDeferredTailScopeWork(execSql, SCOPE(state.localId))).toBe(
       true,
     );
+  } finally {
+    close();
+  }
+});
+
+test("a relink while an attach waits keeps its files off the relinked document", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "deferred-birth-relink-while-queued",
+  );
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const state = await openPdfStore({
+      blobStore: createMemoryBlobStore(),
+      deferInitialUpdate: true,
+      execSql,
+      localId: "relinked-pdf",
+    });
+    // An earlier write still holds the chain while the caller attaches.
+    let releaseChain: () => void = () => undefined;
+    state.writeChain = new Promise<void>((resolve) => {
+      releaseChain = resolve;
+    });
+    const attach = attachFilesToDocumentStore(state, noopSchedule, [
+      PDF_UPLOAD,
+    ]);
+    await relinkDocumentStore(
+      state,
+      {
+        accessEpoch: 1,
+        containerId: "container",
+        documentId: "relinked-document",
+        localId: state.localId,
+      },
+      noopSchedule,
+    );
+    expect(state.record?.documentId).toBe("relinked-document");
+
+    releaseChain();
+    await attach;
+
+    expect(await readQueuedUpdates(state)).toMatchObject({
+      attachmentNames: [],
+      documentKind: "pdf",
+      rowCount: 1,
+    });
+    expect(state.pendingAttachments).toEqual([]);
+    expect(state.deferInitialUpdate).toBe(false);
   } finally {
     close();
   }
