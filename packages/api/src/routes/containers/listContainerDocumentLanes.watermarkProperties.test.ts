@@ -11,6 +11,7 @@ import { toFingerprint } from "@tearleads/crypto";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { readContainerDocumentLaneResults } from "../../../test/helpers/containerDocumentLaneQuery";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import {
   discoveryTimestamp,
@@ -106,18 +107,30 @@ async function requestPage(input: {
   readonly token: string;
   readonly watermark: SyncWatermark | null;
 }): Promise<DocumentPage> {
-  const searchParams = new URLSearchParams({ limit: String(input.limit) });
-  if (input.watermark) {
-    searchParams.set("watermarkId", input.watermark.id);
-    searchParams.set("watermarkUpdatedAt", input.watermark.updatedAt);
-  }
   const response = await (input.app ?? routeApp).request(
-    `/containers/${input.containerId}/documents?${searchParams}`,
-    { headers: { Authorization: `Bearer ${input.token}` } },
+    "/containers/documents/query",
+    {
+      body: JSON.stringify({
+        lanes: [
+          {
+            containerId: input.containerId,
+            laneId: "lane-0",
+            limit: input.limit,
+            watermark: input.watermark,
+          },
+        ],
+      }),
+      headers: {
+        Authorization: `Bearer ${input.token}`,
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    },
   );
 
-  expect(response.status).toBe(200);
-  return response.json() as Promise<DocumentPage>;
+  const [result] = await readContainerDocumentLaneResults(response);
+  if (!result || !("page" in result)) throw new Error("Expected a listed lane");
+  return result.page;
 }
 
 test("document discovery watermarks exhaust every mixed change exactly once", async () => {

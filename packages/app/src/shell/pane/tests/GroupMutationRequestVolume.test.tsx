@@ -116,7 +116,7 @@ test("group creation and adding a peer have separate request budgets", async () 
             group === "first" ? 3 : 0,
           "POST /documents/:documentId/sync": group === "first" ? 3 : 0,
           "POST /containers/parent-lanes/query": group === "first" ? 2 : 0,
-          "GET /containers/:containerId/documents": group === "first" ? 1 : 0,
+          "POST /containers/documents/query": group === "first" ? 1 : 0,
           "GET /organizations/:organizationId/billing":
             group === "first" ? 1 : 0,
           "GET /organizations/:organizationId/groups/:groupId/members": 1,

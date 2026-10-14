@@ -319,69 +319,6 @@ testApiClient(
 );
 
 testApiClient(
-  "coalesces in-flight container document lists without caching settled responses",
-  async () => {
-    const calls: CapturedHttpCall[] = [];
-    const firstDocumentsRequestStarted = createDeferred<void>();
-    const finishDocumentsRequest = createDeferred<void>();
-    const listContainerDocumentsResponse = {
-      hasMore: false,
-      items: [],
-      nextWatermark: null,
-      tombstones: [],
-    };
-
-    server.use(
-      http.get(
-        `${apiBaseUrl}/containers/:containerId/documents`,
-        async ({ request }) => {
-          calls.push(await captureHttpCall(request));
-          if (
-            calls.filter((call) => call.url.includes("/documents")).length === 1
-          ) {
-            firstDocumentsRequestStarted.resolve();
-            await finishDocumentsRequest.promise;
-          }
-          return HttpResponse.json(listContainerDocumentsResponse);
-        },
-      ),
-    );
-
-    const client = new ApiClient(apiBaseUrl);
-    const firstDocumentsRequest = client.listContainerDocuments("container-1");
-    await firstDocumentsRequestStarted.promise;
-    const secondDocumentsRequest = client.listContainerDocuments("container-1");
-    finishDocumentsRequest.resolve();
-    await expect(
-      Promise.all([firstDocumentsRequest, secondDocumentsRequest]),
-    ).resolves.toEqual([
-      listContainerDocumentsResponse,
-      listContainerDocumentsResponse,
-    ]);
-
-    await expect(client.listContainerDocuments("container-1")).resolves.toEqual(
-      listContainerDocumentsResponse,
-    );
-
-    expect(
-      calls.map((call) => ({
-        input: call.url,
-        method: call.method,
-      })),
-    ).toEqual([
-      {
-        input: `${apiBaseUrl}/containers/container-1/documents`,
-        method: "GET",
-      },
-      {
-        input: `${apiBaseUrl}/containers/container-1/documents`,
-        method: "GET",
-      },
-    ]);
-  },
-);
-
-testApiClient(
   "keeps writer projection requests started during failed syncs",
   async () => {
     const calls: CapturedHttpCall[] = [];

@@ -13,7 +13,7 @@ import { createInitialDocumentProbe } from "./initialDocumentProbe";
 import {
   clearPendingDiscoveryRetries,
   isCurrentReconciliationLifecycle,
-  reconcileMarkedContainer,
+  reconcileMarkedContainers,
   sweepKnownContainers,
 } from "./knownContainerSweep";
 import { rearmFailedContainer } from "./laneFailure";
@@ -42,6 +42,23 @@ interface ReconciliationState extends IdleBackfillState {
   } | null;
 }
 
+/**
+ * Queued containers one lane run lists together. Each still verifies and
+ * applies on its own; the bound keeps one run's head verification well
+ * inside the lane watchdog.
+ */
+const RECONCILE_LANE_BATCH_SIZE = 4;
+
+function dequeueContainerBatch(state: ReconciliationState): string[] {
+  const containerIds: string[] = [];
+  while (containerIds.length < RECONCILE_LANE_BATCH_SIZE) {
+    const containerId = state.queue.dequeue();
+    if (!containerId) break;
+    containerIds.push(containerId);
+  }
+  return containerIds;
+}
+
 async function runReconcileLane(
   host: ReconciliationHost,
   state: ReconciliationState,
@@ -51,8 +68,8 @@ async function runReconcileLane(
   }
   const lifecycleGeneration = state.lifecycleGeneration;
 
-  const containerId = state.queue.dequeue();
-  if (!containerId) {
+  const containerIds = dequeueContainerBatch(state);
+  if (containerIds.length === 0) {
     await state.initialDocumentProbe.run();
     scheduleProbeContinuation(host, state);
     return;
@@ -60,31 +77,43 @@ async function runReconcileLane(
   // Double-check at run time: a container may have been discovered (by an
   // explicit refresh or an earlier lane pass) after it was queued. Mark it
   // discovered up front to collapse concurrent re-enqueues into one fetch, but
-  // roll the mark back on failure so a transient error can be retried later.
-  const forceGeneration = state.forcedContainerGenerations.get(containerId);
-  const shouldForce = forceGeneration !== undefined;
-  if (shouldForce || !state.discoveredContainerIds.has(containerId)) {
+  // roll the mark back on failure so a transient error can be retried. Force
+  // generations are read before the batched listing starts.
+  const batch = containerIds.flatMap((containerId) => {
+    const forceGeneration = state.forcedContainerGenerations.get(containerId);
+    if (
+      forceGeneration === undefined &&
+      state.discoveredContainerIds.has(containerId)
+    ) {
+      return [];
+    }
     state.discoveredContainerIds.add(containerId);
-    try {
-      const reconciled = await reconcileMarkedContainer(
-        host,
-        state,
-        containerId,
-        shouldForce,
-      );
-      if (reconciled) {
-        acknowledgeContainerForce(state, containerId, forceGeneration);
-      }
-    } catch (error) {
+    return [{ containerId, forceGeneration }];
+  });
+  const results = await reconcileMarkedContainers(
+    host,
+    state,
+    batch.map(({ containerId, forceGeneration }) => ({
+      containerId,
+      forceDocumentContentPull: forceGeneration !== undefined,
+    })),
+  );
+  let firstError: unknown;
+  results.forEach((result, index) => {
+    const forceGeneration = batch[index]?.forceGeneration;
+    if (result.status === "reconciled") {
+      acknowledgeContainerForce(state, result.containerId, forceGeneration);
+    } else if (result.status === "failed") {
       rearmFailedContainer(
         state,
-        containerId,
+        result.containerId,
         forceGeneration,
         lifecycleGeneration,
       );
-      throw error;
+      firstError ??= result.error;
     }
-  }
+  });
+  if (firstError !== undefined) throw firstError;
 
   // Keep draining: schedule another pass while the queue holds work.
   if (state.queue.size > 0) {

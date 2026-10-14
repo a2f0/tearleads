@@ -124,6 +124,7 @@ export {
   type ListContainersResponse,
   ListContainersResponseSchema,
 } from "./container";
+export type { ListContainerDocumentLanesResponse } from "./containerDocumentLanes";
 export {
   type ContainerCreateWithMetadataDocumentResponse,
   ContainerCreateWithMetadataDocumentResponseSchema,
@@ -163,7 +164,6 @@ export {
   type DocumentEditAttributionSegmentResponse,
   DocumentEditAttributionSegmentResponseSchema,
   isDocumentEditAttributionResponse,
-  isListContainerDocumentsResponse,
   isListDocumentEditAttributionRangesResponse,
   type ListContainerDocumentsResponse,
   ListContainerDocumentsResponseSchema,

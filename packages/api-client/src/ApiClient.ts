@@ -35,7 +35,7 @@ import {
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
   linkDocumentOperation,
-  listContainerDocumentsOperation,
+  listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
   listDocumentAttachmentsOperation,
   listOrganizationGroupMembersOperation,
@@ -78,6 +78,7 @@ import type {
   DocumentPurgeRequest,
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
+  ListContainerDocumentLanesRequest,
   ListContainerParentLanesRequest,
   RegistrationRequest,
   UpdateOrganizationProfileRequest,
@@ -95,7 +96,7 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-  ListContainerDocumentsResponse,
+  ListContainerDocumentLanesResponse,
   ListContainerParentLanesResponse,
   ListDocumentAttachmentsResponse,
   OrganizationDataUsageResponse,
@@ -131,7 +132,7 @@ import {
   cachedRequest,
   dedupedRequest,
   evictWriterProjectionIfSyncChanged,
-  listContainerDocumentsRequestKey,
+  listContainerDocumentLanesRequestKey,
   listContainerParentLanesRequestKey,
 } from "./requestInternals";
 import {
@@ -166,7 +167,7 @@ import {
 } from "./routes/containers/mutations";
 import {
   type ContainerKekLogOptions,
-  containerDocuments,
+  containerDocumentLanes,
   containerKekLog,
   containerParentLanes,
 } from "./routes/containers/reads";
@@ -190,7 +191,6 @@ import {
 } from "./routes/writerProjections";
 import type {
   HttpMethod,
-  ListContainerDocumentsOptions,
   ListDocumentEditAttributionRangesOptions,
   OperationRequestFn,
   OperationRequestResultFn,
@@ -226,9 +226,9 @@ const CONTAINER_ROTATIONS = {
 export class ApiClient {
   private readonly requestRuntime: ApiRequestRuntime;
   private readonly projectionHistory = new ProjectionHistoryTransport();
-  private readonly containerDocumentListRequestsByKey = new Map<
+  private readonly containerDocumentLaneRequestsByKey = new Map<
     string,
-    Promise<ListContainerDocumentsResponse | null>
+    Promise<RequestResult<ListContainerDocumentLanesResponse>>
   >();
   private readonly containerParentLaneRequestsByKey = new Map<
     string,
@@ -288,7 +288,7 @@ export class ApiClient {
   }
   private clearAuthScopedCaches(): void {
     this.projectionHistory.clear();
-    this.containerDocumentListRequestsByKey.clear();
+    this.containerDocumentLaneRequestsByKey.clear();
     this.containerParentLaneRequestsByKey.clear();
     this.documentAttachmentListRequestsByDocumentId.clear();
     this.documentAttributionRequests.clear();
@@ -1635,37 +1635,28 @@ export class ApiClient {
     );
   }
 
-  listContainerDocuments(
-    containerId: string,
-    options?: ListContainerDocumentsOptions,
-  ) {
-    return dedupedRequest(
-      this.containerDocumentListRequestsByKey,
-      listContainerDocumentsRequestKey(containerId, options),
-      () =>
-        this.request<ListContainerDocumentsResponse>(
-          containerDocuments.path(containerId, options),
-          containerDocuments.isResponse,
-          containerDocuments.method,
-          undefined,
-          undefined,
-          listContainerDocumentsOperation,
-        ),
-    );
-  }
-
-  listContainerDocumentsResult(
-    containerId: string,
-    options?: ListContainerDocumentsOptions,
-    requestOptions: RequestResultOptions = {},
-  ): Promise<RequestResult<ListContainerDocumentsResponse>> {
-    return this.requestResult(
-      containerDocuments.path(containerId, options),
-      containerDocuments.isResponse,
-      containerDocuments.method,
-      undefined,
-      requestOptions,
-      listContainerDocumentsOperation,
+  /** Batched document listing; see `containerDocumentLanes.settle`. */
+  async listContainerDocumentLanes(
+    input: ListContainerDocumentLanesRequest,
+    options: Pick<RequestResultOptions, "reportErrors"> = {},
+  ): Promise<ListContainerDocumentLanesResponse | null> {
+    return containerDocumentLanes.settle(
+      await dedupedRequest(
+        this.containerDocumentLaneRequestsByKey,
+        listContainerDocumentLanesRequestKey(input),
+        () =>
+          this.requestResult(
+            containerDocumentLanes.path,
+            (value): value is ListContainerDocumentLanesResponse =>
+              containerDocumentLanes.isResponseForRequest(input, value),
+            containerDocumentLanes.method,
+            JSON.stringify(input),
+            { reportErrors: false },
+            listContainerDocumentLanesOperation,
+          ),
+      ),
+      options.reportErrors ?? true,
+      (message) => this.requestRuntime.reportError(message),
     );
   }
 

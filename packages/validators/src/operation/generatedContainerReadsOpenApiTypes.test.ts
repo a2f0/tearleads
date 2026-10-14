@@ -1,8 +1,11 @@
 import { test } from "bun:test";
-import type { ListContainerParentLanesRequest } from "../request";
+import type {
+  ListContainerDocumentLanesRequest,
+  ListContainerParentLanesRequest,
+} from "../request";
 import type {
   ContainerKekLogResponse,
-  ListContainerDocumentsResponse,
+  ListContainerDocumentLanesResponse,
   ListContainerParentLanesResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
@@ -40,7 +43,9 @@ type NormalizeWireType<Value> = Value extends readonly (infer Item)[]
 type KekLogOperation = operations["containers.kekLog.get"];
 type KekLogResponse =
   KekLogOperation["responses"][200]["content"]["application/json"];
-type DocumentsOperation = operations["containers.documents.list"];
+type DocumentsOperation = operations["containers.documentLanes.query"];
+type DocumentsRequest =
+  DocumentsOperation["requestBody"]["content"]["application/json"];
 type DocumentsResponse =
   DocumentsOperation["responses"][200]["content"]["application/json"];
 type ParentLanesOperation = operations["containers.parentLanes.query"];
@@ -62,15 +67,18 @@ test("generated OpenAPI types match container read contracts", () => {
     >
   >();
   assertType<
+    IsEqual<paths["/containers/documents/query"]["post"], DocumentsOperation>
+  >();
+  assertType<
     IsEqual<
-      paths["/containers/{containerId}/documents"]["get"],
-      DocumentsOperation
+      NormalizeWireType<DocumentsRequest>,
+      NormalizeWireType<ListContainerDocumentLanesRequest>
     >
   >();
   assertType<
     IsAssignable<
       NormalizeWireType<DocumentsResponse>,
-      NormalizeWireType<ListContainerDocumentsResponse>
+      NormalizeWireType<ListContainerDocumentLanesResponse>
     >
   >();
   assertType<

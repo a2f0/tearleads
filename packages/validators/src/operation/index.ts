@@ -97,12 +97,11 @@ export {
   ContainerReadPathParamsSchema,
   getContainerKekLogOperation,
   isGetContainerKekLogOperationResponse,
-  isListContainerDocumentsOperationResponse,
+  isListContainerDocumentLanesOperationRequest,
+  isListContainerDocumentLanesOperationResponse,
   isListContainerParentLanesOperationRequest,
   isListContainerParentLanesOperationResponse,
-  type ListContainerDocumentsQuery,
-  ListContainerDocumentsQuerySchema,
-  listContainerDocumentsOperation,
+  listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
 } from "./containerReads";
 export {

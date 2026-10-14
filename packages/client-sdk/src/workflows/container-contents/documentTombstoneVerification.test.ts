@@ -6,7 +6,10 @@ import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntim
 import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { SecurityIncidentContext } from "../../data/securityIncidents";
 import { discoverContainerDocuments } from "./documentDiscovery";
-import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
+import {
+  laneLister,
+  nullContainerDocumentWatermarks,
+} from "./documentDiscovery.testUtils";
 import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";
 import {
   createContainerDocumentTombstoneVerifier,
@@ -151,7 +154,7 @@ for (const listedContainer of [
       const summaries = await discoverContainerDocuments({
         ...nullContainerDocumentWatermarks,
         containerId: listedContainer,
-        listContainerDocuments: async () => ({
+        listContainerDocumentLanes: laneLister(async () => ({
           hasMore: false,
           nextWatermark: null,
           tombstones: [],
@@ -166,7 +169,7 @@ for (const listedContainer of [
               referencedPrincipals: [],
             },
           ],
-        }),
+        })),
         verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
           harness.fixture.author.organizationId,
           harness.load,
@@ -244,7 +247,7 @@ test("a tampered listing head queues evidence before advancing its watermark", a
       await discoverContainerDocuments({
         ...nullContainerDocumentWatermarks,
         containerId: "attacker",
-        listContainerDocuments: async () => ({
+        listContainerDocumentLanes: laneLister(async () => ({
           hasMore: false,
           nextWatermark: { id: DOCUMENT_ID, updatedAt: at },
           tombstones: [],
@@ -259,7 +262,7 @@ test("a tampered listing head queues evidence before advancing its watermark", a
               referencedPrincipals: [],
             },
           ],
-        }),
+        })),
         verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
           harness.fixture.author.organizationId,
           harness.load,

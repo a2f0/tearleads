@@ -84,8 +84,8 @@
       "bytes": 24037
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1978,
-      "bytes": 62836
+      "lines": 1969,
+      "bytes": 62833
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -256,8 +256,8 @@
       "bytes": 21036
     },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
-      "lines": 1017,
-      "bytes": 30465
+      "lines": 946,
+      "bytes": 28750
     },
     "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
       "lines": 512,
@@ -320,8 +320,8 @@
       "bytes": 18578
     },
     "packages/validators/src/response/response.test.ts": {
-      "lines": 587,
-      "bytes": 17549
+      "lines": 513,
+      "bytes": 15627
     },
     "packages/windowing/README.md": {
       "lines": 465,

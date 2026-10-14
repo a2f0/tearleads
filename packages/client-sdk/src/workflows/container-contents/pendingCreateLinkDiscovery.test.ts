@@ -10,7 +10,10 @@ import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
 } from "./documentDiscovery";
-import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
+import {
+  laneLister,
+  nullContainerDocumentWatermarks,
+} from "./documentDiscovery.testUtils";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
 
 for (const mode of ["single", "all"]) {
@@ -36,7 +39,7 @@ for (const mode of ["single", "all"]) {
       const options: DiscoverContainerDocumentsOptions = {
         ...nullContainerDocumentWatermarks,
         containerId: "shared-container",
-        listContainerDocuments: async () => ({
+        listContainerDocumentLanes: laneLister(async () => ({
           hasMore: false,
           nextWatermark: null,
           tombstones: [],
@@ -49,7 +52,7 @@ for (const mode of ["single", "all"]) {
             linkedContainerIds: ["shared-container"],
             referencedPrincipals: [],
           })),
-        }),
+        })),
         replaceDocumentLinksBatch: (inputs) =>
           links.replaceDocumentLinksBatch(execSql, inputs),
         upsertDiscoveredDocuments: (inputs) =>

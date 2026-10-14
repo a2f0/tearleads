@@ -5,7 +5,10 @@ import {
   type InitialDocumentProbeBatchInput,
 } from "./initialDocumentProbe";
 import { createReconciliationService } from "./service";
-import { createReconciliationTestHost } from "./service.testFixtures";
+import {
+  createReconciliationTestHost,
+  perContainerDiscovery,
+} from "./service.testFixtures";
 
 test("reconciliation reuses a full discovery listing and still fetches incremental lanes for the initial probe", async () => {
   const fullReads: string[] = [];
@@ -14,10 +17,12 @@ test("reconciliation reuses a full discovery listing and still fetches increment
   const service = createReconciliationService(
     createReconciliationTestHost({
       listKnownContainerIds: () => ["full", "incremental"],
-      discoverContainerDocuments: async (id, onFullListing) => {
-        if (id === "full") onFullListing?.(["visible-a"]);
-        return [];
-      },
+      discoverContainerDocuments: perContainerDiscovery(
+        async (id, onFullListing) => {
+          if (id === "full") onFullListing?.(["visible-a"]);
+          return [];
+        },
+      ),
       listContainerDocumentIds: async (id) => {
         fullReads.push(id);
         return ["visible-b"];

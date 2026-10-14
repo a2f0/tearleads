@@ -57,15 +57,16 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
   // Private metadata-root authority now uses bounded directory/Admins reads.
-  // Measured 182 calls and 3.56 MB received; keep eight calls of scheduling room.
-  total: 190,
+  // Measured 181 calls and 3.56 MB received; keep eight calls of scheduling room.
+  total: 189,
   // Preserve the request-byte cap and room for two extra document projections.
   bodyBytes: { request: 380_000, response: 3_900_000 },
   byRequest: {
     "GET /principals/history": 70,
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 18,
-    "GET /containers/:containerId/documents": 10,
+    // Batched discovery: one listing per reconciliation pass (measured 2).
+    "POST /containers/documents/query": 4,
     "GET /containers": 0,
     // Four held descendants re-cite the shared root and publish refresh hints.
     "POST /containers/parent-lanes/query": 11,

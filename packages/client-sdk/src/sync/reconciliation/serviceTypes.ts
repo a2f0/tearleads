@@ -4,6 +4,28 @@ import type { LocalProjectionReconciledDelta } from "../../stores/local-projecti
 import type { InitialDocumentProbeHost } from "./initialDocumentProbe";
 import type { ReconcilePriority } from "./queue";
 
+/** One container a reconciliation pass lists, with its per-lane callbacks. */
+export interface ContainerDiscoveryRequest {
+  readonly containerId: string;
+  readonly onFullListing?:
+    | ((documentIds: ReadonlyArray<string>) => void)
+    | undefined;
+  readonly onPendingDiscovery?: ((delayMs: number) => void) | undefined;
+}
+
+/** A discovered lane: `null` means it was not fully listed or applied nothing. */
+export type ContainerDiscoveryOutcome =
+  | {
+      readonly containerId: string;
+      readonly status: "fulfilled";
+      readonly value: ReadonlyArray<DocumentSummary> | null;
+    }
+  | {
+      readonly containerId: string;
+      readonly reason: unknown;
+      readonly status: "rejected";
+    };
+
 export interface ReconciliationRuntimeStatus {
   dbStatus: string;
   isAuthenticated: boolean;
@@ -24,12 +46,16 @@ export interface ReconciliationHost extends InitialDocumentProbeHost {
   listKnownContainerIds: () => ReadonlyArray<string>;
   /** Known ids eligible after an automatic root-lane discovery hint. */
   listAutomaticRootCatchupContainerIds: () => ReadonlyArray<string>;
-  /** Discover + persist documents; `null` means the lane was not fully listed. */
+  /**
+   * Discover + persist documents for every requested container through one
+   * batched listing. Each lane's outcome is handed to `onOutcome` (awaited)
+   * as soon as it applies, before later lanes apply; every outcome is also
+   * returned.
+   */
   discoverContainerDocuments: (
-    containerId: string,
-    onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined,
-    onPendingDiscovery?: ((delayMs: number) => void) | undefined,
-  ) => Promise<ReadonlyArray<DocumentSummary> | null>;
+    requests: ReadonlyArray<ContainerDiscoveryRequest>,
+    onOutcome: (outcome: ContainerDiscoveryOutcome) => Promise<void>,
+  ) => Promise<ReadonlyArray<ContainerDiscoveryOutcome>>;
   /** Read a container's freshly-persisted summaries+links from SQLite. */
   loadContainerDelta: (
     containerId: string,

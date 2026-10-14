@@ -65,7 +65,7 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /containers/:containerId/writer-projection": 1,
     // Device-first reconciliation re-discovers the active container once after
     // the new document lands so the explorer view reflects it.
-    "GET /containers/:containerId/documents": 1,
+    "POST /containers/documents/query": 1,
   },
 };
 

@@ -5,7 +5,6 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isDocumentEditAttributionResponse,
   isDocumentWriterProjectionResponse,
-  isListContainerDocumentsResponse,
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import invariant from "invariant";
@@ -15,6 +14,7 @@ import {
   coldRematerializeEncryptedDocument,
   createEncryptedColdDocument,
 } from "../../test/helpers/coldSdkRematerialization";
+import { listContainerDocumentPage } from "../../test/helpers/containerDocumentLaneQuery";
 import {
   readContainerParentLanePage,
   requestContainerParentLanes,
@@ -173,16 +173,9 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
       ).toBe(true);
     }
 
-    const documentsResponse = await routeApp.request(
-      `/containers/${root.kekState.containerId}/documents`,
-      { headers: { Authorization: `Bearer ${reader.token}` } },
-    );
-    expect(documentsResponse.status).toBe(200);
-    const listedDocuments: unknown = await documentsResponse.json();
-    invariant(
-      isListContainerDocumentsResponse(listedDocuments),
-      "expected a container document listing",
-    );
+    const listedDocuments = await listContainerDocumentPage(reader.token, {
+      containerId: root.kekState.containerId,
+    });
     expect(listedDocuments.items.map((document) => document.id)).toContain(
       created.documentId,
     );

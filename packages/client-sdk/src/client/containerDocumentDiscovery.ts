@@ -8,56 +8,59 @@ import {
   refuteContainerDocumentTombstoneHolds,
 } from "../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import { discoverContainerDocumentsFromApi } from "../workflows/container-contents/documentDiscovery";
+import { listContainerDocumentLanesFromApi } from "../workflows/container-contents/containerDocumentListing";
 import { createDiscoveredDocumentVerifier } from "../workflows/container-contents/documentDiscoveryEvidence";
+import {
+  type ContainerDocumentDiscoveryLane,
+  type ContainerDocumentDiscoveryOutcome,
+  type ContainerDocumentDiscoveryOutcomeHandler,
+  discoverContainerDocumentLanes,
+} from "../workflows/container-contents/documentDiscoveryLanes";
 import { createContainerDocumentQueriesFromRuntime } from "../workflows/container-contents/documentQueries";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,
 } from "../workflows/container-contents/documentTombstoneEvidence";
-import { createContainerContentsWorkflowRuntime } from "../workflows/container-contents/runtime";
+import {
+  type ContainerContentsWorkflowRuntime,
+  createContainerContentsWorkflowRuntime,
+} from "../workflows/container-contents/runtime";
 import { createRuntimePrincipalPolicyWarmer } from "../workflows/principals/runtimePolicyWarmer";
 import type { InternalRuntime } from "./workflowRuntime";
 
-/** Internal adapter shared by explicit discovery and background reconciliation. */
-export async function discoverContainerDocumentsForRuntime({
-  containerId,
-  onFullListing,
-  onPendingDiscovery,
-  runtimeService,
-}: {
-  containerId: string;
-  onFullListing?: ((documentIds: ReadonlyArray<string>) => void) | undefined;
-  onPendingDiscovery?: ((delayMs: number) => void) | undefined;
-  runtimeService: InternalRuntime;
-}): Promise<ReadonlyArray<DocumentSummary> | null> {
-  const input = runtimeService.workflowInput();
-  if (input.infra.dbStatus !== "ready") {
-    return null;
-  }
-  const runtime = createContainerContentsWorkflowRuntime(input);
-  const evidenceStore = createDocumentDiscoveryEvidenceStore(
-    input.infra.execSql,
-  );
-  // Capture the reset fence before reading scope, so a reset between this read
-  // and listing cannot publish old-organization evidence into its replacement.
-  const generation = await evidenceStore.begin();
-  const stored =
-    await sqlContainerContentsPersistence.loadContainerMetadataState(
-      input.infra.execSql,
-      containerId,
-    );
-  if (!stored) return null;
-  const containerOrganizationId = stored.container.organizationId;
+export type { ContainerDocumentDiscoveryOutcome } from "../workflows/container-contents/documentDiscoveryLanes";
+
+/** One container to discover, with the reconciler's per-lane callbacks. */
+export interface ContainerDocumentDiscoveryRequest {
+  readonly containerId: string;
+  readonly onFullListing?:
+    | ((documentIds: ReadonlyArray<string>) => void)
+    | undefined;
+  readonly onPendingDiscovery?: ((delayMs: number) => void) | undefined;
+}
+
+type ExecSql = ReturnType<InternalRuntime["workflowInput"]>["infra"]["execSql"];
+
+function createDiscoveryLane(input: {
+  readonly containerOrganizationId: string | undefined;
+  readonly evidenceStore: ReturnType<
+    typeof createDocumentDiscoveryEvidenceStore
+  >;
+  readonly execSql: ExecSql;
+  readonly queries: ReturnType<
+    typeof createContainerDocumentQueriesFromRuntime
+  >;
+  readonly request: ContainerDocumentDiscoveryRequest;
+  readonly runtime: ContainerContentsWorkflowRuntime;
+}): ContainerDocumentDiscoveryLane {
+  const { containerOrganizationId, execSql, request, runtime } = input;
   const warmReferencedPrincipalPolicies =
     createRuntimePrincipalPolicyWarmer(runtime);
   const loadHead = createDocumentHeadLinkSetLoader(runtime);
   const loadEpoch = (documentId: string) =>
-    loadLocalDocumentAccessEpoch(input.infra.execSql, documentId);
-  return discoverContainerDocumentsFromApi({
-    ...createContainerDocumentQueriesFromRuntime(runtime),
-    apiClient: runtime.apiClient,
-    beginDocumentDiscovery: async () => generation,
+    loadLocalDocumentAccessEpoch(execSql, documentId);
+  return {
+    ...input.queries,
     cacheReferencedPrincipalPolicies: (references) =>
       containerOrganizationId
         ? warmReferencedPrincipalPolicies({
@@ -65,19 +68,16 @@ export async function discoverContainerDocumentsForRuntime({
             references,
           })
         : Promise.resolve(),
-    containerId,
+    containerId: request.containerId,
     holdContainerDocumentTombstones: (tombstones) =>
-      holdContainerDocumentTombstones(input.infra.execSql, tombstones),
+      holdContainerDocumentTombstones(execSql, tombstones),
     listHeldContainerDocumentTombstones: (containerIds) =>
-      listRetryableHeldContainerDocumentTombstones(
-        input.infra.execSql,
-        containerIds,
-      ),
+      listRetryableHeldContainerDocumentTombstones(execSql, containerIds),
     listKnownContainerDocumentPlacements: (placements) =>
-      listKnownContainerDocumentPlacements(input.infra.execSql, placements),
-    onFullListing,
+      listKnownContainerDocumentPlacements(execSql, placements),
+    onFullListing: request.onFullListing,
     refuteContainerDocumentTombstoneHolds: (placements) =>
-      refuteContainerDocumentTombstoneHolds(input.infra.execSql, placements),
+      refuteContainerDocumentTombstoneHolds(execSql, placements),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       containerOrganizationId,
       loadHead,
@@ -87,8 +87,92 @@ export async function discoverContainerDocumentsForRuntime({
       containerOrganizationId,
       loadHead,
       loadEpoch,
-      evidenceStore,
-      onPendingDiscovery,
+      input.evidenceStore,
+      request.onPendingDiscovery,
     ),
+  };
+}
+
+/**
+ * Internal adapter shared by explicit discovery and background reconciliation:
+ * one batched listing for every requested container, then per-container
+ * verification scoped to each container's durable organization.
+ */
+export async function discoverContainerDocumentLanesForRuntime({
+  onOutcome,
+  requests,
+  runtimeService,
+}: {
+  readonly onOutcome?: ContainerDocumentDiscoveryOutcomeHandler | undefined;
+  readonly requests: ReadonlyArray<ContainerDocumentDiscoveryRequest>;
+  readonly runtimeService: InternalRuntime;
+}): Promise<ReadonlyArray<ContainerDocumentDiscoveryOutcome>> {
+  const unlisted = (
+    containerId: string,
+  ): ContainerDocumentDiscoveryOutcome => ({
+    containerId,
+    status: "fulfilled",
+    value: null,
   });
+  const input = runtimeService.workflowInput();
+  if (input.infra.dbStatus !== "ready") {
+    return requests.map(({ containerId }) => unlisted(containerId));
+  }
+  const runtime = createContainerContentsWorkflowRuntime(input);
+  const execSql = input.infra.execSql;
+  const evidenceStore = createDocumentDiscoveryEvidenceStore(execSql);
+  const queries = createContainerDocumentQueriesFromRuntime(runtime);
+  // Capture the reset fence before reading any lane's scope, so a reset
+  // between these reads and the listing cannot publish old-organization
+  // evidence into its replacement.
+  const generation = await evidenceStore.begin();
+  const lanes: ContainerDocumentDiscoveryLane[] = [];
+  for (const request of requests) {
+    const stored =
+      await sqlContainerContentsPersistence.loadContainerMetadataState(
+        execSql,
+        request.containerId,
+      );
+    if (stored)
+      lanes.push(
+        createDiscoveryLane({
+          containerOrganizationId: stored.container.organizationId,
+          evidenceStore,
+          execSql,
+          queries,
+          request,
+          runtime,
+        }),
+      );
+  }
+  const outcomes = await discoverContainerDocumentLanes({
+    generation,
+    lanes,
+    listContainerDocumentLanes: (listed) =>
+      listContainerDocumentLanesFromApi(runtime.apiClient, listed),
+    loadContainerDocumentWatermark: queries.loadContainerDocumentWatermark,
+    onOutcome,
+  });
+  const outcomeByContainerId = new Map(
+    outcomes.map((outcome) => [outcome.containerId, outcome]),
+  );
+  return requests.map(
+    ({ containerId }) =>
+      outcomeByContainerId.get(containerId) ?? unlisted(containerId),
+  );
+}
+
+/** Discovers one container; a rejected lane rethrows its failure. */
+export async function discoverContainerDocumentsForRuntime({
+  runtimeService,
+  ...request
+}: ContainerDocumentDiscoveryRequest & {
+  readonly runtimeService: InternalRuntime;
+}): Promise<ReadonlyArray<DocumentSummary> | null> {
+  const [outcome] = await discoverContainerDocumentLanesForRuntime({
+    requests: [request],
+    runtimeService,
+  });
+  if (outcome?.status === "rejected") throw outcome.reason;
+  return outcome?.value ?? null;
 }

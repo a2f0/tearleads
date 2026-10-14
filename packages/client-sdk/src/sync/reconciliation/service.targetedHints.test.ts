@@ -6,6 +6,7 @@ import { createReconciliationService } from "./service";
 import {
   createGate,
   createReconciliationTestHost,
+  perContainerDiscovery,
 } from "./service.testFixtures";
 import { enqueueReconciliationForEvents } from "./triggers";
 
@@ -23,14 +24,14 @@ test("a hint burst during discovery coalesces one trailing listing and never pro
   let listings = 0;
   const probes: string[] = [];
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => {
+    discoverContainerDocuments: perContainerDiscovery(async () => {
       listings += 1;
       if (listings === 1) {
         started.open();
         await finish.wait;
       }
       return documents;
-    },
+    }),
     listKnownContainerIds: () => ["root"],
     loadContainerDelta: async (containerId) => ({
       containerId,
@@ -80,10 +81,10 @@ test("a failed targeted listing retries only its named document", async () => {
   const probes: string[] = [];
   let attempts = 0;
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => {
+    discoverContainerDocuments: perContainerDiscovery(async () => {
       attempts += 1;
       return attempts === 1 ? null : documents;
-    },
+    }),
     loadContainerDelta: async (containerId) => ({
       containerId,
       documentSummaries: documents,
@@ -112,7 +113,7 @@ for (const targetedFirst of [true, false]) {
   test(`full revalidation dominates pending targets (targeted first: ${targetedFirst})`, async () => {
     const probes: string[] = [];
     const host = createReconciliationTestHost({
-      discoverContainerDocuments: async () => documents,
+      discoverContainerDocuments: perContainerDiscovery(async () => documents),
       loadContainerDelta: async (containerId) => ({
         containerId,
         documentSummaries: documents,
