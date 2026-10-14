@@ -592,16 +592,6 @@ CREATE TABLE "organizations" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "principal_container_grant_projection" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"principal_type" text NOT NULL,
-	"principal_id" uuid NOT NULL,
-	"state_hash" text NOT NULL,
-	"container_id" uuid NOT NULL,
-	"access_level" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "principal_directory_bindings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -722,6 +712,7 @@ CREATE TABLE "principal_states" (
 	"payload_ciphertext_hash" text NOT NULL,
 	"member_count" integer NOT NULL,
 	"grant_count" integer NOT NULL,
+	"container_grants" jsonb NOT NULL,
 	"external_authority" jsonb,
 	"state_hash" text NOT NULL,
 	"signed_at" timestamp NOT NULL,
@@ -895,9 +886,6 @@ CREATE UNIQUE INDEX "organization_roster_entries_org_user_idx" ON "organization_
 CREATE INDEX "organization_roster_entries_org_status_idx" ON "organization_roster_entries" USING btree ("organization_id","status");--> statement-breakpoint
 CREATE INDEX "organization_roster_entries_profile_document_idx" ON "organization_roster_entries" USING btree ("profile_document_id");--> statement-breakpoint
 CREATE INDEX "organizations_profile_document_idx" ON "organizations" USING btree ("profile_document_id");--> statement-breakpoint
-CREATE INDEX "principal_container_grant_projection_principal_idx" ON "principal_container_grant_projection" USING btree ("principal_type","principal_id");--> statement-breakpoint
-CREATE INDEX "principal_container_grant_projection_container_idx" ON "principal_container_grant_projection" USING btree ("container_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "principal_container_grant_projection_state_container_idx" ON "principal_container_grant_projection" USING btree ("principal_type","principal_id","state_hash","container_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "principal_directory_bindings_head_idx" ON "principal_directory_bindings" USING btree ("organization_id","group_id","group_state_hash");--> statement-breakpoint
 CREATE INDEX "principal_directory_bindings_lookup_idx" ON "principal_directory_bindings" USING btree ("organization_id","group_id","organization_version");--> statement-breakpoint
 CREATE INDEX "principal_epoch_keys_principal_idx" ON "principal_epoch_keys" USING btree ("principal_type","principal_id");--> statement-breakpoint

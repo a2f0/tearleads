@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "015b4f5f-6d94-4686-b189-c56e597c98c5",
+  "id": "40dcafac-d065-40f4-b5c9-a7289cd36ec6",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -4423,87 +4423,6 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
-    "principal_container_grant_projection": {
-      "name": "principal_container_grant_projection",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "principal_type": {
-          "name": "principal_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "principal_id": {
-          "name": "principal_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "state_hash": {
-          "name": "state_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "container_id": {
-          "name": "container_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "access_level": {
-          "name": "access_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
-        }
-      },
-      "indexes": {
-        "principal_container_grant_projection_principal_idx": {
-          "name": "principal_container_grant_projection_principal_idx",
-          "columns": ["principal_type", "principal_id"],
-          "isUnique": false
-        },
-        "principal_container_grant_projection_container_idx": {
-          "name": "principal_container_grant_projection_container_idx",
-          "columns": ["container_id"],
-          "isUnique": false
-        },
-        "principal_container_grant_projection_state_container_idx": {
-          "name": "principal_container_grant_projection_state_container_idx",
-          "columns": [
-            "principal_type",
-            "principal_id",
-            "state_hash",
-            "container_id"
-          ],
-          "isUnique": true
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
     "principal_directory_bindings": {
       "name": "principal_directory_bindings",
       "columns": {
@@ -5362,6 +5281,13 @@
         "grant_count": {
           "name": "grant_count",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "container_grants": {
+          "name": "container_grants",
+          "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false

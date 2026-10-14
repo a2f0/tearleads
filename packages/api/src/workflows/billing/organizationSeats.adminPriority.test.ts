@@ -34,6 +34,7 @@ async function insertGroupState(input: {
     payloadCiphertextHash: `payload-ciphertext-${input.stateHash}`,
     memberCount: input.userIds.length,
     grantCount: 0,
+    containerGrants: [],
     stateHash: input.stateHash,
     signedAt: NOW,
     signerUserId: input.signerUserId,

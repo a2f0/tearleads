@@ -22,7 +22,6 @@ import {
   organizationReadModelHeads,
   organizationRosterEntries,
   organizations,
-  principalContainerGrantProjection,
   principalDirectoryBindings,
   principalEpochKeys,
   principalMemberEnvelopes,
@@ -51,11 +50,6 @@ async function deleteContainerRows(input: {
           principalPolicyMutationAcknowledgements.containerId,
           containerBatch,
         ),
-      );
-    await input.executor
-      .delete(principalContainerGrantProjection)
-      .where(
-        inArray(principalContainerGrantProjection.containerId, containerBatch),
       );
     const epochs = await input.executor
       .select({ id: containerKeyEpochs.id })
@@ -169,7 +163,6 @@ async function deleteOrganizationPrincipalRows(
         principalMemberEnvelopes,
         principalStatePayloads,
         principalEpochKeys,
-        principalContainerGrantProjection,
         principalMembershipProjection,
         principalStates,
       ] as const) {

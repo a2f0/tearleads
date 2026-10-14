@@ -53,7 +53,8 @@ manifest path. They do not maintain a parallel mutable grant or epoch table.
 Users have registered signing and encapsulation keys. Groups and organizations
 are managed principals with signed policy state:
 
-- `principal_states`
+- `principal_states` (its `container_grants` column holds each state's
+  committed container-grant set, checked against the signed `grantRoot`)
 - `principal_state_payloads`
 - `principal_membership_projection`
 - `principal_epoch_keys`

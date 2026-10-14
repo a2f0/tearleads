@@ -68,7 +68,6 @@ export {
 export { principalPolicyCommits } from "./principalPolicyCommits";
 export { principalPolicyMutationAcknowledgements } from "./principalPolicyMutationAcknowledgements";
 export {
-  principalContainerGrantProjection,
   principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,

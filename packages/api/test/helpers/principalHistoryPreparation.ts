@@ -70,9 +70,11 @@ export async function principalHistoryPreparationFixture(
       prevStateHash: entries.at(-1)?.state.stateHash ?? null,
       externalAuthority: options.externalAuthority ?? null,
     });
-    await db
-      .insert(principalStates)
-      .values({ ...entry.state, signedAt: new Date(entry.state.signedAt) });
+    await db.insert(principalStates).values({
+      ...entry.state,
+      containerGrants: [],
+      signedAt: new Date(entry.state.signedAt),
+    });
     if (projection.length)
       await db.insert(principalMembershipProjection).values(
         projection.map((member) => ({

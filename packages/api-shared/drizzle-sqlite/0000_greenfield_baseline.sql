@@ -717,19 +717,6 @@ CREATE TABLE `organizations` (
 );
 --> statement-breakpoint
 CREATE INDEX `organizations_profile_document_idx` ON `organizations` (`profile_document_id`);--> statement-breakpoint
-CREATE TABLE `principal_container_grant_projection` (
-	`id` text PRIMARY KEY NOT NULL,
-	`principal_type` text NOT NULL,
-	`principal_id` text NOT NULL,
-	`state_hash` text NOT NULL,
-	`container_id` text NOT NULL,
-	`access_level` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE INDEX `principal_container_grant_projection_principal_idx` ON `principal_container_grant_projection` (`principal_type`,`principal_id`);--> statement-breakpoint
-CREATE INDEX `principal_container_grant_projection_container_idx` ON `principal_container_grant_projection` (`container_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `principal_container_grant_projection_state_container_idx` ON `principal_container_grant_projection` (`principal_type`,`principal_id`,`state_hash`,`container_id`);--> statement-breakpoint
 CREATE TABLE `principal_directory_bindings` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
@@ -868,6 +855,7 @@ CREATE TABLE `principal_states` (
 	`payload_ciphertext_hash` text NOT NULL,
 	`member_count` integer NOT NULL,
 	`grant_count` integer NOT NULL,
+	`container_grants` text NOT NULL,
 	`external_authority` text,
 	`state_hash` text NOT NULL,
 	`signed_at` integer NOT NULL,

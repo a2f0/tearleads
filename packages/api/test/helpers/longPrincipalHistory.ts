@@ -2,7 +2,6 @@ import { availableParallelism } from "node:os";
 import { Worker } from "node:worker_threads";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  principalContainerGrantProjection,
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
@@ -109,8 +108,6 @@ export async function seedLongPrincipalHistory(input: {
         const payloads: (typeof principalStatePayloads.$inferInsert)[] = [];
         const members: (typeof principalMembershipProjection.$inferInsert)[] =
           [];
-        const grants: (typeof principalContainerGrantProjection.$inferInsert)[] =
-          [];
         for (const state of signed.slice(offset, offset + 100)) {
           const stateHash = stateHashes.get(state.version);
           if (!stateHash) throw new Error("Missing fixture state hash");
@@ -121,14 +118,13 @@ export async function seedLongPrincipalHistory(input: {
           };
           states.push({
             ...state,
+            containerGrants: template.grants,
             stateHash,
             signedAt: new Date(state.signedAt),
           });
           payloads.push({ ...identity, ...template.encryptedPayload });
           for (const member of template.projection)
             members.push({ ...identity, ...member });
-          for (const grant of template.grants)
-            grants.push({ ...identity, ...grant });
           previous = { ...state, stateHash, createdAt: state.signedAt };
         }
         await db.transaction(async (tx) => {
@@ -156,8 +152,6 @@ export async function seedLongPrincipalHistory(input: {
           }
           if (members.length)
             await tx.insert(principalMembershipProjection).values(members);
-          if (grants.length)
-            await tx.insert(principalContainerGrantProjection).values(grants);
         });
       }
     }
