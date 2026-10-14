@@ -71,15 +71,17 @@ export async function ensureDeferredBirthSchema(
   await defaultContainerContentsPersistence.ensureSchema(execSql);
 }
 
-/** Opens (creating on first use) a PDF store the way the Explorer importer does. */
-export async function openPdfStore(input: {
+interface PdfStoreInput {
   blobStore: BlobStore;
   canAttach?: boolean;
   deferInitialUpdate: boolean;
   execSql: DocumentsRuntime["infra"]["execSql"];
   localId: string;
   persistence?: DocumentsPersistence;
-}): Promise<DocumentStoreState> {
+}
+
+/** A PDF store as the Explorer importer opens it, not yet initialized. */
+export function createPdfStoreState(input: PdfStoreInput): DocumentStoreState {
   const state = createDocumentStoreState(
     input.localId,
     offlineAttachRuntime({
@@ -94,6 +96,14 @@ export async function openPdfStore(input: {
     "pdf",
   );
   if (input.deferInitialUpdate) state.deferInitialUpdate = true;
+  return state;
+}
+
+/** Opens (creating on first use) a PDF store the way the Explorer importer does. */
+export async function openPdfStore(
+  input: PdfStoreInput,
+): Promise<DocumentStoreState> {
+  const state = createPdfStoreState(input);
   if (!(await ensureDocumentStoreReady(state, () => undefined))) {
     throw new Error("Expected the PDF test store to initialize");
   }

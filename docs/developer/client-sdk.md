@@ -174,7 +174,8 @@ A host that attaches a file right after creating its document can open it with
 `documentLinks().openDocument({ ..., deferInitialUpdate: true })`. The birth
 commits without its own pending update and scheduled sync waits, so the first
 `attachFiles` delta carries it and the import costs one Loro update; if that
-attach does not land, the store enqueues the birth on its own. The
+attach does not land, the store enqueues the birth on its own. A caller that
+gives up before attaching must call `attachFiles([])` to release the wait. The
 `createDocumentStore`, `getOrCreateDocumentStore`, and `openDocumentStore`
 factories take the option, with `remoteSyncMode`, in a trailing
 `DocumentStoreOpenOptions` object.
