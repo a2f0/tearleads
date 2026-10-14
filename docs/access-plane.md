@@ -202,7 +202,8 @@ attachment listing or bind responses for authorized document readers.
 
 Attachment bind and detach mutations store signed access events and update the
 live `attachment_bindings` projection. Detached bindings are transient live
-metadata; the server keeps no attachment event history.
+metadata; the signed bind and detach events stay in `access_events`, and there is
+no separate attachment audit ledger.
 
 ## Write Flow
 

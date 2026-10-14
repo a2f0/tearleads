@@ -100,9 +100,10 @@ This retention model does not provide:
 
 ## Attachment History
 
-The server keeps no attachment event history. Each bind and detach is a signed
-access event and each staged blob carries a signed write header, so a binding's
-authorship is verifiable while the binding is live. Attach, replace, and detach
+The server keeps no separate attachment audit ledger. Each bind and detach is a
+signed access event, persisted with its signed body in `access_events`, and each
+staged blob carries a signed write header, so a binding's authorship stays
+verifiable. Attach, replace, and detach
 register every referenced blob generation in `blob_audit_objects` before live
 pruning can remove its row; the registry records which generations existed and
 who owns them, not when they were bound.
