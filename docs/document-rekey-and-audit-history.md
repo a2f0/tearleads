@@ -1,7 +1,7 @@
-# Document Rekey, Rebaselines, And Audit History
+# Document Rekey, Rebaselines, And Write History
 
 This document defines document rekey, fresh-baseline generation, offline merge
-handling, and tamper-evident document history.
+handling, and how accepted document write history is authenticated.
 
 For shared protocol terminology, see [glossary.md](./glossary.md).
 
@@ -53,12 +53,13 @@ replay. If a blob is no longer referenced by any active
 and starts a grace period. A bind during that window revives the blob. After
 the grace period, GC locks and rechecks reachability before pruning the blob
 row, blob content-key epochs, blob content-key target rows, write header, and
-detached binding rows. Audit metadata retains durable physical-deletion work.
+detached binding rows. The blob registry (`blob_audit_objects`) retains durable
+physical-deletion work.
 If another active binding still references the blob, the live rows remain until
 the final active binding is deactivated.
 
 Historical attachment bytes are therefore not durable. Detached bindings are
-transient replacement metadata, not an attachment audit log.
+transient replacement metadata, not an attachment history log.
 
 That means document update history and attachment/blob history have different
 retention properties.
@@ -66,21 +67,15 @@ retention properties.
 The attachment/blob retention policy is defined in
 [attachment-retention.md](./attachment-retention.md).
 
-### Audit Storage Is Live-Wired For Writes
+### Signed Write Headers Authenticate History
 
-The codebase has history-side tables and services for:
-
-- append-only `document_audit_entries`
-- typed `document_update_audit_events`
-- `document_audit_checkpoints`
-- `blob_audit_objects`
-- typed `document_attachment_audit_events`
-- Test-only `verifyDocumentAuditHistory(...)`
-
-Those helpers are covered by service tests and are also wired into normal
-application writes. Signed document sync appends audit rows for newly accepted
-updates and signed blob attachment mutations append attachment audit rows before
-live blob pruning can remove metadata needed by `blob_audit_objects`.
+Every retained document update and every attachment blob carries the writer
+device's signed write header, and clients verify it on every synced record (see
+[Write Integrity](#write-integrity)). Integrity of accepted history therefore
+does not rest on server bookkeeping. The server keeps no separate audit ledger:
+`document_baselines` only marks which retained updates are rotation baselines,
+and `blob_audit_objects` registers every blob generation an attachment binding
+referenced.
 
 ## Rekey / Rebaseline Model
 
@@ -108,8 +103,10 @@ content for an epoch that already exists because authorization state changed.
 ### Baselines Carry Frontier Metadata
 
 Baseline updates can carry the source version vector / causal frontier used to
-build the proposed baseline. Checkpoint rows persist that source frontier so
-audit verification can inspect what history the baseline claims to cover.
+build the proposed baseline. The writer's signed metadata hash commits to that
+frontier, and a `document_baselines` row repeats it so the server can find
+baselines without parsing write headers. Readers recompute the metadata hash
+from the served frontier, so a frontier altered in storage fails verification.
 
 The server does not turn that source frontier into a compare-and-set gate on
 accepted sync updates. A retained client that loses a rotate race adopts the
@@ -136,13 +133,14 @@ The resulting risk has these bounds:
   container KEK through the sealed keyring, so any authorized writer can read
   old history and could substitute content while preserving the visible
   version-vector shape
-- the declaration is durable and attributable: checkpoint rows persist the
-  frontier and commit it to the audit ledger. Signed ciphertext hashes and a
-  record-key-derived HMAC attribute each retained update, but that per-update
-  commitment is not comparable to a full-history snapshot's commitment. A
-  current-epoch reader can compare a baseline's frontier to its claim. Raw
-  read-only sync can retrieve retained ciphertext without redirection, but only
-  when the client can unwrap every historical epoch key
+- the declaration is durable and attributable: the baseline's signed write
+  header commits to its frontier through the metadata hash and names the
+  writer device. Signed ciphertext hashes and a record-key-derived HMAC
+  attribute each retained update, but that per-update commitment is not
+  comparable to a full-history snapshot's commitment. A current-epoch reader
+  can compare a baseline's frontier to its claim. Raw read-only sync can
+  retrieve retained ciphertext without redirection, but only when the client
+  can unwrap every historical epoch key
 
 Any authorized writer may author `rotate_baseline`, keeping lazy healing
 independent of an administrator or original creator. A client that distrusts a
@@ -222,201 +220,111 @@ state with no local copy and no other client online. Reading never depends on
 that client subsequently writing a baseline, though a full-history baseline it
 later writes serves ordinary sync optimization.
 
-## Tamper-Evident Document History
+## Write Integrity
 
-Signed policy-state work is about tamper-evident authorization inputs:
+Signed policy-state work protects authorization inputs:
 
 - signed group / organization snapshots
 - hash-chained policy-state versions
 - signed access manifests that reference those policy states
 
-That is separate from tamper-evident document edit history.
+Document content history is protected separately, by a per-device signed write
+header on every content record.
 
-### Audit-Layer Structure
+### Signed Write Headers
 
-Live document state and audit history are separate layers:
+Every accepted document update stores the writer's signed write header in
+`document_content_write_headers`; attachment blobs store theirs in
+`blob_content_write_headers`. The header commits to:
 
-- encrypted document updates and full-history rotation baselines for sync
-- an append-only tamper-evident update ledger for audit
+- the organization, object, content-key epoch, encryption suite, and content
+  record id
+- the access manifest hash and key-target hash the write was authorized
+  under, plus the dependency manifest hashes it cites
+- `ciphertextHash` over the encrypted record
+- `metadataHash` over the update id, both partial version vectors, the
+  record-key-derived plaintext HMAC, and, for a baseline, its checkpoint kind
+  and source version vector
+- the writer's user id, device id, and signing-key fingerprint, and `signedAt`
 
-The server retains original encrypted document updates. Rotation baselines are
-full-history Loro snapshots, not flattened state-only snapshots. Separately,
-the audit layer records:
+The API verifies the header before it accepts an update. Every client verifies
+it again on every synced update: it recomputes the ciphertext hash and the
+metadata hash from the served record and checks the writer's signature
+(`packages/client-sdk/src/data/documents/shared/syncResponses.ts`). A tampered
+ciphertext, version vector, plaintext HMAC, or baseline frontier therefore
+fails closed on the client, and a tampered baseline cannot redirect a reader
+to partial state.
 
-- previous-hash-linked update records
-- visible causal metadata such as version vectors and access epoch
-- signed baseline checkpoints that commit to the audit ledger
+Signatures are per device, matching how CRDT authorship behaves: several
+devices of one user author concurrently and each signs with its own key.
 
-A baseline checkpoint commits to history through both the encrypted full-history
-snapshot and its visible metadata: the source version vector / frontier used to
-build it, the last included audit entry hash, the previous checkpoint hash, and
-the current access epoch. The metadata makes the history a baseline claims to
-cover auditable without exposing its plaintext to the server.
+### What Signed Headers Do Not Detect
+
+Signed headers authenticate each record. They do not prove that the server
+served every record. Tail deletion (the server dropping the newest updates) and
+a database restored from backup are not detectable by a fresh device, which has
+no earlier view to compare against. A retained device keeps its local history.
+
+Closing that gap needs a transparency log whose signed tree heads clients pin,
+tracked in [#2186](https://github.com/a2f0/tearleads/issues/2186). If content
+writes join that log, the natural leaf is
+`document_content_write_headers.header_hash`. The server keeps no unsigned
+per-document hash chain: a chain the server computes, stores, and never serves
+is no stronger than the rows it covers, and a restored backup carries a
+self-consistent chain.
 
 ## Storage Decomposition
 
-The live-state seams are:
+The persistence seams are:
 
-- encrypted live document updates in `document_updates`
+- encrypted document updates in `document_updates`
 - causal sync indexing in `document_update_spans`
+- signed write headers in `document_content_write_headers` and
+  `blob_content_write_headers`
+- rotation-baseline markers in `document_baselines`
 - live blob reachability in `attachment_bindings`
+- the blob registry in `blob_audit_objects`
 - access-plane material in signed access manifest heads and key-target tables
 - live blob bytes in `blobs`
 
-Those tables are optimized for active sync and access state. Original document
-ciphertext is retained in `document_updates`, while tamper-evident metadata
-lives in separate history-side persistence. The split is:
+The server retains every original encrypted document update in
+`document_updates`. Rotation baselines are full-history Loro snapshots, not
+flattened state-only snapshots.
 
-- retained document ciphertext plus live-state projections
-- a baseline/checkpoint metadata model
-- an attachment/blob history model
-- access-state metadata and hashes snapshotted into audit records
-  (`accessEpoch`, `accessManifestHash`, `accessStateHash`) so the audit layer can
-  prove which access state a write was accepted under
+### `document_baselines`
 
-The signed document sync path appends audit entries for newly accepted live
-updates and writes checkpoint rows for accepted baseline updates. Signed blob
-attachment bind, same-slot replace, and detach paths append attachment audit
-events and ensure `blob_audit_objects` coverage for referenced live blobs.
-
-The audit layer is tamper-evident through server-persisted hash chains, not
-client-side write signatures. The fingerprint-based user auth model and the
-CRDT peer seed do not provide an authenticated device identity, so per-user
-write signatures are not used; any future client signatures would be per-device.
-
-## Live Write-Path Wiring
-
-The live write-path wiring:
-
-- calls `appendDocumentUpdateAuditEntries(...)` from the signed
- `/documents/:documentId/sync` transaction for newly accepted updates
-- calls `maybeWriteDocumentAuditCheckpoint(...)` for accepted updates marked
- `fresh_baseline` or `rotate_baseline`
-- calls `appendDocumentAttachmentAuditEntries(...)` from signed blob
- bind/replace/detach transactions before live blob pruning can remove
- metadata needed for `blob_audit_objects`
-- preserves audit idempotency for retried document sync updates by appending
- audit rows only for updates newly accepted into `document_updates`
-- has route/service coverage proving normal writes populate the audit tables,
- not only direct audit-helper tests
-
-## Audit Storage
-
-### Content And Live-State Boundary
-
-The content and live-state tables keep distinct roles:
-
-- `document_updates` retains encrypted Loro updates and serves sync
-- `document_update_spans` is the causal-sync index
-- `attachment_bindings` is the live projection of active attachment slots
-- `access_manifest_heads` and key-target tables are the canonical
- access-plane rows
-- `blobs` is the live blob-byte store; the final active binding's removal
- starts a GC grace period before the row is pruned
-
-The audit tables do not duplicate ciphertext. They preserve independently
-verifiable hashes and visible metadata for the retained document updates and
-for live-only objects such as blob bindings.
-
-### History-Side Schema
-
-The audit layer has five history-side tables.
-
-#### `document_audit_entries`
-
-One append-only ledger row per accepted document write event.
+One row per retained update that carries `checkpointKind`.
 
 Columns:
 
-- `id UUID PRIMARY KEY`
+- `baseline_update_id UUID PRIMARY KEY` (the `document_updates.id`)
 - `document_id UUID NOT NULL`
-- `sequence BIGINT GENERATED ALWAYS AS IDENTITY`
-- `event_type TEXT NOT NULL`
-- `access_epoch INTEGER NOT NULL`
-- `access_manifest_hash TEXT NOT NULL`
-- `access_state_hash TEXT`
-- `actor_user_id UUID NOT NULL`
-- `actor_fingerprint TEXT NOT NULL`
-- `prev_entry_hash TEXT`
-- `entry_hash TEXT NOT NULL`
-- `created_at TIMESTAMP NOT NULL DEFAULT now()`
-
-Required indexes and constraints:
-
-- unique `(document_id, sequence)`
-- unique `(document_id, entry_hash)`
-- index on `(document_id, created_at)`
-
-This table is the canonical per-document audit chain. Hash verification walks
-`prev_entry_hash -> entry_hash` in sequence order.
-
-#### `document_update_audit_events`
-
-Typed payload for `document_audit_entries.event_type = 'loro_update'`.
-
-Columns:
-
-- `audit_entry_id UUID PRIMARY KEY REFERENCES document_audit_entries(id)`
-- `live_update_id UUID NOT NULL`
-- `partial_start_version_vector TEXT NOT NULL`
-- `partial_end_version_vector TEXT NOT NULL`
-- `source_version_vector TEXT`
-- `encrypted_update_sha256 TEXT NOT NULL`
-- `encrypted_update_byte_length INTEGER NOT NULL`
-
-Required indexes and constraints:
-
-- unique `(live_update_id)`
-
-`document_updates` remains the retained ciphertext store. The audit side records
-immutable hashes and visible metadata, not a second full ciphertext copy.
-
-#### `document_audit_checkpoints`
-
-Explicit baseline/checkpoint records that commit to the audit history they
-cover.
-
-Columns:
-
-- `id UUID PRIMARY KEY`
-- `document_id UUID NOT NULL`
-- `sequence BIGINT GENERATED ALWAYS AS IDENTITY`
-- `baseline_update_id UUID NOT NULL`
 - `checkpoint_kind TEXT NOT NULL`
 - `source_version_vector TEXT NOT NULL`
-- `covered_audit_entry_hash TEXT`
-- `previous_checkpoint_hash TEXT`
-- `checkpoint_hash TEXT NOT NULL`
-- `access_epoch INTEGER NOT NULL`
-- `access_manifest_hash TEXT NOT NULL`
-- `access_state_hash TEXT`
-- `actor_user_id UUID NOT NULL`
-- `actor_fingerprint TEXT NOT NULL`
-- `created_at TIMESTAMP NOT NULL DEFAULT now()`
 
-Required indexes and constraints:
+Index: `(document_id)`.
 
-- unique `(baseline_update_id)`
-- unique `(document_id, checkpoint_hash)`
-- index `(document_id, sequence)`
-- index on `(document_id, created_at)`
+Three readers consume it:
 
-These rows are not the live baseline payload. They are durable checkpoint
-metadata that says which audit head a baseline claims to cover.
+- the coverage-gated baseline redirect (`documentSyncBaselineRedirect.ts`),
+  which picks the newest replayable baseline by update sequence
+- the sync response (`syncResponseUpdates.ts`), which echoes a served
+  baseline's checkpoint metadata
+- edit attribution (`documentEditAttribution.ts`), which flags spans a baseline
+  first delivered as re-assertions rather than authorship
 
-The write contract has explicit baseline markers on outgoing
-updates: `checkpointKind: "fresh_baseline" | "rotate_baseline"` plus
-`sourceVersionVector`. Checkpoint rows should only be written for updates with
-that explicit marker.
+The redirect and the sync response recompute the signed metadata hash from
+these columns and the update row before they serve a baseline.
 
-The signed sync route has the authenticated `userId` and session
-fingerprint available at the service boundary, so live wiring records both
-`actorUserId` and `actorFingerprint`.
+The write contract marks baselines explicitly on outgoing updates:
+`checkpointKind: "rotate_baseline"`, `checkpointPayloadKind:
+"full_history_snapshot"`, and `sourceVersionVector` are present together or
+absent together. Only marked updates get a row.
 
-#### `blob_audit_objects`
+### `blob_audit_objects`
 
-Immutable blob metadata plus retention state for any blob that appears in audit
-history.
+The blob registry: one row per blob generation an attachment binding has
+referenced.
 
 Columns:
 
@@ -432,98 +340,60 @@ Columns:
 - `object_deleted_at TIMESTAMP`
 - `created_at TIMESTAMP NOT NULL DEFAULT now()`
 
-The initial value should be:
+The initial value is:
 
 - `retention_mode = 'live_only'`
 - `historical_bytes_retained = false`
 
-Audit history keeps blob metadata, not old bytes. After `pruned_at`, the key is
+The registry keeps blob metadata, not old bytes. After `pruned_at`, the key is
 pending work. `object_delete_attempted_at` rotates retries; success clears the
-key and records `object_deleted_at`.
-
-#### `document_attachment_audit_events`
-
-Typed payload for attachment-related `document_audit_entries`.
-
-Columns:
-
-- `audit_entry_id UUID PRIMARY KEY REFERENCES document_audit_entries(id)`
-- `action TEXT NOT NULL`
-- `slot_id TEXT NOT NULL`
-- `binding_id UUID`
-- `previous_binding_id UUID`
-- `blob_id UUID`
-- `previous_blob_id UUID`
-- `retention_mode TEXT NOT NULL`
-
-This table captures the immutable attachment event stream:
-
-- attach
-- replace / same-slot rebind
-- detach
-- blob rewrap
-
-`attachment_bindings` stays the active-state projection. This table is the
-durable history.
+key and records `object_deleted_at`. Blob GC, blob authorization (a registered
+id is never promoted again and is concealed from other organizations), and
+organization purge read it.
 
 ### Wrapped-Key Material
 
-The audit layer has no history-side wrapped-key or key-target tables. Signed
-access manifest heads and key-target tables are live-only. Audit records instead
-snapshot `accessEpoch`, `accessManifestHash`, and `accessStateHash`, which prove
-the access state a write was accepted under without retaining old wrapped keys.
-
-### Verification Model
-
-The verifier checks history with:
-
-- append-only `document_audit_entries`
-- deterministic `entry_hash` over canonical event payload plus
- `prev_entry_hash`
-- append-only `document_audit_checkpoints`
-- deterministic `checkpoint_hash` over canonical checkpoint payload plus
- `previous_checkpoint_hash`
-
-This is enough for tamper evidence without a client signature protocol. Any
-future client signatures would be per-device: per-user signatures would collapse
-multiple concurrently-authoring devices into one signer and do not match how
-CRDT authorship behaves.
+The server keeps no history-side wrapped-key or key-target tables. Each signed
+write header names the access manifest hash and key-target hash its write was
+authorized under.
 
 ### Historical Replay Scope
 
-The audit layer does **not** promise:
+The server does **not** promise:
 
 - fresh-client replay of all historical document updates from scratch
 - historical blob download after a blob has been pruned from the live `blobs`
- table
+  table
 - historical wrapped-DEK or key-target retention for old epochs
+- a history of attachment bind, replace, and detach events; detached bindings
+  are transient replacement metadata, and the registry records which blob
+  generations existed, not when they were bound
 
-The audit layer promises:
+The server promises:
 
-- durable history of accepted document writes
-- durable history of attachment/blob events
-- verifiable checkpoint records that commit to the history they cover
-- durable proof of historical blob metadata even after live blob pruning
-
-That keeps the audit layer focused on verifiable history and storage
-boundaries rather than turning it into a full historical replay product.
+- every accepted document update is retained with its signed write header
+- every retained baseline is marked with its signed source frontier
+- every blob generation an attachment referenced stays registered to its
+  organization after live pruning
 
 ### Write-Path Boundaries
 
-The audit tables are populated inside the same transactions as the live writes.
+Baseline markers and registry rows are written inside the same transactions as
+the live writes.
 
 #### `POST /documents/:documentId/sync`
 
 When new active-epoch updates are accepted, the transaction:
 
+- verifies and stores each update's signed write header in
+  `document_content_write_headers`
 - writes `document_updates` and `document_update_spans`
-- writes one `document_audit_entries` row and one `document_update_audit_events`
- row for each newly accepted update
-- writes one `document_audit_checkpoints` row when the update is marked as a
- baseline
+- writes one `document_baselines` row for each newly inserted update marked as
+  a baseline
 
-Audit-update rows are keyed to `live_update_id`, so retried sync stays
-idempotent.
+Only updates the transaction inserts get a baseline row, so a retried sync stays
+idempotent. An unlink that carries an atomic rotation baseline uses the same
+append.
 
 #### blob attachment bind/detach
 
@@ -532,10 +402,9 @@ When structural attachment changes are accepted through
 `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`, the transaction:
 
 - mutates `attachment_bindings`, blob content-key rows, and live blobs
-- writes, before live pruning can delete rows needed for audit metadata:
-  - `blob_audit_objects` rows for newly referenced blobs
-  - one `document_audit_entries` row plus one
-    `document_attachment_audit_events` row per committed attach / replace /
-    detach / rewrap event
+- registers, before live pruning can delete the rows the registry copies from,
+  a `blob_audit_objects` row for each newly referenced blob (the bound blob
+  and, on replace, the previous one)
 
-Live GC never deletes from history-side tables.
+Live GC never deletes registry rows; pruning stamps them and keeps the storage
+key as deletion work.

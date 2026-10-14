@@ -1,6 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
-  documentAuditCheckpoints,
+  documentBaselines,
   documentContentWriteHeaders,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
@@ -107,39 +107,39 @@ async function loadLatestReadableBaseline(
 } | null> {
   const rows = await executor
     .select({
-      checkpointKind: documentAuditCheckpoints.checkpointKind,
-      documentId: documentAuditCheckpoints.documentId,
+      checkpointKind: documentBaselines.checkpointKind,
+      documentId: documentBaselines.documentId,
       header: documentContentWriteHeaders.header,
       partialEndVersionVector: documentUpdates.partialEndVersionVector,
       partialStartVersionVector: documentUpdates.partialStartVersionVector,
       plaintextHash: documentUpdates.plaintextHash,
       sequence: documentUpdates.sequence,
-      sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
-      updateId: documentAuditCheckpoints.baselineUpdateId,
+      sourceVersionVector: documentBaselines.sourceVersionVector,
+      updateId: documentBaselines.baselineUpdateId,
     })
-    .from(documentAuditCheckpoints)
+    .from(documentBaselines)
     .innerJoin(
       documentContentWriteHeaders,
       eq(
         documentContentWriteHeaders.updateId,
-        documentAuditCheckpoints.baselineUpdateId,
+        documentBaselines.baselineUpdateId,
       ),
     )
     .innerJoin(
       documentUpdates,
-      eq(documentUpdates.id, documentAuditCheckpoints.baselineUpdateId),
+      eq(documentUpdates.id, documentBaselines.baselineUpdateId),
     )
     .where(
       and(
-        eq(documentAuditCheckpoints.documentId, input.documentId),
-        eq(documentAuditCheckpoints.checkpointKind, "rotate_baseline"),
+        eq(documentBaselines.documentId, input.documentId),
+        eq(documentBaselines.checkpointKind, "rotate_baseline"),
         eq(documentContentWriteHeaders.contentKeyEpoch, input.contentKeyEpoch),
         ...(input.upperBoundSequence === undefined
           ? []
           : [lte(documentUpdates.sequence, input.upperBoundSequence)]),
       ),
     )
-    .orderBy(desc(documentAuditCheckpoints.sequence));
+    .orderBy(desc(documentUpdates.sequence));
 
   for (const row of rows) {
     if (
