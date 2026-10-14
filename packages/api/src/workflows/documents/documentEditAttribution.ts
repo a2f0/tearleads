@@ -1,6 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
-  documentAuditCheckpoints,
+  documentBaselines,
   documentContentWriteHeaders,
   documents,
   documentUpdateSpans,
@@ -84,7 +84,7 @@ async function loadDocumentAttributionRows(
         string | null
       >`${jsonTextProperty(sql`${documentContentWriteHeaders.header}`, "writerKeyFingerprint")}`,
       isBaseline: booleanExpression(
-        sql`${documentAuditCheckpoints.baselineUpdateId} is not null`,
+        sql`${documentBaselines.baselineUpdateId} is not null`,
       ),
     })
     .from(documents)
@@ -110,14 +110,11 @@ async function loadDocumentAttributionRows(
       ),
     )
     .leftJoin(
-      documentAuditCheckpoints,
+      documentBaselines,
       and(
-        eq(
-          documentAuditCheckpoints.baselineUpdateId,
-          documentUpdateSpans.updateId,
-        ),
-        eq(documentAuditCheckpoints.documentId, documentUpdateSpans.documentId),
-        eq(documentAuditCheckpoints.checkpointKind, "rotate_baseline"),
+        eq(documentBaselines.baselineUpdateId, documentUpdateSpans.updateId),
+        eq(documentBaselines.documentId, documentUpdateSpans.documentId),
+        eq(documentBaselines.checkpointKind, "rotate_baseline"),
       ),
     )
     .where(eq(documents.id, documentId));

@@ -120,8 +120,8 @@ function toRetryReclaimCandidates(
   );
 }
 
-// Live reachability is intentionally narrower than audit history. Detached
-// bindings and attachment audit events preserve metadata, but only an ACTIVE
+// Live reachability is intentionally narrower than the blob registry. Detached
+// bindings and `blob_audit_objects` preserve metadata, but only an ACTIVE
 // binding keeps blob bytes and key material live.
 async function isBlobActivelyReferenced(
   executor: DatabaseTransaction,
