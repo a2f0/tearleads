@@ -339,20 +339,20 @@ test("client sqlite schema creates tables and indexes", async () => {
       pk: 2,
       type: "TEXT",
     });
-    expect(
-      readRecordValue(containerSyncWatermarks, "watermark_updated_at"),
-    ).toEqual({
-      defaultValue: null,
-      notNull: 1,
-      pk: 0,
-      type: "TEXT",
-    });
-    expect(readRecordValue(containerSyncWatermarks, "watermark_id")).toEqual({
-      defaultValue: null,
-      notNull: 1,
-      pk: 0,
-      type: "TEXT",
-    });
+    // A lane checked before any cursor exists keeps a null watermark.
+    for (const column of [
+      "watermark_updated_at",
+      "watermark_id",
+      "updated_at",
+      "checked_at",
+    ]) {
+      expect(readRecordValue(containerSyncWatermarks, column)).toEqual({
+        defaultValue: null,
+        notNull: 0,
+        pk: 0,
+        type: "TEXT",
+      });
+    }
 
     const intentIndexes = await readIndexList(
       execSql,

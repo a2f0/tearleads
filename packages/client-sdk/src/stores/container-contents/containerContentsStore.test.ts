@@ -151,7 +151,7 @@ test("container contents store publishes cached containers before startup hydrat
       createContainerParentSyncLane(null),
     );
     await execSql(
-      "UPDATE container_sync_lane_checks SET checked_at = ? WHERE lane_kind = ? AND lane_id = ?",
+      "UPDATE container_sync_watermarks SET checked_at = ? WHERE lane_kind = ? AND lane_id = ?",
       ["2026-01-01T00:00:00.000Z", "container_parent", "root"],
     );
 
