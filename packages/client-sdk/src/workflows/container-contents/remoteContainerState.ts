@@ -45,7 +45,8 @@ import { verifyRemoteContainerDestination } from "./remoteHydration/verifiedDest
 // move — one whose destination parent has not synced yet, the common boot-time
 // case — is protected too. Pending *metadata*
 // updates are handled separately (listRemoteContainerIdsWithPendingMetadataUpdates);
-// these live in dedicated create/move intent tables that that query does not cover.
+// structural intents live in the local outbox's container lanes, which that
+// query does not cover.
 export async function listRemoteContainerIdsWithPendingStructuralIntents(input: {
   remoteContainers: ReadonlyArray<RemoteContainer>;
   state: RemoteContainerHydrationState;
