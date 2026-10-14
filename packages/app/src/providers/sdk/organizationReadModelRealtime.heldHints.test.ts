@@ -122,3 +122,43 @@ test("a post-mutation pass that failed with its retained projection covers no he
   await release(runtime);
   expect(runtime.reconcileCalls).toBe(3);
 });
+
+test("a covered release repaints every same-scope consumer without a request", async () => {
+  const runtime = createRuntimeHarness();
+  const orgManager = { mutating: false, repaints: 0 };
+  let explorerRepaints = 0;
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => {
+      orgManager.repaints += 1;
+    },
+    { isMutationActive: () => orgManager.mutating },
+  );
+  subscribeOrganizationReadModelRealtime(
+    runtime.tearleads,
+    ORGANIZATION_A,
+    () => {
+      explorerRepaints += 1;
+    },
+  );
+  await ensureOrganizationReadModelReconciliation(
+    runtime.tearleads,
+    ORGANIZATION_A,
+  );
+  expect(runtime.reconcileCalls).toBe(1);
+  expect(explorerRepaints).toBe(1);
+
+  orgManager.mutating = true;
+  handleOrganizationReadModelHint(runtime.tearleads, ORGANIZATION_A, true);
+  // Org Manager's explicit pass applies the change but repaints only itself.
+  await postMutationPass(runtime);
+  expect(runtime.reconcileCalls).toBe(2);
+  expect(explorerRepaints).toBe(1);
+
+  orgManager.mutating = false;
+  await release(runtime);
+  expect(runtime.reconcileCalls).toBe(2);
+  expect(explorerRepaints).toBe(2);
+  expect(orgManager.repaints).toBe(2);
+});

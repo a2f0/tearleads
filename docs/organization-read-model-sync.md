@@ -278,7 +278,10 @@ the hint arrived observes that change, whichever client of the session made
 it. The explicit post-mutation reconciliation, like any SDK barrier pass, starts
 its request after it is called and reports whether that feed request
 succeeded. Once it succeeds, releasing the held hints sends no request if the
-latest of them arrived before that call. A hint that arrived later, or a pass
+latest of them arrived before that call; the release still renews the
+caught-up lease and repaints every mounted consumer of the scope, such as
+Explorer beside Org Manager, from the rows that pass applied. A hint that
+arrived later, or a pass
 that declined or failed, leaves the release to reconcile the feed, even when
 the failed pass returned the last-known-good projection. Other active clients
 reconcile immediately. A synchronous burst collapses before I/O, and a

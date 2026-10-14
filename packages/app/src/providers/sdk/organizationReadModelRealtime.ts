@@ -21,6 +21,7 @@ import {
   ensureOrganizationReadModelReconciliation,
   scheduleOrganizationReadModelReconciliation,
   scheduleOrganizationReadModelReconciliationAfterActivePass,
+  settleCoveredOrganizationReadModelHint,
 } from "./organizationReadModelReconciliation";
 
 export {
@@ -351,7 +352,8 @@ export function handleOrganizationReadModelHint(
  * sibling client on the same login session sets the same flag), so a release
  * never trusts a repaint shortcut. It reconciles the feed unless a completed
  * pass, such as the explicit post-mutation reconciliation, sent its request
- * after the latest held hint arrived and so already observed its change.
+ * after the latest held hint arrived and so already observed its change; then
+ * it settles the scope as that pass would and repaints every consumer.
  */
 export function releaseDeferredOrganizationReadModelHint(
   tearleads: Tearleads,
@@ -365,14 +367,15 @@ export function releaseDeferredOrganizationReadModelHint(
   }
   state.deferredSelfHintByOrganizationId.delete(organizationId);
   const activeScope = activeDemandScope(tearleads, state, organizationId);
-  if (
-    !isSameOrganizationReadModelScope(deferredHint.scope, activeScope) ||
-    isOrganizationReadModelHintCaughtUp(state, deferredHint)
-  ) {
+  if (!isSameOrganizationReadModelScope(deferredHint.scope, activeScope)) {
     return;
   }
-  void scheduleOrganizationReadModelReconciliationAfterActivePass(
-    tearleads,
-    organizationId,
-  );
+  // A covered hint needs no request, but every other same-scope consumer
+  // (Explorer beside Org Manager) must still repaint the covering pass's rows.
+  void (isOrganizationReadModelHintCaughtUp(state, deferredHint)
+    ? settleCoveredOrganizationReadModelHint(tearleads, deferredHint.scope)
+    : scheduleOrganizationReadModelReconciliationAfterActivePass(
+        tearleads,
+        organizationId,
+      ));
 }

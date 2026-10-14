@@ -16,7 +16,7 @@ Manager mutation is active are held. See the
 | `Commit` / `Abort` | `appendOrganizationReadModelChangeInTransaction` runs in the source mutation's transaction, which commits or rolls back its domain rows, head, and stamps together; the hint is published only after commit |
 | `Deliver` | `handleOrganizationReadModelHint` counts every hint and holds it while the Org Manager mutation is active; otherwise it schedules a pass |
 | `Lose` | `publishOrganizationReadModelChanged` is best-effort, and a socket can drop a hint |
-| `EndMutation` | `releaseDeferredOrganizationReadModelHint` drops held hints that `isOrganizationReadModelHintCaughtUp` reports covered and schedules a pass otherwise |
+| `EndMutation` | `releaseDeferredOrganizationReadModelHint` drops held hints that `isOrganizationReadModelHintCaughtUp` reports covered, repainting consumers through `settleCoveredOrganizationReadModelHint`, and schedules a pass otherwise |
 | `Send` | `trackOrganizationReadModelCatchUp` records the hint count before `loadDirectoryAndGroupsAfterMutation` starts a fresh pass; a pass sent for a scheduled trigger consumes it, while held hints stay held |
 | `Read` | `lockOrganizationReadModelHeadInTransaction` reads the head and lane stamps under the shared lock, and `loadDeltaResponse` reloads every lane stamped after the cursor |
 | `Finish` / `Fail` | `applyOrganizationReadModelResponse` applies the page and cursor atomically, and `reconcileOrganizationDirectoryAndGroupsWithOutcome` reports `reconciled` only then; a failure keeps the last-known-good projection, covers no held hint, and excuses staleness only when it consumed a scheduled trigger |

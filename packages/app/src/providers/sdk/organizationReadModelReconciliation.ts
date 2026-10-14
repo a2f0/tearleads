@@ -163,6 +163,20 @@ function scheduleOrganizationReadModelReconciliationPass(
   return reconciliation.promise;
 }
 
+/**
+ * Settle a released hint that a completed pass already covered, as a
+ * reconciled pass would: renew the caught-up lease and repaint every
+ * same-scope consumer from the local rows that pass committed, without another
+ * feed request. Coverage is recorded only after the pass's page applied, so
+ * consumers never read the rows before it.
+ */
+export function settleCoveredOrganizationReadModelHint(
+  tearleads: Tearleads,
+  scope: OrganizationReadModelScope,
+): Promise<void> {
+  return settleSameScopePass(stateFor(tearleads), scope, true);
+}
+
 export function scheduleOrganizationReadModelReconciliation(
   tearleads: Tearleads,
   organizationId: string,
