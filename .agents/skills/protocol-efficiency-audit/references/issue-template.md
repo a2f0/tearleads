@@ -53,7 +53,9 @@ and cross-reference related proposals by number. Reference prior efficiency
 and security issues so their follow-ups stay traceable. State that nothing
 was implemented during the audit.
 
-Create the issue with `gh issue create --label enhancement --body-file <path>`.
+Create the issue with
+`gh issue create --label enhancement --title "<title>" --body-file <path>`;
+without `--title` the command prompts and fails in a non-interactive session.
 
 GitHub rejects issue bodies over 65,536 characters. Measure the draft first.
 If it is too long, keep sections 1 to 5 and 7 in the body and post sections 6,

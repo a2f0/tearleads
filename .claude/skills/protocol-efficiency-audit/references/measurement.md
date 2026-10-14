@@ -76,11 +76,14 @@ For a table retirement, find its Drizzle export symbol in the schema module,
 then search production source for that symbol:
 
 ```sh
-rg -l --glob '!*.test.ts' --glob '!**/test/**' '\b<tableSymbol>\b' \
-  packages/api/src packages/api-shared/src
+rg -l --glob '!*.test.ts' --glob '!*.test.tsx' --glob '!**/test/**' \
+  --glob '!*.testUtils.ts' --glob '!*.testFixtures.ts' --glob '!**/__tests__/**' \
+  '\b<tableSymbol>\b' packages/api/src packages/api-shared/src
 ```
 
-Open each hit and classify it as a read site or a write site. For SDK tables,
+Open each hit and classify it as a read site or a write site. A test helper
+or fixture that the globs missed is not a production reader; drop it from
+the census. For SDK tables,
 search `packages/client-sdk/src` and `packages/app/src` for the symbol and for
 the raw table name in SQL strings. A table with no production read site is a
 retirement candidate; a table with one writer and one reader is a candidate

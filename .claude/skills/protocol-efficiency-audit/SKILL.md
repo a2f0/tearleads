@@ -213,7 +213,8 @@ For each verified proposal:
    baseline, savings, tables retired, risk, capability notes, and the
    recommended order. Only the coordinator may publish: after confirmation,
    or if the user asked for an issue, create it with
-   `gh issue create --label enhancement --body-file <path>`. An explicitly
+   `gh issue create --label enhancement --title "<title>" --body-file <path>`.
+   An explicitly
    requested interim issue must identify its incomplete coverage.
 3. State that nothing was implemented as part of the audit.
 4. Save a project memory with the audited revision, checkpoint path, coverage
