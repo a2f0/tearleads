@@ -13,6 +13,7 @@ import {
   ScreenshotsToolbar,
 } from "./ScreenshotGalleryControls";
 import { Stage } from "./ScreenshotsStage";
+import { ScreenshotsViewport } from "./ScreenshotsViewport";
 import {
   entryKey,
   initialProject,
@@ -291,6 +292,8 @@ function Gallery({
     ),
   );
   const containerRef = useRef<HTMLDivElement>(null);
+  const expandRef = useRef<HTMLButtonElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
     useGalleryNavigation(manifest, project, containerRef, initialScreen);
   useScreenUrlSync(project, activeName);
@@ -314,46 +317,55 @@ function Gallery({
     : undefined;
 
   return (
-    <div className="screenshots-browser" ref={containerRef}>
-      <ScreenshotsToolbar
-        projects={projects}
-        themes={themes}
-        project={project}
-        theme={theme}
-        activeName={activeName}
-        onProjectChange={setProject}
-        onThemeChange={setTheme}
-      />
-
-      <div className="screenshots-browser__body">
-        <Stage
+    <ScreenshotsViewport
+      expanded={expanded}
+      onCollapse={() => setExpanded(false)}
+      toggleRef={expandRef}
+    >
+      <div className="screenshots-browser" ref={containerRef}>
+        <ScreenshotsToolbar
+          projects={projects}
+          themes={themes}
           project={project}
           theme={theme}
-          name={activeName}
-          entry={currentEntry}
+          activeName={activeName}
+          onProjectChange={setProject}
+          onThemeChange={setTheme}
+          expanded={expanded}
+          onExpandToggle={() => setExpanded((value) => !value)}
+          expandRef={expandRef}
         />
-        <ScreenshotStepControls
-          canStep={screens.length > 1}
-          onStep={step}
-          position={
-            screens.length === 0
-              ? "0 / 0"
-              : `${activeIndex + 1} / ${screens.length}`
-          }
-        />
-        <Filmstrip
-          screens={screens}
-          activeIndex={activeIndex}
-          thumbFor={(name) =>
-            bySrc.get(entryKey(project, theme, name)) ??
-            themes
-              .map((t) => bySrc.get(entryKey(project, t, name)))
-              .find(Boolean)
-          }
-          onSelect={(index) => setSelectedName(screens[index])}
-        />
+
+        <div className="screenshots-browser__body">
+          <Stage
+            project={project}
+            theme={theme}
+            name={activeName}
+            entry={currentEntry}
+          />
+          <ScreenshotStepControls
+            canStep={screens.length > 1}
+            onStep={step}
+            position={
+              screens.length === 0
+                ? "0 / 0"
+                : `${activeIndex + 1} / ${screens.length}`
+            }
+          />
+          <Filmstrip
+            screens={screens}
+            activeIndex={activeIndex}
+            thumbFor={(name) =>
+              bySrc.get(entryKey(project, theme, name)) ??
+              themes
+                .map((t) => bySrc.get(entryKey(project, t, name)))
+                .find(Boolean)
+            }
+            onSelect={(index) => setSelectedName(screens[index])}
+          />
+        </div>
       </div>
-    </div>
+    </ScreenshotsViewport>
   );
 }
 

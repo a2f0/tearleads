@@ -32,7 +32,6 @@ The durable tables are:
 - `access_events`
 - `access_manifests`
 - `access_manifest_heads`
-- `access_event_dependency_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
 - `access_manifest_verifications` (MAC'd stored-history verification markers;
@@ -203,7 +202,8 @@ attachment listing or bind responses for authorized document readers.
 
 Attachment bind and detach mutations store signed access events and update the
 live `attachment_bindings` projection. Detached bindings are transient live
-metadata; durable attachment history belongs to the document audit layer.
+metadata; the signed bind and detach events stay in `access_events`, and there is
+no separate attachment audit ledger.
 
 ## Write Flow
 
@@ -261,18 +261,15 @@ Read/list routes use the same signed manifest state:
   - requires read access through at least one active binding's document
   - streams committed encrypted blob bytes with digest headers
 
-## Audit Boundary
+## Write Attribution
 
-Audit rows snapshot the signed manifest identity accepted by the live write
-path:
-
-- `access_epoch`
-- `access_manifest_hash`
-- `access_state_hash`
-
-The audit tables are append-only history structures. Live tables such as
+Each stored content record keeps its signed write header, which names the
+access manifest hash and key-target hash the write was accepted under and the
+writer device that signed it. Clients verify that header on every synced
+record, so attribution needs no separate server ledger. Live tables such as
 `document_updates`, `attachment_bindings`, `blobs`, and key-target tables remain
-optimized for sync and present-time access decisions.
+optimized for sync and present-time access decisions. See
+[document-rekey-and-audit-history.md](./document-rekey-and-audit-history.md#write-integrity).
 
 ## Non-Goals
 

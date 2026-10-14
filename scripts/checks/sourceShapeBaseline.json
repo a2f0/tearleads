@@ -47,21 +47,17 @@
       "lines": 364,
       "bytes": 20904
     },
-    "docs/document-rekey-and-audit-history.md": {
-      "lines": 543,
-      "bytes": 21124
-    },
     "docs/glossary.md": {
       "lines": 533,
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1209,
-      "bytes": 59185
+      "lines": 1208,
+      "bytes": 59102
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 550,
-      "bytes": 23626
+      "bytes": 23609
     },
     "docs/openapi.json": {
       "lines": 71344,
@@ -69,7 +65,7 @@
     },
     "docs/protocol-specification.md": {
       "lines": 666,
-      "bytes": 34359
+      "bytes": 34355
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -92,8 +88,8 @@
       "bytes": 18333
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 788,
-      "bytes": 23585
+      "lines": 689,
+      "bytes": 20709
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,
@@ -140,12 +136,12 @@
       "bytes": 126688
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1275,
-      "bytes": 42660
+      "lines": 1233,
+      "bytes": 40792
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2265,
-      "bytes": 73501
+      "lines": 2256,
+      "bytes": 73188
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 854,
@@ -156,16 +152,16 @@
       "bytes": 30275
     },
     "packages/api/src/schema.test.ts": {
-      "lines": 544,
-      "bytes": 17116
+      "lines": 526,
+      "bytes": 16513
     },
     "packages/api/src/services/billing/stripeCheckout.test.ts": {
       "lines": 572,
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1299,
-      "bytes": 39259
+      "lines": 1151,
+      "bytes": 34851
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 700,
