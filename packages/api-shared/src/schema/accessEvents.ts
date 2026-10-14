@@ -43,8 +43,8 @@ import {
  *   events, or `null` for initial/create events.
  * - `dependencyManifestHashes`: Signed manifest dependencies needed to verify
  *   the event in context, such as parent/container path manifests or other
- *   authorization dependencies. The dependency projection table expands this
- *   JSON array for indexed lookups.
+ *   authorization dependencies, in signed order. Readers load the array with
+ *   its event; nothing looks events up by dependency.
  * - `bodyHash`: Hash of `body`; included in the signed event header.
  * - `body`: Canonical JSON event body. The server stores it so it can return
  *   complete event/manifest bundles and regenerate projections.
@@ -98,53 +98,6 @@ export const accessEvents = pgTable(
     index("access_events_signer_idx").on(
       table.signerUserId,
       table.signerKeyFingerprint,
-    ),
-  ],
-);
-
-/**
- * Indexed dependency hashes for signed access events.
- *
- * This is a derived cache. The source of authority is
- * `accessEvents.dependencyManifestHashes`, and authorization must verify the
- * signed event/manifest bundle rather than trusting projection rows alone.
- *
- * Columns:
- * - `id`: Surrogate database primary key.
- * - `eventHash`: Access event whose dependency array this row expands.
- * - `objectKind`: Object kind copied from the event for scoped lookup.
- * - `objectId`: Object id copied from the event for scoped lookup.
- * - `dependencyManifestHash`: One dependency manifest hash referenced by the
- *   event.
- * - `dependencyIndex`: Position of the dependency in the signed dependency
- *   array, preserving deterministic order for bundle reconstruction.
- * - `createdAt`: Server-side projection timestamp.
- *
- * Indexes:
- * - `eventHash` supports regenerating and loading dependencies for an event.
- * - `dependencyManifestHash` supports reverse dependency lookup.
- * - `(eventHash, dependencyManifestHash)` is unique so one dependency appears
- *   once per event.
- */
-export const accessEventDependencyProjection = pgTable(
-  "access_event_dependency_projection",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    eventHash: text("event_hash").notNull(),
-    objectKind: text("object_kind").$type<AccessObjectKind>().notNull(),
-    objectId: uuid("object_id").notNull(),
-    dependencyManifestHash: text("dependency_manifest_hash").notNull(),
-    dependencyIndex: integer("dependency_index").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("access_event_dependency_projection_event_idx").on(table.eventHash),
-    index("access_event_dependency_projection_dependency_idx").on(
-      table.dependencyManifestHash,
-    ),
-    uniqueIndex("access_event_dependency_projection_unique_idx").on(
-      table.eventHash,
-      table.dependencyManifestHash,
     ),
   ],
 );

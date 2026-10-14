@@ -7,7 +7,6 @@ export {
   getAccessManifestBundles,
   getCurrentAccessManifestHead,
   getCurrentAccessManifestHeads,
-  listAccessEventDependencyProjection,
   listAccessManifestPrincipalHeadProjection,
   lockAccessManifestHeadsForShare,
   lockAccessManifestHeadsForUpdate,
