@@ -73,7 +73,7 @@ test("pinned Continuity restores every promised document, photo, and tracker row
       const fixtures = spec.files?.filter((file) => file.kind === kind) ?? [];
       expect(documents?.totalCount).toBe(details.length);
       expect(fixtures).toHaveLength(details.length);
-      for (const [index, detail] of details.entries()) {
+      for (const detail of details) {
         const summary = documents?.rows.find(
           (row) => row.title === detail.title,
         );
@@ -85,7 +85,22 @@ test("pinned Continuity restores every promised document, photo, and tracker row
         });
         await store.ensureInitialized();
         const snapshot = store.getSnapshot();
-        const fixture = fixtures[index];
+        const projector = APP_DOCUMENT_PROJECTOR_DEFINITIONS.find(
+          (definition) => definition.kind === kind,
+        );
+        const project = projector?.project;
+        if (!project) throw new Error(`Missing projector for ${kind}`);
+        const matches = fixtures.filter(
+          (file) =>
+            project({
+              documentKind: kind,
+              structuredFields: file.fields ?? {},
+              text: "",
+            }).title === detail.title,
+        );
+        expect(matches).toHaveLength(1);
+        const fixture = matches[0];
+        if (!fixture) throw new Error(`Missing fixture for ${detail.title}`);
         expect(snapshot.fieldValidationIssues).toEqual([]);
         expect(snapshot.structuredFields).toMatchObject(fixture?.fields ?? {});
         expect(snapshot.rows.map((row) => row.fields)).toEqual([

@@ -38,6 +38,8 @@ export function expandAttachmentSlots(
       label: `${slot.label} ${index + 1}`,
       slotId: photo.slotId,
     }));
+    // Earlier clients stored one photo in the bare slot; keep its replace
+    // action separate from the collection append action.
     if (canAttach || expanded.length === 0) {
       expanded.push({
         ...slot,

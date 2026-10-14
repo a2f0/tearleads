@@ -34,6 +34,9 @@ test("screenshot capture rejects modified backups and mismatched seed provenance
     ),
   };
   writeFileSync(path, "backup");
+  expect(() => assertSeedArtifactCurrent(path)).toThrow(
+    "Run bun run screenshots:seed",
+  );
   writeFileSync(`${path}.provenance.json`, JSON.stringify(provenance));
   expect(() => assertSeedArtifactCurrent(path)).not.toThrow();
   writeFileSync(path, "modified");

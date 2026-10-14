@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 
 // Direct Playwright invocations must not reuse an artifact from an older pin.
-export function assertSeedArtifactCurrent(artifactPath: string): void {
+function verifySeedArtifact(artifactPath: string): void {
   const require = createRequire(import.meta.url);
   const digest = (file: string) =>
     createHash("sha256").update(readFileSync(file)).digest("hex");
@@ -27,6 +27,17 @@ export function assertSeedArtifactCurrent(artifactPath: string): void {
   ) {
     throw new Error(
       "Screenshot seed is stale or modified. Run bun run screenshots:seed.",
+    );
+  }
+}
+
+export function assertSeedArtifactCurrent(artifactPath: string): void {
+  try {
+    verifySeedArtifact(artifactPath);
+  } catch (cause) {
+    throw new Error(
+      "Screenshot seed is missing, stale or modified. Run bun run screenshots:seed.",
+      { cause },
     );
   }
 }

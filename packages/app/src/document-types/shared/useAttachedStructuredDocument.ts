@@ -80,8 +80,9 @@ export function useAttachedStructuredDocument<Fields>(
     slots: uploadSlots,
   });
   const slotIds = useMemo(
-    () => uploadSlots.map((slot) => slot.slotId),
-    [uploadSlots],
+    // A returned pick must see hydrated attachments before resolving legacy slots.
+    () => (ready ? uploadSlots.map((slot) => slot.slotId) : []),
+    [ready, uploadSlots],
   );
   const replacePickedAttachment = useCallback<
     DocumentContextValue["replaceAttachment"]

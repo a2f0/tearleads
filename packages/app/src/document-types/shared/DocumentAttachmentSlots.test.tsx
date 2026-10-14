@@ -205,3 +205,10 @@ test("empty image upload actions are hidden when attachments cannot be changed",
   expect(view.queryAllByRole("button", { name: "Upload Image" })).toEqual([]);
   expect(view.queryAllByRole("button", { name: "Choose Blob" })).toEqual([]);
 });
+
+test("stored single-image actions remain hidden in read mode", () => {
+  const view = renderAttachmentSlots({ canAttach: false });
+  expect(view.getByText("front.png")).toBeTruthy();
+  expect(view.queryByRole("button", { name: "Clear Front Image" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Replace Image" })).toBeNull();
+});

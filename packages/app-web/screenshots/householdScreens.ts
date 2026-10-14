@@ -73,17 +73,23 @@ function trackerDetail(
       exact: true,
     });
     await expect(table.locator("tbody tr")).toHaveCount(expected.rowCount);
-    for (const { weight, unit, systolic, diastolic } of expected.rows) {
-      await expect(
-        table
-          .getByText(
-            kind === "weight"
-              ? `${weight} ${unit}`
-              : `${systolic}/${diastolic} mmHg`,
-            { exact: true },
-          )
-          .first(),
-      ).toBeAttached();
+    for (const {
+      measuredAt = "",
+      weight,
+      unit,
+      systolic,
+      diastolic,
+    } of expected.rows) {
+      // Compact tables fold the value and its caption into one cell.
+      const row = table.locator("tbody tr").filter({
+        hasText: measuredAt.slice(0, 19).replace("T", " "),
+      });
+      await expect(row).toHaveCount(1);
+      await expect(row).toContainText(
+        kind === "weight"
+          ? `${weight} ${unit}`
+          : `${systolic}/${diastolic} mmHg`,
+      );
     }
   };
 }
