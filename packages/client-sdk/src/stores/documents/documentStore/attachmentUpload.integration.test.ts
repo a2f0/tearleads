@@ -7,7 +7,6 @@ import type {
 import type {
   BlobAttachmentSummary,
   DocumentCreateResponse,
-  DocumentSyncResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import {
@@ -18,63 +17,16 @@ import {
   createMaterializedSyncFixture,
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
-import { waitFor } from "../../../../test/helpers/waitFor";
-import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
-import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { readWriteHeader } from "../../../data/documents/shared/readers";
-import { createDomainScope } from "../../../data/domainScope";
-import { decryptDocumentAttachmentBlob } from "../../../workflows/blobs";
 import {
-  createDocumentsWorkflowRuntime,
-  defaultDocumentsPersistence,
-} from "../../../workflows/documents";
+  attachmentSummaryFromBind,
+  createEchoDocumentSyncResponse,
+  createOnlineDocumentsRuntime,
+  createStoredDocumentWriterProjection,
+} from "../../../../test/helpers/onlineDocumentStoreFixtures";
+import { waitFor } from "../../../../test/helpers/waitFor";
+import { decryptDocumentAttachmentBlob } from "../../../workflows/blobs";
+import { defaultDocumentsPersistence } from "../../../workflows/documents";
 import { createDocumentStore } from "../documentStore";
-
-function createDocumentSyncResponse(input: {
-  readonly commitLsn: string;
-  readonly pullPage?: DocumentSyncResponse["pullPage"];
-  readonly request: DocumentSyncRequest;
-  readonly storedDocument: DocumentCreateResponse;
-}): DocumentSyncResponse {
-  return {
-    acceptedOutgoingUpdateIds: input.request.outgoingUpdates.map(
-      (update) => update.id,
-    ),
-    commitLsn: input.commitLsn,
-    commitLsnMode: "tracked",
-    contentKeyBundle: input.storedDocument.contentKeyBundle,
-    contentKeyBundles: [input.storedDocument.contentKeyBundle],
-    documentId: input.storedDocument.id,
-    documentKekTargets: input.storedDocument.documentKekTargets,
-    pullPage: input.pullPage ?? { hasMore: false, nextCursor: null },
-    updates: input.request.outgoingUpdates.map((update) => {
-      const writeHeader = readWriteHeader(
-        update.writeHeader,
-        "Document sync write header",
-      );
-      return {
-        accessEpoch: 1,
-        authorizationTargets: input.storedDocument.contentKeyBundle.targets.map(
-          (target) => ({
-            containerId: target.containerId,
-            containerKeyEpoch: target.containerKeyEpoch,
-            containerKeyEpochId: target.containerKeyEpochId,
-            containerManifestHash: target.containerManifestHash,
-          }),
-        ),
-        authorFingerprint: writeHeader.writerKeyFingerprint,
-        createdAt: "2026-04-27T00:00:00.000Z",
-        documentId: input.storedDocument.id,
-        encryptedData: update.encryptedData,
-        id: update.id,
-        partialEndVersionVector: update.partialEndVersionVector,
-        partialStartVersionVector: update.partialStartVersionVector,
-        plaintextHash: update.plaintextHash,
-        writeHeader: update.writeHeader,
-      };
-    }),
-  };
-}
 
 test("document store uploads attachment bytes with signed bindings", async () => {
   const fixture = await createMaterializedSyncFixture();
@@ -110,26 +62,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
     createMultipartBlobStageFixture();
   const writerProjection = (): DocumentWriterProjectionResponse | null =>
     storedDocument
-      ? {
-          policyEvidence: {
-            organization: null,
-            organizationPayloads: [],
-            groups: [],
-          },
-          authorizingContainerPaths: [fixture.projection],
-          contentKeyBundle: storedDocument.contentKeyBundle,
-          documentContainerManifestHistory: [
-            ...fixture.projection.path,
-            ...fixture.projection.containerKeks.flatMap(
-              (kek) => kek.containerManifestHistory,
-            ),
-          ],
-          documentId: storedDocument.id,
-          documentKekTargets: storedDocument.documentKekTargets,
-          documentManifest: storedDocument.accessManifest,
-          documentManifestContainerPaths: [[...fixture.projection.path]],
-          documentManifestHistory: [],
-        }
+      ? createStoredDocumentWriterProjection(fixture, storedDocument)
       : null;
 
   const apiClient = createMockApiClient({
@@ -154,18 +87,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       });
       attachmentBindSyncCounts.push(syncCount);
       attachmentBinds.push({ blobId, request });
-      attachments.push({
-        bindingEvent: response.bindingEvent,
-        bindingId: response.bindingId,
-        blobId: response.blobId,
-        blobKekTargets: response.blobKekTargets,
-        contentKeyBundle: response.contentKeyBundle,
-        documentManifestHash: response.documentManifestHash,
-        previousBindingId: response.previousBindingId,
-        slotId: response.slotId,
-        writeAuthorization: response.writeAuthorization,
-        writeHeader: response.writeHeader,
-      });
+      attachments.push(attachmentSummaryFromBind(response));
       blobs.set(blobId, {
         byteLength: completedBlob.byteLength,
         encryptedBytes,
@@ -238,7 +160,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
           },
         });
       }
-      return createDocumentSyncResponse({
+      return createEchoDocumentSyncResponse({
         commitLsn: `0/${syncCount}0`,
         pullPage: {
           hasMore,
@@ -249,42 +171,7 @@ test("document store uploads attachment bytes with signed bindings", async () =>
       });
     },
   });
-  const runtime = createDocumentsWorkflowRuntime({
-    apiClient,
-    auth: {
-      isAuthenticated: true,
-      organizationId: fixture.author.organizationId,
-      userId: fixture.author.signerUserId,
-    },
-    crypto: {
-      encapsulationKeyPair: {
-        publicKey: fixture.publicKey,
-        secretKey: fixture.secretKey,
-      },
-      signingFingerprint: fixture.author.signerKeyFingerprint,
-      signingKeyPair: {
-        signingPrivateKey: fixture.author.signerPrivateKey,
-        signingPublicKey: fixture.signingPublicKey,
-      },
-    },
-    infra: {
-      blobStore: createMemoryBlobStore(),
-      dbStatus: "ready",
-      documentProjectors: defaultDocumentProjectorRegistry,
-      execSql,
-    },
-    resolveTrustedUserIdentity: fixture.resolveProjectionUserKey,
-    state: {
-      containerId: fixture.projection.containerId,
-      domainScope: createDomainScope(),
-      events: [],
-      online: true,
-    },
-    util: {
-      log: () => {},
-      reportSecurityIncident: async () => undefined,
-    },
-  });
+  const runtime = createOnlineDocumentsRuntime({ apiClient, execSql, fixture });
   const store = createDocumentStore(
     "attachment-upload",
     runtime,

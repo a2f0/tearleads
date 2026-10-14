@@ -86,6 +86,10 @@ carries the birth, so the file costs one update. If that attach does not land,
 requests a pass. Production enqueues only content the record frontier already
 covers, so a failed attach whose rollback could not run never ships its slot;
 the model's `PublishedHistoryIsDurable` makes that precondition hold throughout.
+Production also holds scheduled passes (`canRunScheduledSync`) until that
+attach settles or a write advances the marker, so no pass ships the birth on
+its own. A hold only removes interleavings; the model keeps `Prime` enabled,
+so it checks the pass-before-attach order as well.
 
 The abstraction maps to production at these seams:
 

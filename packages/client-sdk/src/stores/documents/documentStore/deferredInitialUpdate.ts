@@ -19,10 +19,12 @@ import {
 /**
  * Runs after the first attach on a store opened with `deferInitialUpdate`.
  * Creation committed the birth without a pending update, leaving the marker at
- * the empty version so that attach's delta would carry it. When the attach did
- * not land (staging failed or returned null, its persist was refused, or the
- * store could not attach), enqueue the deferred tail now so the document still
- * syncs, without its attachment, instead of waiting for a later edit or pass.
+ * the empty version so that attach's delta would carry it, and scheduled sync
+ * passes wait meanwhile (see `canRunScheduledSync`) so none ships the birth on
+ * its own. When the attach did not land (staging failed or returned null, its
+ * persist was refused, or the store could not attach), enqueue the deferred
+ * tail now so the document still syncs, without its attachment. Either way,
+ * lift the hold and request the pass it skipped.
  */
 export async function settleDeferredInitialUpdate(
   state: DocumentStoreState,
@@ -30,6 +32,17 @@ export async function settleDeferredInitialUpdate(
 ): Promise<void> {
   if (!state.deferInitialUpdate) return;
   state.deferInitialUpdate = false;
+  try {
+    await enqueueDeferredTail(state, writeGeneration);
+  } finally {
+    requestDocumentStoreSync(state);
+  }
+}
+
+async function enqueueDeferredTail(
+  state: DocumentStoreState,
+  writeGeneration: AttachmentWriteGeneration,
+): Promise<void> {
   // A reset or relink owns the replacement store; its deferred tail stays
   // durable and the next write or sync pass materializes it.
   if (!isAttachmentWriteGenerationCurrent(state, writeGeneration)) return;
@@ -67,5 +80,4 @@ export async function settleDeferredInitialUpdate(
     return;
   }
   advancePendingBaseVersion(state, currentDoc);
-  requestDocumentStoreSync(state);
 }

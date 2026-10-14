@@ -192,6 +192,14 @@ side-row/client-projection cleanup.
 There is no separate attachment-staging commit, legacy create, or void-enqueue
 fallback.
 
+A store opened with `DocumentStoreOpenOptions.deferInitialUpdate` (an Explorer
+file import) creates without that initial outgoing update and persists the
+empty version as its outgoing marker. Scheduled sync waits until the first
+`attachFiles` settles, so one update carries the birth and the attachment; a
+failed attach enqueues the birth alone, and any write that advances the marker
+also lifts the wait. The store factories take that option, with
+`remoteSyncMode`, as a trailing `DocumentStoreOpenOptions` object.
+
 The `blobs` facade also exports encrypted local blob store helpers, including
 `createLazyEncryptedBlobStore` for hosts that load encryption keys from an async
 keyring provider. `BlobByteSource` is the replayable range-read contract used by
