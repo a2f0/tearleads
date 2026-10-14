@@ -249,8 +249,9 @@ Read/list routes use the same signed manifest state:
     and page limit (500 rows in total)
   - each lane requires read access to its container manifest path and lists
     documents whose current link-set manifest projects into that container
-  - a lane that fails its access check reports that failure alone; the other
-    lanes still list
+  - a lane that fails its access check, or whose documents cite a linked
+    container in conflict, reports that failure alone; the other lanes still
+    list. Only the lane container's own absence carries `container_not_found`
 - `GET /documents/:documentId/attachments`
   - requires read access through at least one linked container path
 - `GET /blobs/:blobId`

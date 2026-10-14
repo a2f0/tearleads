@@ -3,6 +3,8 @@ import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   type ListContainerDocumentLanesResponse,
 } from "@tearleads/validators/response";
+import { ContainerWriterProjectionError } from "../../workflows/containers/writerProjection/types";
+import { KeyingReadAccessError } from "../../workflows/keyingReadAccess";
 import type { ApiServiceRuntime } from "../runtime";
 import {
   ListContainerDocumentsError,
@@ -15,6 +17,38 @@ const CONTAINER_DOCUMENT_LANE_CONCURRENCY = 4;
 type ContainerDocumentLane = ListContainerDocumentLanesRequest["lanes"][number];
 type ContainerDocumentLaneResult =
   ListContainerDocumentLanesResponse["results"][number];
+type ContainerDocumentLaneFailure = Extract<
+  ContainerDocumentLaneResult,
+  { failure: unknown }
+>["failure"];
+
+/**
+ * The lane-local form of a container access decision. The lane container's
+ * own gate keeps the singular route's mapping: its status, with the exact
+ * absence code only on 404. An access decision about a container a listed
+ * document also links into (a conflict while resolving its path) belongs to
+ * this lane alone and never carries the lane container's absence code. Any
+ * other error, including a malformed lane (400), fails the request.
+ */
+function containerDocumentLaneFailure(
+  error: unknown,
+): ContainerDocumentLaneFailure | null {
+  if (error instanceof ListContainerDocumentsError) {
+    if (error.status === 400) return null;
+    return {
+      ...(error.status === 404 ? { code: CONTAINER_NOT_FOUND_ERROR_CODE } : {}),
+      error: error.message,
+      status: error.status,
+    };
+  }
+  if (
+    error instanceof KeyingReadAccessError ||
+    error instanceof ContainerWriterProjectionError
+  ) {
+    return { error: error.message, status: error.status };
+  }
+  return null;
+}
 
 async function listContainerDocumentLane(
   runtime: ApiServiceRuntime,
@@ -30,19 +64,9 @@ async function listContainerDocumentLane(
       }),
     };
   } catch (error) {
-    // A malformed lane is a malformed request; a rejected container is not.
-    if (!(error instanceof ListContainerDocumentsError) || error.status === 400)
-      throw error;
-    return {
-      failure: {
-        ...(error.status === 404
-          ? { code: CONTAINER_NOT_FOUND_ERROR_CODE }
-          : {}),
-        error: error.message,
-        status: error.status,
-      },
-      laneId: lane.laneId,
-    };
+    const failure = containerDocumentLaneFailure(error);
+    if (!failure) throw error;
+    return { failure, laneId: lane.laneId };
   }
 }
 

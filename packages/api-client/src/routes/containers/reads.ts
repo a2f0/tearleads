@@ -74,9 +74,13 @@ export const containerDocumentLanes = {
     }
     if (reportErrors) {
       for (const lane of result.data.results) {
+        // Only the exact 404 + absence-code pair proves the container is gone.
         if (
           "failure" in lane &&
-          lane.failure.code !== CONTAINER_NOT_FOUND_ERROR_CODE
+          !(
+            lane.failure.status === 404 &&
+            lane.failure.code === CONTAINER_NOT_FOUND_ERROR_CODE
+          )
         )
           reportError(
             `${listContainerDocumentLanesOperation.method} ${listContainerDocumentLanesOperation.path}: ${lane.failure.status} ${lane.failure.error}`,

@@ -97,6 +97,23 @@ testApiClient(
               },
               laneId: "missing",
             },
+            // The absence code proves absence only together with a 404.
+            {
+              failure: {
+                code: "container_not_found",
+                error: "Container manifest conflict",
+                status: 409,
+              },
+              laneId: "miscoded-conflict",
+            },
+            {
+              failure: {
+                code: "container_not_found",
+                error: "Forbidden",
+                status: 403,
+              },
+              laneId: "miscoded-forbidden",
+            },
           ],
         }),
       ),
@@ -104,7 +121,12 @@ testApiClient(
     const client = new ApiClient(apiBaseUrl);
     client.setOnError((message) => errors.push(message));
     const request = {
-      lanes: ["foreign", "missing"].map((laneId) => ({
+      lanes: [
+        "foreign",
+        "missing",
+        "miscoded-conflict",
+        "miscoded-forbidden",
+      ].map((laneId) => ({
         containerId: DOCUMENT_LANE_CONTAINER_ID,
         laneId,
         watermark: null,
@@ -118,7 +140,11 @@ testApiClient(
     await expect(
       client.listContainerDocumentLanes(request),
     ).resolves.not.toBeNull();
-    expect(errors).toEqual(["POST /containers/documents/query: 403 Forbidden"]);
+    expect(errors).toEqual([
+      "POST /containers/documents/query: 403 Forbidden",
+      "POST /containers/documents/query: 409 Container manifest conflict",
+      "POST /containers/documents/query: 403 Forbidden",
+    ]);
   },
 );
 
