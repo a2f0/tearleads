@@ -265,6 +265,7 @@ class ContainerContentsService implements ContainerContents {
         input.documentId ?? null,
         input.initialText,
         input.initialDocumentKind,
+        { deferInitialUpdate: input.deferInitialUpdate },
       );
     const documentLinks: ContainerDocumentLinks = {
       ...runtime,

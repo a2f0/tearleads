@@ -78,11 +78,21 @@ normal write durably queues its delta and requests a coalesced pass; an
 intentionally deferred write remains behind the marker as a visible retained
 tail. Neither is silently included in the already-captured frontier.
 
+A file import defers its birth the same way. Creation commits the record and
+birth checkpoint with the marker at the empty version and nothing queued, which
+is `DeferEdit` from `Init`; the attach that follows is a `QueueEdit` whose delta
+carries the birth, so the file costs one update. If that attach does not land,
+`QueueRetainedTail` durably queues the retained tail with no new operation and
+requests a pass. Production enqueues only content the record frontier already
+covers, so a failed attach whose rollback could not run never ships its slot;
+the model's `PublishedHistoryIsDurable` makes that precondition hold throughout.
+
 The abstraction maps to production at these seams:
 
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `QueueEdit` / `DeferEdit` | `pendingDeltaSinceBase`, `enqueuePendingUpdate`, `persistDocument`, and `advancePendingBaseVersion` |
+| `QueueRetainedTail` | `settleDeferredInitialUpdate` after the first attach on a store opened with `deferInitialUpdate`, whose creation left the marker at `emptyVersionVector` |
 | `CapturePreparation` | `prepareDocumentOutgoingCoverage` using `extendDocumentVersionCoverage` before its first await |
 | `MaterializeCapturedTail` | `prepareDocumentOutgoingCoverage` exporting and durably enqueuing an uncovered captured delta, whether its capture stays live or becomes stale |
 | `AbortStalePreparation` | post-enqueue generation checks in `prepareDocumentOutgoingCoverage` returning without marker publication; an enqueue already submitted to persistence may still finish |
@@ -103,6 +113,7 @@ The abstraction maps to production at these seams:
 TLC explores restarts before and after both durable preparation steps, every
 partial/all queued-settlement ordering, ordinary edits that re-export an older
 deferred operation, ordinary and deliberately deferred edits after capture,
+a deferred birth whose attach fails and queues the retained tail on its own,
 an incoming update concurrent with a retained local tail, reset/reinitialize
 before a guarded operation starts and while marker persistence, response
 persistence, or deletion is already awaiting physical completion, and relink
@@ -150,7 +161,7 @@ tail-accounting invariants.
 
 The checked configuration uses two abstract operations, two document
 identity/access contexts, and two non-reused store generations, exploring
-7,290,584 generated and 1,188,552 distinct states at depth 43. Set union stands
+8,121,966 generated and 1,257,712 distinct states at depth 43. Set union stands
 in
 for semantic version-vector merge, and each queued operation stands in for the
 coverage carried by one or more durable pending rows. A same-document key

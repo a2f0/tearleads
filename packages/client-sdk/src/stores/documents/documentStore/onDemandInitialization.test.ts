@@ -31,7 +31,7 @@ test("a cold on-demand store stays local until explicitly requested", async () =
       fixture.writerProjection.documentId,
       "",
       undefined,
-      "on-demand",
+      { remoteSyncMode: "on-demand" },
     );
 
     expect(await store.ensureInitialized()).toBe(true);

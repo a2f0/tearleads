@@ -1,5 +1,6 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import {
+  emptyVersionVector,
   encodeVersionVector,
   exportAllUpdates,
   exportFullHistorySnapshot,
@@ -80,6 +81,14 @@ async function createInitialDocumentRecord(
   const initialUpdate = hasInitialContent
     ? createPendingUpdateFields(exportAllUpdates(nextDoc))
     : null;
+  // A deferred birth still commits its checkpoint, but leaves the marker at the
+  // empty version with nothing queued: the promised attach exports every op
+  // since that marker, so one update carries the birth and the attachment.
+  const birthDurability = !initialUpdate
+    ? {}
+    : state.deferInitialUpdate
+      ? { pendingBaseVersionOverride: emptyVersionVector() }
+      : { pendingUpdate: initialUpdate };
 
   const created: DocumentRecord = {
     id: state.localId,
@@ -114,7 +123,7 @@ async function createInitialDocumentRecord(
         pruneCoveredLocalState: false,
         snapshot: bytesToBase64(exportFullHistorySnapshot(nextDoc)),
       },
-      ...(initialUpdate ? { pendingUpdate: initialUpdate } : {}),
+      ...birthDurability,
     },
   );
   return persisted;

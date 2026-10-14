@@ -40,8 +40,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 954,
-      "bytes": 52480
+      "lines": 962,
+      "bytes": 53008
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -80,8 +80,8 @@
       "bytes": 407663
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
-      "lines": 578,
-      "bytes": 23719
+      "lines": 586,
+      "bytes": 24037
     },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 1978,
@@ -240,8 +240,8 @@
       "bytes": 16859
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 587,
-      "bytes": 17322
+      "lines": 588,
+      "bytes": 17350
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 592,

@@ -114,6 +114,8 @@ export interface DocumentStoreState {
   /** Plaintext digest of the held bytes per slot; see `getAttachmentStatuses`. */
   attachmentContentSha256BySlotId: Record<string, string>;
   attachmentStorageKeyBySlotId: Record<string, string>;
+  /** Creation's birth rides the first attach; see `deferredInitialUpdate.ts`. */
+  deferInitialUpdate?: boolean;
   doc: DocumentState | null;
   effects: DocumentStorePersistenceEffects;
   initialDocumentId: string | null;

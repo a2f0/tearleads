@@ -34,6 +34,7 @@ import {
   isAttachmentWriteGenerationCurrent,
   shouldAbortAttachmentPersistFollowup,
 } from "./attachmentWriteGeneration";
+import { settleDeferredInitialUpdate } from "./deferredInitialUpdate";
 import { ensureDocumentStoreReady } from "./initialization";
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
@@ -419,6 +420,10 @@ export async function attachFilesToDocumentStore(
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => persistAttachedFiles(state, files, writeGeneration))
+    .catch((error: unknown) => {
+      reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
+    })
+    .then(async () => settleDeferredInitialUpdate(state, writeGeneration))
     .catch((error: unknown) => {
       reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
     });
