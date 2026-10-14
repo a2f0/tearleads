@@ -1,5 +1,6 @@
 import type {
   ListOrganizationGroupsResponse,
+  OrganizationGroupCurrentStateResponse,
   OrganizationReadModelDirectoryResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
@@ -22,11 +23,8 @@ import { applyOrganizationReadModelGrantsLane } from "./organizationReadModelGra
 import {
   applyGroupMembershipsLane,
   assertStoredGroupMembershipBindings,
+  OrganizationReadModelBindingError,
 } from "./organizationReadModelMembershipPersistence";
-import {
-  applyOrganizationPolicyLane,
-  replaceGroupPolicyHeads,
-} from "./organizationReadModelPolicyHeadPersistence";
 import {
   loadOrganizationReadModelProjectionInTransaction,
   type OrganizationReadModelProjection,
@@ -51,6 +49,8 @@ type ApplyOrganizationReadModelResponseResult =
 interface CurrentOrganizationReadModelState {
   readonly cursor: string;
   readonly memberGroupId: string;
+  readonly memberGroupStateHash: string;
+  readonly organizationHead: OrganizationGroupCurrentStateResponse;
   readonly profileDocumentId: string | null;
 }
 
@@ -158,35 +158,39 @@ async function replaceGroupsLane(input: {
   readonly organizationId: string;
   readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
+  // Hydrated names and delivered membership heads outlive a catalog
+  // replacement; the groupMemberships lane rebinds any head that changed.
   const previousGroups = await input.tx
     .select({
       groupId: organizationReadModelGroups.groupId,
+      membersStateHash: organizationReadModelGroups.membersStateHash,
       name: organizationReadModelGroups.name,
     })
     .from(organizationReadModelGroups)
     .where(
       eq(organizationReadModelGroups.organizationId, input.organizationId),
     );
-  const names = new Map(
-    previousGroups.map((group) => [group.groupId, group.name]),
+  const previousById = new Map(
+    previousGroups.map((group) => [group.groupId, group]),
   );
   await input.tx
     .delete(organizationReadModelGroups)
     .where(eq(organizationReadModelGroups.organizationId, input.organizationId))
     .run();
-  await replaceGroupPolicyHeads(input);
 
   const rows = input.groups.groups.map((group, sortOrder) => ({
     organizationId: input.organizationId,
     groupId: group.groupId,
     sortOrder,
-    name: names.get(group.groupId) ?? "",
+    name: previousById.get(group.groupId)?.name ?? "",
     createdAt: group.createdAt,
     isBuiltin: group.isBuiltin,
     stateHash: group.currentState?.stateHash ?? null,
     stateVersion: group.currentState?.version ?? null,
     keyEpoch: group.currentState?.keyEpoch ?? null,
+    keyFingerprint: group.currentState?.keyFingerprint ?? null,
     memberCount: group.currentState?.memberCount ?? null,
+    membersStateHash: previousById.get(group.groupId)?.membersStateHash ?? null,
   }));
   for (let index = 0; index < rows.length; index += GROUP_INSERT_BATCH_SIZE) {
     await input.tx
@@ -203,13 +207,33 @@ async function loadCurrentState(
   const [current] = await tx
     .select({
       cursor: organizationReadModelState.cursor,
+      keyEpoch: organizationReadModelState.organizationKeyEpoch,
+      keyFingerprint: organizationReadModelState.organizationKeyFingerprint,
+      memberCount: organizationReadModelState.organizationMemberCount,
       memberGroupId: organizationReadModelState.memberGroupId,
+      memberGroupStateHash: organizationReadModelState.memberGroupStateHash,
       profileDocumentId: organizationReadModelState.profileDocumentId,
+      stateHash: organizationReadModelState.organizationStateHash,
+      version: organizationReadModelState.organizationStateVersion,
     })
     .from(organizationReadModelState)
     .where(eq(organizationReadModelState.organizationId, organizationId))
     .limit(1);
-  return current ?? null;
+  if (!current) {
+    return null;
+  }
+  const { keyEpoch, keyFingerprint, memberCount, stateHash, version, ...rest } =
+    current;
+  return {
+    ...rest,
+    organizationHead: {
+      keyEpoch,
+      keyFingerprint,
+      memberCount,
+      stateHash,
+      version,
+    },
+  };
 }
 
 function resolveApplyDisposition(input: {
@@ -229,60 +253,53 @@ function resolveApplyDisposition(input: {
   return null;
 }
 
-async function replaceResponseLanes(input: {
+interface ResponseLanesInput {
+  readonly current: CurrentOrganizationReadModelState | null;
+  readonly memberGroupId: string;
   readonly response: OrganizationReadModelResponse;
   readonly tx: ClientSQLiteTransactionScope;
-}): Promise<void> {
+}
+
+/** Apply every carried lane and return the reserved Members head. */
+async function replaceResponseLanes(
+  input: ResponseLanesInput,
+): Promise<string | null> {
+  const { organizationId } = input.response;
   const directory = input.response.lanes.directory;
   if (directory) {
-    await replaceDirectoryLane({
-      directory,
-      organizationId: input.response.organizationId,
-      tx: input.tx,
-    });
+    await replaceDirectoryLane({ directory, organizationId, tx: input.tx });
   }
   const groups = input.response.lanes.groups;
   if (groups) {
-    await replaceGroupsLane({
-      groups,
-      organizationId: input.response.organizationId,
-      tx: input.tx,
-    });
-  }
-  const organizationPolicy = input.response.lanes.organizationPolicy;
-  if (organizationPolicy) {
-    await applyOrganizationPolicyLane({
-      organizationId: input.response.organizationId,
-      organizationPolicy,
-      tx: input.tx,
-    });
+    await replaceGroupsLane({ groups, organizationId, tx: input.tx });
   }
   const groupMemberships = input.response.lanes.groupMemberships;
-  if (groupMemberships) {
-    await applyGroupMembershipsLane({
-      lane: groupMemberships,
-      organizationId: input.response.organizationId,
-      replaceAll: input.response.mode === "snapshot",
-      tx: input.tx,
-    });
-  }
+  const memberGroupStateHash = groupMemberships
+    ? await applyGroupMembershipsLane({
+        currentMemberGroupStateHash:
+          input.current?.memberGroupStateHash ?? null,
+        lane: groupMemberships,
+        memberGroupId: input.memberGroupId,
+        organizationId,
+        replaceAll: input.response.mode === "snapshot",
+        tx: input.tx,
+      })
+    : (input.current?.memberGroupStateHash ?? null);
   const grants = input.response.lanes.grants;
   if (grants) {
     await applyOrganizationReadModelGrantsLane({
       lane: grants,
-      organizationId: input.response.organizationId,
+      organizationId,
       tx: input.tx,
     });
   }
+  return memberGroupStateHash;
 }
 
-async function applyResponseLanes(input: {
-  readonly currentUserId: string;
-  readonly memberGroupId: string;
-  readonly response: OrganizationReadModelResponse;
-  readonly tx: ClientSQLiteTransactionScope;
-}): Promise<void> {
-  await replaceResponseLanes({ response: input.response, tx: input.tx });
+async function applyResponseLanes(
+  input: ResponseLanesInput & { readonly currentUserId: string },
+): Promise<string | null> {
+  const memberGroupStateHash = await replaceResponseLanes(input);
   const directoryLane = input.response.lanes.directory;
   if (directoryLane) {
     await pruneRequestersForDirectoryLane({
@@ -295,10 +312,58 @@ async function applyResponseLanes(input: {
   if (input.response.lanes.groups || input.response.lanes.groupMemberships) {
     await assertStoredGroupMembershipBindings({
       memberGroupId: input.memberGroupId,
+      memberGroupStateHash,
       organizationId: input.response.organizationId,
       tx: input.tx,
     });
   }
+  return memberGroupStateHash;
+}
+
+/**
+ * Write the cursor with the organization policy head and the reserved Members
+ * head in one row, so a failure anywhere in the page rolls them back together.
+ */
+async function upsertOrganizationReadModelState(input: {
+  readonly current: CurrentOrganizationReadModelState | null;
+  readonly memberGroupId: string;
+  readonly memberGroupStateHash: string | null;
+  readonly now: string;
+  readonly response: OrganizationReadModelResponse;
+  readonly tx: ClientSQLiteTransactionScope;
+}): Promise<void> {
+  const organizationHead =
+    input.response.lanes.organizationPolicy?.currentState ??
+    input.current?.organizationHead;
+  if (!organizationHead || input.memberGroupStateHash === null) {
+    throw new OrganizationReadModelBindingError(
+      "Organization read-model policy or Members head is missing",
+    );
+  }
+  const directoryLane = input.response.lanes.directory;
+  const values = {
+    cursor: input.response.nextCursor,
+    profileDocumentId:
+      directoryLane !== undefined
+        ? directoryLane.profileDocumentId
+        : (input.current?.profileDocumentId ?? null),
+    memberGroupId: input.memberGroupId,
+    memberGroupStateHash: input.memberGroupStateHash,
+    organizationStateHash: organizationHead.stateHash,
+    organizationStateVersion: organizationHead.version,
+    organizationKeyEpoch: organizationHead.keyEpoch,
+    organizationKeyFingerprint: organizationHead.keyFingerprint,
+    organizationMemberCount: organizationHead.memberCount,
+    updatedAt: input.now,
+  };
+  await input.tx
+    .insert(organizationReadModelState)
+    .values({ ...values, organizationId: input.response.organizationId })
+    .onConflictDoUpdate({
+      target: organizationReadModelState.organizationId,
+      set: values,
+    })
+    .run();
 }
 
 function requireMemberGroupId(input: {
@@ -372,36 +437,21 @@ export async function applyOrganizationReadModelResponse(input: {
         current,
         response: input.response,
       });
-      await applyResponseLanes({
+      const memberGroupStateHash = await applyResponseLanes({
+        current,
         currentUserId: input.currentUserId,
         memberGroupId,
         response: input.response,
         tx,
       });
-      const directoryLane = input.response.lanes.directory;
-      const stateRow = {
-        organizationId: input.response.organizationId,
-        cursor: input.response.nextCursor,
-        profileDocumentId:
-          directoryLane !== undefined
-            ? directoryLane.profileDocumentId
-            : (current?.profileDocumentId ?? null),
+      await upsertOrganizationReadModelState({
+        current,
         memberGroupId,
-        updatedAt: now,
-      };
-      await tx
-        .insert(organizationReadModelState)
-        .values(stateRow)
-        .onConflictDoUpdate({
-          target: organizationReadModelState.organizationId,
-          set: {
-            cursor: stateRow.cursor,
-            profileDocumentId: stateRow.profileDocumentId,
-            memberGroupId: stateRow.memberGroupId,
-            updatedAt: stateRow.updatedAt,
-          },
-        })
-        .run();
+        memberGroupStateHash,
+        now,
+        response: input.response,
+        tx,
+      });
 
       return "applied";
     },

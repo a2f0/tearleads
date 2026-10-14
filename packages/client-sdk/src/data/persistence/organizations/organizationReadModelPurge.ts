@@ -7,9 +7,7 @@ import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
@@ -99,12 +97,6 @@ export async function purgeOrganizationReadModelProjectionInTransaction(input: {
   readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await input.tx
-    .delete(organizationReadModelPolicyHeads)
-    .where(
-      eq(organizationReadModelPolicyHeads.organizationId, input.organizationId),
-    )
-    .run();
-  await input.tx
     .delete(organizationReadModelContainerGrants)
     .where(
       eq(
@@ -118,15 +110,6 @@ export async function purgeOrganizationReadModelProjectionInTransaction(input: {
     .where(
       eq(
         organizationReadModelGroupMembers.organizationId,
-        input.organizationId,
-      ),
-    )
-    .run();
-  await input.tx
-    .delete(organizationReadModelGroupMemberships)
-    .where(
-      eq(
-        organizationReadModelGroupMemberships.organizationId,
         input.organizationId,
       ),
     )

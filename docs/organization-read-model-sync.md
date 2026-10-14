@@ -55,9 +55,12 @@ Explorer writes must obtain the exact verified policy and access state needed
 to unwrap keys and encrypt content. They must never infer authority from a
 cached roster, membership, grant, or administrator row. Verified policy data
 may enrich the UI projection; the UI projection never feeds keying decisions.
-The local membership tables bind each projected roster to a principal-state
-hash, but that binding is a projection-integrity check, not a substitute for
-verifying the signed principal policy.
+Locally, each projected roster binds to a principal-state hash: member rows
+carry the hash of their group's membership head, which a visible group row
+records next to its policy head and the organization state row records for the
+reserved `Members` group, beside the organization policy head. That binding is
+a projection-integrity check, not a substitute for verifying the signed
+principal policy.
 
 The projection and verified policy tables may share a physical SQLite database,
 but they use separate types, persistence modules, and dependency paths.

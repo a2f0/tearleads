@@ -5,7 +5,6 @@ import type {
 import { and, asc, eq } from "drizzle-orm";
 import {
   organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
@@ -79,32 +78,28 @@ async function loadMembershipRows(input: {
     );
 }
 
-async function loadOrganizationReadModelGroupMembersInTransaction(input: {
+interface StoredMembershipHead {
+  readonly memberCount: number | null;
+  readonly stateHash: string;
+}
+
+/** The reserved Members head lives on the state row; others on catalog rows. */
+async function loadMembershipHead(input: {
   readonly groupId: string;
+  readonly memberGroup: {
+    readonly groupId: string;
+    readonly stateHash: string;
+  };
   readonly organizationId: string;
   readonly tx: ClientSQLiteTransactionScope;
-}): Promise<OrganizationReadModelGroupMembers | null> {
-  const [head] = await input.tx
-    .select({ stateHash: organizationReadModelGroupMemberships.stateHash })
-    .from(organizationReadModelGroupMemberships)
-    .where(
-      and(
-        eq(
-          organizationReadModelGroupMemberships.organizationId,
-          input.organizationId,
-        ),
-        eq(organizationReadModelGroupMemberships.groupId, input.groupId),
-      ),
-    )
-    .limit(1);
-  if (!head) {
-    return null;
+}): Promise<StoredMembershipHead | null> {
+  if (input.groupId === input.memberGroup.groupId) {
+    return { memberCount: null, stateHash: input.memberGroup.stateHash };
   }
-
-  const rows = await loadMembershipRows(input);
   const [group] = await input.tx
     .select({
       memberCount: organizationReadModelGroups.memberCount,
+      membersStateHash: organizationReadModelGroups.membersStateHash,
       stateHash: organizationReadModelGroups.stateHash,
     })
     .from(organizationReadModelGroups)
@@ -115,10 +110,32 @@ async function loadOrganizationReadModelGroupMembersInTransaction(input: {
       ),
     )
     .limit(1);
-  if (
-    group &&
-    (group.stateHash !== head.stateHash || group.memberCount !== rows.length)
-  ) {
+  if (!group?.membersStateHash) {
+    return null;
+  }
+  if (group.stateHash !== group.membersStateHash) {
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization group membership binding is invalid",
+    );
+  }
+  return { memberCount: group.memberCount, stateHash: group.membersStateHash };
+}
+
+async function loadOrganizationReadModelGroupMembersInTransaction(input: {
+  readonly groupId: string;
+  readonly memberGroup: {
+    readonly groupId: string;
+    readonly stateHash: string;
+  };
+  readonly organizationId: string;
+  readonly tx: ClientSQLiteTransactionScope;
+}): Promise<OrganizationReadModelGroupMembers | null> {
+  const head = await loadMembershipHead(input);
+  if (!head) {
+    return null;
+  }
+  const rows = await loadMembershipRows(input);
+  if (head.memberCount !== null && head.memberCount !== rows.length) {
     throw new OrganizationReadModelIntegrityError(
       "Stored organization group membership binding is invalid",
     );
@@ -141,7 +158,10 @@ export async function loadOrganizationReadModelGroupMembers(
     organizationId,
     load: async (tx) => {
       const [state] = await tx
-        .select({ organizationId: organizationReadModelState.organizationId })
+        .select({
+          memberGroupId: organizationReadModelState.memberGroupId,
+          memberGroupStateHash: organizationReadModelState.memberGroupStateHash,
+        })
         .from(organizationReadModelState)
         .where(eq(organizationReadModelState.organizationId, organizationId))
         .limit(1);
@@ -163,6 +183,10 @@ export async function loadOrganizationReadModelGroupMembers(
       }
       return loadOrganizationReadModelGroupMembersInTransaction({
         groupId,
+        memberGroup: {
+          groupId: state.memberGroupId,
+          stateHash: state.memberGroupStateHash,
+        },
         organizationId,
         tx,
       });

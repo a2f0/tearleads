@@ -464,7 +464,7 @@ test("purge clears membership rows without deleting verified policy checkpoints"
     await purgeOrganizationReadModelProjection(execSql, ORGANIZATION_ID);
 
     const headRows = await execSql(
-      "SELECT COUNT(*) AS count FROM organization_read_model_group_memberships",
+      "SELECT COUNT(*) AS count FROM organization_read_model_state",
       undefined,
       { rowMode: "array" },
     );
