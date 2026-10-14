@@ -339,6 +339,10 @@ export function ensureDocumentStoreInitialized(
   const initializePromise = initializeDocumentStore(state, scheduleSync).catch(
     (error: unknown) => {
       state.initializePromise = null;
+      // A caller that deferred the birth for its attach may give up once
+      // opening fails; never leave its durable birth holding sync. No attach
+      // has reached a live doc yet, so lifting the hold ships nothing unsafe.
+      state.deferInitialUpdate = false;
 
       if (isDatabaseUnavailableError(error)) {
         return;

@@ -10,6 +10,10 @@ import { getDocumentFileImporter } from "../../document-types/importers";
 
 const EXPLORER_DROPPED_FILE_IMPORT_BATCH_SIZE = 8;
 
+type ImportedDocumentFile = Awaited<
+  ReturnType<ReturnType<typeof getDocumentFileImporter>["importFile"]>
+>;
+
 interface ExplorerDroppedFileDocumentStore {
   addRow: (fields: Readonly<Record<string, string>>) => Promise<string>;
   attachFiles: (
@@ -142,6 +146,46 @@ function assertExplorerDroppedFileCanBeImported(
   }
 }
 
+async function fillImportedDocument(input: {
+  attachmentFollows: boolean;
+  importedFile: ImportedDocumentFile;
+  labels: ExplorerDroppedFileImportLabels;
+  store: ExplorerDroppedFileDocumentStore;
+}): Promise<void> {
+  const { importedFile, store } = input;
+  await store.setText(importedFile.initialText);
+  if (!store.getSnapshot().ready) {
+    throw new Error(input.labels.fileImportStoreNotReady);
+  }
+
+  if (
+    importedFile.documentKind !== "note" &&
+    Object.keys(importedFile.structuredFields).length > 0
+  ) {
+    await store.setStructuredFields(
+      importedFile.documentKind,
+      importedFile.structuredFields,
+      { deferRemoteSync: input.attachmentFollows },
+    );
+  }
+  for (const row of importedFile.rows ?? []) {
+    await store.addRow(row);
+  }
+  if (importedFile.attachment) {
+    await store.attachFiles([importedFile.attachment]);
+  }
+}
+
+async function releaseDeferredBirth(
+  store: ExplorerDroppedFileDocumentStore,
+): Promise<void> {
+  try {
+    await store.attachFiles([]);
+  } catch {
+    // The import's own failure is the error worth reporting.
+  }
+}
+
 async function importExplorerDroppedFile(input: {
   containerId: string;
   createDocumentStore: ExplorerDroppedFileImportInput["createDocumentStore"];
@@ -174,26 +218,19 @@ async function importExplorerDroppedFile(input: {
     initialText: importedFile.initialText,
     localId,
   });
-  await store.setText(importedFile.initialText);
-  if (!store.getSnapshot().ready) {
-    throw new Error(input.labels.fileImportStoreNotReady);
-  }
-
-  if (
-    importedFile.documentKind !== "note" &&
-    Object.keys(importedFile.structuredFields).length > 0
-  ) {
-    await store.setStructuredFields(
-      importedFile.documentKind,
-      importedFile.structuredFields,
-      { deferRemoteSync: attachmentFollows },
-    );
-  }
-  for (const row of importedFile.rows ?? []) {
-    await store.addRow(row);
-  }
-  if (importedFile.attachment) {
-    await store.attachFiles([importedFile.attachment]);
+  try {
+    await fillImportedDocument({
+      attachmentFollows,
+      importedFile,
+      labels: input.labels,
+      store,
+    });
+  } catch (error) {
+    // The store above may already hold a durable birth that waits for this
+    // attach. An empty attach releases it, so the document still syncs
+    // (without its file) instead of waiting for a restart or a later edit.
+    if (attachmentFollows) await releaseDeferredBirth(store);
+    throw error;
   }
   if (!input.deferRequestSync) {
     store.requestSync();

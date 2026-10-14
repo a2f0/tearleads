@@ -84,7 +84,8 @@ is `DeferEdit` from `Init`; the attach that follows is a `QueueEdit` whose delta
 carries the birth, so the file costs one update. If that attach does not land,
 `QueueRetainedTail` durably queues the retained tail with no new operation and
 requests a pass. Production also holds scheduled passes (`canRunScheduledSync`)
-until that attach settles, a write advances the marker, or the store resets, so
+until that attach settles, a write advances the marker, the store resets, or
+its initialization fails, so
 no pass ships the birth on its own. A hold only removes interleavings; the
 model keeps `Prime` enabled, so it checks the pass-before-attach order as well.
 Before lifting the hold, production reloads durable history if the live
