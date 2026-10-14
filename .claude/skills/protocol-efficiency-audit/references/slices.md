@@ -162,9 +162,8 @@ Tables: API `access_events`, `access_event_dependency_projection`,
 Tables: API `principal_policy_commits`,
 `principal_policy_mutation_acknowledgements`,
 `document_inline_rekey_commits`, `document_manifest_observations`,
-`document_audit_entries`, `document_audit_checkpoints`,
-`document_update_audit_events`, `document_attachment_audit_events`,
-`blob_audit_objects`, `access_manifest_verifications`,
+`document_baselines`, `blob_audit_objects`,
+`access_manifest_verifications`,
 `organization_read_model_changes`. SDK `principal_mutation_journal`,
 `organization_provisioning_attempts`, `container_create_intents`,
 `container_move_intents`, `document_move_intents`,
@@ -178,8 +177,8 @@ Tables: API `principal_policy_commits`,
   receipts, mutation acknowledgements, inline rekey commits, stable-id create
   conflicts, binding adoption. Could one receipt keyed by signed event id
   serve them all, and what does each caller lose?
-- Audit tables: which product feature reads them (attribution, root console,
-  nothing), and what do they cost per write in statements?
+- Baseline markers and the blob registry: which reads need each column, and
+  what do they cost per write in statements?
 - Local intents: four intent tables and a mutation journal. Could one typed
   outbox hold them, keeping each intent's settlement rule?
 - Which checkpoint tables could merge without weakening anti-rollback?

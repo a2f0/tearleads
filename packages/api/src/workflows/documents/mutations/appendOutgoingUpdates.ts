@@ -1,13 +1,14 @@
 import { Buffer } from "node:buffer";
 import type { DatabaseTransaction } from "@tearleads/api-shared/postgres";
-import { documentUpdates } from "@tearleads/api-shared/schema";
+import {
+  documentBaselines,
+  documentUpdates,
+} from "@tearleads/api-shared/schema";
 import type { WriteHeader } from "@tearleads/crypto";
 import type { DocumentOutgoingUpdate } from "@tearleads/validators/request";
 import { inArray } from "drizzle-orm";
 import { listDocumentContentWriteHeaders } from "../../../access/read/documentContentKeyStore";
 import { storeDocumentContentWriteHeader } from "../../../access/write/documentContentKeyStore";
-import { maybeWriteDocumentAuditCheckpoint } from "../../../documents/documentAuditCheckpoints";
-import { appendDocumentUpdateAuditEntries } from "../../../documents/documentAuditEntries";
 import { insertDocumentUpdateSpans } from "../../../documents/documentUpdateSpans";
 import { uniqueSortedStrings } from "../../../utils/array";
 import { DocumentMutationError, documentUpdateIdConflict } from "./errors";
@@ -20,9 +21,10 @@ import {
 import type { AppendDocumentUpdatesInput } from "./types";
 
 /**
- * Dedup, idempotent-retry matching, insertion, and audit of a sync request's
- * outgoing updates. Split from syncDocument.ts, which keeps the transaction
- * orchestration; per-update verification lives in outgoingUpdateVerification.
+ * Dedup, idempotent-retry matching, insertion, and baseline marking of a sync
+ * request's outgoing updates. Split from syncDocument.ts, which keeps the
+ * transaction orchestration; per-update verification lives in
+ * outgoingUpdateVerification.
  */
 function documentUpdateByteLength(update: DocumentOutgoingUpdate): number {
   return Buffer.byteLength(update.encryptedData, "utf8");
@@ -79,51 +81,31 @@ async function insertNewDocumentUpdates(input: {
   return insertedUpdateIds;
 }
 
-async function appendAuditEntriesForNewDocumentUpdates(input: {
-  readonly accessEpoch: number;
-  readonly accessManifestHash: string;
-  readonly accessStateHash: string | null;
+/**
+ * Mark each newly inserted rotation baseline so the redirect, sync response,
+ * and edit attribution can find it. Only updates this transaction inserted are
+ * passed, so a retried baseline never writes a second row.
+ */
+async function insertDocumentBaselines(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
-  readonly fingerprint: string;
   readonly updates: readonly DocumentOutgoingUpdate[];
-  readonly userId: string;
 }): Promise<void> {
-  if (input.updates.length === 0) {
-    return;
-  }
-
-  const auditEntryHashByUpdateId = await appendDocumentUpdateAuditEntries(
-    input.executor,
-    {
-      accessEpoch: input.accessEpoch,
-      accessManifestHash: input.accessManifestHash,
-      accessStateHash: input.accessStateHash,
-      actorFingerprint: input.fingerprint,
-      actorUserId: input.userId,
-      documentId: input.documentId,
-      updates: input.updates,
-    },
+  const rows = input.updates.flatMap((update) =>
+    update.checkpointKind === undefined ||
+    update.sourceVersionVector === undefined
+      ? []
+      : [
+          {
+            baselineUpdateId: update.id,
+            checkpointKind: update.checkpointKind,
+            documentId: input.documentId,
+            sourceVersionVector: update.sourceVersionVector,
+          },
+        ],
   );
-
-  for (const update of input.updates) {
-    const coveredAuditEntryHash = auditEntryHashByUpdateId.get(update.id);
-    if (update.checkpointKind) {
-      if (!coveredAuditEntryHash) {
-        const message = `Missing audit entry hash for checkpoint update ${update.id}`;
-        throw new DocumentMutationError(message, 409);
-      }
-      await maybeWriteDocumentAuditCheckpoint(input.executor, {
-        accessEpoch: input.accessEpoch,
-        accessManifestHash: input.accessManifestHash,
-        accessStateHash: input.accessStateHash,
-        actorFingerprint: input.fingerprint,
-        actorUserId: input.userId,
-        checkpointUpdate: update,
-        coveredAuditEntryHash,
-        documentId: input.documentId,
-      });
-    }
+  if (rows.length > 0) {
+    await input.executor.insert(documentBaselines).values(rows);
   }
 }
 
@@ -311,15 +293,10 @@ export async function appendDocumentUpdates(
     insertedUpdateIds,
     updates: newUpdates,
   });
-  await appendAuditEntriesForNewDocumentUpdates({
-    accessEpoch: input.accessEpoch,
-    accessManifestHash: input.accessManifestHash,
-    accessStateHash: input.accessStateHash,
+  await insertDocumentBaselines({
     documentId: input.documentId,
     executor: input.executor,
-    fingerprint: input.fingerprint,
     updates: newUpdates.filter((update) => insertedUpdateIds.has(update.id)),
-    userId: input.userId,
   });
 
   return {

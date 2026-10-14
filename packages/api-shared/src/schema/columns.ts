@@ -26,8 +26,7 @@ import { isSqliteSchemaDialect } from "./dialect";
 
 const isSqlite = isSqliteSchemaDialect();
 
-const pgBigintNumber = (name: string) =>
-  pgBigint(name, { mode: "number" }).generatedAlwaysAsIdentity();
+const pgBigintNumber = (name: string) => pgBigint(name, { mode: "number" });
 const pgBigintBigInt = (name: string) => pgBigint(name, { mode: "bigint" });
 const pgBooleanColumn = (name: string) => pgBoolean(name);
 const pgIntegerColumn = (name: string) => pgInteger(name);
@@ -50,11 +49,6 @@ const sqliteUniqueIndexAny =
   unsafeCoerce<typeof pgUniqueIndex>(sqliteUniqueIndex);
 const sqliteTextAny = unsafeCoerce<typeof pgText>(sqliteText);
 
-interface SqliteRuntimeIntegerBuilder {
-  config: { autoIncrement?: boolean; hasDefault?: boolean };
-  generatedAlwaysAsIdentity(): unknown;
-}
-
 interface SqliteRuntimeUuidBuilder {
   $defaultFn(defaultFn: () => string): unknown;
   defaultRandom(): unknown;
@@ -69,15 +63,11 @@ type SqliteTextBridge = (name: string, config?: { mode?: "json" }) => unknown;
 const sqliteIntegerBridge = unsafeCoerce<SqliteIntegerBridge>(sqliteInteger);
 const sqliteTextBridge = unsafeCoerce<SqliteTextBridge>(sqliteText);
 
-// Maps Postgres `GENERATED ALWAYS AS IDENTITY` bigint sequence columns
-// (e.g. document_audit_entries.sequence) onto a real engine-managed SQLite
-// identity. `.generatedAlwaysAsIdentity()` flips the underlying integer column
-// to `INTEGER PRIMARY KEY AUTOINCREMENT` (the schema pairs it with
-// `.primaryKey()`), so monotonicity and uniqueness are owned by SQLite itself
-// rather than a JS counter — matching how packages/loro emits
-// document_updates.sequence. Audit rows are hash-chained by selecting the
-// latest `sequence` per document, which AUTOINCREMENT keeps strictly
-// increasing.
+// Maps Postgres bigint columns onto SQLite: `mode: "bigint"` becomes a NUMERIC
+// column read back as a JavaScript bigint and `mode: "number"` an INTEGER
+// column. No API table uses a bigint identity column; the engine-managed
+// `document_updates.sequence` identity is an integer column owned by
+// packages/loro.
 function sqliteBigint(
   name: string,
   config: { mode: "number" | "bigint" },
@@ -88,15 +78,7 @@ function sqliteBigint(
     );
   }
 
-  const builder = unsafeCoerce<SqliteRuntimeIntegerBuilder>(
-    sqliteIntegerBridge(name),
-  );
-  builder.generatedAlwaysAsIdentity = () => {
-    builder.config.autoIncrement = true;
-    builder.config.hasDefault = true;
-    return builder;
-  };
-  return unsafeCoerce<PgBigintNumberBuilder>(builder);
+  return unsafeCoerce<PgBigintNumberBuilder>(sqliteIntegerBridge(name));
 }
 
 function sqliteBoolean(name: string): PgBooleanBuilder {

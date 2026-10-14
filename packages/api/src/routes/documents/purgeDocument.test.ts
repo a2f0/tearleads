@@ -10,8 +10,6 @@ import {
   blobs,
   containerDocumentSyncTombstones,
   containers,
-  documentAttachmentAuditEvents,
-  documentAuditEntries,
   documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
@@ -1094,15 +1092,11 @@ async function markBindingDetached(bindingId: string): Promise<void> {
     .where(eq(attachmentBindings.id, bindingId));
 }
 
-// Seed retained per-blob and attachment audit history for a document.
-async function seedBlobAuditHistory(input: {
-  readonly actor: TestUser;
+// Seed the blob registry row a bind writes before live pruning.
+async function seedBlobAuditObject(input: {
   readonly blobId: string;
-  readonly documentId: string;
   readonly organizationId: string;
   readonly storageKey: string;
-  readonly accessManifestHash: string;
-  readonly slotId: string;
 }): Promise<void> {
   await db
     .insert(blobAuditObjects)
@@ -1116,33 +1110,11 @@ async function seedBlobAuditHistory(input: {
       historicalBytesRetained: false,
     })
     .onConflictDoNothing();
-
-  const [entry] = await db
-    .insert(documentAuditEntries)
-    .values({
-      documentId: input.documentId,
-      eventType: "attachment_event",
-      accessEpoch: 1,
-      accessManifestHash: input.accessManifestHash,
-      actorUserId: input.actor.userId,
-      actorFingerprint: input.actor.fingerprint,
-      entryHash: `entry:${crypto.randomUUID()}`,
-    })
-    .returning({ id: documentAuditEntries.id });
-  invariant(entry, "expected seeded audit entry");
-
-  await db.insert(documentAttachmentAuditEvents).values({
-    auditEntryId: entry.id,
-    action: "detach",
-    slotId: input.slotId,
-    blobId: input.blobId,
-    retentionMode: "live_only",
-  });
 }
 
-// Detached bindings and audit events retain metadata, not live blob bytes. A
-// purge that removes the final active binding starts the GC grace clock even if
-// another document's audit history still names the blob.
+// Detached bindings and the blob registry retain metadata, not live blob
+// bytes. A purge that removes the final active binding starts the GC grace
+// clock even if another document's detached binding still names the blob.
 test("POST document purge dereferences a blob retained only in another document's history", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
@@ -1156,7 +1128,7 @@ test("POST document purge dereferences a blob retained only in another document'
     documentManifestHash: documentToPurge.accessManifest.manifestHash,
     slotId: "slot_shared_image",
   });
-  // ...and only retained as detached audit history on the surviving document.
+  // ...and only retained as a detached binding on the surviving document.
   const survivingBinding = await seedExternalBlobAttachment({
     documentId: survivingDocument.id,
     documentManifestHash: survivingDocument.accessManifest.manifestHash,
@@ -1165,14 +1137,10 @@ test("POST document purge dereferences a blob retained only in another document'
     storageKey: shared.storageKey,
   });
   await markBindingDetached(survivingBinding.bindingId);
-  await seedBlobAuditHistory({
-    accessManifestHash: survivingDocument.accessManifest.manifestHash,
-    actor: owner,
+  await seedBlobAuditObject({
     blobId: shared.blobId,
-    documentId: survivingDocument.id,
     organizationId: asVerifiedContainerManifest(root.bundle).state
       .organizationId,
-    slotId: "slot_shared_image",
     storageKey: shared.storageKey,
   });
 
