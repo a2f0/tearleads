@@ -34,7 +34,10 @@ import {
   isAttachmentWriteGenerationCurrent,
   shouldAbortAttachmentPersistFollowup,
 } from "./attachmentWriteGeneration";
-import { settleDeferredInitialUpdate } from "./deferredInitialUpdate";
+import {
+  releaseDeferredInitialUpdate,
+  settleDeferredInitialUpdate,
+} from "./deferredInitialUpdate";
 import { ensureDocumentStoreReady } from "./initialization";
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
@@ -394,29 +397,35 @@ async function persistRemovedAttachment(
   requestDocumentStoreSync(state);
 }
 
-export async function attachFilesToDocumentStore(
+async function captureReadyAttachWrite(
   state: DocumentStoreState,
   scheduleSync: () => void,
-  files: ReadonlyArray<DocumentAttachmentUpload>,
 ) {
-  if (files.length === 0) {
-    return;
-  }
-
   let ready: boolean;
   try {
     ready = await ensureDocumentStoreReady(state, scheduleSync);
   } catch (error) {
     reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
+    return null;
+  }
+  if (!ready || !state.doc || !canWriteDocument(state)) return null;
+  return captureAttachmentWriteGeneration(state);
+}
+
+export async function attachFilesToDocumentStore(
+  state: DocumentStoreState,
+  scheduleSync: () => void,
+  files: ReadonlyArray<DocumentAttachmentUpload>,
+) {
+  const writeGeneration =
+    files.length === 0
+      ? null
+      : await captureReadyAttachWrite(state, scheduleSync);
+  if (!writeGeneration) {
+    // Nothing reaches the write chain, so no settlement will lift the hold.
+    releaseDeferredInitialUpdate(state);
     return;
   }
-
-  if (!ready || !state.doc || !canWriteDocument(state)) {
-    return;
-  }
-
-  const writeGeneration = captureAttachmentWriteGeneration(state);
-  if (!writeGeneration) return;
   state.writeChain = state.writeChain
     .catch(() => undefined)
     .then(async () => persistAttachedFiles(state, files, writeGeneration))

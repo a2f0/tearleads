@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { BlobStore } from "../../../data/blobContracts";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
+import { getDocumentAttachments } from "../../../data/documents/documentContent";
 import { hasDeferredTailScopeWork } from "../../../workflows/container-contents/pendingWrites/deferredTails";
 import {
   type DocumentsPersistence,
@@ -140,4 +141,29 @@ test("a store that cannot attach still enqueues the deferred birth", async () =>
     canAttach: false,
     name: "deferred-birth-cannot-attach",
   });
+});
+
+test("a failed rollback reloads durable history before releasing the hold", async () => {
+  const stateRef: { current: DocumentStoreState | null } = { current: null };
+  let liveDoc: DocumentStoreState["doc"] = null;
+  await expectBirthEnqueuedWithoutAttachment({
+    // A runtime swap mid-stage stales the attach's generation, so its rollback
+    // reload is refused and the live doc keeps the uncommitted slot.
+    blobStore: blobStoreWithWrite(async (state) => {
+      const { apiClient } = state.runtime;
+      state.runtime = {
+        ...state.runtime,
+        apiClient: Object.create(apiClient) as typeof apiClient,
+      };
+      liveDoc = state.doc;
+      throw new Error("blob store is full");
+    }, stateRef),
+    name: "deferred-birth-rollback-refused",
+    stateRef,
+  });
+  const state = stateRef.current;
+  if (!state?.doc || !liveDoc) throw new Error("Expected a reloaded store");
+  // The slot never reaches a pass: the live doc was replaced by durable history.
+  expect(state.doc).not.toBe(liveDoc);
+  expect(getDocumentAttachments(state.doc)).toEqual([]);
 });

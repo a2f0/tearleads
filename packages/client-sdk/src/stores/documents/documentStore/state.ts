@@ -346,6 +346,7 @@ function clearDocumentStoreState(
   state: DocumentStoreState,
   { initialized }: { initialized: boolean },
 ) {
+  state.deferInitialUpdate = false;
   state.doc = null;
   state.localWriteGeneration += 1;
   state.record = null;

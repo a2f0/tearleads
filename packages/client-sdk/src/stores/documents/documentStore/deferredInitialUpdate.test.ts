@@ -10,7 +10,9 @@ import {
   PDF_UPLOAD,
   readQueuedUpdates,
 } from "./deferredInitialUpdate.testFixtures";
+import { ensureDocumentStoreReady } from "./initialization";
 import { setDocumentStructuredFields } from "./mutations";
+import { resetDocumentStore } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 
@@ -150,6 +152,60 @@ test("a sync pass after a restart ships a deferred birth with no further writes"
     });
     expect(await hasDeferredTailScopeWork(execSql, SCOPE("synced-pdf"))).toBe(
       false,
+    );
+  } finally {
+    close();
+  }
+});
+
+test("an attach that never reaches the write chain releases the sync hold", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "deferred-birth-no-attach",
+  );
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const state = await openPdfStore({
+      blobStore: createMemoryBlobStore(),
+      deferInitialUpdate: true,
+      execSql,
+      localId: "never-attached-pdf",
+    });
+    let syncRequests = 0;
+    state.syncLane = {
+      requestSync: () => {
+        syncRequests += 1;
+      },
+    } as unknown as typeof state.syncLane;
+
+    await attachFilesToDocumentStore(state, noopSchedule, []);
+
+    expect(state.deferInitialUpdate).toBe(false);
+    expect(syncRequests).toBe(1);
+  } finally {
+    close();
+  }
+});
+
+test("a reset lifts the hold and the reopened store still owes the birth", async () => {
+  const { close, execSql } = await createTestExecSql("deferred-birth-reset");
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const state = await openPdfStore({
+      blobStore: createMemoryBlobStore(),
+      deferInitialUpdate: true,
+      execSql,
+      localId: "reset-pdf",
+    });
+
+    resetDocumentStore(state);
+    expect(state.deferInitialUpdate).toBe(false);
+    expect(await ensureDocumentStoreReady(state, noopSchedule)).toBe(true);
+
+    // Nothing holds sync now, and the durable birth is still reported as
+    // deferred work for the next pass to materialize.
+    expect(state.deferInitialUpdate).toBe(false);
+    expect(await hasDeferredTailScopeWork(execSql, SCOPE(state.localId))).toBe(
+      true,
     );
   } finally {
     close();

@@ -5,6 +5,7 @@ import {
   type AttachmentWriteGeneration,
   isAttachmentWriteGenerationCurrent,
 } from "./attachmentWriteGeneration";
+import { reloadDocumentFromDurableHistory } from "./durableDocumentReload";
 import {
   advancePendingBaseVersion,
   pendingDeltaSinceBase,
@@ -15,6 +16,13 @@ import {
   captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+
+/** The promised attach will not run: stop holding scheduled sync for it. */
+export function releaseDeferredInitialUpdate(state: DocumentStoreState): void {
+  if (!state.deferInitialUpdate) return;
+  state.deferInitialUpdate = false;
+  requestDocumentStoreSync(state);
+}
 
 /**
  * Runs after the first attach on a store opened with `deferInitialUpdate`.
@@ -31,12 +39,47 @@ export async function settleDeferredInitialUpdate(
   writeGeneration: AttachmentWriteGeneration,
 ): Promise<void> {
   if (!state.deferInitialUpdate) return;
+  // A pass exports the live doc, so the hold stays until it holds only
+  // durable content (see restoreDurableLiveDocument).
+  if (!(await restoreDurableLiveDocument(state))) return;
   state.deferInitialUpdate = false;
   try {
     await enqueueDeferredTail(state, writeGeneration);
   } finally {
     requestDocumentStoreSync(state);
   }
+}
+
+function isLiveDocumentDurable(state: DocumentStoreState): boolean {
+  return (
+    state.doc !== null &&
+    state.record !== null &&
+    satisfiesVersionVector(
+      state.record.snapshotEndVersion,
+      encodeVersionVector(state.doc),
+    )
+  );
+}
+
+/**
+ * A failed attach whose rollback reload could not run (its generation went
+ * stale mid-stage) leaves the uncommitted slot in the live doc, and that slot
+ * must never sync without its staged bytes. Reload durable history under a
+ * fresh generation before trusting the live doc.
+ */
+async function restoreDurableLiveDocument(
+  state: DocumentStoreState,
+): Promise<boolean> {
+  if (isLiveDocumentDurable(state)) return true;
+  const generation = captureDocumentStoreSyncGeneration(state, state.doc);
+  if (generation) {
+    await reloadDocumentFromDurableHistory({
+      expectedGeneration: generation,
+      preserveQueuedWritesWhenIdentityMatches: true,
+      state,
+    });
+  }
+  return isLiveDocumentDurable(state);
 }
 
 async function enqueueDeferredTail(
@@ -47,18 +90,11 @@ async function enqueueDeferredTail(
   // durable and the next write or sync pass materializes it.
   if (!isAttachmentWriteGenerationCurrent(state, writeGeneration)) return;
   const currentDoc = state.doc;
-  const record = state.record;
   const baseVersion = state.pendingBaseVersion;
-  if (!currentDoc || !record || baseVersion === null) return;
+  if (!currentDoc || baseVersion === null) return;
   const documentVersion = encodeVersionVector(currentDoc);
   // Settled: the attach (or an earlier write) already enqueued the birth.
   if (satisfiesVersionVector(baseVersion, documentVersion)) return;
-  // Only enqueue content the record proves durable. A failed attach whose
-  // rollback could not run leaves its uncommitted slot in the live doc, and
-  // that slot must never sync without its staged bytes.
-  if (!satisfiesVersionVector(record.snapshotEndVersion, documentVersion)) {
-    return;
-  }
   const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
   if (!generation) return;
   const pendingUpdate = createPendingUpdateFields(
