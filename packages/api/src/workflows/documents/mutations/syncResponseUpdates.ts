@@ -1,6 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { documentAuditCheckpoints } from "@tearleads/api-shared/schema";
+import { documentBaselines } from "@tearleads/api-shared/schema";
 import {
   computeDocumentContentRecordMetadataHash,
   type DocumentContentKeyTarget,
@@ -91,12 +91,12 @@ async function listSyncCheckpointMetadata(
   }
   const rows = await executor
     .select({
-      baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
-      checkpointKind: documentAuditCheckpoints.checkpointKind,
-      sourceVersionVector: documentAuditCheckpoints.sourceVersionVector,
+      baselineUpdateId: documentBaselines.baselineUpdateId,
+      checkpointKind: documentBaselines.checkpointKind,
+      sourceVersionVector: documentBaselines.sourceVersionVector,
     })
-    .from(documentAuditCheckpoints)
-    .where(inArray(documentAuditCheckpoints.baselineUpdateId, updateIds));
+    .from(documentBaselines)
+    .where(inArray(documentBaselines.baselineUpdateId, updateIds));
   const byUpdateId = new Map<string, SyncCheckpointMetadata>();
   for (const row of rows) {
     if (row.checkpointKind !== "rotate_baseline") {

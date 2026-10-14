@@ -7,14 +7,13 @@ import {
   containerKeyEpochs,
   containerKeyWraps,
   containers,
-  documentAuditCheckpoints,
-  documentAuditEntries,
+  documentBaselines,
   documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
+  documentContentWriteHeaders,
   documentInlineRekeyCommits,
   documents,
-  documentUpdateAuditEvents,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
@@ -80,32 +79,29 @@ import {
   decodeServedDocumentProjection,
 } from "../../test/helpers/servedWriterProjection";
 import { getCurrentContainerKeyEpoch } from "../access/read/containerKekStore";
-import { verifyDocumentAuditHistory } from "../documents/auditHistory.testUtils";
 import { routeApp } from "../routeApp";
 
-async function countDocumentAuditRows(documentId: string, updateId: string) {
-  const [auditEntries, updateEvents, checkpoints] = await Promise.all([
+async function loadDocumentWriteRows(documentId: string) {
+  const [updates, writeHeaders, baselines] = await Promise.all([
+    db
+      .select({ id: documentUpdates.id })
+      .from(documentUpdates)
+      .where(eq(documentUpdates.documentId, documentId)),
+    db
+      .select({ updateId: documentContentWriteHeaders.updateId })
+      .from(documentContentWriteHeaders)
+      .where(eq(documentContentWriteHeaders.documentId, documentId)),
     db
       .select({
-        entryHash: documentAuditEntries.entryHash,
-        id: documentAuditEntries.id,
+        baselineUpdateId: documentBaselines.baselineUpdateId,
+        checkpointKind: documentBaselines.checkpointKind,
+        sourceVersionVector: documentBaselines.sourceVersionVector,
       })
-      .from(documentAuditEntries)
-      .where(eq(documentAuditEntries.documentId, documentId)),
-    db
-      .select({ liveUpdateId: documentUpdateAuditEvents.liveUpdateId })
-      .from(documentUpdateAuditEvents)
-      .where(eq(documentUpdateAuditEvents.liveUpdateId, updateId)),
-    db
-      .select({
-        baselineUpdateId: documentAuditCheckpoints.baselineUpdateId,
-        coveredAuditEntryHash: documentAuditCheckpoints.coveredAuditEntryHash,
-      })
-      .from(documentAuditCheckpoints)
-      .where(eq(documentAuditCheckpoints.baselineUpdateId, updateId)),
+      .from(documentBaselines)
+      .where(eq(documentBaselines.documentId, documentId)),
   ]);
 
-  return { auditEntries, checkpoints, updateEvents };
+  return { baselines, updates, writeHeaders };
 }
 
 test("POST /documents rejects malformed signed event records", async () => {
@@ -975,7 +971,7 @@ test("GET /documents/:documentId/writer-projection blocks revoked users after ro
   expect(recipientProjectionResponse.status).toBe(403);
 }, 10_000);
 
-test("POST /documents/:documentId/sync writes audit rows for accepted live updates", async () => {
+test("POST /documents/:documentId/sync records a baseline once across a retried write", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -1051,25 +1047,20 @@ test("POST /documents/:documentId/sync writes audit rows for accepted live updat
   expect(isDocumentSyncResponse(retried)).toBe(true);
   expect(retried.acceptedOutgoingUpdateIds).toEqual([updateId]);
 
-  const { auditEntries, checkpoints, updateEvents } =
-    await countDocumentAuditRows(created.id, updateId);
-  expect(auditEntries).toHaveLength(1);
-  expect(updateEvents).toEqual([{ liveUpdateId: updateId }]);
-  expect(checkpoints).toHaveLength(1);
-  expect(checkpoints[0]?.coveredAuditEntryHash).toBe(
-    auditEntries[0]?.entryHash,
+  const outgoing = request.outgoingUpdates[0];
+  invariant(outgoing?.sourceVersionVector, "expected a baseline update");
+  const { baselines, updates, writeHeaders } = await loadDocumentWriteRows(
+    created.id,
   );
-
-  const auditHistory = await verifyDocumentAuditHistory(db, {
-    documentId: created.id,
-  });
-  expect(auditHistory).toMatchObject({
-    attachmentEventCount: 0,
-    auditEntryCount: 1,
-    checkpointCount: 1,
-    isValid: true,
-    updateEventCount: 1,
-  });
+  expect(updates).toEqual([{ id: updateId }]);
+  expect(writeHeaders).toEqual([{ updateId }]);
+  expect(baselines).toEqual([
+    {
+      baselineUpdateId: updateId,
+      checkpointKind: "rotate_baseline",
+      sourceVersionVector: outgoing.sourceVersionVector,
+    },
+  ]);
 });
 
 test("POST /documents/:documentId/sync rejects a write without authorization paths", async () => {

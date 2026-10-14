@@ -48,8 +48,6 @@ export interface PurgeDocumentInput {
 
 export interface AppendDocumentUpdatesInput {
   readonly accessEpoch: number;
-  readonly accessManifestHash: string;
-  readonly accessStateHash: string | null;
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;

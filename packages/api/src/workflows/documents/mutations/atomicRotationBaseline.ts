@@ -10,7 +10,6 @@ import type {
   DocumentOutgoingUpdate,
 } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
-import { documentAuditAccessFromManifest } from "../../../documents/documentAuditAccess";
 import { isAuthenticatedReplayableBaseline } from "../../../documents/documentReplayableBaseline";
 import { loadSignerPublicKey } from "../../signerPublicKey";
 import { appendDocumentUpdates } from "./appendOutgoingUpdates";
@@ -125,7 +124,7 @@ export async function appendAtomicRotationBaseline(input: {
   readonly writeAuthorization: DocumentWriteAuthorizationProof;
 }): Promise<readonly string[]> {
   const appendResult = await appendDocumentUpdates({
-    ...(await documentAuditAccessFromManifest(input.manifest)),
+    accessEpoch: input.manifest.state.epoch,
     documentId: input.documentId,
     executor: input.executor,
     fingerprint: input.fingerprint,

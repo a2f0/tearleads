@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  accessEventDependencyProjection,
   accessEvents,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
@@ -214,13 +213,6 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     signature: fixtureHash("event-signature"),
     signedAt: eventSignedAt,
   });
-  await db.insert(accessEventDependencyProjection).values({
-    eventHash,
-    objectKind: "container",
-    objectId: containerId,
-    dependencyManifestHash,
-    dependencyIndex: 0,
-  });
   await db.insert(accessManifests).values({
     version: 1,
     objectKind: "container",
@@ -401,16 +393,6 @@ test("access manifest schema stores critical rows through Drizzle", async () => 
     },
   ]);
 
-  expect(
-    await db
-      .select({
-        dependencyManifestHash:
-          accessEventDependencyProjection.dependencyManifestHash,
-        eventHash: accessEventDependencyProjection.eventHash,
-      })
-      .from(accessEventDependencyProjection)
-      .where(eq(accessEventDependencyProjection.eventHash, eventHash)),
-  ).toEqual([{ dependencyManifestHash, eventHash }]);
   expect(
     await db
       .select({
