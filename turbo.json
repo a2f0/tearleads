@@ -16,7 +16,7 @@
         "scripts/checks/runCachedProtocolCheck.ts",
         "scripts/protocol/tlcTools.ts",
         ".mise.toml",
-        ".mise.lock"
+        "mise.lock"
       ],
       "env": ["TLC_JAVA_RUNTIME", "PROTOCOL_TLC_PARALLELISM"],
       "passThroughEnv": [
@@ -33,7 +33,7 @@
         "scripts/checks/tlaToolsPin.sh",
         "scripts/checks/runCachedProtocolCheck.ts",
         ".mise.toml",
-        ".mise.lock"
+        "mise.lock"
       ],
       "env": ["TLC_JAVA_RUNTIME", "PROTOCOL_TLC_PARALLELISM"],
       "passThroughEnv": ["JAVA_BIN", "TLA_TOOLS_ROOT"],
@@ -49,7 +49,7 @@
         "!scripts/localstack/data/**",
         ".github/workflows/native-purchase-bridges.yml",
         ".mise.toml",
-        ".mise.lock"
+        "mise.lock"
       ],
       "env": ["ImageOS", "ImageVersion"],
       "passThroughEnv": ["ANDROID_HOME", "ANDROID_SDK_ROOT", "JAVA_HOME"],
@@ -77,7 +77,12 @@
     },
     "//#test:windows-ci": {
       "dependsOn": ["app-electrobun#sources"],
-      "inputs": ["scripts/lib/**", ".github/workflows/electrobun-windows.yml"],
+      "inputs": [
+        "scripts/lib/**",
+        ".github/workflows/electrobun-windows.yml",
+        "bunfig.toml",
+        "test/preload.ts"
+      ],
       "env": ["ImageOS", "ImageVersion"],
       "outputs": []
     },

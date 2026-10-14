@@ -7,7 +7,7 @@ const models = "//#check:protocol-models";
 const negative = "//#check:protocol-negative-controls";
 const postgres = "//#test:postgres-concurrency";
 const windows = "//#test:windows-ci";
-const native = ["//#test:native-android-ci", "//#test:native-ios-ci"];
+const native = ["//#test:native-android-ci", "//#test:native-ios-ci"] as const;
 
 test("website source and its version bump preserve unrelated task hashes", () => {
   const repo = cacheFixture();
@@ -59,6 +59,9 @@ test.each([
     [models, negative, windows],
   ],
   ["scripts/lib/withBuildInfoEnv.sh", [windows], [postgres, models, negative]],
+  ["bunfig.toml", [windows], [models, negative]],
+  ["test/preload.ts", [windows], [models, negative]],
+  ["mise.lock", [models, negative, native[0]], [postgres, windows]],
   [
     "packages/app-capacitor/ios/App/App.swift",
     native,
