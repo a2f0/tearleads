@@ -11,7 +11,6 @@ import {
   documentAttachmentAuditEvents,
   documentAuditCheckpoints,
   documentAuditEntries,
-  documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
@@ -202,9 +201,6 @@ export async function deleteDocumentRows(input: {
   }
 
   // Current link projection, then the document row itself.
-  await executor
-    .delete(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, documentId));
   const [deleted] = await executor
     .delete(documents)
     .where(eq(documents.id, documentId))

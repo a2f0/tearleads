@@ -277,6 +277,10 @@ export const accessManifestPrincipalHeadProjection = pgTable(
  * This is a derived cache. The signed document link-set manifest is the source
  * of authority for document links; this projection lets services list documents
  * in a container and resolve current blob/document KEK targets efficiently.
+ * Joined to `accessManifestHeads` on `manifestHash`, it is also the current
+ * document-to-container link set: there is no separate materialized copy, so
+ * structural guards (container deletion, sole-container purge, organization
+ * purge scope) read the same rows authorization does.
  *
  * Columns:
  * - `id`: Surrogate database primary key.

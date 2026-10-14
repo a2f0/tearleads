@@ -390,15 +390,6 @@ CREATE UNIQUE INDEX `document_audit_entries_id_unique` ON `document_audit_entrie
 CREATE UNIQUE INDEX `document_audit_entries_document_sequence_idx` ON `document_audit_entries` (`document_id`,`sequence`);--> statement-breakpoint
 CREATE UNIQUE INDEX `document_audit_entries_document_hash_idx` ON `document_audit_entries` (`document_id`,`entry_hash`);--> statement-breakpoint
 CREATE INDEX `document_audit_entries_document_created_idx` ON `document_audit_entries` (`document_id`,`created_at`);--> statement-breakpoint
-CREATE TABLE `document_container_links` (
-	`id` text PRIMARY KEY NOT NULL,
-	`document_id` text NOT NULL,
-	`container_id` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `document_container_links_document_container_idx` ON `document_container_links` (`document_id`,`container_id`);--> statement-breakpoint
-CREATE INDEX `document_container_links_container_idx` ON `document_container_links` (`container_id`);--> statement-breakpoint
 CREATE TABLE `document_content_key_epochs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`document_id` text NOT NULL,

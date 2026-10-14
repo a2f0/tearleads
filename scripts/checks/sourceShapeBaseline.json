@@ -56,8 +56,8 @@
       "bytes": 19355
     },
     "docs/keying-design.md": {
-      "lines": 1209,
-      "bytes": 59185
+      "lines": 1208,
+      "bytes": 59156
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 550,
@@ -136,16 +136,16 @@
       "bytes": 21084
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3837,
-      "bytes": 126688
+      "lines": 3788,
+      "bytes": 125782
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1275,
-      "bytes": 42660
+      "lines": 1267,
+      "bytes": 41737
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2287,
-      "bytes": 74088
+      "lines": 2278,
+      "bytes": 73761
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 854,
@@ -164,8 +164,8 @@
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1299,
-      "bytes": 39259
+      "lines": 1193,
+      "bytes": 36202
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 700,

@@ -2,13 +2,13 @@ import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import {
   containers,
-  documentContainerLinks,
   organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { deriveOrganizationRosterProfileContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
@@ -77,10 +77,7 @@ async function loadRaceState(
         eq(organizationRosterEntries.userId, fixture.owner.userId),
       ),
     );
-  const links = await db
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, fixture.profile.id));
+  const links = await currentDocumentLinkRows(fixture.profile.id);
   return {
     linkedContainerIds: links.map((link) => link.containerId).sort(),
     profileDocumentId: binding?.profileDocumentId ?? null,

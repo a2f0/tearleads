@@ -310,13 +310,6 @@ CREATE TABLE "document_audit_entries" (
 	CONSTRAINT "document_audit_entries_id_unique" UNIQUE("id")
 );
 --> statement-breakpoint
-CREATE TABLE "document_container_links" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"document_id" uuid NOT NULL,
-	"container_id" uuid NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "document_content_key_epochs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"document_id" uuid NOT NULL,
@@ -859,8 +852,6 @@ CREATE INDEX "document_audit_checkpoints_document_created_idx" ON "document_audi
 CREATE UNIQUE INDEX "document_audit_entries_document_sequence_idx" ON "document_audit_entries" USING btree ("document_id","sequence");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_audit_entries_document_hash_idx" ON "document_audit_entries" USING btree ("document_id","entry_hash");--> statement-breakpoint
 CREATE INDEX "document_audit_entries_document_created_idx" ON "document_audit_entries" USING btree ("document_id","created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "document_container_links_document_container_idx" ON "document_container_links" USING btree ("document_id","container_id");--> statement-breakpoint
-CREATE INDEX "document_container_links_container_idx" ON "document_container_links" USING btree ("container_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "document_content_key_epochs_document_epoch_idx" ON "document_content_key_epochs" USING btree ("document_id","content_key_epoch");--> statement-breakpoint
 CREATE INDEX "document_content_key_epochs_document_idx" ON "document_content_key_epochs" USING btree ("document_id");--> statement-breakpoint
 CREATE INDEX "document_content_key_epochs_target_idx" ON "document_content_key_epochs" USING btree ("target_hash");--> statement-breakpoint

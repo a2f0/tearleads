@@ -8,11 +8,11 @@ import {
   containers,
   documentAttachmentAuditEvents,
   documentAuditEntries,
-  documentContainerLinks,
   documentContentWriteHeaders,
   documents,
 } from "@tearleads/api-shared/schema";
 import { and, eq, inArray } from "drizzle-orm";
+import { listDocumentsCurrentlyLinkedToContainers } from "../../access/read/currentDocumentLinks";
 import { organizationPurgeBatches } from "./organizationPurgeBatches";
 
 async function selectStrings(
@@ -35,12 +35,7 @@ async function loadContainerDocumentIds(
           .from(containerMetadataDocuments)
           .where(inArray(containerMetadataDocuments.containerId, batch)),
       ),
-      selectStrings(
-        executor
-          .select({ id: documentContainerLinks.documentId })
-          .from(documentContainerLinks)
-          .where(inArray(documentContainerLinks.containerId, batch)),
-      ),
+      listDocumentsCurrentlyLinkedToContainers(batch, executor),
     ]);
     documentIds.push(...metadataIds, ...linkedIds);
   }

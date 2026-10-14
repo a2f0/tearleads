@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "5a97e2b2-3f50-45df-92f5-2169a21de592",
+  "id": "015b4f5f-6d94-4686-b189-c56e597c98c5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_event_dependency_projection": {
@@ -2365,56 +2365,6 @@
         "document_audit_entries_document_created_idx": {
           "name": "document_audit_entries_document_created_idx",
           "columns": ["document_id", "created_at"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "document_container_links": {
-      "name": "document_container_links",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "document_id": {
-          "name": "document_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "container_id": {
-          "name": "container_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
-        }
-      },
-      "indexes": {
-        "document_container_links_document_container_idx": {
-          "name": "document_container_links_document_container_idx",
-          "columns": ["document_id", "container_id"],
-          "isUnique": true
-        },
-        "document_container_links_container_idx": {
-          "name": "document_container_links_container_idx",
-          "columns": ["container_id"],
           "isUnique": false
         }
       },

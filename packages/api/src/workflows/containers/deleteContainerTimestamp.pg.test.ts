@@ -3,7 +3,6 @@ import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import {
   attachmentBindings,
   blobs,
-  documentContainerLinks,
   documents,
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
@@ -53,10 +52,6 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     await db.insert(documents).values({
       createdByFingerprint: owner.fingerprint,
       id: metadataDocumentId,
-    });
-    await db.insert(documentContainerLinks).values({
-      containerId: child.containerId,
-      documentId: metadataDocumentId,
     });
     await db.insert(blobs).values({
       byteLength: 1,

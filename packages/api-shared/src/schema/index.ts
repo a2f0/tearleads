@@ -36,7 +36,6 @@ export { documentInlineRekeyCommits } from "./documentInlineRekeyCommits";
 export {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
-  documentContainerLinks,
 } from "./documentLinks";
 export { groups, organizationGroupTombstones } from "./groups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";

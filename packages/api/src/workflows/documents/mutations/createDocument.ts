@@ -18,7 +18,7 @@ import { DocumentMutationError, toMutationError } from "./errors";
 import { uniqueSortedContainerIds } from "./linkSetMutationLocks";
 import {
   assertCreateCanAdvanceDocumentHead,
-  insertDocumentAndLinks,
+  insertDocumentRow,
 } from "./shared/documentRows";
 import {
   documentManifestBundleRecord,
@@ -137,7 +137,7 @@ export async function createDocumentWithExecutor(input: {
       manifest.state.documentId,
       manifest.state.linkedContainerIds,
     );
-    const document = await insertDocumentAndLinks({
+    const document = await insertDocumentRow({
       createdByFingerprint: input.fingerprint,
       executor: input.executor,
       manifest,

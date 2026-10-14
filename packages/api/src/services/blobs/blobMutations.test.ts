@@ -7,7 +7,6 @@ import {
   containers,
   documentAttachmentAuditEvents,
   documentAuditEntries,
-  documentContainerLinks,
   documents,
 } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
@@ -258,10 +257,6 @@ async function createDocumentFixture(input: {
   await db.insert(documents).values({
     id: documentId,
     createdByFingerprint: input.owner.fingerprint,
-  });
-  await db.insert(documentContainerLinks).values({
-    documentId,
-    containerId: input.container.bundle.state.containerId,
   });
   await storeVerifiedAccessManifest({ verifiedManifest: verified.value }, db);
 
