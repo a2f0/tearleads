@@ -69,6 +69,10 @@ function openDocumentImage(
       scope.locator("img.explorer-blob-preview-media"),
       1,
     );
+    await scope.locator(".explorer-blob-preview-open").click();
+    const image = scope.locator("img.mini-app-image-viewer-image");
+    await expect(image).toBeVisible();
+    await assertImagesDecoded(image, 1);
   };
 }
 

@@ -1,6 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, render } from "@testing-library/react";
-import { BirthCertificateFields } from "./BirthCertificate";
+import { WithWindowToolbar } from "../../../test/helpers/windowToolbarProbe";
+import {
+  BirthCertificateFields,
+  BirthCertificateFieldsPane,
+} from "./BirthCertificate";
 import type { BirthCertificateDocumentFields } from "./birthCertificateDocumentDefinition";
 
 afterEach(cleanup);
@@ -66,4 +70,45 @@ test("unavailable editing disables every field", () => {
   const inputs = view.container.querySelectorAll("input");
   expect(inputs.length).toBe(7);
   for (const input of inputs) expect(input.disabled).toBe(true);
+});
+
+test("birth certificate write access controls the editor and toolbar", () => {
+  const writes: unknown[] = [];
+  let toggles = 0;
+  const pane = (canWrite: boolean, ready = true) => (
+    <WithWindowToolbar>
+      <BirthCertificateFieldsPane
+        fields={fields}
+        isEditing
+        canWrite={canWrite}
+        ready={ready}
+        onToggleEditing={() => {
+          toggles += 1;
+        }}
+        setStructuredFields={async (kind, patch) => {
+          writes.push({ kind, patch });
+        }}
+      />
+    </WithWindowToolbar>
+  );
+  const view = render(pane(false));
+  expect(view.queryByRole("textbox")).toBeNull();
+  expect(
+    (view.getByRole("button", { name: "Toolbar Done" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  view.rerender(pane(true, false));
+  expect(
+    (view.getByLabelText("Birth certificate full name") as HTMLInputElement)
+      .disabled,
+  ).toBe(true);
+  view.rerender(pane(true));
+  fireEvent.change(view.getByLabelText("Birth certificate full name"), {
+    target: { value: "Maya Reyes" },
+  });
+  fireEvent.click(view.getByRole("button", { name: "Toolbar Done" }));
+  expect(writes).toEqual([
+    { kind: "birth_certificate", patch: { fullName: "Maya Reyes" } },
+  ]);
+  expect(toggles).toBe(1);
 });

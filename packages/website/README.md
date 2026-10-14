@@ -83,9 +83,9 @@ backup from the commit-pinned `@a2f0/continuity` development dependency, restore
 it through the app, and captures desktop, phone, and tablet in light and dark
 themes. Contacts include portraits; document details include the specimen
 driver's license, passport, credit card (front and back), and birth certificate.
-Capture assertions use Continuity's expected
-names, note text, document titles, and image counts. The separate two-peer
-authorship captures still exercise the collaboration demo.
+Capture assertions use Continuity's expected names, note text, document titles,
+and image counts. The separate two-peer authorship captures still exercise the
+collaboration demo.
 
 Astro stages these local `.screenshots/` files into its gallery and homepage
 figures, then writes the site to `packages/website/dist/`. This command runs

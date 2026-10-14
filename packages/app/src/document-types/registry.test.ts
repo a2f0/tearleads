@@ -48,6 +48,9 @@ test("document type registry covers the supported inline document kinds", () => 
   expect(getDocumentTypeDefinition("credit_card").createLabel).toBe(
     "Credit Card",
   );
+  expect(getDocumentTypeDefinition("birth_certificate").createLabel).toBe(
+    "Birth Certificate",
+  );
   expect(getDocumentTypeDefinition("passport").createLabel).toBe("Passport");
   expect(getDocumentTypeDefinition("env_file").createLabel).toBe(".env File");
   expect(getDocumentTypeDefinition("blood_pressure").createLabel).toBe(

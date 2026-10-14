@@ -18,10 +18,21 @@ const birthCertificateProjection = sqliteTable("birth_certificate_projection", {
 });
 
 export const birthCertificateClientProjection: DocumentClientProjectionDefinition =
-  createDocumentSqlProjection(birthCertificateProjection, (input) => ({
-    localId: input.localId,
-    documentId: input.documentId,
-    containerId: input.containerId,
-    ...readBirthCertificateFieldsFromRecord(input.structuredFields).fields,
-    updatedAt: input.updatedAt,
-  }));
+  createDocumentSqlProjection(birthCertificateProjection, (input) => {
+    const fields = readBirthCertificateFieldsFromRecord(
+      input.structuredFields,
+    ).fields;
+    return {
+      localId: input.localId,
+      documentId: input.documentId,
+      containerId: input.containerId,
+      certificateNumber: fields.certificateNumber,
+      fullName: fields.fullName,
+      dateOfBirth: fields.dateOfBirth,
+      placeOfBirth: fields.placeOfBirth,
+      parentNames: fields.parentNames,
+      issuingAuthority: fields.issuingAuthority,
+      dateIssued: fields.dateIssued,
+      updatedAt: input.updatedAt,
+    };
+  });

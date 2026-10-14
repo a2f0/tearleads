@@ -1,3 +1,4 @@
+import type { DocumentContextValue } from "@tearleads/client-sdk";
 import { useId } from "react";
 import { DocumentAttachmentSlots } from "../shared/DocumentAttachmentSlots";
 import {
@@ -71,6 +72,33 @@ export function BirthCertificateFields(params: {
   );
 }
 
+export function BirthCertificateFieldsPane(params: {
+  canWrite: boolean;
+  fields: BirthCertificateDocumentFields;
+  isEditing: boolean;
+  ready: boolean;
+  onToggleEditing: () => void;
+  setStructuredFields: DocumentContextValue["setStructuredFields"];
+}) {
+  useStructuredDocumentEditAction({
+    disabled: !params.ready || !params.canWrite,
+    id: "birth-certificate-toggle-edit",
+    isEditing: params.isEditing,
+    onToggleEditing: params.onToggleEditing,
+  });
+  return (
+    <BirthCertificateFields
+      fields={params.fields}
+      isEditing={params.isEditing && params.canWrite}
+      disabled={!params.ready || !params.canWrite}
+      onChange={(patch) => {
+        if (params.canWrite)
+          params.setStructuredFields(BIRTH_CERTIFICATE_DOCUMENT_KIND, patch);
+      }}
+    />
+  );
+}
+
 export function BirthCertificate(params: {
   containerId: string | null;
   initialEditing?: boolean | undefined;
@@ -82,12 +110,6 @@ export function BirthCertificate(params: {
     readFields: readBirthCertificateFields,
     slots: BIRTH_CERTIFICATE_ATTACHMENT_SLOTS,
   });
-  useStructuredDocumentEditAction({
-    disabled: !doc.ready || !doc.canWrite,
-    id: "birth-certificate-toggle-edit",
-    isEditing: doc.isEditing,
-    onToggleEditing: doc.toggleEditing,
-  });
   return (
     <StructuredDocument
       attachments={
@@ -97,14 +119,9 @@ export function BirthCertificate(params: {
         />
       }
       fields={
-        <BirthCertificateFields
-          fields={doc.fields}
-          isEditing={doc.isEditing && doc.canWrite}
-          disabled={!doc.ready || !doc.canWrite}
-          onChange={(patch) => {
-            if (doc.canWrite)
-              doc.setStructuredFields(BIRTH_CERTIFICATE_DOCUMENT_KIND, patch);
-          }}
+        <BirthCertificateFieldsPane
+          {...doc}
+          onToggleEditing={doc.toggleEditing}
         />
       }
     />
