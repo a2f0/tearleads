@@ -79,7 +79,6 @@ export const containerKeyEpochs = pgTable(
       table.containerId,
       table.keyEpoch,
     ),
-    index("container_key_epochs_container_idx").on(table.containerId),
     index("container_key_epochs_access_manifest_idx").on(
       table.accessManifestHash,
     ),
@@ -157,7 +156,6 @@ export const containerKeyWraps = pgTable(
       table.recipientId,
       table.recipientKeyEpochId,
     ),
-    index("container_key_wraps_epoch_idx").on(table.containerKeyEpochId),
     index("container_key_wraps_recipient_idx").on(
       table.recipientKind,
       table.recipientId,
