@@ -6,10 +6,12 @@
 }
 
 /* Let touch-and-hold open the folder menu without Safari selecting the title. */
-.explorer-detail-header-identity[data-context-menu="true"] {
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
+@media (any-pointer: coarse) {
+  .explorer-detail-header-identity[data-context-menu="true"] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
 }
 
 /* The glyph spans both header rows — the container name and its type — so it

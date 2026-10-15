@@ -411,7 +411,6 @@ test.each(["kebab", "icon", "name", "touch"])(
         fireEvent.pointerDown(target, { pointerType: "touch" });
         await act(() => new Promise((resolve) => setTimeout(resolve, 550)));
         fireEvent.pointerUp(target, { pointerType: "touch" });
-        fireEvent.click(target);
       } else {
         fireEvent.contextMenu(target);
       }

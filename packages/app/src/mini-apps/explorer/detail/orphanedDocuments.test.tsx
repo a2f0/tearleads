@@ -84,7 +84,7 @@ test("the orphan recovery collection queries null scope without folder actions",
   const table = view.getByRole("table", {
     name: `Items in ${EXPLORER_LABELS.orphanedDocumentsName}`,
   });
-  fireEvent.contextMenu(view.getByText(node.name));
+  expect(fireEvent.contextMenu(view.getByText(node.name))).toBe(true);
   expect(fireEvent.contextMenu(table)).toBe(false);
   fireEvent.drop(table, {
     dataTransfer: {
