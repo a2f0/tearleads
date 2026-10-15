@@ -1,4 +1,4 @@
-import { KeyingVerificationError, toFingerprint } from "@tearleads/crypto";
+import { toFingerprint } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { resolveIdentityTrustDomain } from "./trustDomain";
 import {
@@ -9,6 +9,16 @@ import {
 import { assertTrustedUserIdentityUserId } from "./validation";
 
 const LINK_PATH = "/app/contacts/import/";
+
+/** A supplied link alone cannot establish evidence of server tampering. */
+class IdentityLinkMismatchError extends Error {
+  constructor() {
+    super(
+      "The identity keys do not match this link. Ask the person to confirm their identity link through your trusted channel.",
+    );
+    this.name = "IdentityLinkMismatchError";
+  }
+}
 
 interface IdentityLinkExpectation {
   readonly identityTrustDomain: string;
@@ -142,9 +152,6 @@ export async function assertIdentityLinkMatches(
   identity: ValidatedUserIdentityCandidate,
 ): Promise<void> {
   if ((await identityLinkFingerprint(identity)) !== expectation.fingerprint) {
-    throw new KeyingVerificationError(
-      "hash_mismatch",
-      "The identity keys do not match this link. Ask the person to confirm their identity link through your trusted channel.",
-    );
+    throw new IdentityLinkMismatchError();
   }
 }

@@ -1,4 +1,5 @@
 export { createApiUserIdentitySource } from "./apiAdapter";
+export { parseIdentityLink } from "./identityLink";
 export { requireTrustedUserIdentityResolver } from "./requiredResolver";
 export {
   createTrustedUserIdentityService,

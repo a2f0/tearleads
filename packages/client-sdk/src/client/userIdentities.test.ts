@@ -20,6 +20,8 @@ test("user identity resolution returns the verified trusted bundle", async () =>
     encapsulationKeyPair.publicKey,
   );
   const userIdentities = createUserIdentities({
+    getOrganizationId: () => null,
+    reportSecurityIncident: async () => {},
     identityLinks: {
       resolvePinned: async () => null,
       createLink: async () => {
@@ -53,6 +55,8 @@ test("user identity resolution returns the verified trusted bundle", async () =>
 test("user identity resolution returns null when the trusted resolver has no identity", async () => {
   const logs: string[] = [];
   const userIdentities = createUserIdentities({
+    getOrganizationId: () => null,
+    reportSecurityIncident: async () => {},
     identityLinks: {
       resolvePinned: async () => null,
       createLink: async () => {
@@ -76,6 +80,8 @@ test("user identity resolution preserves typed integrity failures", async () => 
     "Trusted user identity changed",
   );
   const userIdentities = createUserIdentities({
+    getOrganizationId: () => null,
+    reportSecurityIncident: async () => {},
     identityLinks: {
       resolvePinned: async () => null,
       createLink: async () => {

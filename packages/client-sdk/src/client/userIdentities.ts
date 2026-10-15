@@ -1,6 +1,9 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { ProjectionDependencyUnavailableError } from "../data/keyingProjectionVerification/dependencyUnavailable";
+import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
+import type { SecurityIncidentReporter } from "../data/securityIncidents";
 import {
+  parseIdentityLink,
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentity,
   type TrustedUserIdentityResolver,
@@ -39,6 +42,8 @@ function toResolvedIdentity(
 }
 
 export function createUserIdentities(input: {
+  getOrganizationId: () => string | null;
+  reportSecurityIncident: SecurityIncidentReporter;
   identityLinks: Pick<
     TrustedUserIdentityService,
     "createLink" | "verifyLink" | "resolvePinned"
@@ -52,7 +57,18 @@ export function createUserIdentities(input: {
   return {
     createLink: (appUrl) => input.identityLinks.createLink(appUrl),
     async verifyLink(link) {
-      return toResolvedIdentity(await input.identityLinks.verifyLink(link));
+      const { userId } = parseIdentityLink(link);
+      return runWithSecurityIncidentReporting(
+        input.reportSecurityIncident,
+        {
+          objectId: userId,
+          objectKind: "user",
+          operation: "user.identity.verify_link",
+          organizationId: input.getOrganizationId(),
+        },
+        async () =>
+          toResolvedIdentity(await input.identityLinks.verifyLink(link)),
+      );
     },
     async resolvePinned(userId) {
       const identity = await input.identityLinks.resolvePinned(userId);

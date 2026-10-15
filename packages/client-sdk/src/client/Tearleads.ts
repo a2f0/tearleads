@@ -221,6 +221,8 @@ export class Tearleads {
     this.organizations = createOrganizations(runtime, this.containerContents);
     this.root = createRoot(rootRuntimeOf(runtime, this.session));
     this.userIdentities = createUserIdentities({
+      getOrganizationId: () => this.session.organizationId,
+      reportSecurityIncident: security.service.report,
       identityLinks: runtime.identityLinks,
       log: this.log,
       resolveTrustedUserIdentity: (userId) =>
