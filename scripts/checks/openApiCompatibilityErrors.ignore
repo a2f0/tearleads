@@ -1,5 +1,0 @@
-# Greenfield reset: the management-URL response drops canCancelDirectly, which
-# was retained only for native apps released before #2244; every app is
-# re-released against fresh data and reads it from the billing snapshot.
-# Remove this exact diagnostic once main contains this contract.
-GET /organizations/{organizationId}/billing/management-url removed the required property `canCancelDirectly` from the response with the `200` status

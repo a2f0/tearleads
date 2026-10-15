@@ -10,7 +10,10 @@ Audit the Tearleads sync protocol between `packages/client-sdk` and
 `packages/api-client`, and the sync bindings under `packages/app/src/providers`,
 for ways to make synchronization cheaper and simpler. The companion
 `protocol-security-audit` skill asks whether the protocol is safe; this skill
-asks whether it does more work than its guarantees require.
+asks whether it does more work than its guarantees require. The
+`database-efficiency-audit` skill owns the physical layer beneath it: query
+shape, statement batching, transaction scope, and indexes. A finding that
+changes only those, with no table, route, or response change, belongs there.
 
 Three rules frame every proposal:
 

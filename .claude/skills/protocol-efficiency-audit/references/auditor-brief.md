@@ -166,7 +166,9 @@ repository's own request budgets or schema at the time of writing.
   turn one logical read into several requests at fixture sizes.
 - **Statement amplification.** Routes with high statement counts per request
   from per-row loops, repeated path resolution, or re-verification of stored
-  artifacts on every read.
+  artifacts on every read. Report it here only when the fix retires a table,
+  route, or verification step; a query-shape or index fix alone belongs to
+  `database-efficiency-audit`.
 - **Rebuild on the client of what the server could serve verified.**
   Keyring and KEK-log rebuilds, policy chain walks, and listing merges that
   the server could precompute and the client could still verify.
