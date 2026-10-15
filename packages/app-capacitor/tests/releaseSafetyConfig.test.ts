@@ -375,11 +375,11 @@ describe("RevenueCat store-release safety", () => {
       "lane :build_testflight_release",
     );
     const keychainIndex = iosFastfile.indexOf(
-      "    ipa_path = with_ios_signing_keychain do",
+      "      with_ios_signing_keychain do",
       buildLaneIndex,
     );
     const buildMatchIndex = iosFastfile.indexOf(
-      "      profile_name = install_ios_appstore_signing_assets!",
+      "        profile_name = install_ios_appstore_signing_assets!",
       keychainIndex,
     );
 
@@ -400,32 +400,30 @@ describe("RevenueCat store-release safety", () => {
     const buildLaneIndex = iosFastfile.indexOf(
       "lane :build_testflight_release",
     );
-    const snapshotIndex = iosFastfile.indexOf(
-      "    committed_package_pins = File.binread(IOS_PACKAGE_RESOLVED_PATH)",
+    const pinsIndex = iosFastfile.indexOf(
+      "    ipa_path = SwiftPackagePins.verify_around(IOS_PACKAGE_RESOLVED_PATH) do",
       buildLaneIndex,
     );
     const keychainIndex = iosFastfile.indexOf(
-      "    ipa_path = with_ios_signing_keychain do",
-      buildLaneIndex,
+      "      with_ios_signing_keychain do",
+      pinsIndex,
     );
     const strictIndex = iosFastfile.indexOf(
-      "          disable_package_automatic_updates: true,",
+      "            disable_package_automatic_updates: true,",
       keychainIndex,
-    );
-    const guardIndex = iosFastfile.indexOf(
-      "    ensure_ios_package_pins_unchanged!(committed_package_pins)",
-      strictIndex,
     );
     const assetsIndex = iosFastfile.indexOf(
       "    assets = require_ios_testflight_assets!(ipa_path)",
-      buildLaneIndex,
+      strictIndex,
     );
 
-    expect(snapshotIndex).toBeGreaterThan(buildLaneIndex);
-    expect(keychainIndex).toBeGreaterThan(snapshotIndex);
+    expect(pinsIndex).toBeGreaterThan(buildLaneIndex);
+    expect(keychainIndex).toBeGreaterThan(pinsIndex);
     expect(strictIndex).toBeGreaterThan(keychainIndex);
-    expect(guardIndex).toBeGreaterThan(strictIndex);
-    expect(assetsIndex).toBeGreaterThan(guardIndex);
+    expect(assetsIndex).toBeGreaterThan(strictIndex);
+    expect(iosFastfile).toContain(
+      "require_relative '../lib/swift_package_pins'",
+    );
     expect(iosFastfile).toContain(
       "IOS_PACKAGE_RESOLVED_PATH = File.join(IOS_PROJECT_PATH, 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved')",
     );
