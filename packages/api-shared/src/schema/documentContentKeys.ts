@@ -69,7 +69,6 @@ export const documentContentKeyEpochs = pgTable(
       table.documentId,
       table.contentKeyEpoch,
     ),
-    index("document_content_key_epochs_document_idx").on(table.documentId),
     index("document_content_key_epochs_target_idx").on(table.targetHash),
   ],
 );
@@ -135,9 +134,6 @@ export const documentContentKeyTargets = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("document_content_key_targets_epoch_idx").on(
-      table.documentContentKeyEpochId,
-    ),
     index("document_content_key_targets_container_epoch_idx").on(
       table.containerKeyEpochId,
     ),
@@ -210,10 +206,6 @@ export const documentContentWriteHeaders = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("document_content_write_headers_document_epoch_idx").on(
-      table.documentId,
-      table.contentKeyEpoch,
-    ),
     index("document_content_write_headers_organization_update_idx").on(
       table.organizationId,
       table.updateId,

@@ -11,7 +11,7 @@ export async function prepareSyncDocumentTransaction(input: {
   readonly request: DocumentSyncRequest;
   readonly tx: DatabaseTransaction;
   readonly userId: string;
-}): Promise<void> {
+}): Promise<Awaited<ReturnType<typeof resolveCurrentDocumentKekTargets>>> {
   await ensureDocumentExists({
     documentId: input.documentId,
     executor: input.tx,
@@ -37,4 +37,5 @@ export async function prepareSyncDocumentTransaction(input: {
     executor: input.tx,
     request: input.request,
   });
+  return preRekeyTargets;
 }

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e9f33930-4b32-486f-90f1-098ce6c3a54a",
+  "id": "e97654d6-be87-429b-af6b-6c17729dc52c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -217,16 +217,6 @@
         }
       },
       "indexes": {
-        "access_manifest_container_grant_manifest_idx": {
-          "name": "access_manifest_container_grant_manifest_idx",
-          "columns": ["manifest_hash"],
-          "isUnique": false
-        },
-        "access_manifest_container_grant_subject_idx": {
-          "name": "access_manifest_container_grant_subject_idx",
-          "columns": ["subject_type", "subject_id"],
-          "isUnique": false
-        },
         "access_manifest_container_grant_subject_manifest_idx": {
           "name": "access_manifest_container_grant_subject_manifest_idx",
           "columns": [
@@ -235,11 +225,6 @@
             "manifest_hash",
             "container_id"
           ],
-          "isUnique": false
-        },
-        "access_manifest_container_grant_container_idx": {
-          "name": "access_manifest_container_grant_container_idx",
-          "columns": ["container_id"],
           "isUnique": false
         },
         "access_manifest_container_grant_container_manifest_idx": {
@@ -304,19 +289,9 @@
         }
       },
       "indexes": {
-        "access_manifest_document_link_manifest_idx": {
-          "name": "access_manifest_document_link_manifest_idx",
-          "columns": ["manifest_hash"],
-          "isUnique": false
-        },
         "access_manifest_document_link_document_idx": {
           "name": "access_manifest_document_link_document_idx",
           "columns": ["document_id"],
-          "isUnique": false
-        },
-        "access_manifest_document_link_container_idx": {
-          "name": "access_manifest_document_link_container_idx",
-          "columns": ["container_id"],
           "isUnique": false
         },
         "access_manifest_document_link_container_manifest_idx": {
@@ -489,11 +464,6 @@
         }
       },
       "indexes": {
-        "access_manifest_principal_projection_manifest_idx": {
-          "name": "access_manifest_principal_projection_manifest_idx",
-          "columns": ["manifest_hash"],
-          "isUnique": false
-        },
         "access_manifest_principal_projection_principal_idx": {
           "name": "access_manifest_principal_projection_principal_idx",
           "columns": ["principal_type", "principal_id"],
@@ -651,11 +621,6 @@
           "name": "access_manifests_object_epoch_idx",
           "columns": ["object_kind", "object_id", "epoch"],
           "isUnique": true
-        },
-        "access_manifests_object_idx": {
-          "name": "access_manifests_object_idx",
-          "columns": ["object_kind", "object_id"],
-          "isUnique": false
         }
       },
       "foreignKeys": {},
@@ -913,11 +878,6 @@
           "columns": ["blob_id", "content_key_epoch"],
           "isUnique": true
         },
-        "blob_content_key_epochs_blob_idx": {
-          "name": "blob_content_key_epochs_blob_idx",
-          "columns": ["blob_id"],
-          "isUnique": false
-        },
         "blob_content_key_epochs_target_idx": {
           "name": "blob_content_key_epochs_target_idx",
           "columns": ["target_hash"],
@@ -1019,11 +979,6 @@
         }
       },
       "indexes": {
-        "blob_content_key_targets_epoch_idx": {
-          "name": "blob_content_key_targets_epoch_idx",
-          "columns": ["blob_content_key_epoch_id"],
-          "isUnique": false
-        },
         "blob_content_key_targets_binding_idx": {
           "name": "blob_content_key_targets_binding_idx",
           "columns": ["binding_id"],
@@ -1158,11 +1113,6 @@
         }
       },
       "indexes": {
-        "blob_content_write_headers_blob_epoch_idx": {
-          "name": "blob_content_write_headers_blob_epoch_idx",
-          "columns": ["blob_id", "content_key_epoch"],
-          "isUnique": false
-        },
         "blob_content_write_headers_organization_blob_idx": {
           "name": "blob_content_write_headers_organization_blob_idx",
           "columns": ["organization_id", "blob_id"],
@@ -1596,11 +1546,6 @@
           "columns": ["container_id", "key_epoch"],
           "isUnique": true
         },
-        "container_key_epochs_container_idx": {
-          "name": "container_key_epochs_container_idx",
-          "columns": ["container_id"],
-          "isUnique": false
-        },
         "container_key_epochs_access_manifest_idx": {
           "name": "container_key_epochs_access_manifest_idx",
           "columns": ["access_manifest_hash"],
@@ -1712,11 +1657,6 @@
             "recipient_key_epoch_id"
           ],
           "isUnique": true
-        },
-        "container_key_wraps_epoch_idx": {
-          "name": "container_key_wraps_epoch_idx",
-          "columns": ["container_key_epoch_id"],
-          "isUnique": false
         },
         "container_key_wraps_recipient_idx": {
           "name": "container_key_wraps_recipient_idx",
@@ -1937,11 +1877,6 @@
           "isUnique": true,
           "where": "\"containers\".\"system_slot\" is not null"
         },
-        "containers_parent_id_idx": {
-          "name": "containers_parent_id_idx",
-          "columns": ["parent_id"],
-          "isUnique": false
-        },
         "containers_parent_updated_idx": {
           "name": "containers_parent_updated_idx",
           "columns": ["parent_id", "updated_at", "id"],
@@ -2068,11 +2003,6 @@
           "columns": ["document_id", "content_key_epoch"],
           "isUnique": true
         },
-        "document_content_key_epochs_document_idx": {
-          "name": "document_content_key_epochs_document_idx",
-          "columns": ["document_id"],
-          "isUnique": false
-        },
         "document_content_key_epochs_target_idx": {
           "name": "document_content_key_epochs_target_idx",
           "columns": ["target_hash"],
@@ -2153,11 +2083,6 @@
         }
       },
       "indexes": {
-        "document_content_key_targets_epoch_idx": {
-          "name": "document_content_key_targets_epoch_idx",
-          "columns": ["document_content_key_epoch_id"],
-          "isUnique": false
-        },
         "document_content_key_targets_container_epoch_idx": {
           "name": "document_content_key_targets_container_epoch_idx",
           "columns": ["container_key_epoch_id"],
@@ -2281,11 +2206,6 @@
         }
       },
       "indexes": {
-        "document_content_write_headers_document_epoch_idx": {
-          "name": "document_content_write_headers_document_epoch_idx",
-          "columns": ["document_id", "content_key_epoch"],
-          "isUnique": false
-        },
         "document_content_write_headers_organization_update_idx": {
           "name": "document_content_write_headers_organization_update_idx",
           "columns": ["organization_id", "update_id"],
@@ -4097,11 +4017,6 @@
         }
       },
       "indexes": {
-        "principal_epoch_keys_principal_idx": {
-          "name": "principal_epoch_keys_principal_idx",
-          "columns": ["principal_type", "principal_id"],
-          "isUnique": false
-        },
         "principal_epoch_keys_principal_epoch_idx": {
           "name": "principal_epoch_keys_principal_epoch_idx",
           "columns": ["principal_type", "principal_id", "epoch"],
@@ -4346,11 +4261,6 @@
         }
       },
       "indexes": {
-        "principal_member_envelopes_principal_idx": {
-          "name": "principal_member_envelopes_principal_idx",
-          "columns": ["principal_type", "principal_id"],
-          "isUnique": false
-        },
         "principal_member_envelopes_state_member_idx": {
           "name": "principal_member_envelopes_state_member_idx",
           "columns": [
@@ -4427,16 +4337,6 @@
         }
       },
       "indexes": {
-        "principal_membership_projection_principal_idx": {
-          "name": "principal_membership_projection_principal_idx",
-          "columns": ["principal_type", "principal_id"],
-          "isUnique": false
-        },
-        "principal_membership_projection_member_idx": {
-          "name": "principal_membership_projection_member_idx",
-          "columns": ["user_id"],
-          "isUnique": false
-        },
         "principal_membership_projection_member_state_idx": {
           "name": "principal_membership_projection_member_state_idx",
           "columns": [
@@ -4603,11 +4503,6 @@
         }
       },
       "indexes": {
-        "principal_policy_mutation_acks_state_idx": {
-          "name": "principal_policy_mutation_acks_state_idx",
-          "columns": ["principal_type", "principal_id", "state_hash"],
-          "isUnique": false
-        },
         "principal_policy_mutation_acks_batch_idx": {
           "name": "principal_policy_mutation_acks_batch_idx",
           "columns": [
@@ -4696,11 +4591,6 @@
         }
       },
       "indexes": {
-        "principal_state_payloads_principal_idx": {
-          "name": "principal_state_payloads_principal_idx",
-          "columns": ["principal_type", "principal_id"],
-          "isUnique": false
-        },
         "principal_state_payloads_principal_state_idx": {
           "name": "principal_state_payloads_principal_state_idx",
           "columns": ["principal_type", "principal_id", "state_hash"],
@@ -4886,11 +4776,6 @@
         }
       },
       "indexes": {
-        "principal_states_principal_idx": {
-          "name": "principal_states_principal_idx",
-          "columns": ["principal_type", "principal_id"],
-          "isUnique": false
-        },
         "principal_states_principal_version_idx": {
           "name": "principal_states_principal_version_idx",
           "columns": ["principal_type", "principal_id", "version"],
