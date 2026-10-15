@@ -1,5 +1,8 @@
 import type { HttpOperation } from "@tearleads/validators/operation";
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
+import type {
+  ListContainerDocumentLanesRequest,
+  ListContainerParentLanesRequest,
+} from "@tearleads/validators/request";
 import type {
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
@@ -17,7 +20,7 @@ import {
   SESSION_ERROR_CODES,
 } from "@tearleads/validators/response";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
-import type { ListContainerDocumentsOptions, RequestBody } from "./types";
+import type { RequestBody } from "./types";
 
 /**
  * True when a sync response advances the document's write material past what a
@@ -242,16 +245,17 @@ export function listContainerParentLanesRequestKey(
   );
 }
 
-export function listContainerDocumentsRequestKey(
-  containerId: string,
-  options: ListContainerDocumentsOptions = {},
+export function listContainerDocumentLanesRequestKey(
+  input: ListContainerDocumentLanesRequest,
 ): string {
-  const { watermark, ...rest } = options;
-  return JSON.stringify({
-    containerId,
-    ...rest,
-    watermark: syncWatermarkRequestKey(watermark),
-  });
+  return JSON.stringify(
+    input.lanes.map((lane) => ({
+      containerId: lane.containerId,
+      laneId: lane.laneId,
+      limit: lane.limit ?? null,
+      watermark: syncWatermarkRequestKey(lane.watermark),
+    })),
+  );
 }
 
 /**

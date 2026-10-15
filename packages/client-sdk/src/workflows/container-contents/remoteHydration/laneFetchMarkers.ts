@@ -1,8 +1,7 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import {
   type ContainerSyncWatermarkLane,
-  markContainerSyncLaneCheckedIfCurrent,
-  saveContainerSyncWatermarkIfCurrent,
+  recordContainerSyncLaneFetchIfCurrent,
 } from "../containerPersistence";
 import type { RemoteContainerHydrationState } from "./types";
 
@@ -17,32 +16,24 @@ export async function markContainerParentLaneFetched(input: {
     return false;
   }
 
-  const execSql = state.runtime.infra.execSql;
-  if (response.nextWatermark) {
-    const saved = await saveContainerSyncWatermarkIfCurrent(
-      execSql,
-      syncLane,
-      response.nextWatermark,
-      input.isCurrent,
-    );
-    if (!saved || input.isCurrent?.() === false) {
-      return false;
-    }
+  // A check marker suppresses startup polling, so record it only after the
+  // server confirms this parent lane is fully drained. The cursor and marker
+  // share one row and land in one guarded statement.
+  const recorded = await recordContainerSyncLaneFetchIfCurrent(
+    state.runtime.infra.execSql,
+    syncLane,
+    { checked: !response.hasMore, watermark: response.nextWatermark },
+    input.isCurrent,
+  );
+  if (!recorded || input.isCurrent?.() === false) {
+    return false;
   }
-  // A check marker suppresses startup polling, so write it only after the
-  // server confirms this parent lane is fully drained.
-  if (!response.hasMore) {
-    const marked = await markContainerSyncLaneCheckedIfCurrent(
-      execSql,
-      syncLane,
-      input.isCurrent,
-    );
-    if (!marked || input.isCurrent?.() === false) {
-      return false;
-    }
-    if (syncLane.kind === "container_parent" && syncLane.parentId === null) {
-      state.rootLaneHydrated = true;
-    }
+  if (
+    !response.hasMore &&
+    syncLane.kind === "container_parent" &&
+    syncLane.parentId === null
+  ) {
+    state.rootLaneHydrated = true;
   }
 
   return true;

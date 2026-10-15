@@ -63,6 +63,7 @@ async function insertMemberGroupState(input: {
     payloadCiphertextHash: `payload-ciphertext-hash-${input.version}`,
     memberCount: input.userIds.length,
     grantCount: 0,
+    containerGrants: [],
     stateHash: input.stateHash,
     signedAt: NOW,
     signerUserId: input.signerUserId,

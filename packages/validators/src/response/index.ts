@@ -63,13 +63,10 @@ export {
   BlobContentKeyTargetEnvelopeResponseSchema,
   type BlobKekTargetsResponse,
   BlobKekTargetsResponseSchema,
-  type CompleteMultipartBlobStageResponse,
-  CompleteMultipartBlobStageResponseSchema,
   type InitiateMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponseSchema,
   isBlobAttachmentBindResponse,
   isBlobAttachmentDetachResponse,
-  isCompleteMultipartBlobStageResponse,
   isInitiateMultipartBlobStageResponse,
   isListDocumentAttachmentsResponse,
   isMultipartBlobStageStatusResponse,
@@ -114,16 +111,20 @@ export {
   ContainerWriterProjectionErrorResponseSchema,
   type ContainerWriterProjectionResponse,
   ContainerWriterProjectionResponseSchema,
+  type ContainerWriterProjectionWireResponse,
+  ContainerWriterProjectionWireResponseSchema,
   isContainerDeleteResponse,
   isContainerKekLogResponse,
   isContainerMutationResponse,
   isContainerReciteResponse,
   isContainerRotationResponse,
   isContainerWriterProjectionResponse,
+  isContainerWriterProjectionWireResponse,
   isListContainersResponse,
   type ListContainersResponse,
   ListContainersResponseSchema,
 } from "./container";
+export type { ListContainerDocumentLanesResponse } from "./containerDocumentLanes";
 export {
   type ContainerCreateWithMetadataDocumentResponse,
   ContainerCreateWithMetadataDocumentResponseSchema,
@@ -163,7 +164,6 @@ export {
   type DocumentEditAttributionSegmentResponse,
   DocumentEditAttributionSegmentResponseSchema,
   isDocumentEditAttributionResponse,
-  isListContainerDocumentsResponse,
   isListDocumentEditAttributionRangesResponse,
   type ListContainerDocumentsResponse,
   ListContainerDocumentsResponseSchema,
@@ -193,6 +193,8 @@ export {
   DocumentSyncUpdateResponseSchema,
   type DocumentWriterProjectionResponse,
   DocumentWriterProjectionResponseSchema,
+  type DocumentWriterProjectionWireResponse,
+  DocumentWriterProjectionWireResponseSchema,
   documentKekTargetsFromContentKeyBundle,
   isDocumentContentKeyBundleResponse,
   isDocumentCreateResponse,
@@ -202,6 +204,7 @@ export {
   isDocumentPurgeResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
+  isDocumentWriterProjectionWireResponse,
 } from "./documentMutation";
 export {
   DOCUMENT_MUTATION_ERROR_CODES,
@@ -388,6 +391,7 @@ export {
   type OrganizationReadModelDeltaResponse,
   type OrganizationReadModelDirectoryResponse,
   type OrganizationReadModelGrantsResponse,
+  type OrganizationReadModelGroupMemberResponse,
   type OrganizationReadModelGroupMembershipResponse,
   type OrganizationReadModelGroupMembershipsResponse,
   type OrganizationReadModelOrganizationPolicyResponse,
@@ -524,3 +528,9 @@ export {
   type SyncWatermark,
   SyncWatermarkSchema,
 } from "./syncWatermark";
+export {
+  decodeContainerWriterProjection,
+  decodeDocumentWriterProjection,
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
+} from "./writerProjectionWire";

@@ -1,16 +1,18 @@
 import {
   getContainerWriterProjectionOperation,
   getDocumentWriterProjectionOperation,
-  isGetContainerWriterProjectionOperationResponse,
-  isGetDocumentWriterProjectionOperationResponse,
   operationRequestPath,
 } from "@tearleads/validators/operation";
-import type {
-  ContainerKeyingPathResponse,
-  ContainerWriterProjectionResponse,
-  DocumentWriterProjectionResponse,
+import {
+  type ContainerKeyingPathResponse,
+  type ContainerWriterProjectionResponse,
+  type DocumentWriterProjectionResponse,
+  isContainerWriterProjectionResponse,
+  isDocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 
+// Validators run on the decoded projection: the transport resolves the wire's
+// manifest-hash citations into bundles first (writerProjectionRequests).
 // A writer projection is consumed by its leaf: callers wrap keys under
 // whatever container or document the response describes. Binding the
 // validator to the requested id makes a projection for any other object an
@@ -50,7 +52,7 @@ function containerProjectionDescribes(
 export const containerWriterProjection = {
   isResponseFor(containerId: string) {
     return (value: unknown): value is ContainerWriterProjectionResponse =>
-      isGetContainerWriterProjectionOperationResponse(value) &&
+      isContainerWriterProjectionResponse(value) &&
       containerProjectionDescribes(value, containerId);
   },
   method: getContainerWriterProjectionOperation.method,
@@ -67,7 +69,7 @@ export const documentWriterProjection = {
   // path cannot smuggle another container's leaf under a relabeled id.
   isResponseFor(documentId: string) {
     return (value: unknown): value is DocumentWriterProjectionResponse =>
-      isGetDocumentWriterProjectionOperationResponse(value) &&
+      isDocumentWriterProjectionResponse(value) &&
       value.documentId === documentId &&
       manifestDescribes(value.documentManifest, "documentId", documentId) &&
       value.documentKekTargets.documentId === documentId &&

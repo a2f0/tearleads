@@ -3,18 +3,10 @@ import type {
   HttpOperation,
   HttpOperationMethod,
 } from "@tearleads/validators/operation";
-import type {
-  ReferencedPrincipalStateResponse,
-  SyncWatermark,
-} from "@tearleads/validators/response";
+import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 
 export type HttpMethod = HttpOperationMethod;
 export type RequestBody = BodyInit;
-
-export interface ListContainerDocumentsOptions {
-  limit?: number;
-  watermark?: SyncWatermark | null;
-}
 
 export type ListDocumentEditAttributionRangesOptions = Omit<
   DocumentAttributionRangesQuery,

@@ -13,8 +13,9 @@ routes use signed document access events:
 - signed `event` and typed `body`
 - `expectedManifestHash`
 - derived document manifest state
-- previous document manifest when applicable
-- target and authorizing container path bundles
+- target and authorizing container path references (`{containerId,
+  manifestHash}` citations of stored manifests; the API resolves the previous
+  link-set manifest from its own store, and a create has none)
 - optional `containerRekeys[]`
 - a document content-key bundle
 
@@ -97,11 +98,18 @@ For accepted writes, the API verifies:
   header match the already accepted update
 
 The sync response returns accepted outgoing ids, a `commitLsn`, an optional
-`commitLsnMode`, the active content-key bundle, a required array of any
-additional returned epoch bundles, document KEK targets, encrypted updates
+`commitLsnMode`, the active content-key bundle, a required array of the older
+epoch bundles that served updates cite, document KEK targets, encrypted updates
 missing from the client-supplied frontier, and `pullPage`. `pullPage.hasMore`
 and `pullPage.nextCursor` are consistent: a continuation is present exactly
 when more updates remain in the frozen pull snapshot.
+
+The active bundle travels only as `contentKeyBundle`. `contentKeyBundles` holds
+each older epoch at most once and never the active epoch, so an empty probe or a
+page whose updates are all at the active epoch carries an empty array. The
+response validator and the client's bundle merge reject a repeated epoch, and
+the validator also rejects an array epoch at or above the active one, as a
+malformed response.
 
 Every sync request must set `supportsPullPagination: true`, and every successful
 response must carry `pullPage`; there is no legacy unbounded response mode. The

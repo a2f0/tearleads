@@ -63,22 +63,26 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // a separately committed repair would reintroduce the recovery gap this flow is
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
-  // Private metadata-root authority adds bounded directory/Admins reads to
-  // compact projection recovery. Measured completed calls are 200–204; allow
-  // three more bounded reads. Preparation continuations are counted below.
-  total: 207,
-  // Public parent keys measure 389.5 KB sent with one descendant recitation;
-  // retain room for the second 60 KB recitation already allowed below.
+  // Private metadata-root authority adds one directory discovery read per
+  // operation and the first read of each new head. Batched discovery lists
+  // each reconciliation pass's lanes in one request. Measured completed calls
+  // are 70–73; allow three more bounded reads. Preparation continuations are
+  // counted below.
+  total: 76,
+  // Container mutations cite stored manifests by hash: 210 KB sent with one
+  // descendant recitation (389.5 KB when they echoed path bundles). Retain
+  // room for the second ~20 KB recitation already allowed below.
   // Completing child hydration adds the peer's system-slot proofs and their
-  // metadata paths and private current policy proofs: 4.35 MB received. Each
-  // document carries one shared proof bundle for all of its authorizing paths.
-  bodyBytes: { request: 450_000, response: 4_500_000 },
+  // metadata paths and private current policy proofs: 2.44–2.54 MB received.
+  // Each document carries one shared proof bundle for all of its authorizing
+  // paths.
+  bodyBytes: { request: 240_000, response: 2_650_000 },
   byRequest: {
-    "GET /principals/history": 84,
+    "GET /principals/history": 7,
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 8,
-    "GET /principals/group/:groupId/policy": 33,
-    "GET /containers/:containerId/documents": 6,
+    "GET /principals/group/:groupId/policy": 3,
+    "POST /containers/documents/query": 3,
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
@@ -93,7 +97,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /organizations/:organizationId/data-usage": 0,
     "GET /organizations/:organizationId/grants": 0,
     "GET /organizations/:organizationId/billing": 1,
-    "GET /principals/organization/:organizationId/policy": 45,
+    "GET /principals/organization/:organizationId/policy": 20,
     "POST /containers/:containerId/share": 0,
     "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
     "POST /containers/:containerId/recite": 2,

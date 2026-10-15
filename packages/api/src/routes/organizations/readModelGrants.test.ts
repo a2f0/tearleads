@@ -31,9 +31,7 @@ test("grants invalidations hydrate the whole organization lane", async () => {
   await db.transaction((tx) =>
     appendOrganizationReadModelChangeInTransaction(tx, {
       organizationId: user.organizationId,
-      lane: "grants",
-      entityId: user.organizationId,
-      operation: "replace",
+      lanes: ["grants"],
     }),
   );
   const cursorQuery = new URLSearchParams({ cursor: snapshot.nextCursor });

@@ -1,12 +1,14 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import {
   compareOrInsertTrustedUserIdentityPin,
+  loadTrustedUserIdentityPin,
   loadTrustedUserIdForSigningKey,
   TrustedUserIdentityPinCorruptError,
   TrustedUserIdentityPinMismatchError,
 } from "../persistence/trustedUserIdentityPinPersistence";
 import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUserIdentityPinTransaction";
+import type { ExecSql } from "../sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import {
   assertIdentityLinkMatches,
@@ -27,6 +29,7 @@ import {
   assertTrustedUserIdentityUserId,
   validateLocalUserIdentity,
   validateRemoteUserIdentity,
+  validateUserIdentityKeys,
 } from "./validation";
 
 function requireTrustStore(
@@ -152,6 +155,34 @@ async function pinIdentity(input: {
     identity: input.identity,
   });
   return brandTrustedUserIdentity(input.identity);
+}
+
+/**
+ * Read-only: the identity this trust store already pins for `userId`, or null.
+ * The stored keys must still match their stored fingerprints. Never inserts,
+ * compares against or replaces a pin.
+ */
+export async function loadPinnedUserIdentity(input: {
+  readonly execSql: ExecSql;
+  readonly identityTrustDomain: string;
+  readonly userId: string;
+}): Promise<TrustedUserIdentity | null> {
+  assertTrustedUserIdentityUserId(input.userId);
+  const pin = await loadTrustedUserIdentityPin(input);
+  if (!pin) return null;
+  const keys = await validateUserIdentityKeys({
+    candidate: {
+      encapsulationPublicKey: base64ToBytes(pin.encapsulationPublicKey),
+      signingKeyFingerprint: pin.signingKeyFingerprint,
+      signingPublicKey: base64ToBytes(pin.signingPublicKey),
+    },
+    encapsulationKeyFingerprint: pin.encapsulationKeyFingerprint,
+  });
+  return brandTrustedUserIdentity({
+    ...keys,
+    identityTrustDomain: input.identityTrustDomain,
+    userId: input.userId,
+  });
 }
 
 export function createTrustedUserIdentityService(

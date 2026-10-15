@@ -34,6 +34,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
+import { containerManifestRef } from "../../../test/helpers/containerManifestRefs";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
@@ -335,7 +336,7 @@ async function buildChildCreateRequest(input: {
     body: body as unknown,
     expectedManifestHash: childBundle.manifestHash,
     manifest: childBundle.manifest,
-    parentContainerPath: [input.parent],
+    parentContainerPathRefs: [containerManifestRef(input.parent)],
     principalPolicies: (input.principalPolicies ??
       (await loadCurrentPrincipalPolicies([
         input.parent,

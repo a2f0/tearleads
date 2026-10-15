@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import {
   listDormantMetadataSweepRequests,
   requestDormantMetadataRestorationSweeps,
@@ -50,7 +51,7 @@ async function seedDormantCandidate(
 
 async function countRows(
   execSql: ExecSql,
-  table: "documents" | "document_pending_updates",
+  table: "documents" | typeof QUEUED_UPDATES_SQL,
   localId: string,
 ): Promise<number> {
   const rows = await execSql(
@@ -119,11 +120,7 @@ test("restoration sweep completion retains unmatched metadata in every organizat
       1,
     );
     expect(
-      await countRows(
-        execSql,
-        "document_pending_updates",
-        "deleted-after-revoke",
-      ),
+      await countRows(execSql, QUEUED_UPDATES_SQL, "deleted-after-revoke"),
     ).toBe(1);
     expect(await countMarkers(execSql, "deleted-after-revoke")).toBe(1);
     expect(await countRows(execSql, "documents", "reattached")).toBe(1);

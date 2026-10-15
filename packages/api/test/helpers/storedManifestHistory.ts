@@ -116,6 +116,7 @@ export async function signedContainerHistory(length: number) {
       table: markers.get(manifestHash) ?? null,
       process: null,
     }),
+    seed: () => {},
     save: async (manifestHash, mac) => {
       markers.set(manifestHash, mac);
     },

@@ -26,7 +26,7 @@ import {
 } from "../../../data/containers/shared/events";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
 import {
-  asContainerManifestBundle,
+  containerManifestRef,
   getParentCreateContext,
   readContainerState,
   wrapContainerKeyToManagedPrincipal,
@@ -96,10 +96,9 @@ function buildContainerCreateRequest(input: {
       ...input,
       userRecipientKeys: [],
     }),
-    previousManifest: null,
-    parentContainerPath: input.parentProjection.path.map(
-      asContainerManifestBundle,
-    ),
+    previousManifestRef: null,
+    parentContainerPathRefs:
+      input.parentProjection.path.map(containerManifestRef),
     predecessorBridge: null,
     keyring: null,
     parentKekState: readCanonicalRecord(

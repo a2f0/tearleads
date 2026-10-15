@@ -400,13 +400,6 @@ export {
   verifySignedPrincipalState,
   verifySignedPrincipalStateResult,
 } from "./principalStateVerification";
-export {
-  captureProjectionHistory,
-  type HistoryProjection,
-  omitProjectionHistory,
-  type RetainedProjectionHistory,
-  restoreProjectionHistory,
-} from "./projectionHistory";
 export type { SigningKeyPair } from "./signing/generateKeyPair";
 export {
   generateSigningKeyPair,

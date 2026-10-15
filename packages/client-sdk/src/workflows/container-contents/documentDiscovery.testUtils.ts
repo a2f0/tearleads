@@ -1,3 +1,4 @@
+import type { SyncWatermark } from "@tearleads/validators/response";
 import type { DiscoveredDocumentCandidate } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { upsertAccessManifestCheckpointInTransaction } from "../../data/persistence/keyingCheckpointPersistence";
 import { keyingCheckpointTables } from "../../data/sqlite/schema";
@@ -5,11 +6,50 @@ import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersi
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import type {
   ContainerDocumentDiscoveryApi,
+  ContainerDocumentLaneLister,
   ContainerDocumentPlacement,
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneVerdict,
+  ListContainerDocumentsResponse,
   ListContainersResponse,
 } from "./documentDiscoveryTypes";
+
+/** A per-container page mock; `null` rejects that container's lane. */
+export type ContainerDocumentPageMock = (
+  containerId: string,
+  options: { readonly watermark: SyncWatermark | null },
+) => Promise<ListContainerDocumentsResponse | null>;
+
+/** Serves each lane of a batched listing from a per-container mock, in order. */
+export function laneLister(
+  list: ContainerDocumentPageMock,
+): ContainerDocumentLaneLister {
+  return async (lanes) => {
+    const pages: Array<ListContainerDocumentsResponse | null> = [];
+    for (const lane of lanes) {
+      pages.push(await list(lane.containerId, { watermark: lane.watermark }));
+    }
+    return pages;
+  };
+}
+
+/** The batched API over a per-container mock; `null` becomes a lane failure. */
+export function laneApi(
+  list: ContainerDocumentPageMock,
+): Pick<ContainerDocumentDiscoveryApi, "listContainerDocumentLanes"> {
+  return {
+    listContainerDocumentLanes: async ({ lanes }) => {
+      const pages = await laneLister(list)(lanes);
+      if (!pages) return null;
+      return {
+        results: lanes.map(({ laneId }, index) => {
+          const page = pages[index];
+          return page ? { laneId, page } : { failure: {}, laneId };
+        }),
+      };
+    },
+  };
+}
 
 /** Listing items and tombstones are trusted here; no pending evidence is stored. */
 export const trustedContainerDocumentTombstones = {

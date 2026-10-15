@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
@@ -410,7 +411,7 @@ test.each(["rename", "icon"] as const)(
         )[0]?.container,
       ).toMatchObject({ icon: null, name: "source" });
       expect(
-        await database.execSql("SELECT local_id FROM document_pending_updates"),
+        await database.execSql(`SELECT local_id FROM ${QUEUED_UPDATES_SQL}`),
       ).toEqual([]);
     } finally {
       database.close();

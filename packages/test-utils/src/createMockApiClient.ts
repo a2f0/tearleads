@@ -41,7 +41,7 @@ export function createMockApiClient(
       });
     },
     linkDocument: async () => null,
-    listContainerDocuments: async () => null,
+    listContainerDocumentLanes: async () => null,
     listContainerParentLanes: async (input) => ({
       results: input.lanes.map(({ laneId }) => ({
         laneId,
@@ -61,7 +61,6 @@ export function createMockApiClient(
     shareContainer: async () => null,
     initiateMultipartBlobStage: async () => null,
     uploadMultipartBlobPartBytes: async () => null,
-    completeMultipartBlobStage: async () => null,
     syncDocument: async () => null,
     unlinkDocument: async () => null,
     ...overrides,

@@ -1,31 +1,36 @@
 import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
 import {
-  containerDocumentRuntimeRefinements,
+  containerDocumentLaneRuntimeRefinements,
   containerKekLogResponseRuntimeRefinements,
   containerParentLaneRuntimeRefinements,
 } from "../containerReadRefinements";
-import { ListContainerParentLanesRequestSchema } from "../request";
+import {
+  ListContainerDocumentLanesRequestSchema,
+  ListContainerParentLanesRequestSchema,
+} from "../request";
 import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   ListContainerParentLanesResponseSchema,
 } from "../response";
+import { ListContainerDocumentLanesResponseSchema } from "../response/containerDocumentLanes";
 import {
   ContainerKekLogQuerySchema,
   getContainerKekLogOperation,
   isGetContainerKekLogOperationResponse,
-  isListContainerDocumentsOperationResponse,
+  isListContainerDocumentLanesOperationRequest,
+  isListContainerDocumentLanesOperationResponse,
   isListContainerParentLanesOperationRequest,
   isListContainerParentLanesOperationResponse,
-  ListContainerDocumentsQuerySchema,
-  listContainerDocumentsOperation,
+  listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
 } from "./containerReads";
 import { openApiDocument } from "./openApi";
 import {
   createContainerKekLogKeyring,
   createContainerKekLogResponse,
-  createListContainerDocumentsResponse,
+  createListContainerDocumentLanesRequest,
+  createListContainerDocumentLanesResponse,
   createListContainerParentLanesRequest,
   createListContainerParentLanesResponse,
   jsonRoundTrip,
@@ -39,12 +44,12 @@ test("container read operations own their complete wire metadata", () => {
     path: "/containers/{containerId}/kek-log",
     runtimeRefinements: containerKekLogResponseRuntimeRefinements,
   });
-  expect(listContainerDocumentsOperation).toMatchObject({
+  expect(listContainerDocumentLanesOperation).toMatchObject({
     auth: "session",
-    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
-    method: "GET",
-    path: "/containers/{containerId}/documents",
-    runtimeRefinements: containerDocumentRuntimeRefinements,
+    failureStatuses: [400, 401, 500, 503],
+    method: "POST",
+    path: "/containers/documents/query",
+    runtimeRefinements: containerDocumentLaneRuntimeRefinements,
   });
   expect(listContainerParentLanesOperation).toMatchObject({
     auth: "session",
@@ -80,47 +85,80 @@ test("container read operations validate current query contracts", () => {
       ).toBe(false);
     }
   }
-  expect(ListContainerDocumentsQuerySchema.parse({ limit: "25" })).toEqual({
-    limit: 25,
-  });
-  expect(ListContainerDocumentsQuerySchema.parse({ limit: 25 })).toEqual({
-    limit: 25,
-  });
-
-  const invalidLimit = ListContainerDocumentsQuerySchema.safeParse({
-    limit: "0",
-  });
-  expect(invalidLimit.success).toBe(false);
-  if (!invalidLimit.success) {
-    expect(invalidLimit.error.issues[0]?.message).toBe("Invalid limit");
-  }
-
-  for (const query of [
-    { watermarkId: "document-1" },
-    { watermarkUpdatedAt: "2026-08-06T12:00:00.000Z" },
-    { watermarkId: "document-1", watermarkUpdatedAt: "not-a-date" },
-  ]) {
-    const invalidWatermark = ListContainerDocumentsQuerySchema.safeParse(query);
-    expect(invalidWatermark.success).toBe(false);
-    if (!invalidWatermark.success) {
-      expect(invalidWatermark.error.issues[0]?.message).toBe(
-        "Invalid watermark",
-      );
-    }
-  }
 });
 
-test("container document absence has an exact behavior code", () => {
-  const schema = listContainerDocumentsOperation.failureResponses[404];
+test("container document lanes bound lanes, rows, and container ids", () => {
+  const baseLane = createListContainerDocumentLanesRequest().lanes[0];
+  const lanes = (count: number, limit?: number) => ({
+    lanes: Array.from({ length: count }, (_, index) => ({
+      ...baseLane,
+      laneId: `lane-${index}`,
+      ...(limit === undefined ? {} : { limit }),
+    })),
+  });
+
   expect(
-    schema.safeParse({
+    ListContainerDocumentLanesRequestSchema.safeParse(lanes(32, 15)).success,
+  ).toBe(true);
+  // 33 lanes exceed the per-request container bound even when rows fit.
+  expect(
+    ListContainerDocumentLanesRequestSchema.safeParse(lanes(33, 15)).success,
+  ).toBe(false);
+  // Omitted limits default to 100 rows each: six lanes exceed the 500 total.
+  expect(
+    ListContainerDocumentLanesRequestSchema.safeParse(lanes(5)).success,
+  ).toBe(true);
+  expect(
+    ListContainerDocumentLanesRequestSchema.safeParse(lanes(6)).success,
+  ).toBe(false);
+  expect(
+    ListContainerDocumentLanesRequestSchema.safeParse({
+      lanes: [{ ...baseLane, containerId: "container-1" }],
+    }).success,
+  ).toBe(false);
+  expect(
+    ListContainerDocumentLanesRequestSchema.safeParse({
+      lanes: [
+        {
+          ...baseLane,
+          watermark: { id: "document-1", updatedAt: "not-a-date" },
+        },
+      ],
+    }).success,
+  ).toBe(false);
+});
+
+test("container document lane failures carry only an exact absence code", () => {
+  const failure = (value: object) =>
+    ListContainerDocumentLanesResponseSchema.safeParse({
+      results: [{ failure: value, laneId: "container-documents-0" }],
+    }).success;
+
+  expect(
+    failure({
       code: CONTAINER_NOT_FOUND_ERROR_CODE,
       error: "Container not found",
-    }).success,
+      status: 404,
+    }),
   ).toBe(true);
-  expect(schema.safeParse({ error: "Container not found" }).success).toBe(
-    false,
+  expect(failure({ error: "Document manifest mismatch", status: 409 })).toBe(
+    true,
   );
+  expect(
+    failure({ code: "other", error: "Container not found", status: 404 }),
+  ).toBe(false);
+  expect(failure({ error: "Server error", status: 500 })).toBe(false);
+  expect(
+    ListContainerDocumentLanesResponseSchema.safeParse({
+      results: [
+        {
+          failure: { error: "Forbidden", status: 403 },
+          laneId: "container-documents-0",
+          page: createListContainerDocumentLanesResponse().results[0]?.page,
+        },
+      ],
+    }).success,
+  ).toBe(false);
 });
 
 test("container read operation guards derive from canonical schemas", () => {
@@ -128,8 +166,13 @@ test("container read operation guards derive from canonical schemas", () => {
     isGetContainerKekLogOperationResponse(createContainerKekLogResponse()),
   ).toBe(true);
   expect(
-    isListContainerDocumentsOperationResponse(
-      createListContainerDocumentsResponse(),
+    isListContainerDocumentLanesOperationRequest(
+      createListContainerDocumentLanesRequest(),
+    ),
+  ).toBe(true);
+  expect(
+    isListContainerDocumentLanesOperationResponse(
+      createListContainerDocumentLanesResponse(),
     ),
   ).toBe(true);
   expect(
@@ -167,9 +210,9 @@ test("OpenAPI declares each container read runtime-only invariant", () => {
     containerKekLogResponseRuntimeRefinements,
   );
   const documentsOperation =
-    openApiDocument.paths["/containers/{containerId}/documents"]?.get;
+    openApiDocument.paths["/containers/documents/query"]?.post;
   expect(documentsOperation?.["x-tearleads-runtime-refinements"]).toEqual(
-    containerDocumentRuntimeRefinements,
+    containerDocumentLaneRuntimeRefinements,
   );
   expect(parentOperation?.["x-tearleads-runtime-refinements"]).toEqual(
     containerParentLaneRuntimeRefinements,
@@ -222,5 +265,49 @@ test("OpenAPI declares each container read runtime-only invariant", () => {
   expect(ajv.compile(parentResponseSchema)(duplicateResponse)).toBe(true);
   expect(
     ListContainerParentLanesResponseSchema.safeParse(duplicateResponse).success,
+  ).toBe(false);
+
+  const documentsRequestSchema =
+    documentsOperation?.requestBody?.content["application/json"]?.schema;
+  const documentsResponseSchema =
+    documentsOperation?.responses["200"]?.content?.["application/json"]?.schema;
+  if (
+    documentsRequestSchema === undefined ||
+    documentsResponseSchema === undefined
+  ) {
+    throw new Error("Container document lane OpenAPI schemas are missing");
+  }
+  const documentsRequest = createListContainerDocumentLanesRequest();
+  const duplicateDocumentsRequest = jsonRoundTrip({
+    lanes: [documentsRequest.lanes[0], documentsRequest.lanes[0]],
+  });
+  const oversizedDocumentsRequest = jsonRoundTrip({
+    lanes: Array.from({ length: 6 }, (_, index) => ({
+      ...documentsRequest.lanes[0],
+      laneId: `lane-${index}`,
+    })),
+  });
+  const documentsResponse = createListContainerDocumentLanesResponse();
+  const duplicateDocumentsResponse = jsonRoundTrip({
+    results: [documentsResponse.results[0], documentsResponse.results[0]],
+  });
+  const validateDocumentsRequest = ajv.compile(documentsRequestSchema);
+  expect(validateDocumentsRequest(duplicateDocumentsRequest)).toBe(true);
+  expect(validateDocumentsRequest(oversizedDocumentsRequest)).toBe(true);
+  expect(
+    ListContainerDocumentLanesRequestSchema.safeParse(duplicateDocumentsRequest)
+      .success,
+  ).toBe(false);
+  expect(
+    ListContainerDocumentLanesRequestSchema.safeParse(oversizedDocumentsRequest)
+      .success,
+  ).toBe(false);
+  expect(ajv.compile(documentsResponseSchema)(duplicateDocumentsResponse)).toBe(
+    true,
+  );
+  expect(
+    ListContainerDocumentLanesResponseSchema.safeParse(
+      duplicateDocumentsResponse,
+    ).success,
   ).toBe(false);
 });

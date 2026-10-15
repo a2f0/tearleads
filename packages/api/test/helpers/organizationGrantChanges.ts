@@ -3,10 +3,10 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   accessManifestHeads,
   containers,
-  organizationReadModelChanges,
+  organizationReadModelHeads,
 } from "@tearleads/api-shared/schema";
 import { isOrganizationReadModelResponse } from "@tearleads/validators/response";
-import { and, desc, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
 
@@ -33,24 +33,21 @@ async function loadOrganizationReadModel(input: {
   return readModel;
 }
 
+/** The organization's newest read-model change stamped the grants lane. */
 export async function expectLatestChange(
   organizationId: string,
 ): Promise<void> {
-  const [change] = await db
+  const [head] = await db
     .select({
-      entityId: organizationReadModelChanges.entityId,
-      lane: organizationReadModelChanges.lane,
-      operation: organizationReadModelChanges.operation,
+      cursor: organizationReadModelHeads.cursor,
+      grantsCursor: organizationReadModelHeads.grantsCursor,
     })
-    .from(organizationReadModelChanges)
-    .where(eq(organizationReadModelChanges.organizationId, organizationId))
-    .orderBy(desc(organizationReadModelChanges.cursor))
+    .from(organizationReadModelHeads)
+    .where(eq(organizationReadModelHeads.organizationId, organizationId))
     .limit(1);
-  expect(change).toEqual({
-    entityId: organizationId,
-    lane: "grants",
-    operation: "replace",
-  });
+  invariant(head, "expected organization read-model head");
+  expect(head.cursor).toBeGreaterThan(0n);
+  expect(head.grantsCursor).toBe(head.cursor);
 }
 
 export async function trackDelta(

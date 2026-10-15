@@ -144,7 +144,7 @@ Work items (each maps to an existing function, lane-scheduled here):
 | Work item           | Implementation reused                                         |
 |---------------------|---------------------------------------------------------------|
 | container hydration | `hydrateRemoteContainers` / `requestRemoteHydration`          |
-| document discovery  | `discoverContainerDocuments` (per container, watermark-based) |
+| document discovery  | `discoverContainerDocumentLanes` (batched, per-container)     |
 | metadata sync       | `syncContainerMetadataState`                                  |
 | writer projection   | `assertDocumentWriterProjectionConsistent` (on document sync) |
 
@@ -238,7 +238,7 @@ explicit registered-store revalidation, or other owning workflow opens them.
 
 Remote document discovery requires a current metadata document for every
 container. Local-first roots, regular folders, and system slots are never sent
-to `/containers/:id/documents` before their remote create commits; the document
+to the document listing before their remote create commits; the document
 lane rechecks this after structural hydration because a queued pre-auth root may
 have been replaced in the meantime. When the same local id becomes
 remote-backed, tree growth re-arms it even if it is still the active container.
@@ -260,9 +260,9 @@ initial roster and organization-profile bodies are committed atomically with
 their manifests during provisioning, so another authorized session can recover
 the complete seed history and display the organization name immediately. Later
 profile edits still follow normal billing eligibility. The provisioning
-response explicitly acknowledges every committed seed update; the client
-persists those updates as settled, and a response that omits the acknowledgement
-does not satisfy the current wire contract. Ordinary document hints wake other
+response must acknowledge every committed seed update, which the client persists
+as settled. Acknowledged profile-document heads also seed discovery evidence
+([document links](document-links.md)). Ordinary document hints wake other
 entitled sessions, which eagerly materialize system-document bodies without a
 manual Refresh.
 

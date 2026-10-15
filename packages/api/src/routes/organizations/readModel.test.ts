@@ -150,9 +150,9 @@ test("organization read-model route snapshots and coalesces group changes", asyn
   );
   // The creator is the group's only member. This used to also assert a nested
   // Admins group member; principals contain only users now.
-  expect(changed.lanes.groupMemberships?.groups[0]?.members).toContainEqual(
-    expect.objectContaining({ userId: actor.userId, role: "admin" }),
-  );
+  expect(changed.lanes.groupMemberships?.groups[0]?.members).toEqual([
+    { role: "admin", userId: actor.userId },
+  ]);
 
   const completedReplay = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,

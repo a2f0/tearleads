@@ -5,7 +5,6 @@ import {
   cancelStripeSubscriptionOperation,
   challengeOperation,
   claimNativeOrganizationSubscriptionOperation,
-  completeMultipartBlobStageOperation,
   createContainerOperation,
   createContainerWithMetadataDocumentOperation,
   createDocumentOperation,
@@ -35,7 +34,7 @@ import {
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
   linkDocumentOperation,
-  listContainerDocumentsOperation,
+  listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
   listDocumentAttachmentsOperation,
   listOrganizationGroupMembersOperation,
@@ -66,7 +65,6 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   CommitOrganizationGroupPolicyRequest,
-  CompleteMultipartBlobStageRequest,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   ContainerReciteRequest,
@@ -77,6 +75,7 @@ import type {
   DocumentPurgeRequest,
   DocumentSyncRequest,
   InitiateMultipartBlobStageRequest,
+  ListContainerDocumentLanesRequest,
   ListContainerParentLanesRequest,
   RegistrationRequest,
   UpdateOrganizationProfileRequest,
@@ -94,7 +93,7 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
   DocumentWriterProjectionResponse,
-  ListContainerDocumentsResponse,
+  ListContainerDocumentLanesResponse,
   ListContainerParentLanesResponse,
   ListDocumentAttachmentsResponse,
   OrganizationDataUsageResponse,
@@ -124,13 +123,12 @@ import {
 import { getOrganizationPolicyHistoryResult as organizationHistory } from "./organizationPolicyHistory";
 import type { PrincipalPolicyPageReadOptions } from "./principalPolicyPages";
 import { PrincipalPolicyRequests } from "./principalPolicyRequests";
-import { ProjectionHistoryTransport } from "./projectionHistoryTransport";
 import {
   bindPrototypeMethods,
   cachedRequest,
   dedupedRequest,
   evictWriterProjectionIfSyncChanged,
-  listContainerDocumentsRequestKey,
+  listContainerDocumentLanesRequestKey,
   listContainerParentLanesRequestKey,
 } from "./requestInternals";
 import {
@@ -148,7 +146,6 @@ import {
   type UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
 import {
-  completeMultipartBlobStage as multipartComplete,
   getMultipartBlobStage as multipartGet,
   initiateMultipartBlobStage as multipartInitiate,
 } from "./routes/blobs/multipart";
@@ -165,7 +162,7 @@ import {
 } from "./routes/containers/mutations";
 import {
   type ContainerKekLogOptions,
-  containerDocuments,
+  containerDocumentLanes,
   containerKekLog,
   containerParentLanes,
 } from "./routes/containers/reads";
@@ -189,13 +186,13 @@ import {
 } from "./routes/writerProjections";
 import type {
   HttpMethod,
-  ListContainerDocumentsOptions,
   ListDocumentEditAttributionRangesOptions,
   OperationRequestFn,
   OperationRequestResultFn,
   RequestResult,
   RequestResultOptions,
 } from "./types";
+import type { VerifiedManifestCitations } from "./verifiedManifestCitations";
 import { WebSocketTickets } from "./webSocketTickets";
 import {
   CitingProjectionCache,
@@ -225,10 +222,10 @@ const CONTAINER_ROTATIONS = {
 
 export class ApiClient {
   private readonly requestRuntime: ApiRequestRuntime;
-  private readonly projectionHistory = new ProjectionHistoryTransport();
-  private readonly containerDocumentListRequestsByKey = new Map<
+  private verifiedManifestCitations: VerifiedManifestCitations | null = null;
+  private readonly containerDocumentLaneRequestsByKey = new Map<
     string,
-    Promise<ListContainerDocumentsResponse | null>
+    Promise<RequestResult<ListContainerDocumentLanesResponse>>
   >();
   private readonly containerParentLaneRequestsByKey = new Map<
     string,
@@ -273,13 +270,12 @@ export class ApiClient {
       this.principalPolicyRequestsByKey,
       this.clearWriterProjectionCaches,
     );
-    const projectionRequests = writerProjectionRequests(this.requestRuntime);
-    this.request = this.projectionHistory.wrapRequest(
-      projectionRequests.request,
+    const projectionRequests = writerProjectionRequests(
+      this.requestRuntime,
+      () => this.verifiedManifestCitations,
     );
-    this.requestResult = this.projectionHistory.wrapRequestResult(
-      projectionRequests.requestResult,
-    );
+    this.request = projectionRequests.request;
+    this.requestResult = projectionRequests.requestResult;
     this.transport = createOperationTransport(
       this.requestRuntime.responseRequest,
     );
@@ -291,8 +287,7 @@ export class ApiClient {
     );
   }
   private clearAuthScopedCaches(): void {
-    this.projectionHistory.clear();
-    this.containerDocumentListRequestsByKey.clear();
+    this.containerDocumentLaneRequestsByKey.clear();
     this.containerParentLaneRequestsByKey.clear();
     this.documentAttachmentListRequestsByDocumentId.clear();
     this.documentAttributionRequests.clear();
@@ -453,6 +448,11 @@ export class ApiClient {
 
   setOnPaymentRequired(handler: PaymentRequiredHandler | null): void {
     this.requestRuntime.setOnPaymentRequired(handler);
+  }
+
+  /** Verified bundles to cite on projection reads, scoped by their owner. */
+  setVerifiedManifestCitations(source: VerifiedManifestCitations | null): void {
+    this.verifiedManifestCitations = source;
   }
 
   setAuthToken(token: string | null): void {
@@ -1637,37 +1637,28 @@ export class ApiClient {
     );
   }
 
-  listContainerDocuments(
-    containerId: string,
-    options?: ListContainerDocumentsOptions,
-  ) {
-    return dedupedRequest(
-      this.containerDocumentListRequestsByKey,
-      listContainerDocumentsRequestKey(containerId, options),
-      () =>
-        this.request<ListContainerDocumentsResponse>(
-          containerDocuments.path(containerId, options),
-          containerDocuments.isResponse,
-          containerDocuments.method,
-          undefined,
-          undefined,
-          listContainerDocumentsOperation,
-        ),
-    );
-  }
-
-  listContainerDocumentsResult(
-    containerId: string,
-    options?: ListContainerDocumentsOptions,
-    requestOptions: RequestResultOptions = {},
-  ): Promise<RequestResult<ListContainerDocumentsResponse>> {
-    return this.requestResult(
-      containerDocuments.path(containerId, options),
-      containerDocuments.isResponse,
-      containerDocuments.method,
-      undefined,
-      requestOptions,
-      listContainerDocumentsOperation,
+  /** Batched document listing; see `containerDocumentLanes.settle`. */
+  async listContainerDocumentLanes(
+    input: ListContainerDocumentLanesRequest,
+    options: Pick<RequestResultOptions, "reportErrors"> = {},
+  ): Promise<ListContainerDocumentLanesResponse | null> {
+    return containerDocumentLanes.settle(
+      await dedupedRequest(
+        this.containerDocumentLaneRequestsByKey,
+        listContainerDocumentLanesRequestKey(input),
+        () =>
+          this.requestResult(
+            containerDocumentLanes.path,
+            (value): value is ListContainerDocumentLanesResponse =>
+              containerDocumentLanes.isResponseForRequest(input, value),
+            containerDocumentLanes.method,
+            JSON.stringify(input),
+            { reportErrors: false },
+            listContainerDocumentLanesOperation,
+          ),
+      ),
+      options.reportErrors ?? true,
+      (message) => this.requestRuntime.reportError(message),
     );
   }
 
@@ -1880,20 +1871,6 @@ export class ApiClient {
       input,
       undefined,
       options,
-    );
-  }
-
-  completeMultipartBlobStage(
-    stageId: string,
-    input: CompleteMultipartBlobStageRequest,
-  ) {
-    return this.request(
-      multipartComplete.path(stageId),
-      multipartComplete.isResponse,
-      multipartComplete.method,
-      JSON.stringify(input),
-      undefined,
-      completeMultipartBlobStageOperation,
     );
   }
 

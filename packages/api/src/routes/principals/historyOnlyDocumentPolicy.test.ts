@@ -16,7 +16,7 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
-import { DocumentWriterProjectionResponseSchema } from "@tearleads/validators/response";
+import { DocumentWriterProjectionWireResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import {
   coldRematerializeEncryptedDocument,
@@ -160,7 +160,7 @@ test("an organization member verifies a document's inaccessible sibling-containe
       { headers: { Authorization: `Bearer ${reader.token}` } },
     );
     expect(served.status).toBe(200);
-    const projection = DocumentWriterProjectionResponseSchema.parse(
+    const projection = DocumentWriterProjectionWireResponseSchema.parse(
       await served.json(),
     );
     expectPublicProjectionPolicyEvidence(projection.policyEvidence);

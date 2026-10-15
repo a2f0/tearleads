@@ -372,16 +372,12 @@ function documentSyncContentKeyBundlesByEpoch(
       );
     }
 
-    const existing = bundleByEpoch.get(bundle.contentKeyEpoch);
-    if (!existing) {
-      bundleByEpoch.set(bundle.contentKeyEpoch, bundle);
-      continue;
+    // The current epoch travels only as contentKeyBundle; the array carries
+    // each older epoch once.
+    if (bundleByEpoch.has(bundle.contentKeyEpoch)) {
+      throw new Error("Document sync response repeats a content-key epoch");
     }
-    if (
-      contentKeyBundleCanonical(existing) !== contentKeyBundleCanonical(bundle)
-    ) {
-      throw new Error("Document sync response content-key bundle conflict");
-    }
+    bundleByEpoch.set(bundle.contentKeyEpoch, bundle);
   }
 
   return bundleByEpoch;

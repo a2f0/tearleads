@@ -62,7 +62,7 @@ test("revokeRemoteContainer removes a direct user grant and rotates the KEK", as
         submittedRequests.push(request);
         const response = await createMutationResponseFromRequest(
           request,
-          parent.projection.containerKeks.at(-1),
+          parent.projection,
         );
         mutationResponses.push(response);
         return response;

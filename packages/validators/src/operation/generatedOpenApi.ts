@@ -273,22 +273,6 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/blobs/stages/multipart/{stageId}/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["blobs.multipartStages.complete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/blobs/stages/multipart/{stageId}/parts/{partNumber}/bytes": {
         parameters: {
             query?: never;
@@ -348,22 +332,6 @@ export type paths = {
         put?: never;
         post?: never;
         delete: operations["containers.delete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/containers/{containerId}/documents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["containers.documents.list"];
-        put?: never;
-        post?: never;
-        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -491,6 +459,22 @@ export type paths = {
         get: operations["containers.writerProjection.get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/containers/documents/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["containers.documentLanes.query"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1410,31 +1394,15 @@ export interface operations {
                         initialGroupPolicy: {
                             containerMutations?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -1459,17 +1427,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -1479,31 +1439,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -1594,31 +1538,15 @@ export interface operations {
                         initialGroupPolicy: {
                             containerMutations?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -1643,17 +1571,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -1663,31 +1583,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -1776,31 +1680,15 @@ export interface operations {
                     initialOrganizationMetadataContainer: {
                         container: {
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -1825,17 +1713,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -1845,31 +1725,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -1894,31 +1758,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -1935,17 +1783,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -1955,31 +1795,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -2060,31 +1884,15 @@ export interface operations {
                             body: unknown;
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -2109,17 +1917,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -2129,31 +1929,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -2197,20 +1981,6 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
                             targetContainerPathRefs?: ({
                                 containerId: string;
                                 manifestHash: string;
@@ -2227,31 +1997,15 @@ export interface operations {
                     initialOrganizationPolicy: {
                         containerMutations?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -2276,17 +2030,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -2296,31 +2042,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -2415,31 +2145,15 @@ export interface operations {
                         body: unknown;
                         containerRekeys?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -2464,17 +2178,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -2484,31 +2190,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -2558,31 +2248,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -2599,17 +2273,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -2619,31 +2285,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -2717,20 +2367,6 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
                         targetContainerPathRefs?: ({
                             containerId: string;
                             manifestHash: string;
@@ -2742,31 +2378,15 @@ export interface operations {
                     };
                     initialRootContainer: {
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -2791,17 +2411,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -2811,31 +2423,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -2861,31 +2457,15 @@ export interface operations {
                         body: unknown;
                         containerRekeys?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -2910,17 +2490,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -2930,31 +2502,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -3004,31 +2560,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -3045,17 +2585,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -3065,31 +2597,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -3163,20 +2679,6 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
                         targetContainerPathRefs?: ({
                             containerId: string;
                             manifestHash: string;
@@ -3189,31 +2691,15 @@ export interface operations {
                     initialRosterProfileContainer?: {
                         container: {
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -3238,17 +2724,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -3258,31 +2736,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -3307,31 +2769,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -3348,17 +2794,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -3368,31 +2806,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -3473,31 +2895,15 @@ export interface operations {
                             body: unknown;
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -3522,17 +2928,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -3542,31 +2940,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -3610,20 +2992,6 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
                             targetContainerPathRefs?: ({
                                 containerId: string;
                                 manifestHash: string;
@@ -3647,31 +3015,15 @@ export interface operations {
                         body: unknown;
                         containerRekeys?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -3696,17 +3048,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -3716,31 +3060,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -3790,31 +3118,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -3831,17 +3143,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -3851,31 +3155,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -3949,20 +3237,6 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
                         targetContainerPathRefs?: ({
                             containerId: string;
                             manifestHash: string;
@@ -3975,31 +3249,15 @@ export interface operations {
                     initialSystemContainers?: ({
                         container: {
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -4024,17 +3282,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -4044,31 +3294,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -4093,31 +3327,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -4134,17 +3352,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -4154,31 +3364,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -4259,31 +3453,15 @@ export interface operations {
                             body: unknown;
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -4308,17 +3486,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -4328,31 +3498,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -4396,20 +3550,6 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
                             targetContainerPathRefs?: ({
                                 containerId: string;
                                 manifestHash: string;
@@ -5857,31 +4997,15 @@ export interface operations {
                     body: unknown;
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -5906,17 +5030,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -5926,31 +5042,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -6222,31 +5322,15 @@ export interface operations {
                     body: unknown;
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -6271,17 +5355,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -6291,31 +5367,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -6728,6 +5788,11 @@ export interface operations {
             content: {
                 "application/json": {
                     byteLength: number;
+                    firstParts: {
+                        byteLength: number;
+                        contentMd5: string;
+                        partNumber: number;
+                    }[];
                     organizationId: string;
                     sha256: string;
                 } & {
@@ -6746,6 +5811,21 @@ export interface operations {
                         byteLength: number;
                         expiresAt: string;
                         organizationId: string;
+                        partUploads: {
+                            byteLength: number;
+                            contentMd5: string;
+                            partNumber: number;
+                            source: {
+                                /** @constant */
+                                kind: "api";
+                            } | {
+                                /** Format: date-time */
+                                expiresAt: string;
+                                /** @constant */
+                                kind: "signed-url";
+                                url: string;
+                            };
+                        }[];
                         sha256: string;
                         stageId: string;
                         uploadedParts: ({
@@ -6958,143 +6038,6 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         code?: "multipart_blob_stage_expired";
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    "blobs.multipartStages.complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                stageId: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    parts: ({
-                        etag: string;
-                        partNumber: number;
-                    } & {
-                        [key: string]: unknown;
-                    })[];
-                    uploadId: string;
-                } & {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Successful JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        byteLength: number;
-                        expiresAt: string;
-                        organizationId: string;
-                        sha256: string;
-                        stageId: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        code?: "session_refresh_required";
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -7416,31 +6359,15 @@ export interface operations {
             content: {
                 "application/json": {
                     body: unknown;
-                    containerManifestHistory?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    containerManifestHistoryRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
-                    destinationParentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    destinationParentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -7465,17 +6392,9 @@ export interface operations {
                     manifest: {
                         [key: string]: unknown;
                     };
-                    parentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    parentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -7485,31 +6404,15 @@ export interface operations {
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
-                    previousContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
-                    previousManifest?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousManifestRef?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     }) | null;
@@ -7923,167 +6826,6 @@ export interface operations {
             };
         };
     };
-    "containers.documents.list": {
-        parameters: {
-            query?: {
-                limit?: number;
-                watermarkId?: string;
-                watermarkUpdatedAt?: string;
-            };
-            header?: never;
-            path: {
-                containerId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        hasMore: boolean;
-                        items: ({
-                            createdAt: string;
-                            currentAccessEpoch: number;
-                            currentAccessStateHash: string;
-                            /** @enum {string} */
-                            effectiveAccessLevel: "admin" | "read" | "write";
-                            id: string;
-                            linkedContainerIds: string[];
-                            referencedPrincipals: ({
-                                keyEpoch: number;
-                                keyFingerprint: string;
-                                principalId: string;
-                                /** @enum {string} */
-                                principalType: "group" | "organization";
-                                stateHash: string;
-                                version: number;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            updatedAt: string;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
-                        nextWatermark: ({
-                            id: string;
-                            updatedAt: string;
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
-                        tombstones: ({
-                            containerId: string;
-                            documentId: string;
-                            updatedAt: string;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        code?: "session_refresh_required";
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        code: "container_not_found";
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
     "containers.kekLog.get": {
         parameters: {
             query?: {
@@ -8245,47 +6987,23 @@ export interface operations {
             content: {
                 "application/json": {
                     body: unknown;
-                    containerManifestHistory?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    containerManifestHistoryRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -8310,17 +7028,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -8330,31 +7040,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -8370,17 +7064,9 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
-                    destinationParentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    destinationParentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -8405,17 +7091,9 @@ export interface operations {
                     manifest: {
                         [key: string]: unknown;
                     };
-                    parentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    parentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -8425,31 +7103,15 @@ export interface operations {
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
-                    previousContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
-                    previousManifest?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousManifestRef?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     }) | null;
@@ -8822,31 +7484,15 @@ export interface operations {
                     manifest: {
                         [key: string]: unknown;
                     };
-                    previousContainerPath: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousContainerPathRefs: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
-                    previousManifest: {
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousManifestRef: {
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     };
@@ -9057,47 +7703,23 @@ export interface operations {
             content: {
                 "application/json": {
                     body: unknown;
-                    containerManifestHistory?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    containerManifestHistoryRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -9122,17 +7744,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -9142,31 +7756,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -9182,17 +7780,9 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
-                    destinationParentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    destinationParentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -9217,17 +7807,9 @@ export interface operations {
                     manifest: {
                         [key: string]: unknown;
                     };
-                    parentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    parentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -9237,31 +7819,15 @@ export interface operations {
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
-                    previousContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
-                    previousManifest?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousManifestRef?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     }) | null;
@@ -9758,47 +8324,23 @@ export interface operations {
             content: {
                 "application/json": {
                     body: unknown;
-                    containerManifestHistory?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    containerManifestHistoryRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -9823,17 +8365,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -9843,31 +8377,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -9883,17 +8401,9 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     })[];
-                    destinationParentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    destinationParentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -9918,17 +8428,9 @@ export interface operations {
                     manifest: {
                         [key: string]: unknown;
                     };
-                    parentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    parentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -9938,31 +8440,15 @@ export interface operations {
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
-                    previousContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
-                    previousManifest?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousManifestRef?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     }) | null;
@@ -10328,31 +8814,15 @@ export interface operations {
             content: {
                 "application/json": {
                     body: unknown;
-                    containerManifestHistory?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    containerManifestHistoryRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
-                    destinationParentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    destinationParentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -10377,17 +8847,9 @@ export interface operations {
                     manifest: {
                         [key: string]: unknown;
                     };
-                    parentContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    parentContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
@@ -10397,31 +8859,15 @@ export interface operations {
                     predecessorBridge: {
                         [key: string]: unknown;
                     } | null;
-                    previousContainerPath?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousContainerPathRefs?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     })[];
-                    previousManifest?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
+                    previousManifestRef?: ({
+                        containerId: string;
                         manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
                     } & {
                         [key: string]: unknown;
                     }) | null;
@@ -10680,7 +9126,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-projection-history"?: string;
+                "x-known-manifests"?: string;
             };
             path: {
                 containerId: string;
@@ -10696,13 +9142,8 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        containerId: string;
-                        containerKeks: ({
-                            accessManifestHash: string;
-                            containerId: string;
-                            containerKeyEpoch: number;
-                            containerKeyEpochId: string;
-                            containerManifestHistory: ({
+                        bundles: {
+                            [key: string]: {
                                 event: {
                                     body: unknown;
                                     event: {
@@ -10721,7 +9162,15 @@ export interface operations {
                                 };
                             } & {
                                 [key: string]: unknown;
-                            })[];
+                            };
+                        };
+                        containerId: string;
+                        containerKeks: ({
+                            accessManifestHash: string;
+                            containerId: string;
+                            containerKeyEpoch: number;
+                            containerKeyEpochId: string;
+                            containerManifestHistory: string[];
                             keyEpoch: {
                                 [key: string]: unknown;
                             };
@@ -10748,32 +9197,9 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
-                        historyPrefixes?: {
-                            count: number;
-                            digest: string;
-                            key: string;
-                        }[];
+                        omittedBundles: string[];
                         organizationId: string;
-                        path: ({
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        })[];
+                        path: string[];
                         policyEvidence: {
                             groups: ({
                                 grant: string;
@@ -10923,6 +9349,148 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         code: "container_projection_state_invalid";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "containers.documentLanes.query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    lanes: {
+                        containerId: string;
+                        laneId: string;
+                        limit?: number;
+                        watermark: {
+                            id: string;
+                            updatedAt: string;
+                        } | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: ({
+                            laneId: string;
+                            page: {
+                                hasMore: boolean;
+                                items: ({
+                                    createdAt: string;
+                                    currentAccessEpoch: number;
+                                    currentAccessStateHash: string;
+                                    /** @enum {string} */
+                                    effectiveAccessLevel: "admin" | "read" | "write";
+                                    id: string;
+                                    linkedContainerIds: string[];
+                                    referencedPrincipals: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @enum {string} */
+                                        principalType: "group" | "organization";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    updatedAt: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                nextWatermark: ({
+                                    id: string;
+                                    updatedAt: string;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                tombstones: ({
+                                    containerId: string;
+                                    documentId: string;
+                                    updatedAt: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | {
+                            failure: {
+                                /** @constant */
+                                code?: "container_not_found";
+                                error: string;
+                                /** @enum {number} */
+                                status: 403 | 404 | 409;
+                            };
+                            laneId: string;
+                        })[];
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
@@ -11109,31 +9677,15 @@ export interface operations {
                 "application/json": {
                     container: {
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -11158,17 +9710,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -11178,31 +9722,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -11228,31 +9756,15 @@ export interface operations {
                         body: unknown;
                         containerRekeys?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -11277,17 +9789,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -11297,31 +9801,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -11365,20 +9853,6 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
                         targetContainerPathRefs?: ({
                             containerId: string;
                             manifestHash: string;
@@ -11712,31 +10186,15 @@ export interface operations {
                     body: unknown;
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -11761,17 +10219,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -11781,31 +10231,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -11849,20 +10283,6 @@ export interface operations {
                     manifest: {
                         [key: string]: unknown;
                     };
-                    previousManifest?: ({
-                        event: {
-                            [key: string]: unknown;
-                        };
-                        manifest: {
-                            [key: string]: unknown;
-                        };
-                        manifestHash: string;
-                        state: {
-                            [key: string]: unknown;
-                        };
-                    } & {
-                        [key: string]: unknown;
-                    }) | null;
                     targetContainerPathRefs?: ({
                         containerId: string;
                         manifestHash: string;
@@ -12576,31 +10996,15 @@ export interface operations {
                     body: unknown;
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -12625,17 +11029,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -12645,31 +11041,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -13618,31 +11998,15 @@ export interface operations {
                     })[][];
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -13659,17 +12023,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -13679,31 +12035,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -14040,31 +12380,15 @@ export interface operations {
                     body: unknown;
                     containerRekeys?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -14089,17 +12413,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -14109,31 +12425,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -14388,7 +12688,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "x-projection-history"?: string;
+                "x-known-manifests"?: string;
             };
             path: {
                 documentId: string;
@@ -14411,26 +12711,7 @@ export interface operations {
                                 containerId: string;
                                 containerKeyEpoch: number;
                                 containerKeyEpochId: string;
-                                containerManifestHistory: ({
-                                    event: {
-                                        body: unknown;
-                                        event: {
-                                            [key: string]: unknown;
-                                        };
-                                        eventHash: string;
-                                    } & {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
-                                } & {
-                                    [key: string]: unknown;
-                                })[];
+                                containerManifestHistory: string[];
                                 keyEpoch: {
                                     [key: string]: unknown;
                                 };
@@ -14458,7 +12739,12 @@ export interface operations {
                                 [key: string]: unknown;
                             })[];
                             organizationId: string;
-                            path: ({
+                            path: string[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        bundles: {
+                            [key: string]: {
                                 event: {
                                     body: unknown;
                                     event: {
@@ -14477,10 +12763,8 @@ export interface operations {
                                 };
                             } & {
                                 [key: string]: unknown;
-                            })[];
-                        } & {
-                            [key: string]: unknown;
-                        })[];
+                            };
+                        };
                         contentKeyBundle: {
                             contentKeyEpoch: number;
                             documentId: string;
@@ -14503,26 +12787,7 @@ export interface operations {
                         };
                         /** @constant */
                         contentKeyBundleStale?: true;
-                        documentContainerManifestHistory: ({
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        })[];
+                        documentContainerManifestHistory: string[];
                         documentId: string;
                         documentKekTargets: {
                             documentId: string;
@@ -14536,71 +12801,10 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         };
-                        documentManifest: {
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        };
-                        documentManifestContainerPaths: ({
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        })[][];
-                        documentManifestHistory: ({
-                            event: {
-                                body: unknown;
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                eventHash: string;
-                            } & {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        })[];
-                        historyPrefixes?: {
-                            count: number;
-                            digest: string;
-                            key: string;
-                        }[];
+                        documentManifest: string;
+                        documentManifestContainerPaths: string[][];
+                        documentManifestHistory: string[];
+                        omittedBundles: string[];
                         policyEvidence: {
                             groups: ({
                                 grant: string;
@@ -14799,31 +13003,15 @@ export interface operations {
                         initialGroupPolicy: {
                             containerMutations?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -14848,17 +13036,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -14868,31 +13048,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -14983,31 +13147,15 @@ export interface operations {
                         initialGroupPolicy: {
                             containerMutations?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -15032,17 +13180,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -15052,31 +13192,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -15165,31 +13289,15 @@ export interface operations {
                     initialOrganizationMetadataContainer: {
                         container: {
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -15214,17 +13322,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -15234,31 +13334,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -15283,31 +13367,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -15324,17 +13392,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -15344,31 +13404,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -15449,31 +13493,15 @@ export interface operations {
                             body: unknown;
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -15498,17 +13526,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -15518,31 +13538,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -15586,20 +13590,6 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
                             targetContainerPathRefs?: ({
                                 containerId: string;
                                 manifestHash: string;
@@ -15616,31 +13606,15 @@ export interface operations {
                     initialOrganizationPolicy: {
                         containerMutations?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -15665,17 +13639,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -15685,31 +13651,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -15804,31 +13754,15 @@ export interface operations {
                         body: unknown;
                         containerRekeys?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -15853,17 +13787,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -15873,31 +13799,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -15947,31 +13857,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -15988,17 +13882,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -16008,31 +13894,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -16106,20 +13976,6 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
                         targetContainerPathRefs?: ({
                             containerId: string;
                             manifestHash: string;
@@ -16131,31 +13987,15 @@ export interface operations {
                     };
                     initialRootContainer: {
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -16180,17 +14020,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -16200,31 +14032,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;
@@ -16250,31 +14066,15 @@ export interface operations {
                         body: unknown;
                         containerRekeys?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -16299,17 +14099,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -16319,31 +14111,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -16393,31 +14169,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -16434,17 +14194,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -16454,31 +14206,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -16552,20 +14288,6 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
                         targetContainerPathRefs?: ({
                             containerId: string;
                             manifestHash: string;
@@ -16578,31 +14300,15 @@ export interface operations {
                     initialRosterProfileContainer?: {
                         container: {
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -16627,17 +14333,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -16647,31 +14345,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -16696,31 +14378,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -16737,17 +14403,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -16757,31 +14415,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -16862,31 +14504,15 @@ export interface operations {
                             body: unknown;
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -16911,17 +14537,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -16931,31 +14549,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -16999,20 +14601,6 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
                             targetContainerPathRefs?: ({
                                 containerId: string;
                                 manifestHash: string;
@@ -17036,31 +14624,15 @@ export interface operations {
                         body: unknown;
                         containerRekeys?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -17085,17 +14657,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -17105,31 +14669,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -17179,31 +14727,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -17220,17 +14752,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -17240,31 +14764,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -17338,20 +14846,6 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
-                            manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
                         targetContainerPathRefs?: ({
                             containerId: string;
                             manifestHash: string;
@@ -17364,31 +14858,15 @@ export interface operations {
                     initialSystemContainers?: ({
                         container: {
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -17413,17 +14891,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -17433,31 +14903,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -17482,31 +14936,15 @@ export interface operations {
                             })[][];
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -17523,17 +14961,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -17543,31 +14973,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -17648,31 +15062,15 @@ export interface operations {
                             body: unknown;
                             containerRekeys?: ({
                                 body: unknown;
-                                containerManifestHistory?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                containerManifestHistoryRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                destinationParentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                destinationParentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -17697,17 +15095,9 @@ export interface operations {
                                 manifest: {
                                     [key: string]: unknown;
                                 };
-                                parentContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                parentContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
@@ -17717,31 +15107,15 @@ export interface operations {
                                 predecessorBridge: {
                                     [key: string]: unknown;
                                 } | null;
-                                previousContainerPath?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousContainerPathRefs?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 })[];
-                                previousManifest?: ({
-                                    event: {
-                                        [key: string]: unknown;
-                                    };
-                                    manifest: {
-                                        [key: string]: unknown;
-                                    };
+                                previousManifestRef?: ({
+                                    containerId: string;
                                     manifestHash: string;
-                                    state: {
-                                        [key: string]: unknown;
-                                    };
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
@@ -17785,20 +15159,6 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
-                                manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
-                            } & {
-                                [key: string]: unknown;
-                            }) | null;
                             targetContainerPathRefs?: ({
                                 containerId: string;
                                 manifestHash: string;
@@ -20202,31 +17562,15 @@ export interface operations {
                     initialGroupPolicy: {
                         containerMutations?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -20251,17 +17595,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -20271,31 +17607,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -20383,31 +17703,15 @@ export interface operations {
                     organizationPolicy: {
                         containerMutations?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -20432,17 +17736,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -20452,31 +17748,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -20923,31 +18203,15 @@ export interface operations {
                     organizationPolicy: {
                         containerMutations?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -20972,17 +18236,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -20992,31 +18248,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -21571,31 +18811,15 @@ export interface operations {
                     groupPolicy: {
                         containerMutations?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -21620,17 +18844,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -21640,31 +18856,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -21752,31 +18952,15 @@ export interface operations {
                     organizationPolicy: {
                         containerMutations?: ({
                             body: unknown;
-                            containerManifestHistory?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            destinationParentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -21801,17 +18985,9 @@ export interface operations {
                             manifest: {
                                 [key: string]: unknown;
                             };
-                            parentContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
@@ -21821,31 +18997,15 @@ export interface operations {
                             predecessorBridge: {
                                 [key: string]: unknown;
                             } | null;
-                            previousContainerPath?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousContainerPathRefs?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             })[];
-                            previousManifest?: ({
-                                event: {
-                                    [key: string]: unknown;
-                                };
-                                manifest: {
-                                    [key: string]: unknown;
-                                };
+                            previousManifestRef?: ({
+                                containerId: string;
                                 manifestHash: string;
-                                state: {
-                                    [key: string]: unknown;
-                                };
                             } & {
                                 [key: string]: unknown;
                             }) | null;
@@ -22875,12 +20035,8 @@ export interface operations {
                                 groups: {
                                     groupId: string;
                                     members: {
-                                        encapsulationKeyFingerprint: string | null;
-                                        encapsulationPublicKey: string | null;
                                         /** @enum {string} */
                                         role: "member" | "admin";
-                                        signingKeyFingerprint: string | null;
-                                        signingPublicKey: string | null;
                                         userId: string;
                                     }[];
                                     stateHash: string;
@@ -22976,12 +20132,8 @@ export interface operations {
                                 groups: {
                                     groupId: string;
                                     members: {
-                                        encapsulationKeyFingerprint: string | null;
-                                        encapsulationPublicKey: string | null;
                                         /** @enum {string} */
                                         role: "member" | "admin";
-                                        signingKeyFingerprint: string | null;
-                                        signingPublicKey: string | null;
                                         userId: string;
                                     }[];
                                     stateHash: string;
@@ -23541,31 +20693,15 @@ export interface operations {
                 "application/json": {
                     containerMutations?: ({
                         body: unknown;
-                        containerManifestHistory?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        containerManifestHistoryRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        destinationParentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        destinationParentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -23590,17 +20726,9 @@ export interface operations {
                         manifest: {
                             [key: string]: unknown;
                         };
-                        parentContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        parentContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
@@ -23610,31 +20738,15 @@ export interface operations {
                         predecessorBridge: {
                             [key: string]: unknown;
                         } | null;
-                        previousContainerPath?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousContainerPathRefs?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         })[];
-                        previousManifest?: ({
-                            event: {
-                                [key: string]: unknown;
-                            };
-                            manifest: {
-                                [key: string]: unknown;
-                            };
+                        previousManifestRef?: ({
+                            containerId: string;
                             manifestHash: string;
-                            state: {
-                                [key: string]: unknown;
-                            };
                         } & {
                             [key: string]: unknown;
                         }) | null;

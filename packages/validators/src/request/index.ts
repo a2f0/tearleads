@@ -18,16 +18,11 @@ export {
   BlobContentKeyTargetEnvelopeRequestSchema,
   type BlobStagedBlobRequest,
   BlobStagedBlobRequestSchema,
-  type CompleteMultipartBlobStageRequest,
-  CompleteMultipartBlobStageRequestSchema,
   type InitiateMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequestSchema,
   isBlobAttachmentBindRequest,
   isBlobAttachmentDetachRequest,
-  isCompleteMultipartBlobStageRequest,
   isInitiateMultipartBlobStageRequest,
-  type MultipartBlobPartCommitRequest,
-  MultipartBlobPartCommitRequestSchema,
 } from "./blob";
 export {
   type ContainerMutationRequest,
@@ -40,6 +35,14 @@ export {
   isContainerReciteRequest,
   isContainerRotationRequest,
 } from "./container";
+export {
+  DEFAULT_CONTAINER_DOCUMENT_LANE_PAGE_LIMIT,
+  isListContainerDocumentLanesRequest,
+  type ListContainerDocumentLanesRequest,
+  ListContainerDocumentLanesRequestSchema,
+  MAX_CONTAINER_DOCUMENT_LANE_PAGE_TOTAL,
+  MAX_CONTAINER_DOCUMENT_LANES,
+} from "./containerDocumentLanes";
 export {
   type ContainerCreateWithMetadataDocumentRequest,
   ContainerCreateWithMetadataDocumentRequestSchema,

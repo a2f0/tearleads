@@ -73,10 +73,10 @@ function appendPathManifestHashes(
 
 type ContainerDependencyRequest = Pick<
   ContainerMutationRequest,
-  | "parentContainerPath"
-  | "previousManifest"
-  | "previousContainerPath"
-  | "destinationParentContainerPath"
+  | "parentContainerPathRefs"
+  | "previousManifestRef"
+  | "previousContainerPathRefs"
+  | "destinationParentContainerPathRefs"
 >;
 
 function expectedAccessEventDependencyHashes(
@@ -86,15 +86,18 @@ function expectedAccessEventDependencyHashes(
   const hashes: string[] = [];
 
   if (eventType === "container.create") {
-    appendPathManifestHashes(hashes, request.parentContainerPath);
+    appendPathManifestHashes(hashes, request.parentContainerPathRefs);
   } else {
-    if (request.previousManifest) {
-      hashes.push(request.previousManifest.manifestHash);
+    if (request.previousManifestRef) {
+      hashes.push(request.previousManifestRef.manifestHash);
     }
-    appendPathManifestHashes(hashes, request.previousContainerPath);
+    appendPathManifestHashes(hashes, request.previousContainerPathRefs);
 
     if (eventType === "container.move") {
-      appendPathManifestHashes(hashes, request.destinationParentContainerPath);
+      appendPathManifestHashes(
+        hashes,
+        request.destinationParentContainerPathRefs,
+      );
     }
   }
 

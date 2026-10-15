@@ -5,7 +5,6 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import {
   isDocumentEditAttributionResponse,
   isDocumentWriterProjectionResponse,
-  isListContainerDocumentsResponse,
   isPrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import invariant from "invariant";
@@ -15,6 +14,7 @@ import {
   coldRematerializeEncryptedDocument,
   createEncryptedColdDocument,
 } from "../../test/helpers/coldSdkRematerialization";
+import { listContainerDocumentPage } from "../../test/helpers/containerDocumentLaneQuery";
 import {
   readContainerParentLanePage,
   requestContainerParentLanes,
@@ -30,6 +30,7 @@ import {
 } from "../../test/helpers/registeredRootKek";
 import { registerUser } from "../../test/helpers/registerUser";
 import { grantRootThroughRotatedReadGroup } from "../../test/helpers/rotatedReadGroupGrant";
+import { decodeServedDocumentProjection } from "../../test/helpers/servedWriterProjection";
 import { routeApp } from "../routeApp";
 
 type GrantKind = "direct user" | "rotated group";
@@ -173,16 +174,9 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
       ).toBe(true);
     }
 
-    const documentsResponse = await routeApp.request(
-      `/containers/${root.kekState.containerId}/documents`,
-      { headers: { Authorization: `Bearer ${reader.token}` } },
-    );
-    expect(documentsResponse.status).toBe(200);
-    const listedDocuments: unknown = await documentsResponse.json();
-    invariant(
-      isListContainerDocumentsResponse(listedDocuments),
-      "expected a container document listing",
-    );
+    const listedDocuments = await listContainerDocumentPage(reader.token, {
+      containerId: root.kekState.containerId,
+    });
     expect(listedDocuments.items.map((document) => document.id)).toContain(
       created.documentId,
     );
@@ -192,7 +186,9 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
       { headers: { Authorization: `Bearer ${reader.token}` } },
     );
     expect(projectionResponse.status).toBe(200);
-    const projection: unknown = await projectionResponse.json();
+    const projection = decodeServedDocumentProjection(
+      await projectionResponse.json(),
+    );
     invariant(
       isDocumentWriterProjectionResponse(projection),
       "expected a document reader projection",

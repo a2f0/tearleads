@@ -6,9 +6,9 @@ import {
   type DocumentSummary,
   HIDDEN_DOCUMENT_SUMMARY_KINDS,
 } from "../../documents/documentSummary";
+import { settleQueuedDocumentUpdatesInTransaction } from "../../sqlite/documentPendingUpdatePersistence";
 import { findLocalIdByDocumentId } from "../../sqlite/documentPersistence";
 import {
-  documentPendingUpdates,
   documentProjection,
   documentPurgeCheckpoints,
   documents,
@@ -42,6 +42,7 @@ import {
 } from "./internal/documentProjectionRows";
 import { invalidateStoredDocumentPullContinuation } from "./internal/documentPullContinuationPersistence";
 import {
+  getDocumentScope,
   resolveDocumentSaveTimestamp,
   saveDocumentRows,
 } from "./internal/documentRows";
@@ -366,8 +367,6 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
     pendingUpdateIds,
     options,
   ) {
-    const uniquePendingUpdateIds = [...new Set(pendingUpdateIds)];
-
     return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
       getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
@@ -382,18 +381,11 @@ export const sqlDocumentsPersistence: DocumentsPersistence = {
             updatedAt,
           });
           if (!saved) return updatedAt;
-          if (uniquePendingUpdateIds.length > 0) {
-            await tx
-              .delete(documentPendingUpdates)
-              .where(
-                and(
-                  eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
-                  eq(documentPendingUpdates.localId, document.id),
-                  inArray(documentPendingUpdates.id, uniquePendingUpdateIds),
-                ),
-              )
-              .run();
-          }
+          await settleQueuedDocumentUpdatesInTransaction(
+            tx,
+            getDocumentScope(document.id),
+            pendingUpdateIds,
+          );
           return updatedAt;
         },
         { behavior: "immediate" },

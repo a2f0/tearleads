@@ -1,19 +1,19 @@
 import { z } from "zod";
-import { projectionHistoryHeaderRefinement } from "../projectionHistoryRefinements";
+import { knownManifestsHeaderRefinement } from "../knownManifestsRefinements";
 import {
   ContainerNotFoundErrorResponseSchema,
   ContainerWriterProjectionErrorResponseSchema,
-  ContainerWriterProjectionResponseSchema,
+  ContainerWriterProjectionWireResponseSchema,
   DocumentNotFoundErrorResponseSchema,
   DocumentWriterProjectionErrorResponseSchema,
-  DocumentWriterProjectionResponseSchema,
+  DocumentWriterProjectionWireResponseSchema,
   ErrorResponseSchema,
-  isContainerWriterProjectionResponse,
-  isDocumentWriterProjectionResponse,
+  isContainerWriterProjectionWireResponse,
+  isDocumentWriterProjectionWireResponse,
   SessionFailureResponseSchema,
 } from "../response";
 import { PrincipalHistoryPreparationResponseSchema } from "../response/principalHistoryPreparation";
-import { ProjectionHistoryHeadersSchema } from "../util/projectionHistoryWire";
+import { KnownManifestsHeadersSchema } from "../util/knownManifestWire";
 import { writerProjectionResponseRuntimeRefinements } from "../writerProjectionRefinements";
 import { defineJsonOperation } from "./definition";
 
@@ -45,16 +45,16 @@ export const getContainerWriterProjectionOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "containers.writerProjection.get",
   method: "GET",
-  headers: ProjectionHistoryHeadersSchema,
+  headers: KnownManifestsHeadersSchema,
   params: ContainerWriterProjectionPathParamsSchema,
   path: "/containers/{containerId}/writer-projection",
   responses: {
-    200: ContainerWriterProjectionResponseSchema,
+    200: ContainerWriterProjectionWireResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
   runtimeRefinements: [
     ...writerProjectionResponseRuntimeRefinements,
-    projectionHistoryHeaderRefinement,
+    knownManifestsHeaderRefinement,
   ],
 });
 
@@ -71,20 +71,20 @@ export const getDocumentWriterProjectionOperation = defineJsonOperation({
   failureStatuses: [400, 401, 403, 404, 409, 500],
   id: "documents.writerProjection.get",
   method: "GET",
-  headers: ProjectionHistoryHeadersSchema,
+  headers: KnownManifestsHeadersSchema,
   params: DocumentWriterProjectionPathParamsSchema,
   path: "/documents/{documentId}/writer-projection",
   responses: {
-    200: DocumentWriterProjectionResponseSchema,
+    200: DocumentWriterProjectionWireResponseSchema,
     202: PrincipalHistoryPreparationResponseSchema,
   },
   runtimeRefinements: [
     ...writerProjectionResponseRuntimeRefinements,
-    projectionHistoryHeaderRefinement,
+    knownManifestsHeaderRefinement,
   ],
 });
 
 export const isGetContainerWriterProjectionOperationResponse =
-  isContainerWriterProjectionResponse;
+  isContainerWriterProjectionWireResponse;
 export const isGetDocumentWriterProjectionOperationResponse =
-  isDocumentWriterProjectionResponse;
+  isDocumentWriterProjectionWireResponse;

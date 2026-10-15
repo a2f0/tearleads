@@ -68,7 +68,7 @@ test("a child-only writer repairs its parent wrap without receiving either paren
     });
     const sharedResponse = await createMutationResponseFromRequest(
       shared.plan.request,
-      childProjection.containerKeks.at(-1),
+      childProjection,
     );
     const rotatedRoot = await buildMaterializedContainerRekeyPlan({
       ...ownerInput,

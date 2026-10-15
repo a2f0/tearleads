@@ -1,14 +1,14 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  accessManifestVerifications,
+  accessManifests,
   organizationBilling,
 } from "@tearleads/api-shared/schema";
 import {
   createRemoteContainer,
   shareRemoteContainer,
 } from "@tearleads/client-sdk";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull } from "drizzle-orm";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import {
   createOrganizationRequestBody,
@@ -115,7 +115,12 @@ test("replacement proofs are disclosed only to current readers of the re-shared 
       ],
     });
     expect(
-      (await db.select().from(accessManifestVerifications)).length,
+      (
+        await db
+          .select({ manifestHash: accessManifests.manifestHash })
+          .from(accessManifests)
+          .where(isNotNull(accessManifests.verificationMac))
+      ).length,
     ).toBeGreaterThan(0);
     const suffix = await read(member.token, intermediate.organizationId);
     expect(suffix.status).toBe(200);

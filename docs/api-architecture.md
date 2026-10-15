@@ -57,16 +57,16 @@ Write surfaces:
 | Revoke container grant | `POST /containers/:containerId/revoke` | `ContainerMutationRequest` |
 | Rekey container | `POST /containers/:containerId/rekey` | `ContainerMutationRequest` |
 | Move container | `POST /containers/:containerId/move` | `ContainerMutationRequest` |
+| Re-cite a held container's current ancestor path | `POST /containers/:containerId/recite` | `ContainerReciteRequest` |
 | Delete container | `DELETE /containers/:containerId` | n/a |
 | Create document | `POST /documents` | `DocumentCreateRequest` |
 | Link document to container | `POST /documents/:documentId/link` | `DocumentLinkSetMutationRequest` |
 | Unlink document from container | `POST /documents/:documentId/unlink` | `DocumentLinkSetMutationRequest` |
 | Sync encrypted Loro updates | `POST /documents/:documentId/sync` | `DocumentSyncRequest` |
-| Initiate multipart blob stage | `POST /blobs/stages/multipart` | `InitiateMultipartBlobStageRequest` |
-| Authorize direct multipart blob part | `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload` | upload ID, byte length, Content-MD5 |
+| Initiate multipart blob stage (returns the first parts' upload sources) | `POST /blobs/stages/multipart` | `InitiateMultipartBlobStageRequest` |
+| Authorize a later or renewed direct multipart blob part | `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload` | upload ID, byte length, Content-MD5 |
 | Upload multipart blob part for non-signing stores | `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` | headers plus octet stream |
-| Complete multipart blob stage | `POST /blobs/stages/multipart/:stageId/complete` | `CompleteMultipartBlobStageRequest` |
-| Bind or replace blob attachment | `POST /blobs/:blobId/attachment-bindings` | `BlobAttachmentBindRequest` |
+| Bind or replace blob attachment (completes a staged upload) | `POST /blobs/:blobId/attachment-bindings` | `BlobAttachmentBindRequest` |
 | Detach blob attachment | `POST /blobs/:blobId/attachment-bindings/:bindingId/detach` | `BlobAttachmentDetachRequest` |
 
 Read surfaces:
@@ -76,8 +76,8 @@ Read surfaces:
 | Health check | `GET /` |
 | List auth sessions | `GET /auth/sessions` |
 | Get complete user identity | `GET /auth/user-identity/:userId` |
-| List containers | `GET /containers` |
-| List container documents | `GET /containers/:containerId/documents` |
+| List containers by parent lane | `POST /containers/parent-lanes/query` |
+| List container documents by lane | `POST /containers/documents/query` |
 | Get container writer projection | `GET /containers/:containerId/writer-projection` |
 | Get document writer projection | `GET /documents/:documentId/writer-projection` |
 | List active document attachments | `GET /documents/:documentId/attachments` |
@@ -101,10 +101,11 @@ required `supportsPullPagination: true`, optional `pullCursor`, plus
 signed container manifests already held by the API; the expected link-set hash
 pins the server-resolved document manifest.
 Responses return `acceptedOutgoingUpdateIds`, `commitLsn`, required
-`commitLsnMode`, `contentKeyBundle`,
-the required `contentKeyBundles` array (empty when no additional epoch bundle is
-needed), `documentKekTargets`, required `pullPage: {hasMore, nextCursor}`, and
-encrypted `updates[]`.
+`commitLsnMode`, the current-epoch `contentKeyBundle`, the required
+`contentKeyBundles` array of older epochs that served updates cite (empty for an
+empty probe or a page at the current epoch; never a repeat of
+`contentKeyBundle`), `documentKekTargets`, required
+`pullPage: {hasMore, nextCursor}`, and encrypted `updates[]`.
 
 Operator surface (internal, outside the protocol operation registry and the
 generated OpenAPI contract):

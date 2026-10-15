@@ -3,7 +3,10 @@ import {
   computeContainerKekRecipientTargetHash,
   computeContainerKeyEpochHash,
 } from "@tearleads/crypto";
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createTestExecSql,
+  registerContainerManifestBundles,
+} from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   buildMaterializedContainerCreatePlan,
@@ -99,6 +102,7 @@ export async function createChildContainerProjection(input: {
   if (!bundle) {
     throw new Error("Expected created child projection bundle");
   }
+  registerContainerManifestBundles(projection.path);
   return { bundle, containerKey: materializedPlan.containerKey, projection };
 }
 
@@ -124,10 +128,7 @@ export async function moveContainerProjection(input: {
           : null;
       },
       moveContainer: async (_containerId, request) =>
-        createMutationResponseFromRequest(
-          request,
-          input.sourceProjection.containerKeks.at(-1),
-        ),
+        createMutationResponseFromRequest(request, input.sourceProjection),
     },
     author: input.parent.author,
     containerId: input.containerId,
@@ -163,5 +164,6 @@ export async function moveContainerProjection(input: {
       }),
     ],
   };
+  registerContainerManifestBundles(projection.path);
   return { bundle, containerKey: moved.containerKey, projection };
 }

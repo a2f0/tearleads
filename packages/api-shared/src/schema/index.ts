@@ -5,7 +5,6 @@ export {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-  accessManifestVerifications,
   containerBuiltinGrants,
   documentManifestObservations,
 } from "./accessManifests";
@@ -29,7 +28,6 @@ export { documentInlineRekeyCommits } from "./documentInlineRekeyCommits";
 export {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
-  documentContainerLinks,
 } from "./documentLinks";
 export { groups, organizationGroupTombstones } from "./groups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
@@ -41,10 +39,7 @@ export {
   type OrganizationBillingLifecycleEventType,
   organizationBillingLifecycleEvents,
 } from "./organizationBillingLifecycleEvents";
-export {
-  organizationReadModelChanges,
-  organizationReadModelHeads,
-} from "./organizationReadModels";
+export { organizationReadModelHeads } from "./organizationReadModels";
 export {
   organizationBilling,
   organizationBillingSeatAssignments,
@@ -62,7 +57,6 @@ export {
 export { principalPolicyCommits } from "./principalPolicyCommits";
 export { principalPolicyMutationAcknowledgements } from "./principalPolicyMutationAcknowledgements";
 export {
-  principalContainerGrantProjection,
   principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,
@@ -77,8 +71,6 @@ export type {
   OrganizationBillingSeatEventSourceType,
   OrganizationBillingSeatEventType,
   OrganizationBillingStatus,
-  OrganizationReadModelLane,
-  OrganizationReadModelOperation,
   OrganizationRosterStatus,
 } from "./shared";
 export { users } from "./users";

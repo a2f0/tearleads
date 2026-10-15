@@ -8,10 +8,13 @@ import {
 } from "@tearleads/validators/response";
 import { asc, eq } from "drizzle-orm";
 import { organizationReadModelContainerGrants } from "../../sqlite/organizationReadModelSchema";
+import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
 
-const GRANT_INSERT_BATCH_SIZE = 40;
+const GRANT_INSERT_BATCH_SIZE = sqliteInsertBatchSize(
+  organizationReadModelContainerGrants,
+);
 
 type SelectedGrant = typeof organizationReadModelContainerGrants.$inferSelect;
 

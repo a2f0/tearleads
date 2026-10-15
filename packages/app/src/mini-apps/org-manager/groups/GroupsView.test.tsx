@@ -111,11 +111,7 @@ const groupMembers: OrganizationGroupMembers = {
   groupId: group.groupId,
   members: [
     {
-      encapsulationKeyFingerprint: null,
-      encapsulationPublicKey: null,
       role: "member",
-      signingKeyFingerprint: null,
-      signingPublicKey: null,
       userId: rosterUser.userId,
     },
   ],

@@ -97,12 +97,11 @@ export {
   ContainerReadPathParamsSchema,
   getContainerKekLogOperation,
   isGetContainerKekLogOperationResponse,
-  isListContainerDocumentsOperationResponse,
+  isListContainerDocumentLanesOperationRequest,
+  isListContainerDocumentLanesOperationResponse,
   isListContainerParentLanesOperationRequest,
   isListContainerParentLanesOperationResponse,
-  type ListContainerDocumentsQuery,
-  ListContainerDocumentsQuerySchema,
-  listContainerDocumentsOperation,
+  listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
 } from "./containerReads";
 export {
@@ -174,11 +173,8 @@ export {
   isGetHealthOperationResponse,
 } from "./health";
 export {
-  completeMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
-  isCompleteMultipartBlobStageOperationRequest,
-  isCompleteMultipartBlobStageOperationResponse,
   isGetMultipartBlobStageOperationResponse,
   isInitiateMultipartBlobStageOperationRequest,
   isInitiateMultipartBlobStageOperationResponse,

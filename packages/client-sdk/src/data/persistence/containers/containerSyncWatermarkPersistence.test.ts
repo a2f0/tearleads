@@ -261,3 +261,59 @@ test("root listings use one global cursor matching the cross-organization API fe
     close();
   }
 });
+
+test("a lane's cursor and freshness marker share one row without clobbering", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "container-sync-watermark-shared-row-test",
+  );
+  try {
+    const checkedOnly = containerParentSyncLane("checked-only");
+    const both = containerParentSyncLane("both");
+    await sqlContainerSyncWatermarkPersistence.markChecked(
+      execSql,
+      checkedOnly,
+    );
+    // A drained page that carried a cursor records both halves at once.
+    await sqlContainerSyncWatermarkPersistence.recordLaneFetch(execSql, both, {
+      checked: true,
+      watermark: { id: "first", updatedAt: "2026-05-05T00:00:00.000Z" },
+    });
+    // A later partial page advances the cursor and keeps the marker.
+    await sqlContainerSyncWatermarkPersistence.saveWatermark(execSql, both, {
+      id: "second",
+      updatedAt: "2026-05-05T00:01:00.000Z",
+    });
+
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadWatermarkRecords(execSql, [
+        checkedOnly,
+        both,
+      ]),
+    ).resolves.toEqual([
+      null,
+      expect.objectContaining({
+        watermark: { id: "second", updatedAt: "2026-05-05T00:01:00.000Z" },
+      }),
+    ]);
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadCheckRecords(execSql, [
+        checkedOnly,
+        both,
+      ]),
+    ).resolves.toEqual([
+      expect.objectContaining({ laneId: "parent:checked-only" }),
+      expect.objectContaining({ laneId: "parent:both" }),
+    ]);
+
+    // Deleting the container drops the lane's single row.
+    await sqlContainerSyncWatermarkPersistence.deleteWatermarksForContainers(
+      execSql,
+      ["both"],
+    );
+    await expect(
+      sqlContainerSyncWatermarkPersistence.loadCheckRecords(execSql, [both]),
+    ).resolves.toEqual([null]);
+  } finally {
+    close();
+  }
+});

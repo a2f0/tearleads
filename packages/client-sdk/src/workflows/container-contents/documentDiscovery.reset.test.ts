@@ -7,7 +7,10 @@ import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
 } from "./documentDiscovery";
-import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
+import {
+  laneLister,
+  nullContainerDocumentWatermarks,
+} from "./documentDiscovery.testUtils";
 import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
 
@@ -55,7 +58,7 @@ for (const scope of ["single", "all"] as const) {
           ...nullContainerDocumentWatermarks,
           containerId: "org-b-container",
           beginDocumentDiscovery: () => store.begin(),
-          listContainerDocuments: async () => {
+          listContainerDocumentLanes: laneLister(async () => {
             await maybeReset("listing");
             return {
               hasMore: false,
@@ -73,7 +76,7 @@ for (const scope of ["single", "all"] as const) {
                 },
               ],
             };
-          },
+          }),
           verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
             "org-b",
             async () => {

@@ -32,7 +32,7 @@ async function expectMetadataHeads(
     expect(heads.get(containerId)?.manifestHash).toBe(
       committed
         ? mutation.expectedManifestHash
-        : mutation.previousManifest?.manifestHash,
+        : mutation.previousManifestRef?.manifestHash,
     );
   }
 }

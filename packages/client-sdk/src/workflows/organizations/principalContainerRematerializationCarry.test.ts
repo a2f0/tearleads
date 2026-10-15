@@ -105,7 +105,7 @@ test("a batch carries the stale level between two of its own rotations", async (
       midRekey.plan.containerKeyEpochId,
     );
     expect(
-      nestedRekey.plan.request.previousContainerPath
+      nestedRekey.plan.request.previousContainerPathRefs
         ?.slice(0, -1)
         .map((entry) => entry.manifestHash),
     ).toEqual([rootRekey.plan.manifestHash, midRekey.plan.manifestHash]);
@@ -176,7 +176,7 @@ test("carry weaves the named levels into the batch parent-first, re-planning its
       nestedRekey.plan.containerKeyEpochId,
     );
     expect(
-      deepRekey.plan.request.previousContainerPath
+      deepRekey.plan.request.previousContainerPathRefs
         ?.slice(0, -1)
         .map((entry) => entry.manifestHash),
     ).toEqual([

@@ -70,7 +70,6 @@ for (const historyMode of [undefined, "raw"] as const) {
                   })
                 : historicalResponse.contentKeyBundle.targets,
             },
-            currentBundle,
           ],
           updates: historicalResponse.updates,
         });

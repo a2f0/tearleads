@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import {
   blobWireHeaderNames,
-  completeMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
   operationRoutePath,
@@ -27,7 +26,6 @@ test("multipart control routes register from shared operations", () => {
   for (const operation of [
     initiateMultipartBlobStageOperation,
     getMultipartBlobStageOperation,
-    completeMultipartBlobStageOperation,
     uploadMultipartBlobPartBytesOperation,
   ]) {
     expect(route.routes).toContainEqual(
@@ -37,6 +35,10 @@ test("multipart control routes register from shared operations", () => {
       }),
     );
   }
+  // An attachment bind completes a stage; no completion route is registered.
+  expect(route.routes.some(({ path }) => path.endsWith("/complete"))).toBe(
+    false,
+  );
 });
 
 test("multipart control routes authenticate before boundary parsing", async () => {
@@ -73,25 +75,6 @@ test("multipart control routes reject invalid inputs at the boundary", async () 
   const status = await route.request("/blobs/stages/multipart/invalid", {
     method: getMultipartBlobStageOperation.method,
   });
-  const completePath = await route.request(
-    "/blobs/stages/multipart/invalid/complete",
-    {
-      body: JSON.stringify({
-        parts: [{ etag: "etag-1", partNumber: 1 }],
-        uploadId: "upload-1",
-      }),
-      headers: { "Content-Type": "application/json" },
-      method: completeMultipartBlobStageOperation.method,
-    },
-  );
-  const completeBody = await route.request(
-    `/blobs/stages/multipart/${stageId}/complete`,
-    {
-      body: "{}",
-      headers: { "Content-Type": "application/json" },
-      method: completeMultipartBlobStageOperation.method,
-    },
-  );
   const uploadPath = await route.request(
     "/blobs/stages/multipart/invalid/parts/1/bytes",
     {
@@ -114,30 +97,19 @@ test("multipart control routes reject invalid inputs at the boundary", async () 
     },
   );
 
-  for (const response of [
-    initiate,
-    status,
-    completePath,
-    completeBody,
-    uploadPath,
-    uploadHeaders,
-  ]) {
+  for (const response of [initiate, status, uploadPath, uploadHeaders]) {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Invalid request" });
   }
 });
 
-test("multipart complete returns JSON for malformed request bodies", async () => {
+test("multipart initiation returns JSON for malformed request bodies", async () => {
   const route = createRoute((_c, next) => next());
-  const response = await route.request(
-    `/blobs/stages/multipart/${stageId}/complete`,
-    {
-      body: "{",
-      headers: { "Content-Type": "application/json" },
-      method: completeMultipartBlobStageOperation.method,
-    },
-  );
-
+  const response = await route.request("/blobs/stages/multipart", {
+    body: "{",
+    headers: { "Content-Type": "application/json" },
+    method: initiateMultipartBlobStageOperation.method,
+  });
   expect(response.status).toBe(400);
   expect(await response.json()).toEqual({ error: "Invalid request" });
 });

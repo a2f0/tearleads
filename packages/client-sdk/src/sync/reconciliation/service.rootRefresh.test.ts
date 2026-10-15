@@ -4,6 +4,7 @@ import { createReconciliationService } from "./service";
 import {
   createGate,
   createReconciliationTestHost,
+  perContainerDiscovery,
 } from "./service.testFixtures";
 import type { ReconciliationHost } from "./serviceTypes";
 
@@ -26,10 +27,10 @@ function createRootRefreshHarness(input: {
     host: createReconciliationTestHost({
       canDiscoverContainerDocuments:
         input.canDiscoverContainerDocuments ?? (() => true),
-      discoverContainerDocuments: async (containerId) => {
+      discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
         calls.push(`discover:${containerId}`);
         return [];
-      },
+      }),
       listAutomaticRootCatchupContainerIds: input.automaticContainerIds,
       listKnownContainerIds: input.automaticContainerIds,
       refreshRootTree: async () => {

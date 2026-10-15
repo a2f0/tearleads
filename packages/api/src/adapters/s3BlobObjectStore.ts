@@ -270,7 +270,7 @@ function createCompleteMultipartUpload({
   bucket,
   client,
 }: S3BlobObjectStoreInput): BlobObjectStore["completeMultipartUpload"] {
-  return async ({ key, parts, uploadId }) => {
+  return async ({ key, observe, parts, uploadId }) => {
     if (parts.length === 0) {
       throw new BlobObjectStoreError(
         "Multipart upload requires at least one part",
@@ -308,7 +308,7 @@ function createCompleteMultipartUpload({
         );
       }
 
-      return summarizeSha256Stream(completedObject);
+      return summarizeSha256Stream(completedObject, observe);
     });
   };
 }

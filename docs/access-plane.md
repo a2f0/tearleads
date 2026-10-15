@@ -30,12 +30,11 @@ The authority chain is:
 The durable tables are:
 
 - `access_events`
-- `access_manifests`
+- `access_manifests` (its `verification_mac` column holds the MAC'd
+  stored-history verification marker)
 - `access_manifest_heads`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
-- `access_manifest_verifications` (MAC'd stored-history verification markers;
-  deleted with the manifests they cover)
 - `container_key_epochs`
 - `container_key_wraps`
 - `document_content_key_epochs`
@@ -53,7 +52,8 @@ manifest path. They do not maintain a parallel mutable grant or epoch table.
 Users have registered signing and encapsulation keys. Groups and organizations
 are managed principals with signed policy state:
 
-- `principal_states`
+- `principal_states` (its `container_grants` column holds each state's
+  committed container-grant set, checked against the signed `grantRoot`)
 - `principal_state_payloads`
 - `principal_membership_projection`
 - `principal_epoch_keys`
@@ -230,23 +230,28 @@ Blob bind writes submit:
 
 Blob stages are created through the multipart staging routes. Each encrypted
 part receives a five-minute S3/R2 upload URL after stage-owner and identity
-checks. URLs renew independently between chunks without changing the upload ID
-or earlier part ETags. Completion verifies the assembled length and SHA-256.
-Non-signing stores use the API binary-part route. The bind path treats a stage
-as a temporary encrypted upload
-owned by the authenticated user and promotes only a completed, unexpired
-stage.
+checks: the parts sent first in the stage initiation response, later parts
+just before they are sent. URLs renew independently between chunks without
+changing the upload ID or earlier part ETags. Non-signing stores use the API
+binary-part route. The bind path treats a stage as a temporary encrypted upload
+owned by the authenticated user: it assembles the uploaded parts, verifies the
+assembled length and SHA-256, and promotes only that verified, unexpired stage.
 
 ## Read Surfaces
 
 Read/list routes use the same signed manifest state:
 
-- `GET /containers`
+- `POST /containers/parent-lanes/query`
   - lists containers reachable from manifest direct grants and managed-principal
-    projections
-- `GET /containers/:containerId/documents`
-  - requires read access to the container manifest path
-  - lists documents whose current link-set manifest projects into that container
+    projections, one bounded page per requested parent lane
+- `POST /containers/documents/query`
+  - lists up to 32 container lanes per request, each with its own watermark
+    and page limit (500 rows in total)
+  - each lane requires read access to its container manifest path and lists
+    documents whose current link-set manifest projects into that container
+  - a lane that fails its access check, or whose documents cite a linked
+    container in conflict, reports that failure alone; the other lanes still
+    list. Only the lane container's own absence carries `container_not_found`
 - `GET /documents/:documentId/attachments`
   - requires read access through at least one linked container path
 - `GET /blobs/:blobId`

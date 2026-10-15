@@ -1,7 +1,6 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
-import { and, eq, inArray, or, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, or, type SQL } from "drizzle-orm";
 import {
-  containerSyncLaneChecks,
   containerSyncWatermarks,
   containerSyncWatermarkTables,
 } from "../../sqlite/schema";
@@ -33,9 +32,9 @@ export type ContainerSyncWatermarkLane =
 interface SelectedContainerSyncWatermark {
   laneId: string;
   laneKind: string;
-  updatedAt: string;
-  watermarkId: string;
-  watermarkUpdatedAt: string;
+  updatedAt: string | null;
+  watermarkId: string | null;
+  watermarkUpdatedAt: string | null;
 }
 
 interface ContainerSyncWatermarkRecord {
@@ -96,9 +95,9 @@ function containerParentLaneId(parentId: string | null): string {
 }
 
 /**
- * The watermark half of the container-delete cascade, statement-only so the
- * caller can run it inside one atomic transaction alongside the rest of the
- * cascade.
+ * The lane-state half of the container-delete cascade (cursor and freshness
+ * marker share one row), statement-only so the caller can run it inside one
+ * atomic transaction alongside the rest of the cascade.
  */
 export async function deleteContainerWatermarksInTransaction(
   tx: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
@@ -125,26 +124,19 @@ export async function deleteContainerWatermarksInTransaction(
       ),
     )
     .run();
-  await tx
-    .delete(containerSyncLaneChecks)
-    .where(
-      or(
-        and(
-          eq(containerSyncLaneChecks.laneKind, CONTAINER_PARENT_LANE),
-          inArray(containerSyncLaneChecks.laneId, parentLaneIds),
-        ),
-        and(
-          eq(containerSyncLaneChecks.laneKind, CONTAINER_DOCUMENTS_LANE),
-          inArray(containerSyncLaneChecks.laneId, documentLaneIds),
-        ),
-      ),
-    )
-    .run();
 }
 
 function mapSelectedWatermarkRecord(
   row: SelectedContainerSyncWatermark,
-): ContainerSyncWatermarkRecord {
+): ContainerSyncWatermarkRecord | null {
+  // A lane checked before any cursor was saved has no watermark yet.
+  if (
+    row.watermarkId === null ||
+    row.watermarkUpdatedAt === null ||
+    row.updatedAt === null
+  ) {
+    return null;
+  }
   return {
     laneId: row.laneId,
     laneKind: row.laneKind,
@@ -253,18 +245,22 @@ async function selectCheckRows(
     lanes,
     ({ laneId, laneKind }) =>
       and(
-        eq(containerSyncLaneChecks.laneKind, laneKind),
-        eq(containerSyncLaneChecks.laneId, laneId),
+        eq(containerSyncWatermarks.laneKind, laneKind),
+        eq(containerSyncWatermarks.laneId, laneId),
       ),
-    (whereClause) =>
-      db
-        .select({
-          checkedAt: containerSyncLaneChecks.checkedAt,
-          laneId: containerSyncLaneChecks.laneId,
-          laneKind: containerSyncLaneChecks.laneKind,
-        })
-        .from(containerSyncLaneChecks)
-        .where(whereClause),
+    async (whereClause) =>
+      (
+        await db
+          .select({
+            checkedAt: containerSyncWatermarks.checkedAt,
+            laneId: containerSyncWatermarks.laneId,
+            laneKind: containerSyncWatermarks.laneKind,
+          })
+          .from(containerSyncWatermarks)
+          .where(and(whereClause, isNotNull(containerSyncWatermarks.checkedAt)))
+      ).flatMap(({ checkedAt, laneId, laneKind }) =>
+        checkedAt === null ? [] : [{ checkedAt, laneId, laneKind }],
+      ),
   );
 }
 
@@ -293,7 +289,7 @@ export const sqlContainerSyncWatermarkPersistence = {
 
     for (const row of rows) {
       const record = mapSelectedWatermarkRecord(row);
-      recordsByKey.set(laneKeyString(record), record);
+      if (record) recordsByKey.set(laneKeyString(record), record);
     }
 
     return lanes.map((lane) => {
@@ -319,81 +315,80 @@ export const sqlContainerSyncWatermarkPersistence = {
     });
   },
 
-  async markChecked(
+  markChecked(
     execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
     options?: ContainerSyncMarkerMutationOptions,
   ): Promise<boolean> {
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
-    const { laneId, laneKind } = containerSyncWatermarkLaneKey(lane);
-    const row = {
-      checkedAt: new Date().toISOString(),
-      laneId,
-      laneKind,
-    };
-
-    const mark = async (
-      db: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
-    ) => {
-      await db
-        .insert(containerSyncLaneChecks)
-        .values(row)
-        .onConflictDoUpdate({
-          target: [
-            containerSyncLaneChecks.laneKind,
-            containerSyncLaneChecks.laneId,
-          ],
-          set: row,
-        })
-        .run();
-    };
-    const runtime = getClientSQLitePersistenceRuntime(execSql);
-    if (!options?.stillCurrent) {
-      await runtime.runMutation(mark);
-      return true;
-    }
-    return (await runtime.guardedTransaction(mark, options.stillCurrent))
-      .committed;
+    return sqlContainerSyncWatermarkPersistence.recordLaneFetch(
+      execSql,
+      lane,
+      { checked: true, watermark: null },
+      options,
+    );
   },
 
-  async saveWatermark(
+  saveWatermark(
     execSql: ExecSql,
     lane: ContainerSyncWatermarkLane,
     watermark: SyncWatermark,
     options?: ContainerSyncMarkerMutationOptions,
   ): Promise<boolean> {
-    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
-    const { laneId, laneKind } = containerSyncWatermarkLaneKey(lane);
-    const updatedAt = new Date().toISOString();
-    const row = {
-      laneId,
-      laneKind,
-      watermarkId: watermark.id,
-      watermarkUpdatedAt: watermark.updatedAt,
-      updatedAt,
-    };
+    return sqlContainerSyncWatermarkPersistence.recordLaneFetch(
+      execSql,
+      lane,
+      { checked: false, watermark },
+      options,
+    );
+  },
 
-    const save = async (
+  /**
+   * Upserts one lane row in a single statement: the cursor when `watermark`
+   * is set and the freshness marker when `checked`; the other half is kept.
+   */
+  async recordLaneFetch(
+    execSql: ExecSql,
+    lane: ContainerSyncWatermarkLane,
+    fetch: {
+      readonly checked: boolean;
+      readonly watermark: SyncWatermark | null;
+    },
+    options?: ContainerSyncMarkerMutationOptions,
+  ): Promise<boolean> {
+    if (!fetch.checked && !fetch.watermark) return true;
+    await sqlContainerSyncWatermarkPersistence.ensureSchema(execSql);
+    const now = new Date().toISOString();
+    const changed = {
+      ...(fetch.watermark
+        ? {
+            updatedAt: now,
+            watermarkId: fetch.watermark.id,
+            watermarkUpdatedAt: fetch.watermark.updatedAt,
+          }
+        : {}),
+      ...(fetch.checked ? { checkedAt: now } : {}),
+    };
+    const record = async (
       db: ClientSQLiteDatabase | ClientSQLiteTransactionScope,
     ) => {
       await db
         .insert(containerSyncWatermarks)
-        .values(row)
+        .values({ ...containerSyncWatermarkLaneKey(lane), ...changed })
         .onConflictDoUpdate({
           target: [
             containerSyncWatermarks.laneKind,
             containerSyncWatermarks.laneId,
           ],
-          set: row,
+          set: changed,
         })
         .run();
     };
     const runtime = getClientSQLitePersistenceRuntime(execSql);
     if (!options?.stillCurrent) {
-      await runtime.runMutation(save);
+      await runtime.runMutation(record);
       return true;
     }
-    return (await runtime.guardedTransaction(save, options.stillCurrent))
+    return (await runtime.guardedTransaction(record, options.stillCurrent))
       .committed;
   },
 

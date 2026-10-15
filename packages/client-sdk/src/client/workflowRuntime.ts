@@ -4,15 +4,20 @@ import type { DomainScope } from "../data/domainScope";
 import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
 import type { PrincipalHistoryProtectionLease } from "../data/principals/principalHistoryProtection";
 import type { SecurityIncidentReporter } from "../data/securityIncidents";
-import { unavailableExecSql } from "../data/sqlite/sqlSchema";
+import { type ExecSql, unavailableExecSql } from "../data/sqlite/sqlSchema";
 import {
   createApiUserIdentitySource,
   createTrustedUserIdentityService,
   type LocalUserIdentityCandidate,
+  loadPinnedUserIdentity,
   type TrustedUserIdentityResolver,
   type TrustedUserIdentityService,
 } from "../data/trustedUserIdentity";
 import type { ContainerContentsRootAdopter } from "../workflows/container-contents/runtime";
+import {
+  createProvisionedPrincipalHistoryPrimer,
+  type ProvisionedPrincipalHistoryPrimer,
+} from "../workflows/registration/provisionedPrincipalHistory";
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
@@ -67,10 +72,7 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
 }
 
 export interface InternalRuntime {
-  readonly identityLinks: Pick<
-    TrustedUserIdentityService,
-    "createLink" | "verifyLink"
-  >;
+  identityLinks: Pick<TrustedUserIdentityService, "createLink" | "verifyLink">;
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
@@ -80,6 +82,7 @@ export interface InternalRuntime {
     userId: string,
     candidate: LocalUserIdentityCandidate,
   ): Promise<void>;
+  readonly primeProvisionedPrincipalHistory: ProvisionedPrincipalHistoryPrimer;
   workflowInput(
     containerId?: string | null | undefined,
   ): InternalWorkflowRuntimeInput;
@@ -138,36 +141,55 @@ function createRuntimeMutationApi(
   });
 }
 
-function createRuntimeIdentityService(
+function localIdentityCandidate(
+  identity: Identity,
+): LocalUserIdentityCandidate | null {
+  const { encapsulationKeyPair, signingKeyPair } = identity;
+  if (!encapsulationKeyPair || !signingKeyPair) return null;
+  return {
+    encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    signingKeyFingerprint: identity.signingFingerprint,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+  };
+}
+
+/** Priming reads the runtime's database, identity and trust pins; it pins nothing. */
+function createRuntimeProvisioningPrimer(
   dependencies: WorkflowRuntimeDependencies,
-) {
-  return createTrustedUserIdentityService({
-    getExecSql: () =>
-      dependencies.database.status === "ready"
-        ? dependencies.database.requireExecSql("trusted user identity")
+  bindLease: () => PrincipalHistoryProtectionLease | undefined,
+  readyExecSql: () => ExecSql | null,
+): ProvisionedPrincipalHistoryPrimer {
+  return createProvisionedPrincipalHistoryPrimer({
+    bindLease,
+    execSqlFor: (database) =>
+      dependencies.database.client === database ? readyExecSql() : null,
+    loadPinnedIdentity: async (execSql, userId) =>
+      dependencies.identityTrustDomain
+        ? loadPinnedUserIdentity({
+            execSql,
+            identityTrustDomain: dependencies.identityTrustDomain,
+            userId,
+          })
         : null,
-    getLocalIdentity: () => {
-      const encapsulationKeyPair = dependencies.identity.encapsulationKeyPair;
-      const signingKeyPair = dependencies.identity.signingKeyPair;
-      if (!encapsulationKeyPair || !signingKeyPair) {
-        return null;
-      }
-      return {
-        encapsulationPublicKey: encapsulationKeyPair.publicKey,
-        signingKeyFingerprint: dependencies.identity.signingFingerprint,
-        signingPublicKey: signingKeyPair.signingPublicKey,
-      };
-    },
-    getLocalUserId: () => dependencies.session.userId,
-    identityTrustDomain: dependencies.identityTrustDomain,
-    remoteSource: createApiUserIdentitySource(dependencies.api),
+    logError: dependencies.logError,
+    signingFingerprint: () => dependencies.identity.signingFingerprint,
   });
 }
 
 export function createRuntime(
   dependencies: WorkflowRuntimeDependencies,
 ): InternalRuntime {
-  const trustedUserIdentityService = createRuntimeIdentityService(dependencies);
+  const readyExecSql = () =>
+    dependencies.database.status === "ready"
+      ? dependencies.database.requireExecSql("trusted user identity")
+      : null;
+  const trustedUserIdentityService = createTrustedUserIdentityService({
+    getExecSql: readyExecSql,
+    getLocalIdentity: () => localIdentityCandidate(dependencies.identity),
+    getLocalUserId: () => dependencies.session.userId,
+    identityTrustDomain: dependencies.identityTrustDomain,
+    remoteSource: createApiUserIdentitySource(dependencies.api),
+  });
   const resolveTrustedUserIdentity: TrustedUserIdentityResolver = (userId) =>
     runWithSecurityIncidentReporting(
       dependencies.reportSecurityIncident,
@@ -231,6 +253,11 @@ export function createRuntime(
         () => trustedUserIdentityService.pinLocal(userId, candidate),
       );
     },
+    primeProvisionedPrincipalHistory: createRuntimeProvisioningPrimer(
+      dependencies,
+      historyProtection.bind,
+      readyExecSql,
+    ),
     publicRuntime: {
       get version() {
         return runtimeSubscription.version;

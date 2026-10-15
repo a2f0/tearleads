@@ -23,7 +23,6 @@ import type {
   DocumentSyncResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
-import { isAccessManifestBundleWireResponse } from "@tearleads/validators/util";
 import { assertAccessEvent, assertWriteHeader } from "../keyingAssertions";
 
 export type ExplorerRuntime = Parameters<typeof createExplorerStore>[0];
@@ -279,7 +278,7 @@ export async function createExplorerMetadataSyncResponse(input: {
     commitLsn: input.commitLsn,
     commitLsnMode: "tracked",
     contentKeyBundle: input.storedDocument.contentKeyBundle,
-    contentKeyBundles: [input.storedDocument.contentKeyBundle],
+    contentKeyBundles: [],
     documentId: input.storedDocument.id,
     documentKekTargets: input.storedDocument.documentKekTargets,
     pullPage: { hasMore: false, nextCursor: null },
@@ -304,26 +303,24 @@ export async function createExplorerContainerMutationResponse(
   previousProjection?: ContainerWriterProjectionResponse | undefined,
 ): Promise<ContainerMutationResponse> {
   const previousKek = previousProjection?.containerKeks.at(-1);
+  // Requests cite the previous head and history by hash; resolve them from the
+  // projection the caller mutated, as the server resolves them from its store.
+  const citedManifests = previousProjection?.path ?? [];
   const response = await createContainerMutationResponseFromRequest(
     request,
     previousKek,
+    citedManifests,
   );
-  const previousManifest =
-    request.previousManifest &&
-    typeof request.previousManifest === "object" &&
-    "manifestHash" in request.previousManifest
-      ? request.previousManifest
-      : null;
-  const previousManifestResponse = previousManifest
-    ? requireAccessManifestBundleWireResponse(previousManifest)
-    : null;
+  const previousManifestHash = request.previousManifestRef?.manifestHash;
+  const previousManifestResponse =
+    citedManifests.find(
+      (bundle) => bundle.manifestHash === previousManifestHash,
+    ) ?? null;
   const historyByHash = new Map<string, AccessManifestBundleWireResponse>();
   for (const bundle of [
     ...(previousManifestResponse ? [previousManifestResponse] : []),
     ...(previousKek?.containerManifestHistory ?? []),
-    ...(request.containerManifestHistory ?? []).map(
-      requireAccessManifestBundleWireResponse,
-    ),
+    ...response.containerKek.containerManifestHistory,
   ]) {
     if (
       Reflect.get(bundle.state, "containerId") === response.containerId &&
@@ -342,13 +339,4 @@ export async function createExplorerContainerMutationResponse(
         },
       }
     : response;
-}
-
-function requireAccessManifestBundleWireResponse(
-  value: unknown,
-): AccessManifestBundleWireResponse {
-  if (!isAccessManifestBundleWireResponse(value)) {
-    throw new Error("Expected previous manifest response bundle");
-  }
-  return value;
 }

@@ -6,14 +6,12 @@ import {
   isBlobAttachmentDetachResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
-  isCompleteMultipartBlobStageResponse,
   isContainerDeleteResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDestroySessionResponse,
   isErrorResponse,
   isHealthResponse,
   isInitiateMultipartBlobStageResponse,
-  isListContainerDocumentsResponse,
   isListContainersResponse,
   isListDocumentAttachmentsResponse,
   isListSessionsResponse,
@@ -116,17 +114,23 @@ test("session responses", () => {
 });
 
 test("multipart blob stage responses", () => {
+  const md5 = `${"A".repeat(22)}==`;
+  const part = { byteLength: 6, contentMd5: md5, partNumber: 1 };
   const initiated = {
     organizationId: "organization-1",
     byteLength: 12,
     expiresAt: new Date().toISOString(),
     sha256: "sha256-1",
+    partUploads: [{ ...part, source: { kind: "api" } }],
     stageId: "stage-1",
     uploadId: "upload-1",
     uploadedParts: [{ byteLength: 6, etag: "etag-1", partNumber: 1 }],
   };
 
   expect(isInitiateMultipartBlobStageResponse(initiated)).toBe(true);
+  const bad = { ...part, source: { kind: "signed-url" } };
+  const stage = { ...initiated, partUploads: [bad] };
+  expect(isInitiateMultipartBlobStageResponse(stage)).toBe(false);
   expect(
     isMultipartBlobStageStatusResponse({
       ...initiated,
@@ -140,15 +144,6 @@ test("multipart blob stage responses", () => {
       uploadId: "upload-1",
     }),
   ).toBe(true);
-  expect(
-    isCompleteMultipartBlobStageResponse({
-      organizationId: "organization-1",
-      byteLength: 12,
-      expiresAt: new Date().toISOString(),
-      sha256: "sha256-1",
-      stageId: "stage-1",
-    }),
-  ).toBe(true);
 
   expect(
     isInitiateMultipartBlobStageResponse({
@@ -158,7 +153,6 @@ test("multipart blob stage responses", () => {
   ).toBe(false);
   expect(isMultipartBlobStageStatusResponse(initiated)).toBe(false);
   expect(isUploadMultipartBlobPartResponse(null)).toBe(false);
-  expect(isCompleteMultipartBlobStageResponse(null)).toBe(false);
 });
 
 function createBlobContentKeyBundleResponse(overrides = {}) {
@@ -367,79 +361,6 @@ test("isContainerDeleteResponse", () => {
   ).toBe(true);
   expect(isContainerDeleteResponse({ containerId: "ctr-removed" })).toBe(false);
   expect(isContainerDeleteResponse(null)).toBe(false);
-});
-
-test("isListContainerDocumentsResponse", () => {
-  expect(
-    isListContainerDocumentsResponse({
-      hasMore: false,
-      items: [
-        {
-          createdAt: new Date().toISOString(),
-          currentAccessEpoch: 2,
-          currentAccessStateHash: "access-state-hash",
-          effectiveAccessLevel: "write",
-          id: "doc-123",
-          linkedContainerIds: ["ctr-root"],
-          referencedPrincipals: [
-            {
-              principalType: "group",
-              principalId: "group-123",
-              version: 1,
-              keyEpoch: 1,
-              stateHash: "state-hash",
-              keyFingerprint: "key-fingerprint",
-            },
-          ],
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-      nextWatermark: {
-        id: "doc-123",
-        updatedAt: new Date().toISOString(),
-      },
-      tombstones: [
-        {
-          containerId: "ctr-root",
-          documentId: "doc-removed",
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-    }),
-  ).toBe(true);
-  expect(
-    isListContainerDocumentsResponse({
-      hasMore: false,
-      items: [
-        {
-          createdAt: new Date().toISOString(),
-          currentAccessEpoch: 2,
-          currentAccessStateHash: "access-state-hash",
-          effectiveAccessLevel: "write",
-          id: "doc-123",
-          linkedContainerIds: ["ctr-root"],
-          updatedAt: new Date().toISOString(),
-        },
-      ],
-      nextWatermark: null,
-      tombstones: [],
-    }),
-  ).toBe(false);
-  expect(
-    isListContainerDocumentsResponse({
-      hasMore: false,
-      items: [
-        {
-          currentAccessEpoch: 2,
-          id: "doc-123",
-          linkedContainerIds: ["ctr-root"],
-        },
-      ],
-      nextWatermark: null,
-      tombstones: [],
-    }),
-  ).toBe(false);
-  expect(isListContainerDocumentsResponse(null)).toBe(false);
 });
 
 test("isPrincipalStateResponse", () => {

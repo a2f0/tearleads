@@ -19,7 +19,6 @@ import {
 } from "../jsonSchema";
 import {
   arraySchema,
-  boundedNonEmptyArraySchema,
   boundedNonEmptyStringSchema,
   boundedStringSchema,
   loosePlainObject,
@@ -29,9 +28,7 @@ import {
   requiredUnknownSchema,
   sha256HexStringSchema,
 } from "../schema";
-import { AccessManifestBundleWireSchema } from "../util/accessManifestBundle";
 import { MAX_INLINE_CONTAINER_REKEYS } from "../util/containerKekKeyringWire";
-import { MAX_CONTAINER_PATH_LENGTH } from "../util/containerLimits";
 import {
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
   MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS,
@@ -46,29 +43,22 @@ import {
   ContainerMutationRequestSchema,
 } from "./container";
 import {
+  ContainerManifestPathSchema,
+  type ContainerManifestRef,
+  ContainerManifestRefListSchema,
+  ContainerManifestRefSchema,
+  OptionalContainerManifestPathSchema,
+} from "./containerManifestRef";
+import {
   ContentKeyWrappedKeySchema,
   contentKeyWrappingMetadataSchema,
 } from "./contentKeyEnvelopeSchema";
 
-/**
- * A reference to a container access manifest the server already stores, in lieu
- * of re-embedding the full signed manifest bundle. The server resolves the full
- * manifest from its own store by `manifestHash` and pins it to the container's
- * current head, so the reference carries the same authority as the full bundle
- * without the multi-KB signature. `containerId` is advisory: the server keys the
- * head lookup off the resolved bundle's own containerId and rejects a mismatch.
- */
-export const ContainerManifestRefSchema = loosePlainObject({
-  containerId: nonEmptyStringSchema,
-  manifestHash: nonEmptyStringSchema,
-});
-
-export type ContainerManifestRef = z.infer<typeof ContainerManifestRefSchema>;
-
-export const ContainerManifestPathSchema = boundedNonEmptyArraySchema(
+export {
+  ContainerManifestPathSchema,
+  type ContainerManifestRef,
   ContainerManifestRefSchema,
-  MAX_CONTAINER_PATH_LENGTH,
-);
+};
 
 export const ContainerManifestRefArrayArraySchema = arraySchema(
   ContainerManifestPathSchema,
@@ -164,22 +154,19 @@ const DocumentSyncContainerMutationRequestSchema = registerJsonSchemaView(
   ),
   z.looseObject({
     body: requiredUnknownSchema,
-    containerManifestHistory: z
-      .array(AccessManifestBundleWireSchema)
-      .optional(),
-    destinationParentContainerPath: z
-      .array(AccessManifestBundleWireSchema)
-      .optional(),
+    containerManifestHistoryRefs: ContainerManifestRefListSchema.optional(),
+    destinationParentContainerPathRefs:
+      OptionalContainerManifestPathSchema.optional(),
     event: plainObjectSchema,
     expectedManifestHash: nonEmptyStringSchema,
     keyEpoch: plainObjectSchema,
     keyring: plainObjectSchema.nullable(),
     manifest: plainObjectSchema,
-    parentContainerPath: z.array(AccessManifestBundleWireSchema).optional(),
+    parentContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
     parentKekState: plainObjectSchema.nullable().optional(),
     predecessorBridge: plainObjectSchema.nullable(),
-    previousContainerPath: z.array(AccessManifestBundleWireSchema).optional(),
-    previousManifest: AccessManifestBundleWireSchema.nullable().optional(),
+    previousContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
+    previousManifestRef: ContainerManifestRefSchema.nullable().optional(),
     principalPolicies: z.array(plainObjectSchema),
     userRecipientKeys: z.array(plainObjectSchema).optional(),
     wraps: z.array(plainObjectSchema),

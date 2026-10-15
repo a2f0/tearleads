@@ -119,8 +119,8 @@ function buildRootContainerCreateRequest(input: {
       input.manifest,
       "Container root create manifest",
     ),
-    previousManifest: null,
-    parentContainerPath: [],
+    previousManifestRef: null,
+    parentContainerPathRefs: [],
     principalPolicies: readCanonicalRecords(
       input.principalPolicies,
       "Container root create principal policies",

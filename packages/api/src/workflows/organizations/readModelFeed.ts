@@ -2,11 +2,6 @@ import type {
   ApiDatabase,
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
-import {
-  type OrganizationReadModelLane,
-  type OrganizationReadModelOperation,
-  organizationReadModelChanges,
-} from "@tearleads/api-shared/schema";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationDirectoryResponse,
@@ -16,58 +11,23 @@ import type {
   OrganizationReadModelOrganizationPolicyResponse,
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
-import { and, asc, eq, gt } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
-import { requireDirectOrganizationAccess } from "./access";
+import {
+  requireDirectOrganizationAccess,
+  requireOrganizationAccessCandidate,
+} from "./access";
 import { loadOrganizationDirectoryInTransaction } from "./directory";
 import { listOrganizationContainerGrantResponsesInTransaction } from "./grants";
 import { loadOrganizationGroupMembershipsInTransaction } from "./groupMemberships";
 import { loadOrganizationGroupsInTransaction } from "./groups";
-import { lockOrganizationReadModelHeadInTransaction } from "./readModelChanges";
+import {
+  lockOrganizationReadModelHeadInTransaction,
+  type OrganizationReadModelHead,
+} from "./readModelChanges";
 import {
   decodeOrganizationReadModelCursor,
   encodeOrganizationReadModelCursor,
 } from "./readModelCursor";
-import { isOrganizationReadModelCursorRetained } from "./readModelRetention";
-
-interface ReadModelChange {
-  readonly entityId: string;
-  readonly lane: OrganizationReadModelLane;
-  readonly operation: OrganizationReadModelOperation;
-}
-
-async function listChanges(input: {
-  readonly cursor: bigint;
-  readonly organizationId: string;
-  readonly tx: DatabaseTransaction;
-}): Promise<ReadModelChange[]> {
-  return input.tx
-    .select({
-      entityId: organizationReadModelChanges.entityId,
-      lane: organizationReadModelChanges.lane,
-      operation: organizationReadModelChanges.operation,
-    })
-    .from(organizationReadModelChanges)
-    .where(
-      and(
-        eq(organizationReadModelChanges.organizationId, input.organizationId),
-        gt(organizationReadModelChanges.cursor, input.cursor),
-      ),
-    )
-    .orderBy(asc(organizationReadModelChanges.cursor));
-}
-
-function coalesceGroupMembershipChanges(
-  changes: readonly ReadModelChange[],
-): ReadonlyMap<string, OrganizationReadModelOperation> {
-  const operationsByGroupId = new Map<string, OrganizationReadModelOperation>();
-  for (const change of changes) {
-    if (change.lane === "groupMemberships") {
-      operationsByGroupId.set(change.entityId, change.operation);
-    }
-  }
-  return operationsByGroupId;
-}
 
 function toReadModelDirectory(
   directory: OrganizationDirectoryResponse,
@@ -175,61 +135,40 @@ async function loadSnapshotResponse(
   };
 }
 
-async function loadGroupMembershipDelta(input: {
-  readonly changes: readonly ReadModelChange[];
-  readonly organizationId: string;
-  readonly tx: DatabaseTransaction;
-}): Promise<OrganizationReadModelGroupMembershipsResponse> {
-  const membershipOperations = coalesceGroupMembershipChanges(input.changes);
-  const deletedGroupIds = [...membershipOperations.entries()]
-    .flatMap(([groupId, operation]) =>
-      operation === "delete" ? [groupId] : [],
-    )
-    .sort();
-  const currentGroupIds = [...membershipOperations.entries()]
-    .flatMap(([groupId, operation]) =>
-      operation === "delete" ? [] : [groupId],
-    )
-    .sort();
-  return loadOrganizationGroupMembershipsInTransaction({
-    deletedGroupIds,
-    executor: input.tx,
-    groupIds: currentGroupIds,
-    organizationId: input.organizationId,
-  });
-}
-
+/**
+ * Reload exactly the lanes stamped after the requested cursor. Whole lanes are
+ * replaced; the membership lane carries only groups whose rows or tombstones
+ * were stamped after it.
+ */
 async function loadDeltaResponse(
   input: ReadModelResponseContext,
+  head: OrganizationReadModelHead,
   requestedCursor: bigint,
 ): Promise<OrganizationReadModelResponse> {
-  const changes = await listChanges({
-    cursor: requestedCursor,
-    organizationId: input.organizationId,
-    tx: input.tx,
-  });
-  const changedLanes = new Set(changes.map((change) => change.lane));
+  const changed = (lane: keyof OrganizationReadModelHead["laneCursors"]) =>
+    head.laneCursors[lane] > requestedCursor;
   const lanes: ReadModelLanes = {};
-  if (changedLanes.has("directory")) {
+  if (changed("directory")) {
     lanes.directory = await loadDirectoryLane(input);
   }
-  if (changedLanes.has("groups")) {
+  if (changed("groups")) {
     lanes.groups = await loadOrganizationGroupsInTransaction({
       executor: input.tx,
       organizationId: input.organizationId,
     });
   }
-  if (changedLanes.has("grants")) {
+  if (changed("grants")) {
     lanes.grants = await loadGrantsLane(input);
   }
-  if (changedLanes.has("groupMemberships")) {
-    lanes.groupMemberships = await loadGroupMembershipDelta({
-      changes,
-      organizationId: input.organizationId,
-      tx: input.tx,
-    });
+  if (changed("groupMemberships")) {
+    lanes.groupMemberships =
+      await loadOrganizationGroupMembershipsInTransaction({
+        changedAfterCursor: requestedCursor,
+        executor: input.tx,
+        organizationId: input.organizationId,
+      });
   }
-  if (changedLanes.has("organizationPolicy")) {
+  if (changed("organizationPolicy")) {
     lanes.organizationPolicy = await loadOrganizationPolicyLane(input);
   }
   return {
@@ -254,12 +193,14 @@ async function getReadModelInTransaction(input: {
     organizationId: input.organizationId,
     userId: input.sessionUserId,
   };
-  await requireDirectOrganizationAccess(accessInput);
-  const currentHead = await lockOrganizationReadModelHeadInTransaction(
+  // Screen before the shared head lock so a caller without organization access
+  // never holds it; the verified check below is the authoritative decision.
+  await requireOrganizationAccessCandidate(accessInput);
+  const head = await lockOrganizationReadModelHeadInTransaction(
     input.tx,
     input.organizationId,
   );
-  if (currentHead === null) {
+  if (head === null) {
     throw new Error("Organization read-model cursor head is missing");
   }
   const access = await requireDirectOrganizationAccess(accessInput);
@@ -274,24 +215,17 @@ async function getReadModelInTransaction(input: {
     isOrgAdmin: access.isOrgAdmin,
     nextCursor: encodeOrganizationReadModelCursor(
       input.organizationId,
-      currentHead,
+      head.cursor,
     ),
     organizationId: input.organizationId,
     sessionUserId: input.sessionUserId,
     tx: input.tx,
   };
-  const requiresSnapshot =
-    requestedCursor === null ||
-    requestedCursor > currentHead ||
-    !(await isOrganizationReadModelCursorRetained({
-      currentCursor: currentHead,
-      organizationId: input.organizationId,
-      requestedCursor,
-      tx: input.tx,
-    }));
-  return requiresSnapshot
+  // A cursor ahead of the head cannot have come from this organization's
+  // committed history, so the client resets from a snapshot.
+  return requestedCursor === null || requestedCursor > head.cursor
     ? loadSnapshotResponse(context)
-    : loadDeltaResponse(context, requestedCursor);
+    : loadDeltaResponse(context, head, requestedCursor);
 }
 
 export async function runGetOrganizationReadModelWorkflow(

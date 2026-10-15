@@ -8,6 +8,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { isRegistrationRequest } from "@tearleads/validators/request";
 import type {
   DestroySessionResponse,
+  ListContainerDocumentLanesResponse,
   ListContainerParentLanesResponse,
   ListSessionsResponse,
   OrganizationBillingResponse,
@@ -160,13 +161,28 @@ function remainingTimeoutMs(deadline: number): number {
   return Math.max(0, deadline - Date.now());
 }
 
-const emptyListResponse = () =>
-  HttpResponse.json({
-    hasMore: false,
-    items: [],
-    nextWatermark: null,
-    tombstones: [],
-  });
+/** Answers every requested lane of a batched listing with an empty page. */
+async function emptyLaneResults(request: Request) {
+  const input = (await request.json()) as {
+    lanes?: Array<{ laneId?: unknown }> | undefined;
+  };
+  const lanes = Array.isArray(input.lanes) ? input.lanes : [];
+  return lanes.flatMap((lane) =>
+    typeof lane.laneId === "string"
+      ? [
+          {
+            laneId: lane.laneId,
+            page: {
+              hasMore: false,
+              items: [],
+              nextWatermark: null,
+              tombstones: [],
+            },
+          },
+        ]
+      : [],
+  );
+}
 
 const server = setupServer(
   eventsSocket.addEventListener("connection", ({ client }) => {
@@ -255,34 +271,19 @@ const server = setupServer(
   ...rootConsoleHandlers,
   http.post(
     "http://localhost:3001/containers/parent-lanes/query",
-    async ({ request }) => {
-      const input = (await request.json()) as {
-        lanes?: Array<{ laneId?: unknown }> | undefined;
-      };
-      const lanes = Array.isArray(input.lanes) ? input.lanes : [];
-      return HttpResponse.json<ListContainerParentLanesResponse>({
-        results: lanes.flatMap((lane) =>
-          typeof lane.laneId === "string"
-            ? [
-                {
-                  laneId: lane.laneId,
-                  page: {
-                    hasMore: false,
-                    items: [],
-                    nextWatermark: null,
-                    tombstones: [],
-                  },
-                },
-              ]
-            : [],
-        ),
-      });
-    },
+    async ({ request }) =>
+      HttpResponse.json<ListContainerParentLanesResponse>({
+        results: await emptyLaneResults(request),
+      }),
   ),
-  http.get(
-    "http://localhost:3001/containers/:containerId/documents",
-    emptyListResponse,
+  http.post(
+    "http://localhost:3001/containers/documents/query",
+    async ({ request }) =>
+      HttpResponse.json<ListContainerDocumentLanesResponse>({
+        results: await emptyLaneResults(request),
+      }),
   ),
+
   http.get(
     "http://localhost:3001/containers/:containerId/writer-projection",
     () => {

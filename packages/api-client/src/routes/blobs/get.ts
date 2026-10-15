@@ -3,6 +3,7 @@ import {
   getBlobBytesOperation,
   getBlobDownloadOperation,
 } from "@tearleads/validators/operation";
+import type { MultipartBlobPartUploadSource } from "@tearleads/validators/util";
 import type { BinaryResponseOperationTransport } from "../../binaryResponseOperationTransport";
 import type { JsonOperationTransport } from "../../operationTransport";
 import type {
@@ -22,6 +23,12 @@ export interface UploadMultipartBlobPartBytesRequest {
   readonly byteLength: number;
   readonly encryptedBytes: Blob | BufferSource;
   readonly sha256: string;
+  /**
+   * An upload source the stage initiation already issued for this part. The
+   * first attempt uses it instead of authorizing; a failed attempt still
+   * reauthorizes once, exactly as when no source was issued.
+   */
+  readonly source?: MultipartBlobPartUploadSource | undefined;
   readonly uploadId: string;
 }
 

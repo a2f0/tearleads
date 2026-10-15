@@ -1,5 +1,5 @@
 {
-  "id": "a4afc343-7555-433c-9633-e232937ca6f3",
+  "id": "9738a1b2-0e45-4ab0-b8b4-830d4aadae7c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -783,38 +783,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.access_manifest_verifications": {
-      "name": "access_manifest_verifications",
-      "schema": "",
-      "columns": {
-        "manifest_hash": {
-          "name": "manifest_hash",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "mac": {
-          "name": "mac",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.access_manifests": {
       "name": "access_manifests",
       "schema": "",
@@ -903,6 +871,12 @@
           "type": "jsonb",
           "primaryKey": false,
           "notNull": true
+        },
+        "verification_mac": {
+          "name": "verification_mac",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -2973,82 +2947,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.document_container_links": {
-      "name": "document_container_links",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "document_id": {
-          "name": "document_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "container_id": {
-          "name": "container_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "document_container_links_document_container_idx": {
-          "name": "document_container_links_document_container_idx",
-          "columns": [
-            {
-              "expression": "document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "container_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "document_container_links_container_idx": {
-          "name": "document_container_links_container_idx",
-          "columns": [
-            {
-              "expression": "container_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.document_content_key_epochs": {
       "name": "document_content_key_epochs",
       "schema": "",
@@ -3946,6 +3844,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "membership_cursor": {
+          "name": "membership_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
         },
         "created_at": {
           "name": "created_at",
@@ -5219,6 +5124,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "deleted_cursor": {
+          "name": "deleted_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
         "deleted_at": {
           "name": "deleted_at",
           "type": "timestamp",
@@ -5238,92 +5150,13 @@
               "nulls": "last"
             },
             {
-              "expression": "deleted_at",
+              "expression": "deleted_cursor",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.organization_read_model_changes": {
-      "name": "organization_read_model_changes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cursor": {
-          "name": "cursor",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "lane": {
-          "name": "lane",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "entity_id": {
-          "name": "entity_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "operation": {
-          "name": "operation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "organization_read_model_changes_org_cursor_idx": {
-          "name": "organization_read_model_changes_org_cursor_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "cursor",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5348,6 +5181,41 @@
         },
         "cursor": {
           "name": "cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "directory_cursor": {
+          "name": "directory_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "grants_cursor": {
+          "name": "grants_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "group_memberships_cursor": {
+          "name": "group_memberships_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "groups_cursor": {
+          "name": "groups_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "organization_policy_cursor": {
+          "name": "organization_policy_cursor",
           "type": "bigint",
           "primaryKey": false,
           "notNull": true,
@@ -5554,133 +5422,6 @@
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.principal_container_grant_projection": {
-      "name": "principal_container_grant_projection",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "principal_type": {
-          "name": "principal_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "principal_id": {
-          "name": "principal_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "state_hash": {
-          "name": "state_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "container_id": {
-          "name": "container_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "access_level": {
-          "name": "access_level",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "principal_container_grant_projection_principal_idx": {
-          "name": "principal_container_grant_projection_principal_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "principal_container_grant_projection_container_idx": {
-          "name": "principal_container_grant_projection_container_idx",
-          "columns": [
-            {
-              "expression": "container_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "principal_container_grant_projection_state_container_idx": {
-          "name": "principal_container_grant_projection_state_container_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "state_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "container_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -6853,6 +6594,12 @@
         "grant_count": {
           "name": "grant_count",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "container_grants": {
+          "name": "container_grants",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": true
         },

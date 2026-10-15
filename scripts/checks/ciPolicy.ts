@@ -17,7 +17,12 @@ export function ciScopes(paths: readonly string[]) {
   );
   return {
     native:
-      common || paths.some((path) => /^packages\/app-capacitor\//.test(path)),
+      common ||
+      paths.some(
+        (path) =>
+          /^packages\/app-capacitor\//.test(path) ||
+          path === "scripts/checks/testNativePurchaseBridge.sh",
+      ),
     terraform:
       common ||
       paths.some((path) =>

@@ -5,7 +5,10 @@ import {
   waitForDomainSyncCoordinatorToSettle,
 } from "../../data/sync/syncCoordinator";
 import { createReconciliationService } from "./service";
-import { createReconciliationTestHost } from "./service.testFixtures";
+import {
+  createReconciliationTestHost,
+  perContainerDiscovery,
+} from "./service.testFixtures";
 
 test("a temporarily unavailable child retains force and later converges without re-reading its settled sibling", async () => {
   const unavailable = Object.assign(new Error("temporarily unavailable"), {
@@ -24,11 +27,11 @@ test("a temporarily unavailable child retains force and later converges without 
       online,
     }),
     isIgnorableError: isDatabaseUnavailableError,
-    discoverContainerDocuments: async (containerId) => {
+    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
       discoveries.push(containerId);
       if (containerId === "child" && !childVisible) throw unavailable;
       return [];
-    },
+    }),
     requestDocumentContentPull: (containerId, _summaries, force) => {
       pulls.push({ containerId, force });
     },

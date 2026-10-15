@@ -162,6 +162,7 @@ async function loadCurrentDocumentLinkSet(input: {
   if (bundle?.manifest.objectKind !== "document") {
     throw new KeyingReadAccessError("Document manifest bundle missing", 409);
   }
+  input.context.verificationMarkers.seed(bundle);
 
   try {
     const verified = await verifyStoredDocumentManifest({

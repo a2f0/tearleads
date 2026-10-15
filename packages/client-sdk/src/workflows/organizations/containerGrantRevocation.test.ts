@@ -33,7 +33,7 @@ test("organization revocation cannot acknowledge or cascade after cancellation",
             submitted = true;
             const response = await createMutationResponseFromRequest(
               request,
-              parent.projection.containerKeks.at(-1),
+              parent.projection,
             );
             active = false;
             return response;

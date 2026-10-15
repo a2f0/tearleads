@@ -80,7 +80,7 @@ test("recovery rejects a matching history tail without a durable id", async () =
   }
 });
 
-test("recovery rejects a checkpoint pending row without a durable id", async () => {
+test("recovery rejects a queued checkpoint row without a durable row id", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-recovery-null-checkpoint-pending-id",
   );
@@ -107,24 +107,22 @@ test("recovery rejects a checkpoint pending row without a durable id", async () 
       undefined,
       async () => undefined,
     );
+    // A queued rotation baseline is its own local tail row; one without a
+    // durable row id cannot be pruned by the guarded delete.
     await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data, partial_start_version_vector,
-        partial_end_version_vector, source_version_vector, created_at
-      ) VALUES (NULL, 'documents', ?, ?, '', ?, ?, ?)`,
+      `INSERT INTO document_history_updates (
+        id, app_kind, local_id, update_data, origin, created_at, update_id,
+        partial_start_version_vector, partial_end_version_vector,
+        source_version_vector
+      ) VALUES (NULL, 'documents', ?, ?, 'local', ?, 'baseline', '', ?, ?)`,
       [
         initialRecord.id,
         recoveredSnapshot,
-        recoveredVersion,
-        recoveredVersion,
         "2026-08-26T00:00:00.000Z",
+        recoveredVersion,
+        recoveredVersion,
       ],
     );
-    await sqlDocumentsPersistence.appendHistoryUpdates(execSql, {
-      localId: initialRecord.id,
-      origin: "local",
-      updates: [recoveredSnapshot],
-    });
     const expectedRecord = await sqlDocumentsPersistence.loadDocument(
       execSql,
       initialRecord.id,
@@ -151,10 +149,10 @@ test("recovery rejects a checkpoint pending row without a durable id", async () 
     ).rejects.toThrow("unproven pending updates");
     expect(
       await execSql(
-        "SELECT id FROM document_pending_updates WHERE local_id = ?",
+        "SELECT id, update_id FROM document_history_updates WHERE local_id = ?",
         [initialRecord.id],
       ),
-    ).toEqual([{ id: null }]);
+    ).toEqual([{ id: null, update_id: "baseline" }]);
     expect(
       await sqlDocumentsPersistence.loadHistoryRestoreState(
         execSql,

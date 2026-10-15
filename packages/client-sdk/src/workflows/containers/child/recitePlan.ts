@@ -10,6 +10,7 @@ import type { ContainerReciteResponse } from "@tearleads/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
 import type { HeldContainerHead } from "../../../data/containers/shared/heldContainerHeads";
 import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
+import { containerManifestRef } from "../../../data/containers/shared/projection";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
 import {
   canonicalKeyingJsonString,
@@ -91,8 +92,10 @@ export async function buildContainerRecitePlan(input: {
     event: readCanonicalRecord(event, "Recitation event"),
     manifest: readCanonicalRecord(manifest, "Recitation manifest"),
     expectedManifestHash: manifestHash,
-    previousManifest: previous.bundle,
-    previousContainerPath: input.path.map((head) => head.bundle),
+    previousManifestRef: containerManifestRef(previous.bundle),
+    previousContainerPathRefs: input.path.map((head) =>
+      containerManifestRef(head.bundle),
+    ),
     principalPolicies: referencedRecitationPolicies(
       input.path,
       input.policies,

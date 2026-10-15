@@ -5,11 +5,14 @@ import type {
 import {
   containerSyncTombstones,
   containers,
-  documentContainerLinks,
 } from "@tearleads/api-shared/schema";
 import type { ContainerDeleteResponse } from "@tearleads/validators/response";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../access/read/accessManifestStore";
+import {
+  containerHasCurrentDocumentLink,
+  hasCurrentDocumentLink,
+} from "../../access/read/currentDocumentLinks";
 import { uniqueSortedStrings } from "../../utils/array";
 import { uuidValue } from "../../utils/sqlDialect";
 import { assertOrganizationCanSync } from "../billing/organizationSyncEligibility";
@@ -143,12 +146,10 @@ async function deleteLeafContainerRow(input: {
           from ${containers} child
           where child.parent_id = ${uuidValue(input.containerId)}
         )`,
-        sql`not exists (
-          select 1
-          from ${documentContainerLinks} link
-          where link.container_id = ${uuidValue(input.containerId)}
-            and link.document_id <> ${uuidValue(input.metadataDocumentId)}
-        )`,
+        sql`not ${containerHasCurrentDocumentLink({
+          containerId: uuidValue(input.containerId),
+          exceptDocumentId: uuidValue(input.metadataDocumentId),
+        })}`,
       ),
     )
     .returning({ id: containers.id });
@@ -167,18 +168,13 @@ async function deleteLeafContainerRow(input: {
     throw new DeleteContainerError("Container has child containers", 409);
   }
 
-  const [linkedDocument] = await input.executor
-    .select({ documentId: documentContainerLinks.documentId })
-    .from(documentContainerLinks)
-    .where(
-      and(
-        eq(documentContainerLinks.containerId, input.containerId),
-        ne(documentContainerLinks.documentId, input.metadataDocumentId),
-      ),
-    )
-    .limit(1);
-
-  if (linkedDocument) {
+  if (
+    await hasCurrentDocumentLink({
+      containerId: input.containerId,
+      exceptDocumentId: input.metadataDocumentId,
+      executor: input.executor,
+    })
+  ) {
     throw new DeleteContainerError("Container has linked documents", 409);
   }
 
@@ -313,9 +309,7 @@ async function deleteContainerWithExecutor(input: {
   });
   await appendOrganizationReadModelChangeInTransaction(input.executor, {
     organizationId,
-    lane: "grants",
-    entityId: organizationId,
-    operation: "replace",
+    lanes: ["grants"],
   });
 
   return {

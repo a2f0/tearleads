@@ -227,6 +227,33 @@ export function arraySchema<ItemSchema extends z.ZodType>(
   });
 }
 
+/**
+ * Validates a plain-object map's values without rebuilding it, like
+ * arraySchema. Callers read entries with Object.entries or Object.hasOwn so a
+ * wire key such as "__proto__" is only ever an own data property.
+ */
+export function plainRecordSchema<ValueSchema extends z.ZodType>(
+  valueSchema: ValueSchema,
+) {
+  const viewSchema = z.record(z.string(), valueSchema);
+  const runtimeSchema = registerJsonSchemaView(
+    z.custom<Record<string, z.output<ValueSchema>>>(isPlainObject),
+    viewSchema,
+  ).superRefine((value, context) => {
+    for (const [key, entry] of Object.entries(value)) {
+      const result = valueSchema.safeParse(entry);
+      if (result.success) {
+        continue;
+      }
+      for (const issue of result.error.issues) {
+        context.addIssue({ ...issue, path: [key, ...issue.path] });
+      }
+    }
+  });
+
+  return registerJsonSchemaView(runtimeSchema, viewSchema);
+}
+
 export function nonEmptyArraySchema<ItemSchema extends z.ZodType>(
   itemSchema: ItemSchema,
 ) {

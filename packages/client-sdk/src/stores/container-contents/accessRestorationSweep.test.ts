@@ -6,6 +6,7 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
+import { insertQueuedUpdateRows } from "../../../test/helpers/queuedUpdateRows";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../../data/domainScope";
 import {
@@ -65,12 +66,13 @@ async function seedDormantMetadata(
       snapshotEndVersion: "",
     },
   );
-  await execSql(
-    `INSERT INTO document_pending_updates
-    (id, app_kind, local_id, update_data, partial_start_version_vector, partial_end_version_vector, created_at)
-    VALUES (?, 'container-metadata', ?, 'data', '', '', 'now')`,
-    [`pending-${containerId}`, containerId],
-  );
+  await insertQueuedUpdateRows(execSql, [
+    {
+      appKind: "container-metadata",
+      id: `pending-${containerId}`,
+      localId: containerId,
+    },
+  ]);
   await defaultContainerContentsPersistence.deleteContainers(
     execSql,
     [

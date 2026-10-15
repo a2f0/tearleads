@@ -11,6 +11,7 @@ import {
   getCurrentAccessManifestHead,
 } from "../../access/read/accessManifestStore";
 import { createProjectionReaders } from "../../keyingProjectionRecords";
+import type { AccessManifestVerificationMarkerStore } from "../containers/writerProjection/verificationMarkers";
 import { DocumentWriterProjectionError } from "./writerProjectionError";
 
 const { accessManifestRecord, verifiedAccessEventRecord, readCanonicalRecord } =
@@ -29,9 +30,11 @@ export function toAccessManifestBundleWireResponse(
   };
 }
 
+/** The current head's bundle; its row's marker seeds `markers`, if given. */
 export async function loadCurrentDocumentManifestBundle(
   executor: DatabaseSession,
   documentId: string,
+  markers?: AccessManifestVerificationMarkerStore,
 ): Promise<AccessManifestBundleWireResponse> {
   const head = await getCurrentAccessManifestHead(
     "document",
@@ -70,5 +73,6 @@ export async function loadCurrentDocumentManifestBundle(
     );
   }
 
+  markers?.seed(bundle);
   return toAccessManifestBundleWireResponse(bundle);
 }

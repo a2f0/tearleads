@@ -1,43 +1,6 @@
 import { index, pgTable, timestamp, uniqueIndex, uuid } from "./columns";
 
 /**
- * Current materialized document-to-container links.
- *
- * Document link authority comes from signed document link-set manifests and the
- * per-manifest projection in `accessManifestDocumentLinkProjection`. This table
- * stores the current link set for the document row itself so document workflows
- * can update the structural projection by deleting and reinserting the current
- * linked containers.
- *
- * Columns:
- * - `id`: Surrogate database primary key.
- * - `documentId`: Document whose current linked containers are projected.
- * - `containerId`: Currently linked container id.
- * - `createdAt`: Server-side insertion timestamp for the projected link row.
- *
- * Indexes:
- * - `(documentId, containerId)` is unique so a document links a container at
- *   most once in the current projection.
- * - `containerId` supports container-oriented document listing.
- */
-export const documentContainerLinks = pgTable(
-  "document_container_links",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    documentId: uuid("document_id").notNull(),
-    containerId: uuid("container_id").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    uniqueIndex("document_container_links_document_container_idx").on(
-      table.documentId,
-      table.containerId,
-    ),
-    index("document_container_links_container_idx").on(table.containerId),
-  ],
-);
-
-/**
  * Per-container document unlink tombstones for differential document discovery.
  *
  * A row means the document is no longer currently linked to the container as of

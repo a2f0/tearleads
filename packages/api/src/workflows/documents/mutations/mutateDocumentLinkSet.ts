@@ -33,7 +33,7 @@ import { lockDocumentLinkSetMutationHeads } from "./linkSetMutationLocks";
 import {
   assertDocumentCanRelink,
   assertDocumentLinkSetCanAdvance,
-  replaceDocumentContainerLinks,
+  recordDocumentLinkSetChange,
 } from "./shared/documentRows";
 import {
   documentManifestBundleRecord,
@@ -136,11 +136,12 @@ async function advanceDocumentLinkSet(input: {
       executor: input.executor,
     });
   }
-  await replaceDocumentContainerLinks({
+  await recordDocumentLinkSetChange({
     documentId: input.documentId,
     executor: input.executor,
     incrementAttributionRevision: input.eventType === "document.unlink",
     linkedContainerIds: input.manifest.state.linkedContainerIds,
+    previousLinkedContainerIds: input.previousManifest.state.linkedContainerIds,
   });
   return storeDocumentContentKeyBundleInTransaction(
     toStoredContentKeyBundleInput(
@@ -196,12 +197,13 @@ async function appendRepairedRosterProfileChanges(
   executor: DatabaseTransaction,
   bindings: readonly RepairedRosterProfileBinding[],
 ): Promise<void> {
-  for (const binding of bindings) {
+  const organizationIds = new Set(
+    bindings.map((binding) => binding.organizationId),
+  );
+  for (const organizationId of organizationIds) {
     await appendOrganizationReadModelChangeInTransaction(executor, {
-      entityId: binding.userId,
-      lane: "directory",
-      operation: "upsert",
-      organizationId: binding.organizationId,
+      lanes: ["directory"],
+      organizationId,
     });
   }
 }

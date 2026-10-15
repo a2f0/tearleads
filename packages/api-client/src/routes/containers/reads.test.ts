@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import {
-  containerDocuments,
+  containerDocumentLanes,
   containerKekLog,
   containerParentLanes,
 } from "./reads";
@@ -26,18 +26,8 @@ test("container read client metadata derives from shared operations", () => {
     ).toThrow(TypeError);
   }
 
-  expect(containerDocuments.method).toBe("GET");
-  expect(
-    containerDocuments.path("container/1", {
-      limit: 25,
-      watermark: {
-        id: "container-watermark",
-        updatedAt: "2026-08-06T00:00:00.000Z",
-      },
-    }),
-  ).toBe(
-    "/containers/container%2F1/documents?watermarkUpdatedAt=2026-08-06T00%3A00%3A00.000Z&watermarkId=container-watermark&limit=25",
-  );
+  expect(containerDocumentLanes.method).toBe("POST");
+  expect(containerDocumentLanes.path).toBe("/containers/documents/query");
 
   expect(containerParentLanes.method).toBe("POST");
   expect(containerParentLanes.path).toBe("/containers/parent-lanes/query");

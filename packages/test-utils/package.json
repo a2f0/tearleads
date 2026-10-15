@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/test-utils",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",

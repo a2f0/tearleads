@@ -20,7 +20,8 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   const evictedDocumentIds: string[] = [];
   let projectionRequestCount = 0;
   let stageCount = 0;
-  let completionCount = 0;
+  // Binding completes the stage, so one bind means one completed stage.
+  let bindCount = 0;
   const multipart = createMultipartBlobStageFixture({
     stageId: "stage-stale-blob-upload",
   });
@@ -29,15 +30,13 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
       ...multipart,
-      bindBlobAttachment: async (requestBlobId, request) =>
-        createBlobAttachmentBindResponse({
+      bindBlobAttachment: async (requestBlobId, request) => {
+        bindCount += 1;
+        return createBlobAttachmentBindResponse({
           blobId: requestBlobId,
           documentManifest: writerProjection.documentManifest,
           request,
-        }),
-      completeMultipartBlobStage: async (stageId, request) => {
-        completionCount += 1;
-        return multipart.completeMultipartBlobStage(stageId, request);
+        });
       },
       evictDocumentWriterProjection: (documentId) => {
         evictedDocumentIds.push(documentId);
@@ -73,7 +72,7 @@ test("uploadDocumentAttachment refetches writer projection after a stale contain
   expect(evictedDocumentIds).toEqual([writerProjection.documentId]);
   expect(projectionRequestCount).toBe(2);
   expect(stageCount).toBe(1);
-  expect(completionCount).toBe(1);
+  expect(bindCount).toBe(1);
   expect(uploaded?.bindingId).toBe(bindingId);
 });
 

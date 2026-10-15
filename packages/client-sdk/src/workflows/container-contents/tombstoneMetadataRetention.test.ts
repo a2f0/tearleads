@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { encodeVersionVector, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
@@ -110,9 +111,7 @@ test("deleted cascade drops the metadata document and queue", async () => {
       ),
     ).toBe(false);
     expect(await countRows(execSql, "documents", "doomed")).toBe(0);
-    expect(await countRows(execSql, "document_pending_updates", "doomed")).toBe(
-      0,
-    );
+    expect(await countRows(execSql, QUEUED_UPDATES_SQL, "doomed")).toBe(0);
     // The metadata document's durable history goes with its record — no
     // orphaned checkpoint or tail rows behind a deleted cascade.
     expect(
@@ -155,9 +154,7 @@ test("access_revoked cascade retains the metadata document dormant", async () =>
     // survive, keyed by the stable container id, so access restoration
     // re-attaches them when rehydration recreates the container.
     expect(await countRows(execSql, "documents", "revoked")).toBe(1);
-    expect(
-      await countRows(execSql, "document_pending_updates", "revoked"),
-    ).toBe(1);
+    expect(await countRows(execSql, QUEUED_UPDATES_SQL, "revoked")).toBe(1);
     expect(await countRows(execSql, "document_sync_failures", "revoked")).toBe(
       1,
     );
@@ -184,12 +181,8 @@ test("unsigned mixed cascade retains all metadata regardless of reason", async (
       { discoveryOnly: true },
     );
 
-    expect(await countRows(execSql, "document_pending_updates", "doomed")).toBe(
-      1,
-    );
-    expect(
-      await countRows(execSql, "document_pending_updates", "revoked"),
-    ).toBe(1);
+    expect(await countRows(execSql, QUEUED_UPDATES_SQL, "doomed")).toBe(1);
+    expect(await countRows(execSql, QUEUED_UPDATES_SQL, "revoked")).toBe(1);
   } finally {
     await close();
   }
@@ -206,9 +199,7 @@ test("explicit local deletion purges dormant retained metadata", async () => {
       [containerRemoval("revoked", "access_revoked")],
       { discoveryOnly: true },
     );
-    expect(
-      await countRows(execSql, "document_pending_updates", "revoked"),
-    ).toBe(1);
+    expect(await countRows(execSql, QUEUED_UPDATES_SQL, "revoked")).toBe(1);
 
     // The container is already absent locally; the purge call carries no
     // retain entry, as an explicit local deletion (not a remote discovery hint).
@@ -217,9 +208,7 @@ test("explicit local deletion purges dormant retained metadata", async () => {
     ]);
 
     expect(await countRows(execSql, "documents", "revoked")).toBe(0);
-    expect(
-      await countRows(execSql, "document_pending_updates", "revoked"),
-    ).toBe(0);
+    expect(await countRows(execSql, QUEUED_UPDATES_SQL, "revoked")).toBe(0);
     expect(await countRows(execSql, "document_sync_failures", "revoked")).toBe(
       0,
     );
@@ -394,8 +383,9 @@ test("dormant metadata stays out of deferred-tail candidates", async () => {
       [authoredVersion, "revoked"],
     );
     await execSql(
-      `UPDATE document_pending_updates SET update_data = ?
-       WHERE app_kind = 'container-metadata' AND local_id = ?`,
+      `UPDATE document_history_updates SET update_data = ?
+       WHERE update_id IS NOT NULL
+         AND app_kind = 'container-metadata' AND local_id = ?`,
       [authoredSnapshot, "revoked"],
     );
 

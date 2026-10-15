@@ -81,9 +81,16 @@ export const documentSyncResponsePullPageRefinement = {
   id: "response.pull-page-continuation",
 } as const;
 
+export const documentSyncResponseHistoricalBundlesRefinement = {
+  description:
+    "contentKeyBundles carries each content-key epoch at most once, and only epochs older than contentKeyBundle.contentKeyEpoch",
+  id: "response.historical-content-key-bundles",
+} as const;
+
 export const documentSyncResponseRuntimeRefinements = [
   documentSyncResponseRotationRefinement,
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
   documentSyncResponsePullPageRefinement,
+  documentSyncResponseHistoricalBundlesRefinement,
 ] as const;

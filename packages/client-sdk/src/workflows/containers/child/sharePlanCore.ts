@@ -23,6 +23,7 @@ import type {
 import { uniquePrincipalPolicies } from "../../../data/containers/shared/principalPolicies";
 import {
   asContainerManifestBundle,
+  containerManifestRef,
   getParentKekForTarget,
   readContainerState,
 } from "../../../data/containers/shared/projection";
@@ -220,7 +221,8 @@ function buildContainerShareRequest(input: {
       input.previousManifest,
       input.previousProjection,
     ),
-    containerManifestHistory: [...input.containerManifestHistory],
+    containerManifestHistoryRefs:
+      input.containerManifestHistory.map(containerManifestRef),
     predecessorBridge: null,
     keyring: null,
     parentKekState: readCanonicalRecordOrNull(

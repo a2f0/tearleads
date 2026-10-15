@@ -45,15 +45,15 @@ test("group creation and adding a peer have separate request budgets", async () 
       label: `create ${group} organization group`,
       operation: () => createOrganizationGroup(pane, `Budget ${group} group`),
       budget: {
-        // Measured 17/15 requests. Allow three directory/Admins reads to move
+        // Measured 7/6 requests. Allow three directory/Admins reads to move
         // across the phase boundary; metadata unwrap reuses exact local evidence.
-        total: group === "first" ? 20 : 18,
+        total: group === "first" ? 10 : 9,
         byRequest: {
-          "GET /principals/history": 9,
+          "GET /principals/history": 1,
           "GET /containers/:containerId/writer-projection": 1,
           "GET /organizations/:organizationId/read-model": 2,
-          "GET /principals/group/:groupId/policy": group === "first" ? 4 : 2,
-          "GET /principals/organization/:organizationId/policy": 3,
+          "GET /principals/group/:groupId/policy": 1,
+          "GET /principals/organization/:organizationId/policy": 2,
           "POST /organizations/:organizationId/groups": 1,
         },
       },
@@ -98,19 +98,19 @@ test("group creation and adding a peer have separate request budgets", async () 
         // The first add enrolls the peer in Members before the custom group,
         // including metadata discovery, read-only sync, and a billing refresh.
         // The second add reuses that roster membership and stays a single write.
-        // First enrollment now measures 90 calls with private metadata-root
+        // First enrollment measures 40 calls with private metadata-root
         // authority. Keep five reads of phase headroom; later adds get three.
-        total: group === "first" ? 95 : 23,
+        total: group === "first" ? 45 : 11,
         byRequest: {
-          "GET /principals/history": group === "first" ? 45 : 12,
+          "GET /principals/history": group === "first" ? 8 : 2,
           "GET /containers/:containerId/writer-projection":
             group === "first" ? 3 : 1,
           "GET /organizations/:organizationId/read-model":
             group === "first" ? 4 : 3,
-          "GET /principals/group/:groupId/policy": group === "first" ? 14 : 2,
+          "GET /principals/group/:groupId/policy": group === "first" ? 3 : 1,
           "GET /auth/user-identity/:userId": group === "first" ? 2 : 0,
           "GET /principals/organization/:organizationId/policy":
-            group === "first" ? 17 : 3,
+            group === "first" ? 10 : 2,
           "PUT /organizations/:organizationId/groups/:groupId/policy-commit":
             group === "first" ? 2 : 1,
           // A concurrent policy advance can require a fresh post-create proof.
@@ -118,7 +118,7 @@ test("group creation and adding a peer have separate request budgets", async () 
             group === "first" ? 3 : 0,
           "POST /documents/:documentId/sync": group === "first" ? 3 : 0,
           "POST /containers/parent-lanes/query": group === "first" ? 2 : 0,
-          "GET /containers/:containerId/documents": group === "first" ? 1 : 0,
+          "POST /containers/documents/query": group === "first" ? 1 : 0,
           "GET /organizations/:organizationId/billing":
             group === "first" ? 1 : 0,
           "GET /organizations/:organizationId/groups/:groupId/members": 1,
@@ -140,13 +140,13 @@ test("group creation and adding a peer have separate request budgets", async () 
       `create and add peer to ${group} group`,
       pairStart,
     );
-    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 112 : 38);
+    expect(combined.length).toBeLessThanOrEqual(group === "first" ? 53 : 17);
     expect(
       combined.filter(
         (request) =>
           request.method === "GET" &&
           requestPath(request.url) === "/principals/history",
       ).length,
-    ).toBeLessThanOrEqual(group === "first" ? 54 : 21);
+    ).toBeLessThanOrEqual(group === "first" ? 11 : 3);
   }
 }, 90_000);

@@ -66,7 +66,7 @@ test("document create rejects a retained manifest belonging to a deleted contain
   expect(newChild.status).toBe(409);
   expect(await newChild.json()).toEqual({
     code: CONTAINER_UNAVAILABLE_ERROR_CODE,
-    error: "parentContainerPath[1] container unavailable",
+    error: "parentContainerPathRefs[1] container unavailable",
   });
 });
 

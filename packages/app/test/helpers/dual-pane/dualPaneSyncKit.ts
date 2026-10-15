@@ -1,5 +1,4 @@
 import { expect } from "bun:test";
-import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { act } from "@testing-library/react";
 import {
   type AppTestSyncLaneErrorBaseline,
@@ -20,6 +19,10 @@ import {
   POST_SHARE_NETWORK_IDLE_QUIET_MS,
   POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
 } from "./dualPaneCore";
+import {
+  listUnresolvedPostShareFailures,
+  mayResolvePostShareFailure,
+} from "./postShareFailures";
 
 interface PostShareSyncBaseline {
   readonly requestStartIndex: number;
@@ -79,28 +82,6 @@ export async function waitForRemoteAttachmentBlob() {
   );
 }
 
-function isRetryableDocumentSyncFailure(request: ProxiedApiRequest): boolean {
-  let code: unknown;
-  try {
-    const body = JSON.parse(request.responseBody) as unknown;
-    code =
-      typeof body === "object" && body !== null
-        ? Reflect.get(body, "code")
-        : null;
-  } catch {
-    code = null;
-  }
-
-  return (
-    request.method === "POST" &&
-    request.status === 409 &&
-    /^\/documents\/[^/]+\/sync$/u.test(requestPath(request.url)) &&
-    (code === DOCUMENT_SYNC_ERROR_CODES.stateStale ||
-      code === DOCUMENT_SYNC_ERROR_CODES.updateIdConflict ||
-      code === DOCUMENT_SYNC_ERROR_CODES.checkpointCoverageConflict)
-  );
-}
-
 export function isDocumentWriterProjectionStaleContentBundleFailure(
   request: ProxiedApiRequest,
 ): boolean {
@@ -110,44 +91,6 @@ export function isDocumentWriterProjectionStaleContentBundleFailure(
     /^\/documents\/[^/]+\/writer-projection$/u.test(requestPath(request.url)) &&
     request.responseBody.includes("Document content-key bundle is stale")
   );
-}
-
-function hasLaterSuccessfulRetry(
-  requests: readonly ProxiedApiRequest[],
-  failedRequestIndex: number,
-): boolean {
-  const failedRequest = requests[failedRequestIndex];
-  if (!failedRequest) {
-    return false;
-  }
-
-  return requests
-    .slice(failedRequestIndex + 1)
-    .some(
-      (request) =>
-        request.method === failedRequest.method &&
-        request.url === failedRequest.url &&
-        request.status >= 200 &&
-        request.status < 400,
-    );
-}
-
-function listUnresolvedPostShareFailures(
-  requests: readonly ProxiedApiRequest[],
-): ProxiedApiRequest[] {
-  return requests.filter((request, index) => {
-    if (request.status < 400) {
-      return false;
-    }
-    if (
-      isRetryableDocumentSyncFailure(request) &&
-      hasLaterSuccessfulRetry(requests, index)
-    ) {
-      return false;
-    }
-
-    return true;
-  });
 }
 
 function listPaneErrorLines(panes: readonly HTMLElement[]): string[] {
@@ -191,7 +134,7 @@ export async function waitForNoPostShareSyncFailures(
 
     expect(
       unresolvedFailures.filter(
-        (request) => !isRetryableDocumentSyncFailure(request),
+        (request) => !mayResolvePostShareFailure(request),
       ),
       `Unexpected post-share API failures.\nrequests=\n${summarizeProxiedApiRequests(postShareRequests)}`,
     ).toEqual([]);

@@ -3,6 +3,7 @@ import { createReconciliationService } from "./service";
 import {
   createGate,
   createReconciliationTestHost,
+  perContainerDiscovery,
 } from "./service.testFixtures";
 
 test("requests share a queued full refresh even when the root refresh fails", async () => {
@@ -26,10 +27,10 @@ test("requests share a queued full refresh even when the root refresh fails", as
         fullStarted.open();
         await finishFull.wait;
       },
-      discoverContainerDocuments: async (containerId) => {
+      discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
         calls.push(`discover:${containerId}`);
         return [];
-      },
+      }),
     }),
   );
 
@@ -103,10 +104,10 @@ test("an old refresh cannot clear the pending refresh after restart", async () =
           await finishCurrent.wait;
         }
       },
-      discoverContainerDocuments: async (containerId) => {
+      discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
         discovered.push(containerId);
         return [];
-      },
+      }),
     }),
   );
 

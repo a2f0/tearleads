@@ -102,6 +102,13 @@ successful reconciliation, so the lossy hint cannot be discarded by discovery
 suppression, temporary ineligibility, a transient request failure, or database
 loss mid-request. A fulfilled discovery that reports an incompletely listed
 remote lane also retains the force for the next reconciliation signal.
+Discovery lists containers in batches through `POST /containers/documents/query`:
+a reconciliation lane run lists up to four queued containers and a sweep up to
+32 per request. Each container keeps its own watermark and page bound, then
+verifies and applies on its own, in order; a rejected lane or a failed apply
+leaves the other containers' results intact. Force generations are captured
+before the batched request is sent, so a hint arriving while it is in flight is
+never acknowledged by that batch.
 Rejected forced discovery receives one backoff-delayed automatic retry per
 force generation. A second failure settles the coordinator while retaining the
 force for a later event, reconnect, hydration, navigation, or manual sync
@@ -220,7 +227,12 @@ staged and bound. Byte I/O uses a separate FIFO pool with four permits per API
 client, shared by sync hydration downloads and multipart uploads. Relink
 key-authentication downloads use their existing path. A permit
 covers upload encryption through the part response, or a complete download
-stream; permits are released on success and failure. Document lanes await their
+stream; permits are released on success and failure. A new stage's first
+parts are encrypted before the stage exists, to describe them in its
+initiation, so each holds its permit from encryption until its upload ends:
+the upload awaits one permit and takes further ones only if they are free,
+since two uploads each waiting for a second permit while holding a first
+would deadlock the pool. Document lanes await their
 transfers and retain ownership of binding and persistence.
 
 Unlinking an attachment from a synced document is the mirror case. The local

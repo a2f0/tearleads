@@ -1,10 +1,6 @@
 import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  accessManifests,
-  documentContainerLinks,
-  documentUpdates,
-} from "@tearleads/api-shared/schema";
+import { accessManifests, documentUpdates } from "@tearleads/api-shared/schema";
 import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -29,6 +25,7 @@ import type {
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";
+import { currentDocumentLinkRows } from "./currentDocumentLinks";
 import type { StoredRootFixture } from "./keyingWriterProjectionKit";
 
 async function createSignedOrdinaryUpdate(input: {
@@ -287,10 +284,7 @@ export async function expectStaleAtomicUnlinkRollsBack(input: {
       .select({ id: documentUpdates.id })
       .from(documentUpdates)
       .where(eq(documentUpdates.id, request.rotationBaseline?.id ?? "missing")),
-    db
-      .select({ containerId: documentContainerLinks.containerId })
-      .from(documentContainerLinks)
-      .where(eq(documentContainerLinks.documentId, input.documentId)),
+    currentDocumentLinkRows(input.documentId),
   ]);
   expect(manifest).toHaveLength(0);
   expect(update).toHaveLength(0);

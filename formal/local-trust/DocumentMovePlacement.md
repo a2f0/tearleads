@@ -16,7 +16,7 @@ trashed item reappear in its source folder.
 | `ApplyListingTombstone`, `TombstonesRequireSignedEvidence` | `settleContainerDocumentTombstones` applies a listing tombstone only with a `verified` verdict from `createContainerDocumentTombstoneVerifier`, whose head link set omits the container and whose epoch is not below the local document epoch. The model states only that evidence condition; the visible `refuted` retry and the hidden `unverified` retry by `holdContainerDocumentTombstones` are production behaviour outside the model. `createDiscoveredDocumentVerifier` also verifies listing-item placements before `replaceDocumentLinksBatch` |
 | `PeerPurge` | A different authorized client purges the document; `createDocumentHeadLinkSetLoader` accepts its terminal signed proof through `loadDocumentPurgeCheckpoint`, permitting the later listing tombstone |
 | `MergeCurrentPage`, `KeepNewestPageLinks` | `mergeDiscoveredDocumentInputs` selects links from the newest access epoch across discovery lanes |
-| `CapturePage`, `ApplyPage`, `CheckEpoch` | `discoverContainerDocuments` and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `resolveDiscoveredDocumentPlacement` preserves newer placement and access state |
+| `CapturePage`, `ApplyPage`, `CheckEpoch` | `applyListedContainerDocuments` (single and batched-lane discovery, which captures every lane's page in one request and applies each later) and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `resolveDiscoveredDocumentPlacement` preserves newer placement and access state |
 | `StartRead`, `FinishRead`, `CheckReadPlacement` | `saveDocumentRecord` publishes `placementChanged`; `refreshPersistedDocument` discards pending reads for structural writes before publication |
 | `RefreshReadSummary`, `CheckReadMembership` | `listContainerContentsDocumentsForContainers` filters stale link IDs against the returned summaries and final link map |
 | `StablePlacement`, `StableView` | `listContainerContentsDocumentsForContainers` and `loadContainerSummaries` expose the chosen local placement throughout replay |
@@ -40,6 +40,10 @@ still catches an unsigned removal while the remote head links the original
 container.
 
 The model abstracts cryptography, content, network failures, and SQL internals.
+Its verified evidence also covers the exact-head cache that organization
+provisioning seeds for documents the client signed and the server acknowledged;
+those heads are pinned as verification checkpoints in the same transaction, so
+the seeding adds no model action.
 The local relink transaction includes intent enqueue or settlement and link
 writes. The server still performs link and unlink separately; waiting in the
 unlink phase models a failed request awaiting retry. The two destinations are

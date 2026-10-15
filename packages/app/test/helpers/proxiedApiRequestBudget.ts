@@ -74,10 +74,6 @@ function normalizeRequestPath(path: string): string {
         "/principals/organization/:organizationId/policy",
       )
       .replace(
-        /^\/containers\/[^/]+\/documents$/u,
-        "/containers/:containerId/documents",
-      )
-      .replace(
         /^\/containers\/[^/]+\/writer-projection$/u,
         "/containers/:containerId/writer-projection",
       )
@@ -112,10 +108,6 @@ function normalizeRequestPath(path: string): string {
       .replace(
         /^\/blobs\/stages\/multipart\/[^/]+\/parts\/[^/]+\/bytes$/u,
         "/blobs/stages/multipart/:stageId/parts/:partNumber/bytes",
-      )
-      .replace(
-        /^\/blobs\/stages\/multipart\/[^/]+\/complete$/u,
-        "/blobs/stages/multipart/:stageId/complete",
       )
       .replace(
         /^\/blobs\/stages\/multipart\/[^/]+$/u,

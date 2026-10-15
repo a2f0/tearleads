@@ -100,7 +100,8 @@ test("registration birth rolls back when its initial queue insert fails", async 
     await sqlDocumentsPersistence.ensureSchema(execSql);
     await execSql(`
       CREATE TRIGGER fail_registration_pending_update
-      BEFORE INSERT ON document_pending_updates
+      BEFORE INSERT ON document_history_updates
+      WHEN NEW.update_id IS NOT NULL
       BEGIN
         SELECT RAISE(ABORT, 'registration pending update failed');
       END
