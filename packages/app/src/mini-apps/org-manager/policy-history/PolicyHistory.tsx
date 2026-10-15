@@ -193,10 +193,7 @@ export function PolicyHistorySection({
         pending={pending}
         profileDisplayNamesByUserId={profileDisplayNamesByUserId}
       />
-      {history &&
-      "nextBeforeVersion" in history &&
-      history.nextBeforeVersion != null &&
-      loadMore ? (
+      {history && history.nextBeforeVersion != null && loadMore ? (
         <LoadOlderHistoryButton key={history.principalId} load={loadMore} />
       ) : null}
     </MiniAppSection>

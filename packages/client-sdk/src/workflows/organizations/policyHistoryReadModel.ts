@@ -137,13 +137,26 @@ function buildPrincipalPolicyHistoryEntries(
   return entries.reverse();
 }
 
+// Entries run newest first; the oldest one held is the cursor for older
+// entries unless it is genesis.
+function olderEntriesCursor(
+  entries: ReadonlyArray<OrganizationPrincipalPolicyHistoryEntry>,
+): number | null {
+  const oldestVersion = entries.at(-1)?.version;
+  return oldestVersion !== undefined && oldestVersion > 1
+    ? oldestVersion
+    : null;
+}
+
 export function buildOrganizationGroupPolicyHistory(
   bundle: PrincipalPolicyBundleResponse,
   organizationId: string,
 ): OrganizationGroupPolicyHistory {
+  const entries = buildPrincipalPolicyHistoryEntries(bundle);
   return {
-    entries: buildPrincipalPolicyHistoryEntries(bundle),
+    entries,
     groupId: bundle.currentState.principalId,
+    nextBeforeVersion: olderEntriesCursor(entries),
     organizationId,
     principalId: bundle.currentState.principalId,
     principalType: "group",
@@ -153,11 +166,10 @@ export function buildOrganizationGroupPolicyHistory(
 export function buildOrganizationPolicyHistory(
   bundle: PrincipalPolicyBundleResponse,
 ): OrganizationPolicyHistory {
+  const entries = buildPrincipalPolicyHistoryEntries(bundle);
   return {
-    entries: buildPrincipalPolicyHistoryEntries(bundle).map((entry) => ({
-      ...entry,
-      groupChanges: null,
-    })),
+    entries: entries.map((entry) => ({ ...entry, groupChanges: null })),
+    nextBeforeVersion: olderEntriesCursor(entries),
     organizationId: bundle.currentState.principalId,
     principalId: bundle.currentState.principalId,
     principalType: "organization",

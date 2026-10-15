@@ -138,8 +138,8 @@ test("isRegistrationRequest", () => {
         body: { eventType: "container.create" },
         expectedManifestHash: "container-manifest-hash",
         manifest: { objectKind: "container" },
-        previousManifest: null,
-        parentContainerPath: [],
+        previousManifestRef: null,
+        parentContainerPathRefs: [],
         keyEpoch: { id: "container-key-epoch-id" },
         predecessorBridge: null,
         keyring: null,
@@ -152,7 +152,6 @@ test("isRegistrationRequest", () => {
         body: { eventType: "document.link" },
         expectedManifestHash: "document-manifest-hash",
         manifest: { objectKind: "document" },
-        previousManifest: null,
         targetContainerPathRefs: [
           {
             containerId: "container-1",
