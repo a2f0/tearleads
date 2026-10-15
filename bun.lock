@@ -95,7 +95,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.39",
+      "version": "0.1.40",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
