@@ -34,8 +34,8 @@ SDK `principal_policies`, `principal_policy_organizations`,
 `principal_policy_checkpoints`,
 `principal_history_prefixes`, `principal_history_entries`,
 `principal_history_nodes`, `principal_history_node_references`,
-`principal_history_root_owners`, `principal_history_stage_scopes`,
-`principal_key_envelope_archive`, `principal_history_stages`,
+`principal_history_root_owners`, `principal_key_envelope_archive`,
+`principal_history_stages` (with scope and recency columns, #2539),
 `principal_mutation_journal`, `principal_grant_retirements`.
 
 - One small Explorer upload measures 8 requests, 3 of them
@@ -77,8 +77,8 @@ Tables: API `documents`, `document_updates`, `document_update_spans`,
 `blob_stages`, `blob_content_key_epochs`, `blob_content_key_targets`,
 `blob_content_write_headers`, `attachment_bindings`. A document's current
 links are `access_manifest_heads` joined to
-`access_manifest_document_link_projection` (#2536). SDK `documents`,
-`document_sync_failures`, `document_history_checkpoints`,
+`access_manifest_document_link_projection` (#2536). SDK `documents` (which
+carries the last sync failure, #2539), `document_history_checkpoints`,
 `document_history_updates`, `document_pending_attachments`,
 `document_attachment_blob_projection`,
 `document_orphan_blob_reclaims`.
@@ -104,8 +104,8 @@ links are `access_manifest_heads` joined to
   queue (#2534). Restore replays queued rows over a checkpoint that may
   already cover them. Which reads need which, and where do the snapshot and
   the log still hold the same bytes?
-- Is `document_sync_failures` state the scheduler needs, or a diagnostic that
-  belongs in the incident ledger?
+- Is the `documents.sync_failure_*` state the scheduler needs, or a diagnostic
+  that belongs in the incident ledger?
 - Could the sync response carry the next writer projection a follow-up pass
   would otherwise fetch?
 
@@ -113,12 +113,13 @@ links are `access_manifest_heads` joined to
 
 Tables: API `container_sync_tombstones`,
 `container_document_sync_tombstones`, `organization_group_tombstones`,
-`container_metadata_documents`. SDK `container_sync_watermarks`,
-`container_sync_lane_checks`, `document_discovery_heads`,
+`container_metadata_documents`. SDK `container_sync_watermarks` (cursor and
+lane check share one row, #2537), `document_discovery_heads`,
 `document_discovery_sequence`, `pending_document_discoveries`,
 `container_hydration_tombstones`, `container_document_tombstone_holds`,
 `dormant_container_metadata`, `dormant_metadata_sweep_requests`,
-`document_container_projection`, `container_projection`, `containers`.
+`document_container_projection`, and `containers` (which carries display
+name and icon since #2539).
 
 - A hint carries ids only, so each costs a listing, a projection, and a sync.
   Every artifact is signed and self-verifying: what could a hint carry (the
@@ -181,10 +182,10 @@ Tables: API `principal_policy_commits`,
 `principal_policy_mutation_acknowledgements`,
 `document_inline_rekey_commits`, `document_manifest_observations`,
 `document_baselines`, `blob_audit_objects`. SDK `principal_mutation_journal`,
-`organization_provisioning_attempts`, `container_create_intents`,
-`container_move_intents`, `document_move_intents`,
+`organization_provisioning_attempts`, `local_intents` (container create,
+container move, and document placement lanes, #2539),
 `document_intent_link_targets`, `document_purge_checkpoints`,
-`document_sync_failures`, `security_incidents`.
+`security_incidents`.
 
 - Run the reader and writer census from `measurement.md` on every table
   above. A table with no non-test reader is a retirement candidate unless a
@@ -211,8 +212,8 @@ change log with these stamps. SDK
 group-membership head tables in #2532),
 `organization_read_model_group_members`,
 `organization_read_model_container_grants`,
-`organization_presentation_denials`, `organization_data_usage_snapshots`,
-`organization_data_usage_categories`.
+`organization_presentation_denials`, `organization_data_usage_snapshots`
+(whose category breakdown is a validated JSON column, #2539).
 
 - The signed organization policy already carries the authoritative group
   directory and reserved heads. What does the read-model feed add beyond
