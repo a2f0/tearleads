@@ -58,12 +58,6 @@ following onto a database that predates it requires the greenfield reset above
   verification.
 - #2275: content write headers require `dependencyManifestHashes`; headers
   stored without a citation are refused on read and cannot be re-served.
-- #2522: the client SDK's outbound write queue is folded into
-  `document_history_updates` (`update_id` plus the queue columns), and
-  `document_pending_updates` is gone. A local database without `update_id` is
-  refused at startup with the obsolete-schema "reset the local database"
-  error; queued edits it had not synced are discarded with that reset. Local
-  backups move to format 10 and refuse older ones.
 - #2276: container manifests require `systemSlot`; pre-#2276 manifests fail the
   exact-key check.
 - #2271: container path references are resolved against live `containers`
@@ -86,6 +80,12 @@ following onto a database that predates it requires the greenfield reset above
   is dropped; `access_events.dependency_manifest_hashes` is the only copy of an
   event's dependency citations. Both generated baselines were replaced;
   existing databases require the coordinated reset.
+- #2522: the client SDK's outbound write queue is folded into
+  `document_history_updates` (`update_id` plus the queue columns), and
+  `document_pending_updates` is gone. A local database without `update_id` is
+  refused at startup with the obsolete-schema "reset the local database"
+  error; queued edits it had not synced are discarded with that reset. Local
+  backups move to format 10 and refuse older ones.
 - #2365 finding 25: login challenges are signed for the API origin
   (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`.
   A client built before it cannot log in, so the reset release ships every

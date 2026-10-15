@@ -1,5 +1,5 @@
 import { blobStages } from "@tearleads/api-shared/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import {
   type BlobObjectPart,
   BlobObjectStoreError,
@@ -51,6 +51,31 @@ async function assertCompletedMultipartObjectMatches(
   }
 }
 
+async function isStageComplete(
+  runtime: ApiServiceRuntime,
+  stage: OwnedActiveBlobStage,
+): Promise<boolean> {
+  const rows = await runtime.db
+    .select({ id: blobStages.id })
+    .from(blobStages)
+    .where(and(eq(blobStages.id, stage.id), isNotNull(blobStages.completedAt)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+// The upload is consumed but no object was readable: a concurrent bind may
+// have completed the stage in between, so a stage it marked complete is read
+// again. A stage still pending is genuinely gone (aborted or refused), which
+// tells the client to replace it.
+async function readObjectOfConcurrentCompletion(
+  runtime: ApiServiceRuntime,
+  stage: OwnedActiveBlobStage,
+) {
+  return (await isStageComplete(runtime, stage))
+    ? runtime.blobObjectStore.getObjectStream(stage.storageKey)
+    : null;
+}
+
 // Idempotent recovery for a retry after the object was assembled but the state
 // flip never committed (byte commit + row flip can't share a transaction). The
 // uploadId is consumed, so the store reports the missing upload. If the object
@@ -70,9 +95,9 @@ export async function recoverAssembledMultipartStage(
   ) {
     throw error;
   }
-  const existing = await runtime.blobObjectStore.getObjectStream(
-    stage.storageKey,
-  );
+  const existing =
+    (await runtime.blobObjectStore.getObjectStream(stage.storageKey)) ??
+    (await readObjectOfConcurrentCompletion(runtime, stage));
   if (!existing) {
     throw error;
   }

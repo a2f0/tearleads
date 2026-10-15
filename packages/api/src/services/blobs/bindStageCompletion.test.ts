@@ -11,13 +11,17 @@ import {
 } from "../../../test/helpers/blobAttachmentKit";
 import { createBlobEnvelopeFixture } from "../../../test/helpers/blobEnvelope";
 import { readBlobObjectText } from "../../../test/helpers/blobObjectStore";
-import { firstPartOf } from "../../../test/helpers/blobStageParts";
+import {
+  completeStageAsBind,
+  firstPartOf,
+} from "../../../test/helpers/blobStageParts";
 import {
   bootstrapRoot,
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { BlobObjectStoreError } from "../../adapters/blobObjectStore";
 import { sha256Hex } from "../../utils/sha256";
 import {
   initiateMultipartBlobStage,
@@ -303,4 +307,107 @@ test("a first bind reads the assembled object once", async () => {
   }
   expect(reads).toEqual(["completion observed"]);
   expect(await storedBlob(blobId)).toHaveLength(1);
+});
+
+// Two binds complete one stage at once. The second finds the upload consumed
+// and no object yet, while the first finishes completing it. Re-reading the
+// now-complete stage adopts that object, instead of reporting the stage gone
+// (which would make the client discard it and upload the bytes again).
+test("a completion racing another completion adopts the completed stage", async () => {
+  const { owner } = await bindScenario();
+  const blobId = crypto.randomUUID();
+  const { stage, stagedBlob } = await stageDeclaredEnvelope({
+    blobId,
+    owner,
+    uploaded: "envelope",
+  });
+  const input = { stageId: stage.stageId, userId: owner.userId };
+  const store = runtime.blobObjectStore;
+  let assembling = false;
+  let releaseCompletion = () => {};
+  const completionHeld = new Promise<void>((resolve) => {
+    releaseCompletion = resolve;
+  });
+  let signalAssembling = () => {};
+  const assemblingStarted = new Promise<void>((resolve) => {
+    signalAssembling = resolve;
+  });
+  let first: ReturnType<typeof completeStageAsBind> = Promise.resolve(null);
+  runtime.blobObjectStore = {
+    ...store,
+    completeMultipartUpload: async (completion) => {
+      assembling = true;
+      signalAssembling();
+      await completionHeld;
+      try {
+        return await store.completeMultipartUpload(completion);
+      } finally {
+        assembling = false;
+      }
+    },
+    // The racing read lands while the first completion is still assembling,
+    // and that completion then finishes before the racer looks again.
+    getObjectStream: async (key) => {
+      if (!assembling) return store.getObjectStream(key);
+      releaseCompletion();
+      await first;
+      return null;
+    },
+    listParts: (parts) =>
+      assembling
+        ? Promise.reject(
+            new BlobObjectStoreError(
+              "Multipart upload not found",
+              "multipart_upload_not_found",
+            ),
+          )
+        : store.listParts(parts),
+  };
+  try {
+    first = completeStageAsBind(runtime, input);
+    await assemblingStarted;
+    const racing = await completeStageAsBind(runtime, input);
+    expect(racing).toMatchObject({ sha256: stagedBlob.sha256 });
+    await expect(first).resolves.toMatchObject({ sha256: stagedBlob.sha256 });
+  } finally {
+    releaseCompletion();
+    runtime.blobObjectStore = store;
+  }
+});
+
+// The stage is complete once its digest matches; the envelope is judged after.
+// A malformed envelope is refused without un-completing the stage, so a retry
+// reads the same object and is refused the same way rather than reassembling.
+test("a bind refuses a malformed envelope after completing its stage", async () => {
+  const { document, owner, root } = await bindScenario();
+  const organizationId = await getDefaultOrganizationId(owner.userId);
+  const blobId = crypto.randomUUID();
+  const bytes = new Uint8Array(64).fill(7);
+  const stage = await initiateMultipartBlobStage(runtime, {
+    organizationId,
+    byteLength: bytes.byteLength,
+    firstParts: firstPartOf(bytes),
+    sha256: sha256Hex(bytes),
+    userId: owner.userId,
+  });
+  await uploadPart({ bytes, owner, partNumber: 1, stage });
+  const { request } = await buildBind({
+    blobId,
+    document,
+    owner,
+    root,
+    stagedBlob: { sha256: sha256Hex(bytes), stageId: stage.stageId },
+  });
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    await expect(bindForTest({ blobId, owner, request })).rejects.toMatchObject(
+      { status: 400 },
+    );
+    const [row] = await runtime.db
+      .select({ completedAt: blobStages.completedAt })
+      .from(blobStages)
+      .where(eq(blobStages.id, stage.stageId));
+    expect(row?.completedAt).not.toBeNull();
+  }
+  expect(await storedBlob(blobId)).toEqual([]);
 });

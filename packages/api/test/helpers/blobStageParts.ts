@@ -39,7 +39,7 @@ export function declaredFirstPart(
 export async function completeStageAsBind(
   runtime: ApiServiceRuntime,
   input: { readonly stageId: string; readonly userId: string },
-): Promise<void> {
+): ReturnType<typeof completeOwnedMultipartStage> {
   const stage = await loadMultipartBlobStage(runtime, input);
-  await completeOwnedMultipartStage(runtime, stage);
+  return completeOwnedMultipartStage(runtime, stage);
 }

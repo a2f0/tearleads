@@ -457,6 +457,11 @@ first missing part), or parts that miss the declared length are refused
 before the upload is consumed, so that part can still be sent.
 Completion is idempotent: a stage already complete is used as is, and an
 object assembled before a lost state flip is re-verified before it is adopted.
+A bind that finds the upload consumed and no object re-reads the stage: if a
+concurrent bind has marked it complete, that object is verified and used. The
+stage is marked complete once the digest matches, before the envelope header
+is judged, so a malformed envelope is refused (`400`) with the stage left
+complete, and a retry is refused the same way.
 The API stores only object-store multipart metadata in `blob_stages`;
 encrypted payload bytes
 are never encoded into JSON or stored in the database. Staged objects are not

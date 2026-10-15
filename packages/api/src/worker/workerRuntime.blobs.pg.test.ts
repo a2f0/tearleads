@@ -1,9 +1,15 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { MultipartBlobPartUploadResponseSchema } from "@tearleads/validators/operation";
-import { createRegistrationRequestBody } from "../../test/helpers/api/submitRegistration";
+import { InitiateMultipartBlobStageResponseSchema } from "@tearleads/validators/response";
+import { authenticate } from "../../test/helpers/authenticate";
+import { buildBind } from "../../test/helpers/blobAttachmentKit";
+import { createBlobEnvelopeFixture } from "../../test/helpers/blobEnvelope";
 import { type FakeS3, startFakeS3 } from "../../test/helpers/fakeS3";
+import {
+  bootstrapRoot,
+  createDocument,
+} from "../../test/helpers/keyingWriterProjectionKit";
 import {
   attachWorkerLogs,
   databaseKind,
@@ -14,12 +20,15 @@ import {
   postJson,
   START_TIMEOUT_MS,
   startLocalWorker,
-  stringField,
 } from "../../test/helpers/localWorker";
+import { getDefaultOrganizationId } from "../../test/helpers/organizationMembership";
+import { registerUser } from "../../test/helpers/registerUser";
+import { sha256Hex } from "../utils/sha256";
 
 /**
  * The S3 transport in workerd against an S3 impostor: the multipart stage
- * lifecycle through the Worker (create, part, list, complete) decodes the
+ * lifecycle through the Worker (create with its first part's signed URL,
+ * part, list, then the attachment bind that completes the stage) decodes the
  * SDK's XML answers through the aliased parser, and the hourly Cron runs
  * blob garbage collection against the same store.
  */
@@ -46,63 +55,51 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime blobs", () => {
     s3?.stop();
   });
 
-  test("stages, uploads, lists, and completes a multipart blob, then collects garbage", async () => {
+  test("stages, uploads, lists, and binds a multipart blob, then collects garbage", async () => {
     const base = worker.origin;
-    const user = createTestUser();
-    const registration = await expectJson(
-      await postJson(
-        `${base}/auth/register`,
-        await createRegistrationRequestBody(
-          user.signing.signingPublicKey,
-          user.signing.signingPrivateKey,
-          user.kem.publicKey,
-          { includeTrashSystemContainer: true },
-        ),
-      ),
-      200,
-    );
+    const owner = createTestUser();
+    await registerUser(owner);
+    await authenticate(owner);
+    const root = await bootstrapRoot(owner);
+    const document = await createDocument({ owner, root });
+    const organizationId = await getDefaultOrganizationId(owner.userId);
     const authorized = {
-      authorization: `Bearer ${await loginThroughWorker(base, user)}`,
+      authorization: `Bearer ${await loginThroughWorker(base, owner)}`,
     };
-    // Web Crypto caps getRandomValues at 64 KiB per call.
-    const bytes = new Uint8Array(randomBytes(128 * 1024));
-    const digest = await crypto.subtle.digest("SHA-256", bytes);
-    const sha256 = Array.from(new Uint8Array(digest), (byte) =>
-      byte.toString(16).padStart(2, "0"),
-    ).join("");
-
-    const initiated = await expectJson(
-      await postJson(
-        `${base}/blobs/stages/multipart`,
-        {
-          organizationId: stringField(registration, "organizationId"),
-          byteLength: bytes.byteLength,
-          sha256,
-        },
-        authorized,
-      ),
-      200,
-    );
-    const stageId = stringField(initiated, "stageId");
-    const uploadId = stringField(initiated, "uploadId");
-
+    const blobId = crypto.randomUUID();
+    const { bytes } = await createBlobEnvelopeFixture({
+      blobId,
+      organizationId,
+    });
+    const sha256 = sha256Hex(bytes);
     const contentMd5 = createHash("md5").update(bytes).digest("base64");
-    const descriptor = MultipartBlobPartUploadResponseSchema.parse(
+
+    // The stage's first part arrives with its signed URL: no separate
+    // authorization request.
+    const initiated = InitiateMultipartBlobStageResponseSchema.parse(
       await expectJson(
         await postJson(
-          `${base}/blobs/stages/multipart/${stageId}/parts/1/upload`,
-          { byteLength: bytes.byteLength, contentMd5, uploadId },
+          `${base}/blobs/stages/multipart`,
+          {
+            organizationId,
+            byteLength: bytes.byteLength,
+            firstParts: [
+              { byteLength: bytes.byteLength, contentMd5, partNumber: 1 },
+            ],
+            sha256,
+          },
           authorized,
         ),
         200,
       ),
     );
-    if (descriptor.source.kind !== "signed-url")
+    const [firstPart] = initiated.partUploads;
+    if (firstPart?.source.kind !== "signed-url")
       throw new Error("Expected a direct upload URL");
     expect(
-      new URL(descriptor.source.url).searchParams.get("X-Amz-SignedHeaders"),
+      new URL(firstPart.source.url).searchParams.get("X-Amz-SignedHeaders"),
     ).toBe("content-length;content-md5;host");
-    const uploaded = await fetch(descriptor.source.url, {
+    const uploaded = await fetch(firstPart.source.url, {
       method: "PUT",
       headers: {
         "content-type": "application/octet-stream",
@@ -111,25 +108,29 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime blobs", () => {
       body: new File([bytes], "encrypted-part"),
     });
     expect(uploaded.status).toBe(200);
-    const etag = uploaded.headers.get("etag");
-    expect(etag).toBeTruthy();
 
     // Stage status lists the parts S3 holds: XML decoded in the Worker.
     const status = await expectJson(
-      await fetch(`${base}/blobs/stages/multipart/${stageId}`, {
+      await fetch(`${base}/blobs/stages/multipart/${initiated.stageId}`, {
         headers: authorized,
       }),
       200,
     );
     expect(field(status, "uploadedParts")).toMatchObject([{ partNumber: 1 }]);
 
+    // The bind completes the stage: list, complete, and one readback that
+    // both digests the object and parses its envelope header.
+    const { request } = await buildBind({
+      blobId,
+      document,
+      owner,
+      root,
+      stagedBlob: { sha256, stageId: initiated.stageId },
+    });
     await expectJson(
       await postJson(
-        `${base}/blobs/stages/multipart/${stageId}/complete`,
-        {
-          uploadId,
-          parts: [{ etag, partNumber: 1 }],
-        },
+        `${base}/blobs/${blobId}/attachment-bindings`,
+        request,
         authorized,
       ),
       200,
@@ -137,10 +138,10 @@ describe.skipIf(databaseKind !== "postgres")("Worker runtime blobs", () => {
     expect(
       [...s3.objects().values()].map((object) => object.byteLength),
     ).toEqual([bytes.byteLength]);
-    // Create, part, list, complete, then the completed object read back.
     expect(s3.requests()).toEqual([
       expect.stringMatching(/^POST .*\?uploads$/),
       expect.stringMatching(/^PUT .*\?uploadId&partNumber$/),
+      expect.stringMatching(/^GET .*\?uploadId$/),
       expect.stringMatching(/^GET .*\?uploadId$/),
       expect.stringMatching(/^POST .*\?uploadId$/),
       expect.stringMatching(/^GET \/fake\/[^?]+$/),

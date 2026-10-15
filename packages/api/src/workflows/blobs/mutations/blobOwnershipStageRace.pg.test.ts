@@ -14,6 +14,7 @@ import {
   buildBind,
   stageBlob,
 } from "../../../../test/helpers/blobAttachmentKit";
+import { completeStageAsBind } from "../../../../test/helpers/blobStageParts";
 import { gateTransactionSelectAfterExecution } from "../../../../test/helpers/gateDatabaseSelect";
 import {
   bootstrapRoot,
@@ -34,9 +35,12 @@ function deferred(): {
   return { promise, resolve: resolvePromise };
 }
 
+// Bind prevalidation completes the stage before the raced transaction runs.
 async function loadPrevalidatedStage(
   stageId: string,
+  userId: string,
 ): Promise<PrevalidatedMultipartBlobStage> {
+  await completeStageAsBind(blobAttachmentTestRuntime, { stageId, userId });
   const [stage] = await db
     .select({
       byteLength: blobStages.byteLength,
@@ -84,7 +88,10 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
           }),
           document,
           owner,
-          prevalidatedStage: await loadPrevalidatedStage(stagedBlob.stageId),
+          prevalidatedStage: await loadPrevalidatedStage(
+            stagedBlob.stageId,
+            owner.userId,
+          ),
           stageId: stagedBlob.stageId,
         };
       }),
