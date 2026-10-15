@@ -9,11 +9,13 @@ Estimated.
 
 Take these once per revision:
 
-- **API tables and indexes per dialect:** `CREATE TABLE` and
+- **API tables and indexes per dialect:** `CREATE TABLE` statements,
+  the indexes their `PRIMARY KEY` and `UNIQUE` constraints create, and
   `CREATE [UNIQUE] INDEX` statements in
   `packages/api-shared/drizzle/0000_greenfield_baseline.sql` (Postgres) and
   `packages/api-shared/drizzle-sqlite/0000_greenfield_baseline.sql`
-  (SQLite and Turso). Record each index's table, columns, uniqueness, and
+  (SQLite and Turso). Constraint indexes count: they can cover a narrower
+  index or serve a query. Record each index's table, columns, uniqueness, and
   partial predicate, and flag any index present in one dialect only.
 - **Client tables and indexes:** `sqliteTable(`, `index(`, and
   `uniqueIndex(` under `packages/client-sdk/src/data/sqlite` and
