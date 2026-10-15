@@ -136,7 +136,6 @@ type WireContentKeyBundle = ReturnType<typeof toContentKeyBundleResponse>;
 
 async function selectPullResponsePrefix(input: {
   readonly baseBytes: number;
-  readonly currentBundle: WireContentKeyBundle;
   readonly cursorHmacKey: string | null;
   readonly entries: readonly PullResponseEntry[];
   readonly historyMode?: DocumentSyncRequest["historyMode"];
@@ -148,10 +147,11 @@ async function selectPullResponsePrefix(input: {
   readonly page: RawPullPage;
   readonly plan: SyncPullPagePlan;
 }) {
-  const selectedBundlesByEpoch = new Map([
-    [input.identity.contentKeyEpoch, input.currentBundle],
-  ]);
-  let bundleArrayDelta = serializedBytes(input.currentBundle);
+  // The current epoch's bundle already travels as `contentKeyBundle` and is
+  // counted in the base bytes; the array carries only the older epochs the
+  // selected updates cite.
+  const historicalBundlesByEpoch = new Map<number, WireContentKeyBundle>();
+  let bundleArrayDelta = 0;
   let selectedCount = 0;
   let updateArrayDelta = 0;
   let pullPage = createSyncPullPageResponse({
@@ -165,21 +165,17 @@ async function selectPullResponsePrefix(input: {
 
   for (const [index, entry] of input.entries.entries()) {
     const entryEpoch = entry.writeHeader.contentKeyEpoch;
-    const selectedBundle = selectedBundlesByEpoch.get(entryEpoch);
-    let candidateBundle = selectedBundle;
-    if (!candidateBundle) {
-      const storedBundle = await input.loadContentKeyBundle(entryEpoch);
-      if (!storedBundle) {
-        throw new DocumentMutationError(
-          "Document content-key bundle missing",
-          409,
-        );
-      }
-      candidateBundle = toContentKeyBundleResponse(storedBundle);
-    }
-    const candidateBundleDelta = selectedBundle
-      ? bundleArrayDelta
-      : bundleArrayDelta + 1 + serializedBytes(candidateBundle);
+    const candidateBundle =
+      entryEpoch === input.identity.contentKeyEpoch ||
+      historicalBundlesByEpoch.has(entryEpoch)
+        ? null
+        : await loadHistoricalBundle(input.loadContentKeyBundle, entryEpoch);
+    const candidateBundleDelta =
+      candidateBundle === null
+        ? bundleArrayDelta
+        : bundleArrayDelta +
+          (historicalBundlesByEpoch.size === 0 ? 0 : 1) +
+          serializedBytes(candidateBundle);
     const candidateUpdateDelta =
       updateArrayDelta + (index === 0 ? 0 : 1) + serializedBytes(entry.update);
     const candidateCount = index + 1;
@@ -200,19 +196,34 @@ async function selectPullResponsePrefix(input: {
       candidateUpdateDelta +
       responsePagePropertyBytes(candidatePullPage);
     if (responseBytes > input.maxBytes) break;
-    selectedBundlesByEpoch.set(entryEpoch, candidateBundle);
+    if (candidateBundle !== null) {
+      historicalBundlesByEpoch.set(entryEpoch, candidateBundle);
+    }
     bundleArrayDelta = candidateBundleDelta;
     selectedCount = candidateCount;
     updateArrayDelta = candidateUpdateDelta;
     pullPage = candidatePullPage;
   }
   return {
-    contentKeyBundles: [...selectedBundlesByEpoch.values()].sort(
+    contentKeyBundles: [...historicalBundlesByEpoch.values()].sort(
       (left, right) => left.contentKeyEpoch - right.contentKeyEpoch,
     ),
     pullPage,
     selectedCount,
   };
+}
+
+async function loadHistoricalBundle(
+  loadContentKeyBundle: (
+    contentKeyEpoch: number,
+  ) => Promise<StoredDocumentContentKeyBundle | null>,
+  contentKeyEpoch: number,
+): Promise<WireContentKeyBundle> {
+  const storedBundle = await loadContentKeyBundle(contentKeyEpoch);
+  if (!storedBundle) {
+    throw new DocumentMutationError("Document content-key bundle missing", 409);
+  }
+  return toContentKeyBundleResponse(storedBundle);
 }
 
 /**
@@ -222,7 +233,6 @@ async function selectPullResponsePrefix(input: {
  */
 export async function buildPaginatedSyncPullResponse(input: {
   readonly base: SyncResponseBase;
-  readonly currentBundle: StoredDocumentContentKeyBundle;
   readonly cursorHmacKey: string | null;
   readonly entries: readonly PullResponseEntry[];
   readonly historyMode?: DocumentSyncRequest["historyMode"];
@@ -235,10 +245,12 @@ export async function buildPaginatedSyncPullResponse(input: {
   readonly plan: SyncPullPagePlan;
 }): Promise<SyncResponseWithoutCommit> {
   const maxBytes = input.maxBytes ?? MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES;
-  if (input.currentBundle.contentKeyEpoch !== input.identity.contentKeyEpoch) {
+  if (
+    input.base.contentKeyBundle.contentKeyEpoch !==
+    input.identity.contentKeyEpoch
+  ) {
     throw new DocumentMutationError("Document content-key bundle missing", 409);
   }
-  const currentBundle = toContentKeyBundleResponse(input.currentBundle);
   const sizingBase = {
     ...input.base,
     commitLsn: MAX_COMMIT_LSN,
@@ -250,7 +262,6 @@ export async function buildPaginatedSyncPullResponse(input: {
   const { contentKeyBundles, pullPage, selectedCount } =
     await selectPullResponsePrefix({
       baseBytes,
-      currentBundle,
       cursorHmacKey: input.cursorHmacKey,
       entries: input.entries,
       historyMode: input.historyMode,

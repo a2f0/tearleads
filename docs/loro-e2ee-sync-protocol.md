@@ -69,7 +69,7 @@ Document write routes:
     `commitLsnMode`, `contentKeyBundle`, `contentKeyBundles[]`, `documentId`,
     `documentKekTargets`, required `pullPage: {hasMore, nextCursor}`, and
     encrypted `updates[]`
-  - `contentKeyBundles[]` covers every served update's signed content-key epoch
+  - `contentKeyBundles[]` holds each older epoch a served update cites, once
   - each returned update includes its stored `accessEpoch`, visible causal
     metadata, `plaintextHash`, and signed `writeHeader`, which names that
     content-key epoch; readers verify the signed metadata commitment, decrypt,

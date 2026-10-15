@@ -443,7 +443,7 @@ export async function createSyncResponse(
     commitLsn: "0/16B6C50",
     commitLsnMode: "tracked",
     contentKeyBundle: plan.sourceContentKeyBundle,
-    contentKeyBundles: [plan.sourceContentKeyBundle],
+    contentKeyBundles: [],
     documentId: plan.documentId,
     documentKekTargets: plan.documentKekTargets,
     pullPage: { hasMore: false, nextCursor: null },

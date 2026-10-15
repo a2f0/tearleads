@@ -50,7 +50,7 @@ function response(input: {
     commitLsn: input.commitLsn,
     commitLsnMode: "tracked",
     contentKeyBundle: bundle,
-    contentKeyBundles: [bundle],
+    contentKeyBundles: [],
     documentId: DOCUMENT_ID,
     documentKekTargets: {
       documentId: DOCUMENT_ID,
@@ -119,7 +119,7 @@ test("submitDocumentSync returns a completed single page", async () => {
   ]);
   expect(result.response.updates.map(({ id }) => id)).toEqual(["update-1"]);
   expect(result.response.acceptedOutgoingUpdateIds).toEqual(["outgoing-1"]);
-  expect(result.response.contentKeyBundles).toHaveLength(1);
+  expect(result.response.contentKeyBundles).toEqual([]);
   expect(result.response.commitLsn).toBe("0/2");
   expect(result.response.pullPage).toEqual({
     hasMore: false,
