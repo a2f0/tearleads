@@ -392,4 +392,50 @@ describe("RevenueCat store-release safety", () => {
     expect(iosFastfile).toContain("delete_keychain(name: name)");
     expect(iosFastfile).toContain("OTHER_CODE_SIGN_FLAGS");
   });
+
+  test("iOS release archives only the committed Swift package pins", async () => {
+    const iosFastfile = await Bun.file(
+      resolve(repositoryRoot, "packages/app-capacitor/fastlane/lanes/ios.rb"),
+    ).text();
+    const buildLaneIndex = iosFastfile.indexOf(
+      "lane :build_testflight_release",
+    );
+    const snapshotIndex = iosFastfile.indexOf(
+      "    committed_package_pins = File.binread(IOS_PACKAGE_RESOLVED_PATH)",
+      buildLaneIndex,
+    );
+    const keychainIndex = iosFastfile.indexOf(
+      "    ipa_path = with_ios_signing_keychain do",
+      buildLaneIndex,
+    );
+    const strictIndex = iosFastfile.indexOf(
+      "          disable_package_automatic_updates: true,",
+      keychainIndex,
+    );
+    const guardIndex = iosFastfile.indexOf(
+      "    ensure_ios_package_pins_unchanged!(committed_package_pins)",
+      strictIndex,
+    );
+    const assetsIndex = iosFastfile.indexOf(
+      "    assets = require_ios_testflight_assets!(ipa_path)",
+      buildLaneIndex,
+    );
+
+    expect(snapshotIndex).toBeGreaterThan(buildLaneIndex);
+    expect(keychainIndex).toBeGreaterThan(snapshotIndex);
+    expect(strictIndex).toBeGreaterThan(keychainIndex);
+    expect(guardIndex).toBeGreaterThan(strictIndex);
+    expect(assetsIndex).toBeGreaterThan(guardIndex);
+    expect(iosFastfile).toContain(
+      "IOS_PACKAGE_RESOLVED_PATH = File.join(IOS_PROJECT_PATH, 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved')",
+    );
+    expect(
+      await Bun.file(
+        resolve(
+          repositoryRoot,
+          "packages/app-capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
+        ),
+      ).exists(),
+    ).toBe(true);
+  });
 });

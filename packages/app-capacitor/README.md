@@ -157,6 +157,11 @@ the generated native config is fully bundled, and builds
 Fastlane option `team_id:<id>`. With automatic signing, the lane passes
 `-allowProvisioningUpdates` by default; disable it with
 `IOS_ALLOW_PROVISIONING_UPDATES=false` or `allow_provisioning_updates:false`.
+The archive resolves Swift packages only from the committed `Package.resolved`
+(`-disableAutomaticPackageResolution`), and the lane fails before returning the
+IPA if the build changed that file. Its `originHash` covers the checkout's
+absolute path, so automatic resolution against a stale local package cache can
+otherwise upgrade pins within the manifests' version ranges.
 
 By default, the iOS build number uses the same PR-number convention as Android:
 the latest PR merged today, discovered with `gh` first and local git history as

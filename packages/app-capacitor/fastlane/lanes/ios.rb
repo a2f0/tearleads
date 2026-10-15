@@ -8,6 +8,7 @@ IOS_PACKAGE_DIR = File.expand_path('../..', __dir__)
 IOS_DIR = File.expand_path('../../ios', __dir__)
 IOS_APP_DIR = File.join(IOS_DIR, 'App')
 IOS_PROJECT_PATH = File.join(IOS_APP_DIR, 'App.xcodeproj')
+IOS_PACKAGE_RESOLVED_PATH = File.join(IOS_PROJECT_PATH, 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved')
 IOS_TARGET = 'App'
 IOS_SCHEME = NATIVE_RELEASE_TARGET.fetch(:ios_scheme)
 IOS_CONFIGURATION = NATIVE_RELEASE_TARGET.fetch(:ios_configuration)
@@ -268,6 +269,20 @@ def ios_export_options(team_id, profile_name)
   }
 end
 
+# Package.resolved's originHash covers the checkout's absolute path, so no
+# committed value matches every machine. With a stale local package cache,
+# Xcode's automatic resolution then re-resolves to the newest versions the
+# manifests allow and rewrites the pins. The archive disables automatic
+# resolution; this refuses an archive whose build still changed them.
+def ensure_ios_package_pins_unchanged!(committed_pins)
+  return if File.binread(IOS_PACKAGE_RESOLVED_PATH) == committed_pins
+
+  UI.user_error!(
+    "Xcode changed #{IOS_PACKAGE_RESOLVED_PATH} during the release build; " \
+    'refusing an archive built with uncommitted Swift package pins'
+  )
+end
+
 def ensure_release_ios_capacitor_sync!
   ensure_bundled_release_capacitor_config!(
     IOS_CAPACITOR_CONFIG_PATH,
@@ -332,6 +347,7 @@ platform :ios do
     end
     ensure_release_ios_capacitor_sync!
     generate_capacitor_image_assets!(IOS_BUILD_IMAGES_SCRIPT)
+    committed_package_pins = File.binread(IOS_PACKAGE_RESOLVED_PATH)
     ipa_path = with_ios_signing_keychain do
       profile_name = install_ios_appstore_signing_assets!
       pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
@@ -342,6 +358,7 @@ platform :ios do
           archive_path: IOS_ARCHIVE_PATH,
           clean: true,
           configuration: IOS_CONFIGURATION,
+          disable_package_automatic_updates: true,
           export_method: 'app-store',
           export_options: ios_export_options(team_id, profile_name),
           include_symbols: true,
@@ -355,6 +372,7 @@ platform :ios do
         File.write(pbxproj_path, original_pbxproj)
       end
     end
+    ensure_ios_package_pins_unchanged!(committed_package_pins)
     assets = require_ios_testflight_assets!(ipa_path)
     print_ios_testflight_assets(assets)
     ios_testflight_release_result(release_build, ipa_path, assets)
