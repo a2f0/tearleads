@@ -129,10 +129,6 @@ export const principalStates = pgTable(
       "principal_states_version_range",
       sql`${table.version} >= 1 AND ${table.version} <= 9007199254740991`,
     ),
-    index("principal_states_principal_idx").on(
-      table.principalType,
-      table.principalId,
-    ),
     uniqueIndex("principal_states_principal_version_idx").on(
       table.principalType,
       table.principalId,
@@ -206,10 +202,6 @@ export const principalStatePayloads = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("principal_state_payloads_principal_idx").on(
-      table.principalType,
-      table.principalId,
-    ),
     uniqueIndex("principal_state_payloads_principal_state_idx").on(
       table.principalType,
       table.principalId,
@@ -274,11 +266,6 @@ export const principalMembershipProjection = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("principal_membership_projection_principal_idx").on(
-      table.principalType,
-      table.principalId,
-    ),
-    index("principal_membership_projection_member_idx").on(table.userId),
     index("principal_membership_projection_member_state_idx").on(
       table.userId,
       table.principalType,
@@ -347,10 +334,6 @@ export const principalEpochKeys = pgTable(
     check(
       "principal_epoch_keys_epoch_range",
       sql`${table.epoch} >= 1 AND ${table.epoch} <= 9007199254740991 AND ${table.epoch} = CAST(${table.epoch} AS BIGINT)`,
-    ),
-    index("principal_epoch_keys_principal_idx").on(
-      table.principalType,
-      table.principalId,
     ),
     uniqueIndex("principal_epoch_keys_principal_epoch_idx").on(
       table.principalType,
@@ -421,10 +404,6 @@ export const principalMemberEnvelopes = pgTable(
     check(
       "principal_member_envelopes_epoch_range",
       sql`${table.epoch} >= 1 AND ${table.epoch} <= 9007199254740991 AND ${table.epoch} = CAST(${table.epoch} AS BIGINT)`,
-    ),
-    index("principal_member_envelopes_principal_idx").on(
-      table.principalType,
-      table.principalId,
     ),
     uniqueIndex("principal_member_envelopes_state_member_idx").on(
       table.principalType,

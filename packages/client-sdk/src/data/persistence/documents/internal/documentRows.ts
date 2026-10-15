@@ -1,14 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, lte } from "drizzle-orm";
 import { normalizeEffectiveAccessLevel } from "../../../accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import { deriveStoredDocumentTitle } from "../../../documents/documentKinds";
 import { serializeDocumentSyncPullContinuation } from "../../../documents/shared/pullContinuation";
-import {
-  type DocumentRecord as BaseDocumentRecord,
-  type DocumentScope,
-  documentRecordSelection,
-  mapSelectedDocumentRecord,
-} from "../../../sqlite/documentPersistence";
+import type { DocumentScope } from "../../../sqlite/documentPersistence";
 import {
   documentProjection,
   documentProjectionText,
@@ -51,25 +46,6 @@ export async function hasDocumentRow(
     )
     .limit(1);
   return rows.length > 0;
-}
-
-async function loadDocumentRecordInTransaction(input: {
-  localId: string;
-  tx: ClientSQLiteTransactionScope;
-}): Promise<BaseDocumentRecord | null> {
-  const { localId, tx } = input;
-  const rows = await tx
-    .select(documentRecordSelection)
-    .from(documents)
-    .where(
-      and(
-        eq(documents.appKind, DOCUMENTS_APP_KIND),
-        eq(documents.localId, localId),
-      ),
-    )
-    .limit(1);
-
-  return rows[0] ? mapSelectedDocumentRecord(rows[0]) : null;
 }
 
 function toDocumentRecordRow(input: {
@@ -177,25 +153,25 @@ export async function saveDocumentRows(input: {
   updatedAt: string;
 }): Promise<boolean> {
   const { document, tx, updatedAt } = input;
-  const existing = await loadDocumentRecordInTransaction({
-    localId: document.id,
-    tx,
-  });
-  if (
-    existing &&
-    (existing.recoveryGeneration ?? 0) > (document.recoveryGeneration ?? 0)
-  ) {
-    return false;
-  }
   const documentRow = toDocumentRecordRow({ document, updatedAt });
-  await tx
+  // The recovery-generation fence rides on the upsert: a stored row from a
+  // newer recovery generation is left untouched and returns no row, so a
+  // stale writer skips the projection writes without a separate read.
+  const saved = await tx
     .insert(documents)
     .values(documentRow)
     .onConflictDoUpdate({
       target: [documents.appKind, documents.localId],
       set: documentRow,
+      setWhere: lte(
+        documents.recoveryGeneration,
+        documentRow.recoveryGeneration,
+      ),
     })
-    .run();
+    .returning({ localId: documents.localId });
+  if (saved.length === 0) {
+    return false;
+  }
   await saveDocumentProjectionRows(input);
   return true;
 }
@@ -229,33 +205,49 @@ export async function resolveDocumentSaveTimestamp(input: {
     return options.updatedAt;
   }
 
-  const [existingRecord, projectionRows] = await Promise.all([
-    loadDocumentRecordInTransaction({
-      localId: document.id,
-      tx,
-    }),
-    tx
-      .select({
-        documentKind: documentProjection.documentKind,
-        text: documentProjectionText.text,
-        title: documentProjection.title,
-        updatedAt: documentProjection.updatedAt,
-      })
-      .from(documentProjection)
-      .leftJoin(
-        documentProjectionText,
-        eq(documentProjectionText.localId, documentProjection.localId),
-      )
-      .where(eq(documentProjection.localId, document.id))
-      .limit(1),
-  ]);
-  const existingProjection = projectionRows[0];
+  // One read for the stored row and its projection; the projection columns
+  // are not nullable, so they are null exactly when the projection is absent.
+  const [existing] = await tx
+    .select({
+      snapshotEndVersion: documents.snapshotEndVersion,
+      documentKind: documentProjection.documentKind,
+      text: documentProjectionText.text,
+      title: documentProjection.title,
+      updatedAt: documentProjection.updatedAt,
+    })
+    .from(documents)
+    .leftJoin(
+      documentProjection,
+      eq(documentProjection.localId, documents.localId),
+    )
+    .leftJoin(
+      documentProjectionText,
+      eq(documentProjectionText.localId, documentProjection.localId),
+    )
+    .where(
+      and(
+        eq(documents.appKind, DOCUMENTS_APP_KIND),
+        eq(documents.localId, document.id),
+      ),
+    )
+    .limit(1);
+  const existingProjection =
+    existing?.documentKind != null &&
+    existing.title != null &&
+    existing.updatedAt != null
+      ? {
+          documentKind: existing.documentKind,
+          text: existing.text,
+          title: existing.title,
+          updatedAt: existing.updatedAt,
+        }
+      : undefined;
   const now = new Date().toISOString();
   return didStoredDocumentContentChange(
-    existingRecord
+    existing
       ? {
           documentKind: getProjectionDocumentKind(existingProjection),
-          snapshotEndVersion: existingRecord.snapshotEndVersion,
+          snapshotEndVersion: existing.snapshotEndVersion,
           text: getProjectionText(existingProjection),
           title: getProjectionTitle(existingProjection),
         }

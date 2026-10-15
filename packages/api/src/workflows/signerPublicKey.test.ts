@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
+import {
+  type DatabaseSession,
+  db,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { eq } from "drizzle-orm";
@@ -21,9 +25,10 @@ function signerAccessError(message: string, status: 403): SignerAccessError {
 async function insertSigner(
   fingerprint: string,
   signingPublicKey: Uint8Array,
+  executor: DatabaseSession = db,
+  userId: string = crypto.randomUUID(),
 ): Promise<string> {
-  const userId = crypto.randomUUID();
-  await db.insert(users).values({
+  await executor.insert(users).values({
     defaultOrganizationId: crypto.randomUUID(),
     encapsulationKeyFingerprint: `encapsulation-${userId}`,
     encapsulationPublicKey: "AA==",
@@ -77,4 +82,61 @@ test("rejects a missing signer with the caller error", async () => {
       userId: crypto.randomUUID(),
     }),
   ).rejects.toEqual(new SignerAccessError("Forbidden", 403));
+});
+
+test("a transaction reads each signer row once", async () => {
+  const fingerprint = `signer-${crypto.randomUUID()}`;
+  const signingPublicKey = new Uint8Array([3, 4]);
+  const userId = await insertSigner(fingerprint, signingPublicKey);
+  const input = { error: signerAccessError, fingerprint, userId };
+
+  try {
+    await db.transaction(async (tx) => {
+      const counter = { statements: 0 };
+      await withDatabaseStatementCounter(counter, async () => {
+        await expect(loadSignerPublicKey(tx, input)).resolves.toEqual(
+          signingPublicKey,
+        );
+        await expect(loadSignerPublicKey(tx, input)).resolves.toEqual(
+          signingPublicKey,
+        );
+        // A mismatched fingerprint is still refused from the cached row.
+        await expect(
+          loadSignerPublicKey(tx, { ...input, fingerprint: "other" }),
+        ).rejects.toEqual(new SignerAccessError("Forbidden", 403));
+      });
+      expect(counter.statements).toBe(1);
+    });
+
+    // The root executor shares nothing across calls without a request cache.
+    const rootCounter = { statements: 0 };
+    await withDatabaseStatementCounter(rootCounter, async () => {
+      await loadSignerPublicKey(db, input);
+      await loadSignerPublicKey(db, input);
+    });
+    expect(rootCounter.statements).toBe(2);
+  } finally {
+    await db.delete(users).where(eq(users.id, userId));
+  }
+});
+
+test("a transaction does not remember a signer that was missing", async () => {
+  const fingerprint = `signer-${crypto.randomUUID()}`;
+  const signingPublicKey = new Uint8Array([5]);
+  const userId = crypto.randomUUID();
+  const input = { error: signerAccessError, fingerprint, userId };
+
+  try {
+    await db.transaction(async (tx) => {
+      await expect(loadSignerPublicKey(tx, input)).rejects.toEqual(
+        new SignerAccessError("Forbidden", 403),
+      );
+      await insertSigner(fingerprint, signingPublicKey, tx, userId);
+      await expect(loadSignerPublicKey(tx, input)).resolves.toEqual(
+        signingPublicKey,
+      );
+    });
+  } finally {
+    await db.delete(users).where(eq(users.id, userId));
+  }
 });

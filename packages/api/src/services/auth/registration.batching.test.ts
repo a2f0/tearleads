@@ -62,9 +62,11 @@ for (const full of [false, true]) {
     const result = await withDatabaseStatementCounter(counter, () =>
       registerUser(createServiceTestRuntime(), request),
     );
-    // PGlite: 646 / 1,570 before, 536 / 1,274 after. Leave room for transaction
-    // controls and dialect differences while rejecting the old repeated reads.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 1300 : 560);
+    // PGlite: 646 / 1,570 before, 536 / 1,274 after batching, 471 / 1,088 by
+    // the database efficiency audit, 393 / 883 once signer rows are read once
+    // per transaction and fresh manifests skip their no-op projection deletes.
+    // Leave room for dialect differences while rejecting the repeated reads.
+    expect(counter.statements).toBeLessThanOrEqual(full ? 900 : 405);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db
