@@ -33,7 +33,7 @@ import { retainPrincipalHistoryRoot } from "./principalHistoryRootOwnership";
 import type { PrincipalHistoryStage } from "./principalHistoryStagePersistence";
 import {
   reclaimCompletedPrincipalHistoryStages,
-  recordPrincipalHistoryStageScope,
+  touchPrincipalHistoryStage,
 } from "./principalHistoryStageRetention";
 import { archivePrincipalHistoryKeyEnvelopes } from "./principalKeyEnvelopeArchivePersistence";
 
@@ -154,11 +154,8 @@ async function archiveAcknowledgedStageKeys(
 ) {
   for (const stage of [entry.predecessorStage, entry.stage]) {
     if (!stage) continue;
-    await recordPrincipalHistoryStageScope(tx, {
+    await touchPrincipalHistoryStage(tx, {
       id: stage.id,
-      afterVersion: stage.afterVersion,
-      complete: stage.complete,
-      organizationId: entry.prefix.organizationId,
       scopeId: entry.prefix.scopeId,
     });
     await archivePrincipalHistoryKeyEnvelopes(tx, {
@@ -174,12 +171,17 @@ async function retainPredecessorStage(
 ) {
   // Preserve a prefix-only predecessor without replacing an existing completion.
   if (!entry.predecessorStage || !entry.predecessorIndexRootHash) return;
+  const row = {
+    ...entry.predecessorStage,
+    scopeId: entry.prefix.scopeId,
+    touchedAt: Date.now(),
+  };
   const inserted = await tx
     .insert(principalHistoryStages)
-    .values(entry.predecessorStage)
+    .values(row)
     .onConflictDoUpdate({
       target: principalHistoryStages.id,
-      set: entry.predecessorStage,
+      set: row,
       setWhere: eq(principalHistoryStages.complete, false),
     })
     .returning({ id: principalHistoryStages.id });
@@ -190,6 +192,24 @@ async function retainPredecessorStage(
       organizationId: entry.prefix.organizationId,
       rootHash: entry.predecessorIndexRootHash,
     });
+}
+
+// A fully authenticated publication supersedes an in-flight stage for this
+// exact head. Its other writer fails its progress CAS and resumes.
+async function saveAcknowledgedStage(
+  tx: ClientSQLiteTransactionScope,
+  entry: AcknowledgedPrincipalCurrentPublication,
+) {
+  const row = {
+    ...entry.stage,
+    scopeId: entry.prefix.scopeId,
+    touchedAt: Date.now(),
+  };
+  await tx
+    .insert(principalHistoryStages)
+    .values(row)
+    .onConflictDoUpdate({ target: principalHistoryStages.id, set: row })
+    .run();
 }
 
 /** Store current artifacts and resumable progress in the same transaction as their pins. */
@@ -237,16 +257,7 @@ export async function persistAcknowledgedPrincipalCurrents(input: {
       for (const entry of entries) {
         await writePrincipalHistoryEvidencePage(tx, entry.evidence);
         await retainPredecessorStage(tx, entry);
-        // A fully authenticated publication supersedes an in-flight stage for
-        // this exact head. Its other writer fails its progress CAS and resumes.
-        await tx
-          .insert(principalHistoryStages)
-          .values(entry.stage)
-          .onConflictDoUpdate({
-            target: principalHistoryStages.id,
-            set: entry.stage,
-          })
-          .run();
+        await saveAcknowledgedStage(tx, entry);
         await archiveAcknowledgedStageKeys(tx, entry);
         if (!entry.preservePrefix)
           await tx

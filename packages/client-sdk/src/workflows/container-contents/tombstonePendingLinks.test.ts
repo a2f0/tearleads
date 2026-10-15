@@ -15,11 +15,11 @@ for (const parked of [false, true]) {
         beforeReplay: async (execSql) => {
           if (parked)
             await execSql(
-              "UPDATE document_move_intents SET sync_status = 'unavailable'",
+              "UPDATE local_intents SET sync_status = 'unavailable' WHERE lane = 'document.placement'",
             );
           if (preferredMissing)
             await execSql(
-              "UPDATE document_move_intents SET target_container_id = ?",
+              "UPDATE local_intents SET target_container_id = ? WHERE lane = 'document.placement'",
               ["queued-move-trash-container"],
             );
           await containers.deleteContainers(

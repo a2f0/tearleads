@@ -19,7 +19,7 @@ import {
   sqlDocumentsPersistence,
   upsertDiscoveredDocuments,
 } from "../../data/persistence/documents/documentsPersistence";
-import { containerCreateIntentTables } from "../../data/sqlite/schema";
+import { localIntentTables } from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { hydratedProjectionSql } from "./documentQueries/hydrationSql";
 import {
@@ -160,7 +160,7 @@ async function listContainerItemWindow(
 ): Promise<ContainerItemWindow> {
   await ensureContainerTables(execSql);
   await sqlDocumentsPersistence.ensureSchema(execSql);
-  await ensureSqlTables(execSql, containerCreateIntentTables);
+  await ensureSqlTables(execSql, localIntentTables);
 
   const limit = getContainerItemWindowLimit(input.limit);
   const offset = clampContainerItemWindowValue(input.offset);

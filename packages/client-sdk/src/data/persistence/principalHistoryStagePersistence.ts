@@ -2,7 +2,6 @@ import { and, eq } from "drizzle-orm";
 import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
 import { principalHistoryEvidenceTables } from "../sqlite/principalHistoryEvidenceSchema";
 import { principalHistoryNodeRetentionTables } from "../sqlite/principalHistoryNodeRetentionSchema";
-import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
@@ -19,10 +18,22 @@ import {
   releasePrincipalHistoryRoot,
   retainPrincipalHistoryRoot,
 } from "./principalHistoryRootOwnership";
-import { recordPrincipalHistoryStageScope } from "./principalHistoryStageRetention";
 import { reclaimUnpublishedPrincipalHistoryStages } from "./principalHistoryUnpublishedRetention";
 
-export type PrincipalHistoryStage = typeof principalHistoryStages.$inferSelect;
+/** A stage's verification work; its retention hints are written by persistence. */
+export type PrincipalHistoryStage = Omit<
+  typeof principalHistoryStages.$inferSelect,
+  "scopeId" | "touchedAt"
+>;
+
+const principalHistoryStageColumns = {
+  id: principalHistoryStages.id,
+  organizationId: principalHistoryStages.organizationId,
+  currentJson: principalHistoryStages.currentJson,
+  afterVersion: principalHistoryStages.afterVersion,
+  complete: principalHistoryStages.complete,
+  progress: principalHistoryStages.progress,
+};
 
 class PrincipalHistoryStageChangedError extends Error {
   readonly code = "principal_history_stage_changed";
@@ -34,11 +45,14 @@ class PrincipalHistoryStageChangedError extends Error {
   }
 }
 
-export async function loadPrincipalHistoryStage(execSql: ExecSql, id: string) {
+export async function loadPrincipalHistoryStage(
+  execSql: ExecSql,
+  id: string,
+): Promise<PrincipalHistoryStage | null> {
   await ensureSqlTables(execSql, principalHistoryStageTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const [row] = await db
-    .select()
+    .select(principalHistoryStageColumns)
     .from(principalHistoryStages)
     .where(eq(principalHistoryStages.id, id))
     .limit(1);
@@ -53,8 +67,8 @@ export async function savePrincipalHistoryStage(input: {
   readonly previousProgress: string | null;
   readonly stillCurrent: () => boolean;
 }): Promise<void> {
-  const stage = { ...input.stage };
   const evidence = structuredClone(input.evidence);
+  const stage = { ...input.stage, scopeId: evidence.scopeId };
   await ensureSqlTables(input.execSql, [
     ...principalHistoryStageTables,
     ...principalHistoryEvidenceTables,
@@ -70,32 +84,20 @@ export async function savePrincipalHistoryStage(input: {
       if ((previous?.progress ?? null) !== input.previousProgress)
         throw new PrincipalHistoryStageChangedError();
       await writePrincipalHistoryEvidencePage(tx, evidence);
+      const row = { ...stage, touchedAt: Date.now() };
       await tx
         .insert(principalHistoryStages)
-        .values(stage)
-        .onConflictDoUpdate({ target: principalHistoryStages.id, set: stage })
+        .values(row)
+        .onConflictDoUpdate({ target: principalHistoryStages.id, set: row })
         .run();
-      await recordPrincipalHistoryStageScope(tx, {
-        id: stage.id,
-        afterVersion: stage.afterVersion,
-        complete: stage.complete,
-        organizationId: stage.organizationId,
-        scopeId: evidence.scopeId,
-      });
       await retainPrincipalHistoryRoot(tx, {
         id: `stage:${stage.id}`,
         scopeId: evidence.scopeId,
         organizationId: stage.organizationId,
         rootHash: evidence.indexRootHash,
       });
-      await reclaimIncompletePrincipalHistoryStages(tx, {
-        ...stage,
-        scopeId: evidence.scopeId,
-      });
-      await reclaimUnpublishedPrincipalHistoryStages(tx, {
-        ...stage,
-        scopeId: evidence.scopeId,
-      });
+      await reclaimIncompletePrincipalHistoryStages(tx, stage);
+      await reclaimUnpublishedPrincipalHistoryStages(tx, stage);
       await reclaimPrincipalHistoryNodes(tx, evidence);
     },
     input.stillCurrent,
@@ -131,10 +133,6 @@ export async function discardPrincipalHistoryStage(
             eq(principalHistoryStages.progress, stage.progress),
           ),
         )
-        .run();
-      await db
-        .delete(principalHistoryStageScopes)
-        .where(eq(principalHistoryStageScopes.id, stage.id))
         .run();
     },
     stillCurrent,

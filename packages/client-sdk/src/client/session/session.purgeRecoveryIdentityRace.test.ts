@@ -36,7 +36,7 @@ class IdentitySwitchingDatabase extends Database {
       const rows = await this.resetExecSql(sql, bind, options);
       if (
         !this.switched &&
-        sql.includes('delete from "organization_data_usage_categories"')
+        sql.includes('delete from "organization_data_usage_snapshots"')
       ) {
         this.switched = true;
         this.switchAccount();

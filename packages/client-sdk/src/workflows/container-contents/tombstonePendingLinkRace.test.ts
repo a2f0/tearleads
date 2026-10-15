@@ -15,9 +15,10 @@ test.each(["pending", "blocked", "denied"])(
       beforeReplay: async (execSql) => {
         const [observed] = await intents.listPendingMoveIntents(execSql);
         if (!observed) throw new Error("Missing observed intent");
-        await execSql("UPDATE document_move_intents SET sync_status = ?", [
-          syncStatus,
-        ]);
+        await execSql(
+          "UPDATE local_intents SET sync_status = ? WHERE lane = 'document.placement'",
+          [syncStatus],
+        );
         await containers.deleteContainers(
           execSql,
           [
@@ -37,7 +38,7 @@ test.each(["pending", "blocked", "denied"])(
           unavailable: true,
         });
         const [stored] = await execSql(
-          "SELECT id, sync_status FROM document_move_intents",
+          "SELECT id, sync_status FROM local_intents WHERE lane = 'document.placement'",
         );
         expect(stored).toBeDefined();
         expect(Reflect.get(stored ?? {}, "id")).not.toBe(observed.id);

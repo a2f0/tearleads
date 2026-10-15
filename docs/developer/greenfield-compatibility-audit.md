@@ -37,7 +37,15 @@ points before the environment reset and coordinated release.
   machinery, with no historical data conversion to remove.
 - SDK SQLite startup creates current tables and rejects obsolete required
   columns. It does not add historical columns or backfill stored records.
-- Local backup payloads and encrypted envelopes require format version 12.
+- The October 2026 local-schema folds (#2522) move one-row-per-key side tables
+  onto the rows they describe: container display names and icons live on
+  `containers`, a scope's last sync failure lives on its `documents` row, an
+  organization usage snapshot carries its category breakdown as JSON that is
+  re-validated on every read, a principal-history stage carries its own scope
+  and recency eviction hints, and container create, container move, and document
+  placement intents share the `local_intents` outbox. A database that predates a
+  fold fails the required-column check and is reset rather than converted.
+- Local backup payloads and encrypted envelopes require format version 13.
   Previous versions are refused, with no conversion path. Security-anchor
   merging during a current-format restore prevents rollback and remains required.
 - IndexedDB's version-one creation handler initializes the local keyring store.

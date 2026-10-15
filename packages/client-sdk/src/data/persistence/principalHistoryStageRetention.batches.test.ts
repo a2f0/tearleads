@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
@@ -32,13 +31,9 @@ test("completed-stage cleanup is bounded and preserves incomplete, newer and for
       { ...first, id: "foreign-scope" },
       { ...first, id: "foreign-organization", organizationId: "org-2" },
     ];
-    await db.insert(principalHistoryStages).values([...rows, ...retained]);
-    await db.insert(principalHistoryStageScopes).values(
+    await db.insert(principalHistoryStages).values(
       [...rows, ...retained].map((row) => ({
-        id: row.id,
-        afterVersion: row.afterVersion,
-        complete: row.complete,
-        organizationId: row.organizationId,
+        ...row,
         scopeId: row.id === "foreign-scope" ? "scope-2" : "scope-1",
         touchedAt: 1,
       })),
@@ -58,7 +53,6 @@ test("completed-stage cleanup is bounded and preserves incomplete, newer and for
     };
     await savePrincipalHistoryPrefix(input);
     expect(await db.select().from(principalHistoryStages)).toHaveLength(7);
-    expect(await db.select().from(principalHistoryStageScopes)).toHaveLength(7);
     await savePrincipalHistoryPrefix(input);
     expect(
       (await db.select().from(principalHistoryStages))
@@ -71,7 +65,6 @@ test("completed-stage cleanup is bounded and preserves incomplete, newer and for
         `old-${count - 1}`,
       ].sort(),
     );
-    expect(await db.select().from(principalHistoryStageScopes)).toHaveLength(6);
   } finally {
     f.close();
   }

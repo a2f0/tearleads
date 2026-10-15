@@ -79,9 +79,10 @@ test("same-timestamp document reassignment rotates every affected intent revisio
       sourceContainerId: "other-container",
       targetContainerId: "local-root",
     });
-    await execSql(`UPDATE document_move_intents SET updated_at = ?`, [
-      SAME_UPDATED_AT,
-    ]);
+    await execSql(
+      `UPDATE local_intents SET updated_at = ? WHERE lane = 'document.placement'`,
+      [SAME_UPDATED_AT],
+    );
     const before =
       await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
 

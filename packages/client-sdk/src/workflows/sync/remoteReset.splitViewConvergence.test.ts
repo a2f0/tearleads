@@ -34,12 +34,12 @@ import {
 } from "../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   clientSqlTables,
-  containerCreateIntents,
   containers,
   documentHistoryCheckpoints,
   documentHistoryUpdates,
   documentProjection,
   documents,
+  localIntents,
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
@@ -142,9 +142,9 @@ async function resetClient(input: {
   // Reset re-queues the folder's create; a document waits for it, so settle
   // it as the structural lane would before the document create runs.
   await db
-    .update(containerCreateIntents)
+    .update(localIntents)
     .set({ syncStatus: "synced" })
-    .where(eq(containerCreateIntents.containerId, OLD_CONTAINER_ID))
+    .where(eq(localIntents.subjectId, OLD_CONTAINER_ID))
     .run();
   return {
     close,

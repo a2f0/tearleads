@@ -33,8 +33,8 @@ Tables: API `principal_states`, `principal_state_payloads`,
 `principal_policy_bundle_references`, `principal_policy_checkpoints`,
 `principal_history_prefixes`, `principal_history_entries`,
 `principal_history_nodes`, `principal_history_node_references`,
-`principal_history_root_owners`, `principal_history_stage_scopes`,
-`principal_key_envelope_archive`, `principal_history_stages`,
+`principal_history_root_owners`, `principal_key_envelope_archive`,
+`principal_history_stages`,
 `principal_mutation_journal`, `principal_grant_retirements`.
 
 - One small Explorer upload issues about 33 policy and history reads out of
@@ -69,7 +69,6 @@ Tables: API `documents`, `document_updates`, `document_update_spans`,
 `document_inline_rekey_commits`, `document_manifest_observations`, `blobs`,
 `blob_stages`, `blob_content_key_epochs`, `blob_content_key_targets`,
 `blob_content_write_headers`, `attachment_bindings`. SDK `documents`,
-`document_pending_updates`, `document_sync_failures`,
 `document_history_checkpoints`, `document_history_updates`,
 `document_pending_attachments`, `document_attachment_blob_projection`,
 `document_orphan_blob_reclaims`.
@@ -88,11 +87,11 @@ Tables: API `documents`, `document_updates`, `document_update_spans`,
 - Who reads `document_manifest_observations`, `document_inline_rekey_commits`,
   and `document_update_spans`? Is each derivable from `document_updates` and
   the manifest chain, and what query needs it?
-- Locally, `documents.loro_snapshot`, `document_pending_updates`, and
-  `document_history_updates` hold overlapping bytes. Which reads need which,
-  and could one update log with a settled watermark replace them?
-- Is `document_sync_failures` state the scheduler needs, or a diagnostic that
-  belongs in the incident ledger?
+- Locally, `document_history_checkpoints` and `document_history_updates`
+  (whose queued rows are the outbound queue) hold overlapping bytes. Which
+  reads need which, and what does compaction still copy?
+- Are the `documents.sync_failure_*` columns state the scheduler needs, or a
+  diagnostic that belongs in the incident ledger?
 - Could the sync response carry the next writer projection a follow-up pass
   would otherwise fetch?
 
@@ -105,7 +104,7 @@ Tables: API `container_sync_tombstones`,
 `document_discovery_sequence`, `pending_document_discoveries`,
 `container_hydration_tombstones`, `container_document_tombstone_holds`,
 `dormant_container_metadata`, `dormant_metadata_sweep_requests`,
-`document_container_projection`, `container_projection`, `containers`.
+`document_container_projection`, `containers`.
 
 - A hint carries ids only, so each costs a listing, a projection, and a sync.
   Every artifact is signed and self-verifying: what could a hint carry (the
@@ -164,10 +163,9 @@ Tables: API `principal_policy_commits`,
 `document_baselines`, `blob_audit_objects`,
 `access_manifest_verifications`,
 `organization_read_model_changes`. SDK `principal_mutation_journal`,
-`organization_provisioning_attempts`, `container_create_intents`,
-`container_move_intents`, `document_move_intents`,
+`organization_provisioning_attempts`, `local_intents`,
 `document_intent_link_targets`, `document_purge_checkpoints`,
-`document_sync_failures`, `security_incidents`.
+`security_incidents`.
 
 - Run the reader and writer census from `measurement.md` on every table
   above. A table with no non-test reader is a retirement candidate unless a
@@ -178,8 +176,10 @@ Tables: API `principal_policy_commits`,
   serve them all, and what does each caller lose?
 - Baseline markers and the blob registry: which reads need each column, and
   what do they cost per write in statements?
-- Local intents: four intent tables and a mutation journal. Could one typed
-  outbox hold them, keeping each intent's settlement rule?
+- Local intents: `local_intents` holds the container create, container move,
+  and document placement lanes; the mutation journal and provisioning attempts
+  survive remote reset in their own tables. Does anything else share the
+  outbox's revision and reset rules closely enough to become a lane?
 - Which checkpoint tables could merge without weakening anti-rollback?
 
 ## `org-read-model`
@@ -193,8 +193,7 @@ Tables: API `organization_read_model_changes`,
 `organization_read_model_group_memberships`,
 `organization_read_model_group_members`,
 `organization_read_model_container_grants`,
-`organization_presentation_denials`, `organization_data_usage_snapshots`,
-`organization_data_usage_categories`.
+`organization_presentation_denials`, `organization_data_usage_snapshots`.
 
 - The signed organization policy already carries the authoritative group
   directory and reserved heads. What does the read-model feed add beyond

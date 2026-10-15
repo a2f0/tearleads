@@ -136,7 +136,9 @@ are derived locally from the directory, the complete cycle-safe membership
 graph, the visible group catalog, and grants. Hidden groups remain traversal and
 grant inputs even though they are omitted from the displayed group list.
 Container display names are joined from local encrypted metadata. Data usage
-remains a separately refreshed aggregate. Organization and group policy history
+remains a separately refreshed aggregate: one local row per requester, whose
+category breakdown is re-validated against the response schema on every read
+and purged when it fails. Organization and group policy history
 may be rendered from the separately persisted, verified policy bundle only when
 its principal ID, state hash, version, key epoch, key fingerprint, and member
 count exactly match the corresponding read-model head. Missing or mismatched

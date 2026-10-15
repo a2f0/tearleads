@@ -206,7 +206,7 @@ test("cold folders stay hidden until metadata arrives, including genuinely untit
       { objectKind: "container", title: null, reason: "initial" },
     ]);
     await execSql(
-      "INSERT INTO document_sync_failures (app_kind, local_id, message, attempted_at) VALUES ('container-metadata', 'folder', 'Connection failed', '2026-10-13')",
+      "UPDATE documents SET sync_failure_message = 'Connection failed', sync_failure_attempted_at = '2026-10-13' WHERE app_kind = 'container-metadata' AND local_id = 'folder'",
     );
     expect(await queries.listPendingDownloads()).toMatchObject([
       { lastError: "Connection failed" },

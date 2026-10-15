@@ -200,12 +200,12 @@ test("listPendingWrites groups every durable source without exposing payloads", 
       ],
     );
     await execSql(
-      `INSERT INTO container_create_intents (
-        id, container_id, parent_container_id, intent_type, sync_status,
+      `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, intent_type, sync_status,
         remote_container_id, remote_metadata_document_id,
         remote_metadata_access_state_hash, last_error, last_attempted_at,
         created_at, updated_at
-      ) VALUES (?, ?, ?, 'container.create', 'pending', NULL, NULL, NULL, ?, ?, ?, ?)`,
+      ) VALUES (?, 'container.create', ?, ?, 'container.create', 'pending', NULL, NULL, NULL, ?, ?, ?, ?)`,
       [
         "create-intent",
         "created-container",
@@ -217,11 +217,11 @@ test("listPendingWrites groups every durable source without exposing payloads", 
       ],
     );
     await execSql(
-      `INSERT INTO container_move_intents (
-        id, container_id, parent_container_id, previous_parent_container_id,
+      `INSERT INTO local_intents (
+        id, lane, subject_id, target_container_id, source_container_id,
         intent_type, sync_status, last_error, last_attempted_at,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, 'container.move', 'blocked', ?, ?, ?, ?)`,
+      ) VALUES (?, 'container.move', ?, ?, ?, 'container.move', 'blocked', ?, ?, ?, ?)`,
       [
         "container-move",
         "moved-container",
@@ -234,11 +234,11 @@ test("listPendingWrites groups every durable source without exposing payloads", 
       ],
     );
     await execSql(
-      `INSERT INTO document_move_intents (
-        id, local_id, document_id, target_container_id, source_container_id,
+      `INSERT INTO local_intents (
+        id, lane, local_id, subject_id, target_container_id, source_container_id,
         replace_linked_containers, intent_type, sync_status, last_error,
         last_attempted_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, 1, 'document.move', 'blocked', ?, ?, ?, ?)`,
+      ) VALUES (?, 'document.placement', ?, ?, ?, ?, 1, 'document.move', 'blocked', ?, ?, ?, ?)`,
       [
         "document-move",
         "local-document",

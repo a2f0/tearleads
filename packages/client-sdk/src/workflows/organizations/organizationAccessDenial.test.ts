@@ -144,7 +144,7 @@ test("usage denial remains authoritative when durable cleanup fails", async () =
     testDb.execSql,
     (sql) =>
       rejectUsageDelete &&
-      sql.includes('delete from "organization_data_usage_categories"'),
+      sql.includes('delete from "organization_data_usage_snapshots"'),
   );
   const errors: unknown[][] = [];
 

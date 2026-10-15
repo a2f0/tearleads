@@ -67,6 +67,23 @@ function createRuntime(
   };
 }
 
+// A denied write recorded on its stored document's row.
+async function recordStrandedDocumentFailure(execSql: ExecSql): Promise<void> {
+  await ensureDocumentTables(execSql);
+  await execSql(
+    "INSERT INTO documents (app_kind, local_id, updated_at) VALUES ('documents', 'stranded-document', '2026-01-01T00:00:00.000Z')",
+  );
+  await recordDocumentSyncFailure(
+    execSql,
+    { appKind: "documents", localId: "stranded-document" },
+    {
+      attemptedAt: "2026-01-01T00:00:00.000Z",
+      message: "Write access denied by the server (403)",
+      status: 403,
+    },
+  );
+}
+
 test("a reconcile that restores denied org access re-requests all sync lanes", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-access-restore-test",
@@ -111,15 +128,7 @@ test("a reconcile that restores denied org access re-requests all sync lanes", a
 
     // With a recorded denied write (the user was removed from the group while
     // writes were syncing), the denied → restored edge is the retry signal.
-    await recordDocumentSyncFailure(
-      execSql,
-      { appKind: "documents", localId: "stranded-document" },
-      {
-        attemptedAt: "2026-01-01T00:00:00.000Z",
-        message: "Write access denied by the server (403)",
-        status: 403,
-      },
-    );
+    await recordStrandedDocumentFailure(execSql);
     denyOrganizationPresentationAccess(accessInput, ["readModel", "usage"]);
     await expect(coordinator.reconcile()).resolves.not.toBeNull();
     await laneRan;
@@ -226,16 +235,7 @@ test("a failed reconcile after a denial does not re-arm sync lanes", async () =>
       organizationId: organizationReadModelOrganizationId,
       requesterUserId: organizationReadModelUserId,
     };
-    await ensureDocumentTables(execSql);
-    await recordDocumentSyncFailure(
-      execSql,
-      { appKind: "documents", localId: "stranded-document" },
-      {
-        attemptedAt: "2026-01-01T00:00:00.000Z",
-        message: "Write access denied by the server (403)",
-        status: 403,
-      },
-    );
+    await recordStrandedDocumentFailure(execSql);
 
     // A feed failure while denied proves nothing about restored access: the
     // scope stays unreadable (null), and no lanes re-arm.

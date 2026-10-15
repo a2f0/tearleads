@@ -9,11 +9,10 @@ import {
   ensureDocumentTables,
 } from "../../sqlite/documentPersistence";
 import {
-  containerCreateIntentTables,
   containerHydrationTombstones,
-  containerMoveIntentTables,
   containers,
   documentContainerProjectionTables,
+  localIntentTables,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -164,8 +163,7 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
       runSerializedSqlMutation(execSql, async (lockedExecSql) => {
         await ensureContainerTables(lockedExecSql);
         await ensureDocumentTables(lockedExecSql);
-        await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
-        await ensureSqlTables(lockedExecSql, containerMoveIntentTables);
+        await ensureSqlTables(lockedExecSql, localIntentTables);
         await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
         await ensureDocumentProjectionTables(lockedExecSql);
         await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);

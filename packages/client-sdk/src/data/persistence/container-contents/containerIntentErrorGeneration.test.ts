@@ -21,10 +21,10 @@ for (const intentType of ["create", "move"] as const) {
       await sqlContainerContentsPersistence.ensureSchema(database.execSql);
       if (intentType === "create") {
         await database.execSql(
-          `INSERT INTO container_create_intents (
-            id, container_id, parent_container_id, intent_type, sync_status,
+          `INSERT INTO local_intents (
+            id, lane, subject_id, target_container_id, intent_type, sync_status,
             created_at, updated_at
-          ) VALUES ('intent-1', 'container-1', 'root', 'container.create',
+          ) VALUES ('intent-1', 'container.create', 'container-1', 'root', 'container.create',
             'pending', '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z')`,
         );
         await sqlContainerContentsPersistence.recordCreateIntentRevisionError(
@@ -48,10 +48,10 @@ for (const intentType of ["create", "move"] as const) {
         });
       } else {
         await database.execSql(
-          `INSERT INTO container_move_intents (
-            id, container_id, parent_container_id, previous_parent_container_id,
+          `INSERT INTO local_intents (
+            id, lane, subject_id, target_container_id, source_container_id,
             intent_type, sync_status, created_at, updated_at
-          ) VALUES ('intent-1', 'container-1', 'next-parent', 'old-parent',
+          ) VALUES ('intent-1', 'container.move', 'container-1', 'next-parent', 'old-parent',
             'container.move', 'pending', '2026-01-01T00:00:00.000Z',
             '2026-01-01T00:00:00.000Z')`,
         );

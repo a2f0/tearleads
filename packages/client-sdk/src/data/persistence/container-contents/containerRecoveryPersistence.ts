@@ -1,9 +1,10 @@
 import { toFingerprint } from "@tearleads/crypto";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
-  containerCreateIntents,
-  containerMoveIntents,
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
+  inContainerIntentLanes,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -51,23 +52,28 @@ async function recoverySnapshot(
     );
   }
   const creates = await execSql(
-    "SELECT id, container_id, parent_container_id, intent_type, remote_container_id, remote_metadata_document_id, remote_metadata_access_state_hash FROM container_create_intents WHERE container_id = ? AND sync_status = 'pending' ORDER BY id",
-    [containerId],
+    "SELECT id, subject_id, target_container_id, intent_type, remote_container_id, remote_metadata_document_id, remote_metadata_access_state_hash FROM local_intents WHERE lane = ? AND subject_id = ? AND sync_status = 'pending' ORDER BY id",
+    [LOCAL_INTENT_LANES.containerCreate, containerId],
   );
   const moves = await execSql(
-    "SELECT id, container_id, parent_container_id, previous_parent_container_id, intent_type FROM container_move_intents WHERE container_id = ? ORDER BY id",
-    [containerId],
+    "SELECT id, subject_id, target_container_id, source_container_id, intent_type FROM local_intents WHERE lane = ? AND subject_id = ? ORDER BY id",
+    [LOCAL_INTENT_LANES.containerMove, containerId],
   );
+  const placementWhere = `lane = ? AND (target_container_id = ? OR id IN
+    (SELECT intent_id FROM document_intent_link_targets WHERE container_id = ?))`;
+  const placementBind = [
+    LOCAL_INTENT_LANES.documentPlacement,
+    containerId,
+    containerId,
+  ];
   const links = await execSql(
-    `SELECT id, local_id, document_id, target_container_id, source_container_id, replace_linked_containers, intent_type FROM document_move_intents WHERE target_container_id = ? OR id IN
-    (SELECT intent_id FROM document_intent_link_targets WHERE container_id = ?) ORDER BY id`,
-    [containerId, containerId],
+    `SELECT id, local_id, subject_id, target_container_id, source_container_id, replace_linked_containers, intent_type FROM local_intents WHERE ${placementWhere} ORDER BY id`,
+    placementBind,
   );
   const targets = await execSql(
     `SELECT intent_id, operation, container_id FROM document_intent_link_targets WHERE intent_id IN
-    (SELECT id FROM document_move_intents WHERE target_container_id = ? OR id IN
-      (SELECT intent_id FROM document_intent_link_targets WHERE container_id = ?)) ORDER BY intent_id, container_id, operation`,
-    [containerId, containerId],
+    (SELECT id FROM local_intents WHERE ${placementWhere}) ORDER BY intent_id, container_id, operation`,
+    placementBind,
   );
   const revision = await toFingerprint(
     new TextEncoder().encode(
@@ -89,7 +95,7 @@ export async function listRetainedContainerMetadata(
 ) {
   if (!organizationId) return [];
   await sqlContainerContentsPersistence.ensureSchema(execSql);
-  await ensureSqlTables(execSql, documentMoveIntentTables);
+  await ensureSqlTables(execSql, documentPlacementIntentTables);
   return runSerializedSqlMutation(execSql, async (locked) =>
     getClientSQLitePersistenceRuntime(locked).transaction(async () => {
       const rows = await locked(
@@ -133,7 +139,7 @@ export async function discardRetainedContainerMetadata(
   },
 ): Promise<boolean> {
   await sqlContainerContentsPersistence.ensureSchema(execSql);
-  await ensureSqlTables(execSql, documentMoveIntentTables);
+  await ensureSqlTables(execSql, documentPlacementIntentTables);
   return runSerializedSqlMutation(execSql, async (locked) =>
     getClientSQLitePersistenceRuntime(locked).transaction(
       async (tx) => {
@@ -168,12 +174,13 @@ export async function discardRetainedContainerMetadata(
           containerIds: [input.containerId],
         });
         await tx
-          .delete(containerCreateIntents)
-          .where(eq(containerCreateIntents.containerId, input.containerId))
-          .run();
-        await tx
-          .delete(containerMoveIntents)
-          .where(eq(containerMoveIntents.containerId, input.containerId))
+          .delete(localIntents)
+          .where(
+            and(
+              inContainerIntentLanes(),
+              eq(localIntents.subjectId, input.containerId),
+            ),
+          )
           .run();
         await deleteContainerMetadataDocumentRowsInTransaction(tx, [
           input.containerId,
@@ -207,12 +214,12 @@ export async function listRecoveryFolderMoveIds(
   if (!organizationId) return [];
   await sqlContainerContentsPersistence.ensureSchema(execSql);
   const rows = await execSql(
-    `SELECT c.id FROM containers c JOIN container_move_intents i
-    ON i.container_id = c.id AND i.parent_container_id = c.parent_id
+    `SELECT c.id FROM containers c JOIN local_intents i
+    ON i.lane = ? AND i.subject_id = c.id AND i.target_container_id = c.parent_id
     WHERE c.organization_id = ? AND i.sync_status IN ('pending', 'blocked')
     AND NOT EXISTS (SELECT 1 FROM containers p WHERE p.id = c.parent_id)
     ORDER BY c.id`,
-    [organizationId],
+    [LOCAL_INTENT_LANES.containerMove, organizationId],
   );
   return rows.map((row) => String(Reflect.get(row, "id")));
 }

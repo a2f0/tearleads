@@ -12,12 +12,14 @@ const accessLevelColumn = "effective_access_level";
 /**
  * Materialized local container tree.
  *
- * Container rows describe the tree and its encrypted metadata document. Display
- * fields are kept in `containerProjection`; metadata rows live in `documents`.
- * `id` is the primary key for structural lookups. `metadataDocumentId` is the
- * server metadata-document id when known; `systemSlot` is an optional opaque
- * app-owned slot. Local timestamps track client storage/structural changes,
- * while server timestamps are populated once the container has synced.
+ * Container rows describe the tree and its encrypted metadata document;
+ * metadata rows live in `documents`. `id` is the primary key for structural
+ * lookups. `metadataDocumentId` is the server metadata-document id when known;
+ * `systemSlot` is an optional opaque app-owned slot. `displayName` and `icon`
+ * are the decrypted metadata projection lists read: `displayName` stays
+ * nullable so presentation falls back to `/` for a root and `Untitled`
+ * otherwise. Local timestamps track client storage/structural changes, while
+ * server timestamps are populated once the container has synced.
  */
 export const containers = sqliteTable(
   "containers",
@@ -27,6 +29,8 @@ export const containers = sqliteTable(
     parentId: text("parent_id"),
     metadataDocumentId: text("metadata_document_id"),
     systemSlot: text("system_slot"),
+    displayName: text("display_name"),
+    icon: text("icon"),
     effectiveAccessLevel: text(accessLevelColumn).notNull().default("read"),
     localCreatedAt: text("local_created_at").notNull(),
     localUpdatedAt: text("local_updated_at").notNull(),
@@ -112,32 +116,15 @@ export const dormantMetadataSweepRequests = sqliteTable(
   ],
 );
 
-/**
- * Decrypted container metadata read model.
- *
- * Container metadata is authored as a Loro document, but lists need a small
- * queryable projection for names and icons. `displayName` remains nullable so
- * presentation can fall back to `/` or `Untitled`; `containerId` is the primary
- * key joining the projection back to `containers.id`.
- */
-export const containerProjection = sqliteTable(
-  "container_projection",
-  {
-    containerId: text("container_id"),
-    displayName: text("display_name"),
-    icon: text("icon"),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.containerId] })],
-);
-
 export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(containers),
+  {
+    ...defineSqlTableSchema(containers),
+    requiredColumns: ["display_name", "icon"],
+  },
   {
     ...defineSqlTableSchema(containerHydrationTombstones),
     requiredColumns: ["cleared"],
   },
-  defineSqlTableSchema(containerProjection),
   defineSqlTableSchema(dormantContainerMetadata),
   defineSqlTableSchema(dormantMetadataSweepRequests),
   defineSqlTableSchema(supersededContainerBindings),
@@ -146,7 +133,6 @@ export const containerTableSchemas: ReadonlyArray<SqlTableSchema> = [
 export const containerSQLiteSchema = {
   containers,
   containerHydrationTombstones,
-  containerProjection,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
   supersededContainerBindings,

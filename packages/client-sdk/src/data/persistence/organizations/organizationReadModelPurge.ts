@@ -1,8 +1,5 @@
 import { and, type Column, eq, ne, notExists, type SQL } from "drizzle-orm";
-import {
-  organizationDataUsageCategories,
-  organizationDataUsageSnapshots,
-} from "../../sqlite/organizationDataUsageSchema";
+import { organizationDataUsageSnapshots } from "../../sqlite/organizationDataUsageSchema";
 import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
@@ -84,16 +81,6 @@ export async function pruneInactiveOrganizationRequestersInTransaction(input: {
         input,
         organizationDataUsageSnapshots.organizationId,
         organizationDataUsageSnapshots.requesterUserId,
-      ),
-    )
-    .run();
-  await input.tx
-    .delete(organizationDataUsageCategories)
-    .where(
-      inactiveUserScope(
-        input,
-        organizationDataUsageCategories.organizationId,
-        organizationDataUsageCategories.requesterUserId,
       ),
     )
     .run();

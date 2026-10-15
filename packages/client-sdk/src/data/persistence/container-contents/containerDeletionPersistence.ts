@@ -1,13 +1,11 @@
-import { inArray } from "drizzle-orm";
+import { and, inArray } from "drizzle-orm";
 import { ensureDocumentProjectionTables } from "../../sqlite/documentPersistence";
 import {
-  containerCreateIntents,
-  containerCreateIntentTables,
-  containerMoveIntents,
-  containerMoveIntentTables,
   containers,
   documentContainerProjectionTables,
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
+  inContainerIntentLanes,
+  localIntents,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -193,12 +191,13 @@ async function applyContainerRemovals(input: {
   } else {
     await repairLinkIntentsForRemovedContainers({ containerIds, tx: input.tx });
     await input.tx
-      .delete(containerCreateIntents)
-      .where(inArray(containerCreateIntents.containerId, containerIds))
-      .run();
-    await input.tx
-      .delete(containerMoveIntents)
-      .where(inArray(containerMoveIntents.containerId, containerIds))
+      .delete(localIntents)
+      .where(
+        and(
+          inContainerIntentLanes(),
+          inArray(localIntents.subjectId, containerIds),
+        ),
+      )
       .run();
   }
   await deleteContainerRowsInTransaction(input.tx, containerIds);
@@ -219,10 +218,8 @@ export async function deleteStoredContainers(
   if (uniqueRemovals.length === 0) return [];
   return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
-    await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+    await ensureSqlTables(lockedExecSql, documentPlacementIntentTables);
     await ensureContainerTables(lockedExecSql);
-    await ensureSqlTables(lockedExecSql, containerCreateIntentTables);
-    await ensureSqlTables(lockedExecSql, containerMoveIntentTables);
     await ensureDocumentProjectionTables(lockedExecSql);
     await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
     const runtime = getClientSQLitePersistenceRuntime(lockedExecSql);

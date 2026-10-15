@@ -51,7 +51,9 @@ test.each([false, true])(
         .from(principalHistoryStages)
         .where(eq(principalHistoryStages.id, stage.id));
       expect(saved?.complete).toBe(true);
-      if (complete) expect(saved).toEqual(stage);
+      // A completed predecessor keeps its work; only its recency hint moves.
+      if (complete)
+        expect(saved).toEqual({ ...stage, touchedAt: expect.any(Number) });
     } finally {
       f.close();
     }

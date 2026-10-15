@@ -311,7 +311,7 @@ test("denied moves replay once per launch, before the scan", async () => {
     const readStatuses = async () =>
       (
         await execSql(
-          "SELECT sync_status AS syncStatus FROM document_move_intents",
+          "SELECT sync_status AS syncStatus FROM local_intents WHERE lane = 'document.placement'",
         )
       ).map((row) => Reflect.get(row, "syncStatus"));
 
