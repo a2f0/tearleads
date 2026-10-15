@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import {
   LauncherNavigationProvider,
   useWindowStateData,
@@ -35,9 +35,18 @@ function Pane({ active, name }: { active: boolean; name: string }) {
   );
 }
 
+const browser = window as typeof window & {
+  happyDOM: { setURL: (url: string) => void };
+};
+let previousUrl = window.location.href;
+beforeEach(() => {
+  previousUrl = window.location.href;
+});
+
 afterEach(() => {
   cleanup();
-  window.history.replaceState(null, "", "/");
+  browser.happyDOM.setURL(previousUrl);
+  window.history.replaceState(null, "", previousUrl);
 });
 
 test("only the active split pane opens an incoming link, including after focus changes", async () => {

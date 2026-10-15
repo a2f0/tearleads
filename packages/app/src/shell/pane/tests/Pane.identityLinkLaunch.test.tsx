@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { mockIdentityLink } from "../../../../test/helpers/mockIdentityLink";
 import {
@@ -10,9 +10,18 @@ import { DualPaneProvider, PaneSideProvider } from "../dual-pane";
 import { PaneProvider } from "../runtime/PaneProvider";
 import { Pane } from "../shell/Pane";
 
+const browser = window as typeof window & {
+  happyDOM: { setURL: (url: string) => void };
+};
+let previousUrl = window.location.href;
+beforeEach(() => {
+  previousUrl = window.location.href;
+});
+
 afterEach(async () => {
   await cleanupPaneTestEnvironment();
-  window.history.replaceState(null, "", "/");
+  browser.happyDOM.setURL(previousUrl);
+  window.history.replaceState(null, "", previousUrl);
 });
 
 for (const [mode, native] of [
@@ -23,9 +32,6 @@ for (const [mode, native] of [
   test(`identity permalink survives first-use provisioning in ${mode} mode (native: ${native})`, async () => {
     const peerId = "11111111-1111-4111-8111-111111111111";
     const link = await mockIdentityLink(peerId);
-    const browser = window as typeof window & {
-      happyDOM: { setURL: (url: string) => void };
-    };
     browser.happyDOM.setURL(
       native ? `views://main${new URL(link).pathname}` : link,
     );

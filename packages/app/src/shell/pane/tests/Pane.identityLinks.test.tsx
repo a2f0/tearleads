@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import {
   getPaneRoot,
@@ -22,10 +22,19 @@ import {
 } from "../../../../test/helpers/mswServer";
 import { waitForPersonalBootstrap } from "../../../../test/helpers/waitForPersonalBootstrap";
 
+const browser = window as typeof window & {
+  happyDOM: { setURL: (url: string) => void };
+};
+let previousUrl = window.location.href;
+beforeEach(() => {
+  previousUrl = window.location.href;
+});
+
 afterEach(async () => {
   cleanup();
   globalThis.localStorage.clear();
-  window.history.replaceState(null, "", "/");
+  browser.happyDOM.setURL(previousUrl);
+  window.history.replaceState(null, "", previousUrl);
   await resetMockServer();
 });
 
@@ -41,9 +50,6 @@ function mismatchedLink(link: string): string {
 }
 
 test("local identity links onboard contacts and roster users; a mismatch never grants membership", async () => {
-  const browser = window as typeof window & {
-    happyDOM: { setURL: (url: string) => void };
-  };
   browser.happyDOM.setURL("http://localhost/");
   useTestApiAppHandlers();
   const view = renderDualPane();
