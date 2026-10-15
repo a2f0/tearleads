@@ -1,6 +1,5 @@
 import type { ManagedRecipientPrincipalType } from "@tearleads/crypto";
 import {
-  index,
   integer,
   pgTable,
   text,
@@ -27,11 +26,6 @@ export const principalPolicyMutationAcknowledgements = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("principal_policy_mutation_acks_state_idx").on(
-      table.principalType,
-      table.principalId,
-      table.stateHash,
-    ),
     uniqueIndex("principal_policy_mutation_acks_batch_idx").on(
       table.principalType,
       table.principalId,

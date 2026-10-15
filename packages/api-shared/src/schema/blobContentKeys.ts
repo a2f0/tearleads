@@ -68,7 +68,6 @@ export const blobContentKeyEpochs = pgTable(
       table.blobId,
       table.contentKeyEpoch,
     ),
-    index("blob_content_key_epochs_blob_idx").on(table.blobId),
     index("blob_content_key_epochs_target_idx").on(table.targetHash),
   ],
 );
@@ -135,7 +134,6 @@ export const blobContentKeyTargets = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("blob_content_key_targets_epoch_idx").on(table.blobContentKeyEpochId),
     index("blob_content_key_targets_binding_idx").on(table.bindingId),
     index("blob_content_key_targets_container_epoch_idx").on(
       table.containerKeyEpochId,
@@ -208,10 +206,6 @@ export const blobContentWriteHeaders = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("blob_content_write_headers_blob_epoch_idx").on(
-      table.blobId,
-      table.contentKeyEpoch,
-    ),
     index("blob_content_write_headers_organization_blob_idx").on(
       table.organizationId,
       table.blobId,

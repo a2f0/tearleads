@@ -122,7 +122,6 @@ export const accessManifests = pgTable(
       table.objectId,
       table.epoch,
     ),
-    index("access_manifests_object_idx").on(table.objectKind, table.objectId),
   ],
 );
 
@@ -256,9 +255,6 @@ export const accessManifestPrincipalHeadProjection = pgTable(
       "access_manifest_principal_head_projection_version_range",
       sql`${table.version} >= 1 AND ${table.version} <= 9007199254740991`,
     ),
-    index("access_manifest_principal_projection_manifest_idx").on(
-      table.manifestHash,
-    ),
     index("access_manifest_principal_projection_principal_idx").on(
       table.principalType,
       table.principalId,
@@ -307,9 +303,7 @@ export const accessManifestDocumentLinkProjection = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("access_manifest_document_link_manifest_idx").on(table.manifestHash),
     index("access_manifest_document_link_document_idx").on(table.documentId),
-    index("access_manifest_document_link_container_idx").on(table.containerId),
     index("access_manifest_document_link_container_manifest_idx").on(
       table.containerId,
       table.manifestHash,
@@ -341,20 +335,10 @@ export const accessManifestContainerGrantProjection = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    index("access_manifest_container_grant_manifest_idx").on(
-      table.manifestHash,
-    ),
-    index("access_manifest_container_grant_subject_idx").on(
-      table.subjectType,
-      table.subjectId,
-    ),
     index("access_manifest_container_grant_subject_manifest_idx").on(
       table.subjectType,
       table.subjectId,
       table.manifestHash,
-      table.containerId,
-    ),
-    index("access_manifest_container_grant_container_idx").on(
       table.containerId,
     ),
     index("access_manifest_container_grant_container_manifest_idx").on(

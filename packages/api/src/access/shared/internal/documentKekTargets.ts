@@ -7,10 +7,7 @@ import {
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentSyncErrorCode,
 } from "@tearleads/validators/response";
-import {
-  getCurrentAccessManifestHead,
-  listAccessManifestDocumentLinkProjection,
-} from "./accessManifestStore";
+import { getCurrentDocumentHeadWithLinks } from "./accessManifestStore";
 import { resolveCurrentContainerKekTargetsMapped } from "./containerKekTargets";
 import { assertExpectedTargetHashCurrent } from "./contentKeyTargetPolicy";
 
@@ -43,36 +40,19 @@ interface AssertDocumentKekTargetsCurrentInput {
   readonly allowHistoricalParentEpochs?: boolean;
 }
 
-async function loadDocumentLinkSetHead(
-  documentId: string,
-  executor: DatabaseSession,
-) {
-  const head = await getCurrentAccessManifestHead(
-    "document",
-    documentId,
-    executor,
-  );
-
-  if (!head) {
-    throw new DocumentKekTargetError(
-      "Document link-set manifest head missing",
-      404,
-    );
-  }
-
-  return head;
-}
-
 export async function resolveCurrentDocumentKekTargets(
   documentId: string,
   executor: DatabaseSession,
   allowHistoricalParentEpochs = false,
 ): Promise<ResolvedDocumentKekTargets> {
-  const linkSetHead = await loadDocumentLinkSetHead(documentId, executor);
-  const linkRows = await listAccessManifestDocumentLinkProjection(
-    linkSetHead.manifestHash,
-    executor,
-  );
+  const current = await getCurrentDocumentHeadWithLinks(documentId, executor);
+  if (!current) {
+    throw new DocumentKekTargetError(
+      "Document link-set manifest head missing",
+      404,
+    );
+  }
+  const { head: linkSetHead, links: linkRows } = current;
   const linkedContainerIds = linkRows.map((row) => row.containerId);
 
   if (linkedContainerIds.length === 0) {

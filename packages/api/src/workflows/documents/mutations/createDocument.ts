@@ -5,7 +5,6 @@ import type {
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
-import { resolveCurrentDocumentKekTargets } from "../../../access/read/documentKekTargets";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
@@ -38,7 +37,7 @@ export async function runCreateDocumentWorkflow(
 ): Promise<DocumentCreateResponse> {
   try {
     return await db.transaction(async (tx) => {
-      const created = await createDocumentWithExecutor({
+      const { created, organizationId } = await createDocumentInTransaction({
         executor: tx,
         fingerprint: input.fingerprint,
         request: input.request,
@@ -46,10 +45,6 @@ export async function runCreateDocumentWorkflow(
       });
       // Public boundary: registration bootstraps its documents via
       // createDocumentWithExecutor directly, so gate only here.
-      const { organizationId } = await resolveCurrentDocumentKekTargets(
-        created.id,
-        tx,
-      );
       await assertOrganizationCanSync(tx, organizationId, input.userId);
       return created;
     });
@@ -80,12 +75,28 @@ async function lockCreateContainerPath(
   );
 }
 
-export async function createDocumentWithExecutor(input: {
+interface CreateDocumentWithExecutorInput {
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly request: DocumentCreateRequest;
   readonly userId: string;
-}): Promise<DocumentCreateResponse> {
+}
+
+export async function createDocumentWithExecutor(
+  input: CreateDocumentWithExecutorInput,
+): Promise<DocumentCreateResponse> {
+  return (await createDocumentInTransaction(input)).created;
+}
+
+// The content-key bundle store resolves the document's current KEK targets
+// in this transaction; nothing after it changes heads, links, or epochs, so
+// its organization is the one a fresh resolution would return.
+async function createDocumentInTransaction(
+  input: CreateDocumentWithExecutorInput,
+): Promise<{
+  readonly created: DocumentCreateResponse;
+  readonly organizationId: string;
+}> {
   try {
     const event = await verifyDocumentEvent({
       body: input.request.body,
@@ -161,13 +172,16 @@ export async function createDocumentWithExecutor(input: {
     );
 
     return {
-      id: document.id,
-      createdAt: document.createdAt.toISOString(),
-      accessManifest: documentManifestBundleRecord(manifest),
-      contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
-      documentKekTargets: toDocumentKekTargetsResponse(
-        contentKeyBundle.currentTargets,
-      ),
+      created: {
+        id: document.id,
+        createdAt: document.createdAt.toISOString(),
+        accessManifest: documentManifestBundleRecord(manifest),
+        contentKeyBundle: toContentKeyBundleResponse(contentKeyBundle),
+        documentKekTargets: toDocumentKekTargetsResponse(
+          contentKeyBundle.currentTargets,
+        ),
+      },
+      organizationId: contentKeyBundle.currentTargets.organizationId,
     };
   } catch (error) {
     const mutationError = toMutationError(error);

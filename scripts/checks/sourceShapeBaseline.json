@@ -88,8 +88,8 @@
       "bytes": 18333
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 692,
-      "bytes": 20880
+      "lines": 576,
+      "bytes": 18029
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,

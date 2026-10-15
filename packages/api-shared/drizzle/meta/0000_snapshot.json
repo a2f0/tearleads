@@ -1,5 +1,5 @@
 {
-  "id": "9738a1b2-0e45-4ab0-b8b4-830d4aadae7c",
+  "id": "a837dfd7-1678-4dde-8504-be7adf790e2c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -250,42 +250,6 @@
         }
       },
       "indexes": {
-        "access_manifest_container_grant_manifest_idx": {
-          "name": "access_manifest_container_grant_manifest_idx",
-          "columns": [
-            {
-              "expression": "manifest_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "access_manifest_container_grant_subject_idx": {
-          "name": "access_manifest_container_grant_subject_idx",
-          "columns": [
-            {
-              "expression": "subject_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "subject_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "access_manifest_container_grant_subject_manifest_idx": {
           "name": "access_manifest_container_grant_subject_manifest_idx",
           "columns": [
@@ -307,21 +271,6 @@
               "asc": true,
               "nulls": "last"
             },
-            {
-              "expression": "container_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "access_manifest_container_grant_container_idx": {
-          "name": "access_manifest_container_grant_container_idx",
-          "columns": [
             {
               "expression": "container_id",
               "isExpression": false,
@@ -434,41 +383,11 @@
         }
       },
       "indexes": {
-        "access_manifest_document_link_manifest_idx": {
-          "name": "access_manifest_document_link_manifest_idx",
-          "columns": [
-            {
-              "expression": "manifest_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "access_manifest_document_link_document_idx": {
           "name": "access_manifest_document_link_document_idx",
           "columns": [
             {
               "expression": "document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "access_manifest_document_link_container_idx": {
-          "name": "access_manifest_document_link_container_idx",
-          "columns": [
-            {
-              "expression": "container_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -703,21 +622,6 @@
         }
       },
       "indexes": {
-        "access_manifest_principal_projection_manifest_idx": {
-          "name": "access_manifest_principal_projection_manifest_idx",
-          "columns": [
-            {
-              "expression": "manifest_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "access_manifest_principal_projection_principal_idx": {
           "name": "access_manifest_principal_projection_principal_idx",
           "columns": [
@@ -940,27 +844,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "access_manifests_object_idx": {
-          "name": "access_manifests_object_idx",
-          "columns": [
-            {
-              "expression": "object_kind",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "object_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1300,21 +1183,6 @@
           "method": "btree",
           "with": {}
         },
-        "blob_content_key_epochs_blob_idx": {
-          "name": "blob_content_key_epochs_blob_idx",
-          "columns": [
-            {
-              "expression": "blob_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "blob_content_key_epochs_target_idx": {
           "name": "blob_content_key_epochs_target_idx",
           "columns": [
@@ -1418,21 +1286,6 @@
         }
       },
       "indexes": {
-        "blob_content_key_targets_epoch_idx": {
-          "name": "blob_content_key_targets_epoch_idx",
-          "columns": [
-            {
-              "expression": "blob_content_key_epoch_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "blob_content_key_targets_binding_idx": {
           "name": "blob_content_key_targets_binding_idx",
           "columns": [
@@ -1605,27 +1458,6 @@
         }
       },
       "indexes": {
-        "blob_content_write_headers_blob_epoch_idx": {
-          "name": "blob_content_write_headers_blob_epoch_idx",
-          "columns": [
-            {
-              "expression": "blob_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "content_key_epoch",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "blob_content_write_headers_organization_blob_idx": {
           "name": "blob_content_write_headers_organization_blob_idx",
           "columns": [
@@ -2271,21 +2103,6 @@
           "method": "btree",
           "with": {}
         },
-        "container_key_epochs_container_idx": {
-          "name": "container_key_epochs_container_idx",
-          "columns": [
-            {
-              "expression": "container_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "container_key_epochs_access_manifest_idx": {
           "name": "container_key_epochs_access_manifest_idx",
           "columns": [
@@ -2441,21 +2258,6 @@
             }
           ],
           "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "container_key_wraps_epoch_idx": {
-          "name": "container_key_wraps_epoch_idx",
-          "columns": [
-            {
-              "expression": "container_key_epoch_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2790,21 +2592,6 @@
           "method": "btree",
           "with": {}
         },
-        "containers_parent_id_idx": {
-          "name": "containers_parent_id_idx",
-          "columns": [
-            {
-              "expression": "parent_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "containers_parent_updated_idx": {
           "name": "containers_parent_updated_idx",
           "columns": [
@@ -3019,21 +2806,6 @@
           "method": "btree",
           "with": {}
         },
-        "document_content_key_epochs_document_idx": {
-          "name": "document_content_key_epochs_document_idx",
-          "columns": [
-            {
-              "expression": "document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "document_content_key_epochs_target_idx": {
           "name": "document_content_key_epochs_target_idx",
           "columns": [
@@ -3119,21 +2891,6 @@
         }
       },
       "indexes": {
-        "document_content_key_targets_epoch_idx": {
-          "name": "document_content_key_targets_epoch_idx",
-          "columns": [
-            {
-              "expression": "document_content_key_epoch_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "document_content_key_targets_container_epoch_idx": {
           "name": "document_content_key_targets_container_epoch_idx",
           "columns": [
@@ -3273,27 +3030,6 @@
         }
       },
       "indexes": {
-        "document_content_write_headers_document_epoch_idx": {
-          "name": "document_content_write_headers_document_epoch_idx",
-          "columns": [
-            {
-              "expression": "document_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "content_key_epoch",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "document_content_write_headers_organization_update_idx": {
           "name": "document_content_write_headers_organization_update_idx",
           "columns": [
@@ -5601,27 +5337,6 @@
         }
       },
       "indexes": {
-        "principal_epoch_keys_principal_idx": {
-          "name": "principal_epoch_keys_principal_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "principal_epoch_keys_principal_epoch_idx": {
           "name": "principal_epoch_keys_principal_epoch_idx",
           "columns": [
@@ -5907,27 +5622,6 @@
         }
       },
       "indexes": {
-        "principal_member_envelopes_principal_idx": {
-          "name": "principal_member_envelopes_principal_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "principal_member_envelopes_state_member_idx": {
           "name": "principal_member_envelopes_state_member_idx",
           "columns": [
@@ -6024,42 +5718,6 @@
         }
       },
       "indexes": {
-        "principal_membership_projection_principal_idx": {
-          "name": "principal_membership_projection_principal_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "principal_membership_projection_member_idx": {
-          "name": "principal_membership_projection_member_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "principal_membership_projection_member_state_idx": {
           "name": "principal_membership_projection_member_state_idx",
           "columns": [
@@ -6283,33 +5941,6 @@
         }
       },
       "indexes": {
-        "principal_policy_mutation_acks_state_idx": {
-          "name": "principal_policy_mutation_acks_state_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "state_hash",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "principal_policy_mutation_acks_batch_idx": {
           "name": "principal_policy_mutation_acks_batch_idx",
           "columns": [
@@ -6440,27 +6071,6 @@
         }
       },
       "indexes": {
-        "principal_state_payloads_principal_idx": {
-          "name": "principal_state_payloads_principal_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "principal_state_payloads_principal_state_idx": {
           "name": "principal_state_payloads_principal_state_idx",
           "columns": [
@@ -6648,27 +6258,6 @@
         }
       },
       "indexes": {
-        "principal_states_principal_idx": {
-          "name": "principal_states_principal_idx",
-          "columns": [
-            {
-              "expression": "principal_type",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "principal_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "principal_states_principal_version_idx": {
           "name": "principal_states_principal_version_idx",
           "columns": [

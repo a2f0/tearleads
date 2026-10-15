@@ -61,7 +61,6 @@ export const containers = pgTable(
     uniqueIndex("containers_org_system_slot_idx")
       .on(table.organizationId, table.systemSlot)
       .where(sql`${table.systemSlot} is not null`),
-    index("containers_parent_id_idx").on(table.parentId),
     index("containers_parent_updated_idx").on(
       table.parentId,
       table.updatedAt,
