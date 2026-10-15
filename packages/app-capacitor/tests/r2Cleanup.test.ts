@@ -33,11 +33,15 @@ printf '%s\\n' "$*" >> "$TEST_ROOT/calls"
 case "$*" in
   *'s3 rm'*) [ "$TEST_FAILURE" != delete ] || exit 9 ;;
   *'list-multipart-uploads'*)
+    [ "$TEST_FAILURE" != empty-listing ] || exit 0
     if [ -f "$TEST_ROOT/aborted" ] && [ "$TEST_FAILURE" != residual-upload ]; then echo '{"Uploads":[]}'
     else echo '{"Uploads":[{"Key":"blob/key","UploadId":"test-upload"}]}'
     fi ;;
   *'abort-multipart-upload'*) touch "$TEST_ROOT/aborted" ;;
   *'list-objects-v2'*)
+    [ "$TEST_FAILURE" != listing-error ] || exit 9
+    [ "$TEST_FAILURE" != empty-listing ] || exit 0
+    if [ "$TEST_FAILURE" = malformed-listing ]; then echo 'not json'; exit 0; fi
     if [ "$TEST_FAILURE" = residual ]; then echo '{"Contents":[{"Key":"still-present"}]}'
     else echo '{"Contents":[]}'
     fi ;;
@@ -117,6 +121,21 @@ for (const failure of ["delete", "residual", "residual-upload"]) {
       );
       expect(result.stderr).toContain("refusing teardown");
     }
+  });
+}
+
+test("staging cleanup reads a successful empty listing as an empty bucket", async () => {
+  const result = await cleanupScenario("empty-listing");
+  expect(result.code, result.stderr).toBe(0);
+  expect(result.calls).toHaveLength(4);
+  expect(result.calls.at(-1)).toContain("list-multipart-uploads");
+});
+
+for (const failure of ["listing-error", "malformed-listing"]) {
+  test(`staging cleanup never treats a ${failure} as an empty bucket`, async () => {
+    const result = await cleanupScenario(failure);
+    expect(result.code).not.toBe(0);
+    expect(result.calls.at(-1)).toContain("list-objects-v2");
   });
 }
 
