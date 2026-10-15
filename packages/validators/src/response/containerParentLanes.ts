@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { containerParentLaneResponseUniqueIdsRefinement } from "../containerReadRefinements";
-import { ContainerParentLaneIdSchema } from "../containerReadSchemas";
+import {
+  ContainerReadLaneIdSchema,
+  refineContainerReadLaneResults,
+} from "../containerReadSchemas";
 import {
   registerJsonSchemaRuntimeRefinements,
   registerJsonSchemaView,
@@ -9,7 +12,7 @@ import { boundedNonEmptyArraySchema } from "../schema";
 import { ListContainersResponseSchema } from "./container";
 
 const ContainerParentLaneResultSchema = z.strictObject({
-  laneId: ContainerParentLaneIdSchema,
+  laneId: ContainerReadLaneIdSchema,
   page: ListContainersResponseSchema,
 });
 
@@ -21,19 +24,7 @@ export const ListContainerParentLanesResponseSchema =
   registerJsonSchemaRuntimeRefinements(
     registerJsonSchemaView(
       ListContainerParentLanesResponseViewSchema.superRefine(
-        ({ results }, context) => {
-          const laneIds = new Set<string>();
-          results.forEach((result, index) => {
-            if (laneIds.has(result.laneId)) {
-              context.addIssue({
-                code: "custom",
-                message: "Container parent lane result id is duplicated",
-                path: ["results", index, "laneId"],
-              });
-            }
-            laneIds.add(result.laneId);
-          });
-        },
+        refineContainerReadLaneResults("Container parent lane"),
       ),
       ListContainerParentLanesResponseViewSchema,
     ),

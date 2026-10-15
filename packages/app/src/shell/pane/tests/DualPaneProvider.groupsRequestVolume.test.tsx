@@ -64,10 +64,11 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
 // meant to close.
 const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // Private metadata-root authority adds one directory discovery read per
-  // operation and the first read of each new head. Measured completed calls
-  // are 73–76; allow three more bounded reads. Preparation continuations are
+  // operation and the first read of each new head. Batched discovery lists
+  // each reconciliation pass's lanes in one request. Measured completed calls
+  // are 70–73; allow three more bounded reads. Preparation continuations are
   // counted below.
-  total: 79,
+  total: 76,
   // Container mutations cite stored manifests by hash: 210 KB sent with one
   // descendant recitation (389.5 KB when they echoed path bundles). Retain
   // room for the second ~20 KB recitation already allowed below.
@@ -81,7 +82,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /containers": 0,
     "POST /containers/parent-lanes/query": 8,
     "GET /principals/group/:groupId/policy": 3,
-    "GET /containers/:containerId/documents": 6,
+    "POST /containers/documents/query": 3,
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 12,
     "GET /auth/user-identity/:userId": 2,
