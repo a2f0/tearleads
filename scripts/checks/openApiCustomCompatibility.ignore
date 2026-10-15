@@ -1,7 +1,0 @@
-# #2522 (#4): writer projections cite held manifests with x-known-manifests.
-# Remove this exact diagnostic once main contains the new contract.
-GET /containers/{containerId}/writer-projection: request refinement 'request.known-manifest-hints' was added; existing clients were not rejected by it.
-
-# #2522 (#4): writer projections cite held manifests with x-known-manifests.
-# Remove this exact diagnostic once main contains the new contract.
-GET /documents/{documentId}/writer-projection: request refinement 'request.known-manifest-hints' was added; existing clients were not rejected by it.

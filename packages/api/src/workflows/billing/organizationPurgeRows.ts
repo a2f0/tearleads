@@ -17,7 +17,6 @@ import {
   containers,
   groups,
   organizationGroupTombstones,
-  organizationReadModelChanges,
   organizationReadModelHeads,
   organizationRosterEntries,
   organizations,
@@ -215,11 +214,6 @@ export async function deleteOrganizationRemoteRows(input: {
   await deleteContainerRows(input);
   await deleteAccessRows(input.executor, input.organizationId);
   await deleteOrganizationPrincipalRows(input.executor, input.organizationId);
-  await input.executor
-    .delete(organizationReadModelChanges)
-    .where(
-      eq(organizationReadModelChanges.organizationId, input.organizationId),
-    );
   await input.executor
     .delete(organizationReadModelHeads)
     .where(eq(organizationReadModelHeads.organizationId, input.organizationId));

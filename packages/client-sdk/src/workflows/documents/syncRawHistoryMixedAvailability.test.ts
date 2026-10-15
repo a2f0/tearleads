@@ -95,7 +95,7 @@ test("decryptable poison outranks an unavailable raw-history sibling", async () 
       authorizationTargets: currentBundle.targets.map(targetEnvelopeReference),
     };
     const response = await createSyncResponse(materializedPlan.plan, {
-      contentKeyBundles: [unavailableBundle, currentBundle],
+      contentKeyBundles: [unavailableBundle],
       updates: [unavailableUpdate, poisonedCurrentUpdate],
     });
 
@@ -212,7 +212,7 @@ test("an unrelated unresolved update outranks raw-history availability", async (
     };
     const response = {
       ...currentResponse,
-      contentKeyBundles: [unavailableBundle, currentBundle],
+      contentKeyBundles: [unavailableBundle],
       updates: [unavailableUpdate, childUpdate],
     };
 

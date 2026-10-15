@@ -220,7 +220,9 @@ test("isDocumentSyncResponse", () => {
     acceptedOutgoingUpdateIds: ["update-1"],
     commitLsn: null,
     commitLsnMode: "tracked",
-    contentKeyBundle: createDocumentContentKeyBundleResponse(),
+    contentKeyBundle: createDocumentContentKeyBundleResponse({
+      contentKeyEpoch: 2,
+    }),
     contentKeyBundles: [createDocumentContentKeyBundleResponse()],
     documentId: "550e8400-e29b-41d4-a716-446655440001",
     documentKekTargets: createDocumentKekTargetsResponse(),

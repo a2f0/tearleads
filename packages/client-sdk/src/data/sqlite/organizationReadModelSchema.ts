@@ -5,7 +5,11 @@ import {
   text,
 } from "drizzle-orm/sqlite-core";
 
-/** Cursor and lane-level fields for one locally projected organization. */
+/**
+ * Cursor and lane-level fields for one locally projected organization: the
+ * exact organization policy head, and the state hash of the reserved Members
+ * group's membership head, which the group catalog does not list.
+ */
 export const organizationReadModelState = sqliteTable(
   "organization_read_model_state",
   {
@@ -13,6 +17,12 @@ export const organizationReadModelState = sqliteTable(
     cursor: text("cursor").notNull(),
     profileDocumentId: text("profile_document_id"),
     memberGroupId: text("member_group_id").notNull(),
+    memberGroupStateHash: text("member_group_state_hash").notNull(),
+    organizationStateHash: text("organization_state_hash").notNull(),
+    organizationStateVersion: integer("organization_state_version").notNull(),
+    organizationKeyEpoch: integer("organization_key_epoch").notNull(),
+    organizationKeyFingerprint: text("organization_key_fingerprint").notNull(),
+    organizationMemberCount: integer("organization_member_count").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [primaryKey({ columns: [table.organizationId] })],
@@ -57,7 +67,12 @@ export const organizationReadModelDirectoryUsers = sqliteTable(
   (table) => [primaryKey({ columns: [table.organizationId, table.userId] })],
 );
 
-/** Normalized organization group summaries and their current state heads. */
+/**
+ * Normalized visible organization group summaries. The state columns are the
+ * group's exact policy head, all null for a stateless group.
+ * `members_state_hash` is the state hash of the membership head delivered for
+ * the group, null until the groupMemberships lane covers it.
+ */
 export const organizationReadModelGroups = sqliteTable(
   "organization_read_model_groups",
   {
@@ -70,43 +85,17 @@ export const organizationReadModelGroups = sqliteTable(
     stateHash: text("state_hash"),
     stateVersion: integer("state_version"),
     keyEpoch: integer("key_epoch"),
+    keyFingerprint: text("key_fingerprint"),
     memberCount: integer("member_count"),
+    membersStateHash: text("members_state_hash"),
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.groupId] })],
 );
 
-/** Exact policy-state heads used to bind locally projected cryptographic data. */
-export const organizationReadModelPolicyHeads = sqliteTable(
-  "organization_read_model_policy_heads",
-  {
-    organizationId: text("organization_id").notNull(),
-    principalType: text("principal_type").notNull(),
-    principalId: text("principal_id").notNull(),
-    stateHash: text("state_hash").notNull(),
-    stateVersion: integer("state_version").notNull(),
-    keyEpoch: integer("key_epoch").notNull(),
-    keyFingerprint: text("key_fingerprint").notNull(),
-    memberCount: integer("member_count").notNull(),
-  },
-  (table) => [
-    primaryKey({
-      columns: [table.organizationId, table.principalType, table.principalId],
-    }),
-  ],
-);
-
-/** State-hash-bound completeness rows for each projected group membership. */
-export const organizationReadModelGroupMemberships = sqliteTable(
-  "organization_read_model_group_memberships",
-  {
-    organizationId: text("organization_id").notNull(),
-    groupId: text("group_id").notNull(),
-    stateHash: text("state_hash").notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.organizationId, table.groupId] })],
-);
-
-/** Direct users bound to the exact state in the membership completeness row. */
+/**
+ * Direct users bound to the exact state of their group's membership head.
+ * Public keys are not repeated here; the directory lane holds them per user.
+ */
 export const organizationReadModelGroupMembers = sqliteTable(
   "organization_read_model_group_members",
   {
@@ -116,10 +105,6 @@ export const organizationReadModelGroupMembers = sqliteTable(
     sortOrder: integer("sort_order").notNull(),
     stateHash: text("state_hash").notNull(),
     role: text("role").notNull(),
-    signingKeyFingerprint: text("signing_key_fingerprint"),
-    signingPublicKey: text("signing_public_key"),
-    encapsulationPublicKey: text("encapsulation_public_key"),
-    encapsulationKeyFingerprint: text("encapsulation_key_fingerprint"),
   },
   (table) => [
     primaryKey({

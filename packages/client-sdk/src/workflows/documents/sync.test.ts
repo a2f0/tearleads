@@ -998,10 +998,7 @@ test("syncRemoteDocument decrypts returned updates with historical content-key b
             request,
           },
           {
-            contentKeyBundles: [
-              writerProjection.contentKeyBundle,
-              currentWriterProjection.contentKeyBundle,
-            ],
+            contentKeyBundles: [writerProjection.contentKeyBundle],
             updates: [historicalUpdate],
           },
         );
@@ -1175,10 +1172,7 @@ test("syncRemoteDocument recovers pending write id conflicts with a read-only sy
               request,
             },
             {
-              contentKeyBundles: [
-                writerProjection.contentKeyBundle,
-                currentWriterProjection.contentKeyBundle,
-              ],
+              contentKeyBundles: [writerProjection.contentKeyBundle],
               updates: [historicalUpdate],
             },
           ),
@@ -1272,10 +1266,7 @@ test("syncRemoteDocument does not settle recovered pending conflicts with differ
               request,
             },
             {
-              contentKeyBundles: [
-                writerProjection.contentKeyBundle,
-                currentWriterProjection.contentKeyBundle,
-              ],
+              contentKeyBundles: [writerProjection.contentKeyBundle],
               updates: [historicalUpdate],
             },
           ),

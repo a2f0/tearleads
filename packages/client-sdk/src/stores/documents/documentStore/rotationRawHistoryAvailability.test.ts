@@ -111,10 +111,7 @@ test("raw rotation reports unavailable predecessor history after its persisted-s
       response: {
         ...fixture.response,
         contentKeyBundle: currentContentKeyBundle,
-        contentKeyBundles: [
-          fixture.writerProjection.contentKeyBundle,
-          currentContentKeyBundle,
-        ],
+        contentKeyBundles: [fixture.writerProjection.contentKeyBundle],
         documentKekTargets,
       },
       writerProjection: {

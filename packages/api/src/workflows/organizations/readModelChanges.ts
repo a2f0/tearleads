@@ -4,15 +4,13 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import {
-  type OrganizationReadModelLane,
-  type OrganizationReadModelOperation,
-  organizationReadModelChanges,
+  groups,
+  organizationGroupTombstones,
   organizationReadModelHeads,
   organizationRosterEntries,
 } from "@tearleads/api-shared/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, type SQL, sql } from "drizzle-orm";
 import { isSqliteApiDatabase, lockRowForUpdate } from "../../utils/sqlDialect";
-import { pruneOrganizationReadModelChangesInTransaction } from "./readModelRetention";
 
 export interface ObservedOrganizationReadModelChange {
   readonly affectedUserIds: readonly string[];
@@ -185,28 +183,62 @@ export async function listCommittedOrganizationReadModelChanges(
   });
 }
 
+type OrganizationReadModelLane =
+  | "directory"
+  | "grants"
+  | "groupMemberships"
+  | "groups"
+  | "organizationPolicy";
+
+type WholeOrganizationReadModelLane = Exclude<
+  OrganizationReadModelLane,
+  "groupMemberships"
+>;
+
+/**
+ * The read-model lanes one source mutation changed. Whole lanes are stamped on
+ * the organization head; membership changes are stamped on each changed group
+ * row and deletions on each deleted group's tombstone, so a delta can return
+ * exactly the changed groups.
+ */
 interface OrganizationReadModelChangeInput {
   readonly organizationId: string;
-  readonly lane: OrganizationReadModelLane;
-  readonly entityId: string;
-  readonly operation: OrganizationReadModelOperation;
+  readonly deletedGroupIds?: readonly string[];
+  readonly lanes?: readonly WholeOrganizationReadModelLane[];
+  readonly membershipGroupIds?: readonly string[];
 }
 
 interface OrganizationReadModelChangeResult {
   readonly cursor: string;
 }
 
+/** The organization cursor head and the cursor of each lane's last change. */
+export interface OrganizationReadModelHead {
+  readonly cursor: bigint;
+  readonly laneCursors: Readonly<Record<OrganizationReadModelLane, bigint>>;
+}
+
+const headSelection = {
+  cursor: organizationReadModelHeads.cursor,
+  directory: organizationReadModelHeads.directoryCursor,
+  grants: organizationReadModelHeads.grantsCursor,
+  groupMemberships: organizationReadModelHeads.groupMembershipsCursor,
+  groups: organizationReadModelHeads.groupsCursor,
+  organizationPolicy: organizationReadModelHeads.organizationPolicyCursor,
+};
+
 /**
  * Take a shared lock on an organization's cursor head for a consistent
  * authorized snapshot. Concurrent readers can proceed together while source
- * mutations, which update the head, wait for the snapshot transaction.
+ * mutations, which update the head before stamping any lane, wait for the
+ * snapshot transaction.
  */
 export async function lockOrganizationReadModelHeadInTransaction(
   tx: DatabaseTransaction,
   organizationId: string,
-): Promise<bigint | null> {
+): Promise<OrganizationReadModelHead | null> {
   const lockQuery = tx
-    .select({ cursor: organizationReadModelHeads.cursor })
+    .select(headSelection)
     .from(organizationReadModelHeads)
     .where(eq(organizationReadModelHeads.organizationId, organizationId))
     .limit(1);
@@ -217,7 +249,8 @@ export async function lockOrganizationReadModelHeadInTransaction(
     return null;
   }
 
-  return head.cursor;
+  const { cursor, ...laneCursors } = head;
+  return { cursor, laneCursors };
 }
 
 /**
@@ -238,45 +271,129 @@ export async function lockOrganizationReadModelHeadForUpdateInTransaction(
   return head !== undefined;
 }
 
+const laneStampColumns = {
+  directory: "directoryCursor",
+  grants: "grantsCursor",
+  groupMemberships: "groupMembershipsCursor",
+  groups: "groupsCursor",
+  organizationPolicy: "organizationPolicyCursor",
+} as const satisfies Record<OrganizationReadModelLane, string>;
+
+function changedLanes(
+  input: OrganizationReadModelChangeInput,
+): OrganizationReadModelLane[] {
+  const lanes = new Set<OrganizationReadModelLane>(input.lanes ?? []);
+  if (
+    (input.membershipGroupIds?.length ?? 0) > 0 ||
+    (input.deletedGroupIds?.length ?? 0) > 0
+  ) {
+    lanes.add("groupMemberships");
+  }
+  if (lanes.size === 0) {
+    throw new Error("Organization read-model change names no lane");
+  }
+  return [...lanes];
+}
+
 /**
- * Append an organization read-model invalidation inside its source mutation.
- *
- * Callers must pass the active transaction so authoritative state and its
- * marker commit or roll back together. Callers must skip no-op and exact-replay
- * paths before reaching this helper.
+ * Advance the cursor and stamp every changed lane with it in one update. The
+ * update holds the head row lock until commit, so stamps commit in cursor
+ * order and a reader holding the shared head lock sees all or none of them.
  */
-export async function appendOrganizationReadModelChangeInTransaction(
+async function advanceOrganizationReadModelHead(
   tx: DatabaseTransaction,
   input: OrganizationReadModelChangeInput,
-): Promise<OrganizationReadModelChangeResult> {
+): Promise<bigint> {
+  const nextCursor = sql`${organizationReadModelHeads.cursor} + 1`;
+  const stamps: Partial<
+    Record<(typeof laneStampColumns)[OrganizationReadModelLane], SQL>
+  > = {};
+  for (const lane of changedLanes(input)) {
+    stamps[laneStampColumns[lane]] = nextCursor;
+  }
   const [head] = await tx
     .update(organizationReadModelHeads)
-    .set({
-      cursor: sql`${organizationReadModelHeads.cursor} + 1`,
-      updatedAt: new Date(),
-    })
+    .set({ ...stamps, cursor: nextCursor, updatedAt: new Date() })
     .where(eq(organizationReadModelHeads.organizationId, input.organizationId))
     .returning({ cursor: organizationReadModelHeads.cursor });
   if (!head) {
     throw new Error("Organization read-model cursor head is missing");
   }
+  return head.cursor;
+}
 
-  await tx.insert(organizationReadModelChanges).values({
-    ...input,
-    cursor: head.cursor,
-  });
-  await pruneOrganizationReadModelChangesInTransaction({
-    currentCursor: head.cursor,
-    organizationId: input.organizationId,
-    tx,
-  });
+function requireStampedRows(
+  stampedIds: readonly string[],
+  requestedIds: readonly string[],
+): void {
+  const stamped = new Set(stampedIds);
+  if (requestedIds.some((id) => !stamped.has(id))) {
+    throw new Error("Organization read-model group stamp target is missing");
+  }
+}
+
+async function stampGroupMembershipChanges(
+  tx: DatabaseTransaction,
+  input: OrganizationReadModelChangeInput,
+  cursor: bigint,
+): Promise<void> {
+  const membershipGroupIds = [...new Set(input.membershipGroupIds ?? [])];
+  if (membershipGroupIds.length > 0) {
+    const stamped = await tx
+      .update(groups)
+      .set({ membershipCursor: cursor })
+      .where(
+        and(
+          eq(groups.organizationId, input.organizationId),
+          inArray(groups.id, membershipGroupIds),
+        ),
+      )
+      .returning({ id: groups.id });
+    requireStampedRows(
+      stamped.map((row) => row.id),
+      membershipGroupIds,
+    );
+  }
+  const deletedGroupIds = [...new Set(input.deletedGroupIds ?? [])];
+  if (deletedGroupIds.length > 0) {
+    const stamped = await tx
+      .update(organizationGroupTombstones)
+      .set({ deletedCursor: cursor })
+      .where(
+        and(
+          eq(organizationGroupTombstones.organizationId, input.organizationId),
+          inArray(organizationGroupTombstones.groupId, deletedGroupIds),
+        ),
+      )
+      .returning({ id: organizationGroupTombstones.groupId });
+    requireStampedRows(
+      stamped.map((row) => row.id),
+      deletedGroupIds,
+    );
+  }
+}
+
+/**
+ * Record an organization read-model invalidation inside its source mutation.
+ *
+ * Callers must pass the active transaction so authoritative state and its
+ * stamps commit or roll back together, and must skip no-op and exact-replay
+ * paths before reaching this helper. A deleted group's tombstone must already
+ * exist in the transaction.
+ */
+export async function appendOrganizationReadModelChangeInTransaction(
+  tx: DatabaseTransaction,
+  input: OrganizationReadModelChangeInput,
+): Promise<OrganizationReadModelChangeResult> {
+  const cursor = await advanceOrganizationReadModelHead(tx, input);
+  await stampGroupMembershipChanges(tx, input, cursor);
   const store = organizationReadModelChangeScope.getStore();
   if (store) {
     const observed = observedOrganizationState(store, input.organizationId);
-    if (observed.cursor === null || head.cursor > observed.cursor) {
-      observed.cursor = head.cursor;
+    if (observed.cursor === null || cursor > observed.cursor) {
+      observed.cursor = cursor;
     }
   }
 
-  return { cursor: head.cursor.toString() };
+  return { cursor: cursor.toString() };
 }

@@ -348,6 +348,7 @@ CREATE TABLE "documents" (
 CREATE TABLE "groups" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid,
+	"membership_cursor" bigint DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -490,22 +491,18 @@ CREATE TABLE "organization_billing_stripe_seats" (
 CREATE TABLE "organization_group_tombstones" (
 	"group_id" uuid PRIMARY KEY NOT NULL,
 	"organization_id" uuid NOT NULL,
+	"deleted_cursor" bigint DEFAULT 0 NOT NULL,
 	"deleted_at" timestamp DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "organization_read_model_changes" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"organization_id" uuid NOT NULL,
-	"cursor" bigint NOT NULL,
-	"lane" text NOT NULL,
-	"entity_id" uuid NOT NULL,
-	"operation" text NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "organization_read_model_heads" (
 	"organization_id" uuid PRIMARY KEY NOT NULL,
 	"cursor" bigint DEFAULT 0 NOT NULL,
+	"directory_cursor" bigint DEFAULT 0 NOT NULL,
+	"grants_cursor" bigint DEFAULT 0 NOT NULL,
+	"group_memberships_cursor" bigint DEFAULT 0 NOT NULL,
+	"groups_cursor" bigint DEFAULT 0 NOT NULL,
+	"organization_policy_cursor" bigint DEFAULT 0 NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -808,8 +805,7 @@ CREATE UNIQUE INDEX "organization_billing_stripe_seats_org_idx" ON "organization
 CREATE UNIQUE INDEX "organization_billing_stripe_seats_subscription_idx" ON "organization_billing_stripe_seats" USING btree ("subscription_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_billing_stripe_seats_item_idx" ON "organization_billing_stripe_seats" USING btree ("subscription_item_id");--> statement-breakpoint
 CREATE INDEX "organization_billing_stripe_seats_due_idx" ON "organization_billing_stripe_seats" USING btree ("next_attempt_at","lease_expires_at","organization_id");--> statement-breakpoint
-CREATE INDEX "organization_group_tombstones_org_idx" ON "organization_group_tombstones" USING btree ("organization_id","deleted_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "organization_read_model_changes_org_cursor_idx" ON "organization_read_model_changes" USING btree ("organization_id","cursor");--> statement-breakpoint
+CREATE INDEX "organization_group_tombstones_org_idx" ON "organization_group_tombstones" USING btree ("organization_id","deleted_cursor");--> statement-breakpoint
 CREATE UNIQUE INDEX "organization_roster_entries_org_user_idx" ON "organization_roster_entries" USING btree ("organization_id","user_id");--> statement-breakpoint
 CREATE INDEX "organization_roster_entries_org_status_idx" ON "organization_roster_entries" USING btree ("organization_id","status");--> statement-breakpoint
 CREATE INDEX "organization_roster_entries_profile_document_idx" ON "organization_roster_entries" USING btree ("profile_document_id");--> statement-breakpoint

@@ -52,7 +52,7 @@ test("iOS project registers and tests the RevenueCat purchase plugin contract", 
     purchasePlugin,
     preparedStore,
     preparedStoreTests,
-    nativeWorkflow,
+    nativeCheck,
     billingPurchaseTrace,
   ] = await Promise.all([
     Bun.file(
@@ -77,10 +77,7 @@ test("iOS project registers and tests the RevenueCat purchase plugin contract", 
       ),
     ).text(),
     Bun.file(
-      resolve(
-        packageRoot,
-        "../../.github/workflows/native-purchase-bridges.yml",
-      ),
+      resolve(packageRoot, "../../scripts/checks/testNativePurchaseBridge.sh"),
     ).text(),
     Bun.file(
       resolve(packageRoot, "../app/src/utils/billingPurchaseTrace.ts"),
@@ -128,7 +125,7 @@ test("iOS project registers and tests the RevenueCat purchase plugin contract", 
   expect(preparedStoreTests).toContain(
     "testASecondPreparationReplacesEveryStalePackage",
   );
-  expect(nativeWorkflow).toContain(
+  expect(nativeCheck).toContain(
     "swift test --package-path ios/App/RevenueCatPurchaseState",
   );
   expect(purchasePlugin).toContain(

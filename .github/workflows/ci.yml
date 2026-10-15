@@ -5,6 +5,15 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      force:
+        description: Execute checks without reading Turbo cache entries
+        type: boolean
+        default: false
+
+env:
+  TURBO_FORCE: ${{ inputs.force || github.event_name == 'workflow_dispatch' }}
 
 permissions:
   contents: read
@@ -38,11 +47,15 @@ jobs:
 
   windows:
     uses: ./.github/workflows/electrobun-windows.yml
+    with:
+      force: ${{ inputs.force || github.event_name == 'workflow_dispatch' }}
 
   native:
     needs: changes
     if: needs.changes.outputs.native == 'true'
     uses: ./.github/workflows/native-purchase-bridges.yml
+    with:
+      force: ${{ inputs.force || github.event_name == 'workflow_dispatch' }}
 
   gate:
     name: CI gate
@@ -113,6 +126,7 @@ jobs:
 
       - name: Run lint checks
         env:
+          CI_TURBO_PROTOCOL_CACHE: "1"
           OPENAPI_BASE_REF: ${{ github.event.pull_request.base.sha || (github.event.before != '0000000000000000000000000000000000000000' && github.event.before) || '' }}
           PROTOCOL_TLC_FAILURE_LOG_DIR: ${{ runner.temp }}/tlc-failures
         run: bun run check:fast
@@ -130,7 +144,7 @@ jobs:
         env:
           FASTLANE_OPT_OUT_USAGE: "1"
           FASTLANE_SKIP_UPDATE_CHECK: "1"
-        run: bun run build:packages && bun run --cwd packages/app-capacitor test
+        run: bun scripts/testing/runVerifiedTurbo.ts test --filter=app-capacitor
 
   # The suites too long to share a runner run in `test`; this job keeps the
   # remaining package tests alongside the TypeScript and web builds.
@@ -260,13 +274,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build workspace packages
-        run: bun run build:packages
-
       - name: Run Postgres concurrency lane
         env:
+          CI_POSTGRES_IMAGE: postgres:18.6
           DATABASE_URL: postgres://tearleads:tearleads@localhost:5432/tearleads_concurrency_test
-        run: bun run test:postgres-concurrency
+        run: bun scripts/testing/runVerifiedTurbo.ts test:postgres-concurrency
 
   terraform:
     name: Terraform lint

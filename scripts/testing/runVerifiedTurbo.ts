@@ -2,10 +2,21 @@ import { basename, dirname, resolve } from "node:path";
 import { stripVTControlCharacters } from "node:util";
 import { assertCompletedTurboRun, plannedTurboTasks } from "./turboRunEvidence";
 
+const verificationTasks = new Set([
+  "test",
+  "e2e",
+  "test:postgres-concurrency",
+  "test:windows-ci",
+  "test:native-android-ci",
+  "test:native-ios-ci",
+  "check:protocol-models",
+  "check:protocol-negative-controls",
+]);
+
 async function run() {
   const [task, ...args] = process.argv.slice(2);
-  if (task !== "test" && task !== "e2e")
-    throw new Error("Expected a test or e2e task");
+  if (!task || !verificationTasks.has(task))
+    throw new Error("Expected a registered verification task");
   const separator = args.indexOf("--");
   const turboArgs = separator < 0 ? args : args.slice(0, separator);
   if (

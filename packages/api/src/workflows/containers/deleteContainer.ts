@@ -309,9 +309,7 @@ async function deleteContainerWithExecutor(input: {
   });
   await appendOrganizationReadModelChangeInTransaction(input.executor, {
     organizationId,
-    lane: "grants",
-    entityId: organizationId,
-    operation: "replace",
+    lanes: ["grants"],
   });
 
   return {

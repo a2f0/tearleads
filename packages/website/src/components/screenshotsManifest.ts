@@ -51,6 +51,16 @@ const SCREEN_LABELS: ReadonlyMap<string, string> = new Map([
   ["birth-certificate-detail", "Birth certificate"],
   ["birth-certificate-image", "Birth certificate image"],
   ["credit-card-image", "Credit card image"],
+  ["family-photo-1", "Family dinner"],
+  ["family-photo-2", "Family walk"],
+  ["tool-detail-1", "Drill"],
+  ["tool-detail-2", "Circular saw"],
+  ["appliance-detail-1", "Washing machine"],
+  ["appliance-detail-2", "Refrigerator"],
+  ["tool-receipt", "Tool receipt"],
+  ["appliance-receipt", "Appliance receipt"],
+  ["weight-detail", "Weight tracker"],
+  ["blood-pressure-detail", "Blood pressure tracker"],
 ]);
 
 const THEME_LABELS: Record<string, string> = {

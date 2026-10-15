@@ -21,6 +21,8 @@ test-results/
 .screenshots/
 # Local backup artifacts, including encrypted screenshot seed backups.
 *backup.json
+*backup.json.tmp
+*backup.json.provenance.json
 
 # Rust
 pkg/

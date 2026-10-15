@@ -370,9 +370,7 @@ export async function persistVerifiedMutation(
   );
   await appendOrganizationReadModelChangeInTransaction(executor, {
     organizationId: manifest.state.organizationId,
-    lane: "grants",
-    entityId: manifest.state.organizationId,
-    operation: "replace",
+    lanes: ["grants"],
   });
 
   const systemSlot = isContainerSystemSlot(container.systemSlot)

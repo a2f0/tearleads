@@ -62,7 +62,7 @@ test("tampered unavailable targets remain poison instead of availability", async
   };
   const response = await createSyncResponse(materializedPlan.plan, {
     acceptedOutgoingUpdateIds: [],
-    contentKeyBundles: [tamperedBundle, currentBundle],
+    contentKeyBundles: [tamperedBundle],
     updates: [update],
   });
 
@@ -150,7 +150,7 @@ for (const mismatchedField of ["targetHash", "linkSetManifestHash"] as const) {
     };
     const response = await createSyncResponse(materializedPlan.plan, {
       acceptedOutgoingUpdateIds: [],
-      contentKeyBundles: [substitutedBundle, currentBundle],
+      contentKeyBundles: [substitutedBundle],
       updates: [update],
     });
 
@@ -224,7 +224,7 @@ test("malformed unavailable encrypted records remain poison", async () => {
   };
   const response = await createSyncResponse(materializedPlan.plan, {
     acceptedOutgoingUpdateIds: [],
-    contentKeyBundles: [unavailableBundle, currentBundle],
+    contentKeyBundles: [unavailableBundle],
     updates: [update],
   });
 

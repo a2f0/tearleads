@@ -17,10 +17,7 @@ import {
   DocumentHistoryUnavailableError,
   unwrapDocumentContentKeyFromBundle,
 } from "../../data/documents/shared/projection";
-import {
-  readWriteHeader,
-  serializeCanonical,
-} from "../../data/documents/shared/readers";
+import { readWriteHeader } from "../../data/documents/shared/readers";
 import type {
   DocumentSyncPreparedUpdate,
   ProjectionVerificationOptions,
@@ -175,17 +172,10 @@ function syncResponseContentKeyBundlesByEpoch(
     response.contentKeyBundle,
     ...response.contentKeyBundles,
   ]) {
-    const existing = byEpoch.get(bundle.contentKeyEpoch);
-    if (!existing) {
-      byEpoch.set(bundle.contentKeyEpoch, bundle);
-      continue;
+    if (byEpoch.has(bundle.contentKeyEpoch)) {
+      throw new Error("Document sync response repeats a content-key epoch");
     }
-    if (
-      serializeCanonical(existing, "content-key bundle") !==
-      serializeCanonical(bundle, "content-key bundle")
-    ) {
-      throw new Error("Document sync response content-key bundle conflict");
-    }
+    byEpoch.set(bundle.contentKeyEpoch, bundle);
   }
 
   return byEpoch;

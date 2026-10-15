@@ -49,12 +49,17 @@ function entry(sequence: number, contentKeyEpoch: number) {
   };
 }
 
-function fixture(entries: readonly ReturnType<typeof entry>[]) {
-  const currentBundle = bundle(2);
-  const bundlesByEpoch = new Map([
-    [1, bundle(1)],
-    [2, currentBundle],
-  ]);
+function fixture(
+  entries: readonly ReturnType<typeof entry>[],
+  currentEpoch = 2,
+) {
+  const currentBundle = bundle(currentEpoch);
+  const bundlesByEpoch = new Map(
+    Array.from({ length: currentEpoch }, (_, index) => [
+      index + 1,
+      bundle(index + 1),
+    ]),
+  );
   return {
     base: {
       acceptedOutgoingUpdateIds: [],
@@ -69,11 +74,10 @@ function fixture(entries: readonly ReturnType<typeof entry>[]) {
         targets: [{}],
       },
     },
-    currentBundle,
     cursorHmacKey: "tearleads-test-document-sync-cursor-hmac-key",
     entries,
     identity: {
-      contentKeyEpoch: 2,
+      contentKeyEpoch: currentEpoch,
       documentId: DOCUMENT_ID,
       linkSetManifestHash: currentBundle.linkSetManifestHash,
       targetHash: currentBundle.targetHash,
@@ -118,7 +122,7 @@ test("actual envelope bytes trim a multi-epoch page before commit", async () => 
   });
   expect(trimmed.updates).toEqual([first.update]);
   expect(trimmed.contentKeyBundles.map((item) => item.contentKeyEpoch)).toEqual(
-    [1, 2],
+    [1],
   );
   expect(trimmed.pullPage).toMatchObject({ hasMore: true });
   expect(trimmed.pullPage?.nextCursor).not.toBeNull();
@@ -140,7 +144,7 @@ test("an individually oversized update is rejected before commit", async () => {
 test("content-key bundles load only through the first response overflow", async () => {
   const first = entry(1, 1);
   const exactFirstPage = await buildPaginatedSyncPullResponse({
-    ...fixture([first]),
+    ...fixture([first], 5),
     page: { hasMore: true, lastSequence: 1, lastUpdateId: "update-1" },
   });
   const loadedEpochs: number[] = [];
@@ -163,7 +167,7 @@ test("content-key bundles load only through the first response overflow", async 
   ]);
 
   const response = await buildPaginatedSyncPullResponse({
-    ...fixture([first, entry(2, 3), entry(3, 4)]),
+    ...fixture([first, entry(2, 3), entry(3, 4)], 5),
     loadContentKeyBundle: async (contentKeyEpoch) => {
       loadedEpochs.push(contentKeyEpoch);
       return bundlesByEpoch.get(contentKeyEpoch) ?? null;
@@ -179,4 +183,59 @@ test("content-key bundles load only through the first response overflow", async 
 
   expect(response.updates).toEqual([first.update]);
   expect(loadedEpochs).toEqual([1, 3]);
+});
+
+test("the current epoch's bundle travels only as contentKeyBundle", async () => {
+  const loadedEpochs: number[] = [];
+  const entries = [entry(1, 1), entry(2, 3), entry(3, 3), entry(4, 1)];
+  const base = fixture(entries, 3);
+  const response = await buildPaginatedSyncPullResponse({
+    ...base,
+    loadContentKeyBundle: async (contentKeyEpoch) => {
+      loadedEpochs.push(contentKeyEpoch);
+      return base.loadContentKeyBundle(contentKeyEpoch);
+    },
+  });
+
+  expect(response.updates).toHaveLength(entries.length);
+  expect(response.contentKeyBundle.contentKeyEpoch).toBe(3);
+  expect(response.contentKeyBundles).toEqual([
+    toContentKeyBundleResponse(bundle(1)),
+  ]);
+  expect(loadedEpochs).toEqual([1]);
+});
+
+test("pages at the current epoch and empty probes carry no bundle array", async () => {
+  for (const entries of [[], [entry(1, 2)], [entry(1, 2), entry(2, 2)]]) {
+    const response = await buildPaginatedSyncPullResponse({
+      ...fixture(entries),
+      loadContentKeyBundle: async () => {
+        throw new Error("The current epoch's bundle must not be reloaded");
+      },
+    });
+    expect(response.updates).toHaveLength(entries.length);
+    expect(response.contentKeyBundles).toEqual([]);
+  }
+});
+
+test("byte accounting counts the current bundle once", async () => {
+  const first = entry(1, 2);
+  const entries = [first, entry(2, 2)];
+  const unbounded = await buildPaginatedSyncPullResponse(fixture(entries));
+  const exactBytes = sizedResponseBytes(unbounded);
+
+  const exact = await buildPaginatedSyncPullResponse({
+    ...fixture(entries),
+    maxBytes: exactBytes,
+  });
+  expect(exact.updates).toHaveLength(entries.length);
+  expect(exact.pullPage).toEqual(unbounded.pullPage);
+  expect(sizedResponseBytes(exact)).toBe(exactBytes);
+
+  const trimmed = await buildPaginatedSyncPullResponse({
+    ...fixture(entries),
+    maxBytes: exactBytes - 1,
+  });
+  expect(trimmed.updates).toEqual([first.update]);
+  expect(sizedResponseBytes(trimmed)).toBeLessThanOrEqual(exactBytes - 1);
 });

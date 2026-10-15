@@ -57,10 +57,6 @@ function member(
   return {
     role: "member",
     userId: "member-id",
-    signingKeyFingerprint: "signing-fp",
-    signingPublicKey: "signing-pub",
-    encapsulationPublicKey: "encap-pub",
-    encapsulationKeyFingerprint: "encap-fp",
     ...overrides,
   };
 }

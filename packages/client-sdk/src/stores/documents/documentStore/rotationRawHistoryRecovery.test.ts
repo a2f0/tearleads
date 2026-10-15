@@ -362,7 +362,7 @@ test("a malformed historical bundle is poison-isolated instead of reported unava
       response: {
         ...fixture.response,
         contentKeyBundle: currentContentKeyBundle,
-        contentKeyBundles: [malformedHistoricalBundle, currentContentKeyBundle],
+        contentKeyBundles: [malformedHistoricalBundle],
       },
       writerProjection: {
         ...fixture.writerProjection,
@@ -436,7 +436,7 @@ test("a missing raw-history bundle is poison-isolated without durable mutation",
       response: {
         ...fixture.response,
         contentKeyBundle: currentContentKeyBundle,
-        contentKeyBundles: [currentContentKeyBundle],
+        contentKeyBundles: [],
       },
       writerProjection: {
         ...fixture.writerProjection,
