@@ -18,8 +18,10 @@ publish anything; the coordinator owns reporting.
 
 Your exact work item and remaining coverage: <WORK_ITEM>
 Budget: at most 25 tool calls; reserve the last five for triage and reporting.
-Use targeted searches and reads, not whole-directory dumps. Save candidate
-evidence as you go. At the limit, stop and report unchecked paths, unresolved
+Use targeted searches and reads, not whole-directory dumps. Every search
+names its paths: a grep or rg without one reads stdin and never returns.
+Leave no background job running when you finish. Save candidate evidence as
+you go. At the limit, stop and report unchecked paths, unresolved
 candidates, and the next concrete step. A partial slice is a valid result;
 never call it complete.
 
@@ -69,8 +71,19 @@ gatherWithExecutor in packages/api-shared/src/adapters/executor.ts) and
 whether its statements are serial. Try to refute each candidate: does a
 verifier or commit guard need the read, does reordering change a lock order
 a concurrency test pins, does the other dialect lack the feature, does the
-saving merely move a statement elsewhere in the same operation? List
-plausible but untraced ideas separately as Estimated.
+saving merely move a statement elsewhere in the same operation, and does a
+loop that loads one row at a time exist to stop at a byte ceiling (a bound
+in docs/limits.md or a comment saying so)? A set load must keep that bound.
+List plausible but untraced ideas separately as Estimated.
+
+Implementation path: say whether Drizzle's query builder can express each
+proposal (drizzle-orm 0.45 has joins, inArray, onConflictDoUpdate with
+setWhere and targetWhere, and returning on every dialect, but no recursive
+CTE builder and no tuple IN), whether it needs a short sql fragment such as
+excluded.<column> or a helper in packages/api/src/utils/sqlDialect.ts, or
+whether it edits an existing raw executor.execute(sql`...`) statement. The
+maintainers prefer builder implementations; name a raw-statement edit
+plainly.
 
 Measurement: follow the statement-capture, plan, and probe instructions in
 <MEASUREMENT_REFERENCE>. The capture preload is at <CAPTURE_PRELOAD>. Probe
@@ -78,19 +91,22 @@ at most two candidates, with one harness-repair attempt each. The
 coordinator has checked packages/client-sdk/dist at this revision: do not
 rebuild it or run bun install.
 
-Write report.md in your scratch directory, under 1,200 words, linking longer
-evidence files. For each proposal give: a title; the slice; what it removes
+Save probes, captures, and extracts under your scratch directory. Return
+the report itself as your final message, under 1,200 words, linking longer
+evidence files; the coordinator saves it as report.md in your scratch
+directory. For each proposal give: a title; the slice; what it removes
 (statements per operation, round trips, rows read, indexes) with numbers
 and their source (Measured, Observed, Traced, or Estimated); file:line
 evidence for the current behavior; the proposed query, statement, index, or
 transaction shape in enough detail to estimate the change, on each dialect
-it touches; impact (High, Medium, Low) and risk (Low, Medium, High) using
-the coordinator's definitions; how each rule is preserved; the statement
-budget tests, plan tests, concurrency tests, docs, and formal models that
-would change; and prerequisites among your proposals. End with short lists
+it touches, and its implementation path; impact (High, Medium, Low) and
+risk (Low, Medium, High) using the coordinator's definitions; how each
+rule is preserved; the statement budget tests, plan tests, concurrency
+tests, docs, and formal models that would change; and prerequisites among
+your proposals. End with short lists
 of checked paths, refuted candidates with reasons, protocol leads, unchecked
-paths, and next steps. Return only the report path, proposal ids with
-impact, coverage status, and next step in at most 200 words.
+paths, and next steps. Begin the message with at most 100 words naming the
+proposal ids with impact, coverage status, and next step.
 ```
 
 Default `<EXCLUSIONS>`: the out-of-scope list in `SKILL.md`, plus any
@@ -110,7 +126,8 @@ Append this list to every brief.
 - **Per-row statement loops.** A select, insert, update, or delete issued
   once per item when the operation knows the set: replace with `IN` or
   `= ANY`, a multi-row `INSERT`, or a set-based `UPDATE`, chunked to the
-  bind budget.
+  bind budget. A loop that stops at a byte ceiling is a memory bound, not
+  waste, unless the set load keeps the same bound.
 - **Repeated identical reads.** The same table and key read more than once
   in one request or transaction because each helper loads its own copy.
   Load once and pass the row; never skip a verification that the row feeds.

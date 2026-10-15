@@ -75,11 +75,15 @@ and in the final response. A concise `checkpoint.md` indexes:
 - `measurements/`: capture logs, per-scenario tables, plans, inventories,
   exit codes, and the revision and dist timestamp they were taken at.
 - Per-work-item directories: reports, probes, and test logs. Workers write
-  only their own files; the coordinator maintains the shared index.
+  only their own probes and evidence, and return their report as their
+  final message; the coordinator saves it as `report.md` there and
+  maintains the shared index.
 
 Write the initial checkpoint before launching an auditor and update it after
 each report or verification. Link evidence instead of copying reports. A
-stopped or interrupted auditor leaves its work partial.
+stopped or interrupted auditor leaves its work partial. When an auditor
+finishes, check that none of its shell commands are still running (a search
+with no path waits on stdin indefinitely) and stop any that are.
 
 ## Resume without repeating the audit
 
@@ -104,5 +108,7 @@ The coordinator reads the persistence documents once, then sends each
 auditor a compact baseline with the exact sections, captures, and leads for
 its scope. Send the brief, the waste-class list, and one slice section; do
 not send the whole slice catalog, the full Insights export, or a previous
-transcript. Workers save the full evidence report and return at most 200
-words: its path, proposal ids with impact, coverage status, and next step.
+transcript. Workers save their evidence files and return the report as
+their final message, opening with a summary of at most 100 words: proposal
+ids with impact, coverage status, and next step. The coordinator saves the
+report and reads past the summary only for the proposals it verifies.
