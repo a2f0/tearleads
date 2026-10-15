@@ -219,7 +219,7 @@ export async function putPrincipalPolicyInTransaction(
   return (await preparePrincipalPolicyInTransaction(tx, input))();
 }
 
-/** Authorize against the locked predecessor directory before a compound write advances Members. */
+/** Check direct admin access and lock the read model before Members advances; apply verifies policy authority. */
 export async function preparePrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,

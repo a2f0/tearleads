@@ -104,3 +104,11 @@ test("journal requires an explicit compound operation kind", async () => {
     "compound",
   );
 });
+
+test("journal rejects a duplicate Members policy before persistence", async () => {
+  const input = await fixture(true);
+  input.mutation.request.memberPolicy = input.mutation.request.groupPolicy;
+  expect(() => readPrincipalMutation(input.mutation, input.scope)).toThrow(
+    "Principal mutation journal Members target is duplicated",
+  );
+});

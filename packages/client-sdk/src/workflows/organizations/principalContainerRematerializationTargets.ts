@@ -18,8 +18,9 @@ export type MaterializedPrincipalContainerMutationPlan =
   | MaterializedContainerRevokePlan
   | MaterializedContainerSharePlan;
 
-/** A plan with its container's path once accepted; null for a grant, which rotates nothing. */
+/** Authored paths for chaining plans; only rotated is null for a grant. */
 export interface PlannedRematerialization {
+  /** The authored successor for either a grant or a rotation. */
   readonly nextProjection?: ContainerWriterProjectionResponse | undefined;
   /** A descendant rekey carried for a rotation above, not a rematerialization. */
   readonly carried: boolean;

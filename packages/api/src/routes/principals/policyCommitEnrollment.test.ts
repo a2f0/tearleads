@@ -8,6 +8,7 @@ import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/r
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createAtomicEnrollmentFixture } from "../../../test/helpers/atomicGroupEnrollment";
+import { createRouteApp } from "../../routeApp";
 
 async function roster(
   fixture: Awaited<ReturnType<typeof createAtomicEnrollmentFixture>>,
@@ -47,6 +48,47 @@ test("one commit enrolls a new user in Members and a custom group and replays bo
   expect(replay.status, await replay.clone().text()).toBe(200);
   expect(await replay.json()).toEqual(body);
   expect(await f.readHeads()).toEqual(heads);
+}, 20_000);
+
+test("compound enrollment invalidates both group identities only after commit", async () => {
+  const f = await createAtomicEnrollmentFixture();
+  const events: Record<string, unknown>[] = [];
+  const app = createRouteApp({
+    publish: async (event) => {
+      events.push(event);
+    },
+  });
+  const commit = (request = f.request) =>
+    f.commit(request, f.request.groupPolicy.state.principalId, (path, init) =>
+      app.request(path, init),
+    );
+  const refused = await commit({
+    ...f.request,
+    organizationPolicy: f.staleDirectory,
+  });
+  expect(refused.status, await refused.clone().text()).toBe(409);
+  expect(events).toEqual([]);
+  const response = await commit();
+  expect(response.status, await response.clone().text()).toBe(200);
+  expect(
+    events.filter(
+      (event) => Reflect.get(event, "type") === "principal_access_changed",
+    ),
+  ).toEqual([
+    {
+      type: "principal_access_changed",
+      principalType: "group",
+      principalId: f.request.groupPolicy.state.principalId,
+    },
+    {
+      type: "principal_access_changed",
+      principalType: "group",
+      principalId: f.organization.memberGroupId,
+    },
+  ]);
+  const count = events.length;
+  expect((await commit()).status).toBe(200);
+  expect(events).toHaveLength(count);
 }, 20_000);
 
 test("a refused directory rolls back both memberships and the roster enrollment", async () => {

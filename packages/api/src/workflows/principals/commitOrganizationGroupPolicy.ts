@@ -129,7 +129,8 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
         );
       }
       await lockEnrollmentReferences(tx, input, target.memberGroupId);
-      // Both group operations authorize against the intact predecessor directory.
+      // Check direct admin access against the intact predecessor directory.
+      // Each apply still verifies the signed policy and its authority.
       // The organization lock remains held through all three policy writes.
       const applyGroup = await preparePrincipalPolicyInTransaction(
         tx,

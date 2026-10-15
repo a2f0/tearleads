@@ -59,6 +59,14 @@ export async function submitGroupPolicyCommit(input: {
         "Policy request may have committed; refresh before retrying",
     );
   if (
+    input.memberRequest &&
+    first.code === CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired
+  ) {
+    throw new Error(
+      "Repair the affected container keys before retrying enrollment; no memberships were changed",
+    );
+  }
+  if (
     !input.carryDescendantRekeys ||
     first.code !== CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
     !first.requiredContainerIds?.length

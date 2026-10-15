@@ -88,6 +88,7 @@ export async function createAtomicEnrollmentFixture(groupAfterMembers = false) {
   const commit = (
     body: CommitOrganizationGroupPolicyRequest = request,
     targetGroupId: string = groupId,
+    transport?: Parameters<typeof requestAfterPrincipalPreparation>[2],
   ) =>
     requestAfterPrincipalPreparation(
       `/organizations/${organizationId}/groups/${targetGroupId}/policy-commit`,
@@ -99,6 +100,7 @@ export async function createAtomicEnrollmentFixture(groupAfterMembers = false) {
         },
         body: JSON.stringify(body),
       },
+      transport,
     );
   return {
     actor,

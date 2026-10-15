@@ -134,6 +134,15 @@ test("group creation and adding a peer have separate request budgets", async () 
       ],
     });
     expect(documentSyncIntentCounts(membershipRequests).writeBearing).toBe(0);
+    const commit = membershipRequests.find(
+      (request) =>
+        request.method === "PUT" && request.url.endsWith("/policy-commit"),
+    );
+    invariant(commit, "Expected a membership commit");
+    invariant(commit.requestBody, "Expected a membership request body");
+    const body: unknown = JSON.parse(commit.requestBody);
+    if (group === "first") expect(body).toHaveProperty("memberPolicy");
+    else expect(body).not.toHaveProperty("memberPolicy");
     // The first pair adds private metadata-root authority reads. Phase margins
     // cannot accumulate across creation and membership changes.
     const combined = listProxiedApiRequests().slice(pairStart);
