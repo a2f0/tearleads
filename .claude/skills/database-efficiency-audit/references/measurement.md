@@ -91,11 +91,13 @@ DUAL_PANE_REQUEST_PROFILE=1 SQL_CAPTURE_OUT=<file> bun test \
   --preload ./happydom.ts --preload <capture.ts> <canary file>
 ```
 
-Tests in a file run one at a time unless they opt into concurrency, so the
-per-test label is exact; filter with `-t` for one test. A probe sets
-`globalThis.sqlCaptureLabel` around the call it measures and clears it after,
-so fixture setup is labelled separately. Bind values are never recorded,
-only their count. Transaction controls reach the logger only on
+Labels are global, not async-context scoped: background work that outlives
+a test (sync pumps, timers; see `packages/app/happydom.ts`) is attributed to
+whichever test runs next. Use per-test totals as evidence only from a run
+of one test (`-t`). A probe sets `globalThis.sqlCaptureLabel` around the
+call it measures, after awaiting any background work its setup started, and
+clears it after, so fixture setup is labelled separately. Bind values are
+never recorded, only their count. Transaction controls reach the logger only on
 `API_DATABASE=sqlite` and `postgres`: PGlite's native transaction method
 bypasses it, so a PGlite capture (including every canary) has no
 transaction count. Summarize with `jq`, for example the most repeated
