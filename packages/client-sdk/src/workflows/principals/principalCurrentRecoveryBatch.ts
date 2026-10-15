@@ -3,7 +3,7 @@ import type { PrincipalRecoveryMemo } from "./principalRecoveryMemo";
 import { recoverCurrentOrganizationPolicy } from "./recoverCurrentOrganizationPolicy";
 import { createScopedPrincipalPolicyHistoryBatch } from "./recoverScopedPrincipalPolicyHistory";
 
-/** Discovery and selected references share one authenticated collection view. */
+/** Discovery and selected references share one authenticated batch view. */
 export function createPrincipalCurrentRecoveryBatch() {
   const memo: PrincipalRecoveryMemo = {
     directories: new Map(),

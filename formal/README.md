@@ -154,7 +154,8 @@ algorithm or establish resource bounds. See the
 Principal state models cover
 [version availability](./container-keying/PrincipalHistory.md)
 and [page verification](./container-keying/PrincipalHistoryPages.md), including
-[authenticated resumption](./container-keying/PrincipalHistoryResume.md).
+[authenticated resumption](./container-keying/PrincipalHistoryResume.md) and
+[recovery reuse](./container-keying/PrincipalRecoveryReuse.md).
 
 ## No Bricked Device
 

@@ -6,7 +6,7 @@ import {
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { PrincipalHistoryRecoveryRaceError } from "./principalHistoryRecoveryTypes";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
-import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
+import { recoverLeasedScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;
 beforeAll(async () => {
@@ -26,7 +26,7 @@ test.each([
         async (options) => {
           modes.push(options.offline === true);
           if (options.offline) throw error;
-          return recoverScopedPrincipalPolicyHistory(options);
+          return recoverLeasedScopedPrincipalPolicyHistory(options);
         },
         f.options,
         true,
@@ -55,7 +55,7 @@ test.each(["hash_mismatch", "signer_mismatch"] as const)(
           async (options) => {
             modes.push(options.offline === true);
             if (options.offline) throw error;
-            return recoverScopedPrincipalPolicyHistory(options);
+            return recoverLeasedScopedPrincipalPolicyHistory(options);
           },
           f.options,
           true,

@@ -7,6 +7,7 @@ import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtur
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { createExecSql } from "../../data/sqlite/sqlSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -89,7 +90,7 @@ test.each([16, 66])(
       expect(
         result.policy.retainedHistory.map((entry) => entry.state.version),
       ).toEqual(version === 66 ? [66] : [16, 66]);
-      expect(fixture.requests).toEqual([65]);
+      expect(fixture.requests).toEqual([]);
     } finally {
       fixture.close();
     }
@@ -144,29 +145,37 @@ test("a checkpoint changing after a cached read propagates without replay or dis
     await recoverPrincipalPolicyHistory(fixture.options);
     const stages = await fixture.db.select().from(principalHistoryStages);
     fixture.requests.length = 0;
-    const client = fixture.client();
+    let checkpointReads = 0;
+    let advanced = false;
+    // A concurrent admission advances the pin after recovery loaded it.
+    const execSql = createExecSql({
+      async exec({ sql, bind, rowMode }) {
+        const result =
+          rowMode === "array"
+            ? await fixture.options.execSql(sql, bind, { rowMode: "array" })
+            : await fixture.options.execSql(sql, bind);
+        if (sql.includes('from "principal_policy_checkpoints"'))
+          checkpointReads += 1;
+        if (checkpointReads === 1 && !advanced) {
+          advanced = true;
+          await fixture.db
+            .insert(principalPolicyCheckpoints)
+            .values({
+              principalType: "group",
+              principalId: history.expectedHead.principalId,
+              version: history.expectedHead.version,
+              stateHash: history.expectedHead.stateHash,
+              updatedAt: history.bundle.currentState.createdAt,
+            })
+            .run();
+        }
+        return { rows: result };
+      },
+    });
     await expect(
-      recoverPrincipalPolicyHistory({
-        ...fixture.options,
-        apiClient: {
-          async *getPrincipalPolicyPages(...args) {
-            yield* client.getPrincipalPolicyPages(...args);
-            await fixture.db
-              .insert(principalPolicyCheckpoints)
-              .values({
-                principalType: "group",
-                principalId: history.expectedHead.principalId,
-                version: history.expectedHead.version,
-                stateHash: history.expectedHead.stateHash,
-                updatedAt: history.bundle.currentState.createdAt,
-              })
-              .onConflictDoNothing()
-              .run();
-          },
-        },
-      }),
+      recoverPrincipalPolicyHistory({ ...fixture.options, execSql }),
     ).rejects.toMatchObject({ code: "stale_predecessor" });
-    expect(fixture.requests).toEqual([65]);
+    expect(fixture.requests).toEqual([]);
     expect(await fixture.db.select().from(principalHistoryStages)).toEqual(
       stages,
     );

@@ -59,7 +59,14 @@ export async function loadCurrentGroupPolicyMutationContext(input: {
       { head: adminHead, projection: authority.admins.policy.projection },
     ],
   };
-  const references = new Map<string, Promise<VerifiedPrincipalPolicyCurrent>>();
+  // A reused citation keeps the lifetime of the read that produced it.
+  const references = new Map<
+    string,
+    Promise<{
+      readonly policy: VerifiedPrincipalPolicyCurrent;
+      readonly stillCurrent: () => boolean;
+    }>
+  >();
   return {
     adminGroupId: authority.descriptor.adminGroupId,
     adminCurrent: authority.admins,
@@ -90,17 +97,16 @@ export async function loadCurrentGroupPolicyMutationContext(input: {
           const oldest = references.keys().next().value;
           if (oldest !== undefined) references.delete(oldest);
         }
-        pending = authority
-          .readGroup(input.groupId, owned)
-          .then((selected) => selected.policy);
+        pending = authority.readGroup(input.groupId, owned);
         references.set(key, pending);
       }
-      const policy = await pending.catch((error: unknown) => {
+      const selected = await pending.catch((error: unknown) => {
         if (references.get(key) === pending) references.delete(key);
         throw error;
       });
       assertProjectionVerificationCurrent(stillCurrent);
-      return policy;
+      assertProjectionVerificationCurrent(selected.stillCurrent);
+      return selected.policy;
     },
     stillCurrent,
   };
