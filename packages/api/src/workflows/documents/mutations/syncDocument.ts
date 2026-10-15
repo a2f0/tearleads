@@ -21,10 +21,7 @@ import {
   readDocumentUpdateUpperBound,
   resolveDocumentUpdateCursorBounds,
 } from "../../../documents/documentUpdateStore";
-import {
-  assertOrganizationCanSync,
-  assertOrganizationSyncEndpointAvailable,
-} from "../../billing/organizationSyncEligibility";
+import { assertDocumentSyncBillingAllowed } from "../../billing/organizationSyncEligibility";
 import {
   type AppliedContainerRekey,
   applyContainerRekeys,
@@ -108,20 +105,6 @@ function syncAuthorizingContainerIds(request: DocumentSyncRequest): string[] {
   );
 }
 
-async function assertDocumentSyncAllowed(
-  input: {
-    readonly tx: DatabaseTransaction;
-    readonly userId: string;
-  },
-  organizationId: string,
-  requireWriteEntitlement: boolean,
-): Promise<void> {
-  await assertOrganizationSyncEndpointAvailable(input.tx, organizationId);
-  if (requireWriteEntitlement) {
-    await assertOrganizationCanSync(input.tx, organizationId, input.userId);
-  }
-}
-
 async function lockSyncDocumentFrontier(input: {
   readonly currentTargets: Awaited<
     ReturnType<typeof resolveCurrentDocumentKekTargets>
@@ -179,7 +162,7 @@ async function syncDocumentTransaction(input: {
   readonly tx: DatabaseTransaction;
   readonly userId: string;
 }) {
-  await prepareSyncDocumentTransaction(input);
+  const preRekeyTargets = await prepareSyncDocumentTransaction(input);
   // Run signed container.rekey payloads before resolving document KEK targets;
   // content-key validation then compares the write against the updated target
   // set, while transaction rollback keeps failed writes from publishing rekeys.
@@ -189,11 +172,17 @@ async function syncDocumentTransaction(input: {
     requests: input.request.containerRekeys,
     userId: input.userId,
   });
-  let currentTargets = await resolveCurrentDocumentKekTargets(
-    input.documentId,
-    input.tx,
-    input.request.outgoingUpdates.length === 0,
-  );
+  // Without rekeys nothing has changed heads, links, or epochs since the
+  // preflight resolution. A write still gets the strict parent-edge check:
+  // the write frontier re-resolves strictly once its heads are locked.
+  let currentTargets =
+    containerRekeys.length === 0
+      ? preRekeyTargets
+      : await resolveCurrentDocumentKekTargets(
+          input.documentId,
+          input.tx,
+          input.request.outgoingUpdates.length === 0,
+        );
   // Serialize writes against rekeys and serialize paginated watermark capture
   // against update-sequence allocation.
   currentTargets = await lockSyncDocumentFrontier({
@@ -209,11 +198,11 @@ async function syncDocumentTransaction(input: {
     userId: input.userId,
   });
   if (input.enforceSyncEligibility) {
-    await assertDocumentSyncAllowed(
-      input,
-      currentTargets.organizationId,
-      documentSyncHasWrites(input.request),
-    );
+    await assertDocumentSyncBillingAllowed(input.tx, {
+      organizationId: currentTargets.organizationId,
+      requireWriteEntitlement: documentSyncHasWrites(input.request),
+      userId: input.userId,
+    });
   }
   const writeAuthorization = await verifySyncWriteAuthorizationProof({
     currentTargets,

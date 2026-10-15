@@ -19,12 +19,16 @@ import {
   principalHistoryEvidenceTables,
   principalHistoryNodes,
 } from "../sqlite/principalHistoryEvidenceSchema";
+import { sqliteInsertBatchSize } from "../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
+import { excludedValue } from "../sqlite/sqliteUpsert";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
-import { recordPrincipalHistoryNodeEdges } from "./principalHistoryNodeRetention";
+import { writePrincipalHistoryNodes } from "./principalHistoryNodeRetention";
+
+const ENTRY_WRITE_BATCH_SIZE = sqliteInsertBatchSize(principalHistoryEntries);
 
 export interface PrincipalHistoryEvidencePage {
   readonly indexRootHash: string;
@@ -71,36 +75,36 @@ export async function writePrincipalHistoryEvidencePage(
   page: PrincipalHistoryEvidencePage,
 ): Promise<void> {
   const scope = { scopeId: page.scopeId, organizationId: page.organizationId };
-  for (const entry of [...page.entries].sort((a, b) =>
+  // A repeated leaf keeps its last entry, as sequential upserts would.
+  const entries = new Map(
+    page.entries.map((entry) => [
+      entry.leafHash,
+      { ...scope, leafHash: entry.leafHash, entryJson: entry.entryJson },
+    ]),
+  );
+  const rows = [...entries.values()].sort((a, b) =>
     compareCanonicalStrings(a.leafHash, b.leafHash),
-  )) {
-    const row = { ...scope, ...entry };
+  );
+  for (let index = 0; index < rows.length; index += ENTRY_WRITE_BATCH_SIZE)
     await tx
       .insert(principalHistoryEntries)
-      .values(row)
+      .values(rows.slice(index, index + ENTRY_WRITE_BATCH_SIZE))
       .onConflictDoUpdate({
         target: [
           principalHistoryEntries.scopeId,
           principalHistoryEntries.leafHash,
         ],
-        set: row,
+        set: {
+          organizationId: excludedValue(principalHistoryEntries.organizationId),
+          entryJson: excludedValue(principalHistoryEntries.entryJson),
+        },
       })
       .run();
-  }
-  for (const node of [...page.nodes].sort((a, b) =>
-    compareCanonicalStrings(a.hash, b.hash),
-  )) {
-    await recordPrincipalHistoryNodeEdges(tx, scope, node);
-    const row = { ...scope, ...node };
-    await tx
-      .insert(principalHistoryNodes)
-      .values(row)
-      .onConflictDoUpdate({
-        target: [principalHistoryNodes.scopeId, principalHistoryNodes.hash],
-        set: row,
-      })
-      .run();
-  }
+  await writePrincipalHistoryNodes(
+    tx,
+    scope,
+    [...page.nodes].sort((a, b) => compareCanonicalStrings(a.hash, b.hash)),
+  );
 }
 
 /** Returns untrusted material. The caller must verify it against the issued root. */

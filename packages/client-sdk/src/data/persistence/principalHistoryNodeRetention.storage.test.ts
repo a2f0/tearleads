@@ -21,7 +21,7 @@ import {
 } from "../sqlite/sqlSchema";
 import {
   reclaimPrincipalHistoryNodes,
-  recordPrincipalHistoryNodeEdges,
+  writePrincipalHistoryNodes,
 } from "./principalHistoryNodeRetention";
 import {
   releasePrincipalHistoryRoot,
@@ -57,14 +57,7 @@ async function putNodes(
   tx: ClientSQLiteTransactionScope,
   nodes: readonly PrincipalHistoryIndexNode[],
 ) {
-  for (const node of nodes) {
-    await recordPrincipalHistoryNodeEdges(tx, scope, node);
-    await tx
-      .insert(principalHistoryNodes)
-      .values({ ...scope, ...node })
-      .onConflictDoNothing()
-      .run();
-  }
+  await writePrincipalHistoryNodes(tx, scope, nodes);
 }
 
 test("shared nodes survive root replacement and the last owner releases the obsolete graph", async () => {
@@ -171,11 +164,7 @@ test("reclamation cascades through at most 64 nodes and stays within scope and o
           ...shared,
           hash: foreign.organizationId + foreign.scopeId,
         };
-        await recordPrincipalHistoryNodeEdges(tx, foreign, node);
-        await tx
-          .insert(principalHistoryNodes)
-          .values({ ...foreign, ...node })
-          .run();
+        await writePrincipalHistoryNodes(tx, foreign, [node]);
       }
       expect(await reclaimPrincipalHistoryNodes(tx, scope)).toBe(64);
     });

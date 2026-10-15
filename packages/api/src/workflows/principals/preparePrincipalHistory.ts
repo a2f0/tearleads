@@ -10,6 +10,7 @@ import type {
   VerifiedPrincipalPolicyHistory,
 } from "@tearleads/crypto";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import type { SignerCache } from "../signerPublicKey";
 import {
   resetBufferedPrincipalHistoryProgress,
   saveBufferedPrincipalHistoryNodes,
@@ -39,6 +40,8 @@ export interface PrincipalHistoryPreparationBudget {
   remainingEntries: number;
   remainingBytes: number;
   readonly deadline: number;
+  /** Signer rows read by this request's root-executor history walks. */
+  readonly signers: SignerCache;
 }
 
 export function principalHistoryPreparationBudget(): PrincipalHistoryPreparationBudget {
@@ -47,6 +50,7 @@ export function principalHistoryPreparationBudget(): PrincipalHistoryPreparation
     remainingEntries: 32,
     remainingBytes: 2 * 1024 * 1024,
     deadline: performance.now() + 5_000,
+    signers: new Map(),
   };
 }
 
@@ -130,7 +134,9 @@ async function appendStoredEntry(input: {
     );
   const page = {
     entries: [entry],
-    signerPublicKeys: [await principalHistorySigner(executor, entry, kind)],
+    signerPublicKeys: [
+      await principalHistorySigner(executor, entry, kind, budget.signers),
+    ],
   };
   let result = await verifier.append(page);
   if (
@@ -203,6 +209,7 @@ export async function preparePrincipalHistory(
       input,
       head.version,
       local,
+      budget.signers,
     );
     // Removing one unusable hint is bounded progress; the next request can
     // resume an earlier hint without repeatedly selecting this invalid row.
