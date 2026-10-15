@@ -33628,9 +33628,6 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "canCancelDirectly": {
-                      "type": "boolean"
-                    },
                     "managementUrl": {
                       "anyOf": [
                         {
@@ -33643,7 +33640,6 @@
                     }
                   },
                   "required": [
-                    "canCancelDirectly",
                     "managementUrl"
                   ],
                   "additionalProperties": {}
