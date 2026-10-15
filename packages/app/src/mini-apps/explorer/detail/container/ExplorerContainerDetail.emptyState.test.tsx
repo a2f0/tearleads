@@ -383,42 +383,59 @@ test("an unmeasured frame leaves the pitch alone, so the window query runs once"
   );
 });
 
-// The folder you are inside has no row of its own in the list it renders, so the
-// header's kebab is the only handle on its own actions — and on a root folder,
-// the only one anywhere: a root has no parent listing to open it from.
-test("the header kebab opens the actions menu for the folder you are inside", () => {
-  const { documentQueries } = createDeferredDocumentQueries();
-  const opened: string[] = [];
-  const onContainerContextMenu = (_event: unknown, containerId: string) => {
-    opened.push(containerId);
-  };
-  const props = renderContainerDetail({ documentQueries });
-  const view = render(
-    containerDetailElement({ ...props, onContainerContextMenu }),
-  );
+test.each(["kebab", "icon", "name", "touch"])(
+  "the header %s opens the current folder's actions menu",
+  async (trigger) => {
+    const { documentQueries } = createDeferredDocumentQueries();
+    const opened: string[] = [];
+    const onContainerContextMenu = (_event: unknown, containerId: string) => {
+      opened.push(containerId);
+    };
+    const props = renderContainerDetail({ documentQueries });
+    const view = render(
+      containerDetailElement({ ...props, onContainerContextMenu }),
+    );
+    const openMenu = async (node: ContainerNode) => {
+      if (trigger === "kebab") {
+        fireEvent.click(
+          view.getByRole("button", { name: headerActionsLabel(node) }),
+        );
+        return;
+      }
+      const target =
+        trigger === "icon"
+          ? view.container.querySelector(".explorer-detail-header-icon")
+          : view.getByText(node.name);
+      if (!target) throw new Error("Expected the folder header target.");
+      if (trigger === "touch") {
+        fireEvent.pointerDown(target, { pointerType: "touch" });
+        await act(() => new Promise((resolve) => setTimeout(resolve, 550)));
+        fireEvent.pointerUp(target, { pointerType: "touch" });
+        fireEvent.click(target);
+      } else {
+        fireEvent.contextMenu(target);
+      }
+    };
 
-  fireEvent.click(
-    view.getByRole("button", { name: headerActionsLabel(containerA) }),
-  );
-  expect(opened).toEqual([containerA.id]);
+    await openMenu(containerA);
+    expect(opened).toEqual([containerA.id]);
 
-  // Navigating into another folder retargets the same trigger, so the menu can
-  // never act on the folder you just left.
-  view.rerender(
-    containerDetailElement({
-      ...props,
-      onContainerContextMenu,
-      selectedNode: containerB,
-    }),
-  );
-  fireEvent.click(
-    view.getByRole("button", { name: headerActionsLabel(containerB) }),
-  );
-  expect(opened).toEqual([containerA.id, containerB.id]);
-  expect(
-    view.queryByRole("button", { name: headerActionsLabel(containerA) }),
-  ).toBeNull();
-});
+    // Navigating into another folder retargets the same trigger, so the menu can
+    // never act on the folder you just left.
+    view.rerender(
+      containerDetailElement({
+        ...props,
+        onContainerContextMenu,
+        selectedNode: containerB,
+      }),
+    );
+    await openMenu(containerB);
+    expect(opened).toEqual([containerA.id, containerB.id]);
+    expect(
+      view.queryByRole("button", { name: headerActionsLabel(containerA) }),
+    ).toBeNull();
+  },
+);
 
 // The header spreads its children apart, so the kebab shares a trailing group
 // with the sync badge rather than being a third child — otherwise the badge
