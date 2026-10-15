@@ -25,6 +25,14 @@ source of truth and the tables are a map to it.
 | Container path length | 100 containers, including root and leaf (`MAX_CONTAINER_PATH_LENGTH`); depths zero through 99 | API: create and subtree-move checks in `workflows/containers/mutations/shared/containerDepth.ts`, under the organization lock; the CTE in `access/shared/internal/containerKekTargets.ts` and writer/stored path loaders; container mutation and recitation request schemas bound every cited path (`*ContainerPathRefs`) to the same 100 references. SDK: local create/move refused before queuing (`workflows/container-contents/container-state/localPathDepth.ts`), plan-time destination prechecks, and `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Final refusal (409 `container_path_too_deep`) before creating an unreadable path. A subtree move checks the deepest descendant, including descendants the caller cannot discover; a queued move refused for that reason is abandoned and its previous placement restored in the same local transaction. |
 | Cited manifest history per container mutation | 4,096 references (`MAX_CONTAINER_MANIFEST_HISTORY_REFS`, `validators/src/util/containerLimits.ts`) | Validators: `request/containerManifestRef.ts` bounds `containerManifestHistoryRefs`. API: `workflows/containers/mutations/shared/storedManifestArtifacts.ts` refuses a repeated citation or one naming another container before any read, then loads the container's lineage in one bulk query. | Refusal (400). Inline bundles of 8-14 KiB fit about this many under the 32 MiB request ceiling, so the reference form keeps that capacity rather than letting a small body cite ~50x more. |
 
+Each cited reference is a stored manifest the API re-verifies, so the history
+bound is also a CPU bound. Verification markers (#2383,
+`access_manifests.verification_mac`) reduce a marked manifest to one HMAC over
+its stored bytes. A probe citing a 501-manifest lineage (PGlite, M2 Pro)
+measured about 90 µs per reference with markers and 2 ms without: at the bound,
+roughly 0.4 s, or 8 s after a rotated secret or rule revision drops the
+markers. That pass records markers for later requests.
+
 Create and move preserve the reader's structural bound. Policy rotations and
 revocations do not change structure and do not run these depth guards. The
 bounded [container depth model](../formal/container-keying/ContainerDepth.md)
