@@ -120,6 +120,7 @@ export type OrganizationPrincipalPolicyRequest = z.infer<
 
 export const CommitOrganizationGroupPolicyRequestSchema = loosePlainObject({
   groupPolicy: PutPrincipalPolicyRequestSchema,
+  memberPolicy: PutPrincipalPolicyRequestSchema.optional(),
   organizationPolicy: OrganizationPrincipalPolicyRequestSchema,
 });
 

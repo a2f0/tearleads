@@ -166,6 +166,7 @@ export function GroupDetailSection({
                   memberUserIds.has(addUserId.trim())
                 }
                 onClick={addUser}
+                loading={mutating}
               >
                 {ORG_MANAGER_LABELS.add}
               </MiniAppButton>

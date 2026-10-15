@@ -11,7 +11,9 @@ import {
   principalPolicyHead,
 } from "./principalPolicyFixtures";
 
-export async function principalMutationJournalFixture() {
+export async function principalMutationJournalFixture(
+  includeEnrollment = false,
+) {
   const signingKeyPair = generateSigningSeedAndKeyPair();
   const kem = generateKemSeedAndKeyPair();
   const scope = {
@@ -30,11 +32,29 @@ export async function principalMutationJournalFixture() {
   });
   const head = principalPolicyHead(await policyBundleFromInitialRequest(group));
   const memberGroupId = crypto.randomUUID();
+  const memberGroup = includeEnrollment
+    ? await buildInitialGroupPolicyRequest({
+        creatorEncapsulationKeyPair: kem,
+        groupId: memberGroupId,
+        name: "Members",
+        signerUserId: scope.userId,
+        signingFingerprint: scope.signingFingerprint,
+        signingKeyPair,
+      })
+    : null;
+  const memberBundle = memberGroup
+    ? await policyBundleFromInitialRequest(memberGroup)
+    : null;
   const organizationPolicy = await buildInitialOrganizationPolicyRequest({
     adminGroupId: group.groupId,
     memberGroupId,
     organizationId: scope.organizationId,
-    groupHeads: [head, { ...head, principalId: memberGroupId }],
+    groupHeads: [
+      head,
+      memberBundle
+        ? principalPolicyHead(memberBundle)
+        : { ...head, principalId: memberGroupId },
+    ],
     encapsulationPublicKey: kem.publicKey,
     signingKeyPair,
     userId: scope.userId,
@@ -42,7 +62,11 @@ export async function principalMutationJournalFixture() {
   const mutation = {
     kind: "compound" as const,
     groupId: group.groupId,
-    request: { groupPolicy: group.initialGroupPolicy, organizationPolicy },
+    request: {
+      groupPolicy: group.initialGroupPolicy,
+      organizationPolicy,
+      ...(memberGroup ? { memberPolicy: memberGroup.initialGroupPolicy } : {}),
+    },
   };
   const groupBundle = await policyBundleFromInitialRequest(group);
   const organizationBundle = await organizationPolicyBundleFromInitialRequest(
@@ -50,6 +74,9 @@ export async function principalMutationJournalFixture() {
     organizationPolicy,
   );
   const response = {
+    ...(memberBundle
+      ? { memberPolicy: { ...memberBundle, containerMutations: [] } }
+      : {}),
     groupPolicy: { ...groupBundle, containerMutations: [] },
     organizationPolicy: { ...organizationBundle, containerMutations: [] },
   };

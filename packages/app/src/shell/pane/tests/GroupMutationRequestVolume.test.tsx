@@ -97,9 +97,9 @@ test("group creation and adding a peer have separate request budgets", async () 
         );
       },
       budget: {
-        // The first add enrolls the peer in Members before the custom group,
-        // including metadata discovery, read-only sync, and a billing refresh.
-        // The second add reuses that roster membership and stays a single write.
+        // The first add enrolls the peer in Members and the custom group in
+        // one write, including metadata discovery, read-only sync, and billing.
+        // The second add reuses the roster membership.
         // First enrollment measures 40 calls with private metadata-root
         // authority. Keep five reads of phase headroom; later adds get three.
         total: group === "first" ? 45 : 11,
@@ -113,8 +113,7 @@ test("group creation and adding a peer have separate request budgets", async () 
           "GET /auth/user-identity/:userId": group === "first" ? 2 : 0,
           "GET /principals/organization/:organizationId/policy":
             group === "first" ? 10 : 2,
-          "PUT /organizations/:organizationId/groups/:groupId/policy-commit":
-            group === "first" ? 2 : 1,
+          "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 1,
           // A concurrent policy advance can require a fresh post-create proof.
           "GET /documents/:documentId/writer-projection":
             group === "first" ? 3 : 0,
@@ -130,7 +129,7 @@ test("group creation and adding a peer have separate request budgets", async () 
         {
           method: "PUT",
           path: /^\/organizations\/[^/]+\/groups\/[^/]+\/policy-commit$/u,
-          count: group === "first" ? 2 : 1,
+          count: 1,
         },
       ],
     });

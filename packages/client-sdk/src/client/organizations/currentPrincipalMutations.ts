@@ -57,37 +57,66 @@ export function createCurrentPrincipalMutation(
         stillCurrent: input.stillCurrent,
       },
       async (context) => {
-        const request = await buildCurrentMutationRequest(
-          input,
-          context,
-          mutation,
-        );
+        const prepareChange = async (
+          selected: RuntimeCurrentGroupMutationContext,
+          change: CurrentGroupMutation,
+        ) => ({
+          context: selected,
+          request: await buildCurrentMutationRequest(input, selected, change),
+          prepareContainerMutations: (
+            nextPolicy: Parameters<
+              typeof preparePrincipalContainerMutations
+            >[0]["nextPolicy"],
+            preceding?: Parameters<
+              typeof preparePrincipalContainerMutations
+            >[0]["preceding"],
+          ) =>
+            preparePrincipalContainerMutations({
+              preceding,
+              currentPolicy: selected.currentPolicy,
+              nextPolicy,
+              groupId: selected.currentPolicy.currentState.principalId,
+              organizationId: input.organizationId,
+              runtime: input.runtime,
+              stillCurrent: selected.stillCurrent,
+              recitationStillCurrent: input.stillCurrent,
+              resolveAuthoredPolicyReferences:
+                selected.resolveAuthoredPolicyReferences,
+              revokedContainerId:
+                change.kind === "revoke"
+                  ? change.revokedContainerId
+                  : undefined,
+            }),
+        });
+        const primary = await prepareChange(context, mutation);
+        let member: Awaited<ReturnType<typeof prepareChange>> | undefined;
+        if (mutation.kind === "add" && groupId !== context.memberGroupId) {
+          const members = await context.loadGroup(context.memberGroupId);
+          if (
+            !members.currentPolicy.currentProjection.some(
+              (entry) => entry.userId === mutation.targetUserId,
+            )
+          ) {
+            member = await prepareChange(members, {
+              ...mutation,
+              expectedGroupName: "Members",
+            });
+          }
+        }
         assertProjectionVerificationCurrent(context.stillCurrent);
         const response = await commitCurrentGroupPolicyMutation({
           ...input,
           apiClient: input.runtime.apiClient,
           groupId,
-          context,
-          request,
+          ...primary,
+          member,
           resolveTrustedUserIdentity: input.runtime.resolveTrustedUserIdentity,
-          prepareContainerMutations: (nextPolicy) =>
-            preparePrincipalContainerMutations({
-              currentPolicy: context.currentPolicy,
-              nextPolicy,
-              groupId,
-              organizationId: input.organizationId,
-              runtime: input.runtime,
-              stillCurrent: context.stillCurrent,
-              recitationStillCurrent: input.stillCurrent,
-              resolveAuthoredPolicyReferences:
-                context.resolveAuthoredPolicyReferences,
-              revokedContainerId:
-                mutation.kind === "revoke"
-                  ? mutation.revokedContainerId
-                  : undefined,
-            }),
         });
-        return { response, memberGroupId: context.memberGroupId };
+        return {
+          response,
+          memberGroupId: context.memberGroupId,
+          enrolled: Boolean(member),
+        };
       },
     );
 }

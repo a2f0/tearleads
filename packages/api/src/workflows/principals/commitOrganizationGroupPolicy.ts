@@ -1,10 +1,16 @@
-import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import type {
+  ApiDatabase,
+  DatabaseTransaction,
+} from "@tearleads/api-shared/postgres";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { toMutationError } from "../containers/mutations/errors";
 import { OrganizationManagerError } from "../organizations/errors";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
-import { lockOrganizationGroupMutationInTransaction } from "./principalMutationLock";
+import {
+  lockOrganizationGroupMutationInTransaction,
+  lockPrincipalMutationInTransaction,
+} from "./principalMutationLock";
 import { principalPolicyCommitOutcome } from "./principalPolicyCommitOutcome";
 import {
   loadRosterSyncTargetForPrincipal,
@@ -12,6 +18,7 @@ import {
 } from "./principalPolicyMutationAuthorization";
 import {
   assertPutPrincipalPolicyRouteBinding,
+  preparePrincipalPolicyInTransaction,
   putPrincipalPolicyInTransaction,
 } from "./putPrincipalPolicy";
 import {
@@ -26,14 +33,41 @@ export interface CommitOrganizationGroupPolicyResult {
   readonly sharedWithYouUserIds: readonly string[];
 }
 
+interface CommitPolicyInput {
+  readonly groupId: string;
+  readonly organizationId: string;
+  readonly request: CommitOrganizationGroupPolicyRequest;
+  readonly requesterUserId: string;
+}
+
+async function commitRosterEnrollment(
+  tx: DatabaseTransaction,
+  input: CommitPolicyInput,
+  memberGroupId: string,
+) {
+  const memberInput = input.request.memberPolicy
+    ? {
+        ...input.request.memberPolicy,
+        expectedPrincipalId: memberGroupId,
+        expectedPrincipalType: "group" as const,
+        requesterUserId: input.requesterUserId,
+      }
+    : null;
+  if (memberInput) {
+    assertPutPrincipalPolicyRouteBinding(memberInput);
+    if (input.groupId === memberGroupId) {
+      throw new PrincipalPolicyError("Members policy is duplicated", 400);
+    }
+    await lockPrincipalMutationInTransaction(tx, "group", memberGroupId);
+  }
+  return memberInput
+    ? await putPrincipalPolicyInTransaction(tx, memberInput)
+    : null;
+}
+
 export async function runCommitOrganizationGroupPolicyWorkflow(
   db: ApiDatabase,
-  input: {
-    readonly groupId: string;
-    readonly organizationId: string;
-    readonly request: CommitOrganizationGroupPolicyRequest;
-    readonly requesterUserId: string;
-  },
+  input: CommitPolicyInput,
 ): Promise<CommitOrganizationGroupPolicyResult> {
   const groupInput: PutPrincipalPolicyInput = {
     ...input.request.groupPolicy,
@@ -75,12 +109,24 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
           404,
         );
       }
-      const group = await putPrincipalPolicyInTransaction(tx, groupInput);
+      // Both group operations authorize against the intact predecessor directory.
+      // The organization lock remains held through all three policy writes.
+      const applyGroup = await preparePrincipalPolicyInTransaction(
+        tx,
+        groupInput,
+      );
+      const member = await commitRosterEnrollment(
+        tx,
+        input,
+        target.memberGroupId,
+      );
+      const group = await applyGroup();
       const organization = await putPrincipalPolicyInTransaction(
         tx,
         organizationInput,
       );
       const policy = {
+        ...(member ? { memberPolicy: member.policy } : {}),
         groupPolicy: group.policy,
         organizationPolicy: organization.policy,
       };
@@ -90,6 +136,7 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
         replayed: false,
         sharedWithYouUserIds: [
           ...new Set([
+            ...(member?.sharedWithYouUserIds ?? []),
             ...group.sharedWithYouUserIds,
             ...organization.sharedWithYouUserIds,
           ]),

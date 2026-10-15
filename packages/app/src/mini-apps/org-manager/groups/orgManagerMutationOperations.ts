@@ -151,42 +151,10 @@ export async function addRosterUserToGroup(input: {
     return null;
   }
 
-  let seededMembership = false;
-  // Enroll in Members before any other group; the server enforces the roster.
-  if (input.memberGroupId && input.groupId !== input.memberGroupId) {
-    const membership = await ensureRosterUserInGroup({
-      ...input,
-      groupId: input.memberGroupId,
-      groupName: RESERVED_ORGANIZATION_GROUP_NAMES.members,
-      userId: targetUser.userId,
-    });
-    if (!membership) {
-      return null;
-    }
-    seededMembership = membership === "added";
-  }
-
-  // Two writes cannot be one transaction, so the group half can fail with the
-  // Members half already committed. Say so plainly: the user really is an
-  // organization member and really is billed, and silently reporting "add
-  // failed" would leave that invisible.
-  try {
-    const bundle = await input.orgManagerActions.addUserToGroup(
-      input.groupId,
-      targetUser.userId,
-      input.groupName,
-    );
-    return input.isOperationActive(input.operationOrganizationId)
-      ? bundle
-      : null;
-  } catch (error) {
-    if (
-      seededMembership &&
-      input.isOperationActive(input.operationOrganizationId)
-    ) {
-      input.setError(ORG_MANAGER_LABELS.failedAddGroupAfterMemberAdd);
-      return null;
-    }
-    throw error;
-  }
+  const bundle = await input.orgManagerActions.addUserToGroup(
+    input.groupId,
+    targetUser.userId,
+    input.groupName,
+  );
+  return input.isOperationActive(input.operationOrganizationId) ? bundle : null;
 }

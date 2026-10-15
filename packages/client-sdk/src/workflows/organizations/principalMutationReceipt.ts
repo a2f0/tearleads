@@ -12,6 +12,15 @@ export async function assertAuthoredPrincipalMutationReceipt(
   for (const part of ["groupPolicy", "organizationPolicy"] as const) {
     await assertAuthoredPrincipalPolicyReceipt(request[part], response[part]);
   }
+  if (Boolean(request.memberPolicy) !== Boolean(response.memberPolicy)) {
+    throw new Error("Principal mutation receipt Members policy differs");
+  }
+  if (request.memberPolicy && response.memberPolicy) {
+    await assertAuthoredPrincipalPolicyReceipt(
+      request.memberPolicy,
+      response.memberPolicy,
+    );
+  }
 }
 
 export async function assertAuthoredPrincipalPolicyReceipt(

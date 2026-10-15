@@ -103,15 +103,16 @@ export async function addUserToOrganizationGroup(
         throw new ProjectionDependencyUnavailableError(
           "Principal history recovery is unavailable",
         );
-      const { memberGroupId, response: bundle } = await mutateCurrent(
-        input.groupId,
-        {
-          kind: "add",
-          expectedGroupName: input.expectedGroupName,
-          targetUserId: input.targetUserId,
-        },
-      );
-      if (input.groupId === memberGroupId) {
+      const {
+        memberGroupId,
+        response: bundle,
+        enrolled,
+      } = await mutateCurrent(input.groupId, {
+        kind: "add",
+        expectedGroupName: input.expectedGroupName,
+        targetUserId: input.targetUserId,
+      });
+      if (input.groupId === memberGroupId || enrolled) {
         await syncOrganizationMetadataProfile({
           containerContents: input.containerContents,
           log: input.runtime.util.log,

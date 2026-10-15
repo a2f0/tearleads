@@ -69,6 +69,7 @@ export type PrincipalPolicyMutationResponse = z.infer<
 
 export const CommitOrganizationGroupPolicyResponseSchema = loosePlainObject({
   groupPolicy: PrincipalPolicyMutationResponseSchema,
+  memberPolicy: PrincipalPolicyMutationResponseSchema.optional(),
   organizationPolicy: PrincipalPolicyMutationResponseSchema,
 });
 

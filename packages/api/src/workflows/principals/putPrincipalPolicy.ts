@@ -216,6 +216,14 @@ export async function putPrincipalPolicyInTransaction(
   tx: DatabaseTransaction,
   input: PutPrincipalPolicyInput,
 ): Promise<PutPrincipalPolicyResult> {
+  return (await preparePrincipalPolicyInTransaction(tx, input))();
+}
+
+/** Authorize against the locked predecessor directory before a compound write advances Members. */
+export async function preparePrincipalPolicyInTransaction(
+  tx: DatabaseTransaction,
+  input: PutPrincipalPolicyInput,
+): Promise<() => Promise<PutPrincipalPolicyResult>> {
   await lockPolicyPrincipalMutation(tx, input);
   const policyTarget = await lockOrganizationReadModelForPolicyMutation(
     tx,
@@ -224,6 +232,15 @@ export async function putPrincipalPolicyInTransaction(
   if (!policyTarget) {
     throw new PrincipalPolicyError("Principal policy target not found", 404);
   }
+  return () =>
+    applyPrincipalPolicyInTransaction(tx, input, policyTarget.organizationId);
+}
+
+async function applyPrincipalPolicyInTransaction(
+  tx: DatabaseTransaction,
+  input: PutPrincipalPolicyInput,
+  organizationId: string,
+): Promise<PutPrincipalPolicyResult> {
   await assertPolicyAuthorityConstraints(tx, input);
   const previousState = await getCurrentPrincipalState(
     input.state.principalType,
@@ -264,7 +281,7 @@ export async function putPrincipalPolicyInTransaction(
   );
   const applyRematerializations = () =>
     applyPolicyContainerRematerializations({
-      organizationId: policyTarget.organizationId,
+      organizationId,
       nextState,
       policy: input,
       previousState,

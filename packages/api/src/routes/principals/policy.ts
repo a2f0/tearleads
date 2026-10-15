@@ -143,7 +143,12 @@ export function createPrincipalPolicyRoute({
         if (!result.replayed)
           await publishPrincipalAccessChanges(
             publish,
-            [{ principalType: "group", principalId: groupId }],
+            [
+              result.policy.groupPolicy.currentState,
+              ...(result.policy.memberPolicy
+                ? [result.policy.memberPolicy.currentState]
+                : []),
+            ],
             result.sharedWithYouUserIds,
           );
         return c.json<CommitOrganizationGroupPolicyResponse>(result.policy);
