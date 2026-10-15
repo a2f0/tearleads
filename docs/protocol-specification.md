@@ -192,6 +192,14 @@ use key epoch `1`, be signed by the registering user, project only the
 registering user as admin, and carry a version-2 authority descriptor committing
 the exact initial heads of both reserved groups.
 
+The response returns each created container and document head. The client
+checks every one against the request it signed before pinning it as a local
+verification checkpoint. The acknowledged heads of the roster and organization
+profile documents also seed discovery evidence, and the founding policy heads
+seed verified recovery progress, so the device fetches neither those documents'
+writer projections nor the founding groups' history. Creating an additional
+organization follows the same rule.
+
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the
 reserved org-membership authority. Reachability through it drives active roster

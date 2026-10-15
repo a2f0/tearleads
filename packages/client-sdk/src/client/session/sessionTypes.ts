@@ -2,6 +2,7 @@ import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
+import type { ProvisionedPrincipalHistoryPrimer } from "../../workflows/registration/provisionedPrincipalHistory";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
 import type { Database } from "../database";
 import type { Identity } from "../identity";
@@ -23,6 +24,10 @@ export interface SessionDependencies {
   /** The user this device's trust store already binds a signing key to. */
   boundUserIdForSigningKey?: BoundUserIdLookup | undefined;
   onUserIdentityAvailable?: UserIdentityAvailable | undefined;
+  /** Seeds verified recovery progress for a new organization's founding heads. */
+  primeProvisionedPrincipalHistory?:
+    | ProvisionedPrincipalHistoryPrimer
+    | undefined;
   /** App-owned system containers provisioned with each new organization. */
   provisionedSystemContainers?:
     | ReadonlyArray<ProvisionedSystemContainerSpec>

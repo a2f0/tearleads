@@ -5,6 +5,7 @@ import type {
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../data/containers/shared/mutationAcknowledgement";
 import { assertDocumentCreateResponseMatchesPlan } from "../../data/documents/shared/responses";
+import type { AuthoredDiscoveryHead } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
   type LocallyAcknowledgedAccessManifestHead,
   locallyAuthoredAccessManifestHead,
@@ -175,4 +176,31 @@ export async function provisioningAcknowledgedAccessHeads(input: {
     );
   }
   return heads;
+}
+
+/**
+ * The signed heads of the seeded profile documents, for the discovery head
+ * cache. Each plan was checked against its create acknowledgement by
+ * {@link provisioningAcknowledgedAccessHeads}; checking again here keeps the
+ * cache entry bound to exactly the head the server returned.
+ */
+export function provisioningDiscoveryHeads(
+  documents: readonly {
+    plan: DocumentPlan;
+    response: DocumentCreateResponse | undefined;
+  }[],
+): AuthoredDiscoveryHead[] {
+  return documents.map(({ plan, response }) => {
+    assertDocumentCreateResponseMatchesPlan(
+      plan,
+      requireResponse(response, "seeded document"),
+    );
+    return {
+      documentId: plan.documentId,
+      organizationId: plan.state.organizationId,
+      accessEpoch: plan.state.epoch,
+      accessStateHash: plan.manifestHash,
+      linkedContainerIds: plan.state.linkedContainerIds,
+    };
+  });
 }
