@@ -6,6 +6,11 @@ runtime grammar in
 not replace Zod validation, cryptographic verification, database constraints, or
 integration tests.
 
+The [model index](./models.md) summarizes every registered model, grouped by
+directory, and links each model's mapping document.
+
+## Running the models
+
 Run every bounded model with:
 
 ```sh
@@ -22,6 +27,8 @@ running Java. Each invocation has isolated state, JVM temporary files, and hosts
 files. `PROTOCOL_TLC_PARALLELISM` controls concurrency (default 2); results print
 in deterministic registry order.
 
+## Abstraction maps
+
 Model documentation that maps abstract actions to production seams does so in
 `Model action … | Production …` tables; the registry in
 `scripts/protocol/lintFormalAbstractionMaps.ts` pins which documents carry them.
@@ -29,8 +36,11 @@ Model documentation that maps abstract actions to production seams does so in
 model token is declared in the module the table documents and every backticked
 production seam occurs in production package source code, so a rename or
 removal on either side fails the check instead of leaving the map prose-only.
-`ContainerGrantScope` and `KeyringReachability` document their seams in prose
-and carry no map tables; `NoBrickedDevice` carries one.
+`ContainerGrantScope` and `KeyringReachability` document their seams in prose in
+the [model index](./models.md) and carry no map tables; `NoBrickedDevice`
+carries one.
+
+## Trace projections
 
 The bridge also runs in the implementation-to-model direction:
 `bun run check:protocol-projection` (part of `check:fast`) records
@@ -40,24 +50,26 @@ trace the model rejects. See the
 [trace projection section](./document-sync/RestartProbeConvergence.md) for the
 recorded scenarios, negative controls, and boundaries.
 
+`bun run check:no-brick-projection` (also in `check:fast`) replays recorded runs
+of the real container-path and principal-policy verifiers through
+`NoBrickedDevice` the same way; see the
+[trace projection section](./container-keying/NoBrickedDevice.md).
+
+## Negative controls
+
 `bun run check:protocol-negative-controls` (part of `check:fast`) checks selected
 properties for sensitivity to faults: each entry in `scripts/protocol/protocolNegativeControls.ts`
 flips one rule or lock in a registered configuration and requires TLC to
-report exactly the named violation. `bun run check:no-brick-projection` (also
-in `check:fast`) replays recorded runs of the real container-path and
-principal-policy verifiers through `NoBrickedDevice` the way the restart-probe
-projection does; see the [trace projection section](./container-keying/NoBrickedDevice.md).
+report exactly the named violation.
 
 Negative controls do not establish general non-vacuity or action reachability.
 See the [coverage audit](./audit-2026-09.md).
 
-The [container depth model](./container-keying/ContainerDepth.md) checks that
-create and subtree moves preserve readable paths. Policy revocation is outside
-its boundary. Three negative controls remove the structural mutation guards.
-
 The [F1/F2 gate audit](./verification-gates.md) maps #2192's no-brick and
 verifier-property requirements to executable evidence, records their bounds,
 and identifies the remaining Lean proof and vector work.
+
+## Adding a model
 
 To add a model, commit its `.tla` and bounded `.cfg` files and register the
 pair. One module may appear with multiple configurations, but each configuration
@@ -65,293 +77,6 @@ must appear exactly once. Keep registered bounds small enough for `check:fast`;
 put broader configurations in a separate scheduled suite instead of lengthening
 pull-request checks.
 
-## Sync Lane Concurrency
-
-[`document-sync/SyncLaneConcurrency.tla`](./document-sync/SyncLaneConcurrency.tla)
-checks worker bounds, structural ordering, exclusivity, trailing requests, and
-backoff. See the [mapping](./document-sync/SyncLaneConcurrency.md).
-
-## Container Deletion
-
-[`container-keying/ContainerDeletion.tla`](./container-keying/ContainerDeletion.tla)
-models creation racing leaf deletion and the permanent reservation of retired
-metadata document IDs. See the [mapping and boundaries](./container-keying/ContainerDeletion.md).
-
-## Unacknowledged Server Input
-
-[`local-trust/UnacknowledgedInput.tla`](./local-trust/UnacknowledgedInput.tla)
-models pending document-create adoption and fingerprint-bound login
-acknowledgments. See the [mapping and boundaries](./local-trust/UnacknowledgedInput.md).
-
-[`local-trust/ContainerCreateAdoption.tla`](./local-trust/ContainerCreateAdoption.tla)
-models adopting a listed pending container create and the move it owes. See
-the [mapping](./local-trust/ContainerCreateAdoption.md).
-
-[`local-trust/DurableIdentityBinding.tla`](./local-trust/DurableIdentityBinding.tla)
-checks that persistent fingerprint-to-user bindings survive session recreation
-and stay unique within each trust domain. See the
-[mapping and boundaries](./local-trust/DurableIdentityBinding.md).
-
-## Principal Reference Progress
-
-[`container-keying/PrincipalReferenceProgress.tla`](./container-keying/PrincipalReferenceProgress.tla)
-models current group references at commit and monotone references in signed
-container history. See the [mapping and boundaries](./container-keying/PrincipalReferenceProgress.md).
-
-## Container Grant Scope
-
-[`container-keying/ContainerGrantScope.tla`](./container-keying/ContainerGrantScope.tla)
-models the accepted container-grant domain. TLC checks that every reachable
-grant names either a group in the container's organization or an active direct
-user in that organization; an organization principal is never a container
-grant subject. It also models roster removal as a guarded transition: a user
-must first be unshared from every directly granted container, whose revoke is a
-container KEK rotation in the runtime and in the keyring model below.
-
-The production seams are the container grant grammar, the locked group/user
-reference checks in `groupReferences.ts`, and the direct-grant blocker in
-`roster.ts`. The bounded configuration includes same- and foreign-organization
-users, groups, and organization principals so TLC explores every accepted
-grant/revoke and roster transition over those categories.
-
-## Container Keyring Reachability
-
-[`container-keying/KeyringReachability.tla`](./container-keying/KeyringReachability.tla)
-models cold recovery from persisted user/group recipient wraps, immutable
-predecessor bridges, and sealed historical keyrings. Its `Members` abstraction
-is the set of users authorized by active direct-user or same-organization group
-grants; organization principals are not recovery recipients. `Descendants`
-extend it with child containers whose key epochs pin the parent epoch current
-when they were minted: a descendant verifies against any pinned epoch the
-parent's retained history still covers, and the negative control
-`strict-parent-epoch-pin-strands-descendant` reproduces the pre-#2330 rule under
-which an ancestor rotation stranded the subtree. An honest rotation may also
-seal a forged entry, an invented epoch id over server-chosen material that
-passes its material check, whether rebuilt for a repair or carried in the
-served keyring. `RotationsSealOnlySignedLineage` requires that it never does.
-`AnchorToSignedLineage` records that rule as a switch. The model does not
-represent where manifests are served or the lineage walk, so the invariant
-holds by construction and the control
-`kek-history-anchor-seals-relocated-forgery` only marks where the rule sits;
-the evidence that the walk refuses a relocated forgery is the SDK tests
-(`signedHistoryEpochIds`, `assertOverrideMatchesSignedLineage`). Every
-re-sealing rotation takes its target from `signedRotationTarget`, so none can
-skip the walk.
-
-[`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
-adds the group key as its own epoch dimension: container wraps sealed to a
-group key outlive a revoked grant, so a revocation must rotate the group key
-before an additive join hands that key out. See the
-[mapping and boundaries](./container-keying/GroupGrantRevocation.md).
-
-## Manifest History Availability
-
-[`container-keying/ManifestHistory.tla`](./container-keying/ManifestHistory.tla)
-models cold reads, revocation, and citing held bundles. Negative controls show
-why lifetime caps fail and citing needs held bytes and cited-only omission. Read
-and revocation predicates hold by definition; no verifier or resource bound is
-modeled. See the
-[mapping and runtime regressions](./container-keying/ManifestHistory.md).
-Principal state models cover
-[version availability](./container-keying/PrincipalHistory.md)
-and [page verification](./container-keying/PrincipalHistoryPages.md), including
-[authenticated resumption](./container-keying/PrincipalHistoryResume.md) and
-[recovery reuse](./container-keying/PrincipalRecoveryReuse.md).
-
-## No Bricked Device
-
-[`container-keying/AncestorRecovery.tla`](./container-keying/AncestorRecovery.tla)
-checks the distinct read and write currency rules for a three-level container
-path. Rotating a parent preserves descendant reads; repairing a child can make
-its grandchild stale without making it unreadable. Setting
-`StrictReadParentPin = TRUE` is the negative control for #2329: the first root
-rotation violates `HonestReadsAvailable`.
-
-The production seams are `resolveContainerKekParentBinding` (signed historical
-epoch membership) and `assertContainerKekParentEdgesCurrent` (current epochs
-required for writes). The API and SDK `ancestorRotationRecovery.test.ts` tests
-exercise those seams with signed manifests; the SDK test also uses actual
-encrypted keys. The model assumes honest retained history and abstracts
-cryptography and authorization; the signed-history tampering tests cover that
-boundary in the implementation. Independent repair by a child-only writer is
-not established by this model.
-
-[`container-keying/InaccessibleIntermediateRepair.tla`](./container-keying/InaccessibleIntermediateRepair.tla)
-adds the actors that model leaves out. A writer granted only on the leaf can
-re-key its own container but never a stale intermediate above it, and is never
-given that key, so a rotation re-keys that intermediate in its own transaction.
-Only the blocked writer's step is fair, as in `NoBrickedDevice`; a rotation that
-commits alone parks the writer for good. Two further controls reproduce a write
-a revoked member can open and a writer holding a key outside its grant. See the
-[mapping and boundary](./container-keying/InaccessibleIntermediateRepair.md).
-
-[`container-keying/NoBrickedDevice.tla`](./container-keying/NoBrickedDevice.tla)
-models the invariant that no device may ever be unable to read or write
-because another device holds a cache or must issue a write first. A dependent
-(descendant container, or group policy) cites an authority (ancestor, or
-Admins policy); every client refusal rule is a parameter, and the currency
-rules withdrawn in #2174 and #2173 are the negative controls that reproduce
-the bricking. See the [mapping, configurations, and boundary](./container-keying/NoBrickedDevice.md).
-
-## Document Baseline Dominance
-
-[`document-sync/BaselineDominance.tla`](./document-sync/BaselineDominance.tla)
-models the no-data-loss gate for document sync baseline redirection: a
-normal-mode read may omit an older-epoch update only when a readable
-current-epoch baseline provably dominates it, and raw mode always serves the
-complete retained missing frontier. Because the invariants share the
-`Dominated`/`Older` operators with the serve action, TLC alone cannot check the
-dominance definition itself; the registered
-[`BaselineDominanceTraceExport.tla`](./document-sync/BaselineDominanceTraceExport.tla)
-closes that blind spot by exporting every served behavior into the committed
-fixture
-[`BaselineDominanceTraces.json`](./document-sync/BaselineDominanceTraces.json)
-(`bun run generate:protocol-traces`, drift-checked by
-`bun run check:protocol-traces`), which the TypeScript replay suite drives
-through the real dominance/redirect kernels and an independent
-componentwise-counter oracle on every push. See the
-[production mapping, trace bridge, bounds, and assumptions](./document-sync/BaselineDominance.md).
-
-## Deferred Document-Tail Settlement
-
-[`document-sync/DeferredTailSettlement.tla`](./document-sync/DeferredTailSettlement.tla)
-models the device-first outgoing-delta marker across local edits, durable
-queue writes, restarts, sync preparation, server acceptance, incoming updates,
-reset/reinitialize, relink, and deletion, and requires that persisted coverage
-never outruns accepted or durably queued work and that a stale completion can
-never publish into a replacement generation. See the
-[production mapping, explored orderings, invariants, and bounds](./document-sync/DeferredTailSettlement.md).
-
-## Opened-Document Recovery Probes
-
-Raw-history reconstruction before key rotation is covered separately by
-[RawHistoryRecovery](./document-sync/RawHistoryRecovery.md), including install
-ownership, checkpoint retirement, waiting writers, and fair worker termination.
-
-[`document-sync/RestartProbeConvergence.tla`](./document-sync/RestartProbeConvergence.tla)
-models startup and acknowledged-reconnect probes, peer writes during the
-handshake or an in-flight pull, and signal-sequence coalescing for encrypted Loro
-body and attachment-slot state. Its bounded run explores 6,757 generated states,
-1,912 distinct states, and depth 15. See the
-[production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
-for the action seams, fairness assumptions, and excluded blob-hydration layer.
-
-## Epoch Advances Without a Covering Baseline
-
-[`document-sync/EmptyFrontierUnlink.tla`](./document-sync/EmptyFrontierUnlink.tla)
-models the acceptance gates for the two content-key epoch advances that carry
-no rotation baseline: a document unlink submitted without one, and a link
-that advances the epoch. A rotation strands every committed update that no
-baseline sealed to the new epoch covers. A document with an empty committed
-frontier cannot produce a baseline at all — a zero-span full-history snapshot
-encodes no replayable history — so the server accepts a baseline-less unlink
-only after proving the committed frontier is empty inside the mutation
-transaction, under the document manifest-head write lock that sync writers
-also take exclusively. A link never carries a baseline, so it may advance the
-epoch only under the same emptiness proof.
-
-The abstraction maps to production at these seams:
-
-| Model action or predicate | Production implementation |
-| --- | --- |
-| `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
-| `CheckCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
-| `LinkAdvancesEpoch` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
-| `FrontierEmpty` | `hasCommittedDocumentUpdate`, the emptiness proof both gates share |
-| `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
-| the client never sending an empty baseline (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
-
-The checked configuration sets `LockedUnlink = TRUE`, matching production, and
-the invariants require that no rotation ever orphans a committed update and
-that the emptiness observation stays true through the commit window. Setting
-`LockedUnlink = FALSE` (a writer allowed to commit between the emptiness proof
-and the unlink commit) makes TLC report the `NoDataLoss` violation
-immediately — the lock discipline is load-bearing, not incidental. The
-negative-control check asserts this on every run.
-`RequireEmptyFrontierOnLinkAdvance = FALSE` is the server before #2365 finding
-28, which let a link advance the epoch over committed updates, and TLC reports
-the same violation.
-
-A rotation baseline covers history only under the epoch it is sealed to, and it
-is itself a committed update, so both gates ask whether any update is
-committed, not whether one is uncovered. `FrontierCheck = "uncovered"` is a
-server that checked only the uncovered frontier; after a covering unlink TLC
-finds a link advance that strands the baseline, and the negative control
-`empty-frontier-check-ignores-baselines` asserts it.
-`CoveringUnlinkCoversFrontier` requires that, under the lock, the frontier a
-covering baseline was checked against is still the frontier at its commit. The
-link check and commit are one step because both run inside one locked
-transaction. The bounds stay small (`MaxUpdates = 3`); the run explores 61
-distinct states because the model tracks only the uncovered-update count,
-whether any update is committed, the covered frontier, and the unlink
-transaction phase.
-
-## Backup Restore Terminal Anchors
-
-[`backup-restore/TerminalAnchors.tla`](./backup-restore/TerminalAnchors.tla)
-models preservation of verified purge decisions and incident evidence across
-full database restores, including observations made after restore preflight.
-See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
-
-## Container Interest Authorization
-
-[`realtime/ContainerInterest.tla`](./realtime/ContainerInterest.tla) checks that
-container subscriptions require current read access before indexing, cannot be
-restored by an authorization that outlived revocation or close, and reach a
-socket only after its own client declares; an ended session's
-socket never outlives the next answered session read, and an unconfirmed session
-closes at its deadline.
-See the [production mapping and bounds](./realtime/ContainerInterest.md).
-[Read-model stamps](./realtime/OrganizationReadModelStamps.md) never skip a change.
-
-## Attachment Key Reachability
-
-Attachment key availability across links, unlinks, and container rotations is
-modeled in [AttachmentKeyReachability](./document-sync/AttachmentKeyReachability.md).
-This includes attachment cache invalidation between the link and unlink steps
-of a single-device move.
-
-## Attachment Envelope Authority
-
-[BlobEnvelopeAuthority](./document-sync/BlobEnvelopeAuthority.md) checks that
-a binding writer preserves other active bindings’ envelopes and that fresh
-wraps use verified current container heads.
-
-## Queued Document Creation
-
-[QueuedDocumentCreate](./local-trust/QueuedDocumentCreate.md) checks that a queued
-store observes local purge before starting remote creation and that an obsolete
-read cannot retire a replacement store generation.
-
-## Attachment Content Identity
-
-[`document-sync/AttachmentContentIdentity.tla`](./document-sync/AttachmentContentIdentity.tla)
-models authenticated attachment intent and concurrent hydration. See the
-[mapping and boundaries](./document-sync/AttachmentContentIdentity.md).
-[SharedCopyReclaim](./document-sync/SharedCopyReclaim.md) checks that deleting
-one slot's row keeps a hydrated copy another slot still holds.
-
-## Historical Write Authority and Organization Scope
-
-[ContentWriteAuthority](./document-sync/ContentWriteAuthority.md) checks delayed
-reads across ancestor grants, group removal, and leaf advancement.
-[OrganizationScope](./local-trust/OrganizationScope.md) enumerates directory,
-group-chain, reference, and parent organization choices at the cache boundary.
-
-## Verified Root and System Destinations
-
-[SystemDestination](./local-trust/SystemDestination.md) models signed destination
-roles, acknowledged roots, administrator-only slot creation, and immutable
-root/system parent edges.
-
-[RootDocumentPriming](./local-trust/RootDocumentPriming.md) checks that documents
-deferred during root verification are scheduled after remote acknowledgement.
-
-[ContainerAuthoring](./local-trust/ContainerAuthoring.md) separates read proof
-access from local signing authority and models an untrusted server echoing a plan.
-
-## Existing Blob Source Authority
-
-[BlobSourceAuthority](./blob-attachments/BlobSourceAuthority.md) models existing
-ciphertext binding with original-author or source-read authority in addition
-to destination-write authority.
+Document the model beside its module, register any abstraction-map table it
+carries, and add a summary under its directory in the
+[model index](./models.md).

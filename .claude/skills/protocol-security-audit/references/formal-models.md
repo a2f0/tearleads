@@ -11,13 +11,14 @@ bounds, and their assumptions and mappings to production must also be audited.
 
 ## Audit existing coverage
 
-Use the saved baseline from `formal/README.md` and read the documentation of
-modules assigned to this batch. Inventory all models within the requested
-audit scope in the coverage ledger, including those unrelated to a candidate;
-assign each to one work item and queue any that do not fit the current batch.
-Review the actual `.tla` and `.cfg` files, registered configurations in
-`formal/protocol-models.txt`, negative controls in
-`scripts/protocol/protocolNegativeControls.ts`, and trace projections.
+Use the saved baseline from `formal/README.md` and the model index
+`formal/models.md`, and read the documentation of modules assigned to this
+batch. Inventory all models within the requested audit scope in the coverage
+ledger, including those unrelated to a candidate; assign each to one work item
+and queue any that do not fit the current batch. Review the actual `.tla` and
+`.cfg` files, registered configurations in `formal/protocol-models.txt`,
+negative controls in `scripts/protocol/protocolNegativeControls.ts`, and trace
+projections.
 
 - Compare model actions, guards, and assumptions with the production call
   paths. Identify where a model describes a proposed fixed rule while
@@ -33,7 +34,7 @@ Review the actual `.tla` and `.cfg` files, registered configurations in
 
 Defects that earlier audits found, worth checking on every model:
 
-- A negative control named in `formal/README.md` or a model `.md` but missing
+- A negative control named in `formal/models.md` or a model `.md` but missing
   from every `scripts/protocol/*NegativeControls.ts` registry.
 - A module with no registered negative control at all.
 - Invariants that restate an action's own guard, or hold by `TypeOK`, so they

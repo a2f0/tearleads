@@ -326,10 +326,6 @@
     "scripts/architecture/subsystems.ts": {
       "lines": 800,
       "bytes": 30600
-    },
-    "formal/README.md": {
-      "lines": 357,
-      "bytes": 20076
     }
   },
   "suppressions": {

@@ -198,7 +198,7 @@ For each verified proposal:
    `docs/limits.md`, `docs/client-sync-ordering.md`, subsystem docs) and the
    canary ceilings that must be lowered with it, so a shipped proposal cannot
    silently regress.
-3. List the formal models in `formal/README.md` whose assumptions it changes.
+3. List the formal models in `formal/models.md` whose assumptions it changes.
    Do not modify models; name the follow-up.
 4. Order proposals by dependency: a table retirement that needs a response
    shape change lists that change as a prerequisite.
