@@ -13,6 +13,10 @@ import type {
 } from "@tearleads/validators/request";
 import { createContainerKeyWrap } from "./containerKeying";
 import {
+  containerManifestRef,
+  containerManifestRefs,
+} from "./containerManifestRefs";
+import {
   createManifestBundle,
   createSignedContainerEvent,
   loadPrincipalPoliciesForContainerPaths,
@@ -111,10 +115,10 @@ export async function buildContainerGrantRequest(input: {
 
   return {
     body,
-    containerManifestHistory: [
+    containerManifestHistoryRefs: containerManifestRefs([
       input.previous,
       ...(input.containerManifestHistory ?? []),
-    ],
+    ]),
     event: event.event,
     expectedManifestHash: bundle.manifestHash,
     keyEpoch: input.previousKekState.keyEpoch,
@@ -122,8 +126,10 @@ export async function buildContainerGrantRequest(input: {
     manifest: bundle.manifest,
     parentKekState: input.parentKekState,
     predecessorBridge: null,
-    previousContainerPath: [...input.previousContainerPath],
-    previousManifest: input.previous,
+    previousContainerPathRefs: containerManifestRefs(
+      input.previousContainerPath,
+    ),
+    previousManifestRef: containerManifestRef(input.previous),
     principalPolicies,
     userRecipientKeys: [
       ...userRecipientKeysFromKekTargets(input.previousKekState),

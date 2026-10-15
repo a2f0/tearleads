@@ -74,8 +74,8 @@ export function getContainerContentsDocumentPendingStateCtes(): string {
       SELECT
         local_id,
         COUNT(*) AS pending_update_count
-      FROM document_pending_updates
-      WHERE app_kind = 'documents'
+      FROM document_history_updates
+      WHERE app_kind = 'documents' AND update_id IS NOT NULL
       GROUP BY local_id
     ),
     document_pending_attachment_counts AS (
@@ -165,8 +165,8 @@ export function getContainerContentsContainerItemsBaseSql(
       SELECT
         local_id,
         COUNT(*) AS pending_update_count
-      FROM document_pending_updates
-      WHERE app_kind = 'container-metadata'
+      FROM document_history_updates
+      WHERE app_kind = 'container-metadata' AND update_id IS NOT NULL
       GROUP BY local_id
     ),
     pending_container_create_intents AS (

@@ -24,7 +24,8 @@ const PENDING_WRITE_SOURCE_SQL = `
       COUNT(*) AS operation_count,
       MIN(created_at) AS created_at,
       MAX(created_at) AS updated_at
-    FROM document_pending_updates
+    FROM document_history_updates
+    WHERE update_id IS NOT NULL
     GROUP BY app_kind, local_id
   )
   SELECT

@@ -1,22 +1,55 @@
-import { and, asc, eq, lt, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  inArray,
+  isNotNull,
+  lt,
+  or,
+  type SQL,
+  sql,
+} from "drizzle-orm";
 import type {
   DocumentScope,
   PendingUpdateFields,
   PendingUpdateRecord,
   SelectedPendingUpdateRow,
 } from "./documentPersistenceTypes";
-import {
-  documentHistoryUpdates,
-  documentPendingUpdates,
-  documents,
-} from "./schema";
+import { documentHistoryUpdates, documents } from "./schema";
 import type { ClientSQLiteTransactionScope } from "./sqlitePersistenceRuntime";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
+/**
+ * Queued updates are the rows of the local update log that carry an
+ * `updateId`. A tail row (origin "local") stays in the log after settlement as
+ * history until compaction; an "outbox" row has no tail role and settlement
+ * deletes it.
+ */
+const OUTBOX_ORIGIN = "outbox";
+
+type QueueStatement = Pick<ClientSQLiteTransactionScope, "delete" | "update">;
+type QueueRead = Pick<ClientSQLiteTransactionScope, "selectDistinct">;
+
+function queuedInScope(scope: DocumentScope) {
+  return and(
+    eq(documentHistoryUpdates.appKind, scope.appKind),
+    eq(documentHistoryUpdates.localId, scope.localId),
+    isNotNull(documentHistoryUpdates.updateId),
+  );
+}
+
 function mapSelectedPendingUpdate(
   row: SelectedPendingUpdateRow,
 ): PendingUpdateRecord {
+  // A queued row always carries its submission vectors; a row without them
+  // cannot be submitted and must fail closed rather than send empty ranges.
+  if (
+    row.partialStartVersionVector === null ||
+    row.partialEndVersionVector === null
+  ) {
+    throw new Error("Queued document update is missing its version vectors");
+  }
   return {
     id: String(row.id ?? ""),
     updateData: row.updateData,
@@ -27,6 +60,38 @@ function mapSelectedPendingUpdate(
   };
 }
 
+/** The ids among `localIds` (one app kind) with at least one queued update. */
+export async function listLocalIdsWithQueuedUpdates(
+  db: QueueRead,
+  appKind: string,
+  localIds: readonly string[],
+): Promise<string[]> {
+  const uniqueIds = [...new Set(localIds)];
+  if (uniqueIds.length === 0) return [];
+  const rows = await db
+    .selectDistinct({ localId: documentHistoryUpdates.localId })
+    .from(documentHistoryUpdates)
+    .where(
+      and(
+        eq(documentHistoryUpdates.appKind, appKind),
+        inArray(documentHistoryUpdates.localId, uniqueIds),
+        isNotNull(documentHistoryUpdates.updateId),
+      ),
+    )
+    .orderBy(asc(documentHistoryUpdates.localId));
+  return rows.map((row) => row.localId);
+}
+
+export async function hasQueuedDocumentUpdates(
+  db: QueueRead,
+  scope: DocumentScope,
+): Promise<boolean> {
+  const ids = await listLocalIdsWithQueuedUpdates(db, scope.appKind, [
+    scope.localId,
+  ]);
+  return ids.length > 0;
+}
+
 export async function listDocumentPendingUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
@@ -34,67 +99,75 @@ export async function listDocumentPendingUpdates(
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const rows = await db
     .select({
-      id: documentPendingUpdates.id,
-      updateData: documentPendingUpdates.updateData,
+      id: documentHistoryUpdates.updateId,
+      updateData: documentHistoryUpdates.updateData,
       partialStartVersionVector:
-        documentPendingUpdates.partialStartVersionVector,
-      partialEndVersionVector: documentPendingUpdates.partialEndVersionVector,
-      sourceVersionVector: documentPendingUpdates.sourceVersionVector,
-      rekeyCount: documentPendingUpdates.rekeyCount,
+        documentHistoryUpdates.partialStartVersionVector,
+      partialEndVersionVector: documentHistoryUpdates.partialEndVersionVector,
+      sourceVersionVector: documentHistoryUpdates.sourceVersionVector,
+      rekeyCount: documentHistoryUpdates.rekeyCount,
     })
-    .from(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, scope.appKind),
-        eq(documentPendingUpdates.localId, scope.localId),
-      ),
-    )
-    .orderBy(asc(documentPendingUpdates.createdAt), asc(sql`rowid`));
+    .from(documentHistoryUpdates)
+    .where(queuedInScope(scope))
+    .orderBy(asc(documentHistoryUpdates.createdAt), asc(sql`rowid`));
 
   return rows.map(mapSelectedPendingUpdate);
 }
 
-function pendingUpdateRow(
-  scope: DocumentScope,
-  pendingUpdate: PendingUpdateFields,
-  createdAt: string,
-  id = crypto.randomUUID(),
-) {
+/** One log row for a queued update; `origin` decides its tail role. */
+export function queuedUpdateRow(input: {
+  createdAt: string;
+  origin: "local" | typeof OUTBOX_ORIGIN;
+  pendingUpdate: PendingUpdateFields;
+  scope: DocumentScope;
+  updateId: string;
+}) {
   return {
-    id,
-    appKind: scope.appKind,
-    localId: scope.localId,
-    updateData: pendingUpdate.updateData,
-    partialStartVersionVector: pendingUpdate.partialStartVersionVector,
-    partialEndVersionVector: pendingUpdate.partialEndVersionVector,
-    sourceVersionVector: pendingUpdate.sourceVersionVector ?? null,
-    createdAt,
+    id: crypto.randomUUID(),
+    appKind: input.scope.appKind,
+    localId: input.scope.localId,
+    updateData: input.pendingUpdate.updateData,
+    origin: input.origin,
+    createdAt: input.createdAt,
+    updateId: input.updateId,
+    partialStartVersionVector: input.pendingUpdate.partialStartVersionVector,
+    partialEndVersionVector: input.pendingUpdate.partialEndVersionVector,
+    sourceVersionVector: input.pendingUpdate.sourceVersionVector ?? null,
   };
 }
 
+/**
+ * Queue an update that has no history-tail role: container metadata (its
+ * content is its checkpoint) and full-state re-uploads after a remote reset.
+ */
 export async function enqueueDocumentPendingUpdate(
   execSql: ExecSql,
   scope: DocumentScope,
   pendingUpdate: PendingUpdateFields,
 ): Promise<string> {
-  const id = crypto.randomUUID();
+  const updateId = crypto.randomUUID();
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
-      .insert(documentPendingUpdates)
+      .insert(documentHistoryUpdates)
       .values(
-        pendingUpdateRow(scope, pendingUpdate, new Date().toISOString(), id),
+        queuedUpdateRow({
+          createdAt: new Date().toISOString(),
+          origin: OUTBOX_ORIGIN,
+          pendingUpdate,
+          scope,
+          updateId,
+        }),
       )
       .run();
   });
-  return id;
+  return updateId;
 }
 
 /**
- * Enqueue an outgoing update AND append it to the durable-history tail in a
- * single transaction. Serialization alone is not enough: a crash between
- * separate inserts could leave the op restorable from history while missing
- * from the outgoing queue, and a null-marker restore would then classify it
- * as covered and never send it.
+ * Append a locally authored update to the history tail AND queue it, as one
+ * row in one transaction. A crash can therefore never leave the op restorable
+ * from history while missing from the outgoing queue, where a null-marker
+ * restore would classify it as covered and never send it.
  */
 export async function enqueueDocumentPendingUpdateWithHistory(
   execSql: ExecSql,
@@ -146,29 +219,24 @@ export async function insertDocumentPendingUpdateWithHistoryInTransaction(input:
   scope: DocumentScope;
   tx: ClientSQLiteTransactionScope;
 }): Promise<string> {
-  const id = crypto.randomUUID();
+  const updateId = crypto.randomUUID();
   await input.tx
     .insert(documentHistoryUpdates)
-    .values({
-      id: crypto.randomUUID(),
-      appKind: input.scope.appKind,
-      localId: input.scope.localId,
-      updateData: input.pendingUpdate.updateData,
-      origin: "local",
-      createdAt: input.createdAt,
-    })
-    .run();
-  await input.tx
-    .insert(documentPendingUpdates)
     .values(
-      pendingUpdateRow(input.scope, input.pendingUpdate, input.createdAt, id),
+      queuedUpdateRow({
+        createdAt: input.createdAt,
+        origin: "local",
+        pendingUpdate: input.pendingUpdate,
+        scope: input.scope,
+        updateId,
+      }),
     )
     .run();
-  return id;
+  return updateId;
 }
 
 /**
- * Assign a fresh id to a pending update, keeping every other column. A lost
+ * Assign a fresh id to a queued update, keeping every other column. A lost
  * sync ack leaves the server holding the update under the original id with
  * ciphertext a rebuilt submission can never reproduce (each rebuild encrypts
  * with a fresh IV), so the id is permanently poisoned: every resubmission
@@ -179,8 +247,8 @@ export async function insertDocumentPendingUpdateWithHistoryInTransaction(input:
  * Returns null when no row carries the id, so callers never report progress
  * for a row that lives in some other queue (or nowhere). The UPDATE's own
  * RETURNING row is the progress signal — a pre-flight SELECT would race a
- * second tab sharing the SQLite file, which can settle-delete the row between
- * the read and the write and turn "rekeyed" into a spurious re-arm.
+ * second tab sharing the SQLite file, which can settle the row between the
+ * read and the write and turn "rekeyed" into a spurious re-arm.
  *
  * The persisted per-row bound is enforced here as well: a row already at
  * MAX_PENDING_UPDATE_REKEYS is left untouched and reported as no progress.
@@ -191,7 +259,7 @@ export async function insertDocumentPendingUpdateWithHistoryInTransaction(input:
 export const MAX_PENDING_UPDATE_REKEYS = 5;
 
 /**
- * Reset the durable re-key budget for every pending update in a scope. The
+ * Reset the durable re-key budget for every queued update in a scope. The
  * cap exists to stop a server that keeps conflicting fresh ids from driving
  * a network-speed loop — but a budget burned during an unrelated outage
  * (e.g. yesterday's stale-bundle deadlock 409ing every submit) should not be
@@ -204,14 +272,9 @@ export async function resetDocumentPendingUpdateRekeyBudget(
 ): Promise<void> {
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     await db
-      .update(documentPendingUpdates)
+      .update(documentHistoryUpdates)
       .set({ rekeyCount: 0 })
-      .where(
-        and(
-          eq(documentPendingUpdates.appKind, scope.appKind),
-          eq(documentPendingUpdates.localId, scope.localId),
-        ),
-      );
+      .where(queuedInScope(scope));
   });
 }
 
@@ -223,48 +286,91 @@ export async function rekeyDocumentPendingUpdate(
   let rekeyed = false;
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
     const updated = await db
-      .update(documentPendingUpdates)
+      .update(documentHistoryUpdates)
       .set({
-        id: nextId,
-        rekeyCount: sql`${documentPendingUpdates.rekeyCount} + 1`,
+        updateId: nextId,
+        rekeyCount: sql`${documentHistoryUpdates.rekeyCount} + 1`,
       })
       .where(
         and(
-          eq(documentPendingUpdates.id, id),
-          lt(documentPendingUpdates.rekeyCount, MAX_PENDING_UPDATE_REKEYS),
+          eq(documentHistoryUpdates.updateId, id),
+          lt(documentHistoryUpdates.rekeyCount, MAX_PENDING_UPDATE_REKEYS),
         ),
       )
-      .returning({ id: documentPendingUpdates.id });
+      .returning({ id: documentHistoryUpdates.updateId });
     rekeyed = updated.length > 0;
   });
   return rekeyed ? nextId : null;
 }
 
-export async function deleteDocumentPendingUpdate(
+/**
+ * Settle queued updates: an outbox row is deleted, and a tail row stops being
+ * queued but stays as history until compaction folds it into a checkpoint.
+ */
+export async function settleQueuedDocumentUpdatesInTransaction(
+  tx: QueueStatement,
+  scope: DocumentScope,
+  updateIds: readonly string[],
+): Promise<void> {
+  const uniqueIds = [...new Set(updateIds)];
+  if (uniqueIds.length === 0) return;
+  const selected = and(
+    eq(documentHistoryUpdates.appKind, scope.appKind),
+    eq(documentHistoryUpdates.localId, scope.localId),
+    inArray(documentHistoryUpdates.updateId, uniqueIds),
+  );
+  await unqueueSelectedUpdates(tx, selected);
+}
+
+async function unqueueSelectedUpdates(
+  tx: QueueStatement,
+  selected: SQL | undefined,
+): Promise<void> {
+  await tx
+    .delete(documentHistoryUpdates)
+    .where(and(selected, eq(documentHistoryUpdates.origin, OUTBOX_ORIGIN)))
+    .run();
+  await tx
+    .update(documentHistoryUpdates)
+    .set({
+      updateId: null,
+      partialStartVersionVector: null,
+      partialEndVersionVector: null,
+      sourceVersionVector: null,
+      rekeyCount: 0,
+    })
+    .where(selected)
+    .run();
+}
+
+/** Settle one queued update by id, whatever its scope. */
+export async function settleDocumentPendingUpdate(
   execSql: ExecSql,
   id: string,
 ): Promise<void> {
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
-      .delete(documentPendingUpdates)
-      .where(eq(documentPendingUpdates.id, id))
-      .run();
+    await unqueueSelectedUpdates(db, eq(documentHistoryUpdates.updateId, id));
   });
 }
 
-export async function deleteDocumentPendingUpdates(
+/**
+ * Stop queueing every update in the given scopes: outbox rows are dropped,
+ * and local tail rows keep their content as history (it is already in the
+ * document).
+ */
+export async function unqueueDocumentScopesInTransaction(
+  tx: QueueStatement,
+  scopes: readonly DocumentScope[],
+): Promise<void> {
+  if (scopes.length === 0) return;
+  await unqueueSelectedUpdates(tx, or(...scopes.map(queuedInScope)));
+}
+
+export async function unqueueDocumentPendingUpdates(
   execSql: ExecSql,
   scope: DocumentScope,
 ): Promise<void> {
   await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-    await db
-      .delete(documentPendingUpdates)
-      .where(
-        and(
-          eq(documentPendingUpdates.appKind, scope.appKind),
-          eq(documentPendingUpdates.localId, scope.localId),
-        ),
-      )
-      .run();
+    await unqueueDocumentScopesInTransaction(db, [scope]);
   });
 }

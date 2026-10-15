@@ -10,7 +10,7 @@ import {
   listDocumentPendingUpdates,
   recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
-import { documentPendingUpdates } from "../../data/sqlite/schema";
+import { documentHistoryUpdates } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { resetPendingWriteRetryState } from "./pendingWrites";
 
@@ -35,7 +35,7 @@ test("manual retry resets the re-key budget and clears the failure row", async (
     });
     // Exhaust the durable budget the way yesterday's outage did.
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db.update(documentPendingUpdates).set({ rekeyCount: 5 });
+      await db.update(documentHistoryUpdates).set({ rekeyCount: 5 });
     });
     await recordDocumentSyncFailure(
       execSql,
@@ -72,15 +72,16 @@ test("container retry resets the metadata scope's budget and failure row", async
     // exhausted budget must reset too — clearing only the failure row would
     // let the next pass re-record it immediately.
     await getClientSQLitePersistenceRuntime(execSql).runMutation(async (db) => {
-      await db.insert(documentPendingUpdates).values({
-        id: "metadata-update",
+      await db.insert(documentHistoryUpdates).values({
+        id: "metadata-row",
         appKind: CONTAINER_METADATA_APP_KIND,
         localId: "retry-container",
         updateData: "metadata-bytes",
+        origin: "outbox",
+        createdAt: new Date().toISOString(),
+        updateId: "metadata-update",
         partialStartVersionVector: "start",
         partialEndVersionVector: "end",
-        sourceVersionVector: null,
-        createdAt: new Date().toISOString(),
         rekeyCount: 5,
       });
     });

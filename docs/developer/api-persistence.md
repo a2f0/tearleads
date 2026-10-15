@@ -27,7 +27,7 @@ credentials are separate.
 
 Schema changes update the Drizzle definitions and regenerate both baseline
 bundles. They require fresh server and client databases. Local database startup
-checks the current table shape, and backup imports require format version 11.
+checks the current table shape, and backup imports require format version 12.
 Request validation and signed-history verification enforce the active protocol
 throughout normal operation.
 
@@ -80,6 +80,12 @@ following onto a database that predates it requires the greenfield reset above
   is dropped; `access_events.dependency_manifest_hashes` is the only copy of an
   event's dependency citations. Both generated baselines were replaced;
   existing databases require the coordinated reset.
+- #2522: the client SDK's outbound write queue is folded into
+  `document_history_updates` (`update_id` plus the queue columns), and
+  `document_pending_updates` is gone. A local database without `update_id` is
+  refused at startup with the obsolete-schema "reset the local database"
+  error; queued edits it had not synced are discarded with that reset. Local
+  backups move to format 11 and refuse older ones.
 - #2365 finding 25: login challenges are signed for the API origin
   (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`.
   A client built before it cannot log in, so the reset release ships every
@@ -222,8 +228,12 @@ The optional S3 key prefix wraps it as
 `<prefix>/organizations/<organizationId>/blob-stages/<stageId>`. The API and GC
 must use the same bucket and prefix configuration.
 
-Uploads retain the multipart staging and attachment plane. Immediately before
-sending each encrypted part, the client calls authenticated
+Uploads retain the multipart staging and attachment plane. Stage initiation
+describes the parts the client sends first (byte length and base64 Content-MD5
+of up to four, its upload concurrency), and the response returns each one's
+upload source, so those parts need no authorization request. Immediately
+before sending any other part, or renewing one whose URL failed, the client
+calls authenticated
 `POST /blobs/stages/multipart/{stageId}/parts/{partNumber}/upload` with its
 upload ID, byte length, and base64 Content-MD5. The API checks the stage owner,
 expiry, completion state, upload ID, and bounded part metadata, then signs only
@@ -256,15 +266,25 @@ The existing one-hour stage lifetime is separate: URLs do not extend it, and an
 expired stage cannot be completed. An accepted request is not aborted by a
 client-side five-minute timer.
 
-Completion remains an authenticated API operation. It streams the assembled
-object once to verify its complete length and SHA-256 before the stage can be
-promoted by attachment binding. Content-MD5 is a transport checksum, not a
-replacement for that integrity check. Direct uploads remove the part payloads
-from the Worker but retain this final verification read. A completed or aborted
-multipart upload consumes its upload ID, so old part URLs cannot replace a
-committed blob. Storage failures are reported separately from API connectivity.
+Attachment binding completes the stage: before its transaction it assembles
+parts 1..k of the stage's upload (the run covering exactly the declared length,
+so a stray higher part is left out) and reads the assembled object once. That
+one read, the store's completion readback, verifies the complete length and
+SHA-256 and also parses the envelope header, which is judged only after the
+digest matches. A bind retried after an earlier bind completed the stage reads
+the object once itself. The first parts' upload sources are issued before the
+stage row is written, so a signing failure aborts the fresh upload instead of
+leaving a stage for expiry cleanup.
+There is no separate completion request. Content-MD5 is a transport checksum,
+not a replacement for that integrity check. Direct uploads remove the part
+payloads from the Worker but retain this final verification read. A completed
+or aborted multipart upload consumes its upload ID, so old part URLs cannot
+replace a committed blob. Storage failures are reported separately from API
+connectivity.
 
-Memory/custom stores without signing support use an explicit API-byte capability.
+Memory/custom stores without signing support use an explicit API-byte
+capability: initiation answers each first part with an `api` source, and the
+client sends every part to the API byte route without authorizing it.
 S3/R2 reject the old byte-proxy upload route before buffering its body. There is
 no legacy-client or in-flight-upload compatibility path for the S3/R2 cutover.
 Apply the storage GET/PUT CORS rule before deploying the API and clients together.

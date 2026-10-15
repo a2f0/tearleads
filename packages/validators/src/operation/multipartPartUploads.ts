@@ -1,44 +1,25 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { ErrorResponseSchema, SessionFailureResponseSchema } from "../response";
+import { nonEmptyStringSchema, uuidStringSchema } from "../schema";
 import {
-  boundedPositiveIntegerSchema,
-  nonEmptyStringSchema,
-  uuidStringSchema,
-} from "../schema";
-import { MAX_MULTIPART_BLOB_PART_BYTES } from "../util";
+  MultipartBlobPartDescriptorSchema,
+  MultipartBlobPartUploadSchema,
+} from "../util/blobTransferSchemas";
 import { MultipartBlobPartPathParamsSchema } from "./blobBytes";
-import {
-  blobPartContentMd5Schema,
-  signedBlobUrlExpirySchema,
-  signedBlobUrlSchema,
-} from "./blobTransferSchemas";
 import { defineJsonOperation } from "./definition";
 
-const partByteLengthSchema = boundedPositiveIntegerSchema(
-  MAX_MULTIPART_BLOB_PART_BYTES,
-);
+// Initiation already returns sources for the first parts. This route covers
+// later parts and renews a part whose URL expired or failed.
+export const MultipartBlobPartUploadRequestSchema =
+  MultipartBlobPartDescriptorSchema.omit({ partNumber: true }).extend({
+    uploadId: nonEmptyStringSchema,
+  });
 
-export const MultipartBlobPartUploadRequestSchema = z.strictObject({
-  byteLength: partByteLengthSchema,
-  contentMd5: blobPartContentMd5Schema,
-  uploadId: nonEmptyStringSchema,
-});
-
-export const MultipartBlobPartUploadResponseSchema = z.strictObject({
-  byteLength: partByteLengthSchema,
-  contentMd5: blobPartContentMd5Schema,
-  partNumber: boundedPositiveIntegerSchema(10_000),
-  stageId: uuidStringSchema,
-  uploadId: nonEmptyStringSchema,
-  source: z.discriminatedUnion("kind", [
-    z.strictObject({ kind: z.literal("api") }),
-    z.strictObject({
-      kind: z.literal("signed-url"),
-      url: signedBlobUrlSchema,
-      expiresAt: signedBlobUrlExpirySchema,
-    }),
-  ]),
-});
+export const MultipartBlobPartUploadResponseSchema =
+  MultipartBlobPartUploadSchema.extend({
+    stageId: uuidStringSchema,
+    uploadId: nonEmptyStringSchema,
+  });
 
 export type MultipartBlobPartUploadRequest = z.infer<
   typeof MultipartBlobPartUploadRequestSchema

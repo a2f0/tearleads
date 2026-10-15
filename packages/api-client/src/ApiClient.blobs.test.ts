@@ -11,6 +11,7 @@ import {
   testApiClient,
 } from "../test/helpers/apiClientTestHarness";
 import { ApiClient } from "./ApiClient";
+import { describeMultipartBlobPart } from "./routes/blobs/multipartUpload";
 
 const stageId = "11111111-1111-4111-8111-111111111111";
 
@@ -32,6 +33,8 @@ function useMemoryPartUpload(calls?: CapturedHttpCall[]) {
 }
 
 testApiClient("uses blob multipart stage route namespace", async () => {
+  const encryptedPartBytes = new TextEncoder().encode("part-2");
+  const firstPart = describeMultipartBlobPart(1, encryptedPartBytes);
   const calls: CapturedHttpCall[] = [];
   let uploadHeaders: Record<string, string | null> | undefined;
   server.use(
@@ -62,20 +65,11 @@ testApiClient("uses blob multipart stage route namespace", async () => {
           uploadId: "upload-1",
         });
       }
-      if (request.url.endsWith("/complete")) {
-        return HttpResponse.json({
-          byteLength: 12,
-          organizationId: "organization-1",
-          expiresAt: "2026-05-18T12:00:00.000Z",
-          sha256: "sha256-1",
-          stageId,
-        });
-      }
-
       return HttpResponse.json({
         byteLength: 12,
         organizationId: "organization-1",
         expiresAt: "2026-05-18T12:00:00.000Z",
+        partUploads: [{ ...firstPart, source: { kind: "api" } }],
         sha256: "sha256-1",
         stageId,
         uploadId: "upload-1",
@@ -89,18 +83,14 @@ testApiClient("uses blob multipart stage route namespace", async () => {
   const initiateRequest = {
     organizationId: "organization-1",
     byteLength: 12,
+    firstParts: [firstPart],
     sha256: "sha256-1",
   };
-  const encryptedPartBytes = new TextEncoder().encode("part-2");
   const encryptedPartBlob = new Blob([encryptedPartBytes]);
   const partBytesRequest = {
     byteLength: encryptedPartBytes.byteLength,
     encryptedBytes: encryptedPartBlob,
     sha256: "2bb41b3bc344d2a5c1f31d662d86d78d7e98198b1eef7be3209d4f85da4ef14d",
-    uploadId: "upload-1",
-  };
-  const completeRequest = {
-    parts: [{ etag: "etag-1", partNumber: 1 }],
     uploadId: "upload-1",
   };
 
@@ -111,8 +101,12 @@ testApiClient("uses blob multipart stage route namespace", async () => {
   expect(
     await client.uploadMultipartBlobPartBytes(stageId, 1, partBytesRequest),
   ).not.toBeNull();
+  // A source the initiation issued is used without an authorization request.
   expect(
-    await client.completeMultipartBlobStage(stageId, completeRequest),
+    await client.uploadMultipartBlobPartBytes(stageId, 1, {
+      ...partBytesRequest,
+      source: { kind: "api" },
+    }),
   ).not.toBeNull();
 
   expect(
@@ -149,9 +143,9 @@ testApiClient("uses blob multipart stage route namespace", async () => {
       method: "PUT",
     },
     {
-      body: JSON.stringify(completeRequest),
-      input: `${apiBaseUrl}/blobs/stages/multipart/${stageId}/complete`,
-      method: "POST",
+      body: "part-2",
+      input: `${apiBaseUrl}/blobs/stages/multipart/${stageId}/parts/1/bytes`,
+      method: "PUT",
     },
   ]);
   expect(calls[3]?.contentType).toBe("application/octet-stream");

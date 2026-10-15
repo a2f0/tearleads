@@ -1,4 +1,5 @@
 import { emptyVersionVector } from "@tearleads/loro";
+import { insertQueuedUpdateRows } from "../../../test/helpers/queuedUpdateRows";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
@@ -95,7 +96,7 @@ export async function saveTestSyncedContainer(input: {
   );
 }
 
-/** Insert one raw pending-update row (`source_version_vector` stays NULL). */
+/** Insert one raw queued update ("outbox" row, no source vector). */
 export async function insertTestPendingUpdate(input: {
   appKind: string;
   createdAt: string;
@@ -106,22 +107,17 @@ export async function insertTestPendingUpdate(input: {
   partialStartVersionVector?: string | undefined;
   updateData?: string | undefined;
 }): Promise<void> {
-  await input.execSql(
-    `INSERT INTO document_pending_updates (
-      id, app_kind, local_id, update_data,
-      partial_start_version_vector, partial_end_version_vector,
-      source_version_vector, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-    [
-      input.id,
-      input.appKind,
-      input.localId,
-      input.updateData ?? "payload",
-      input.partialStartVersionVector ?? "{}",
-      input.partialEndVersionVector ?? "{}",
-      input.createdAt,
-    ],
-  );
+  await insertQueuedUpdateRows(input.execSql, [
+    {
+      appKind: input.appKind,
+      createdAt: input.createdAt,
+      id: input.id,
+      localId: input.localId,
+      partialEndVersionVector: input.partialEndVersionVector ?? "{}",
+      partialStartVersionVector: input.partialStartVersionVector ?? "{}",
+      updateData: input.updateData ?? "payload",
+    },
+  ]);
 }
 
 export async function saveTestDocument(input: {

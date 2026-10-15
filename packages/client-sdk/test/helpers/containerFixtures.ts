@@ -31,6 +31,7 @@ import {
   containerWrappingPublicKeyForTest,
   createContainerManifestFixture as createCryptoContainerManifestFixture,
 } from "@tearleads/crypto/test-fixtures";
+import { registerContainerManifestBundles } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   createAuthor,
@@ -354,26 +355,30 @@ export async function createParentProjection(input?: {
     wraps,
   } as unknown as VerifiedContainerKekState;
 
+  const projection: ContainerWriterProjectionResponse = {
+    policyEvidence: {
+      organization: null,
+      organizationPayloads: [],
+      groups: [],
+    },
+    containerId,
+    organizationId,
+    path: [
+      parentManifest as unknown as ContainerWriterProjectionResponse["path"][number],
+    ],
+    containerKeks: [
+      parentKekState as unknown as ContainerWriterProjectionResponse["containerKeks"][number],
+    ],
+  };
+  // Mutation requests cite this head by hash; let the response fake find it.
+  registerContainerManifestBundles(projection.path);
+
   return {
     author,
     encapsulationPublicKey: keyPair.publicKey,
     parentContainerKek,
     parentKekState,
-    projection: {
-      policyEvidence: {
-        organization: null,
-        organizationPayloads: [],
-        groups: [],
-      },
-      containerId,
-      organizationId,
-      path: [
-        parentManifest as unknown as ContainerWriterProjectionResponse["path"][number],
-      ],
-      containerKeks: [
-        parentKekState as unknown as ContainerWriterProjectionResponse["containerKeks"][number],
-      ],
-    },
+    projection,
     secretKey: keyPair.secretKey,
     signingPublicKey,
     userId,

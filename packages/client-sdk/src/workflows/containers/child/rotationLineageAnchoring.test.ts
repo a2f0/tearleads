@@ -36,10 +36,7 @@ async function rotationScenario(
   const submitted: ContainerMutationRequest[] = [];
   const respond = async (request: ContainerMutationRequest) => {
     submitted.push(request);
-    return createMutationResponseFromRequest(
-      request,
-      projection.containerKeks.at(-1),
-    );
+    return createMutationResponseFromRequest(request, projection);
   };
   return {
     common: {

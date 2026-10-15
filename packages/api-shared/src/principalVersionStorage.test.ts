@@ -41,6 +41,7 @@ test.skipIf(isSqliteSchemaDialect())(
             payloadCiphertextHash: "fixture",
             memberCount: 1,
             grantCount: 0,
+            containerGrants: [],
             stateHash: String(version),
             signedAt: new Date(),
             signerUserId: crypto.randomUUID(),

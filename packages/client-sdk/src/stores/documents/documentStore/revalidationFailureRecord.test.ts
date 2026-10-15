@@ -1,5 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  insertQueuedUpdateRows,
+  QUEUED_UPDATES_SQL,
+} from "../../../../test/helpers/queuedUpdateRows";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { clearDocumentSyncFailure } from "../../../data/sqlite/documentPersistence";
@@ -148,22 +152,17 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
       },
       { updatedAt: "2026-07-23T14:19:12.658Z" },
     );
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector,
-        source_version_vector, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?)`,
-      [
-        "orphan-edit",
-        "documents",
-        "orphan-doc",
-        "payload",
-        "{}",
-        "{}",
-        "2026-07-23T14:19:13.000Z",
-      ],
-    );
+    await insertQueuedUpdateRows(execSql, [
+      {
+        appKind: "documents",
+        createdAt: "2026-07-23T14:19:13.000Z",
+        id: "orphan-edit",
+        localId: "orphan-doc",
+        partialEndVersionVector: "{}",
+        partialStartVersionVector: "{}",
+        updateData: "payload",
+      },
+    ]);
     const record = await sqlDocumentsPersistence.loadDocument(
       execSql,
       "orphan-doc",
@@ -206,7 +205,7 @@ test("a null-scoped orphan destroys on authoritative deletion", async () => {
       await sqlDocumentsPersistence.loadDocument(execSql, "orphan-doc"),
     ).toBeFalsy();
     const pendingRows = await execSql(
-      `SELECT COUNT(*) AS n FROM document_pending_updates
+      `SELECT COUNT(*) AS n FROM ${QUEUED_UPDATES_SQL}
        WHERE app_kind = 'documents' AND local_id = ?`,
       ["orphan-doc"],
     );

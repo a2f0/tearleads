@@ -36,10 +36,11 @@ afterEach(async () => {
 // print the observed volume when re-baselining.
 const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Seven mutation/blob requests and three directory discovery reads (one per
-  // workflow operation) measured 10 calls. Held bytes match the authenticated
-  // attachment intent, so local settlement needs no binding listing. Keep one
-  // request of scheduling headroom.
-  total: 11,
+  // workflow operation) measured 10 calls; the stage now carries its part
+  // upload source and the bind completes it, two fewer calls (measured 8).
+  // Held bytes match the authenticated attachment intent, so local settlement
+  // needs no binding listing. Keep one request of scheduling headroom.
+  total: 9,
   byRequest: {
     // Completed public stages of the cited heads need no confirmation read.
     "GET /principals/history": 0,
@@ -50,12 +51,13 @@ const EXPLORER_SINGLE_FILE_UPLOAD_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     // Create the image document shell, upload + bind its attachment blob, and
     // probe the remote document before blob staging, then sync the document
     // content before and after the attachment bind. A small encrypted blob is
-    // one multipart part.
+    // one multipart part. Its upload source rides on the stage response, and
+    // the bind completes the stage, so neither a per-part authorization nor a
+    // completion request is sent.
     "POST /documents": 1,
     "POST /blobs/stages/multipart": 1,
-    "POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload": 1,
+    "POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload": 0,
     "PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes": 1,
-    "POST /blobs/stages/multipart/:stageId/complete": 1,
     "POST /blobs/:blobId/attachment-bindings": 1,
     "POST /documents/:documentId/sync": 3,
     "GET /documents/:documentId/attachments": 0,

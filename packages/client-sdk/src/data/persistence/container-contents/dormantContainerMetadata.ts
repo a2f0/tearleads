@@ -2,7 +2,6 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
-  documentPendingUpdates,
   documents,
   dormantContainerMetadata,
 } from "../../sqlite/schema";
@@ -83,15 +82,6 @@ export async function deleteContainerMetadataDocumentRowsInTransaction(
       and(
         eq(documentHistoryUpdates.appKind, CONTAINER_METADATA_APP_KIND),
         inArray(documentHistoryUpdates.localId, ids),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documentPendingUpdates.localId, ids),
       ),
     )
     .run();

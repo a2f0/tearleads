@@ -70,6 +70,7 @@ export async function assertProjectionPolicyHistoryAccess(
   const bundle = await loadCurrentDocumentManifestBundle(
     executor,
     scope.objectId,
+    context.verificationMarkers,
   );
   const manifest = await verifyStoredDocumentManifest({
     bundle,

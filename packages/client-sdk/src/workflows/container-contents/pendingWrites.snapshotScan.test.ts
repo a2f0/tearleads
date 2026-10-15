@@ -79,14 +79,19 @@ test("listPendingWrites never queries the durable content tables", async () => {
     // ...while the listing never materializes content blobs: content lives in
     // the durable-history tables (checkpoint + tail), and with the 1000-file
     // stress profile a content scan is O(total stored content) that re-fires
-    // while sync drains. Schema DDL (CREATE/ALTER/PRAGMA) legitimately names
-    // the tables; queries must not touch them.
+    // while sync drains. The update log also holds the write queue, so the
+    // listing may read queued rows' metadata but never a payload. Schema DDL
+    // (CREATE/ALTER/PRAGMA) legitimately names the tables.
+    const queries = capturedSql.filter(
+      (sql) => !/^\s*(?:CREATE|ALTER|PRAGMA)/iu.test(sql),
+    );
     expect(
-      capturedSql.filter(
+      queries.filter(
         (sql) =>
-          (sql.includes("document_history_checkpoints") ||
-            sql.includes("document_history_updates")) &&
-          !/^\s*(?:CREATE|ALTER|PRAGMA)/iu.test(sql),
+          sql.includes("document_history_checkpoints") ||
+          (sql.includes("document_history_updates") &&
+            (sql.includes("update_data") ||
+              !sql.includes("update_id IS NOT NULL"))),
       ),
     ).toEqual([]);
   } finally {

@@ -5,11 +5,9 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-  accessManifestVerifications,
   attachmentBindings,
   blobs,
   documentBaselines,
-  documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
@@ -138,20 +136,6 @@ async function deleteDocumentAccessHistory(
         eq(accessEvents.objectId, documentId),
       ),
     );
-  await executor.delete(accessManifestVerifications).where(
-    inArray(
-      accessManifestVerifications.manifestHash,
-      executor
-        .select({ manifestHash: accessManifests.manifestHash })
-        .from(accessManifests)
-        .where(
-          and(
-            eq(accessManifests.objectKind, "document"),
-            eq(accessManifests.objectId, documentId),
-          ),
-        ),
-    ),
-  );
   await executor
     .delete(accessManifests)
     .where(
@@ -178,9 +162,6 @@ export async function deleteDocumentRows(input: {
   }
 
   // Current link projection, then the document row itself.
-  await executor
-    .delete(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, documentId));
   const [deleted] = await executor
     .delete(documents)
     .where(eq(documents.id, documentId))

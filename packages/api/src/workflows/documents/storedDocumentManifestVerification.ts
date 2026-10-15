@@ -139,11 +139,13 @@ function readStoredDocumentManifest(
 async function loadStoredDocumentBundle(
   executor: DatabaseSession,
   manifestHash: string,
+  markers: AccessManifestVerificationMarkerStore,
 ): Promise<AccessManifestBundleWireResponse> {
   const bundle = await getAccessManifestBundle(manifestHash, executor);
   if (bundle?.manifest.objectKind !== "document") {
     throw integrityError("document manifest dependency is missing");
   }
+  markers.seed(bundle);
   return toManifestBundleResponse(bundle);
 }
 
@@ -332,6 +334,7 @@ export async function verifyStoredDocumentManifest(
             : await loadStoredDocumentBundle(
                 input.containerContext.executor,
                 hash,
+                documentMarkerStore(input),
               );
         if (bundle.manifestHash !== hash)
           throw integrityError("manifest dependency hash is inconsistent");

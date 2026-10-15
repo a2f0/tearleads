@@ -16,7 +16,7 @@ import { rekeyContainer } from "./rekeyContainer";
 import { assertCarriedRekeysBelowRotations } from "./shared/carriedRekeyAncestry";
 import { assertGrantedPathsCurrentBelowRotations } from "./shared/grantedPathCurrency";
 import {
-  mutateContainerWithExecutor,
+  mutateContainerWithExecutorOutcome,
   prelockContainerMutationBatch,
 } from "./shared/mutationRunner";
 import type {
@@ -30,6 +30,12 @@ import type {
 export { assertContainerPathEdges } from "./shared/manifests";
 export type { MutateContainerRotationInput };
 export { ContainerMutationError };
+
+/** A committed rotation, plus the moved container's previous parent. */
+export interface ContainerRotationOutcome {
+  readonly previousParentId: string | null | undefined;
+  readonly response: ContainerRotationResponse;
+}
 
 export interface AppliedContainerRekey {
   readonly request: ContainerMutationRequest;
@@ -117,7 +123,7 @@ const ROTATING_EVENT_TYPES: ReadonlySet<AccessEventType> =
 async function mutateContainerRotationInTransaction(
   tx: MutateContainerWithExecutorInput["executor"],
   input: MutateContainerRotationInput,
-): Promise<ContainerRotationResponse> {
+): Promise<ContainerRotationOutcome> {
   const { containerRekeys = [], ...request } = input.request;
   const rotates = ROTATING_EVENT_TYPES.has(input.expectedEventType);
   // Create and share validate with the loose mutation schema, which keeps
@@ -130,7 +136,7 @@ async function mutateContainerRotationInTransaction(
   }
   const target: MutateContainerInput = { ...input, request };
   if (containerRekeys.length === 0) {
-    const response = await mutateContainerWithExecutor({
+    const outcome = await mutateContainerWithExecutorOutcome({
       ...target,
       executor: tx,
     });
@@ -141,10 +147,10 @@ async function mutateContainerRotationInTransaction(
           input.expectedEventType === "container.revoke"
             ? input.userId
             : undefined,
-        rotated: [response],
+        rotated: [outcome.response],
       });
     }
-    return response;
+    return outcome;
   }
 
   const carried = containerRekeys.map(
@@ -180,11 +186,12 @@ async function mutateContainerRotationInTransaction(
     writerProjectionContext: createContainerWriterProjectionContext(tx),
   };
   await prelockContainerMutationBatch(context, [target, ...carried]);
-  const response = await mutateContainerWithExecutor({
-    ...target,
-    context,
-    executor: tx,
-  });
+  const { previousParentId, response } =
+    await mutateContainerWithExecutorOutcome({
+      ...target,
+      context,
+      executor: tx,
+    });
   // Each carried rekey must sit below the rotated container. Checked once the
   // rotation itself is authorized, so an unrelated caller cannot use the
   // refusal to learn the tree, and before any carried entry is written, since
@@ -212,24 +219,27 @@ async function mutateContainerRotationInTransaction(
       input.expectedEventType === "container.revoke" ? input.userId : undefined,
     rotated: [response, ...carriedResponses],
   });
-  return { ...response, containerRekeys: carriedResponses };
+  return {
+    previousParentId,
+    response: { ...response, containerRekeys: carriedResponses },
+  };
 }
 
 export async function runContainerMutationWorkflow(
   db: ApiDatabase,
   input: MutateContainerRotationInput,
-): Promise<ContainerRotationResponse> {
+): Promise<ContainerRotationOutcome> {
   try {
     return await db.transaction(async (tx) => {
-      const response = await mutateContainerRotationInTransaction(tx, input);
+      const outcome = await mutateContainerRotationInTransaction(tx, input);
       // Public mutation boundary (registration bootstraps its own org via the
       // lower-level handlers directly, so it is not gated here).
       await assertOrganizationCanSync(
         tx,
-        response.organizationId,
+        outcome.response.organizationId,
         input.userId,
       );
-      return response;
+      return outcome;
     });
   } catch (error) {
     const mutationError = toMutationError(error);

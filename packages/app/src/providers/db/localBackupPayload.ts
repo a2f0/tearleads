@@ -1,11 +1,14 @@
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
 /**
- * Current local schema. v11 folded one-row-per-key side tables and the
- * structural intent tables into their host rows and `local_intents`; v10 added
- * the verified manifest bundle cache; v9 changed the organization read-model
- * table shapes.
+ * Current local schema. v12 folded one-row-per-key side tables and the
+ * structural intent tables into their host rows and `local_intents`; v11
+ * folded the outbound write queue into the history update log
+ * (`document_history_updates.update_id`), so an older backup's queued updates
+ * would restore into a table the runtime no longer reads; v10 added the
+ * verified manifest bundle cache; v9 changed the organization read-model table
+ * shapes.
  */
-export const BACKUP_FORMAT_VERSION = 11;
+export const BACKUP_FORMAT_VERSION = 12;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;

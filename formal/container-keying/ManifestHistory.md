@@ -8,7 +8,7 @@ lost or retired, and reaching a verification budget must not prevent revocation.
 | --- | --- |
 | `Read` / `Readable` | `verifyStoredContainerManifest` and `verifyStoredDocumentManifest` authenticate retained history |
 | `IterativeVerification` | `verifyStoredManifestGraph` walks dependencies with an explicit stack rather than rejecting a lifetime history depth |
-| `Restart` / `warm` | `access_manifest_verifications` markers only accelerate reads; a cleared table, rotated secret or new verifier version must preserve acceptance |
+| `Restart` / `warm` | `accessManifests.verificationMac` markers only accelerate reads; cleared markers, a rotated secret or new verifier version must preserve acceptance |
 | `Commit` / `Revoke` | `verifyStoredContainerManifest` verifies the previous manifest before mutation authorization; history length adds no new mutation refusal |
 | `held` / `Evict` | `writeVerifiedManifestBundlesInTransaction` stores bundles in the transaction that finalizes their projection's checkpoints, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
 | `Citable` / `CiteHeldBytes` | `heldManifestCitations` copies the exact stored bytes a request cites, at most `KNOWN_MANIFEST_HINT_LIMIT` hashes |

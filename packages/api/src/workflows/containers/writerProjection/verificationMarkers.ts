@@ -11,8 +11,8 @@ import {
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { selectAccessManifestVerificationMacs } from "../../../access/read/accessManifestStore";
-import { upsertAccessManifestVerificationMacs } from "../../../access/write/accessManifestStore";
+import { selectAccessManifestVerificationMac } from "../../../access/read/accessManifestStore";
+import { updateAccessManifestVerificationMacs } from "../../../access/write/accessManifestStore";
 import { reportBackgroundFailure } from "../../../diagnostics/reportBackgroundFailure";
 import { ByteBudgetCache } from "../../../utils/byteBudgetCache";
 import { isKeyingCanonicalJson } from "../../../utils/canonicalJson";
@@ -101,32 +101,41 @@ interface RecordedMarkers {
   readonly process: string | null;
 }
 
-/** Where markers live; the database in production. */
+/** Where markers live; the manifest rows in production. */
 export interface AccessManifestVerificationMarkerStore {
   load(manifestHash: string): Promise<RecordedMarkers>;
-  /** Batch-load markers a request is about to read. */
-  prefetch?(manifestHashes: readonly string[]): Promise<void>;
+  /**
+   * Record the marker column of a manifest row this request already read, so
+   * checking it issues no second query. Never replaces a loaded or saved one.
+   */
+  seed(manifest: SeededMarker): void;
   /** Remember a marker; nothing is written until `flush`. */
   save(manifestHash: string, mac: string): Promise<void>;
   /** Write the markers saved since the last flush. */
   flush(options?: MarkerFlushOptions): Promise<void>;
 }
 
+/** A loaded manifest row's hash and its stored, still unverified, marker. */
+interface SeededMarker {
+  readonly manifestHash: string;
+  readonly verificationMac: string | null;
+}
+
 interface MarkerFlushOptions {
   /** Defaults to the executor the store reads with. */
   readonly executor?: DatabaseSession;
-  /** Defaults to the largest batch the dialects accept. */
-  readonly rowsPerStatement?: number;
 }
 
 /**
- * Markers in the database, cached for one request, backed by this process's
- * markers. Saved markers are buffered and written to the table only by an
- * explicit `flush`: a mutation flushes the markers for what it stored inside
- * its transaction, and a projection read flushes after its transaction commits
- * (`flushVerificationMarkersAfterRead`). A store whose verification used
- * request-supplied evidence records nothing, neither in the process nor in the
- * table: a marker must attest only what stored evidence alone accepts.
+ * Markers on the manifest rows, cached for one request, backed by this
+ * process's markers. Loaders that already selected a manifest row seed its
+ * marker; any other check reads the one column. Saved markers are buffered and
+ * written to the rows only by an explicit `flush`: a mutation flushes the
+ * markers for what it stored inside its transaction, and a projection read
+ * flushes after its transaction commits (`flushVerificationMarkersAfterRead`).
+ * A store whose verification used request-supplied evidence records nothing,
+ * neither in the process nor in the database: a marker must attest only what
+ * stored evidence alone accepts.
  */
 export function databaseVerificationMarkerStore(
   executor: DatabaseSession,
@@ -145,20 +154,15 @@ export function databaseVerificationMarkerStore(
     async load(manifestHash) {
       const cached = loaded.get(manifestHash);
       if (cached !== undefined) return withProcessMarker(manifestHash, cached);
-      const mac =
-        (
-          await selectAccessManifestVerificationMacs([manifestHash], executor)
-        ).get(manifestHash) ?? null;
+      const mac = await selectAccessManifestVerificationMac(
+        manifestHash,
+        executor,
+      );
       loaded.set(manifestHash, mac);
       return withProcessMarker(manifestHash, mac);
     },
-    async prefetch(manifestHashes) {
-      const missing = manifestHashes.filter((hash) => !loaded.has(hash));
-      const macs = await selectAccessManifestVerificationMacs(
-        missing,
-        executor,
-      );
-      for (const hash of missing) loaded.set(hash, macs.get(hash) ?? null);
+    seed({ manifestHash, verificationMac }) {
+      if (!loaded.has(manifestHash)) loaded.set(manifestHash, verificationMac);
     },
     async save(manifestHash, mac) {
       if (!options.recordsMarkers) return;
@@ -169,10 +173,9 @@ export function databaseVerificationMarkerStore(
     async flush(options = {}) {
       const macs = new Map(saved);
       saved.clear();
-      await upsertAccessManifestVerificationMacs(
+      await updateAccessManifestVerificationMacs(
         macs,
         options.executor ?? executor,
-        options.rowsPerStatement,
       );
     },
   };
@@ -182,7 +185,7 @@ export function databaseVerificationMarkerStore(
  * Write back the markers a read's full verification earned, after its
  * transaction committed, so a history re-verified after a rotated secret or
  * new rules is verified once rather than on every read. Each marker is its own
- * autocommit upsert, so the reader never holds one marker row while waiting
+ * autocommit update, so the reader never holds one manifest row while waiting
  * for another: a writer that marks more than once in its transaction cannot
  * deadlock with it. Losing one only costs a later re-verification, so a
  * failure is reported, not returned.
@@ -192,7 +195,7 @@ export async function flushVerificationMarkersAfterRead(
   executor: DatabaseSession,
 ): Promise<void> {
   try {
-    await store.flush({ executor, rowsPerStatement: 1 });
+    await store.flush({ executor });
   } catch (error) {
     console.error(
       "Failed to write access manifest verification markers:",

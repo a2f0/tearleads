@@ -1,17 +1,13 @@
 import type {
   ContentObjectKind,
   ContentRecordEncryptionSuite,
-  DocumentLinkSetManifestState,
-  VerifiedAccessEvent,
   VerifiedDocumentKekTargets,
   VerifiedDocumentLinkSetManifest,
   WriteHeader,
 } from "@tearleads/crypto";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
-  makeVerifiedAccessEvent,
   makeVerifiedDocumentKekTargets,
-  makeVerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import type {
   DocumentContentKeyBundleRequest,
@@ -29,21 +25,16 @@ import type {
 } from "../../../../access/read/documentContentKeyStore";
 import type { resolveCurrentDocumentKekTargets } from "../../../../access/read/documentKekTargets";
 import {
-  accessManifestCheckpoint,
   documentLinkSetStateRecord,
   projectionAccessManifestRecord,
   projectionVerifiedAccessEventRecord,
-  readProjectionAccessEvent,
-  readProjectionAccessManifest,
   readProjectionCanonicalJson,
-  readProjectionNullableString,
   readProjectionPlainRecord,
   readProjectionPositiveInteger,
   readProjectionRecord,
   readProjectionString,
   readProjectionStringArray,
   readProjectionValue,
-  readProjectionVerifiedAccessEvent,
   readProjectionVersion,
 } from "../../../../keyingProjectionRecords";
 import { DocumentMutationError, documentShapeError } from "../errors";
@@ -56,107 +47,6 @@ function isContentRecordEncryptionSuite(
   value: unknown,
 ): value is ContentRecordEncryptionSuite {
   return value === CONTENT_RECORD_ENCRYPTION_SUITE;
-}
-
-function readDocumentLinkSetState(
-  value: unknown,
-  label: string,
-): DocumentLinkSetManifestState {
-  const record = readProjectionPlainRecord(value, label, documentShapeError);
-  readProjectionVersion(record, label, documentShapeError);
-
-  return {
-    version: 1,
-    documentId: readProjectionString(
-      record,
-      "documentId",
-      label,
-      documentShapeError,
-    ),
-    organizationId: readProjectionString(
-      record,
-      "organizationId",
-      label,
-      documentShapeError,
-    ),
-    epoch: readProjectionPositiveInteger(
-      record,
-      "epoch",
-      label,
-      documentShapeError,
-    ),
-    previousManifestHash: readProjectionNullableString(
-      record,
-      "previousManifestHash",
-      label,
-      documentShapeError,
-    ),
-    eventHash: readProjectionString(
-      record,
-      "eventHash",
-      label,
-      documentShapeError,
-    ),
-    linkedContainerIds: readProjectionStringArray(
-      readProjectionValue(record, "linkedContainerIds"),
-      `${label}.linkedContainerIds`,
-      documentShapeError,
-    ),
-  };
-}
-
-export function readVerifiedDocumentManifest(
-  value: unknown,
-  label: string,
-): VerifiedDocumentLinkSetManifest {
-  const record = readProjectionPlainRecord(value, label, documentShapeError);
-  const manifest = readProjectionAccessManifest(
-    readProjectionValue(record, "manifest"),
-    `${label}.manifest`,
-    documentShapeError,
-  );
-  const state = readDocumentLinkSetState(
-    readProjectionValue(record, "state"),
-    `${label}.state`,
-  );
-  const event = readDocumentManifestEvent(
-    readProjectionValue(record, "event"),
-    state,
-    `${label}.event`,
-  );
-  const manifestHash = readProjectionString(
-    record,
-    "manifestHash",
-    label,
-    documentShapeError,
-  );
-  return makeVerifiedDocumentLinkSetManifest({
-    event,
-    manifest,
-    manifestHash,
-    state,
-    checkpoint: accessManifestCheckpoint({
-      manifest,
-      manifestHash,
-    }),
-  });
-}
-
-function readDocumentManifestEvent(
-  value: unknown,
-  state: DocumentLinkSetManifestState,
-  label: string,
-): VerifiedAccessEvent {
-  const record = readProjectionPlainRecord(value, label, documentShapeError);
-  if (readProjectionValue(record, "event") !== undefined) {
-    return readProjectionVerifiedAccessEvent(value, label, documentShapeError);
-  }
-
-  return makeVerifiedAccessEvent({
-    event: readProjectionAccessEvent(value, label, documentShapeError),
-    body: {},
-    eventHash: state.eventHash,
-  });
 }
 
 export function documentManifestBundleRecord(

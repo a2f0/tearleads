@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { readTableColumns } from "../../../test/helpers/sqlitePragma";
-import { clientSqlTables, principalPolicyTables } from "./schema";
+import {
+  clientSqlTables,
+  documentTables,
+  principalPolicyTables,
+} from "./schema";
 import type { ExecSql, SqlRow } from "./sqlSchema";
 import { ensureSqlTables } from "./sqlTableSchema";
 
@@ -75,9 +79,9 @@ test("client sqlite schema creates tables and indexes", async () => {
       "document_attachment_blob_projection_mime_type_idx",
       "document_attachment_blob_projection_storage_key_idx",
       "document_history_updates_scope_created_idx",
+      "document_history_updates_update_id_idx",
       "document_pending_attachments_mime_type_idx",
       "document_pending_attachments_storage_key_idx",
-      "document_pending_updates_scope_created_idx",
       "document_projection_container_idx",
       "document_projection_document_idx",
       "document_projection_orphan_organization_idx",
@@ -241,15 +245,21 @@ test("client sqlite schema creates tables and indexes", async () => {
       type: "INTEGER",
     });
 
-    const pendingUpdates = await readTableColumns(
+    const updateLog = await readTableColumns(
       execSql,
-      "document_pending_updates",
+      "document_history_updates",
     );
-    expect(readRecordValue(pendingUpdates, "id")).toEqual({
+    expect(readRecordValue(updateLog, "update_id")).toEqual({
       defaultValue: null,
       notNull: 0,
-      pk: 1,
+      pk: 0,
       type: "TEXT",
+    });
+    expect(readRecordValue(updateLog, "rekey_count")).toEqual({
+      defaultValue: "0",
+      notNull: 1,
+      pk: 0,
+      type: "INTEGER",
     });
 
     const documentIndexes = await readIndexList(execSql, "documents");
@@ -263,25 +273,23 @@ test("client sqlite schema creates tables and indexes", async () => {
       await readIndexColumns(execSql, "documents_app_document_idx"),
     ).toEqual(["app_kind", "document_id"]);
 
-    const pendingUpdateIndexes = await readIndexList(
+    // Queued update ids are unique while queued; settled rows clear theirs.
+    const updateLogIndexes = await readIndexList(
       execSql,
-      "document_pending_updates",
+      "document_history_updates",
     );
     expect(
       readRecordValue(
-        pendingUpdateIndexes,
-        "document_pending_updates_scope_created_idx",
+        updateLogIndexes,
+        "document_history_updates_update_id_idx",
       ),
     ).toEqual({
-      partial: 0,
-      unique: 0,
+      partial: 1,
+      unique: 1,
     });
     expect(
-      await readIndexColumns(
-        execSql,
-        "document_pending_updates_scope_created_idx",
-      ),
-    ).toEqual(["app_kind", "local_id", "created_at"]);
+      await readIndexColumns(execSql, "document_history_updates_update_id_idx"),
+    ).toEqual(["update_id"]);
 
     const pendingAttachmentIndexes = await readIndexList(
       execSql,
@@ -431,6 +439,29 @@ test("principal policy schema rejects a legacy database that cannot authenticate
       ensureSqlTables(execSql, [currentPolicyTable]),
     ).rejects.toThrow(
       "Local database schema for principal_policies is obsolete; reset the local database before continuing",
+    );
+  } finally {
+    close();
+  }
+});
+
+// #2522 flag day: the write queue moved into the update log. A database from
+// before it is refused at startup, never migrated; its queue goes with it.
+test("document schema rejects a database from before the unified update log", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-update-log-legacy-schema-test",
+  );
+  try {
+    await execSql(`CREATE TABLE document_pending_updates (
+      id TEXT PRIMARY KEY, app_kind TEXT NOT NULL, local_id TEXT NOT NULL,
+      update_data TEXT NOT NULL, created_at TEXT NOT NULL
+    )`);
+    await execSql(`CREATE TABLE document_history_updates (
+      id TEXT PRIMARY KEY, app_kind TEXT NOT NULL, local_id TEXT NOT NULL,
+      update_data TEXT NOT NULL, origin TEXT NOT NULL, created_at TEXT NOT NULL
+    )`);
+    await expect(ensureSqlTables(execSql, documentTables)).rejects.toThrow(
+      "Local database schema for document_history_updates is obsolete; reset the local database before continuing",
     );
   } finally {
     close();

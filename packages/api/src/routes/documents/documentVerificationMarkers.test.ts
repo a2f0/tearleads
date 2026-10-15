@@ -1,10 +1,6 @@
 import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  accessEvents,
-  accessManifests,
-  accessManifestVerifications,
-} from "@tearleads/api-shared/schema";
+import { accessEvents, accessManifests } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import * as crypto from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
@@ -32,9 +28,9 @@ async function setup() {
 
 async function readMarker(manifestHash: string): Promise<string | null> {
   const [row] = await db
-    .select({ mac: accessManifestVerifications.mac })
-    .from(accessManifestVerifications)
-    .where(eq(accessManifestVerifications.manifestHash, manifestHash));
+    .select({ mac: accessManifests.verificationMac })
+    .from(accessManifests)
+    .where(eq(accessManifests.manifestHash, manifestHash));
   return row?.mac ?? null;
 }
 
@@ -73,9 +69,9 @@ test("a forged document marker is ignored and replaced", async () => {
   const genuine = await readMarker(manifestHash);
   await projectionSignatureChecks(created.id, owner.token);
   await db
-    .update(accessManifestVerifications)
-    .set({ mac: Buffer.alloc(32).toString("base64") })
-    .where(eq(accessManifestVerifications.manifestHash, manifestHash));
+    .update(accessManifests)
+    .set({ verificationMac: Buffer.alloc(32).toString("base64") })
+    .where(eq(accessManifests.manifestHash, manifestHash));
   // Another process has only the table: the document manifest is unmarked
   // there, so exactly its event verifies.
   clearProcessVerificationMarkers();

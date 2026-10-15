@@ -152,10 +152,15 @@ fixed-cardinality measurements, not production benchmarks.
 The Admins enrollment fixture measured 73–76 completed requests; its ceiling is
 79, plus explicitly counted validated preparation continuations. It caps
 organization-policy reads at 20, group-policy reads at 3 and public history
-reads at 7. Body ceilings are 450,000 request bytes and 2,650,000 response
-bytes. The root attachment-sharing fixture measured 65–71 requests and permits
-79, with body ceilings of 380,000 request bytes and 2,250,000 response bytes.
-The small Explorer upload fixture measured 10 calls and permits 11.
+reads at 7. Body ceilings are 240,000 request bytes and 2,650,000 response
+bytes. The root attachment-sharing fixture measured 63–69 requests and permits
+77, with body ceilings of 195,000 request bytes and 2,250,000 response bytes.
+Container mutations cite stored manifests by `{containerId, manifestHash}`
+rather than echoing path bundles, which halved both fixtures' request bytes
+(sharing 352 KB → 180 KB, Admins mutation 391 KB → 210 KB).
+The small Explorer upload fixture measured 8 calls and permits 9; its blob
+stage costs three calls (initiate with the first part's upload source, the
+part bytes, and the attachment bind that completes the stage).
 
 Folder mutation ceilings also include private current-policy reads:
 

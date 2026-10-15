@@ -1,5 +1,4 @@
 import {
-  principalContainerGrantProjection,
   principalEpochKeys,
   principalMembershipProjection,
   principalStatePayloads,
@@ -10,7 +9,6 @@ import {
   normalizePrincipalContainerGrants,
   normalizePrincipalProjectionMembers,
   type PrincipalContainerGrant,
-  type PrincipalContainerGrantAccessLevel,
   type PrincipalProjectionMember,
   type PrincipalProjectionRole,
   type PrincipalStateExternalAuthority,
@@ -43,17 +41,10 @@ export interface StoredPrincipalProjectionMember {
   createdAt: Date;
 }
 
-export interface StoredPrincipalContainerGrant extends PrincipalContainerGrant {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  stateHash: string;
-  createdAt: Date;
-}
-
 export interface StoredPrincipalStateChainEntry {
   state: StoredPrincipalState;
   projection: StoredPrincipalProjectionMember[];
-  grants: StoredPrincipalContainerGrant[];
+  grants: PrincipalContainerGrant[];
 }
 
 export interface StoredPrincipalEpochKey {
@@ -150,15 +141,6 @@ export const principalProjectionMemberSelect = {
   createdAt: principalMembershipProjection.createdAt,
 } as const;
 
-export const principalContainerGrantSelect = {
-  principalType: principalContainerGrantProjection.principalType,
-  principalId: principalContainerGrantProjection.principalId,
-  stateHash: principalContainerGrantProjection.stateHash,
-  containerId: principalContainerGrantProjection.containerId,
-  accessLevel: principalContainerGrantProjection.accessLevel,
-  createdAt: principalContainerGrantProjection.createdAt,
-} as const;
-
 interface PrincipalStateRow {
   principalType: ManagedRecipientPrincipalType;
   principalId: string;
@@ -193,15 +175,6 @@ interface PrincipalProjectionMemberRow {
   createdAt: Date;
 }
 
-interface PrincipalContainerGrantRow {
-  principalType: ManagedRecipientPrincipalType;
-  principalId: string;
-  stateHash: string;
-  containerId: string;
-  accessLevel: PrincipalContainerGrantAccessLevel;
-  createdAt: Date;
-}
-
 export function toStoredPrincipalState(
   row: PrincipalStateRow,
 ): StoredPrincipalState {
@@ -231,10 +204,31 @@ export function toStoredPrincipalState(
   };
 }
 
-export function toStoredPrincipalContainerGrant(
-  row: PrincipalContainerGrantRow,
-): StoredPrincipalContainerGrant {
-  return { ...row };
+function isStoredPrincipalContainerGrant(
+  value: unknown,
+): value is PrincipalContainerGrant {
+  if (typeof value !== "object" || value === null) return false;
+  const containerId: unknown = Reflect.get(value, "containerId");
+  const accessLevel: unknown = Reflect.get(value, "accessLevel");
+  return (
+    typeof containerId === "string" &&
+    (accessLevel === "admin" ||
+      accessLevel === "read" ||
+      accessLevel === "write")
+  );
+}
+
+/** A state row's stored grant set; malformed storage fails closed. */
+export function readStoredPrincipalContainerGrants(
+  value: unknown,
+): PrincipalContainerGrant[] {
+  if (!Array.isArray(value))
+    throw new Error("Stored principal container grants are invalid");
+  return value.map((grant) => {
+    if (!isStoredPrincipalContainerGrant(grant))
+      throw new Error("Stored principal container grant is invalid");
+    return { accessLevel: grant.accessLevel, containerId: grant.containerId };
+  });
 }
 
 export function toStoredProjectionMember(

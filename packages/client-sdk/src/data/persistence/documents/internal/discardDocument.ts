@@ -6,10 +6,7 @@ import {
   resolveDocumentProjectorRegistry,
 } from "../../../documents/documentKinds";
 import { deleteDocumentHistory } from "../../../sqlite/documentHistoryPersistence";
-import {
-  clearDocumentSyncFailure,
-  deleteDocumentPendingUpdates,
-} from "../../../sqlite/documentPersistence";
+import { clearDocumentSyncFailure } from "../../../sqlite/documentPersistence";
 import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
@@ -138,7 +135,6 @@ async function clearDiscardedDocumentRows(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   const { candidate, localId, lockedExecSql, tx } = input;
-  await deleteDocumentPendingUpdates(lockedExecSql, getDocumentScope(localId));
   await tx
     .delete(documentPendingAttachments)
     .where(eq(documentPendingAttachments.localId, localId))

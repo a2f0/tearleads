@@ -13,8 +13,9 @@ routes use signed document access events:
 - signed `event` and typed `body`
 - `expectedManifestHash`
 - derived document manifest state
-- previous document manifest when applicable
-- target and authorizing container path bundles
+- target and authorizing container path references (`{containerId,
+  manifestHash}` citations of stored manifests; the API resolves the previous
+  link-set manifest from its own store, and a create has none)
 - optional `containerRekeys[]`
 - a document content-key bundle
 

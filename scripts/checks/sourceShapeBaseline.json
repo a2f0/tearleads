@@ -49,23 +49,23 @@
     },
     "docs/glossary.md": {
       "lines": 533,
-      "bytes": 19355
+      "bytes": 19335
     },
     "docs/keying-design.md": {
-      "lines": 1208,
-      "bytes": 59102
+      "lines": 1207,
+      "bytes": 59073
     },
     "docs/loro-e2ee-sync-protocol.md": {
-      "lines": 550,
-      "bytes": 23606
+      "lines": 554,
+      "bytes": 23895
     },
     "docs/openapi.json": {
-      "lines": 71344,
-      "bytes": 2984719
+      "lines": 61359,
+      "bytes": 2464025
     },
     "docs/protocol-specification.md": {
-      "lines": 698,
-      "bytes": 36420
+      "lines": 738,
+      "bytes": 39173
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -76,20 +76,20 @@
       "bytes": 407663
     },
     "formal/document-sync/DeferredTailSettlement.tla": {
-      "lines": 586,
-      "bytes": 24037
+      "lines": 597,
+      "bytes": 24635
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1983,
-      "bytes": 63115
+      "lines": 1966,
+      "bytes": 62652
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
       "bytes": 18333
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 689,
-      "bytes": 20709
+      "lines": 692,
+      "bytes": 20880
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,
@@ -132,16 +132,16 @@
       "bytes": 21084
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3837,
-      "bytes": 126688
+      "lines": 3795,
+      "bytes": 126054
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1233,
-      "bytes": 40792
+      "lines": 1231,
+      "bytes": 40834
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2278,
-      "bytes": 73775
+      "lines": 2269,
+      "bytes": 73448
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 854,
@@ -160,8 +160,8 @@
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1151,
-      "bytes": 34851
+      "lines": 1146,
+      "bytes": 34774
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 700,
@@ -172,8 +172,8 @@
       "bytes": 16419
     },
     "packages/api/test/helpers/registration.ts": {
-      "lines": 1165,
-      "bytes": 40148
+      "lines": 1161,
+      "bytes": 40064
     },
     "packages/app-capacitor/ios/App/App.xcodeproj/project.pbxproj": {
       "lines": 494,
@@ -228,8 +228,8 @@
       "bytes": 18900
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 695,
-      "bytes": 26776
+      "lines": 686,
+      "bytes": 26857
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,
@@ -308,15 +308,15 @@
       "bytes": 37744
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 26589,
-      "bytes": 1110759
+      "lines": 22597,
+      "bytes": 914752
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 539,
-      "bytes": 18965
+      "lines": 536,
+      "bytes": 18838
     },
     "packages/validators/src/response/response.test.ts": {
-      "lines": 587,
+      "lines": 582,
       "bytes": 17549
     },
     "packages/windowing/README.md": {

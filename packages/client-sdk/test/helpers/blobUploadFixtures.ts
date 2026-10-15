@@ -20,9 +20,6 @@ const DEFAULT_MULTIPART_EXPIRES_AT = "2099-01-01T00:00:00.000Z";
 const DEFAULT_MULTIPART_STAGE_ID = "35069150-b8c1-4052-8003-9780f080aa08";
 const DEFAULT_MULTIPART_UPLOAD_ID = "multipart-upload-fixture";
 
-type CompleteMultipartBlobStage = NonNullable<
-  BlobAttachmentApi["completeMultipartBlobStage"]
->;
 type GetMultipartBlobStage = NonNullable<
   BlobAttachmentApi["getMultipartBlobStage"]
 >;
@@ -41,7 +38,6 @@ interface StoredMultipartPart {
 }
 
 interface MultipartBlobStageFixture {
-  readonly completeMultipartBlobStage: CompleteMultipartBlobStage;
   readonly getAssembledBytes: () => Uint8Array<ArrayBuffer> | null;
   readonly getMultipartBlobStage: GetMultipartBlobStage;
   readonly initiateMultipartBlobStage: InitiateMultipartBlobStage;
@@ -94,8 +90,6 @@ export function createMultipartBlobStageFixture(
   const stageId = options.stageId ?? DEFAULT_MULTIPART_STAGE_ID;
   const uploadId = options.uploadId ?? DEFAULT_MULTIPART_UPLOAD_ID;
   const parts = new Map<number, StoredMultipartPart>();
-  let assembledBytes: Uint8Array<ArrayBuffer> | null = null;
-  let completed = false;
   let initiatedRequest: {
     readonly byteLength: number;
     readonly sha256: string;
@@ -108,16 +102,26 @@ export function createMultipartBlobStageFixture(
     if (initiatedRequest !== null) {
       throw new Error("Multipart blob stage fixture is already initiated");
     }
-    initiatedRequest = { ...request };
+    const { firstParts, ...declared } = request;
+    initiatedRequest = declared;
 
     return {
-      ...request,
+      ...declared,
       expiresAt: DEFAULT_MULTIPART_EXPIRES_AT,
+      partUploads: firstParts.map((part) => ({
+        ...part,
+        source: { kind: "api" as const },
+      })),
       stageId,
       uploadId,
       uploadedParts: [],
     };
   };
+
+  const sortedParts = () =>
+    [...parts.values()].sort(
+      (left, right) => left.partNumber - right.partNumber,
+    );
 
   const getMultipartBlobStage: GetMultipartBlobStage = async (
     requestedStageId,
@@ -128,19 +132,16 @@ export function createMultipartBlobStageFixture(
 
     return {
       ...initiatedRequest,
-      completed,
+      // Only an attachment bind completes a stage.
+      completed: false,
       expiresAt: DEFAULT_MULTIPART_EXPIRES_AT,
       stageId,
       uploadId,
-      uploadedParts: completed
-        ? []
-        : [...parts.values()]
-            .sort((left, right) => left.partNumber - right.partNumber)
-            .map(({ byteLength, etag, partNumber }) => ({
-              byteLength,
-              etag,
-              partNumber,
-            })),
+      uploadedParts: sortedParts().map(({ byteLength, etag, partNumber }) => ({
+        byteLength,
+        etag,
+        partNumber,
+      })),
     };
   };
 
@@ -155,10 +156,6 @@ export function createMultipartBlobStageFixture(
     if (request.uploadId !== uploadId) {
       throw new Error("Multipart blob stage fixture upload id mismatch");
     }
-    if (completed) {
-      throw new Error("Multipart blob stage fixture is complete");
-    }
-
     const bytes = await copyUploadBytes(request.encryptedBytes);
     if (bytes.byteLength !== request.byteLength) {
       throw new Error("Multipart blob part byteLength mismatch");
@@ -183,56 +180,18 @@ export function createMultipartBlobStageFixture(
     };
   };
 
-  const completeMultipartBlobStage: CompleteMultipartBlobStage = async (
-    requestedStageId,
-    request,
-  ) => {
-    if (requestedStageId !== stageId || initiatedRequest === null) {
-      throw new Error("Multipart blob stage fixture is not initiated");
-    }
-    if (request.uploadId !== uploadId) {
-      throw new Error("Multipart blob stage fixture upload id mismatch");
-    }
-
-    const seenPartNumbers = new Set<number>();
-    const committedParts = [...request.parts]
-      .sort((left, right) => left.partNumber - right.partNumber)
-      .map((commit) => {
-        if (seenPartNumbers.has(commit.partNumber)) {
-          throw new Error(
-            "Multipart blob stage fixture contains duplicate parts",
-          );
-        }
-        seenPartNumbers.add(commit.partNumber);
-
-        const storedPart = parts.get(commit.partNumber);
-        if (!storedPart || storedPart.etag !== commit.etag) {
-          throw new Error("Multipart blob stage fixture part not found");
-        }
-        return storedPart;
-      });
-    const assembled = concatenateParts(committedParts);
-    if (assembled.byteLength !== initiatedRequest.byteLength) {
-      throw new Error("Multipart blob stage fixture byteLength mismatch");
-    }
-    if ((await sha256Hex(assembled)) !== initiatedRequest.sha256) {
-      throw new Error("Multipart blob stage fixture sha256 mismatch");
-    }
-
-    assembledBytes = assembled;
-    completed = true;
-    return {
-      organizationId: initiatedRequest.organizationId,
-      byteLength: initiatedRequest.byteLength,
-      expiresAt: DEFAULT_MULTIPART_EXPIRES_AT,
-      sha256: initiatedRequest.sha256,
-      stageId,
-    };
+  // What a bind assembles: every uploaded part in part-number order, once the
+  // declared object is fully uploaded.
+  const getAssembledBytes = (): Uint8Array<ArrayBuffer> | null => {
+    if (initiatedRequest === null) return null;
+    const assembled = concatenateParts(sortedParts());
+    return assembled.byteLength === initiatedRequest.byteLength
+      ? assembled
+      : null;
   };
 
   return {
-    completeMultipartBlobStage,
-    getAssembledBytes: () => assembledBytes?.slice() ?? null,
+    getAssembledBytes,
     getMultipartBlobStage,
     initiateMultipartBlobStage,
     uploadMultipartBlobPartBytes,

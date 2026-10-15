@@ -3,6 +3,7 @@ import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeContro
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
 import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInterestNegativeControls";
+import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
@@ -51,6 +52,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ATTACHMENT_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
+  ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,
   ...READ_MODEL_STAMP_NEGATIVE_CONTROLS,
@@ -77,14 +79,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { RefreshMissingCitations: "FALSE" },
     expect: { kind: "invariant", name: "HonestWritesRemainReadable" },
     why: "A write may cite a head committed after the reader fetched its projection; verify one fresh projection before refusing the frozen response.",
-  },
-  {
-    id: "sync-publishes-before-durable-claim",
-    module: "formal/document-sync/DeferredTailSettlement.tla",
-    config: "formal/document-sync/DeferredTailSettlement.cfg",
-    constants: { RequireDurablePublication: "FALSE" },
-    expect: { kind: "invariant", name: "PublishedHistoryIsDurable" },
-    why: "Publishing a rejected incoming candidate exposes text whose history is absent from the next local edit's durable basis.",
   },
   {
     id: "host-restore-binds-a-switched-identity",

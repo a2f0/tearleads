@@ -110,20 +110,19 @@ test("uploadDocumentAttachment stages binary v2 with multipart uploads", async (
     uploadId: "upload-multipart-upload",
   });
   const uploadedPartNumbers: number[] = [];
-  const completedPartNumbers: number[] = [];
+  const firstPartNumbers: number[] = [];
   const { close, execSql } = await createTestExecSql("multipart-blob-upload");
 
   const uploaded = await uploadDocumentAttachment({
     apiClient: {
-      completeMultipartBlobStage: async (stageId, request) => {
-        completedPartNumbers.push(
-          ...request.parts.map((part) => part.partNumber),
-        );
-        return multipart.completeMultipartBlobStage(stageId, request);
-      },
       getDocumentWriterProjection: async () => writerProjection,
       getMultipartBlobStage: multipart.getMultipartBlobStage,
-      initiateMultipartBlobStage: multipart.initiateMultipartBlobStage,
+      initiateMultipartBlobStage: async (request) => {
+        firstPartNumbers.push(
+          ...request.firstParts.map((part) => part.partNumber),
+        );
+        return multipart.initiateMultipartBlobStage(request);
+      },
       bindBlobAttachment: async (requestBlobId, request) =>
         createBlobAttachmentBindResponse({
           blobId: requestBlobId,
@@ -171,7 +170,9 @@ test("uploadDocumentAttachment stages binary v2 with multipart uploads", async (
   expect(encryptedRecord).not.toHaveProperty("contentKeyBundle");
   expect(encryptedRecord).not.toHaveProperty("targetHash");
   expect(uploadedPartNumbers.toSorted()).toEqual([1, 2]);
-  expect(completedPartNumbers.toSorted()).toEqual([1, 2]);
+  // Both parts start at once, so both were described at initiation; the bind
+  // that follows completes the stage.
+  expect(firstPartNumbers).toEqual([1, 2]);
 });
 
 test("uploadDocumentAttachment refuses missing managed-policy evidence before staging", async () => {

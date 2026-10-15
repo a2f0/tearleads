@@ -1,16 +1,19 @@
-import { and, eq, inArray, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import {
   assertHeldContainerBinding,
   heldContainerBinding,
 } from "../../containers/containerBinding";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
 import {
+  hasQueuedDocumentUpdates,
+  settleQueuedDocumentUpdatesInTransaction,
+} from "../../sqlite/documentPendingUpdatePersistence";
+import {
   enqueueDocumentPendingUpdate,
   type PendingUpdateFields,
 } from "../../sqlite/documentPersistence";
 import { clearDocumentSyncFailureInTransaction } from "../../sqlite/documentSyncFailurePersistence";
 import {
-  documentPendingUpdates,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
@@ -141,18 +144,11 @@ async function deleteAcceptedPendingUpdates(
   containerId: string,
   ids: readonly string[],
 ): Promise<void> {
-  const uniqueIds = [...new Set(ids)];
-  if (uniqueIds.length === 0) return;
-  await tx
-    .delete(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(documentPendingUpdates.localId, containerId),
-        inArray(documentPendingUpdates.id, uniqueIds),
-      ),
-    )
-    .run();
+  await settleQueuedDocumentUpdatesInTransaction(
+    tx,
+    getContainerMetadataScope(containerId),
+    ids,
+  );
 }
 
 function clearMetadataSyncFailure(
@@ -169,17 +165,7 @@ async function hasPendingUpdates(
   tx: ClientSQLiteTransactionScope,
   containerId: string,
 ): Promise<boolean> {
-  const rows = await tx
-    .select({ id: documentPendingUpdates.id })
-    .from(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        eq(documentPendingUpdates.localId, containerId),
-      ),
-    )
-    .limit(1);
-  return rows.length > 0;
+  return hasQueuedDocumentUpdates(tx, getContainerMetadataScope(containerId));
 }
 
 async function hasPendingStructuralIntent(

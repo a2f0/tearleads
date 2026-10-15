@@ -102,10 +102,7 @@ test("a container skipped as deleted during rotation cannot reappear under its o
     await prepared.acknowledge(
       await Promise.all(
         prepared.requests.map((request) =>
-          createMutationResponseFromRequest(
-            request,
-            second.containerKeks.at(-1),
-          ),
+          createMutationResponseFromRequest(request, second),
         ),
       ),
     );

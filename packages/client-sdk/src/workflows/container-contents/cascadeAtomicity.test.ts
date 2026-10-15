@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
   documentContainerProjectionTables,
@@ -188,7 +189,7 @@ test.each([false, true])(
       expect(
         await countRows(
           execSql,
-          `SELECT COUNT(*) AS n FROM document_pending_updates
+          `SELECT COUNT(*) AS n FROM ${QUEUED_UPDATES_SQL}
          WHERE app_kind = 'container-metadata' AND local_id = ?`,
           ["doomed"],
         ),
@@ -209,7 +210,7 @@ test.each([false, true])(
       expect(
         await countRows(
           execSql,
-          `SELECT COUNT(*) AS n FROM document_pending_updates
+          `SELECT COUNT(*) AS n FROM ${QUEUED_UPDATES_SQL}
          WHERE app_kind = 'container-metadata' AND local_id = ?`,
           ["doomed"],
         ),

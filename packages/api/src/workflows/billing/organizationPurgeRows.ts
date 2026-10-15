@@ -6,7 +6,6 @@ import {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-  accessManifestVerifications,
   blobStages,
   blobs,
   containerBuiltinGrants,
@@ -21,7 +20,6 @@ import {
   organizationReadModelHeads,
   organizationRosterEntries,
   organizations,
-  principalContainerGrantProjection,
   principalDirectoryBindings,
   principalEpochKeys,
   principalMemberEnvelopes,
@@ -50,11 +48,6 @@ async function deleteContainerRows(input: {
           principalPolicyMutationAcknowledgements.containerId,
           containerBatch,
         ),
-      );
-    await input.executor
-      .delete(principalContainerGrantProjection)
-      .where(
-        inArray(principalContainerGrantProjection.containerId, containerBatch),
       );
     const epochs = await input.executor
       .select({ id: containerKeyEpochs.id })
@@ -99,9 +92,6 @@ async function deleteAccessRows(
     .where(eq(accessManifests.organizationId, organizationId));
   const manifestHashes = manifests.map((row) => row.hash);
   for (const manifestBatch of organizationPurgeBatches(manifestHashes)) {
-    await executor
-      .delete(accessManifestVerifications)
-      .where(inArray(accessManifestVerifications.manifestHash, manifestBatch));
     await executor
       .delete(accessManifestContainerGrantProjection)
       .where(
@@ -159,7 +149,6 @@ async function deleteOrganizationPrincipalRows(
         principalMemberEnvelopes,
         principalStatePayloads,
         principalEpochKeys,
-        principalContainerGrantProjection,
         principalMembershipProjection,
         principalStates,
       ] as const) {

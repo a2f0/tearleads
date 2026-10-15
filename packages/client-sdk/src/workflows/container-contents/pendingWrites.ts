@@ -118,8 +118,9 @@ async function hasQueuedScopeWork(
   const rows = await execSql(
     `SELECT 1 AS present
      WHERE EXISTS (
-         SELECT 1 FROM document_pending_updates pending
+         SELECT 1 FROM document_history_updates pending
          WHERE pending.app_kind = ? AND pending.local_id = ?
+           AND pending.update_id IS NOT NULL
        )
        OR EXISTS (
          SELECT 1 FROM document_pending_attachments attachment

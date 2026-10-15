@@ -69,8 +69,7 @@ Tables: API `documents`, `document_updates`, `document_update_spans`,
 `document_inline_rekey_commits`, `document_manifest_observations`, `blobs`,
 `blob_stages`, `blob_content_key_epochs`, `blob_content_key_targets`,
 `blob_content_write_headers`, `attachment_bindings`. SDK `documents`,
-`document_pending_updates`, `document_history_checkpoints`,
-`document_history_updates`,
+`document_history_checkpoints`, `document_history_updates`,
 `document_pending_attachments`, `document_attachment_blob_projection`,
 `document_orphan_blob_reclaims`.
 
@@ -88,9 +87,9 @@ Tables: API `documents`, `document_updates`, `document_update_spans`,
 - Who reads `document_manifest_observations`, `document_inline_rekey_commits`,
   and `document_update_spans`? Is each derivable from `document_updates` and
   the manifest chain, and what query needs it?
-- Locally, `documents.loro_snapshot`, `document_pending_updates`, and
-  `document_history_updates` hold overlapping bytes. Which reads need which,
-  and could one update log with a settled watermark replace them?
+- Locally, `document_history_checkpoints` and `document_history_updates`
+  (whose queued rows are the outbound queue) hold overlapping bytes. Which
+  reads need which, and what does compaction still copy?
 - Are the `documents.sync_failure_*` columns state the scheduler needs, or a
   diagnostic that belongs in the incident ledger?
 - Could the sync response carry the next writer projection a follow-up pass

@@ -86,10 +86,7 @@ test.each([false, true])(
       await prepared.acknowledge(
         await Promise.all(
           prepared.requests.map((request) =>
-            createMutationResponseFromRequest(
-              request,
-              parentProjection.containerKeks.at(-1),
-            ),
+            createMutationResponseFromRequest(request, parentProjection),
           ),
         ),
       );
@@ -140,10 +137,7 @@ test("a refused rematerialization acknowledgement cannot cache a head when its g
     );
     const responses = await Promise.all(
       prepared.requests.map((request) =>
-        createMutationResponseFromRequest(
-          request,
-          parentProjection.containerKeks.at(-1),
-        ),
+        createMutationResponseFromRequest(request, parentProjection),
       ),
     );
     let permitted = false;
@@ -352,7 +346,7 @@ test("a nested group grant is rekeyed against the epoch its ancestor mints in th
       rootRekey.plan.containerKeyEpochId,
     );
     expect(
-      childRekey.plan.request.previousContainerPath?.[0]?.manifestHash,
+      childRekey.plan.request.previousContainerPathRefs?.[0]?.manifestHash,
     ).toBe(rootRekey.plan.manifestHash);
   } finally {
     fixture.database.close();

@@ -22,9 +22,10 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
     stored.updated_at AS updated_at,
     (
       SELECT pending.partial_end_version_vector
-      FROM document_pending_updates pending
+      FROM document_history_updates pending
       WHERE pending.app_kind = stored.app_kind
         AND pending.local_id = stored.local_id
+        AND pending.update_id IS NOT NULL
       ORDER BY pending.created_at DESC, pending.rowid DESC
       LIMIT 1
     ) AS latest_pending_end_version,
@@ -62,9 +63,10 @@ const DEFERRED_TAIL_CANDIDATE_SQL = `
       stored.pending_base_version IS NOT NULL
       OR EXISTS (
         SELECT 1
-        FROM document_pending_updates pending
+        FROM document_history_updates pending
         WHERE pending.app_kind = stored.app_kind
           AND pending.local_id = stored.local_id
+          AND pending.update_id IS NOT NULL
       )
     )
 `;
@@ -185,9 +187,10 @@ const DEFERRED_TAIL_SCOPE_SQL = `
     stored.pending_base_version AS pending_base_version,
     (
       SELECT pending.partial_end_version_vector
-      FROM document_pending_updates pending
+      FROM document_history_updates pending
       WHERE pending.app_kind = stored.app_kind
         AND pending.local_id = stored.local_id
+        AND pending.update_id IS NOT NULL
       ORDER BY pending.created_at DESC, pending.rowid DESC
       LIMIT 1
     ) AS latest_pending_end_version

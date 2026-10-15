@@ -5,7 +5,6 @@ import {
   shareRemoteContainer,
 } from "@tearleads/client-sdk";
 import {
-  type ContainerAccessManifestState,
   computeAccessManifestHash,
   deriveContainerAccessManifest,
 } from "@tearleads/crypto";
@@ -96,43 +95,11 @@ test("self-revoke refuses clearly without stranding a deeper grantee", async () 
       if (!request.expectedManifestHash)
         throw new Error("Expected revoke hash");
       const revokeHash = request.expectedManifestHash;
-      const previousContainerPath =
-        carried.plan.request.previousContainerPath?.map((bundle, index) =>
-          index === 1
-            ? {
-                manifestHash: revokeHash,
-                manifest: request.manifest,
-                event: {
-                  event: request.event,
-                  body: request.body,
-                  eventHash: Reflect.get(request.manifest, "eventHash"),
-                },
-                state: {
-                  ...bundle.state,
-                  epoch: Reflect.get(request.manifest, "epoch"),
-                  previousManifestHash: Reflect.get(
-                    request.manifest,
-                    "previousManifestHash",
-                  ),
-                  eventHash: Reflect.get(request.manifest, "eventHash"),
-                  containerKeyEpochId: Reflect.get(
-                    Object(request.body),
-                    "containerKeyEpochId",
-                  ),
-                  containerKeyPublicKey: Reflect.get(
-                    Object(request.body),
-                    "containerKeyPublicKey",
-                  ),
-                  directGrants: (
-                    bundle.state as unknown as ContainerAccessManifestState
-                  ).directGrants.filter(
-                    (grant) =>
-                      grant.subjectType !== "user" ||
-                      grant.subjectId !== revoker.userId,
-                  ),
-                },
-              }
-            : bundle,
+      // The carried rekey cites its parent at the head this revoke commits
+      // first in the same batch, which the server resolves by hash.
+      const previousContainerPathRefs =
+        carried.plan.request.previousContainerPathRefs?.map((ref, index) =>
+          index === 1 ? { ...ref, manifestHash: revokeHash } : ref,
         ) ?? [];
       const body = {
         ...carried.plan.body,
@@ -140,8 +107,8 @@ test("self-revoke refuses clearly without stranding a deeper grantee", async () 
       };
       const event = await createSignedAccessEvent({
         body,
-        dependencyManifestHashes: previousContainerPath.map(
-          (bundle) => bundle.manifestHash,
+        dependencyManifestHashes: previousContainerPathRefs.map(
+          (ref) => ref.manifestHash,
         ),
         objectId: intermediate,
         objectKind: "container",
@@ -163,7 +130,7 @@ test("self-revoke refuses clearly without stranding a deeper grantee", async () 
             event: { ...event.event },
             manifest: { ...manifest },
             expectedManifestHash: await computeAccessManifestHash(manifest),
-            previousContainerPath,
+            previousContainerPathRefs,
           },
         ],
       });

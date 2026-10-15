@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/api",
-  "version": "0.1.33",
+  "version": "0.1.35",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",

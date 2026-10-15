@@ -15,7 +15,6 @@ import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
   documentPendingAttachments,
-  documentPendingUpdates,
   documents,
 } from "../../../sqlite/schema";
 import {
@@ -37,8 +36,7 @@ type DocumentSideLocalIdColumn =
   | typeof documentAttachmentBlobProjection.localId
   | typeof documentHistoryCheckpoints.localId
   | typeof documentHistoryUpdates.localId
-  | typeof documentPendingAttachments.localId
-  | typeof documentPendingUpdates.localId;
+  | typeof documentPendingAttachments.localId;
 
 function requirePredicate(predicate: SQL | undefined): SQL {
   if (!predicate) {
@@ -144,10 +142,6 @@ interface HistorySweepCandidates {
   updates: ReadonlyArray<{ id: string | null }>;
 }
 
-interface WriteSweepCandidates {
-  pendingUpdates: ReadonlyArray<{ id: string | null }>;
-}
-
 interface AttachmentSweepCandidates {
   local: ReadonlyArray<AttachmentSweepCandidate>;
   pending: ReadonlyArray<AttachmentSweepCandidate>;
@@ -181,25 +175,6 @@ async function selectHistorySweepCandidates(
     )
     .limit(DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
   return { checkpoints, updates };
-}
-
-async function selectWriteSweepCandidates(
-  tx: ClientSQLiteTransactionScope,
-  olderThan: string,
-): Promise<WriteSweepCandidates> {
-  const pendingUpdates = await tx
-    .select({ id: documentPendingUpdates.id })
-    .from(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
-        isNotNull(documentPendingUpdates.id),
-        lt(documentPendingUpdates.createdAt, olderThan),
-        hasNoDocument(tx, documentPendingUpdates.localId),
-      ),
-    )
-    .limit(DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
-  return { pendingUpdates };
 }
 
 async function selectAttachmentSweepCandidates(
@@ -270,25 +245,6 @@ async function deleteHistorySweepCandidates(
   }
 }
 
-async function deleteWriteSweepCandidates(
-  tx: ClientSQLiteTransactionScope,
-  candidates: WriteSweepCandidates,
-): Promise<void> {
-  if (candidates.pendingUpdates.length > 0) {
-    await tx
-      .delete(documentPendingUpdates)
-      .where(
-        inArray(
-          documentPendingUpdates.id,
-          candidates.pendingUpdates.flatMap((row) =>
-            row.id === null ? [] : [row.id],
-          ),
-        ),
-      )
-      .run();
-  }
-}
-
 async function deleteAttachmentSweepCandidates(
   tx: ClientSQLiteTransactionScope,
   candidates: AttachmentSweepCandidates,
@@ -314,13 +270,11 @@ async function deleteAttachmentSweepCandidates(
 
 function hasFullSweepBatch(
   history: HistorySweepCandidates,
-  writes: WriteSweepCandidates,
   attachments: AttachmentSweepCandidates,
 ): boolean {
   return [
     history.checkpoints,
     history.updates,
-    writes.pendingUpdates,
     attachments.pending,
     attachments.local,
   ].some((rows) => rows.length === DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
@@ -337,12 +291,10 @@ export async function deleteOrphanedDocumentSideRows(
   return runSerializedSqlMutation(execSql, async (lockedExecSql) =>
     getClientSQLitePersistenceRuntime(lockedExecSql).transaction(async (tx) => {
       const history = await selectHistorySweepCandidates(tx, olderThan);
-      const writes = await selectWriteSweepCandidates(tx, olderThan);
       const attachments = await selectAttachmentSweepCandidates(tx, olderThan);
       await deleteHistorySweepCandidates(tx, history);
-      await deleteWriteSweepCandidates(tx, writes);
       await deleteAttachmentSweepCandidates(tx, attachments);
-      return hasFullSweepBatch(history, writes, attachments);
+      return hasFullSweepBatch(history, attachments);
     }),
   );
 }

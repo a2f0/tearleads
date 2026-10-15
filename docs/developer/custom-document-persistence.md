@@ -11,11 +11,15 @@ callback or insertion failure rolls back every one of those effects. It returns
 adopts that winner and its durable history.
 
 `enqueuePendingUpdate(...)` returns a boolean and atomically writes the outgoing
-queue entry with the matching local durable-history tail entry. When
-the expected write context is present, the adapter compares both
-`expectedDocumentId` and `expectedRecoveryGeneration` with the canonical row
-inside the same mutation. An absent or different context returns `false` and
-writes neither row; this is a normal compare-and-set loss, not an exception.
+queue entry with the matching local durable-history tail entry. The built-in
+SQLite adapter stores both as one `document_history_updates` row: the row's
+`update_id` and version vectors mark it queued until settlement clears them,
+and history compaction never deletes a queued row, even when a checkpoint
+already covers its operations. When the expected write context is present,
+the adapter compares both `expectedDocumentId` and `expectedRecoveryGeneration`
+with the canonical row inside the same mutation. An absent or different
+context returns `false` and writes nothing; this is a normal compare-and-set
+loss, not an exception.
 `documentIdentityMatches(...)` performs the same canonical write-context check
 for a no-op update, where there is no queue row to insert but a relink or raw
 history recovery still must be observed before the caller reports success.
@@ -57,8 +61,9 @@ authoritative current record on a compare-and-set loss so an ordinary local
 writer can rebase and a sync response can adopt the winner. A failed comparison
 must not enqueue the optional outgoing update.
 
-`settleAcceptedPendingUpdates(...)` deletes acknowledged queue rows only while
-the response's complete security identity still matches the canonical record.
+`settleAcceptedPendingUpdates(...)` removes acknowledged updates from the queue
+only while the response's complete security identity still matches the
+canonical record.
 It returns the authoritative record whether the comparison succeeds or loses.
 
 `loadDocumentStoreState(...)` reads the canonical record, durable history,

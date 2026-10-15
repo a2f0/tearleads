@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
@@ -197,7 +198,7 @@ test("unsigned deletion preserves queued metadata and permits verified rediscove
       localId: "child-1",
     });
     const pendingBefore = await execSql(
-      "SELECT id FROM document_pending_updates WHERE local_id = ?",
+      `SELECT id FROM ${QUEUED_UPDATES_SQL} WHERE local_id = ?`,
       ["child-1"],
     );
     expect(pendingBefore.length).toBe(1);
@@ -239,7 +240,7 @@ test("unsigned deletion preserves queued metadata and permits verified rediscove
       defaultContainerContentsPersistence.containerExists(execSql, "child-1"),
     ).resolves.toBe(false);
     const pendingAfter = await execSql(
-      "SELECT id FROM document_pending_updates WHERE local_id = ?",
+      `SELECT id FROM ${QUEUED_UPDATES_SQL} WHERE local_id = ?`,
       ["child-1"],
     );
     // The unsigned deletion must not destroy queued local edits.
@@ -436,7 +437,7 @@ test("a child moved before its old parent is deleted remains recoverable", async
       "SELECT generation, cleared FROM container_hydration_tombstones WHERE container_id = 'folder-c'",
     );
     const renameLeft = await execSql(
-      "SELECT id FROM document_pending_updates WHERE local_id = 'folder-c'",
+      `SELECT id FROM ${QUEUED_UPDATES_SQL} WHERE local_id = 'folder-c'`,
     );
 
     expect(renameLeft.length).toBe(1);

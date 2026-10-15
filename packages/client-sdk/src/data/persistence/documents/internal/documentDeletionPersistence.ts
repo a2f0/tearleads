@@ -2,7 +2,6 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { deleteDocumentHistory } from "../../../sqlite/documentHistoryPersistence";
 import {
   clearDocumentSyncFailure,
-  deleteDocumentPendingUpdates,
   deleteDocumentRecord,
   loadDocumentRecord,
 } from "../../../sqlite/documentPersistence";
@@ -90,7 +89,6 @@ async function deleteStoredDocumentRows(input: {
     await tx.delete(localIntents).where(placementIntent).run();
   }
   const scope = getDocumentScope(localId);
-  await deleteDocumentPendingUpdates(lockedExecSql, scope);
   await deleteDocumentHistory(lockedExecSql, scope);
   await clearDocumentSyncFailure(lockedExecSql, scope);
   await deleteDocumentRecord(lockedExecSql, scope);

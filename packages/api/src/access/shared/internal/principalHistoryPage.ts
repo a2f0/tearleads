@@ -9,6 +9,7 @@ import {
 } from "./principalHistoryArtifacts";
 import {
   principalStateSelect,
+  readStoredPrincipalContainerGrants,
   type StoredPrincipalStateChainEntry,
   toStoredPrincipalState,
 } from "./principalStateRecords";
@@ -38,7 +39,10 @@ export async function readPrincipalHistoryPage(
   if (input.afterVersion >= input.throughVersion) return [];
   beginPrincipalHistoryVerification();
   const rows = await executor
-    .select(principalStateSelect)
+    .select({
+      ...principalStateSelect,
+      containerGrants: principalStates.containerGrants,
+    })
     .from(principalStates)
     .where(
       and(
@@ -52,7 +56,10 @@ export async function readPrincipalHistoryPage(
     .limit(PRINCIPAL_HISTORY_BATCH_SIZE);
   return loadPrincipalHistoryArtifacts(
     executor,
-    rows.map(toStoredPrincipalState),
+    rows.map(({ containerGrants, ...row }) => ({
+      state: toStoredPrincipalState(row),
+      grants: readStoredPrincipalContainerGrants(containerGrants),
+    })),
   );
 }
 

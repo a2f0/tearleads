@@ -4,7 +4,8 @@ EXTENDS FiniteSets, Naturals
 (* Device-first tail coverage. A guarded durable start linearizes its fixed *)
 (* effect; stale completion cannot publish into a replacement or remove B. *)
 
-CONSTANTS Ops, Identities, MaxGeneration, RequireDurablePublication
+CONSTANTS Ops, Identities, MaxGeneration, RequireDurablePublication,
+          CompactionSparesQueued
 
 (* Each identity is one abstract token for the local/remote identifiers,   *)
 (* container, access epoch/hash/level, and content-keying context.         *)
@@ -18,6 +19,7 @@ ASSUME /\ Ops # {}
        /\ Identities # {}
        /\ IsFiniteSet(Identities)
        /\ MaxGeneration \in Nat \ {0}
+       /\ CompactionSparesQueued \in BOOLEAN
 VARIABLES snapshot, durableSnapshot, durableBase, workingBase, queued, remote,
           durableRemoteRows,
           lane, capturedFrontier, capturedCoverage, capturedGeneration,
@@ -433,12 +435,19 @@ Restart ==
 (* (the checkpoint carries it), but remote-row provenance is lost, so a *)
 (* later restore extends the marker LESS — the safe re-send direction. A *)
 (* concurrent pane may compact at any time, including the crash window. *)
-CompactHistory(covered) ==
-  /\ covered # {}
+(* One update-log row is both a queued update and its local tail row, so *)
+(* the checkpoint can cover a queued operation; compaction must still *)
+(* spare that row, which is the only record that the operation is unsent. *)
+(* Disabling CompactionSparesQueued lets it delete covered queued rows. *)
+CompactHistory(covered, coveredQueued) ==
+  /\ covered \cup coveredQueued # {}
   /\ covered \subseteq durableRemoteRows
+  /\ coveredQueued \subseteq queued
+  /\ CompactionSparesQueued => coveredQueued = {}
   /\ durableRemoteRows' = durableRemoteRows \ covered
+  /\ queued' = queued \ coveredQueued
   /\ UNCHANGED << snapshot, durableSnapshot, durableBase, workingBase,
-                  queued, remote, lane, captureVars, presenceVars,
+                  remote, lane, captureVars, presenceVars,
                   liveIdentity, liveGeneration, responseVars,
                   durableOpVars, auditVars >>
 
@@ -485,7 +494,9 @@ Next ==
   \/ CancelOrIgnoreResponse
   \/ CompleteCapturedPass
   \/ Restart
-  \/ \E covered \in SUBSET durableRemoteRows : CompactHistory(covered)
+  \/ \E covered \in SUBSET durableRemoteRows :
+       \E coveredQueued \in SUBSET queued :
+         CompactHistory(covered, coveredQueued)
   \/ DiscardSettledLocal
   \/ UNCHANGED vars
 

@@ -25,6 +25,7 @@ import {
 } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
+import { containerManifestRef } from "./containerManifestRefs";
 import { buildRootContainerRekeyMutation } from "./containerRekey";
 import { groupPolicyPayload } from "./groupPolicyPayload";
 import {
@@ -227,9 +228,9 @@ async function buildGroupGrantMutation(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.root.bundle,
-    previousContainerPath: [input.root.bundle],
-    containerManifestHistory: [input.root.bundle],
+    previousManifestRef: containerManifestRef(input.root.bundle),
+    previousContainerPathRefs: [containerManifestRef(input.root.bundle)],
+    containerManifestHistoryRefs: [containerManifestRef(input.root.bundle)],
     principalPolicies: uniquePrincipalPolicies([
       ...input.root.principalPolicies,
       input.policy,
