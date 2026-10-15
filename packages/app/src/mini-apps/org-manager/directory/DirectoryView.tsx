@@ -3,7 +3,6 @@ import type {
   OrganizationDirectory,
   OrganizationUserDetail,
 } from "@tearleads/client-sdk";
-import { ShareIdentityLink } from "../../../components/identity/ShareIdentityLink";
 import type { OrgManagerGrantRouteRef } from "../routes";
 import {
   type DirectoryContextMenuHandler,
@@ -85,7 +84,6 @@ export function DirectoryView({
   if (!directory) {
     return (
       <>
-        <ShareIdentityLink />
         <DirectoryTable directory={directory} pending={pending} />
         {importUserDialog}
       </>
@@ -95,7 +93,6 @@ export function DirectoryView({
   if (!selectedUserId) {
     return (
       <>
-        <ShareIdentityLink />
         <DirectoryListSection
           directory={directory}
           pending={pending}
@@ -113,7 +110,6 @@ export function DirectoryView({
 
   return (
     <>
-      <ShareIdentityLink />
       <section className="org-manager-panel">
         <UserDetailView
           canEditRosterProfile={canUpdateSelectedRosterEntry}
