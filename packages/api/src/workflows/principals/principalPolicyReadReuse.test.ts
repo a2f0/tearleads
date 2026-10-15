@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  principalContainerGrantProjection,
   principalMembershipProjection,
   principalStatePayloads,
+  principalStates,
 } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { principalHistoryPreparationFixture } from "../../../test/helpers/principalHistoryPreparation";
@@ -35,13 +35,14 @@ for (const artifact of ["members", "grants", "payload"] as const) {
             eq(principalMembershipProjection.principalId, head.principalId),
           );
       } else if (artifact === "grants") {
-        await tx.insert(principalContainerGrantProjection).values({
-          principalType: "group",
-          principalId: head.principalId,
-          stateHash: head.stateHash,
-          containerId: crypto.randomUUID(),
-          accessLevel: "admin",
-        });
+        await tx
+          .update(principalStates)
+          .set({
+            containerGrants: [
+              { accessLevel: "admin", containerId: crypto.randomUUID() },
+            ],
+          })
+          .where(eq(principalStates.stateHash, head.stateHash));
       } else {
         await tx
           .update(principalStatePayloads)

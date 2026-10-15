@@ -1,68 +1,43 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { principalContainerGrantProjection } from "@tearleads/api-shared/schema";
+import { principalStates } from "@tearleads/api-shared/schema";
 import {
   type ManagedRecipientPrincipalType,
   normalizePrincipalContainerGrants,
+  type PrincipalContainerGrant,
   throwPrincipalPolicyValidationError as rejectPrincipalPolicy,
 } from "@tearleads/crypto";
 import { and, eq } from "drizzle-orm";
-import type { PrincipalStateBundleInput } from "./principalStateRecords";
 import {
-  principalContainerGrantSelect,
-  type StoredPrincipalContainerGrant,
-  toStoredPrincipalContainerGrant,
+  type PrincipalStateBundleInput,
+  readStoredPrincipalContainerGrants,
 } from "./principalStateRecords";
 
+/** The complete grant set stored with one state; none for an unknown state. */
 export async function listContainerGrantsForState(
   principalType: ManagedRecipientPrincipalType,
   principalId: string,
   stateHash: string,
   executor: DatabaseSession,
-): Promise<StoredPrincipalContainerGrant[]> {
-  const rows = await executor
-    .select(principalContainerGrantSelect)
-    .from(principalContainerGrantProjection)
+): Promise<PrincipalContainerGrant[]> {
+  const [row] = await executor
+    .select({ containerGrants: principalStates.containerGrants })
+    .from(principalStates)
     .where(
       and(
-        eq(principalContainerGrantProjection.principalType, principalType),
-        eq(principalContainerGrantProjection.principalId, principalId),
-        eq(principalContainerGrantProjection.stateHash, stateHash),
+        eq(principalStates.principalType, principalType),
+        eq(principalStates.principalId, principalId),
+        eq(principalStates.stateHash, stateHash),
       ),
     )
-    .orderBy(principalContainerGrantProjection.containerId);
-  return rows.map(toStoredPrincipalContainerGrant);
+    .limit(1);
+  return row ? readStoredPrincipalContainerGrants(row.containerGrants) : [];
 }
 
-async function insertPrincipalContainerGrantRows(input: {
-  readonly executor: DatabaseSession;
-  readonly normalizedInput: PrincipalStateBundleInput;
-  readonly stateHash: string;
-}): Promise<void> {
-  if (input.normalizedInput.grants.length === 0) {
-    return;
-  }
-  await input.executor
-    .insert(principalContainerGrantProjection)
-    .values(
-      input.normalizedInput.grants.map((grant) => ({
-        principalType: input.normalizedInput.state.principalType,
-        principalId: input.normalizedInput.state.principalId,
-        stateHash: input.stateHash,
-        containerId: grant.containerId,
-        accessLevel: grant.accessLevel,
-      })),
-    )
-    .onConflictDoNothing({
-      target: [
-        principalContainerGrantProjection.principalType,
-        principalContainerGrantProjection.principalId,
-        principalContainerGrantProjection.stateHash,
-        principalContainerGrantProjection.containerId,
-      ],
-    });
-}
-
-async function ensureStoredPrincipalContainerGrantsMatch(input: {
+/**
+ * The state row carries its grants from its insert. A replayed state keeps the
+ * row it first stored, so its grants must equal the replay's exactly.
+ */
+export async function ensureStoredPrincipalContainerGrantsMatch(input: {
   readonly executor: DatabaseSession;
   readonly normalizedInput: PrincipalStateBundleInput;
   readonly stateHash: string;
@@ -91,13 +66,4 @@ async function ensureStoredPrincipalContainerGrantsMatch(input: {
       "Principal state container grant projection conflict",
     );
   }
-}
-
-export async function storePrincipalContainerGrantsForState(input: {
-  readonly executor: DatabaseSession;
-  readonly normalizedInput: PrincipalStateBundleInput;
-  readonly stateHash: string;
-}): Promise<void> {
-  await insertPrincipalContainerGrantRows(input);
-  await ensureStoredPrincipalContainerGrantsMatch(input);
 }

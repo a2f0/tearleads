@@ -29,6 +29,7 @@ export async function markStoredDocumentManifest(
   const documentMarkers = databaseVerificationMarkerStore(executor, {
     recordsMarkers: true,
   });
+  documentMarkers.seed(stored);
   await verifyStoredDocumentManifest({
     bundle: toManifestBundleResponse(stored),
     containerContext: createContainerWriterProjectionContext(executor),

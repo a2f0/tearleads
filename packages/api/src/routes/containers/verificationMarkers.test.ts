@@ -1,13 +1,9 @@
 import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import {
-  accessEvents,
-  accessManifests,
-  accessManifestVerifications,
-} from "@tearleads/api-shared/schema";
+import { accessEvents, accessManifests } from "@tearleads/api-shared/schema";
 import * as crypto from "@tearleads/crypto";
 import { isContainerReciteResponse } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
+import { and, eq, isNotNull } from "drizzle-orm";
 import {
   postRecite as post,
   buildReciteRequest as request,
@@ -18,6 +14,7 @@ import * as manifestStore from "../../access/read/accessManifestStore";
 import { routeApp } from "../../routeApp";
 import * as markStoredManifest from "../../workflows/containers/writerProjection/markStoredManifest";
 import { ContainerWriterProjectionError } from "../../workflows/containers/writerProjection/types";
+import { clearProcessVerificationMarkers } from "../../workflows/containers/writerProjection/verificationMarkers";
 
 const RECITATIONS = 40;
 
@@ -121,6 +118,47 @@ test("reading a longer history issues no queries per retained manifest", async (
   expect(after).toBe(before);
 }, 120_000);
 
+test("markers arrive with the manifest rows a read loads", async () => {
+  const created = await scenario();
+  const { owner, child } = created;
+  await recite(created, child.accessManifest, 3);
+  const select = spyOn(manifestStore, "selectAccessManifestVerificationMac");
+  try {
+    expect(
+      await countProjectionSignatureChecks(child.containerId, owner.token),
+    ).toBe(0);
+    expect(select).not.toHaveBeenCalled();
+  } finally {
+    select.mockRestore();
+  }
+}, 120_000);
+
+test("a marker copied onto another manifest row is not honored", async () => {
+  const created = await scenario();
+  const { owner, child } = created;
+  const head = await recite(created, child.accessManifest, 3);
+  const previousHash = Reflect.get(head.manifest, "previousManifestHash");
+  if (typeof previousHash !== "string") throw new Error("Expected predecessor");
+  const [marked] = await db
+    .select({ mac: accessManifests.verificationMac })
+    .from(accessManifests)
+    .where(eq(accessManifests.manifestHash, head.manifestHash));
+  if (!marked?.mac) throw new Error("Expected a marked head");
+  await db
+    .update(accessManifests)
+    .set({ verificationMac: marked.mac })
+    .where(eq(accessManifests.manifestHash, previousHash));
+  clearProcessVerificationMarkers();
+  // The copied MAC binds another manifest, so the predecessor verifies in
+  // full and its genuine marker is written back.
+  expect(
+    await countProjectionSignatureChecks(child.containerId, owner.token),
+  ).toBeGreaterThan(0);
+  expect(
+    await countProjectionSignatureChecks(child.containerId, owner.token),
+  ).toBe(0);
+}, 120_000);
+
 test("a marked head does not hide an edited predecessor row", async () => {
   const created = await scenario();
   const { owner, child } = created;
@@ -209,15 +247,13 @@ test("a read path that writes no markers still verifies a history once per proce
   );
   expect(
     await db
-      .select({ manifestHash: accessManifestVerifications.manifestHash })
-      .from(accessManifestVerifications)
-      .innerJoin(
-        accessManifests,
-        eq(
-          accessManifests.manifestHash,
-          accessManifestVerifications.manifestHash,
+      .select({ manifestHash: accessManifests.manifestHash })
+      .from(accessManifests)
+      .where(
+        and(
+          eq(accessManifests.objectId, child.containerId),
+          isNotNull(accessManifests.verificationMac),
         ),
-      )
-      .where(eq(accessManifests.objectId, child.containerId)),
+      ),
   ).toEqual([]);
 }, 120_000);

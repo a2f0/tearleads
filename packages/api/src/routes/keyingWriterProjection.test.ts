@@ -8,7 +8,6 @@ import {
   containerKeyWraps,
   containers,
   documentBaselines,
-  documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
@@ -54,6 +53,7 @@ import {
   buildRootContainerRekeyMutation,
 } from "../../test/helpers/containerRekey";
 import { contentKeyEnvelopeFixture } from "../../test/helpers/contentKeyEnvelope";
+import { currentDocumentLinkRows } from "../../test/helpers/currentDocumentLinks";
 import {
   createSignedAtomicRotationBaseline,
   createSignedDocumentSyncRequest,
@@ -1738,10 +1738,7 @@ test("POST /documents/:documentId/link advances a signed link-set manifest", asy
   expect(linked.documentKekTargets.targets).toHaveLength(2);
   expect(linked.contentKeyBundle.targets).toHaveLength(2);
 
-  const rows = await db
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, createdDocument.id));
+  const rows = await currentDocumentLinkRows(createdDocument.id);
   expect(rows.map((row) => row.containerId).sort()).toEqual(
     [root.kekState.containerId, child.containerId].sort(),
   );
@@ -2082,10 +2079,7 @@ test("POST /documents/:documentId/unlink advances a signed link-set manifest", a
     linkedDocument.contentKeyBundle.contentKeyEpoch + 1,
   );
 
-  const rows = await db
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, createdDocument.id));
+  const rows = await currentDocumentLinkRows(createdDocument.id);
   expect(rows.map((row) => row.containerId)).toEqual([
     root.kekState.containerId,
   ]);
@@ -2195,10 +2189,7 @@ test("POST /documents/:documentId/unlink accepts a baseline-less unlink for an e
     linkedDocument.contentKeyBundle.contentKeyEpoch + 1,
   );
 
-  const rows = await db
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, createdDocument.id));
+  const rows = await currentDocumentLinkRows(createdDocument.id);
   expect(rows.map((row) => row.containerId)).toEqual([
     root.kekState.containerId,
   ]);

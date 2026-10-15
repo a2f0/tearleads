@@ -52,8 +52,8 @@
       "bytes": 19335
     },
     "docs/keying-design.md": {
-      "lines": 1208,
-      "bytes": 59102
+      "lines": 1207,
+      "bytes": 59073
     },
     "docs/loro-e2ee-sync-protocol.md": {
       "lines": 554,
@@ -88,8 +88,8 @@
       "bytes": 18333
     },
     "packages/api/src/access/shared/internal/accessManifestStore.ts": {
-      "lines": 689,
-      "bytes": 20709
+      "lines": 692,
+      "bytes": 20880
     },
     "packages/api/src/access/shared/internal/containerKekTargets.ts": {
       "lines": 637,
@@ -132,16 +132,16 @@
       "bytes": 21084
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3811,
-      "bytes": 126511
+      "lines": 3795,
+      "bytes": 126054
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1234,
-      "bytes": 40902
+      "lines": 1231,
+      "bytes": 40834
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2278,
-      "bytes": 73775
+      "lines": 2269,
+      "bytes": 73448
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 854,
@@ -160,8 +160,8 @@
       "bytes": 18390
     },
     "packages/api/src/services/blobs/blobMutations.test.ts": {
-      "lines": 1151,
-      "bytes": 34932
+      "lines": 1146,
+      "bytes": 34774
     },
     "packages/api/src/workflows/documents/writerProjection.ts": {
       "lines": 700,
@@ -326,10 +326,6 @@
     "scripts/architecture/subsystems.ts": {
       "lines": 800,
       "bytes": 30600
-    },
-    "scripts/checks/openApiCompatibilityErrors.ignore": {
-      "lines": 1279,
-      "bytes": 91993
     },
     "formal/README.md": {
       "lines": 357,

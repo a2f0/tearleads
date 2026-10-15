@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { documentContainerLinks } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
-import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
@@ -70,10 +68,7 @@ test("a link cannot advance the content-key epoch past committed updates", async
     error:
       "Document link cannot rotate the content key; committed updates need a rotation baseline",
   });
-  const links = await db
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, createdDocument.id));
+  const links = await currentDocumentLinkRows(createdDocument.id);
   expect(links.map((link) => link.containerId)).toEqual([
     root.kekState.containerId,
   ]);

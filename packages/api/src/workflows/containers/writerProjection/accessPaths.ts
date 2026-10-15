@@ -153,9 +153,10 @@ async function loadCurrentContainerManifestBundle(
 }
 
 /**
- * Load a container's whole retained lineage, and its verification markers, in
- * a few batched queries before a walk that would otherwise issue several
- * queries per manifest. Only bundles not already cached are installed.
+ * Load a container's whole retained lineage, with the verification markers its
+ * rows carry, in a few batched queries before a walk that would otherwise
+ * issue several queries per manifest. Only bundles not already cached are
+ * installed.
  */
 export async function prefetchContainerManifestHistory(
   context: ContainerWriterProjectionContext,
@@ -174,8 +175,8 @@ export async function prefetchContainerManifestHistory(
         manifestHash,
         Promise.resolve(toManifestBundleResponse(bundle)),
       );
+    context.verificationMarkers.seed(bundle);
   }
-  await context.verificationMarkers.prefetch?.([...bundles.keys()]);
 }
 
 export async function loadContainerManifestBundleByHash(
@@ -197,12 +198,8 @@ export async function loadContainerManifestBundleByHash(
         );
       }
 
-      return toManifestBundleResponse({
-        event: bundle.event,
-        manifest: bundle.manifest,
-        manifestHash: bundle.manifestHash,
-        state: bundle.state,
-      });
+      context.verificationMarkers.seed(bundle);
+      return toManifestBundleResponse(bundle);
     },
   );
 }

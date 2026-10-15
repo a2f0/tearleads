@@ -33,7 +33,7 @@ import { lockDocumentLinkSetMutationHeads } from "./linkSetMutationLocks";
 import {
   assertDocumentCanRelink,
   assertDocumentLinkSetCanAdvance,
-  replaceDocumentContainerLinks,
+  recordDocumentLinkSetChange,
 } from "./shared/documentRows";
 import {
   documentManifestBundleRecord,
@@ -136,11 +136,12 @@ async function advanceDocumentLinkSet(input: {
       executor: input.executor,
     });
   }
-  await replaceDocumentContainerLinks({
+  await recordDocumentLinkSetChange({
     documentId: input.documentId,
     executor: input.executor,
     incrementAttributionRevision: input.eventType === "document.unlink",
     linkedContainerIds: input.manifest.state.linkedContainerIds,
+    previousLinkedContainerIds: input.previousManifest.state.linkedContainerIds,
   });
   return storeDocumentContentKeyBundleInTransaction(
     toStoredContentKeyBundleInput(

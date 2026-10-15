@@ -4,4 +4,4 @@ export {
   storeVerifiedAccessManifest,
   storeVerifiedAccessManifestInTransaction,
 } from "../shared/internal/accessManifestStore";
-export { upsertAccessManifestVerificationMacs } from "../shared/internal/accessManifestVerificationStore";
+export { updateAccessManifestVerificationMacs } from "../shared/internal/accessManifestVerificationStore";

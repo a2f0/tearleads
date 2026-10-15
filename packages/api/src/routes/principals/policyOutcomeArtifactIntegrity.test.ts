@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  principalContainerGrantProjection,
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
@@ -46,6 +45,11 @@ test.each(["signature", "payload", "projection", "grants"] as const)(
       stateHash,
     };
     const injectedId = crypto.randomUUID();
+    const [stored] = await db
+      .select({ containerGrants: principalStates.containerGrants })
+      .from(principalStates)
+      .where(eq(principalStates.stateHash, stateHash));
+    if (!stored) throw new Error("Missing stored principal state");
     try {
       if (artifact === "signature")
         await db
@@ -65,12 +69,15 @@ test.each(["signature", "payload", "projection", "grants"] as const)(
           role: "member",
         });
       if (artifact === "grants")
-        await db.insert(principalContainerGrantProjection).values({
-          ...scope,
-          id: injectedId,
-          containerId: crypto.randomUUID(),
-          accessLevel: "read",
-        });
+        await db
+          .update(principalStates)
+          .set({
+            containerGrants: [
+              ...stored.containerGrants,
+              { accessLevel: "read", containerId: crypto.randomUUID() },
+            ],
+          })
+          .where(eq(principalStates.stateHash, stateHash));
       const replay = await requestPreparedPrincipalPolicy(
         original.path,
         original.init,
@@ -90,8 +97,9 @@ test.each(["signature", "payload", "projection", "grants"] as const)(
         .delete(principalMembershipProjection)
         .where(eq(principalMembershipProjection.id, injectedId));
       await db
-        .delete(principalContainerGrantProjection)
-        .where(eq(principalContainerGrantProjection.id, injectedId));
+        .update(principalStates)
+        .set({ containerGrants: stored.containerGrants })
+        .where(eq(principalStates.stateHash, stateHash));
     }
     const restored = await requestPreparedPrincipalPolicy(
       original.path,

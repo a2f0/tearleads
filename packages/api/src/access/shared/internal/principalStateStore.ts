@@ -17,8 +17,8 @@ import {
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { firstPerKey, uniqueSortedStrings } from "../../../utils/array";
 import {
+  ensureStoredPrincipalContainerGrantsMatch,
   listContainerGrantsForState,
-  storePrincipalContainerGrantsForState,
 } from "./principalContainerGrantStore";
 import { storePrincipalEpochKeyForState } from "./principalEpochKeyStore";
 import { listProjectionMembersForState } from "./principalProjectionStore";
@@ -331,6 +331,7 @@ async function insertPrincipalStateRow(
       payloadCiphertextHash: input.normalizedInput.state.payloadCiphertextHash,
       memberCount: input.normalizedInput.state.memberCount,
       grantCount: input.normalizedInput.state.grantCount,
+      containerGrants: input.normalizedInput.grants,
       externalAuthority: input.normalizedInput.state.externalAuthority,
       stateHash: input.stateHash,
       signedAt: new Date(input.normalizedInput.state.signedAt),
@@ -542,7 +543,7 @@ export async function storeVerifiedPrincipalStateInTransaction(
   await ensureStoredPrincipalPayloadMatches(writeContext);
   await insertPrincipalProjectionRows(writeContext);
   await ensureStoredPrincipalProjectionMatches(writeContext);
-  await storePrincipalContainerGrantsForState(writeContext);
+  await ensureStoredPrincipalContainerGrantsMatch(writeContext);
   await storePrincipalEpochKeyForState(writeContext);
 
   return storedState;

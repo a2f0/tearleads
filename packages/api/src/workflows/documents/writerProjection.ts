@@ -484,11 +484,12 @@ async function resolveDocumentWriterProjection(input: {
   readonly executor: DatabaseSession;
   readonly userId: string;
 }): Promise<DocumentWriterProjectionResponse> {
+  const { containerProjectionContext } = input;
   const documentManifest = await loadCurrentDocumentManifestBundle(
     input.executor,
     input.documentId,
+    containerProjectionContext.verificationMarkers,
   );
-  const { containerProjectionContext } = input;
   let documentState: DocumentLinkSetManifestState;
   try {
     documentState = (
