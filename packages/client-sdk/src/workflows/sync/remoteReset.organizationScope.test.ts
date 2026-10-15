@@ -3,7 +3,6 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import {
   clientSqlTables,
-  containerSyncLaneChecks,
   containerSyncWatermarks,
   containers,
   documentHistoryCheckpoints,
@@ -236,6 +235,7 @@ test("remote reset clears the global root feed and only the purged organization'
     ] as const;
     await db.insert(containerSyncWatermarks).values(
       cursors.map(([laneKind, laneId]) => ({
+        checkedAt: STALE,
         laneKind,
         laneId,
         watermarkUpdatedAt: STALE,
@@ -243,30 +243,18 @@ test("remote reset clears the global root feed and only the purged organization'
         updatedAt: STALE,
       })),
     );
-    await db.insert(containerSyncLaneChecks).values(
-      cursors.map(([laneKind, laneId]) => ({
-        laneKind,
-        laneId,
-        checkedAt: STALE,
-      })),
-    );
 
     const result = await clearRemoteSyncState(execSql, {
       organizationId: "org-old",
     });
 
-    expect(result.clearedSyncCursorCount).toBe(6);
-    const expectedRetainedLaneIds = ["keep-root", "parent:keep-root"];
+    // One row per lane holds the cursor and its freshness marker.
+    expect(result.clearedSyncCursorCount).toBe(3);
     expect(
       (await db.select().from(containerSyncWatermarks))
         .map((row) => row.laneId)
         .sort(),
-    ).toEqual(expectedRetainedLaneIds);
-    expect(
-      (await db.select().from(containerSyncLaneChecks))
-        .map((row) => row.laneId)
-        .sort(),
-    ).toEqual(expectedRetainedLaneIds);
+    ).toEqual(["keep-root", "parent:keep-root"]);
   } finally {
     close();
   }

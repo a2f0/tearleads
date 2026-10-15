@@ -241,12 +241,17 @@ assembled length and SHA-256, and promotes only that verified, unexpired stage.
 
 Read/list routes use the same signed manifest state:
 
-- `GET /containers`
+- `POST /containers/parent-lanes/query`
   - lists containers reachable from manifest direct grants and managed-principal
-    projections
-- `GET /containers/:containerId/documents`
-  - requires read access to the container manifest path
-  - lists documents whose current link-set manifest projects into that container
+    projections, one bounded page per requested parent lane
+- `POST /containers/documents/query`
+  - lists up to 32 container lanes per request, each with its own watermark
+    and page limit (500 rows in total)
+  - each lane requires read access to its container manifest path and lists
+    documents whose current link-set manifest projects into that container
+  - a lane that fails its access check, or whose documents cite a linked
+    container in conflict, reports that failure alone; the other lanes still
+    list. Only the lane container's own absence carries `container_not_found`
 - `GET /documents/:documentId/attachments`
   - requires read access through at least one linked container path
 - `GET /blobs/:blobId`

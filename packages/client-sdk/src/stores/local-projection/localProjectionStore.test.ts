@@ -24,7 +24,7 @@ function createThrowingApiClient(): ReturnType<typeof createMockApiClient> {
     listContainerParentLanes: async () => {
       throw new Error("network is forbidden in device-first read tests");
     },
-    listContainerDocuments: async () => {
+    listContainerDocumentLanes: async () => {
       throw new Error("network is forbidden in device-first read tests");
     },
   });

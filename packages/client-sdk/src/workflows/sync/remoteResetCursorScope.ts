@@ -1,8 +1,5 @@
 import { and, eq, inArray, or } from "drizzle-orm";
-import {
-  containerSyncLaneChecks,
-  containerSyncWatermarks,
-} from "../../data/sqlite/schema";
+import { containerSyncWatermarks } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { remoteResetBatches } from "./remoteResetBatches";
 
@@ -37,43 +34,35 @@ export async function clearRemoteResetSyncCursors(input: {
   containerIds: readonly string[];
   tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
-  for (const table of [
-    containerSyncWatermarks,
-    containerSyncLaneChecks,
-  ] as const) {
-    await input.tx
-      .delete(table)
-      .where(
-        and(
-          eq(table.laneKind, CONTAINER_PARENT_LANE),
-          eq(table.laneId, ROOT_LANE_ID),
-        ),
-      )
-      .run();
-  }
+  // One row per lane holds both the cursor and its freshness marker.
+  const table = containerSyncWatermarks;
+  await input.tx
+    .delete(table)
+    .where(
+      and(
+        eq(table.laneKind, CONTAINER_PARENT_LANE),
+        eq(table.laneId, ROOT_LANE_ID),
+      ),
+    )
+    .run();
   for (const containerBatch of remoteResetBatches(input.containerIds)) {
     const parentLaneIds = containerBatch.map(
       (containerId) => `${PARENT_LANE_PREFIX}${containerId}`,
     );
-    for (const table of [
-      containerSyncWatermarks,
-      containerSyncLaneChecks,
-    ] as const) {
-      await input.tx
-        .delete(table)
-        .where(
-          or(
-            and(
-              eq(table.laneKind, CONTAINER_PARENT_LANE),
-              inArray(table.laneId, parentLaneIds),
-            ),
-            and(
-              eq(table.laneKind, CONTAINER_DOCUMENTS_LANE),
-              inArray(table.laneId, containerBatch),
-            ),
+    await input.tx
+      .delete(table)
+      .where(
+        or(
+          and(
+            eq(table.laneKind, CONTAINER_PARENT_LANE),
+            inArray(table.laneId, parentLaneIds),
           ),
-        )
-        .run();
-    }
+          and(
+            eq(table.laneKind, CONTAINER_DOCUMENTS_LANE),
+            inArray(table.laneId, containerBatch),
+          ),
+        ),
+      )
+      .run();
   }
 }

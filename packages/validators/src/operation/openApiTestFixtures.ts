@@ -322,12 +322,31 @@ export function createContainerKekLogKeyring(containerKeyEpochId: string) {
   };
 }
 
-export function createListContainerDocumentsResponse() {
+export function createListContainerDocumentLanesRequest() {
   return {
-    hasMore: false,
-    items: [],
-    nextWatermark: null,
-    tombstones: [],
+    lanes: [
+      {
+        containerId: "6f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+        laneId: "container-documents-0",
+        watermark: null,
+      },
+    ],
+  };
+}
+
+export function createListContainerDocumentLanesResponse() {
+  return {
+    results: [
+      {
+        laneId: "container-documents-0",
+        page: {
+          hasMore: false,
+          items: [],
+          nextWatermark: null,
+          tombstones: [],
+        },
+      },
+    ],
   };
 }
 

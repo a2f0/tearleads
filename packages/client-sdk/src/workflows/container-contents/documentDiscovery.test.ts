@@ -17,6 +17,8 @@ import {
 } from "./documentDiscovery";
 import {
   createDiscoveryParentLaneBatchMock,
+  laneApi,
+  laneLister,
   nullContainerDocumentWatermarks,
   trustedContainerDocumentTombstones,
 } from "./documentDiscovery.testUtils";
@@ -94,7 +96,7 @@ test("document discovery loads shared container notes", async () => {
       cachedPrincipalReferences.push(references);
     },
     containerId: "shared-container",
-    listContainerDocuments: async () =>
+    listContainerDocumentLanes: laneLister(async () =>
       listContainerDocumentsResponse([
         {
           createdAt: "2026-04-06T12:00:00.000Z",
@@ -115,6 +117,7 @@ test("document discovery loads shared container notes", async () => {
           updatedAt: "2026-04-06T12:00:00.000Z",
         },
       ]),
+    ),
     replaceDocumentLinksBatch: async (inputs) => {
       replaceDocumentLinksBatchCalls.push(inputs);
     },
@@ -194,7 +197,7 @@ test("container document discovery resumes from stored watermark and advances af
       id: "old-document",
       updatedAt: "2026-04-06T11:00:00.000Z",
     }),
-    listContainerDocuments: async (containerId, options) => {
+    listContainerDocumentLanes: laneLister(async (containerId, options) => {
       listContainerDocumentsCalls.push({
         containerId,
         watermark: options?.watermark,
@@ -210,7 +213,7 @@ test("container document discovery resumes from stored watermark and advances af
           updatedAt: "2026-04-06T12:00:00.000Z",
         },
       ]);
-    },
+    }),
     replaceDocumentLinksBatch: async () => {
       applyOrder.push("replace-links");
     },
@@ -273,13 +276,13 @@ test("container document discovery API facade lists documents through the api cl
   await discoverContainerDocumentsFromApi({
     ...nullContainerDocumentWatermarks,
     apiClient: {
-      listContainerDocuments: async (containerId, options) => {
+      ...laneApi(async (containerId, options) => {
         listContainerDocumentsCalls.push({
           containerId,
           watermark: options?.watermark,
         });
         return listContainerDocumentsResponse([]);
-      },
+      }),
     },
     containerId: "shared-container",
     loadContainerDocumentWatermark: async () => ({
@@ -310,7 +313,7 @@ test("container document discovery does not advance watermark when local apply f
       applyContainerDocumentTombstones: async () => [],
       containerId: "shared-container",
       loadContainerDocumentWatermark: async () => null,
-      listContainerDocuments: async () =>
+      listContainerDocumentLanes: laneLister(async () =>
         listContainerDocumentsResponse([
           {
             createdAt: "2026-04-06T12:00:00.000Z",
@@ -321,6 +324,7 @@ test("container document discovery does not advance watermark when local apply f
             updatedAt: "2026-04-06T12:00:00.000Z",
           },
         ]),
+      ),
       replaceDocumentLinksBatch: async () => {},
       saveContainerDocumentWatermark: async (_containerId, watermark) => {
         saveContainerDocumentWatermarkCalls.push(watermark);
@@ -364,7 +368,7 @@ test("container document discovery applies tombstones before advancing watermark
     },
     containerId: "shared-container",
     loadContainerDocumentWatermark: async () => null,
-    listContainerDocuments: async () =>
+    listContainerDocumentLanes: laneLister(async () =>
       listContainerDocumentsResponse([], {
         nextWatermark: {
           id: "deleted-document",
@@ -378,6 +382,7 @@ test("container document discovery applies tombstones before advancing watermark
           },
         ],
       }),
+    ),
     replaceDocumentLinksBatch: async () => {
       applyOrder.push("replace-links");
     },
@@ -431,7 +436,7 @@ test("container document discovery does not advance watermark when tombstone app
       },
       containerId: "shared-container",
       loadContainerDocumentWatermark: async () => null,
-      listContainerDocuments: async () =>
+      listContainerDocumentLanes: laneLister(async () =>
         listContainerDocumentsResponse([], {
           nextWatermark: {
             id: "deleted-document",
@@ -445,6 +450,7 @@ test("container document discovery does not advance watermark when tombstone app
             },
           ],
         }),
+      ),
       replaceDocumentLinksBatch: async () => {},
       saveContainerDocumentWatermark: async (_containerId, watermark) => {
         saveContainerDocumentWatermarkCalls.push(watermark);
@@ -473,7 +479,7 @@ test("manual refresh can discover documents across all visible containers", asyn
       cachedPrincipalReferences.push(references);
     },
     containerIds: ["container-a", "container-b", "container-a"],
-    listContainerDocuments: async (containerId) => {
+    listContainerDocumentLanes: laneLister(async (containerId) => {
       listContainerDocumentsCalls.push(containerId);
       if (containerId === "container-a") {
         return listContainerDocumentsResponse([
@@ -518,7 +524,7 @@ test("manual refresh can discover documents across all visible containers", asyn
           updatedAt: "2026-04-06T12:05:00.000Z",
         },
       ]);
-    },
+    }),
     replaceDocumentLinksBatch: async (inputs) => {
       applyOrder.push("replace-links");
       replaceDocumentLinksBatchCalls.push(inputs);
@@ -636,7 +642,7 @@ test("manual refresh deduplicates principal references and document inputs", asy
       cachedPrincipalReferences.push(references);
     },
     containerIds: ["container-a", "container-b"],
-    listContainerDocuments: async (containerId) =>
+    listContainerDocumentLanes: laneLister(async (containerId) =>
       listContainerDocumentsResponse([
         {
           createdAt: "2026-04-06T12:00:00.000Z",
@@ -648,6 +654,7 @@ test("manual refresh deduplicates principal references and document inputs", asy
           updatedAt: "2026-04-06T12:00:00.000Z",
         },
       ]),
+    ),
     replaceDocumentLinksBatch: async (inputs) => {
       replaceDocumentLinksBatchCalls.push(inputs);
     },
@@ -691,10 +698,10 @@ test("manual refresh ignores empty container ids", async () => {
   await discoverAllContainerDocuments({
     ...nullContainerDocumentWatermarks,
     containerIds: ["", "container-a", "container-a"],
-    listContainerDocuments: async (containerId) => {
+    listContainerDocumentLanes: laneLister(async (containerId) => {
       listContainerDocumentsCalls.push(containerId);
       return listContainerDocumentsResponse([]);
-    },
+    }),
     replaceDocumentLinksBatch: async (inputs) => {
       replaceDocumentLinksBatchCalls.push(inputs);
     },
@@ -819,7 +826,7 @@ test("manual refresh API facade discovers documents for every remote container",
   const discovered = await refreshAllContainerDocumentsFromApi({
     ...nullContainerDocumentWatermarks,
     apiClient: {
-      listContainerDocuments: async (containerId) => {
+      ...laneApi(async (containerId) => {
         listContainerDocumentsCalls.push(containerId);
         return listContainerDocumentsResponse([
           {
@@ -831,7 +838,7 @@ test("manual refresh API facade discovers documents for every remote container",
             updatedAt: "2026-05-01T12:30:00.000Z",
           },
         ]);
-      },
+      }),
       listContainerParentLanes: createDiscoveryParentLaneBatchMock(
         async (options) => {
           parentLaneCalls.push(options);
@@ -889,10 +896,10 @@ test("manual refresh API facade stops when remote container listing is unavailab
   const discovered = await refreshAllContainerDocumentsFromApi({
     ...nullContainerDocumentWatermarks,
     apiClient: {
-      listContainerDocuments: async () => {
+      ...laneApi(async () => {
         listContainerDocumentsCallCount += 1;
         return listContainerDocumentsResponse([]);
-      },
+      }),
       listContainerParentLanes: async () => null,
     },
     replaceDocumentLinksBatch: async () => {},
@@ -917,38 +924,23 @@ test("manual refresh container listing stops on unavailable pages", async () => 
   ).resolves.toBeNull();
 });
 
-test("manual refresh limits concurrent container document lane fetches", async () => {
+test("manual refresh lists every container document lane in one request", async () => {
   const containerIds = Array.from(
     { length: 9 },
     (_, index) => `container-${index}`,
   );
-  const listContainerDocumentsCalls: string[] = [];
-  let activeListContainerDocumentsCalls = 0;
-  let maxActiveListContainerDocumentsCalls = 0;
+  const requests: Array<ReadonlyArray<string>> = [];
 
   await discoverAllContainerDocuments({
     ...nullContainerDocumentWatermarks,
     containerIds,
-    listContainerDocuments: async (containerId) => {
-      listContainerDocumentsCalls.push(containerId);
-      activeListContainerDocumentsCalls += 1;
-      maxActiveListContainerDocumentsCalls = Math.max(
-        maxActiveListContainerDocumentsCalls,
-        activeListContainerDocumentsCalls,
-      );
-
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 5));
-        return listContainerDocumentsResponse([]);
-      } finally {
-        activeListContainerDocumentsCalls -= 1;
-      }
+    listContainerDocumentLanes: async (lanes) => {
+      requests.push(lanes.map((lane) => lane.containerId));
+      return lanes.map(() => listContainerDocumentsResponse([]));
     },
     replaceDocumentLinksBatch: async () => {},
     upsertDiscoveredDocuments: async () => [],
   });
 
-  expect(new Set(listContainerDocumentsCalls)).toEqual(new Set(containerIds));
-  expect(maxActiveListContainerDocumentsCalls).toBeGreaterThan(1);
-  expect(maxActiveListContainerDocumentsCalls).toBeLessThanOrEqual(4);
+  expect(requests).toEqual([containerIds]);
 });

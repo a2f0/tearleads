@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import { createInitialDocumentProbe } from "./initialDocumentProbe";
-import { reconcileMarkedContainer } from "./knownContainerSweep";
+import { reconcileMarkedContainers } from "./knownContainerSweep";
 import { createReconcileQueue } from "./queue";
 import { createReconciliationService } from "./service";
 import {
   createGate,
   createReconciliationTestHost,
+  perContainerDiscovery,
 } from "./service.testFixtures";
 
 for (const stop of [false, true]) {
@@ -17,11 +18,13 @@ for (const stop of [false, true]) {
     const secondApply = createGate();
     const service = createReconciliationService(
       createReconciliationTestHost({
-        discoverContainerDocuments: async (_id, _onFull, onPending) => {
-          calls++;
-          if (calls === 1) onPending?.(50);
-          return [];
-        },
+        discoverContainerDocuments: perContainerDiscovery(
+          async (_id, _onFull, onPending) => {
+            calls++;
+            if (calls === 1) onPending?.(50);
+            return [];
+          },
+        ),
         requestDocumentContentPull: (_id, _docs, force) => {
           forces.push(force ?? false);
         },
@@ -52,10 +55,12 @@ for (const stop of [false, true]) {
 test("a pending discovery for the open container retries ahead of idle work", async () => {
   const scheduled = createGate();
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async (_id, _onFull, onPending) => {
-      onPending?.(0);
-      return [];
-    },
+    discoverContainerDocuments: perContainerDiscovery(
+      async (_id, _onFull, onPending) => {
+        onPending?.(0);
+        return [];
+      },
+    ),
   });
   const queue = createReconcileQueue();
   queue.enqueue("background", "idle");
@@ -72,7 +77,11 @@ test("a pending discovery for the open container retries ahead of idle work", as
     lifecycleGeneration: 0,
     lane: { requestSync: scheduled.open, requestSyncAfter: () => {} },
   };
-  expect(await reconcileMarkedContainer(host, state, "open", false)).toBe(true);
+  expect(
+    await reconcileMarkedContainers(host, state, [
+      { containerId: "open", forceDocumentContentPull: false },
+    ]),
+  ).toEqual([{ containerId: "open", status: "reconciled" }]);
   expect(state.discoveredContainerIds.has("open")).toBe(true);
   await scheduled.wait;
   expect(queue.dequeue()).toBe("open");

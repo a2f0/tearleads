@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { discoverContainerDocuments } from "./documentDiscovery";
-import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
+import {
+  laneLister,
+  nullContainerDocumentWatermarks,
+} from "./documentDiscovery.testUtils";
 import type { ListContainerDocumentsResponse } from "./documentDiscoveryTypes";
 
 const watermark = { id: "doc-a", updatedAt: "2026-01-01T00:00:00.000Z" };
@@ -39,7 +42,7 @@ for (const scenario of [
       containerId: "container",
       loadContainerDocumentWatermark: async () =>
         scenario === "incremental" ? watermark : null,
-      listContainerDocuments: async () => {
+      listContainerDocumentLanes: laneLister(async () => {
         pageCount += 1;
         if (pageCount === 1) {
           return {
@@ -49,7 +52,7 @@ for (const scenario of [
           };
         }
         return scenario === "partial" ? null : page("doc-b");
-      },
+      }),
       replaceDocumentLinksBatch: async () => {},
       // Local summaries are intentionally empty: only the raw complete listing
       // can prove presence, never a filtered projection or a tombstone summary.
@@ -82,12 +85,12 @@ test("an empty full listing is usable absence evidence", async () => {
   await discoverContainerDocuments({
     ...nullContainerDocumentWatermarks,
     containerId: "container",
-    listContainerDocuments: async () => ({
+    listContainerDocumentLanes: laneLister(async () => ({
       hasMore: false,
       items: [],
       nextWatermark: null,
       tombstones: [],
-    }),
+    })),
     replaceDocumentLinksBatch: async () => {},
     upsertDiscoveredDocuments: async () => [],
     onFullListing: (ids) => {

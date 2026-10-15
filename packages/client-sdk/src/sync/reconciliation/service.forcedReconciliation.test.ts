@@ -6,6 +6,7 @@ import {
   createGate,
   createReconciliationTestHost,
   forceKnownContainers,
+  perContainerDiscovery,
   silenceExpectedTransientDiscoveryError,
 } from "./service.testFixtures";
 
@@ -13,10 +14,10 @@ test("scoped forces retry each named settled container", async () => {
   const attempts: string[] = [];
   const contentPulls: boolean[] = [];
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async (containerId) => {
+    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
       attempts.push(containerId);
       return [];
-    },
+    }),
     listKnownContainerIds: () => ["c-1", "c-2"],
     requestDocumentContentPull: (_containerId, _documents, force) => {
       contentPulls.push(force);
@@ -45,14 +46,14 @@ test("scoped force retains force until a transient retry succeeds", async () => 
 
   try {
     const host = createReconciliationTestHost({
-      discoverContainerDocuments: async (containerId) => {
+      discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
         attempts.push(containerId);
         if (failNext) {
           failNext = false;
           throw new Error("transient discovery failure");
         }
         return [];
-      },
+      }),
       listKnownContainerIds: () => ["c-1"],
       requestDocumentContentPull: (_containerId, _documents, force) => {
         contentPulls.push(force);
@@ -86,13 +87,13 @@ test("permanent forced failure stops after one automatic retry", async () => {
 
   try {
     const host = createReconciliationTestHost({
-      discoverContainerDocuments: async () => {
+      discoverContainerDocuments: perContainerDiscovery(async () => {
         attempts += 1;
         if (shouldFail) {
           throw new Error("transient discovery failure");
         }
         return [];
-      },
+      }),
       listKnownContainerIds: () => ["c-1"],
       requestDocumentContentPull: (_containerId, _documents, force) => {
         contentPulls.push(force);
@@ -129,12 +130,12 @@ test("failure from a prior lifecycle cannot rearm after restart", async () => {
 
   try {
     const host = createReconciliationTestHost({
-      discoverContainerDocuments: async () => {
+      discoverContainerDocuments: perContainerDiscovery(async () => {
         attempts += 1;
         started.open();
         await finish.wait;
         throw new Error("transient discovery failure");
-      },
+      }),
       listKnownContainerIds: () => ["c-1"],
     });
     const service = createReconciliationService(host);
@@ -161,14 +162,14 @@ test("database loss mid-reconciliation preserves pending force", async () => {
   let databaseReady = true;
   let failNext = true;
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => {
+    discoverContainerDocuments: perContainerDiscovery(async () => {
       if (failNext) {
         failNext = false;
         databaseReady = false;
         throw new Error("database unavailable");
       }
       return [];
-    },
+    }),
     getRuntimeStatus: () => ({
       dbStatus: databaseReady ? "ready" : "unavailable",
       isAuthenticated: true,
@@ -198,10 +199,10 @@ test("a null production discovery result preserves pending force", async () => {
   let attempts = 0;
   let discoveryResult: ReadonlyArray<never> | null = null;
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => {
+    discoverContainerDocuments: perContainerDiscovery(async () => {
       attempts += 1;
       return discoveryResult;
-    },
+    }),
     listKnownContainerIds: () => ["c-1"],
     requestDocumentContentPull: (_containerId, _documents, force) => {
       contentPulls.push(force);
@@ -224,7 +225,7 @@ test("scoped invalidation leaves containers hydrated later unforced", async () =
   const attempts: Array<{ containerId: string; force: boolean }> = [];
   const knownContainerIds = ["c-1"];
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => [],
+    discoverContainerDocuments: perContainerDiscovery(async () => []),
     listKnownContainerIds: () => knownContainerIds,
     requestDocumentContentPull: (containerId, _documents, force) => {
       attempts.push({ containerId, force });
@@ -256,14 +257,14 @@ test("a newer force survives an older in-flight reconciliation", async () => {
   const contentPulls: boolean[] = [];
   let attemptCount = 0;
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => {
+    discoverContainerDocuments: perContainerDiscovery(async () => {
       attemptCount += 1;
       if (attemptCount === 1) {
         firstStarted.open();
         await finishFirst.wait;
       }
       return [];
-    },
+    }),
     requestDocumentContentPull: (_containerId, _documents, force) => {
       contentPulls.push(force);
     },
@@ -286,14 +287,14 @@ test("an old lane completion cannot consume a post-refresh force", async () => {
   const contentPulls: boolean[] = [];
   let attemptCount = 0;
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => {
+    discoverContainerDocuments: perContainerDiscovery(async () => {
       attemptCount += 1;
       if (attemptCount === 1) {
         firstStarted.open();
         await finishFirst.wait;
       }
       return [];
-    },
+    }),
     listKnownContainerIds: () => ["c-1"],
     requestDocumentContentPull: (_containerId, _documents, force) => {
       contentPulls.push(force);
@@ -350,14 +351,14 @@ test("full refresh failure automatically retries a pending force", async () => {
   let failNext = true;
   let online = false;
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async () => {
+    discoverContainerDocuments: perContainerDiscovery(async () => {
       attempts += 1;
       if (failNext) {
         failNext = false;
         throw new Error("transient refresh failure");
       }
       return [];
-    },
+    }),
     getRuntimeStatus: () => ({
       dbStatus: "ready",
       isAuthenticated: true,
@@ -393,7 +394,7 @@ test("full refresh defers forced retry until every container settles", async () 
   let failFirst = true;
   let online = false;
   const host = createReconciliationTestHost({
-    discoverContainerDocuments: async (containerId) => {
+    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
       attempts.push(containerId);
       if (containerId === "c-1" && failFirst) {
         failFirst = false;
@@ -404,7 +405,7 @@ test("full refresh defers forced retry until every container settles", async () 
         await finishSecond.wait;
       }
       return [];
-    },
+    }),
     getRuntimeStatus: () => ({
       dbStatus: "ready",
       isAuthenticated: true,

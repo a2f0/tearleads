@@ -5,7 +5,10 @@ import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
 } from "./documentDiscovery";
-import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
+import {
+  laneLister,
+  nullContainerDocumentWatermarks,
+} from "./documentDiscovery.testUtils";
 import { createDiscoveredDocumentVerifier } from "./documentDiscoveryEvidence";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
 
@@ -45,7 +48,7 @@ for (const scope of ["single", "all"] as const) {
         containerId: "destination",
         beginDocumentDiscovery: () => store.begin(),
         verifyDiscoveredDocuments: verify,
-        listContainerDocuments: async () => ({
+        listContainerDocumentLanes: laneLister(async () => ({
           hasMore: false,
           nextWatermark: { id: "doc", updatedAt: at },
           items: [],
@@ -54,7 +57,7 @@ for (const scope of ["single", "all"] as const) {
             documentId: "doc",
             updatedAt: at,
           })),
-        }),
+        })),
         listKnownContainerDocumentPlacements: async () => [],
         applyContainerDocumentTombstones: applyTombstones,
         upsertDiscoveredDocuments: async () => [],

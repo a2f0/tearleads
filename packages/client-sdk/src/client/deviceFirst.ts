@@ -36,7 +36,7 @@ import {
   createContainerContentsStoreWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import type { ContainerContents } from "./containerContents";
-import { discoverContainerDocumentsForRuntime } from "./containerDocumentDiscovery";
+import { discoverContainerDocumentLanesForRuntime } from "./containerDocumentDiscovery";
 import type { InternalRuntime } from "./workflowRuntime";
 
 export type { LocalProjectionView } from "../stores/local-projection";
@@ -292,15 +292,10 @@ class DeviceFirstService implements DeviceFirst {
       // retain every regular container. Exclude only this identity's own system
       // children; cold/auth backfill and explicit full Refresh cover those.
       listAutomaticRootCatchupContainerIds,
-      discoverContainerDocuments: (
-        containerId,
-        onFullListing,
-        onPendingDiscovery,
-      ) =>
-        discoverContainerDocumentsForRuntime({
-          containerId,
-          onFullListing,
-          onPendingDiscovery,
+      discoverContainerDocuments: (requests, onOutcome) =>
+        discoverContainerDocumentLanesForRuntime({
+          onOutcome,
+          requests,
           runtimeService,
         }),
       loadContainerDelta: (containerId) =>

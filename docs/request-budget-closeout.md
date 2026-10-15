@@ -6,7 +6,9 @@ It inspected `main` at `e06f90232` and the implementation below. This is a
 pre-deployment, greenfield system; retained endpoints are the chosen protocol,
 not compatibility fallbacks.
 
-The phase tables and ceilings below preserve this audit's historical snapshot.
+The phase tables and ceilings below preserve this audit's historical snapshot;
+their `GET /containers/:containerId/documents` rows predate its replacement by
+the batched `POST /containers/documents/query`.
 For current budgets after private paged recovery, use
 [current-policy request costs](developer/current-principal-consumers.md#request-costs)
 and [principal-history acceptance](principal-history-acceptance.md).
@@ -20,7 +22,7 @@ and [principal-history acceptance](principal-history-acceptance.md).
 | Workflow budgets and bootstrap | [#2191](https://github.com/a2f0/tearleads/pull/2191) reduced personal bootstrap 30 → 25 by reusing completed full listings, added operation budgets, and repaired moves stranded by valid historical key rewrapping. [#2202](https://github.com/a2f0/tearleads/pull/2202) hardened local/offline progress and recovery. See [workflow measurements](workflow-request-audit.md) and [Device First audit](device-first-audit.md). |
 | A0: fallback correctness | Generation-aware forced reconciliation, failed/in-flight discovery, nested parent-lane cleanup, and initial recovery are implemented and tested. This closeout adds the explicit temporary-404 regression and fixes fractional timestamp pagination. |
 | A1–A3: durable deltas and poll removal | **Will not fix in this initiative.** Replay authorization, atomic event durability, retention, acknowledgements and ordered local application constitute a separate distributed protocol. Existing volatile hints do not justify removing authoritative reconciliation. |
-| B: batched document probes | **Will not fix.** Ordinary unopened documents are already lazy. Pull-only eligibility is measured, but HTTP count alone does not establish less database/crypto work. Keep bounded singular sync, independent authorization, structural ordering and 409/retry behavior. |
+| B: batched document probes | **Will not fix** for document sync. Ordinary unopened documents are already lazy. Pull-only eligibility is measured, but HTTP count alone does not establish less database/crypto work. Keep bounded singular sync, independent authorization, structural ordering and 409/retry behavior. Document *listing* is batched instead (#2522 item 10): `POST /containers/documents/query` lists up to 32 container lanes per request, each through the unchanged singular listing with its own readable-container gate, access resolver, watermark and page bound. It claims fewer requests only; per-lane statements are unchanged. |
 | C: inline writer projections | **Will not fix.** List rows and access resolution currently do not share a transaction snapshot. Inlining would require new snapshot, response-size, verification and cache-race rules and duplicate signed paths. Existing independently verified projection reads remain; byte profiles show why this is not automatically a bandwidth win. |
 | Rollout shims and old percentage targets | **Will not fix.** No legacy clients or production rollout need supporting. The old 104-request profile and A/B/C percentage goals are superseded by current operation budgets. |
 

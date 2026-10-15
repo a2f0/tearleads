@@ -12,9 +12,14 @@ import { toFingerprint } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import {
+  listContainerDocumentLane,
+  listContainerDocumentPage,
+  readContainerDocumentLaneResults,
+  requestContainerDocumentLanes,
+} from "../../../test/helpers/containerDocumentLaneQuery";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { registerUser } from "../../../test/helpers/registerUser";
-import { routeApp } from "../../routeApp";
 
 async function getContainerOrganizationId(containerId: string) {
   const [container] = await db
@@ -27,34 +32,7 @@ async function getContainerOrganizationId(containerId: string) {
   return container.organizationId;
 }
 
-async function listContainerDocumentsForUser(input: {
-  readonly containerId: string;
-  readonly limit?: number;
-  readonly token: string;
-  readonly watermark?: { id: string; updatedAt: string } | null;
-}) {
-  const searchParams = new URLSearchParams();
-  if (input.limit !== undefined) {
-    searchParams.set("limit", String(input.limit));
-  }
-  if (input.watermark) {
-    searchParams.set("watermarkUpdatedAt", input.watermark.updatedAt);
-    searchParams.set("watermarkId", input.watermark.id);
-  }
-
-  const query = searchParams.toString();
-  return routeApp.request(
-    `/containers/${input.containerId}/documents${query ? `?${query}` : ""}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${input.token}`,
-      },
-    },
-  );
-}
-
-test("GET /containers/:containerId/documents lists current manifest-linked documents", async () => {
+test("POST /containers/documents/query lists current manifest-linked documents", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -67,18 +45,11 @@ test("GET /containers/:containerId/documents lists current manifest-linked docum
     organizationId: await getContainerOrganizationId(owner.rootContainerId),
   });
 
-  const response = await routeApp.request(
-    `/containers/${owner.rootContainerId}/documents`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
-    },
-  );
-
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({
+  expect(
+    await listContainerDocumentPage(owner.token, {
+      containerId: owner.rootContainerId,
+    }),
+  ).toEqual({
     hasMore: false,
     items: [
       expect.objectContaining({
@@ -96,7 +67,7 @@ test("GET /containers/:containerId/documents lists current manifest-linked docum
   });
 });
 
-test("GET /containers/:containerId/documents hides roster profile documents", async () => {
+test("POST /containers/documents/query hides roster profile documents", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -114,13 +85,11 @@ test("GET /containers/:containerId/documents hides roster profile documents", as
     .set({ profileDocumentId: profileDocument.id })
     .where(eq(organizationRosterEntries.userId, owner.userId));
 
-  const response = await listContainerDocumentsForUser({
-    containerId: owner.rootContainerId,
-    token: owner.token,
-  });
-
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({
+  expect(
+    await listContainerDocumentPage(owner.token, {
+      containerId: owner.rootContainerId,
+    }),
+  ).toEqual({
     hasMore: false,
     items: [],
     nextWatermark: null,
@@ -128,7 +97,7 @@ test("GET /containers/:containerId/documents hides roster profile documents", as
   });
 });
 
-test("GET /containers/:containerId/documents serves the organization profile document", async () => {
+test("POST /containers/documents/query serves the organization profile document", async () => {
   // The org profile document is intentionally NOT hidden (unlike roster profile
   // and container metadata documents): it lives in a Members-granted metadata
   // container and must reach active members so they can decrypt the org display
@@ -156,19 +125,13 @@ test("GET /containers/:containerId/documents serves the organization profile doc
       ),
     );
 
-  const response = await listContainerDocumentsForUser({
+  const page = await listContainerDocumentPage(owner.token, {
     containerId: owner.rootContainerId,
-    token: owner.token,
   });
-
-  expect(response.status).toBe(200);
-  const body = await response.json();
-  expect(body.items.map((item: { id: string }) => item.id)).toContain(
-    profileDocument.id,
-  );
+  expect(page.items.map((item) => item.id)).toContain(profileDocument.id);
 });
 
-test("GET /containers/:containerId/documents rejects users without manifest access", async () => {
+test("POST /containers/documents/query rejects users without manifest access", async () => {
   const owner = createTestUser();
   const otherUser = createTestUser();
 
@@ -177,21 +140,17 @@ test("GET /containers/:containerId/documents rejects users without manifest acce
   await registerUser(otherUser);
   await authenticate(otherUser);
 
-  const response = await routeApp.request(
-    `/containers/${owner.rootContainerId}/documents`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${otherUser.token}`,
-      },
-    },
-  );
-
-  expect(response.status).toBe(403);
-  expect(await response.json()).toEqual({ error: "Forbidden" });
+  expect(
+    await listContainerDocumentLane(otherUser.token, {
+      containerId: owner.rootContainerId,
+    }),
+  ).toEqual({
+    failure: { error: "Forbidden", status: 403 },
+    laneId: "lane-0",
+  });
 });
 
-test("GET /containers/:containerId/documents supports watermark resume", async () => {
+test("POST /containers/documents/query supports watermark resume", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -227,13 +186,10 @@ test("GET /containers/:containerId/documents supports watermark resume", async (
     .set({ updatedAt: newerUpdatedAt })
     .where(eq(documents.id, newerDocument.id));
 
-  const firstResponse = await listContainerDocumentsForUser({
+  const firstBody = await listContainerDocumentPage(owner.token, {
     containerId: owner.rootContainerId,
     limit: 1,
-    token: owner.token,
   });
-  expect(firstResponse.status).toBe(200);
-  const firstBody = await firstResponse.json();
   expect(firstBody).toEqual({
     hasMore: true,
     items: [
@@ -249,13 +205,12 @@ test("GET /containers/:containerId/documents supports watermark resume", async (
     tombstones: [],
   });
 
-  const secondResponse = await listContainerDocumentsForUser({
-    containerId: owner.rootContainerId,
-    token: owner.token,
-    watermark: firstBody.nextWatermark,
-  });
-  expect(secondResponse.status).toBe(200);
-  expect(await secondResponse.json()).toEqual({
+  expect(
+    await listContainerDocumentPage(owner.token, {
+      containerId: owner.rootContainerId,
+      watermark: firstBody.nextWatermark,
+    }),
+  ).toEqual({
     hasMore: false,
     items: [
       expect.objectContaining({
@@ -271,7 +226,7 @@ test("GET /containers/:containerId/documents supports watermark resume", async (
   });
 });
 
-test("GET /containers/:containerId/documents returns unlink tombstones by watermark order", async () => {
+test("POST /containers/documents/query returns unlink tombstones by watermark order", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
@@ -284,12 +239,11 @@ test("GET /containers/:containerId/documents returns unlink tombstones by waterm
     updatedAt: tombstoneUpdatedAt,
   });
 
-  const response = await listContainerDocumentsForUser({
-    containerId: owner.rootContainerId,
-    token: owner.token,
-  });
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({
+  expect(
+    await listContainerDocumentPage(owner.token, {
+      containerId: owner.rootContainerId,
+    }),
+  ).toEqual({
     hasMore: false,
     items: [],
     nextWatermark: {
@@ -306,21 +260,65 @@ test("GET /containers/:containerId/documents returns unlink tombstones by waterm
   });
 });
 
-test("GET /containers/:containerId/documents rejects malformed watermarks", async () => {
+test("POST /containers/documents/query rejects malformed watermarks", async () => {
   const owner = createTestUser();
   await registerUser(owner);
   await authenticate(owner);
 
-  const response = await routeApp.request(
-    `/containers/${owner.rootContainerId}/documents?watermarkUpdatedAt=not-a-date&watermarkId=${crypto.randomUUID()}`,
+  const response = await requestContainerDocumentLanes(owner.token, [
     {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-      },
+      containerId: owner.rootContainerId,
+      watermark: { id: crypto.randomUUID(), updatedAt: "not-a-date" },
     },
-  );
+  ]);
 
   expect(response.status).toBe(400);
-  expect(await response.json()).toEqual({ error: "Invalid watermark" });
+  expect(await response.json()).toEqual({ error: "Invalid request" });
+});
+
+test("POST /containers/documents/query isolates each lane's access decision", async () => {
+  const owner = createTestUser();
+  const otherUser = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  await registerUser(otherUser);
+  await authenticate(otherUser);
+  const ownDocument = await createCurrentDocumentProjection({
+    containerIds: [owner.rootContainerId],
+    createdByFingerprint: await toFingerprint(owner.signing.signingPublicKey),
+    epoch: 1,
+    manifestHash: `document-manifest:${crypto.randomUUID()}`,
+    organizationId: await getContainerOrganizationId(owner.rootContainerId),
+  });
+  const missingContainerId = crypto.randomUUID();
+
+  const results = await readContainerDocumentLaneResults(
+    await requestContainerDocumentLanes(owner.token, [
+      { containerId: otherUser.rootContainerId, laneId: "foreign" },
+      { containerId: missingContainerId, laneId: "missing" },
+      { containerId: owner.rootContainerId, laneId: "own" },
+    ]),
+  );
+
+  // Results keep request order; one rejected lane never hides the others.
+  expect(results.map((result) => result.laneId)).toEqual([
+    "foreign",
+    "missing",
+    "own",
+  ]);
+  expect(results[0]).toEqual({
+    failure: { error: "Forbidden", status: 403 },
+    laneId: "foreign",
+  });
+  expect(results[1]).toEqual({
+    failure: {
+      code: "container_not_found",
+      error: expect.any(String),
+      status: 404,
+    },
+    laneId: "missing",
+  });
+  const own = results[2];
+  invariant(own && "page" in own, "expected the readable lane to list");
+  expect(own.page.items.map((item) => item.id)).toEqual([ownDocument.id]);
 });

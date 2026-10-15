@@ -34,7 +34,7 @@ import {
 } from "./containerMutations";
 import {
   getContainerKekLogOperation,
-  listContainerDocumentsOperation,
+  listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
 } from "./containerReads";
 import { getContainerReplacementAuthorizationsOperation } from "./containerReplacement";
@@ -137,7 +137,7 @@ export const protocolOperations: readonly [
   typeof purgeDocumentOperation,
   typeof unlinkDocumentOperation,
   typeof getContainerKekLogOperation,
-  typeof listContainerDocumentsOperation,
+  typeof listContainerDocumentLanesOperation,
   typeof listContainerParentLanesOperation,
   typeof createContainerOperation,
   typeof createContainerWithMetadataDocumentOperation,
@@ -212,7 +212,7 @@ export const protocolOperations: readonly [
   purgeDocumentOperation,
   unlinkDocumentOperation,
   getContainerKekLogOperation,
-  listContainerDocumentsOperation,
+  listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
   createContainerOperation,
   createContainerWithMetadataDocumentOperation,

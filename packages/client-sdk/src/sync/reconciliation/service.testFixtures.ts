@@ -1,6 +1,43 @@
 import { expect } from "bun:test";
+import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { createDomainScope } from "../../data/domainScope";
-import type { ReconciliationHost, ReconciliationService } from "./serviceTypes";
+import type {
+  ContainerDiscoveryOutcome,
+  ContainerDiscoveryRequest,
+  ReconciliationHost,
+  ReconciliationService,
+} from "./serviceTypes";
+
+/** A per-container discovery mock; it may throw to reject its lane. */
+export type PerContainerDiscovery = (
+  containerId: string,
+  onFullListing?: ContainerDiscoveryRequest["onFullListing"],
+  onPendingDiscovery?: ContainerDiscoveryRequest["onPendingDiscovery"],
+) => Promise<ReadonlyArray<DocumentSummary> | null>;
+
+/** Serves each lane of a batched discovery from a per-container mock, in order. */
+export function perContainerDiscovery(
+  discover: PerContainerDiscovery,
+): ReconciliationHost["discoverContainerDocuments"] {
+  return async (requests, onOutcome) => {
+    const outcomes: ContainerDiscoveryOutcome[] = [];
+    for (const { containerId, onFullListing, onPendingDiscovery } of requests) {
+      let outcome: ContainerDiscoveryOutcome;
+      try {
+        outcome = {
+          containerId,
+          status: "fulfilled",
+          value: await discover(containerId, onFullListing, onPendingDiscovery),
+        };
+      } catch (reason) {
+        outcome = { containerId, reason, status: "rejected" };
+      }
+      outcomes.push(outcome);
+      await onOutcome(outcome);
+    }
+    return outcomes;
+  };
+}
 
 /** A fully no-op reconciliation host; tests override only what they observe. */
 export function createReconciliationTestHost(
@@ -9,7 +46,7 @@ export function createReconciliationTestHost(
   return {
     applyReconciled: () => undefined,
     canDiscoverContainerDocuments: () => true,
-    discoverContainerDocuments: async () => [],
+    discoverContainerDocuments: perContainerDiscovery(async () => []),
     domainScope: createDomainScope(),
     getRuntimeStatus: () => ({
       dbStatus: "ready",

@@ -52,18 +52,20 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        // Measured 37 calls: private metadata-root authority adds one directory
+        // Measured 34 calls: private metadata-root authority adds one directory
         // discovery read per operation. Provisioning primes the founding
         // policy heads, so their first recovery reads no group history.
+        // Batched discovery lists the four lanes queued at startup in one
+        // request and a later-surfaced lane in a second.
         // Login returns the first websocket ticket, so no ticket request.
-        total: 39,
+        total: 36,
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 8,
           "GET /principals/group/:groupId/policy": 0,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
           "GET /principals/history": 3,
-          "GET /containers/:containerId/documents": 5,
+          "POST /containers/documents/query": 2,
           "POST /documents/:documentId/sync": 8,
           "POST /containers/parent-lanes/query": 5,
           "GET /containers/:containerId/writer-projection": 4,
@@ -124,7 +126,7 @@ test(
       budget: {
         // Verify the new metadata root through private current policy evidence;
         // provisioning primed its founding heads, leaving one discovery read.
-        total: 9,
+        total: 6,
         byRequest: {
           "GET /principals/organization/:organizationId/policy": 1,
           "GET /principals/group/:groupId/policy": 0,
@@ -132,7 +134,8 @@ test(
           // head, so discovery needs no projection or public history for it.
           "GET /documents/:documentId/writer-projection": 0,
           "GET /principals/history": 0,
-          "GET /containers/:containerId/documents": 4,
+          // One batched listing covers every lane of the new organization.
+          "POST /containers/documents/query": 1,
           "GET /organizations/:organizationId/billing": 1,
           "GET /organizations/:organizationId/read-model": 1,
           "POST /documents/:documentId/sync": 1,

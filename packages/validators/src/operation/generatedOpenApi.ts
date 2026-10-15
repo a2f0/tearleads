@@ -337,22 +337,6 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
-    "/containers/{containerId}/documents": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["containers.documents.list"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/containers/{containerId}/kek-log": {
         parameters: {
             query?: never;
@@ -475,6 +459,22 @@ export type paths = {
         get: operations["containers.writerProjection.get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/containers/documents/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["containers.documentLanes.query"];
         delete?: never;
         options?: never;
         head?: never;
@@ -6826,167 +6826,6 @@ export interface operations {
             };
         };
     };
-    "containers.documents.list": {
-        parameters: {
-            query?: {
-                limit?: number;
-                watermarkId?: string;
-                watermarkUpdatedAt?: string;
-            };
-            header?: never;
-            path: {
-                containerId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful JSON response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        hasMore: boolean;
-                        items: ({
-                            createdAt: string;
-                            currentAccessEpoch: number;
-                            currentAccessStateHash: string;
-                            /** @enum {string} */
-                            effectiveAccessLevel: "admin" | "read" | "write";
-                            id: string;
-                            linkedContainerIds: string[];
-                            referencedPrincipals: ({
-                                keyEpoch: number;
-                                keyFingerprint: string;
-                                principalId: string;
-                                /** @enum {string} */
-                                principalType: "group" | "organization";
-                                stateHash: string;
-                                version: number;
-                            } & {
-                                [key: string]: unknown;
-                            })[];
-                            updatedAt: string;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
-                        nextWatermark: ({
-                            id: string;
-                            updatedAt: string;
-                        } & {
-                            [key: string]: unknown;
-                        }) | null;
-                        tombstones: ({
-                            containerId: string;
-                            documentId: string;
-                            updatedAt: string;
-                        } & {
-                            [key: string]: unknown;
-                        })[];
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        code?: "session_refresh_required";
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @constant */
-                        code: "container_not_found";
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description Failure JSON response */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        error: string;
-                    } & {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
     "containers.kekLog.get": {
         parameters: {
             query?: {
@@ -9510,6 +9349,148 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         code: "container_projection_state_invalid";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "containers.documentLanes.query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    lanes: {
+                        containerId: string;
+                        laneId: string;
+                        limit?: number;
+                        watermark: {
+                            id: string;
+                            updatedAt: string;
+                        } | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        results: ({
+                            laneId: string;
+                            page: {
+                                hasMore: boolean;
+                                items: ({
+                                    createdAt: string;
+                                    currentAccessEpoch: number;
+                                    currentAccessStateHash: string;
+                                    /** @enum {string} */
+                                    effectiveAccessLevel: "admin" | "read" | "write";
+                                    id: string;
+                                    linkedContainerIds: string[];
+                                    referencedPrincipals: ({
+                                        keyEpoch: number;
+                                        keyFingerprint: string;
+                                        principalId: string;
+                                        /** @enum {string} */
+                                        principalType: "group" | "organization";
+                                        stateHash: string;
+                                        version: number;
+                                    } & {
+                                        [key: string]: unknown;
+                                    })[];
+                                    updatedAt: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                                nextWatermark: ({
+                                    id: string;
+                                    updatedAt: string;
+                                } & {
+                                    [key: string]: unknown;
+                                }) | null;
+                                tombstones: ({
+                                    containerId: string;
+                                    documentId: string;
+                                    updatedAt: string;
+                                } & {
+                                    [key: string]: unknown;
+                                })[];
+                            } & {
+                                [key: string]: unknown;
+                            };
+                        } | {
+                            failure: {
+                                /** @constant */
+                                code?: "container_not_found";
+                                error: string;
+                                /** @enum {number} */
+                                status: 403 | 404 | 409;
+                            };
+                            laneId: string;
+                        })[];
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
                         error: string;
                     } & {
                         [key: string]: unknown;
