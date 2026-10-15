@@ -40,8 +40,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 964,
-      "bytes": 53122
+      "lines": 971,
+      "bytes": 53636
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -64,8 +64,8 @@
       "bytes": 2984719
     },
     "docs/protocol-specification.md": {
-      "lines": 674,
-      "bytes": 34852
+      "lines": 698,
+      "bytes": 36420
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -80,8 +80,8 @@
       "bytes": 24037
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1980,
-      "bytes": 62981
+      "lines": 1983,
+      "bytes": 63115
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -140,8 +140,8 @@
       "bytes": 40792
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2256,
-      "bytes": 73188
+      "lines": 2278,
+      "bytes": 73775
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 854,
@@ -312,8 +312,8 @@
       "bytes": 1110759
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 529,
-      "bytes": 18578
+      "lines": 539,
+      "bytes": 18965
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 587,
@@ -328,8 +328,8 @@
       "bytes": 30600
     },
     "formal/README.md": {
-      "lines": 356,
-      "bytes": 20065
+      "lines": 357,
+      "bytes": 20076
     }
   },
   "suppressions": {

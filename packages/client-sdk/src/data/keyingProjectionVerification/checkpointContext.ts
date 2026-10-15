@@ -5,9 +5,11 @@ import {
   type VerifiedContainerAccessManifest,
   type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
+import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { rememberVerifiedContainerHeads } from "../containers/shared/heldContainerHeads";
 import type { DocumentPurgeCheckpoint } from "../persistence/documentPurgeCheckpointPersistence";
 import { PrincipalAuthorizationCheckpointUnavailableError } from "../persistence/principalAuthorizationCheckpoints";
+import type { VerifiedManifestBundle } from "../persistence/verifiedManifestBundlePersistence";
 import type { PrincipalPolicyCheckpointEvidence } from "../principals/principalPolicyEvidence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import {
@@ -26,6 +28,8 @@ export interface ProjectionCheckpointContext {
   organizationId?: string | undefined;
   readonly policies: PrincipalPolicyCheckpointEvidence[];
   readonly authorizationPolicies: VerifiedPrincipalPolicySelection[];
+  // Served bundles whose manifests verified, stored at finalization.
+  readonly verifiedBundles: VerifiedManifestBundle[];
   readonly verifiedHeads: VerifiedAccessManifestCheckpointEvidence[];
   readonly verifiedManifests: VerifiedAccessManifestCheckpointEvidence[];
 }
@@ -48,6 +52,7 @@ export function createProjectionCheckpointContext(input: {
     organizationId: input.organizationId,
     policies: [],
     authorizationPolicies: [],
+    verifiedBundles: [],
     verifiedHeads: [],
     verifiedManifests: [],
   };
@@ -62,6 +67,27 @@ export function observeAccessManifestCheckpoints(
 ): void {
   context.verifiedHeads.push(...input.verifiedHeads);
   context.verifiedManifests.push(...input.verifiedManifests);
+}
+
+/**
+ * Records each served bundle whose manifest this verification produced, so
+ * the transaction finalizing the checkpoints also stores it for later
+ * citation. A bundle the projection carried but verification never reached
+ * is skipped.
+ */
+export function observeVerifiedProjectionBundles(
+  context: ProjectionCheckpointContext,
+  bundlesByHash: ReadonlyMap<string, AccessManifestBundleWireResponse>,
+  verifiedByHash: ReadonlyMap<
+    string,
+    { readonly checkpoint: AccessManifestCheckpoint }
+  >,
+): void {
+  for (const [manifestHash, bundle] of bundlesByHash) {
+    const verified = verifiedByHash.get(manifestHash);
+    if (verified)
+      context.verifiedBundles.push({ bundle, checkpoint: verified.checkpoint });
+  }
 }
 
 export function observePrincipalPolicy(
@@ -103,6 +129,7 @@ export async function commitProjectionCheckpoints(
     policies: context.policies,
     authorizationPolicies: context.authorizationPolicies,
     stillCurrent: input?.stillCurrent,
+    verifiedBundles: context.verifiedBundles,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
   }).catch((error: unknown) => {
@@ -131,6 +158,7 @@ async function validateProjectionCheckpoints(
     policies: context.policies,
     authorizationPolicies: context.authorizationPolicies,
     stillCurrent: input?.stillCurrent,
+    verifiedBundles: context.verifiedBundles,
     verifiedHeads: context.verifiedHeads,
     verifiedManifests: context.verifiedManifests,
   }).catch((error: unknown) => {

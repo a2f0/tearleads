@@ -1,4 +1,8 @@
 import { expect } from "bun:test";
+import {
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
+} from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createContainerWriterProjectionResponse,
@@ -17,6 +21,10 @@ for (const kind of ["container", "document"] as const) {
     kind === "container"
       ? createContainerWriterProjectionResponse()
       : createDocumentWriterProjectionResponse();
+  const served = (projection: ReturnType<typeof fixture>) =>
+    "documentId" in projection
+      ? encodeDocumentWriterProjection(projection)
+      : encodeContainerWriterProjection(projection);
   const path = `${apiBaseUrl}/${kind}s/:id/writer-projection`;
   const read = async (
     client: ApiClient,
@@ -46,7 +54,7 @@ for (const kind of ["container", "document"] as const) {
       server.use(
         http.get(path, () => {
           calls += 1;
-          return HttpResponse.json(calls === 1 ? pending : projection, {
+          return HttpResponse.json(calls === 1 ? pending : served(projection), {
             status: calls === 1 ? 202 : 200,
           });
         }),

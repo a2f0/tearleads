@@ -30,6 +30,7 @@ import {
 } from "../../test/helpers/registeredRootKek";
 import { registerUser } from "../../test/helpers/registerUser";
 import { grantRootThroughRotatedReadGroup } from "../../test/helpers/rotatedReadGroupGrant";
+import { decodeServedDocumentProjection } from "../../test/helpers/servedWriterProjection";
 import { routeApp } from "../routeApp";
 
 type GrantKind = "direct user" | "rotated group";
@@ -192,7 +193,9 @@ for (const grantKind of ["direct user", "rotated group"] as const) {
       { headers: { Authorization: `Bearer ${reader.token}` } },
     );
     expect(projectionResponse.status).toBe(200);
-    const projection: unknown = await projectionResponse.json();
+    const projection = decodeServedDocumentProjection(
+      await projectionResponse.json(),
+    );
     invariant(
       isDocumentWriterProjectionResponse(projection),
       "expected a document reader projection",

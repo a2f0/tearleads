@@ -7,6 +7,7 @@ import type { ExecSql } from "../sqlite/sqlSchema";
 import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
+  observeVerifiedProjectionBundles,
 } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
 import { addContainerWriterProjectionBundles } from "./containerProjectionVerification";
@@ -71,6 +72,12 @@ export async function verifyContainerDestinationProjection(input: {
   const current = projectionLifetimeGuard(
     checkpointContext,
     input.stillCurrent,
+  );
+  // Authenticated bytes, not authority: a later read may cite them.
+  observeVerifiedProjectionBundles(
+    checkpointContext,
+    bundlesByHash,
+    verifiedByHash,
   );
   await finalizeProjectionCheckpoints(checkpointContext, {
     stillCurrent: current,

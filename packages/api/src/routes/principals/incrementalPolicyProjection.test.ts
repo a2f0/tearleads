@@ -4,10 +4,11 @@ import { db } from "@tearleads/api-shared/postgres";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
 import {
-  ContainerWriterProjectionResponseSchema,
+  ContainerWriterProjectionWireResponseSchema,
   PrincipalPolicyBundleResponseSchema,
 } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
+import { createHeldManifestCitations } from "../../../test/helpers/heldManifestCitations";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import {
   getPolicy,
@@ -21,7 +22,7 @@ import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKe
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../access/write/principalMemberEnvelopes";
 import { routeApp } from "../../routeApp";
 
-test("real SDK admits verified prefixes, verifies suffixes and recovers cold without them", async () => {
+test("real SDK verifies policy successors over cited manifests and recovers cold without them", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await recoverRegisteredRootKek({
@@ -77,13 +78,13 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
       )
         return response;
       const text = await response.clone().text();
-      const value = ContainerWriterProjectionResponseSchema.parse(
+      const value = ContainerWriterProjectionWireResponseSchema.parse(
         JSON.parse(text),
       );
       samples.push({
         bytes: new TextEncoder().encode(text).length,
-        hinted: request.headers.has("x-projection-history"),
-        omitted: value.historyPrefixes?.length ?? 0,
+        hinted: request.headers.has("x-known-manifests"),
+        omitted: value.omittedBundles.length,
       });
       if (tamper) {
         if (!value.policyEvidence.organization)
@@ -98,6 +99,8 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
   });
   const client = new ApiClient(server.url.origin);
   client.setAuthToken(owner.token);
+  const held = createHeldManifestCitations();
+  client.setVerifiedManifestCitations(held.citations);
   const device = await createAncestorSdkContext(owner, organizationId);
   const cold = await createAncestorSdkContext(owner, organizationId);
   const read = async (apiClient: ApiClient, context = device) => {
@@ -110,6 +113,7 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
       ...context.common,
       previousProjection: projection,
     });
+    if (apiClient === client) held.holdContainer(projection);
     return { projection, plan };
   };
   try {
@@ -130,9 +134,10 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
     expect(next.projection.policyEvidence.organization).not.toHaveProperty(
       "previousStates",
     );
-    // The new head binds a different directory payload reference; it travels in full.
-    expect(samples[2]?.omitted).toBe(0);
-    expect(samples[2]?.bytes).toBeLessThan((samples[0]?.bytes ?? 0) * 1.1);
+    // The new policy head and its directory payload travel; the unchanged
+    // container manifests stay cited.
+    expect(samples[2]?.omitted).toBe(samples[1]?.omitted);
+    expect(samples[2]?.bytes).toBeLessThan(samples[0]?.bytes ?? 0);
     const freshClient = new ApiClient(server.url.origin);
     freshClient.setAuthToken(owner.token);
     const recovered = await read(freshClient, cold);
@@ -149,16 +154,14 @@ test("real SDK admits verified prefixes, verifies suffixes and recovers cold wit
       code: "object_mismatch",
     });
     tamper = false;
-    // Clearing auth scope drops history hints, including old pending admissions.
+    // Hints carry no authority: a cited read after re-authentication still
+    // verifies every bundle it rebuilds.
     client.setAuthToken(null);
     client.setAuthToken(owner.token);
     await read(client);
-    expect(samples.at(-1)?.hinted).toBe(false);
+    expect(samples.at(-1)?.hinted).toBe(true);
     expect(preparations).toBeGreaterThan(0);
-    console.info(
-      "Incremental policy projection bytes",
-      JSON.stringify(samples),
-    );
+    console.info("Cited policy projection bytes", JSON.stringify(samples));
   } finally {
     server.stop(true);
     device.close();

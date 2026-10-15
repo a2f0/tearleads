@@ -1,16 +1,11 @@
 import { expect, test } from "bun:test";
-import {
-  captureProjectionHistory,
-  omitProjectionHistory,
-  restoreProjectionHistory,
-} from "@tearleads/crypto";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
 import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
 
-test("incremental evidence retains a deleted group's historical authorization and rejects modified cached prefixes", async () => {
+test("projection evidence retains a deleted group's historical authorization", async () => {
   const data = await createOrganizationHistoryFixture();
   const database = createNativeTestExecSql();
   const projection = (deleted: boolean) => ({
@@ -32,41 +27,13 @@ test("incremental evidence retains a deleted group's historical authorization an
       evidence: value.policyEvidence,
     });
   try {
-    const initial = projection(false);
-    await verify(initial);
-    const retained = captureProjectionHistory(initial);
-    const full = projection(true);
-    const wire = omitProjectionHistory(
-      full,
-      retained.map((entry) => entry.prefix),
-    );
-    expect(JSON.stringify(wire).length).toBeLessThan(
-      JSON.stringify(full).length,
-    );
-    expect(restoreProjectionHistory(wire, retained)).toBe(true);
-    const { policies: expected } = await verify(full);
-    const { policies: actual } = await verify(wire);
-    expect(actual.map((policy) => policy.stateHash)).toEqual(
-      expected.map((policy) => policy.stateHash),
-    );
+    await verify(projection(false));
+    const { policies } = await verify(projection(true));
     expect(
-      actual.some(
+      policies.some(
         (policy) => policy.stateHash === data.added.currentState.stateHash,
       ),
     ).toBe(true);
-    const corrupted = structuredClone(retained);
-    const first = corrupted[0];
-    if (!first) throw new Error("Expected cached prefix");
-    Object.assign(first, { values: ["forged"] });
-    expect(
-      restoreProjectionHistory(
-        omitProjectionHistory(
-          full,
-          retained.map((entry) => entry.prefix),
-        ),
-        corrupted,
-      ),
-    ).toBe(false);
   } finally {
     database.close();
   }

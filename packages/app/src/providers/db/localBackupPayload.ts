@@ -1,6 +1,9 @@
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
-/** Current local schema, including the organization read-model table shapes. */
-export const BACKUP_FORMAT_VERSION = 9;
+/**
+ * Current local schema. v10 added the verified manifest bundle cache; v9
+ * changed the organization read-model table shapes.
+ */
+export const BACKUP_FORMAT_VERSION = 10;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;

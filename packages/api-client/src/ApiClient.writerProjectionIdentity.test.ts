@@ -1,4 +1,8 @@
 import { expect } from "bun:test";
+import {
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
+} from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createContainerWriterProjectionResponse,
@@ -24,7 +28,7 @@ testApiClient(
     const reported: string[] = [];
     server.use(
       http.get(`${apiBaseUrl}/containers/:containerId/writer-projection`, () =>
-        HttpResponse.json(substituted),
+        HttpResponse.json(encodeContainerWriterProjection(substituted)),
       ),
     );
 
@@ -58,10 +62,12 @@ testApiClient(
     const requestedContainerId = `${substituted.containerId}-requested`;
     server.use(
       http.get(`${apiBaseUrl}/containers/:containerId/writer-projection`, () =>
-        HttpResponse.json({
-          ...substituted,
-          containerId: requestedContainerId,
-        }),
+        HttpResponse.json(
+          encodeContainerWriterProjection({
+            ...substituted,
+            containerId: requestedContainerId,
+          }),
+        ),
       ),
     );
 
@@ -79,18 +85,20 @@ testApiClient(
     const requestedDocumentId = `${substituted.documentId}-requested`;
     server.use(
       http.get(`${apiBaseUrl}/documents/:documentId/writer-projection`, () =>
-        HttpResponse.json({
-          ...substituted,
-          contentKeyBundle: {
-            ...substituted.contentKeyBundle,
+        HttpResponse.json(
+          encodeDocumentWriterProjection({
+            ...substituted,
+            contentKeyBundle: {
+              ...substituted.contentKeyBundle,
+              documentId: requestedDocumentId,
+            },
             documentId: requestedDocumentId,
-          },
-          documentId: requestedDocumentId,
-          documentKekTargets: {
-            ...substituted.documentKekTargets,
-            documentId: requestedDocumentId,
-          },
-        }),
+            documentKekTargets: {
+              ...substituted.documentKekTargets,
+              documentId: requestedDocumentId,
+            },
+          }),
+        ),
       ),
     );
 
@@ -111,12 +119,14 @@ testApiClient(
     }
     server.use(
       http.get(`${apiBaseUrl}/documents/:documentId/writer-projection`, () =>
-        HttpResponse.json({
-          ...projection,
-          authorizingContainerPaths: [
-            { ...authorizingPath, containerId: "relabeled-container" },
-          ],
-        }),
+        HttpResponse.json(
+          encodeDocumentWriterProjection({
+            ...projection,
+            authorizingContainerPaths: [
+              { ...authorizingPath, containerId: "relabeled-container" },
+            ],
+          }),
+        ),
       ),
     );
 
@@ -134,7 +144,7 @@ testApiClient(
     const requestedDocumentId = `${substituted.documentId}-requested`;
     server.use(
       http.get(`${apiBaseUrl}/documents/:documentId/writer-projection`, () =>
-        HttpResponse.json(substituted),
+        HttpResponse.json(encodeDocumentWriterProjection(substituted)),
       ),
     );
 

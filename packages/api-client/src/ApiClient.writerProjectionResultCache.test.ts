@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { encodeDocumentWriterProjection } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createDocumentSyncRequest,
@@ -67,7 +68,9 @@ testApiClient(
           calls.push(await captureHttpCall(request));
           fetchStarted.resolve();
           await finishFetch.promise;
-          return HttpResponse.json(staleProjection);
+          return HttpResponse.json(
+            encodeDocumentWriterProjection(staleProjection),
+          );
         },
       ),
     );
@@ -111,9 +114,13 @@ function useSpanningSyncProjectionHandlers(input: {
         if (input.getCalls.length === 1) {
           input.fetchStarted();
           await input.finishFirstGet;
-          return HttpResponse.json(input.staleProjection);
+          return HttpResponse.json(
+            encodeDocumentWriterProjection(input.staleProjection),
+          );
         }
-        return HttpResponse.json(input.freshProjection);
+        return HttpResponse.json(
+          encodeDocumentWriterProjection(input.freshProjection),
+        );
       },
     ),
     http.post(`${apiBaseUrl}/documents/:documentId/sync`, () =>
@@ -208,7 +215,9 @@ testApiClient(
           calls.push(await captureHttpCall(request));
           fetchStarted.resolve();
           await finishFetch.promise;
-          return HttpResponse.json(staleProjection);
+          return HttpResponse.json(
+            encodeDocumentWriterProjection(staleProjection),
+          );
         },
       ),
     );

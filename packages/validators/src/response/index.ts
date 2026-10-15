@@ -114,12 +114,15 @@ export {
   ContainerWriterProjectionErrorResponseSchema,
   type ContainerWriterProjectionResponse,
   ContainerWriterProjectionResponseSchema,
+  type ContainerWriterProjectionWireResponse,
+  ContainerWriterProjectionWireResponseSchema,
   isContainerDeleteResponse,
   isContainerKekLogResponse,
   isContainerMutationResponse,
   isContainerReciteResponse,
   isContainerRotationResponse,
   isContainerWriterProjectionResponse,
+  isContainerWriterProjectionWireResponse,
   isListContainersResponse,
   type ListContainersResponse,
   ListContainersResponseSchema,
@@ -193,6 +196,8 @@ export {
   DocumentSyncUpdateResponseSchema,
   type DocumentWriterProjectionResponse,
   DocumentWriterProjectionResponseSchema,
+  type DocumentWriterProjectionWireResponse,
+  DocumentWriterProjectionWireResponseSchema,
   documentKekTargetsFromContentKeyBundle,
   isDocumentContentKeyBundleResponse,
   isDocumentCreateResponse,
@@ -202,6 +207,7 @@ export {
   isDocumentPurgeResponse,
   isDocumentSyncResponse,
   isDocumentWriterProjectionResponse,
+  isDocumentWriterProjectionWireResponse,
 } from "./documentMutation";
 export {
   DOCUMENT_MUTATION_ERROR_CODES,
@@ -525,3 +531,9 @@ export {
   type SyncWatermark,
   SyncWatermarkSchema,
 } from "./syncWatermark";
+export {
+  decodeContainerWriterProjection,
+  decodeDocumentWriterProjection,
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
+} from "./writerProjectionWire";

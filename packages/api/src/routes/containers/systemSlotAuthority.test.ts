@@ -12,6 +12,7 @@ import {
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { decodeServedContainerProjection } from "../../../test/helpers/servedWriterProjection";
 import { routeApp } from "../../routeApp";
 
 test("composite creation rejects a slot different from its signed state", async () => {
@@ -132,8 +133,8 @@ test("a read-only root recipient can verify destination roles", async () => {
     { headers: { Authorization: `Bearer ${reader.token}` } },
   );
   expect(projection.status).toBe(200);
-  const body = await projection.json();
-  expect(body.path.at(-1).state.parentContainerId).toBeNull();
+  const body = decodeServedContainerProjection(await projection.json());
+  expect(body.path.at(-1)?.state).toMatchObject({ parentContainerId: null });
   const shared = await granted.json();
   invariant(isContainerMutationResponse(shared), "expected shared root");
   const mutation = await routeApp.request("/containers", {

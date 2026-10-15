@@ -19,6 +19,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
+import { verifiedManifestBundleTables } from "../sqlite/verifiedManifestBundleSchema";
 import {
   type DocumentPurgeCheckpoint,
   storeDocumentPurgeCheckpointInTransaction,
@@ -38,6 +39,12 @@ import {
   assertPrincipalPolicyBundleStoredInTransaction,
   writePrincipalPolicyBundleInTransaction,
 } from "./principalPolicyPersistence";
+import {
+  type VerifiedManifestBundle,
+  type VerifiedManifestBundleRow,
+  verifiedManifestBundleRows,
+  writeVerifiedManifestBundlesInTransaction,
+} from "./verifiedManifestBundlePersistence";
 import { assertBundleMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyBundle";
 
 export interface AccessManifestCheckpointAdvance {
@@ -57,6 +64,11 @@ interface KeyingCheckpointValidationInput {
     | readonly VerifiedPrincipalPolicySelection[]
     | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
+  /**
+   * Bundles this projection verified. They are stored for later citation in
+   * the same transaction, so they commit only with the batch they verified.
+   */
+  readonly verifiedBundles?: readonly VerifiedManifestBundle[] | undefined;
 }
 
 interface VerifiedPrincipalPolicyBundleEntry {
@@ -234,22 +246,36 @@ async function writePolicyCheckpoints(
   }
 }
 
-async function ensureKeyingCheckpointValidationTables(
+/**
+ * Digests the verified bundles and ensures every table the batch touches,
+ * all before its transaction begins.
+ */
+async function prepareKeyingCheckpointBatch(
   input: KeyingCheckpointValidationInput,
-): Promise<void> {
-  await ensureSqlTables(
-    input.execSql,
-    input.policies.length > 0 || (input.authorizationPolicies?.length ?? 0) > 0
-      ? [...principalPolicyTables, ...keyingCheckpointTables]
-      : keyingCheckpointTables,
+): Promise<VerifiedManifestBundleRow[]> {
+  const bundleRows = await verifiedManifestBundleRows(
+    input.verifiedBundles ?? [],
   );
+  await ensureSqlTables(input.execSql, [
+    ...(input.policies.length > 0 ||
+    (input.authorizationPolicies?.length ?? 0) > 0
+      ? principalPolicyTables
+      : []),
+    ...keyingCheckpointTables,
+    ...(bundleRows.length > 0 ? verifiedManifestBundleTables : []),
+  ]);
+  return bundleRows;
 }
 
-/** Re-checks verified candidates against durable pins without advancing them. */
+/**
+ * Re-checks verified candidates against durable pins without advancing them.
+ * Only the verified bundles' citation rows are written.
+ */
 export async function validateKeyingCheckpointsAtomically(
   input: KeyingCheckpointValidationInput,
 ): Promise<void> {
-  await ensureKeyingCheckpointValidationTables(input);
+  const bundleRows = await prepareKeyingCheckpointBatch(input);
+  const verifiedAt = new Date().toISOString();
   const validate = async (tx: ClientSQLiteTransactionScope) => {
     await validateAccessAdvances(tx, input.access);
     await validatePolicyAdvances(tx, input.policies);
@@ -257,6 +283,7 @@ export async function validateKeyingCheckpointsAtomically(
       tx,
       input.authorizationPolicies ?? [],
     );
+    await writeVerifiedManifestBundlesInTransaction(tx, bundleRows, verifiedAt);
   };
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   if (input.stillCurrent) {
@@ -272,20 +299,15 @@ export async function validateKeyingCheckpointsAtomically(
  * Re-check every verified projection candidate against the latest durable pins
  * and advance the complete batch atomically. Signature verification and remote
  * fetching happen before this short transaction; only checkpoint comparison
- * and persistence are serialized here.
+ * and persistence, with the batch's verified bundles, are serialized here.
  */
-export async function advanceKeyingCheckpointsAtomically(input: {
-  readonly access: readonly AccessManifestCheckpointAdvance[];
-  readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
-  readonly execSql: ExecSql;
-  readonly organizationId?: string | undefined;
-  readonly policies: readonly CheckpointPolicy[];
-  readonly authorizationPolicies?:
-    | readonly VerifiedPrincipalPolicySelection[]
-    | undefined;
-  readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<void> {
-  await ensureKeyingCheckpointValidationTables(input);
+export async function advanceKeyingCheckpointsAtomically(
+  input: KeyingCheckpointValidationInput & {
+    readonly documentPurgeCheckpoint?: DocumentPurgeCheckpoint | undefined;
+    readonly organizationId?: string | undefined;
+  },
+): Promise<void> {
+  const bundleRows = await prepareKeyingCheckpointBatch(input);
   const updatedAt = new Date().toISOString();
 
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
@@ -306,6 +328,7 @@ export async function advanceKeyingCheckpointsAtomically(input: {
         updatedAt,
       );
     }
+    await writeVerifiedManifestBundlesInTransaction(tx, bundleRows, updatedAt);
   };
   if (input.stillCurrent) {
     await runtime.guardedTransaction(advance, input.stillCurrent, {
