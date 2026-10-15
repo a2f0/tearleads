@@ -43,8 +43,8 @@ revision; scrutinize them first (read their diffs with `git show <sha>`):
 <RECENT_SECURITY_PRS>
 
 Read docs/security-guarantees.md first. Claims there that the code does not
-implement are findings. Also read formal/README.md and the model docs for your
-slice.
+implement are findings. Also read formal/README.md, the model index
+formal/models.md, and the model docs for your slice.
 
 Quality bar: report only issues traced through real code paths with file:line
 evidence, ideally with a probe. Prefer three real bugs over fifteen
