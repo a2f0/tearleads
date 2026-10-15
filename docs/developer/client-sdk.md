@@ -125,7 +125,7 @@ Client capabilities:
 | `tearleads.blobs` | local blob byte storage |
 | `tearleads.session` | registration, auth token, personal-org identity, and active context |
 | `tearleads.network` | online/offline state passed into sync workflows |
-| `tearleads.apiVersion` | in-memory build number from the latest API response's `X-Tearleads-Api-Version` header, for diagnostics |
+| `tearleads.apiVersion` | latest `X-Tearleads-Api-Version` response header, for diagnostics |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
 | `tearleads.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
@@ -133,7 +133,7 @@ Client capabilities:
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, and server-authoritative billing eligibility |
 | `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, detailed billing and the latest 50 billing events), offered only when the session is root |
-| `tearleads.userIdentities` | `resolvePinned`; `createLink` / `verifyLink` |
+| `tearleads.userIdentities` | TOFU `resolve`; `resolvePinned`; identity-link `createLink` / `verifyLink` |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
 Organization and custom group names are encrypted. Every organization requires

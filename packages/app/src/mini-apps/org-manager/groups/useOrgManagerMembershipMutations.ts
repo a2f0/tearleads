@@ -84,8 +84,8 @@ async function addUserToSelectedGroup(
     logError: params.logError,
     operationOrganizationId,
     run: async () => {
-      // Directory rows are only presentation. A raw selection must already
-      // have a local pin; first contact requires an authenticated link.
+      // Raw directory selections reuse any existing pin, including TOFU pins.
+      // Without a pin, this flow requires an authenticated identity link.
       const verifiedUser = await resolveGroupIdentity({
         directoryUser,
         value: targetUserId,

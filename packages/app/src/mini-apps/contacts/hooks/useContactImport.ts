@@ -11,8 +11,8 @@ import type { useLog } from "../../../providers/logging/LogProvider";
 import type { useContacts } from "../../../stores/contacts/ContactsProvider";
 import { useMiniAppMessage } from "../../bus";
 
-// Roster messages may reuse a durable pin, but a directory row alone cannot
-// authenticate a first contact. Unknown users are sent to the link form.
+// Roster messages reuse any durable pin, including pins established by TOFU.
+// Directory rows alone grant no trust; unpinned users need the link form.
 export function useImportContactByUserId(input: {
   identityScope: string;
   importKey: ReturnType<typeof useContacts>["importKey"];
