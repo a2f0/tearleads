@@ -5,6 +5,10 @@ import { computePrincipalStateHash } from "@tearleads/crypto";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { buildRootGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import {
+  containerManifestRef,
+  containerManifestRefs,
+} from "../../../test/helpers/containerManifestRefs";
+import {
   accessManifestFromContainerResponse,
   asVerifiedContainerManifest,
   bootstrapRoot,
@@ -184,13 +188,13 @@ test("writer projections retain the old principal citation of an unchanged key w
           event: { ...event.event },
           expectedManifestHash: manifest.manifestHash,
           manifest: manifest.manifest,
-          previousManifest: root.bundle,
-          previousContainerPath: [root.bundle],
-          containerManifestHistory: [
+          previousManifestRef: containerManifestRef(root.bundle),
+          previousContainerPathRefs: [containerManifestRef(root.bundle)],
+          containerManifestHistoryRefs: containerManifestRefs([
             root.bundle,
             granted.root.bundle,
             initialRoot.bundle,
-          ],
+          ]),
           principalPolicies: nextPolicies.map((policy) => ({ ...policy })),
           keyEpoch: { ...root.kekState.keyEpoch },
           keyring: null,

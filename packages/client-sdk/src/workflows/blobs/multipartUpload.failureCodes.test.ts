@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
+import { initiatedStage } from "../../../test/helpers/multipartUpload";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type { BlobAttachmentApi } from "../../data/documents/blob/shared/types";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
@@ -33,26 +34,15 @@ function createApi(input: {
 }): BlobAttachmentApi {
   return {
     bindBlobAttachment: async () => null,
-    completeMultipartBlobStage: async (stageId) => ({
-      byteLength: 1,
-      organizationId: "organization-1",
-      expiresAt: "2026-04-27T01:00:00.000Z",
-      sha256: "encrypted-sha256",
-      stageId,
-    }),
     getDocumentWriterProjection: async () => null,
     getMultipartBlobStage: async () => null,
     getRequestFailure: () => input.failure,
     initiateMultipartBlobStage: async (request) => {
       input.onInitiate();
-      return {
-        ...request,
-        organizationId: "organization-1",
-        expiresAt: "2026-04-27T01:00:00.000Z",
+      return initiatedStage(request, {
         stageId: "stage-fresh",
-        uploadedParts: [],
         uploadId: "upload-fresh",
-      };
+      });
     },
     uploadMultipartBlobPartBytes: async (stageId, partNumber, request) => ({
       part: { byteLength: 1, etag: "etag-1", partNumber },

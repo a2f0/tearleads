@@ -1,4 +1,7 @@
-import { createTestExecSql } from "@tearleads/test-utils";
+import {
+  createTestExecSql,
+  registerContainerManifestBundles,
+} from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import {
   buildMaterializedContainerCreatePlan,
@@ -57,6 +60,10 @@ export async function createRotatedAncestorFixture() {
         ...grandchild.projection.containerKeks.slice(1),
       ],
     };
+    registerContainerManifestBundles([
+      ...projection.path,
+      ...grandchild.projection.path,
+    ]);
     return { child, grandchild, input, projection, root };
   } finally {
     database.close();
@@ -108,6 +115,10 @@ export async function createDeepRotatedAncestorFixture(depth: number) {
         ...leaf.containerKeks.slice(1),
       ],
     };
+    registerContainerManifestBundles([
+      ...projection.path,
+      ...descendants.flatMap((descendant) => descendant.path),
+    ]);
     return { descendants, input, leaf, projection, root };
   } finally {
     database.close();
@@ -161,6 +172,11 @@ export async function createForkedRotatedAncestorFixture() {
         ...leaf.containerKeks.slice(1),
       ],
     });
+    registerContainerManifestBundles([
+      ...withRotatedRoot(leafA).path,
+      ...leafA.path,
+      ...leafB.path,
+    ]);
     return {
       input,
       leafA,

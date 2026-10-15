@@ -15,7 +15,15 @@ import {
 } from "../../workflows/blobs/mutations";
 import { loadOwnedActiveBlobStage } from "../../workflows/blobs/stageAccess";
 import type { ApiServiceRuntime } from "../runtime";
-import { summarizeBlobEnvelopeStage } from "./blobEnvelopeStage";
+import {
+  createDeferredEnvelopeReader,
+  summarizeBlobEnvelopeStage,
+} from "./blobEnvelopeStage";
+import {
+  MultipartBlobStageError,
+  toMultipartBlobStageError,
+} from "./multipartStageAccess";
+import { completeOwnedMultipartStage } from "./multipartStageCompletion";
 
 export { BlobMutationError } from "../../workflows/blobs/mutations";
 
@@ -82,6 +90,49 @@ export async function publishAttachmentDocumentEvent(input: {
   );
 }
 
+// Binding completes the stage: the parts the store holds are assembled and the
+// object's exact length and SHA-256 verified against the stage before anything
+// is promoted. A refusal keeps its status; an unexpected failure propagates.
+async function completeStagedUpload(
+  runtime: ApiServiceRuntime,
+  stage: Parameters<typeof completeOwnedMultipartStage>[1],
+  reader: Parameters<typeof completeOwnedMultipartStage>[2],
+): ReturnType<typeof completeOwnedMultipartStage> {
+  try {
+    return await completeOwnedMultipartStage(runtime, stage, reader);
+  } catch (error) {
+    const stageError =
+      error instanceof MultipartBlobStageError
+        ? error
+        : toMultipartBlobStageError(error);
+    if (stageError === null || stageError.status === 500) {
+      throw error;
+    }
+    throw new BlobMutationError(stageError.message, stageError.status);
+  }
+}
+
+// One read of the object per bind: the completion that assembles it digests
+// it while the envelope header is observed, so only a stage completed by an
+// earlier bind is read here.
+async function readStagedEnvelope(
+  runtime: ApiServiceRuntime,
+  stage: Parameters<typeof completeOwnedMultipartStage>[1],
+) {
+  const envelope = createDeferredEnvelopeReader();
+  const assembled = await completeStagedUpload(runtime, stage, envelope);
+  if (assembled !== null) {
+    return { ...assembled, envelopeHeader: envelope.judge(assembled) };
+  }
+  const objectStream = await runtime.blobObjectStore.getObjectStream(
+    stage.storageKey,
+  );
+  if (objectStream === null) {
+    throw new BlobMutationError("Blob staged bytes are missing", 409);
+  }
+  return summarizeBlobEnvelopeStage(objectStream);
+}
+
 async function prevalidateMultipartBlobStage(
   runtime: ApiServiceRuntime,
   input: BindBlobAttachmentInput,
@@ -97,17 +148,7 @@ async function prevalidateMultipartBlobStage(
     userId: input.userId,
   });
 
-  if (stage.completedAt === null) {
-    throw new BlobMutationError("Blob multipart stage is not complete", 409);
-  }
-
-  const objectStream = await runtime.blobObjectStore.getObjectStream(
-    stage.storageKey,
-  );
-  if (objectStream === null) {
-    throw new BlobMutationError("Blob staged bytes are missing", 409);
-  }
-  const objectSummary = await summarizeBlobEnvelopeStage(objectStream);
+  const objectSummary = await readStagedEnvelope(runtime, stage);
   if (objectSummary.byteLength !== stage.byteLength) {
     throw new BlobMutationError(
       "Blob byteLength does not match staged bytes",

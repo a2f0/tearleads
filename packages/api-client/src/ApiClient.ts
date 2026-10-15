@@ -5,7 +5,6 @@ import {
   cancelStripeSubscriptionOperation,
   challengeOperation,
   claimNativeOrganizationSubscriptionOperation,
-  completeMultipartBlobStageOperation,
   createContainerOperation,
   createContainerWithMetadataDocumentOperation,
   createDocumentOperation,
@@ -66,7 +65,6 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   CommitOrganizationGroupPolicyRequest,
-  CompleteMultipartBlobStageRequest,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   ContainerReciteRequest,
@@ -147,7 +145,6 @@ import {
   type UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
 import {
-  completeMultipartBlobStage as multipartComplete,
   getMultipartBlobStage as multipartGet,
   initiateMultipartBlobStage as multipartInitiate,
 } from "./routes/blobs/multipart";
@@ -1883,20 +1880,6 @@ export class ApiClient {
       input,
       undefined,
       options,
-    );
-  }
-
-  completeMultipartBlobStage(
-    stageId: string,
-    input: CompleteMultipartBlobStageRequest,
-  ) {
-    return this.request(
-      multipartComplete.path(stageId),
-      multipartComplete.isResponse,
-      multipartComplete.method,
-      JSON.stringify(input),
-      undefined,
-      completeMultipartBlobStageOperation,
     );
   }
 

@@ -7,10 +7,7 @@ import { isAccessEventType } from "../../keyingProjectionRecords";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { publishBestEffort } from "../../utils/publishBestEffort";
 
-type MutationEventRequest = Pick<
-  ContainerMutationRequest,
-  "body" | "previousManifest"
->;
+type MutationEventRequest = Pick<ContainerMutationRequest, "body">;
 
 interface GrantSubject {
   readonly subjectId: string;
@@ -20,6 +17,10 @@ interface GrantSubject {
 interface PublishContainerMutationCreatedInput {
   readonly expectedEventType: AccessEventType;
   readonly origin: { readonly sessionId: string; readonly userId: string };
+  // The parent named by the verified previous manifest. Only a move changes
+  // it; the workflow reports it because the request cites that manifest by
+  // hash. Absent for a create, which has no previous manifest.
+  readonly previousParentId?: string | null | undefined;
   readonly publish: (event: PublishedRealtimeEvent) => Promise<void>;
   readonly request: MutationEventRequest;
   // Current direct members of a granted group; absent where no grant can occur.
@@ -43,26 +44,12 @@ interface PublishContainerMutationCreatedInput {
 const EVICTING_EVENT_TYPES: ReadonlySet<AccessEventType> =
   new Set<AccessEventType>(["container.move", "container.revoke"]);
 
-function readNullableString(value: unknown): string | null | undefined {
-  if (value === null) return null;
-  return typeof value === "string" && value.length > 0 ? value : undefined;
-}
-
 function readContainerMutationBodyEventType(
   request: MutationEventRequest,
 ): AccessEventType | null {
   if (!isPlainObject(request.body)) return null;
   const eventType = Reflect.get(request.body, "eventType");
   return isAccessEventType(eventType) ? eventType : null;
-}
-
-function readContainerMutationPreviousParentId(
-  request: MutationEventRequest,
-): string | null | undefined {
-  const previousState = request.previousManifest?.state;
-  return previousState
-    ? readNullableString(Reflect.get(previousState, "parentContainerId"))
-    : undefined;
 }
 
 function readGrantSubject(request: MutationEventRequest): GrantSubject | null {
@@ -103,7 +90,7 @@ async function grantRecipientUserIds(
 export async function publishContainerMutationCreated(
   input: PublishContainerMutationCreatedInput,
 ) {
-  const previousParentId = readContainerMutationPreviousParentId(input.request);
+  const { previousParentId } = input;
   const eventType =
     readContainerMutationBodyEventType(input.request) ??
     input.expectedEventType;

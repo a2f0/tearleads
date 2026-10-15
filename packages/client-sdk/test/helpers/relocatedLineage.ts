@@ -53,7 +53,7 @@ async function shareChildWithGrantee(input: {
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => input.child.projection,
       shareContainer: async (_containerId, request) =>
-        createMutationResponseFromRequest(request, childKek),
+        createMutationResponseFromRequest(request, input.child.projection),
     },
     author: input.parent.author,
     containerId: CHILD_ID,
@@ -118,10 +118,7 @@ export async function relocatedChildHistory(
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => epoch1Projection,
       rekeyContainer: async (_containerId, request) =>
-        createMutationResponseFromRequest(
-          request,
-          epoch1Projection.containerKeks.at(-1),
-        ),
+        createMutationResponseFromRequest(request, epoch1Projection),
     },
     author: parent.author,
     containerId: CHILD_ID,

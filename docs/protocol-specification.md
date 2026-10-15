@@ -301,6 +301,7 @@ Signed container mutation routes are:
 - `POST /containers/:containerId/revoke`
 - `POST /containers/:containerId/rekey`
 - `POST /containers/:containerId/move`
+- `POST /containers/:containerId/recite` (`ContainerReciteRequest`)
 
 Most signed mutations use `ContainerMutationRequest`. The container with
 metadata document create route wraps a `ContainerMutationRequest` with the
@@ -310,7 +311,13 @@ Each signed mutation request carries:
 
 - signed event and event body
 - expected manifest hash and derived manifest state
-- optional previous, parent, destination-parent, and history manifest bundles
+- optional `previousManifestRef`, `previousContainerPathRefs`,
+  `parentContainerPathRefs`, `destinationParentContainerPathRefs`, and
+  `containerManifestHistoryRefs`: `{containerId, manifestHash}` citations of
+  manifests the server already stores, never the bundles themselves. No list
+  may cite one manifest twice, and history cites only the mutated container
+  (the one `previousManifestRef` names), so both are refused with `400`
+  before any citation is read; the history then loads in one bulk read
 - referenced principal policy bundles
 - a container key epoch
 - a required nullable predecessor bridge (`null` for creates and same-epoch
@@ -323,7 +330,16 @@ Each signed mutation request carries:
 
 The API verifies the signed event, derives the manifest, checks predecessor and
 path heads, verifies referenced principal policies, derives recipient targets,
-and verifies the container KEK state. Container KEK wraps target direct users,
+and verifies the container KEK state. Every cited manifest is resolved from the
+API's own artifacts: a manifest an earlier mutation of the same batch verified,
+or the stored bundle, re-verified because database rows are not a trust
+boundary. A citation whose hash is not stored, or whose `containerId` names a
+different container, is refused with `409`. The previous manifest and every path
+element must also be the container's current head, and the signed event's
+`dependencyManifestHashes` must equal the cited hashes, so a stale or uncited
+head is refused exactly as before. Only the new manifest the mutation commits
+travels in full; a recitation cites its previous head and current path the same
+way. Container KEK wraps target direct users,
 managed principals, or the parent container KEK. A child container can inherit
 access through parent KEK edges without rewriting every descendant object when
 an ancestor grant changes.
@@ -435,28 +451,52 @@ Blob bytes are staged before attachment binding:
 - `GET /blobs/stages/multipart/:stageId`
 - `POST /blobs/stages/multipart/:stageId/parts/:partNumber/upload`
 - `PUT /blobs/stages/multipart/:stageId/parts/:partNumber/bytes` (non-signing stores)
-- `POST /blobs/stages/multipart/:stageId/complete`
 
 `InitiateMultipartBlobStageRequest` declares the completed encrypted object's
-`organizationId`, `byteLength`, and `sha256`. The caller must have direct
-organization access. Each part is authorized separately with its byte length,
-base64 Content-MD5, and upload ID. S3/R2 return a five-minute UploadPart URL,
-scoped to the stored key, upload ID, part number, checksum, and exact byte length.
-The client sends `application/octet-stream` directly to storage and retains the
-returned ETag. Later chunks and retries get fresh URLs for the same upload ID;
-URL expiry never invalidates completed parts or extends the one-hour stage.
-Non-signing stores use the API byte route; S3/R2 reject that proxy path.
-Completion verifies the full object's length and SHA-256 before promotion.
+`organizationId`, `byteLength`, and `sha256`, plus `firstParts`: the number,
+exact byte length, and base64 Content-MD5 of each part the client sends first
+(one to four, its upload concurrency). The caller must have direct
+organization access. Before creating any upload, the API refuses first parts
+that repeat a number, exceed the declared object alone or together, or (on
+S3/R2) name a part number the declared size cannot reach with 5 MiB parts.
+The response's `partUploads` carries one upload source per first part, so the
+parts the client starts at once need no authorization request of their own.
+Later parts, and a renewal after a URL expires or fails, are authorized one at
+a time with the same byte length, Content-MD5, and upload ID. S3/R2 sources are
+five-minute UploadPart URLs scoped to the stored key, upload ID, part number,
+checksum, and exact byte length; the client sends
+`application/octet-stream` directly to storage and confirms the returned ETag.
+URL expiry never invalidates uploaded parts or extends the one-hour stage.
+Non-signing stores answer every part with the API byte route (`kind: "api"`),
+so their clients never authorize a part; S3/R2 reject that proxy path before
+reading a body.
+
+There is no completion request. Attachment binding completes the stage: before
+its transaction it assembles parts 1..k of the stage's upload, the run whose
+stored lengths add up to exactly the declared byte length, and verifies the
+object's length and SHA-256 against the stage, deleting a mismatched object
+and refusing with `409`. A part numbered past that run is left out, so a stray
+part cannot change the object. No uploaded parts, a gap (the 409 names its
+first missing part), or parts that miss the declared length are refused
+before the upload is consumed, so that part can still be sent.
+Completion is idempotent: a stage already complete is used as is, and an
+object assembled before a lost state flip is re-verified before it is adopted.
+A bind that finds the upload consumed and no object re-reads the stage: if a
+concurrent bind has marked it complete, that object is verified and used. The
+stage is marked complete once the digest matches, before the envelope header
+is judged, so a malformed envelope is refused (`400`) with the stage left
+complete, and a retry is refused the same way.
 The API stores only object-store multipart metadata in `blob_stages`;
 encrypted payload bytes
 are never encoded into JSON or stored in the database. Staged objects are not
 readable as committed blobs and are promoted only by a successful attachment
-bind. Incomplete or expired stages fail closed during bind.
+bind. Expired stages, and stages whose parts do not assemble to the declared
+object, fail closed during bind.
 
 Object keys are `organizations/<organizationId>/blob-stages/<stageId>` and
 remain unchanged after promotion. The stage's immutable organization must match
 the destination document's verified organization, even when the uploader belongs
-to both organizations. Initiation, status, and completion responses include
+to both organizations. Initiation and status responses include
 `organizationId`; clients check it before resuming an upload.
 
 GC retains the full key and organization in durable deletion work, checks their
@@ -478,9 +518,9 @@ or completed staged object is absent, and
 status-and-code pairs permit opening a fresh stage. Uncoded, malformed, unknown,
 cross-status, proxy, route, and unrelated conflict failures are terminal so the
 client does not abandon resumable state on an ambiguous error.
-If the multipart upload was consumed while the completion response or database
-write was lost, the status lookup revalidates the surviving staged object,
-converges the stage to complete, and returns it instead of emitting absence.
+If a bind consumed the multipart upload but its completion write was lost, the
+status lookup revalidates the surviving staged object, converges the stage to
+complete, and returns it instead of emitting absence.
 
 ## Attachment Bind, Replace, Detach, And Slots
 

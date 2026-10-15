@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sqlContainerContentsPersistence as persistence } from "./containerContentsPersistence";
 
@@ -99,12 +100,13 @@ test("retained dormant metadata refuses another organization's relisting", async
     await persistence.ensureSchema(execSql);
     await persistence.saveContainer(execSql, container, record);
     // Revocation retains metadata only for unsynced private edits.
-    await execSql(
-      `INSERT INTO document_pending_updates
-      (id, app_kind, local_id, update_data, partial_start_version_vector, partial_end_version_vector, created_at)
-      VALUES ('pending-rename', 'container-metadata', ?, 'data', '', '', 'now')`,
-      [container.id],
-    );
+    await insertQueuedUpdateRows(execSql, [
+      {
+        appKind: "container-metadata",
+        id: "pending-rename",
+        localId: container.id,
+      },
+    ]);
     await persistence.deleteContainers(
       execSql,
       [{ containerId: container.id, reason: "access_revoked", updatedAt: T2 }],

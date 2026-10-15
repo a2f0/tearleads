@@ -97,7 +97,7 @@ function addContainerMutationRoute({
         const request = c.req.valid("json");
         const expectedContainerId =
           "containerId" in params ? params.containerId : undefined;
-        const response = await mutateContainer(runtime, {
+        const { previousParentId, response } = await mutateContainer(runtime, {
           expectedEventType,
           fingerprint: session.fingerprint,
           request,
@@ -107,6 +107,7 @@ function addContainerMutationRoute({
         await publishContainerMutationCreated({
           expectedEventType,
           origin: { sessionId: session.id, userId: session.userId },
+          previousParentId,
           publish,
           request,
           resolveGroupMemberUserIds: (groupId) =>

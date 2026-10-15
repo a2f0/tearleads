@@ -131,9 +131,9 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
       keyEpoch: { id: "container-key-epoch-id" },
       keyring: null,
       manifest: { objectKind: "container" },
-      parentContainerPath: [],
+      parentContainerPathRefs: [],
       predecessorBridge: null,
-      previousManifest: null,
+      previousManifestRef: null,
       principalPolicies: [],
       userRecipientKeys: [{ userId }],
       wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
@@ -145,7 +145,6 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
       expectedManifestHash: "document-manifest-hash",
       initialSync: initialDocumentSync(),
       manifest: { objectKind: "document" },
-      previousManifest: null,
       targetContainerPathRefs: [
         {
           containerId: rootContainerId,

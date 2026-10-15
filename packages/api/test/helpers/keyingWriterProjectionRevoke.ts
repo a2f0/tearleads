@@ -21,6 +21,7 @@ import {
   createTestContainerKekPredecessorBridge,
   createTestFillerKeyringEntries,
 } from "./containerKekMaterial";
+import { containerManifestRef } from "./containerManifestRefs";
 import {
   asVerifiedContainerManifest,
   createContainerKeyWrapForRecipientTarget,
@@ -151,9 +152,9 @@ export async function buildRootRevokeRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [input.previous],
-    containerManifestHistory: [input.previous],
+    previousManifestRef: containerManifestRef(input.previous),
+    previousContainerPathRefs: [containerManifestRef(input.previous)],
+    containerManifestHistoryRefs: [containerManifestRef(input.previous)],
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown

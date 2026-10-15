@@ -76,6 +76,10 @@ import {
   createContainerKeyWrap,
 } from "../../../test/helpers/containerKeying";
 import {
+  containerManifestRef,
+  containerManifestRefs,
+} from "../../../test/helpers/containerManifestRefs";
+import {
   buildMoveRequest,
   buildRekeyRequest,
   buildRevokeRequest,
@@ -711,7 +715,7 @@ async function buildCreateRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    parentContainerPath: [...parentContainerPath],
+    parentContainerPathRefs: containerManifestRefs(parentContainerPath),
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown
@@ -821,7 +825,6 @@ async function buildMetadataDocumentCreateRequest(input: {
     body: body as unknown,
     expectedManifestHash: manifestHash,
     manifest: manifest as unknown as Record<string, unknown>,
-    previousManifest: null,
     targetContainerPathRefs: [
       {
         containerId: parentState.containerId,
@@ -914,9 +917,11 @@ async function buildGrantRequest(input: {
     body,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    containerManifestHistory: [input.previous],
+    previousManifestRef: containerManifestRef(input.previous),
+    previousContainerPathRefs: containerManifestRefs(
+      input.previousContainerPath,
+    ),
+    containerManifestHistoryRefs: [containerManifestRef(input.previous)],
     principalPolicies,
     keyEpoch: input.previousKekState.keyEpoch,
     keyring: null,
@@ -1024,11 +1029,13 @@ async function buildGroupGrantRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    containerManifestHistory: [
-      ...(input.containerManifestHistory ?? [input.previous]),
-    ],
+    previousManifestRef: containerManifestRef(input.previous),
+    previousContainerPathRefs: containerManifestRefs(
+      input.previousContainerPath,
+    ),
+    containerManifestHistoryRefs: containerManifestRefs(
+      input.containerManifestHistory ?? [input.previous],
+    ),
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown

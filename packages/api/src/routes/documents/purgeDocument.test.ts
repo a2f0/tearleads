@@ -66,6 +66,7 @@ import {
   uploadBlobObject,
 } from "../../../test/helpers/blobObjectStore";
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
+import { containerManifestRef } from "../../../test/helpers/containerManifestRefs";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
 import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
@@ -407,7 +408,7 @@ async function createChildContainer(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    parentContainerPath: [input.parent.bundle],
+    parentContainerPathRefs: [containerManifestRef(input.parent.bundle)],
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown

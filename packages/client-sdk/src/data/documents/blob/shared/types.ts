@@ -13,14 +13,12 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   BlobContentKeyBundleRequest,
-  CompleteMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequest,
 } from "@tearleads/validators/request";
 import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
   BlobAttachmentSummary,
-  CompleteMultipartBlobStageResponse,
   DocumentWriterProjectionResponse,
   InitiateMultipartBlobStageResponse,
   MultipartBlobStageStatusResponse,
@@ -65,10 +63,6 @@ export interface BlobAttachmentApi {
     readonly message: string;
     readonly status: number | null;
   } | null;
-  completeMultipartBlobStage(
-    stageId: string,
-    input: CompleteMultipartBlobStageRequest,
-  ): Promise<CompleteMultipartBlobStageResponse | null>;
   getDocumentWriterProjection(
     documentId: string,
   ): Promise<DocumentWriterProjectionResponse | null>;

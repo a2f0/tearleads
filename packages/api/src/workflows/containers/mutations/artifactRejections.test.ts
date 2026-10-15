@@ -19,6 +19,7 @@ async function expectRejection(input: {
   readonly error: string;
   readonly path: string;
   readonly request: ContainerMutationRequest;
+  readonly status?: number;
   readonly token: string;
 }): Promise<void> {
   const response = await routeApp.request(input.path, {
@@ -29,37 +30,44 @@ async function expectRejection(input: {
     },
     body: JSON.stringify(input.request),
   });
-  expect(response.status).toBe(409);
+  expect(response.status).toBe(input.status ?? 409);
   await expect(response.json()).resolves.toEqual({ error: input.error });
 }
 
-function withTamperedEventSignature(
-  bundle: NonNullable<ContainerMutationRequest["previousManifest"]>,
-) {
-  const tampered = structuredClone(bundle);
-  const eventBundle = Reflect.get(tampered, "event");
-  if (typeof eventBundle !== "object" || eventBundle === null) {
-    throw new Error("expected an event bundle");
-  }
-  const event = Reflect.get(eventBundle, "event");
-  if (typeof event !== "object" || event === null) {
-    throw new Error("expected a signed event");
-  }
-  Reflect.set(event, "signature", "tampered-signature");
-  return tampered;
-}
-
-test("a mutation rejects a tampered stored parent-path artifact", async () => {
+test("a mutation rejects a parent-path citation of an unstored manifest", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
   const request = await buildChildCreateRequest({ root, signer: owner });
-  const [parent] = request.parentContainerPath ?? [];
-  if (!parent) throw new Error("expected a parent manifest");
-  request.parentContainerPath = [withTamperedEventSignature(parent)];
+  const [parent] = request.parentContainerPathRefs ?? [];
+  if (!parent) throw new Error("expected a parent manifest reference");
+  request.parentContainerPathRefs = [
+    { ...parent, manifestHash: "f".repeat(64) },
+  ];
 
   await expectRejection({
-    error: "parentContainerPath[0] does not match verified stored manifest",
+    error:
+      "parentContainerPathRefs[0] is not a verified stored manifest: Container manifest bundle missing",
+    path: "/containers",
+    request,
+    token: owner.token,
+  });
+}, 15_000);
+
+test("a mutation rejects a citation naming another container", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const request = await buildChildCreateRequest({ root, signer: owner });
+  const [parent] = request.parentContainerPathRefs ?? [];
+  if (!parent) throw new Error("expected a parent manifest reference");
+  request.parentContainerPathRefs = [
+    { ...parent, containerId: crypto.randomUUID() },
+  ];
+
+  await expectRejection({
+    error:
+      "parentContainerPathRefs[0] container id does not match the referenced manifest",
     path: "/containers",
     request,
     token: owner.token,
@@ -85,7 +93,7 @@ test("a mutation rejects a tampered principal policy artifact", async () => {
   });
 }, 15_000);
 
-test("a mutation rejects tampered stored manifest history", async () => {
+test("a mutation rejects manifest history citing an unstored manifest", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const recipient = createTestUser();
@@ -97,15 +105,97 @@ test("a mutation rejects tampered stored manifest history", async () => {
     recipient,
     signer: owner,
   });
-  const [historical] = request.containerManifestHistory ?? [];
+  const [historical] = request.containerManifestHistoryRefs ?? [];
   if (!historical) throw new Error("expected manifest history");
-  request.containerManifestHistory = [withTamperedEventSignature(historical)];
+  request.containerManifestHistoryRefs = [
+    { ...historical, manifestHash: "e".repeat(64) },
+  ];
 
   await expectRejection({
     error:
-      "containerManifestHistory[0] does not match verified stored manifest",
+      "containerManifestHistoryRefs[0] is not a verified stored manifest: Container manifest bundle missing",
     path: `/containers/${root.kekState.containerId}/share`,
     request,
+    token: owner.token,
+  });
+}, 15_000);
+
+async function shareRequestCitingHistory(
+  history: (
+    historical: NonNullable<
+      ContainerMutationRequest["containerManifestHistoryRefs"]
+    >[number],
+  ) => ContainerMutationRequest["containerManifestHistoryRefs"],
+) {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const recipient = createTestUser();
+  await registerAndAuthenticate(recipient);
+  const root = await bootstrapRoot(owner);
+  const request = await buildRootGrantRequest({
+    previous: root.bundle,
+    previousKekState: root.kekState,
+    recipient,
+    signer: owner,
+  });
+  const [historical] = request.containerManifestHistoryRefs ?? [];
+  if (!historical) throw new Error("expected manifest history");
+  request.containerManifestHistoryRefs = history(historical);
+  return { owner, request, root };
+}
+
+// Malformed history is refused before any citation is read: the cited hash
+// is unstored, so a resolving server would report it missing instead.
+test("a mutation refuses repeated history citations before reading them", async () => {
+  const { owner, request, root } = await shareRequestCitingHistory(
+    (historical) => {
+      const unstored = { ...historical, manifestHash: "e".repeat(64) };
+      return [unstored, unstored];
+    },
+  );
+
+  await expectRejection({
+    error: "containerManifestHistoryRefs[1] repeats a cited manifest",
+    path: `/containers/${root.kekState.containerId}/share`,
+    request,
+    status: 400,
+    token: owner.token,
+  });
+}, 15_000);
+
+test("a mutation refuses history citing another container before reading it", async () => {
+  const { owner, request, root } = await shareRequestCitingHistory(
+    (historical) => [
+      { containerId: "another-container", manifestHash: "e".repeat(64) },
+      historical,
+    ],
+  );
+
+  await expectRejection({
+    error: "containerManifestHistoryRefs[0] cites another container",
+    path: `/containers/${root.kekState.containerId}/share`,
+    request,
+    status: 400,
+    token: owner.token,
+  });
+}, 15_000);
+
+test("a mutation refuses a path citing one manifest twice before reading it", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const request = await buildChildCreateRequest({ root, signer: owner });
+  const [parent] = request.parentContainerPathRefs ?? [];
+  if (!parent) throw new Error("expected a parent manifest reference");
+  // Unstored, so a resolving server would report it missing instead.
+  const unstored = { ...parent, manifestHash: "f".repeat(64) };
+  request.parentContainerPathRefs = [unstored, unstored];
+
+  await expectRejection({
+    error: "parentContainerPathRefs[1] repeats a cited manifest",
+    path: "/containers",
+    request,
+    status: 400,
     token: owner.token,
   });
 }, 15_000);

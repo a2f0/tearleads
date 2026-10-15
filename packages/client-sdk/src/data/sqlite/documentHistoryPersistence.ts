@@ -5,7 +5,7 @@ import {
   importSnapshot,
   satisfiesVersionVector,
 } from "@tearleads/loro";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { DocumentScope } from "./documentPersistenceTypes";
 import {
   documentHistoryCheckpoints,
@@ -31,6 +31,27 @@ export const DOCUMENT_HISTORY_COMPACTION_MAX_BYTES = 512 * 1024;
  * remote rows (already server-side); local rows never advance it.
  */
 type DocumentHistoryUpdateOrigin = "local" | "remote";
+
+/**
+ * Rows of the update log that are history tail: every row except an "outbox"
+ * row, which only waits to be sent (see `documentHistoryUpdates`).
+ */
+function tailInScope(scope: DocumentScope) {
+  return and(
+    eq(documentHistoryUpdates.appKind, scope.appKind),
+    eq(documentHistoryUpdates.localId, scope.localId),
+    ne(documentHistoryUpdates.origin, "outbox"),
+  );
+}
+
+/**
+ * Tail rows compaction may fold into a checkpoint and delete: a queued row is
+ * the only durable copy of an unsent update, so it waits for settlement even
+ * when a checkpoint already covers its operations.
+ */
+function compactableTailInScope(scope: DocumentScope) {
+  return and(tailInScope(scope), isNull(documentHistoryUpdates.updateId));
+}
 
 interface DocumentHistoryTailUpdate {
   readonly origin: DocumentHistoryUpdateOrigin;
@@ -99,12 +120,7 @@ export async function loadDocumentHistoryRestoreState(
       updateData: documentHistoryUpdates.updateData,
     })
     .from(documentHistoryUpdates)
-    .where(
-      and(
-        eq(documentHistoryUpdates.appKind, scope.appKind),
-        eq(documentHistoryUpdates.localId, scope.localId),
-      ),
-    )
+    .where(tailInScope(scope))
     // Insertion order: same-millisecond appends make createdAt tie and a
     // random-uuid tiebreak would replay out of order. importUpdates tolerates
     // out-of-order batches, but replay should still be deterministic.
@@ -137,6 +153,11 @@ export async function loadDocumentHistoryRestoreState(
   };
 }
 
+/**
+ * Size of the tail compaction can shrink. Queued rows are excluded: they stay
+ * until settlement, so counting them would re-export full history on every
+ * persist while offline edits wait to sync.
+ */
 export async function readDocumentHistoryTailSize(
   execSql: ExecSql,
   scope: DocumentScope,
@@ -149,12 +170,7 @@ export async function readDocumentHistoryTailSize(
       rowCount: sql<number>`count(*)`,
     })
     .from(documentHistoryUpdates)
-    .where(
-      and(
-        eq(documentHistoryUpdates.appKind, scope.appKind),
-        eq(documentHistoryUpdates.localId, scope.localId),
-      ),
-    );
+    .where(compactableTailInScope(scope));
   const [checkpoint] = await db
     .select({ localId: documentHistoryCheckpoints.localId })
     .from(documentHistoryCheckpoints)
@@ -178,9 +194,10 @@ interface DocumentHistoryTailEntry {
 }
 
 /**
- * The current tail rows WITH their payloads, so a compactor can prove each
- * row's ops are covered by the snapshot it is about to install (another
- * pane's append may carry ops this pane's document has not merged yet).
+ * The current compactable tail rows WITH their payloads, so a compactor can
+ * prove each row's ops are covered by the snapshot it is about to install
+ * (another pane's append may carry ops this pane's document has not merged
+ * yet). Queued rows are never candidates.
  */
 export async function listDocumentHistoryTailEntries(
   execSql: ExecSql,
@@ -194,12 +211,7 @@ export async function listDocumentHistoryTailEntries(
       updateData: documentHistoryUpdates.updateData,
     })
     .from(documentHistoryUpdates)
-    .where(
-      and(
-        eq(documentHistoryUpdates.appKind, scope.appKind),
-        eq(documentHistoryUpdates.localId, scope.localId),
-      ),
-    );
+    .where(compactableTailInScope(scope));
   return rows.flatMap((row) =>
     row.id === null ? [] : [{ id: row.id, updateData: row.updateData }],
   );
@@ -272,12 +284,13 @@ export async function replaceDocumentHistoryCheckpoint(
         index < input.coveredTailIds.length;
         index += HISTORY_ROW_CHUNK
       ) {
+        // Never a queued row, even if a caller names one: its operations may
+        // be in the checkpoint, but it is still the unsent update itself.
         await tx
           .delete(documentHistoryUpdates)
           .where(
             and(
-              eq(documentHistoryUpdates.appKind, scope.appKind),
-              eq(documentHistoryUpdates.localId, scope.localId),
+              compactableTailInScope(scope),
               inArray(
                 documentHistoryUpdates.id,
                 input.coveredTailIds.slice(index, index + HISTORY_ROW_CHUNK),

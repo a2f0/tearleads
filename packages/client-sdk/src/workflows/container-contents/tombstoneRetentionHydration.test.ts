@@ -6,6 +6,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import {
   createContainerMetadataDocument,
@@ -332,7 +333,7 @@ test("an unsigned metadata replacement cannot purge the dormant scope", async ()
     expect(restored?.container.name).not.toBe("Renamed");
     expect(restored?.record?.documentId).toBe("metadata-revoked");
     const pendingRows = await execSql(
-      `SELECT COUNT(*) AS n FROM document_pending_updates
+      `SELECT COUNT(*) AS n FROM ${QUEUED_UPDATES_SQL}
        WHERE app_kind = 'container-metadata' AND local_id = ?`,
       ["revoked"],
     );
@@ -476,7 +477,7 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
     expect(restored?.container.name).toBe("Renamed");
     expect(restored?.record?.documentId).toBe("metadata-revoked");
     const pendingRows = await execSql(
-      `SELECT COUNT(*) AS n FROM document_pending_updates
+      `SELECT COUNT(*) AS n FROM ${QUEUED_UPDATES_SQL}
        WHERE app_kind = 'container-metadata' AND local_id = ?`,
       ["revoked"],
     );

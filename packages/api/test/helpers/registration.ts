@@ -46,6 +46,7 @@ import type {
   ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { containerManifestRefs } from "./containerManifestRefs";
 import {
   createOptionalProvisionedDocumentFixture,
   createProvisionedDocumentFixture,
@@ -589,8 +590,8 @@ async function createRootContainerArtifacts(input: {
       body: toWireRecord(body, "root container request body"),
       expectedManifestHash: manifestHash,
       manifest: toWireRecord(manifest, "root container request manifest"),
-      previousManifest: null,
-      parentContainerPath: [],
+      previousManifestRef: null,
+      parentContainerPathRefs: [],
       principalPolicies,
       keyEpoch: toWireRecord(keyEpoch, "root container request key epoch"),
       predecessorBridge: null,
@@ -780,8 +781,10 @@ async function createChildContainerArtifacts(input: {
       body: toWireRecord(body, "child container request body"),
       expectedManifestHash: manifestHash,
       manifest: toWireRecord(manifest, "child container request manifest"),
-      previousManifest: null,
-      parentContainerPath: input.parentProjection.path,
+      previousManifestRef: null,
+      parentContainerPathRefs: containerManifestRefs(
+        input.parentProjection.path,
+      ),
       principalPolicies,
       keyEpoch: toWireRecord(keyEpoch, "child container request key epoch"),
       predecessorBridge: null,
@@ -928,7 +931,6 @@ async function createRootMetadataDocumentRequest(input: {
     body: toWireRecord(body, "root metadata document request body"),
     expectedManifestHash: manifestHash,
     manifest: toWireRecord(manifest, "root metadata document request manifest"),
-    previousManifest: null,
     targetContainerPathRefs: input.containerProjection.path.map((bundle) => ({
       containerId: (bundle.state as { containerId: string }).containerId,
       manifestHash: bundle.manifestHash,

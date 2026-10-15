@@ -9,6 +9,10 @@ import type {
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import { createContainerKeyWrap } from "./containerKeying";
+import {
+  containerManifestRef,
+  containerManifestRefs,
+} from "./containerManifestRefs";
 import { refreshContainerMutationPrincipal } from "./containerMutationPrincipalRefresh";
 import {
   asVerifiedContainerManifest,
@@ -89,9 +93,11 @@ export async function buildPrincipalGrantRefreshRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    containerManifestHistory: [input.previous],
+    previousManifestRef: containerManifestRef(input.previous),
+    previousContainerPathRefs: containerManifestRefs(
+      input.previousContainerPath,
+    ),
+    containerManifestHistoryRefs: [containerManifestRef(input.previous)],
     principalPolicies: refreshed.principalPolicies as unknown as Record<
       string,
       unknown

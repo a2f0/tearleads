@@ -38,10 +38,9 @@ async function recoverySnapshot(
       "document_id, recovery_document_id, recovery_generation, snapshot_end_version, pending_base_version",
     ],
     ["document_history_checkpoints", "snapshot, end_version_vector"],
-    ["document_history_updates", "id, update_data, origin"],
     [
-      "document_pending_updates",
-      "id, update_data, partial_start_version_vector, partial_end_version_vector, source_version_vector",
+      "document_history_updates",
+      "id, update_data, origin, update_id, partial_start_version_vector, partial_end_version_vector, source_version_vector",
     ],
   ]) {
     metadata.push(
@@ -77,7 +76,9 @@ async function recoverySnapshot(
   );
   return {
     revision,
-    pendingUpdateCount: metadata[3]?.length ?? 0,
+    pendingUpdateCount: (metadata[2] ?? []).filter(
+      (row) => Reflect.get(row, "update_id") !== null,
+    ).length,
     hasStructuralIntent: creates.length + moves.length + links.length > 0,
   };
 }

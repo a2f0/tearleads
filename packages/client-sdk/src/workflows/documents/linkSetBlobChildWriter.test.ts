@@ -73,7 +73,7 @@ test("a child-only writer relinks an attachment without the parent secret", asyn
     });
     const response = await createMutationResponseFromRequest(
       shared.plan.request,
-      original.containerKeks.at(-1),
+      original,
     );
     const projection = {
       ...original,

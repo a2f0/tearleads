@@ -3,6 +3,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createMetadataBindingFixture } from "../../../../test/helpers/containerMetadataBinding";
+import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
@@ -58,12 +59,13 @@ test("tombstone recovery already protects dormant metadata from a forged listing
         snapshotEndVersion: "",
       },
     );
-    await execSql(
-      `INSERT INTO document_pending_updates
-      (id, app_kind, local_id, update_data, partial_start_version_vector, partial_end_version_vector, created_at)
-      VALUES ('pending-private-rename', 'container-metadata', ?, 'data', '', '', 'now')`,
-      [fixture.listed.id],
-    );
+    await insertQueuedUpdateRows(execSql, [
+      {
+        appKind: "container-metadata",
+        id: "pending-private-rename",
+        localId: fixture.listed.id,
+      },
+    ]);
     await sqlContainerContentsPersistence.deleteContainers(
       execSql,
       [

@@ -11,7 +11,22 @@ export {
   isAccessManifestBundleWireResponse,
   isOptionalAccessManifestBundleWireArray,
 } from "./accessManifestBundle";
-export { MAX_MULTIPART_BLOB_PART_BYTES } from "./blob";
+export {
+  MAX_INITIATE_PART_UPLOADS,
+  MAX_MULTIPART_BLOB_PART_BYTES,
+} from "./blob";
+export {
+  blobPartContentMd5Schema,
+  MAX_MULTIPART_BLOB_PART_NUMBER,
+  type MultipartBlobPartDescriptor,
+  MultipartBlobPartDescriptorSchema,
+  type MultipartBlobPartUpload,
+  MultipartBlobPartUploadSchema,
+  type MultipartBlobPartUploadSource,
+  MultipartBlobPartUploadSourceSchema,
+  signedBlobUrlExpirySchema,
+  signedBlobUrlSchema,
+} from "./blobTransferSchemas";
 export {
   CONTAINER_KEK_LOG_PAGE_LIMIT,
   CONTAINER_KEK_LOG_PRINCIPAL_SCOPE_LIMIT,

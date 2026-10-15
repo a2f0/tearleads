@@ -6,6 +6,7 @@ import type {
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import { createTestContainerKekMaterial } from "./containerKekMaterial";
+import { containerManifestRefs } from "./containerManifestRefs";
 import {
   asVerifiedContainerManifest,
   createContainerKeyEpoch,
@@ -94,7 +95,7 @@ export async function buildChildCreateRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    parentContainerPath,
+    parentContainerPathRefs: containerManifestRefs(parentContainerPath),
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown

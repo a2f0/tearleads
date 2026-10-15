@@ -11,7 +11,7 @@ import type {
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
-import { asContainerManifestBundle } from "../../../data/containers/shared/projection";
+import { containerManifestRef } from "../../../data/containers/shared/projection";
 import {
   readCanonicalRecord,
   readCanonicalRecords,
@@ -29,20 +29,20 @@ export function readCanonicalRecordOrNull(
 
 /**
  * The previous-manifest identity every non-create mutation
- * (share/rekey/revoke/move) sends alongside the core request fields.
+ * (share/rekey/revoke/move) sends alongside the core request fields: the
+ * previous head and the current path, cited by hash rather than echoed.
  */
 export function previousPathRequestFields(
   previousManifest: AccessManifestBundleWire,
   previousProjection: ContainerWriterProjectionResponse,
 ): Pick<
   ContainerMutationRequest,
-  "previousManifest" | "previousContainerPath"
+  "previousManifestRef" | "previousContainerPathRefs"
 > {
   return {
-    previousManifest,
-    previousContainerPath: previousProjection.path.map(
-      asContainerManifestBundle,
-    ),
+    previousManifestRef: containerManifestRef(previousManifest),
+    previousContainerPathRefs:
+      previousProjection.path.map(containerManifestRef),
   };
 }
 

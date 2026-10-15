@@ -32,6 +32,10 @@ import {
   createContainerKeyEpoch,
   createContainerKeyWrap,
 } from "./containerKeying";
+import {
+  containerManifestRef,
+  containerManifestRefs,
+} from "./containerManifestRefs";
 import { refreshContainerMutationPrincipal } from "./containerMutationPrincipalRefresh";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 
@@ -240,8 +244,10 @@ export async function buildRevokeRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
+    previousManifestRef: containerManifestRef(input.previous),
+    previousContainerPathRefs: containerManifestRefs(
+      input.previousContainerPath,
+    ),
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown
@@ -357,8 +363,10 @@ export async function buildRekeyRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
+    previousManifestRef: containerManifestRef(input.previous),
+    previousContainerPathRefs: containerManifestRefs(
+      input.previousContainerPath,
+    ),
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown
@@ -467,9 +475,13 @@ export async function buildMoveRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    destinationParentContainerPath: [...input.destinationParentPath],
+    previousManifestRef: containerManifestRef(input.previous),
+    previousContainerPathRefs: containerManifestRefs(
+      input.previousContainerPath,
+    ),
+    destinationParentContainerPathRefs: containerManifestRefs(
+      input.destinationParentPath,
+    ),
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown

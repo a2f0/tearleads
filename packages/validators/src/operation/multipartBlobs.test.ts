@@ -1,10 +1,6 @@
 import { expect, test } from "bun:test";
+import { InitiateMultipartBlobStageRequestSchema } from "../request";
 import {
-  CompleteMultipartBlobStageRequestSchema,
-  InitiateMultipartBlobStageRequestSchema,
-} from "../request";
-import {
-  CompleteMultipartBlobStageResponseSchema,
   ErrorResponseSchema,
   InitiateMultipartBlobStageResponseSchema,
   MULTIPART_BLOB_STAGE_ERROR_CODES,
@@ -15,7 +11,6 @@ import {
 } from "../response";
 import { operationRequestPath, operationRoutePath } from "./definition";
 import {
-  completeMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
   MultipartBlobStagePathParamsSchema,
@@ -42,15 +37,6 @@ test("multipart control operations own their shared HTTP contracts", () => {
     params: MultipartBlobStagePathParamsSchema,
     responses: { 200: MultipartBlobStageStatusResponseSchema },
   });
-  expect(completeMultipartBlobStageOperation).toMatchObject({
-    auth: "session",
-    body: CompleteMultipartBlobStageRequestSchema,
-    failureStatuses: [400, 401, 403, 404, 409, 500, 503],
-    id: "blobs.multipartStages.complete",
-    method: "POST",
-    params: MultipartBlobStagePathParamsSchema,
-    responses: { 200: CompleteMultipartBlobStageResponseSchema },
-  });
   expect(initiateMultipartBlobStageOperation.failureResponses).toEqual({
     400: ErrorResponseSchema,
     401: SessionFailureResponseSchema,
@@ -66,15 +52,6 @@ test("multipart control operations own their shared HTTP contracts", () => {
     403: ErrorResponseSchema,
     404: MultipartBlobStageNotFoundErrorResponseSchema,
     409: MultipartBlobStageConflictErrorResponseSchema,
-    500: ErrorResponseSchema,
-    503: ErrorResponseSchema,
-  });
-  expect(completeMultipartBlobStageOperation.failureResponses).toEqual({
-    400: ErrorResponseSchema,
-    401: SessionFailureResponseSchema,
-    403: ErrorResponseSchema,
-    404: ErrorResponseSchema,
-    409: ErrorResponseSchema,
     500: ErrorResponseSchema,
     503: ErrorResponseSchema,
   });
@@ -133,10 +110,10 @@ test("multipart control paths derive from shared operations", () => {
     operationRequestPath(getMultipartBlobStageOperation, { stageId }),
   ).toBe(`/blobs/stages/multipart/${stageId}`);
   expect(
-    operationRequestPath(completeMultipartBlobStageOperation, {
+    operationRequestPath(getMultipartBlobStageOperation, {
       stageId: legacyStageId,
     }),
-  ).toBe(`/blobs/stages/multipart/${legacyStageId}/complete`);
+  ).toBe(`/blobs/stages/multipart/${legacyStageId}`);
   expect(() =>
     operationRequestPath(getMultipartBlobStageOperation, {
       stageId: "invalid",
@@ -148,13 +125,7 @@ test("multipart control OpenAPI documents shared inputs and responses", () => {
   const initiate = openApiDocument.paths["/blobs/stages/multipart"]?.post;
   const status =
     openApiDocument.paths["/blobs/stages/multipart/{stageId}"]?.get;
-  const complete =
-    openApiDocument.paths["/blobs/stages/multipart/{stageId}/complete"]?.post;
-  if (
-    initiate?.requestBody === undefined ||
-    status === undefined ||
-    complete?.requestBody === undefined
-  ) {
+  if (initiate?.requestBody === undefined || status === undefined) {
     throw new Error("Multipart control OpenAPI operations are missing");
   }
 
@@ -162,7 +133,7 @@ test("multipart control OpenAPI documents shared inputs and responses", () => {
   expect(initiate.parameters).toEqual([]);
   expect(
     initiate.requestBody.content["application/json"]?.schema.required,
-  ).toEqual(["organizationId", "byteLength", "sha256"]);
+  ).toEqual(["organizationId", "byteLength", "firstParts", "sha256"]);
   expect(Object.keys(initiate.responses)).toEqual([
     "200",
     "400",
@@ -188,11 +159,11 @@ test("multipart control OpenAPI documents shared inputs and responses", () => {
     throw new Error("Multipart status path schema is missing");
   }
   expect(Reflect.get(statusParameter.schema, "pattern")).toBeTypeOf("string");
-  expect(complete.operationId).toBe("blobs.multipartStages.complete");
+  // Attachment binding completes a stage; there is no completion route.
   expect(
-    complete.requestBody.content["application/json"]?.schema.required,
-  ).toEqual(["parts", "uploadId"]);
-  for (const operation of [initiate, status, complete]) {
+    openApiDocument.paths["/blobs/stages/multipart/{stageId}/complete"],
+  ).toBeUndefined();
+  for (const operation of [initiate, status]) {
     expect(operation.security).toEqual([{ bearerAuth: [] }]);
   }
 });

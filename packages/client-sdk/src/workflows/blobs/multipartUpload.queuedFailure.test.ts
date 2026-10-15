@@ -11,15 +11,10 @@ for (const failure of ["throw", "null"] as const) {
   test(`a ${failure} part failure cancels queued parts before returning its permit`, async () => {
     const encrypted: number[] = [];
     const uploaded: number[] = [];
-    let completed = false;
     const apiClient = createMultipartApi({
       uploadMultipartBlobPartBytes: async (_stageId, partNumber) => {
         uploaded.push(partNumber);
         if (failure === "throw") throw new Error("first part failed");
-        return null;
-      },
-      completeMultipartBlobStage: async () => {
-        completed = true;
         return null;
       },
     });
@@ -49,9 +44,11 @@ for (const failure of ["throw", "null"] as const) {
       ).rejects.toThrow(
         failure === "throw" ? "first part failed" : "part 1 upload failed",
       );
+      // A first part's bytes hold a pool slot from description to upload, so
+      // with one slot free only part one is described and encrypted; the
+      // queued sibling is never encrypted beyond the shared bound.
       expect(encrypted).toEqual([0]);
       expect(uploaded).toEqual([1]);
-      expect(completed).toBe(false);
     } finally {
       release();
       await Promise.all(otherDocuments);

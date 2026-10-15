@@ -29,8 +29,16 @@ testApiClient(
       event: {},
       manifest: response.accessManifest.manifest,
       expectedManifestHash: response.accessManifest.manifestHash,
-      previousManifest: response.accessManifest,
-      previousContainerPath: [response.accessManifest],
+      previousManifestRef: {
+        containerId: "container-1",
+        manifestHash: response.accessManifest.manifestHash,
+      },
+      previousContainerPathRefs: [
+        {
+          containerId: "container-1",
+          manifestHash: response.accessManifest.manifestHash,
+        },
+      ],
       principalPolicies: [],
     };
     let projectionReads = 0;
