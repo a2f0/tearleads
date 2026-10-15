@@ -90,6 +90,7 @@ export function readPrincipalMutation(
   const request = CommitOrganizationGroupPolicyRequestSchema.parse(body);
   assertStateScope(request.groupPolicy.state, "group", groupId, scope);
   if (request.memberPolicy) {
+    // The server binds this signed group ID to the organization's Members group.
     assertStateScope(
       request.memberPolicy.state,
       "group",

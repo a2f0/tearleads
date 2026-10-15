@@ -86,3 +86,17 @@ test("the optional enrollment policy must target this organization's Members gro
   expect(await f.readHeads()).toEqual(f.before);
   expect(await roster(f)).toEqual([]);
 }, 20_000);
+
+test("a compound enrollment cannot duplicate its Members policy", async () => {
+  const f = await createAtomicEnrollmentFixture();
+  const response = await f.commit(
+    { ...f.request, groupPolicy: f.request.memberPolicy },
+    f.organization.memberGroupId,
+  );
+  expect(response.status, await response.clone().text()).toBe(400);
+  expect(await response.json()).toEqual({
+    error: "Members policy is duplicated",
+  });
+  expect(await f.readHeads()).toEqual(f.before);
+  expect(await roster(f)).toEqual([]);
+}, 20_000);

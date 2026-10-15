@@ -6,6 +6,11 @@ import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { toMutationError } from "../containers/mutations/errors";
 import { OrganizationManagerError } from "../organizations/errors";
+import {
+  lockGroupPolicyRematerializationInTransaction,
+  lockGroupReferenceExclusiveInTransaction,
+  sortGroupReferenceIds,
+} from "./groupReferenceLock";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
 import {
   lockOrganizationGroupMutationInTransaction,
@@ -38,6 +43,20 @@ interface CommitPolicyInput {
   readonly organizationId: string;
   readonly request: CommitOrganizationGroupPolicyRequest;
   readonly requesterUserId: string;
+}
+
+async function lockEnrollmentReferences(
+  tx: DatabaseTransaction,
+  input: CommitPolicyInput,
+  memberGroupId: string,
+): Promise<void> {
+  if (!input.request.memberPolicy) return;
+  // Container grants acquire shared references in this same order.
+  // Lock both before either policy takes its own reference or org row.
+  await lockGroupPolicyRematerializationInTransaction(tx);
+  for (const groupId of sortGroupReferenceIds([input.groupId, memberGroupId])) {
+    await lockGroupReferenceExclusiveInTransaction(tx, groupId);
+  }
 }
 
 async function commitRosterEnrollment(
@@ -109,6 +128,7 @@ export async function runCommitOrganizationGroupPolicyWorkflow(
           404,
         );
       }
+      await lockEnrollmentReferences(tx, input, target.memberGroupId);
       // Both group operations authorize against the intact predecessor directory.
       // The organization lock remains held through all three policy writes.
       const applyGroup = await preparePrincipalPolicyInTransaction(

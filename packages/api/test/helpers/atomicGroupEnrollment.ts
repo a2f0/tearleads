@@ -23,7 +23,7 @@ import { requestAfterPrincipalPreparation } from "./principalPreparationRequest"
 import { signPrincipalStateBundle } from "./principalState";
 import { signGroupSuccessor } from "./rotatedReadGroupGrant";
 
-export async function createAtomicEnrollmentFixture() {
+export async function createAtomicEnrollmentFixture(groupAfterMembers = false) {
   const actor = createTestUser();
   const member = createTestUser();
   await registerAndAuthenticate(actor, member);
@@ -33,7 +33,10 @@ export async function createAtomicEnrollmentFixture() {
     .from(organizations)
     .where(eq(organizations.id, organizationId));
   invariant(organization, "expected organization");
-  const groupId = crypto.randomUUID();
+  let groupId = crypto.randomUUID();
+  while (groupAfterMembers && groupId <= organization.memberGroupId) {
+    groupId = crypto.randomUUID();
+  }
   const created = await requestAfterPrincipalPreparation(
     `/organizations/${organizationId}/groups`,
     {
@@ -82,9 +85,12 @@ export async function createAtomicEnrollmentFixture() {
       getCurrentPrincipalState("organization", organizationId, db),
     ]);
   const before = await readHeads();
-  const commit = (body: CommitOrganizationGroupPolicyRequest = request) =>
+  const commit = (
+    body: CommitOrganizationGroupPolicyRequest = request,
+    targetGroupId: string = groupId,
+  ) =>
     requestAfterPrincipalPreparation(
-      `/organizations/${organizationId}/groups/${groupId}/policy-commit`,
+      `/organizations/${organizationId}/groups/${targetGroupId}/policy-commit`,
       {
         method: "PUT",
         headers: {

@@ -77,6 +77,9 @@ export async function commitCurrentGroupPolicyMutation(
     request: input.request,
     organizationRequest,
     memberRequest: input.member?.request,
+    // A compound retry must rebuild both batches' shared speculative heads.
+    // Refuse the whole transaction if a damaged-key repair needs extra rekeys;
+    // ordinary adds preserve key epochs and need no descendant carry retry.
     carryDescendantRekeys: member ? undefined : prepared.carry,
     stillCurrent: context.stillCurrent,
   });

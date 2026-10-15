@@ -41,21 +41,18 @@ import {
   verifyGroupPolicy,
   verifyGroupPolicyWithExternalOrganizationAdmins,
 } from "./groupPolicyVerification";
-
-import { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
-
-export { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
-
 import type {
   PrincipalPolicyReadApi,
   PrincipalPolicyReadWriteApi,
 } from "./principalPolicyApi";
+import { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
 
 export type {
   OrganizationPrincipalPolicyApi,
   PrincipalPolicyReadApi,
   PrincipalPolicyReadWriteApi,
 } from "./principalPolicyApi";
+export { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
 
 interface LoadedGroupPolicyMutationContext
   extends FullGroupMembershipMutationInput {

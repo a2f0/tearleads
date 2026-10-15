@@ -13,7 +13,7 @@ import { GroupDetailSection } from "./GroupDetailSection";
 import { GroupListSection } from "./GroupTable";
 
 interface GroupsViewProps {
-  addUser: () => void;
+  addUser: () => void | Promise<void>;
   addUserId: string;
   addUserListId: string;
   addableUsers: ReadonlyArray<OrganizationDirectoryUser>;

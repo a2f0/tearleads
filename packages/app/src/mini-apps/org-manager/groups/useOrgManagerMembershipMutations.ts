@@ -64,7 +64,6 @@ async function addUserToSelectedGroup(
     params.setError(ORG_MANAGER_LABELS.groupNameUnavailable);
     return;
   }
-  const memberGroupId = params.memberGroupId;
   const selectedGroupId = params.selectedGroupId;
   const groupName = params.selectedGroupName;
   const operationOrganizationId = params.directory.organizationId;
@@ -107,7 +106,6 @@ async function addUserToSelectedGroup(
         groupId: selectedGroupId,
         groupName,
         isOperationActive: params.isOperationActive,
-        memberGroupId,
         operationOrganizationId,
         orgManagerActions: params.orgManagerActions,
         setError: params.setError,

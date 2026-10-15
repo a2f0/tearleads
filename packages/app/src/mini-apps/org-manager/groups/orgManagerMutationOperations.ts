@@ -140,7 +140,6 @@ export async function addRosterUserToGroup(input: {
   groupId: string;
   groupName: string;
   isOperationActive: IsOperationActive;
-  memberGroupId: string | null;
   operationOrganizationId: string;
   orgManagerActions: OrgManagerActions;
   setError: Dispatch<SetStateAction<string | null>>;
