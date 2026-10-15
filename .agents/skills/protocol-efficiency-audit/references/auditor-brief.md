@@ -116,8 +116,9 @@ the user added.
 Fill `<KNOWN_DISPOSITIONS>` with slice-relevant entries from the saved index:
 the closeout dispositions (A1 to A3 durable deltas, B batched probes, C
 inline projections), #2203, #2512 and its fix #2515, #2521, #1281, #1672,
-and project memory. Fill `<RECENT_COMMITS>` with commits relevant to the work
-item since the last measurement and one line on what each changed. Fill
+the #2522 proposals already implemented or declined, and project memory.
+Fill `<RECENT_COMMITS>` with commits relevant to the work item since the last
+measurement and one line on what each changed. Fill
 `<WORK_ITEM>` with exact paths, tables, and saved coverage or next steps on
 resume. Point `<BASELINE_FILE>` at the compact baseline and
 `<MEASUREMENT_DIR>` at the shared measurements, not the auditor's private
@@ -138,7 +139,7 @@ repository's own request budgets or schema at the time of writing.
 - **N+1 per object.** A probe, listing, or projection issued per document,
   container, or blob when the operation knows the set up front.
 - **Round trips that always travel together.** A create followed by its
-  first sync; stage, complete, then bind; a projection fetched immediately
+  first sync; stage, part upload, then bind; a projection fetched immediately
   before the write that cites it; a read-model refresh after every policy
   write.
 - **Hint-then-fetch.** A realtime frame that names an object and forces two
@@ -169,6 +170,6 @@ repository's own request budgets or schema at the time of writing.
 - **Rebuild on the client of what the server could serve verified.**
   Keyring and KEK-log rebuilds, policy chain walks, and listing merges that
   the server could precompute and the client could still verify.
-- **Double persistence of one byte stream.** Snapshot, pending update, and
-  history tables holding the same bytes; projection text split from the row
-  it projects without a query that needs the split.
+- **Double persistence of one byte stream.** A snapshot and an update log
+  holding the same bytes; projection text split from the row it projects
+  without a query that needs the split.
