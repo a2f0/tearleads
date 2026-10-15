@@ -16,6 +16,7 @@ import { IdentityLinkLaunchBridge } from "./IdentityLinkLaunchBridge";
 
 interface AppNavigationProviderProps extends PropsWithChildren {
   defaultWindowEnabled?: boolean | undefined;
+  identityLinkLaunchEnabled?: boolean | undefined;
   launcher: LauncherDefinition<MiniAppId>;
   mode: NavigationMode;
 }
@@ -23,6 +24,7 @@ interface AppNavigationProviderProps extends PropsWithChildren {
 export function AppNavigationProvider({
   children,
   defaultWindowEnabled,
+  identityLinkLaunchEnabled = true,
   launcher,
   mode,
 }: AppNavigationProviderProps) {
@@ -33,7 +35,7 @@ export function AppNavigationProvider({
       mode={mode}
     >
       <IdentityLinkLaunchBridge
-        enabled={defaultWindowEnabled !== false}
+        enabled={defaultWindowEnabled !== false && identityLinkLaunchEnabled}
         mode={mode}
       />
       {children}

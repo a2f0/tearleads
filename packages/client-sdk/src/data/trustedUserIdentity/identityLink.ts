@@ -86,14 +86,18 @@ export function parseIdentityLink(value: string): IdentityLinkExpectation {
     userId: payload[2],
     fingerprint: payload[3],
   };
-  assertTrustedUserIdentityUserId(expectation.userId);
-  if (
-    resolveIdentityTrustDomain({
-      apiBaseUrl: expectation.identityTrustDomain,
-    }) !== expectation.identityTrustDomain ||
-    encodeExpectation(expectation) !== token
-  )
+  try {
+    assertTrustedUserIdentityUserId(expectation.userId);
+    if (
+      resolveIdentityTrustDomain({
+        apiBaseUrl: expectation.identityTrustDomain,
+      }) !== expectation.identityTrustDomain
+    )
+      return invalidLink();
+  } catch {
     return invalidLink();
+  }
+  if (encodeExpectation(expectation) !== token) return invalidLink();
   return expectation;
 }
 

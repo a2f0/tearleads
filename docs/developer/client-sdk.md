@@ -133,7 +133,7 @@ Client capabilities:
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, and server-authoritative billing eligibility |
 | `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, detailed billing and the latest 50 billing events), offered only when the session is root |
-| `tearleads.userIdentities` | pinned bundles; `createLink` / `verifyLink` onboarding |
+| `tearleads.userIdentities` | `resolvePinned`; `createLink` / `verifyLink` |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
 Organization and custom group names are encrypted. Every organization requires

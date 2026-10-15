@@ -15,12 +15,12 @@ export function IdentityLinkLaunchBridge({
   const { openMiniApp } = useLauncherNavigationActions();
   const handled = useRef<string | null>(null);
   useEffect(() => {
-    if (!enabled || mode !== "windowed") return;
     const openLink = () => {
       const path = window.location.pathname;
       const prefix = "/app/contacts/import/";
       if (!path.startsWith(prefix) || handled.current === path) return;
       handled.current = path;
+      if (!enabled || mode !== "windowed") return;
       openMiniApp({
         appId: "contacts",
         pathSegments: ["import", path.slice(prefix.length)],

@@ -94,6 +94,7 @@ export function createInternalRuntimeFixture(
   return {
     adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
     identityLinks: {
+      resolvePinned: async () => null,
       createLink: async () => {
         throw new Error("Identity links are not configured in this fixture.");
       },

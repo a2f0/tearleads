@@ -30,6 +30,12 @@ test("an independently anchored first contact pins both keys and survives servic
     },
   };
   try {
+    expect(
+      await createTrustedUserIdentityService(dependencies).resolvePinned(
+        LINK_USER_ID,
+      ),
+    ).toBeNull();
+    expect(loads).toBe(0);
     const verified = await createTrustedUserIdentityService(
       dependencies,
     ).verifyLink(fixture.link);
@@ -40,6 +46,12 @@ test("an independently anchored first contact pins both keys and survives servic
     expect(verified.encapsulationKeyFingerprint).toBe(
       fixture.remote.encapsulationKeyFingerprint,
     );
+    expect(
+      await createTrustedUserIdentityService(dependencies).resolvePinned(
+        LINK_USER_ID,
+      ),
+    ).toEqual(verified);
+    expect(loads).toBe(1);
     const restored =
       await createTrustedUserIdentityService(dependencies).resolve(
         LINK_USER_ID,
@@ -148,10 +160,9 @@ test("a valid link never overwrites a conflicting TOFU pin", async () => {
 });
 
 test("link creation uses local keys without fetching or trusting API identity rows", async () => {
-  const { close, execSql } = await createTestExecSql("identity-link-local");
   const bob = await identityLinkFixture();
   const service = createTrustedUserIdentityService({
-    getExecSql: () => execSql,
+    getExecSql: () => null,
     getLocalUserId: () => LINK_USER_ID,
     getLocalIdentity: () => bob.local,
     identityTrustDomain: LINK_TRUST_DOMAIN,
@@ -162,12 +173,8 @@ test("link creation uses local keys without fetching or trusting API identity ro
       invalidate: () => {},
     },
   });
-  try {
-    expect(await service.createLink("https://app.example.test")).toBe(bob.link);
-    expect(await service.createLink("https://app.example.test")).toBe(bob.link);
-  } finally {
-    close();
-  }
+  expect(await service.createLink("https://app.example.test")).toBe(bob.link);
+  expect(await service.createLink("https://app.example.test")).toBe(bob.link);
 });
 
 test("foreign-service links fail before fetching; missing and changed-runtime identities never pin", async () => {

@@ -184,6 +184,7 @@ export const ORG_MANAGER_LABELS = {
   groupLinksTab: "Links",
   groupName: "Group name",
   groups: "Groups",
+  rosterIdentity: "Roster user or identity link",
   importUserAction: "Add by Identity Link",
   importUserSubmitAction: "Verify and Add",
   importRosterEntryIntoContactsAction: "Import Into Contacts",

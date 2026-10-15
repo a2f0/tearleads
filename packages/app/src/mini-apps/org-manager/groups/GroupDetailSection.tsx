@@ -141,7 +141,7 @@ export function GroupDetailSection({
           <>
             <MiniAppToolbar className="org-manager-form-toolbar">
               <MiniAppInput
-                aria-label={ORG_MANAGER_LABELS.userId}
+                aria-label={ORG_MANAGER_LABELS.rosterIdentity}
                 disabled={!canMutateSelectedGroup || mutating}
                 list={addUserListId}
                 onChange={(event) => setAddUserId(event.target.value)}

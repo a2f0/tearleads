@@ -15,21 +15,31 @@ afterEach(async () => {
   window.history.replaceState(null, "", "/");
 });
 
-for (const mode of ["routed", "windowed"] as const) {
-  test(`identity permalink survives first-use provisioning in ${mode} mode`, async () => {
+for (const [mode, native] of [
+  ["routed", false],
+  ["windowed", false],
+  ["windowed", true],
+] as const) {
+  test(`identity permalink survives first-use provisioning in ${mode} mode (native: ${native})`, async () => {
     const peerId = "11111111-1111-4111-8111-111111111111";
     const link = await mockIdentityLink(peerId);
     const browser = window as typeof window & {
       happyDOM: { setURL: (url: string) => void };
     };
-    browser.happyDOM.setURL(link);
+    browser.happyDOM.setURL(
+      native ? `views://main${new URL(link).pathname}` : link,
+    );
     window.history.replaceState(null, "", new URL(link).pathname);
+    expect(window.location.pathname).toBe(new URL(link).pathname);
     const view = render(
       <SystemMonitorDeveloperModeProvider>
         <DualPaneProvider>
           <PaneSideProvider side="left">
             <PaneProvider
-              hostConfig={createTestHostConfig({ autoProvisionIdentity: true })}
+              hostConfig={{
+                ...createTestHostConfig({ autoProvisionIdentity: true }),
+                identityLinkWebUrl: "http://localhost:3000",
+              }}
             >
               <Pane
                 className="pane"

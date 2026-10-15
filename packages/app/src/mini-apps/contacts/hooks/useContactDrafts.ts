@@ -95,19 +95,18 @@ function useCreateDraftContact(input: {
 }
 
 function useIdentityLinkDraft(token: string | undefined) {
+  const { linkFromToken } = useIdentityLinks();
   const [draft, setDraft] = useState("");
   useEffect(() => {
-    if (token)
-      setDraft(
-        new URL(`/app/contacts/import/${token}`, window.location.href).href,
-      );
-  }, [token]);
+    if (token) setDraft(linkFromToken(token));
+  }, [linkFromToken, token]);
   return [draft, setDraft] as const;
 }
 
-export function useContactDrafts(input: {
+interface ContactDraftsInput {
   identityLinkToken?: string | undefined;
   identityScope: string;
+  openImportContactRoute: () => void;
   canWrite: boolean;
   createContact: ReturnType<typeof useContacts>["createContact"];
   importKey: ReturnType<typeof useContacts>["importKey"];
@@ -115,7 +114,9 @@ export function useContactDrafts(input: {
   logError: ReturnType<typeof useLog>["logError"];
   ready: boolean;
   setSelectedContactId: (contactId: string) => void;
-}) {
+}
+
+export function useContactDrafts(input: ContactDraftsInput) {
   const {
     canWrite,
     createContact,
@@ -131,7 +132,7 @@ export function useContactDrafts(input: {
   const [draftUserId, setDraftUserId] = useIdentityLinkDraft(
     input.identityLinkToken,
   );
-  const { verifyLink } = useIdentityLinks();
+  const { verifyLink, resolvePinned } = useIdentityLinks();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
   const canCreate =
@@ -160,15 +161,16 @@ export function useContactDrafts(input: {
     setSelectedContactId,
   });
   const importContactByUserId = useImportContactByUserId({
-    importKey,
+    ...input,
+    resolvePinned,
+    onUnpinnedIdentity: input.openImportContactRoute,
     isImportReady,
     isSubmittingRef,
-    logError,
     setIsSubmitting,
-    setSelectedContactId,
   });
   const { importContact: importDraftContact, error: importError } =
     useImportContactIdentityLink({
+      logError,
       draft: draftUserId,
       identityScope: input.identityScope,
       importKey,

@@ -167,7 +167,9 @@ async function addPeerToSelectedGroup(
   peerUserId: string,
   onBeforeAdd: () => void,
 ) {
-  const userIdInput = within(pane).getByLabelText("User ID");
+  const userIdInput = within(pane).getByLabelText(
+    "Roster user or identity link",
+  );
   invariant(
     userIdInput instanceof HTMLInputElement,
     "Expected group user id input.",

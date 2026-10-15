@@ -17,6 +17,7 @@ function inputs() {
   return {
     draft: "https://app.example.test/app/contacts/import/bob-link",
     identityScope: "alice",
+    logError: mock((_message: string, _cause: unknown) => {}),
     importKey: mock(async (_userId: string) => "bob-contact"),
     isImportReady: true,
     isSubmittingRef: { current: false },

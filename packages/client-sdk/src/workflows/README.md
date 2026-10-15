@@ -221,8 +221,8 @@ The phrase derives identity key pairs only; product backup/restore UX and any
 session/container recovery metadata stay in host/app code.
 
 Workflows share a data-layer identity gateway. `tearleads.userIdentities`
-`createLink(appUrl)` encodes local keys; `verifyLink(link)` checks both before
-pinning ([format](../../../../docs/developer/trusted-user-identity.md#identity-links)).
+`createLink` encodes keys; `verifyLink` checks before pinning; `resolvePinned`
+reads pins ([format](../../../../docs/developer/trusted-user-identity.md#identity-links)).
 Workflows accept opaque trusted bundles or gateway-resolved user IDs. Raw API
 identity and directory responses must not reach signature or encryption helpers.
 Lower-level integration tests may use `@tearleads/client-sdk/testing` to

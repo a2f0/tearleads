@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 interface ContactIdentityLinkImport {
   draft: string;
   identityScope: string;
+  logError: (message: string, cause: unknown) => void;
   importKey: (userId: string) => Promise<string | null>;
   isImportReady: boolean;
   isSubmittingRef: { current: boolean };
@@ -22,13 +23,12 @@ function importFailure(error: unknown): string {
 export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
   const [error, setError] = useState<string | null>(null);
   const live = useRef<ContactIdentityLinkImport | null>(input);
-  live.current = input;
   useEffect(() => {
     live.current = input;
     return () => {
       live.current = null;
     };
-  }, [input]);
+  });
   const importContact = useCallback(async () => {
     if (
       !input.isImportReady ||
@@ -55,7 +55,10 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
       input.onImported(contactId);
       input.setDraft("");
     } catch (caught) {
-      if (active()) setError(importFailure(caught));
+      if (active()) {
+        input.logError("Contacts: failed to import identity link.", caught);
+        setError(importFailure(caught));
+      }
     } finally {
       input.isSubmittingRef.current = false;
       if (live.current) input.setIsSubmitting(false);
@@ -63,6 +66,7 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
   }, [
     input.draft,
     input.identityScope,
+    input.logError,
     input.importKey,
     input.isImportReady,
     input.isSubmittingRef,

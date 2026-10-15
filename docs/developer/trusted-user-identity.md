@@ -89,8 +89,13 @@ identity endpoint, validates both keys, checks the independently supplied bundle
 fingerprint, and only then compares or inserts the durable pin. A foreign
 service is refused before fetching. A mismatch, unavailable identity, or changed
 active identity fails without inserting a pin. Existing conflicting pins remain
-unchanged. Hosts must finish this operation before sharing keys, adding a
-contact, or granting roster membership. Links do not override pin conflicts.
+unchanged. Hosts finish verification before onboarding a new identity into
+Contacts or Roster. Links do not override pin conflicts.
+
+`userIdentities.resolvePinned(userId)` reads an existing durable pin without a
+network lookup or first-use trust. Roster selections and Import Into Contacts
+reuse only these known identities, including historical TOFU pins. An unpinned
+directory row must supply a link; directory projections alone grant no trust.
 
 The v1 URL is `/app/contacts/import/<token>`. The token is unpadded canonical
 base64url of the UTF-8 JSON array `[1, identityTrustDomain, userId, fingerprint]`.

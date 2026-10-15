@@ -21,6 +21,7 @@ test("user identity resolution returns the verified trusted bundle", async () =>
   );
   const userIdentities = createUserIdentities({
     identityLinks: {
+      resolvePinned: async () => null,
       createLink: async () => {
         throw new Error("unused");
       },
@@ -53,6 +54,7 @@ test("user identity resolution returns null when the trusted resolver has no ide
   const logs: string[] = [];
   const userIdentities = createUserIdentities({
     identityLinks: {
+      resolvePinned: async () => null,
       createLink: async () => {
         throw new Error("unused");
       },
@@ -75,6 +77,7 @@ test("user identity resolution preserves typed integrity failures", async () => 
   );
   const userIdentities = createUserIdentities({
     identityLinks: {
+      resolvePinned: async () => null,
       createLink: async () => {
         throw new Error("unused");
       },

@@ -100,6 +100,7 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const routeState = useContactsRouteState(compactRoutedMode);
   const selectionState = useContactsSelectionState(routeState);
   const drafts = useContactDrafts({
+    openImportContactRoute: routeState.openImportContactRoute,
     identityLinkToken: routeState.identityLinkToken,
     identityScope: `${appData.auth.userId}:${appData.crypto.signingFingerprint}:${appData.infra.dbId}`,
     canWrite,

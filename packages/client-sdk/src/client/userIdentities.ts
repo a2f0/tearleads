@@ -20,6 +20,8 @@ export interface UserIdentities {
   createLink(appUrl: string): Promise<string>;
   /** Compare an independently received link before durably pinning either key. */
   verifyLink(link: string): Promise<ResolvedUserIdentity>;
+  /** Read an existing durable pin without fetching or trusting a new identity. */
+  resolvePinned(userId: string): Promise<ResolvedUserIdentity | null>;
   /** `null` when the user is unknown or currently unresolvable; integrity failures throw. */
   resolve(userId: string): Promise<ResolvedUserIdentity | null>;
 }
@@ -37,7 +39,10 @@ function toResolvedIdentity(
 }
 
 export function createUserIdentities(input: {
-  identityLinks: Pick<TrustedUserIdentityService, "createLink" | "verifyLink">;
+  identityLinks: Pick<
+    TrustedUserIdentityService,
+    "createLink" | "verifyLink" | "resolvePinned"
+  >;
   log: (message: string) => void;
   resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): UserIdentities {
@@ -48,6 +53,10 @@ export function createUserIdentities(input: {
     createLink: (appUrl) => input.identityLinks.createLink(appUrl),
     async verifyLink(link) {
       return toResolvedIdentity(await input.identityLinks.verifyLink(link));
+    },
+    async resolvePinned(userId) {
+      const identity = await input.identityLinks.resolvePinned(userId);
+      return identity ? toResolvedIdentity(identity) : null;
     },
     async resolve(userId) {
       input.log(`Loading user identity for userId: ${userId}`);

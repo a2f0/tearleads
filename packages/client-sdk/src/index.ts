@@ -1,4 +1,4 @@
-// SDK: verified identity links, device-first handles and revision checks.
+// SDK: verified identity links, read-only pins and device-first handles.
 // Authority loaders take exact heads, including cached citations. Obsolete
 // adapters are excluded; authored policy journals survive restart. See workflows/README.md.
 export {

@@ -69,7 +69,9 @@ test("group creation and adding a peer have separate request budgets", async () 
     const membershipRequests = await measureWorkflowRequests({
       label: `add peer to ${group} custom group`,
       operation: async () => {
-        const input = within(pane).getByLabelText("User ID");
+        const input = within(pane).getByLabelText(
+          "Roster user or identity link",
+        );
         invariant(input instanceof HTMLInputElement, "Expected user id input");
         const peerIdentityLink = await createPeerIdentityLink(peerId);
         await interact(() => {

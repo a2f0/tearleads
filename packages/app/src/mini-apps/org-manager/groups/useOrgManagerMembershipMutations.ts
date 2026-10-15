@@ -15,6 +15,7 @@ import {
   addRosterUserToGroup,
   refreshAfterGroupMutation,
 } from "./orgManagerMutationOperations";
+import { resolveGroupIdentity } from "./resolveGroupIdentity";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
@@ -41,7 +42,7 @@ interface OrgManagerMembershipMutationsParams {
 
 async function addUserToSelectedGroup(
   params: OrgManagerMembershipMutationsParams,
-  verifyLink: UserIdentities["verifyLink"],
+  identities: Pick<UserIdentities, "verifyLink" | "resolvePinned">,
 ): Promise<void> {
   const targetUserId = params.addUserId.trim();
   const directoryUser = params.directory?.users.find(
@@ -83,11 +84,13 @@ async function addUserToSelectedGroup(
     logError: params.logError,
     operationOrganizationId,
     run: async () => {
-      // Existing roster selections are already part of the organization's
-      // policy. New users must supply an independently authenticated link.
-      const verifiedUser = directoryUser
-        ? directoryUser
-        : await verifyLink(targetUserId);
+      // Directory rows are only presentation. A raw selection must already
+      // have a local pin; first contact requires an authenticated link.
+      const verifiedUser = await resolveGroupIdentity({
+        directoryUser,
+        value: targetUserId,
+        ...identities,
+      });
       if (!params.isOperationActive(operationOrganizationId)) return;
       const verifiedDirectoryUser = params.directory?.users.find(
         (user) => user.userId === verifiedUser.userId,
@@ -187,11 +190,12 @@ async function removeUserFromSelectedGroup(
 export function useOrgManagerMembershipMutations(
   params: OrgManagerMembershipMutationsParams,
 ) {
-  const { verifyLink } = useIdentityLinks();
+  const { verifyLink, resolvePinned } = useIdentityLinks();
   const addUser = useCallback(
-    () => addUserToSelectedGroup(params, verifyLink),
+    () => addUserToSelectedGroup(params, { verifyLink, resolvePinned }),
     [
       verifyLink,
+      resolvePinned,
       params.addUserId,
       params.appData.auth.userId,
       params.appData.crypto.encapsulationKeyPair,

@@ -32,14 +32,9 @@ import {
   validateUserIdentityKeys,
 } from "./validation";
 
-function requireTrustStore(
+function requireTrustDomain(
   dependencies: TrustedUserIdentityServiceDependencies,
-): {
-  readonly execSql: NonNullable<
-    ReturnType<TrustedUserIdentityServiceDependencies["getExecSql"]>
-  >;
-  readonly identityTrustDomain: string;
-} {
+): string {
   // A missing trust domain is a static misconfiguration and must stay loud.
   if (!dependencies.identityTrustDomain) {
     throw new KeyingVerificationError(
@@ -47,6 +42,13 @@ function requireTrustStore(
       "Trusted user identity resolution requires a stable API trust domain",
     );
   }
+  return dependencies.identityTrustDomain;
+}
+
+function requireTrustStore(
+  dependencies: TrustedUserIdentityServiceDependencies,
+) {
+  const identityTrustDomain = requireTrustDomain(dependencies);
   // An absent trust store is not: getExecSql() returns null exactly while the
   // database is not ready, which happens routinely when the runtime is swapped
   // under in-flight sync work. Callers that tolerate a vanishing database
@@ -57,7 +59,7 @@ function requireTrustStore(
       "Trusted user identity resolution requires a ready SQLite trust store",
     );
   }
-  return { execSql, identityTrustDomain: dependencies.identityTrustDomain };
+  return { execSql, identityTrustDomain };
 }
 
 async function compareWithDurablePin(input: {
@@ -189,8 +191,12 @@ export function createTrustedUserIdentityService(
   dependencies: TrustedUserIdentityServiceDependencies,
 ): TrustedUserIdentityService {
   return {
+    async resolvePinned(userId) {
+      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+      return loadPinnedUserIdentity({ execSql, identityTrustDomain, userId });
+    },
     async createLink(appUrl) {
-      const { identityTrustDomain } = requireTrustStore(dependencies);
+      const identityTrustDomain = requireTrustDomain(dependencies);
       const userId = dependencies.getLocalUserId();
       const candidate = userId ? dependencies.getLocalIdentity(userId) : null;
       if (!userId || !candidate) {
