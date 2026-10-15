@@ -60,18 +60,14 @@ function createContainerMutationRequest(
     body: { eventType: "container.rekey" },
     expectedManifestHash: "container-manifest-hash",
     manifest: { objectKind: "container" },
-    previousManifest: {
-      event: { eventId: "container-event-1" },
-      manifest: { version: 1 },
+    previousManifestRef: {
+      containerId: "container-1",
       manifestHash: "previous-container-manifest-hash",
-      state: { containerId: "container-1" },
     },
-    previousContainerPath: [
+    previousContainerPathRefs: [
       {
-        event: { eventId: "container-event-1" },
-        manifest: { version: 1 },
+        containerId: "container-1",
         manifestHash: "previous-container-manifest-hash",
-        state: { containerId: "container-1" },
       },
     ],
     principalPolicies: [],
@@ -117,6 +113,17 @@ test("isBlobAttachmentBindRequest", () => {
       containerRekeys: [{ event: { eventType: "container.rekey" } }],
     }),
   ).toBe(false);
+  for (const invalidRef of [
+    { previousManifestRef: { containerId: "container-1" } },
+    { previousContainerPathRefs: [{ manifestHash: "manifest-hash" }] },
+  ]) {
+    expect(
+      isBlobAttachmentBindRequest({
+        ...validRequest,
+        containerRekeys: [createContainerMutationRequest(invalidRef)],
+      }),
+    ).toBe(false);
+  }
   expect(isBlobAttachmentBindRequest(null)).toBe(false);
 });
 
