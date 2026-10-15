@@ -113,9 +113,7 @@ async function persistRecitation(
   // descendant. A later request therefore cannot own this durable cursor.
   await appendOrganizationReadModelChangeInTransaction(context.executor, {
     organizationId: manifest.state.organizationId,
-    lane: "grants",
-    entityId: manifest.state.organizationId,
-    operation: "replace",
+    lanes: ["grants"],
   });
   return {
     ...(isContainerSystemSlot(container.systemSlot)

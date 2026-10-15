@@ -106,6 +106,7 @@ test("raw-history sync bypasses an otherwise dominant rotation baseline", async 
   const normal = (await normalResponse.json()) as DocumentSyncResponse;
   expect(isDocumentSyncResponse(normal)).toBe(true);
   expect(normal.updates.map(({ id }) => id)).toEqual([rotationBaselineId]);
+  expect(normal.contentKeyBundles).toEqual([]);
 
   const boundedRawResponse = await postSync(owner.token, created.id, {
     ...readRequest,
@@ -123,12 +124,21 @@ test("raw-history sync bypasses an otherwise dominant rotation baseline", async 
   expect(isDocumentSyncResponse(raw)).toBe(true);
   expect(raw.updates.map(({ id }) => id)).toContain(updateId);
   expect(raw.updates.map(({ id }) => id)).toContain(rotationBaselineId);
-  const bundleEpochs = new Set(
-    raw.contentKeyBundles.map(({ contentKeyEpoch }) => contentKeyEpoch),
-  );
-  expect(
-    raw.updates.every(({ writeHeader }) =>
-      bundleEpochs.has(Number(Reflect.get(writeHeader, "contentKeyEpoch"))),
+  const currentEpoch = raw.contentKeyBundle.contentKeyEpoch;
+  const updateEpochs = new Set(
+    raw.updates.map(({ writeHeader }) =>
+      Number(Reflect.get(writeHeader, "contentKeyEpoch")),
     ),
-  ).toBe(true);
+  );
+  // The current epoch's bundle travels only as contentKeyBundle; the array
+  // carries exactly the older epochs the served updates cite.
+  expect(updateEpochs.has(currentEpoch)).toBe(true);
+  expect(
+    raw.contentKeyBundles.map(({ contentKeyEpoch }) => contentKeyEpoch),
+  ).toEqual(
+    [...updateEpochs]
+      .filter((epoch) => epoch !== currentEpoch)
+      .sort((left, right) => left - right),
+  );
+  expect(raw.contentKeyBundles.length).toBeGreaterThan(0);
 });

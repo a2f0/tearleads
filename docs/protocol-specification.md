@@ -192,6 +192,14 @@ use key epoch `1`, be signed by the registering user, project only the
 registering user as admin, and carry a version-2 authority descriptor committing
 the exact initial heads of both reserved groups.
 
+The response returns each created container and document head. The client
+checks every one against the request it signed before pinning it as a local
+verification checkpoint. The acknowledged heads of the roster and organization
+profile documents also seed discovery evidence, and the founding policy heads
+seed verified recovery progress, so the device fetches neither those documents'
+writer projections nor the founding groups' history. Creating an additional
+organization follows the same rule.
+
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the
 reserved org-membership authority. Reachability through it drives active roster
@@ -210,8 +218,8 @@ A warm organization read-model client discards its opaque cursor and requests a
 fresh snapshot only for the exact `400 organization_read_model_cursor_invalid`
 failure. Other `400` responses, missing or malformed codes, unknown codes, and
 the cursor code on another status retain the last-known-good projection and are
-reported instead of triggering reset behavior. Ahead or retention-expired valid
-cursors continue to converge through a `200` snapshot response.
+reported instead of triggering reset behavior. Only a valid cursor ahead of the
+head converges through a `200` snapshot; others get a delta.
 
 Authentication uses challenge signing:
 

@@ -38,7 +38,8 @@ test("a lower genuine source replaces a higher disconnected prefix for warm and 
     expect(recovered.history.currentEntry.state.stateHash).toBe(
       fork.expectedHead.stateHash,
     );
-    expect(f.requests).toEqual([31, 0]);
+    // The mismatched completed prefix is rejected locally, then replayed once.
+    expect(f.requests).toEqual([0]);
     expect(
       (await f.db.select().from(principalHistoryPrefixes)).map(
         (row) => row.version,
@@ -46,7 +47,7 @@ test("a lower genuine source replaces a higher disconnected prefix for warm and 
     ).toEqual([32]);
     f.requests.length = 0;
     await recoverPublicPrincipalHistory(f.options);
-    expect(f.requests).toEqual([31]);
+    expect(f.requests).toEqual([]);
     f.requests.length = 0;
     const offline = await recoverPublicPrincipalHistory({
       ...f.options,
@@ -80,7 +81,7 @@ test("a disconnected public prefix replays once online and remains unavailable o
     ).toEqual([66]);
     f.requests.length = 0;
     await recoverPublicPrincipalHistory(f.options);
-    expect(f.requests).toEqual([65]);
+    expect(f.requests).toEqual([]);
   } finally {
     f.close();
   }
@@ -95,7 +96,7 @@ test("a failed lower-source replay preserves the cached candidate", async () => 
         page.currentState.signature = history.bundle.currentState.signature;
     };
     await expect(recoverPublicPrincipalHistory(f.options)).rejects.toThrow();
-    expect(f.requests).toEqual([31, 0]);
+    expect(f.requests).toEqual([0]);
     expect(await f.db.select().from(principalHistoryPrefixes)).toEqual(before);
   } finally {
     f.close();
@@ -112,7 +113,7 @@ test("a resumed lower-source replay also replaces its rejected higher prefix", a
     ).rejects.toMatchObject({
       name: "PrincipalPolicyHistoryReadError",
     });
-    expect(f.requests).toEqual([65, 0, 32]);
+    expect(f.requests).toEqual([0, 32]);
     f.controls.failAfter = null;
     f.requests.length = 0;
     await recoverPublicPrincipalHistory(f.options);

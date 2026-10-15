@@ -37,6 +37,33 @@ or `bun run test:static-analysis`, to run checks and tooling tests.
 | `protocol/` | Formal protocol checks, trace generation and projection, negative controls, and their tests. |
 | `testing/` | Test runners used by package scripts and automated checks. |
 
+## Screenshot seed and capture
+
+`bun run screenshots:seed` verifies the pinned Continuity manifest, validates its
+versioned seed contract, and builds `tearleads-seed.tlbackup.json` through the SDK.
+The adjacent `.provenance.json` binds the backup to the seed and screenshot
+expectations. Both are local artifacts. A direct Playwright capture rejects a
+missing or stale provenance; regenerate with `bun run screenshots:seed`.
+
+`bun run screenshots` regenerates that backup and restores it through the app
+before capturing desktop, tablet, and phone layouts in both themes. Household
+detail captures assert decoded family/equipment photos and receipts, inventory fields,
+and tracker table rows and graph points. The browser locale and time zone are
+pinned so the dated readings render consistently. `bun run build:website` also
+stages these captures into the website gallery.
+
+Add canonical facts and photographic assets in [a2f0/continuity](https://github.com/a2f0/continuity),
+regenerate and ship them there, then update the root catalog commit pin and run
+`bun install`.
+The contract test in `packages/app/test/screenshot-seed/continuitySeed.test.ts`
+builds and restores the pinned data into a separate database and blob store.
+Tracker `rows` go through `addRow`; repeated `equipment-photos` entries append
+independent images, while single-image attachment slots reject duplicates.
+
+Tracker seeds preserve Continuity’s recorded wall-clock time when converting
+offset-bearing timestamps to the app’s `datetime-local` fields. The restore
+test verifies that every seeded reading is accepted by the chart parser.
+
 ## Verification harness
 
 For agent sessions, wrap verification and other noisy commands with the shared

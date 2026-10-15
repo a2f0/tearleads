@@ -148,6 +148,8 @@ export class Tearleads {
     async () => {
       throw new Error("Trusted user identity runtime is not initialized");
     };
+  private primeProvisionedPrincipalHistory: InternalRuntime["primeProvisionedPrincipalHistory"] =
+    async () => undefined;
   private boundUserId: InternalRuntime["boundUserId"] = async () => {
     throw new Error("Trusted user identity runtime is not initialized");
   };
@@ -200,20 +202,7 @@ export class Tearleads {
         getUserId: () => session?.userId ?? null,
       },
     );
-    session = createSession({
-      api: this.apiClient,
-      database: this.database,
-      documentProjectors: this.documentProjectors,
-      identity: this.identity,
-      log: this.log,
-      logError: this.logError,
-      boundUserIdForSigningKey: (signingKeyFingerprint) =>
-        this.boundUserId(signingKeyFingerprint),
-      onUserIdentityAvailable: (userId, candidate) =>
-        this.pinLocalUserIdentity(userId, candidate),
-      provisionedSystemContainers: options.provisionedSystemContainers,
-      reportSecurityIncident: security.service.report,
-    });
+    session = this.createClientSession(options, security.service.report);
     this.session = session;
     const runtime = this.createWorkflowRuntime(
       security.identityTrustDomain,
@@ -243,6 +232,29 @@ export class Tearleads {
     }
   }
 
+  /** Trust callbacks reach the workflow runtime, which is created later. */
+  private createClientSession(
+    options: ClientOptions,
+    reportSecurityIncident: SecurityIncidentReporter,
+  ): Session {
+    return createSession({
+      api: this.apiClient,
+      database: this.database,
+      documentProjectors: this.documentProjectors,
+      identity: this.identity,
+      log: this.log,
+      logError: this.logError,
+      boundUserIdForSigningKey: (signingKeyFingerprint) =>
+        this.boundUserId(signingKeyFingerprint),
+      onUserIdentityAvailable: (userId, candidate) =>
+        this.pinLocalUserIdentity(userId, candidate),
+      primeProvisionedPrincipalHistory: (input) =>
+        this.primeProvisionedPrincipalHistory(input),
+      provisionedSystemContainers: options.provisionedSystemContainers,
+      reportSecurityIncident,
+    });
+  }
+
   private createApiClient(apiBaseUrl: string): ApiClient {
     return new ApiClient(apiBaseUrl, {
       metrics: this.apiRequests,
@@ -256,6 +268,8 @@ export class Tearleads {
       runtime.retirePrincipalHistoryProtection;
     this.pinLocalUserIdentity = (userId, candidate) =>
       runtime.pinLocalUserIdentity(userId, candidate);
+    this.primeProvisionedPrincipalHistory =
+      runtime.primeProvisionedPrincipalHistory;
     this.boundUserId = (signingKeyFingerprint) =>
       runtime.boundUserId(signingKeyFingerprint);
   }

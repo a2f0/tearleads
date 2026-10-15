@@ -101,10 +101,11 @@ required `supportsPullPagination: true`, optional `pullCursor`, plus
 signed container manifests already held by the API; the expected link-set hash
 pins the server-resolved document manifest.
 Responses return `acceptedOutgoingUpdateIds`, `commitLsn`, required
-`commitLsnMode`, `contentKeyBundle`,
-the required `contentKeyBundles` array (empty when no additional epoch bundle is
-needed), `documentKekTargets`, required `pullPage: {hasMore, nextCursor}`, and
-encrypted `updates[]`.
+`commitLsnMode`, the current-epoch `contentKeyBundle`, the required
+`contentKeyBundles` array of older epochs that served updates cite (empty for an
+empty probe or a page at the current epoch; never a repeat of
+`contentKeyBundle`), `documentKekTargets`, required
+`pullPage: {hasMore, nextCursor}`, and encrypted `updates[]`.
 
 Operator surface (internal, outside the protocol operation registry and the
 generated OpenAPI contract):

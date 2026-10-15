@@ -13,7 +13,6 @@ import {
   decodeOrganizationReadModelCursor,
   encodeOrganizationReadModelCursor,
 } from "../../workflows/organizations/readModelCursor";
-import { pruneOrganizationReadModelChangesInTransaction } from "../../workflows/organizations/readModelRetention";
 
 async function registeredActor() {
   const actor = createTestUser();
@@ -52,7 +51,7 @@ test("an ahead organization read-model cursor requests a reset snapshot", async 
   expect(body.mode).toBe("snapshot");
 });
 
-test("an expired organization read-model cursor requests a reset snapshot", async () => {
+test("an old organization read-model cursor replays only the lanes stamped after it", async () => {
   const { actor, organizationId } = await registeredActor();
   const initialResponse = await routeApp.request(
     readModelPath(organizationId),
@@ -67,47 +66,41 @@ test("an expired organization read-model cursor requests a reset snapshot", asyn
     initial.nextCursor,
     organizationId,
   );
-  const currentCursor = initialCursor + 3n;
   await db.transaction(async (tx) => {
     for (let index = 0; index < 3; index += 1) {
       await appendOrganizationReadModelChangeInTransaction(tx, {
-        entityId: organizationId,
-        lane: "directory",
-        operation: "replace",
+        lanes: ["directory"],
         organizationId,
       });
     }
-    await pruneOrganizationReadModelChangesInTransaction({
-      currentCursor,
-      organizationId,
-      retainedChangeCount: 1n,
-      tx,
-    });
   });
 
-  const expiredResponse = await routeApp.request(
+  // No retention window exists: any cursor at or below the head is a delta.
+  const replayResponse = await routeApp.request(
     readModelPath(organizationId, initial.nextCursor),
     { headers: { Authorization: `Bearer ${actor.token}` } },
   );
-  const expired = await expiredResponse.json();
+  const replay = await replayResponse.json();
   invariant(
-    isOrganizationReadModelResponse(expired),
-    "expected expired-cursor response",
+    isOrganizationReadModelResponse(replay) && replay.mode === "delta",
+    "expected old-cursor delta",
   );
-  expect(expired.mode).toBe("snapshot");
+  expect(Object.keys(replay.lanes)).toEqual(["directory"]);
+  expect(
+    decodeOrganizationReadModelCursor(replay.nextCursor, organizationId),
+  ).toBe(initialCursor + 3n);
 
-  const boundaryResponse = await routeApp.request(
+  const lastChangeResponse = await routeApp.request(
     readModelPath(
       organizationId,
-      encodeOrganizationReadModelCursor(organizationId, currentCursor - 1n),
+      encodeOrganizationReadModelCursor(organizationId, initialCursor + 2n),
     ),
     { headers: { Authorization: `Bearer ${actor.token}` } },
   );
-  const boundary = await boundaryResponse.json();
+  const lastChange = await lastChangeResponse.json();
   invariant(
-    isOrganizationReadModelResponse(boundary),
-    "expected retained-boundary response",
+    isOrganizationReadModelResponse(lastChange) && lastChange.mode === "delta",
+    "expected last-change delta",
   );
-  expect(boundary.mode).toBe("delta");
-  expect(boundary.lanes.directory).toBeDefined();
+  expect(lastChange.lanes.directory).toEqual(replay.lanes.directory);
 });

@@ -28,7 +28,7 @@ function page(input: {
     commitLsn: input.commitLsn,
     commitLsnMode: "tracked",
     contentKeyBundle,
-    contentKeyBundles: [contentKeyBundle],
+    contentKeyBundles: [],
     documentId: DOCUMENT_ID,
     documentKekTargets: {
       documentId: DOCUMENT_ID,

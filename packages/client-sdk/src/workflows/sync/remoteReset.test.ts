@@ -12,9 +12,7 @@ import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
@@ -268,6 +266,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         cursor: "opaque-cursor",
         profileDocumentId: null,
         memberGroupId: "members-group",
+        memberGroupStateHash: "members-state",
+        organizationStateHash: "organization-state",
+        organizationStateVersion: 1,
+        organizationKeyEpoch: 1,
+        organizationKeyFingerprint: "organization-key-fingerprint",
+        organizationMemberCount: 1,
         updatedAt: stale,
       });
       await tx.insert(organizationReadModelRequesters).values({
@@ -303,22 +307,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         stateHash: "group-state",
         stateVersion: 1,
         keyEpoch: 1,
-        memberCount: 1,
-      });
-      await tx.insert(organizationReadModelPolicyHeads).values({
-        organizationId: "org-old",
-        principalType: "group",
-        principalId: "group-old",
-        stateHash: "group-state",
-        stateVersion: 1,
-        keyEpoch: 1,
         keyFingerprint: "group-key-fingerprint",
         memberCount: 1,
-      });
-      await tx.insert(organizationReadModelGroupMemberships).values({
-        organizationId: "org-old",
-        groupId: "group-old",
-        stateHash: "group-state",
+        membersStateHash: "group-state",
       });
       await tx.insert(organizationReadModelGroupMembers).values({
         organizationId: "org-old",
@@ -327,10 +318,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         sortOrder: 0,
         stateHash: "group-state",
         role: "member",
-        signingKeyFingerprint: "signing-fingerprint",
-        signingPublicKey: "signing-public-key",
-        encapsulationPublicKey: "encapsulation-public-key",
-        encapsulationKeyFingerprint: "encapsulation-fingerprint",
       });
       await tx.insert(organizationReadModelContainerGrants).values({
         organizationId: "org-old",
@@ -485,8 +472,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       organizationReadModelRequesters,
       organizationReadModelDirectoryUsers,
       organizationReadModelGroups,
-      organizationReadModelPolicyHeads,
-      organizationReadModelGroupMemberships,
       organizationReadModelGroupMembers,
       organizationReadModelContainerGrants,
     ]) {

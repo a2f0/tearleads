@@ -452,6 +452,7 @@ CREATE INDEX `documents_updated_at_id_idx` ON `documents` (`updated_at`,`id`);--
 CREATE TABLE `groups` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text,
+	`membership_cursor` numeric DEFAULT 0 NOT NULL,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
@@ -613,24 +614,19 @@ CREATE INDEX `organization_billing_stripe_seats_due_idx` ON `organization_billin
 CREATE TABLE `organization_group_tombstones` (
 	`group_id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
+	`deleted_cursor` numeric DEFAULT 0 NOT NULL,
 	`deleted_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint
-CREATE INDEX `organization_group_tombstones_org_idx` ON `organization_group_tombstones` (`organization_id`,`deleted_at`);--> statement-breakpoint
-CREATE TABLE `organization_read_model_changes` (
-	`id` text PRIMARY KEY NOT NULL,
-	`organization_id` text NOT NULL,
-	`cursor` numeric NOT NULL,
-	`lane` text NOT NULL,
-	`entity_id` text NOT NULL,
-	`operation` text NOT NULL,
-	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
-);
---> statement-breakpoint
-CREATE UNIQUE INDEX `organization_read_model_changes_org_cursor_idx` ON `organization_read_model_changes` (`organization_id`,`cursor`);--> statement-breakpoint
+CREATE INDEX `organization_group_tombstones_org_idx` ON `organization_group_tombstones` (`organization_id`,`deleted_cursor`);--> statement-breakpoint
 CREATE TABLE `organization_read_model_heads` (
 	`organization_id` text PRIMARY KEY NOT NULL,
 	`cursor` numeric DEFAULT 0 NOT NULL,
+	`directory_cursor` numeric DEFAULT 0 NOT NULL,
+	`grants_cursor` numeric DEFAULT 0 NOT NULL,
+	`group_memberships_cursor` numeric DEFAULT 0 NOT NULL,
+	`groups_cursor` numeric DEFAULT 0 NOT NULL,
+	`organization_policy_cursor` numeric DEFAULT 0 NOT NULL,
 	`updated_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );
 --> statement-breakpoint

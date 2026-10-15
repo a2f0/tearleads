@@ -40,12 +40,11 @@ import {
   requireDeletableOrganizationGroup,
   requireOrganizationGroupWithoutDeleteBlockers,
 } from "./groupDeletion";
-import { toOrganizationGroupMemberResponse } from "./groupMemberships";
 import { toGroupSummary } from "./groupSummary";
 import { requireSerializedOrganizationMutationAccess } from "./mutationAccess";
 import { organizationGroupDeletionOutcome } from "./organizationGroupOperationOutcome";
 import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
-import { loadUsersById } from "./users";
+import { loadUsersById, toOrganizationGroupMemberResponse } from "./users";
 
 interface OrganizationGroupSummariesResult {
   readonly groups: OrganizationGroupSummaryResponse[];
@@ -159,14 +158,11 @@ async function deleteOrganizationGroupInTransaction(input: {
     expectedPrincipalType: "organization",
     requesterUserId: input.sessionUserId,
   });
-  for (const lane of ["groups", "groupMemberships"] as const) {
-    await appendOrganizationReadModelChangeInTransaction(input.tx, {
-      organizationId: input.organizationId,
-      lane,
-      entityId: input.groupId,
-      operation: "delete",
-    });
-  }
+  await appendOrganizationReadModelChangeInTransaction(input.tx, {
+    deletedGroupIds: [input.groupId],
+    lanes: ["groups"],
+    organizationId: input.organizationId,
+  });
   const result: DeleteOrganizationGroupResponse = {
     deleted: true,
     groupId: input.groupId,

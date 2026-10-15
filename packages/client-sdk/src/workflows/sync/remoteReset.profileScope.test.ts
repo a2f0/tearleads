@@ -74,6 +74,12 @@ for (const pointer of ["organization", "roster"] as const) {
           cursor: "untrusted",
           profileDocumentId: "other-document",
           memberGroupId: "members",
+          memberGroupStateHash: "members-state",
+          organizationStateHash: "organization-state",
+          organizationStateVersion: 1,
+          organizationKeyEpoch: 1,
+          organizationKeyFingerprint: "organization-key-fingerprint",
+          organizationMemberCount: 1,
           updatedAt: NOW,
         });
       } else {

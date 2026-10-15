@@ -2,7 +2,7 @@
 
 Organization administration is server-authoritative but should be local-first
 for presentation. The client therefore keeps normalized SQLite projections and
-reconciles them from one organization-scoped, ordered change feed.
+reconciles them from one organization-scoped, cursor-ordered feed.
 
 ## Authority boundary
 
@@ -55,9 +55,12 @@ Explorer writes must obtain the exact verified policy and access state needed
 to unwrap keys and encrypt content. They must never infer authority from a
 cached roster, membership, grant, or administrator row. Verified policy data
 may enrich the UI projection; the UI projection never feeds keying decisions.
-The local membership tables bind each projected roster to a principal-state
-hash, but that binding is a projection-integrity check, not a substitute for
-verifying the signed principal policy.
+Locally, each projected roster binds to a principal-state hash: member rows
+carry the hash of their group's membership head, which a visible group row
+records next to its policy head and the organization state row records for the
+reserved `Members` group, beside the organization policy head. That binding is
+a projection-integrity check, not a substitute for verifying the signed
+principal policy.
 
 The projection and verified policy tables may share a physical SQLite database,
 but they use separate types, persistence modules, and dependency paths.
@@ -67,25 +70,40 @@ Every feed response carries `currentUser` at the top level, even when no lane
 changed, so one identity advancing the shared cursor cannot strand another
 identity's requester state.
 
+A feed request screens the caller with one statement before taking the
+organization's shared head lock: the organization must exist, and the user must
+appear in the current stored projection of its reserved `Admins` or `Members`
+group. Under the lock, the server then verifies the signed `Admins`, `Members`,
+and organization policies once; that verification is the authoritative access
+decision. A caller without access therefore never holds the lock while signed
+policy verification runs.
+
 ## Ordering and replay
 
-Every authoritative mutation that changes an organization read model locks and
-increments its `organization_read_model_heads` row, then appends an
-`organization_read_model_changes` row in the same database transaction. The
-counter is per organization and rolls back with the mutation. Same-organization
-writers are serialized, so cursor allocation order is commit order. Clients
-treat cursor values as opaque strings.
+Every authoritative mutation that changes an organization read model increments
+its `organization_read_model_heads` cursor and, in the same update, stamps each
+lane it changed with the new cursor value (`directory_cursor`, `groups_cursor`,
+`group_memberships_cursor`, `grants_cursor`, `organization_policy_cursor`). A
+membership change also stamps the changed group's `groups.membership_cursor`,
+and a group deletion stamps its tombstone's `deleted_cursor`. All of it happens
+in the source mutation's database transaction, so the counter and stamps roll
+back with the mutation. The update holds the head row lock until commit, so
+same-organization writers are serialized and cursor allocation order is commit
+order: no reader can see stamp N committed before stamp N-1. Every group stamp
+is written after the head update, under that lock. Clients treat cursor values
+as opaque strings.
 
 A global database sequence is intentionally not used. Postgres sequences are
 allocation-ordered and do not roll back: a transaction could reserve cursor 10,
 another commit cursor 11, and a client could advance past the later-committing
 10. A transactional organization head removes that race.
 
-Mutation workflows append only after actual domain transitions. Exact policy
-replays and no-op conditional updates do not append markers. The log itself is
-at-least-once: duplicate invalidations are safe because projection application
-is idempotent, and avoiding source-based deduplication preserves legitimate
-temporal transitions such as A to B to A.
+Mutation workflows stamp only after actual domain transitions. Exact policy
+replays and no-op conditional updates advance nothing. A stamp records only that
+its lane or group changed after a cursor, never what changed, so a delta
+reloads that lane or group's current state. Invalidation is at-least-once:
+duplicate invalidations are safe because projection application is idempotent,
+and a transition from A to B and back to A still reloads the final state.
 
 A principal's members are users, never other principals, so a membership edit
 invalidates exactly the one principal it names. This is what bounds reverse
@@ -94,10 +112,12 @@ along, and no standalone or cross-organization group can widen the blast radius
 of a change.
 
 Deleted organization group IDs are never reused. Deletion writes a durable,
-domain-owned group tombstone in the same transaction as the hard delete and
-feed marker. Policy replay and catalog creation consult that tombstone; they do
-not treat the read-model change log as authority, so future feed retention
-cannot alter cryptographic or lifecycle decisions.
+domain-owned group tombstone in the same transaction as the hard delete and its
+read-model stamps. Policy replay and catalog creation consult that tombstone's
+existence; the `deleted_cursor` stamp on it is display-sync metadata and never
+alters cryptographic or lifecycle decisions. Organization purge tombstones every
+remaining group without a stamp because the purged organization's read model is
+deleted with it.
 
 Protocol version 6 includes these lanes:
 
@@ -105,7 +125,8 @@ Protocol version 6 includes these lanes:
 - `groups`: visible group catalog rows and state-head summaries;
 - `groupMemberships`: state-hash-bound membership projections for individual
   groups, including the reserved `Members` group that is hidden from the group
-  catalog;
+  catalog. Each member names only its user ID and role; public keys travel once
+  per user in the `directory` lane, and keying reads neither copy;
 - `grants`: a whole-lane replacement of container access presentation rows;
 - `organizationPolicy`: the current organization policy head used only to
   determine whether separately verified local policy history is current.
@@ -120,16 +141,16 @@ may be rendered from the separately persisted, verified policy bundle only when
 its principal ID, state hash, version, key epoch, key fingerprint, and member
 count exactly match the corresponding read-model head. Missing or mismatched
 policy state triggers one canonical verified-policy request; projected policy
-heads, membership, and group metadata never become cryptographic inputs. The
-feed logically retains the newest 10,000 change markers per organization.
+heads, membership, and group metadata never become cryptographic inputs.
 
 Grant `updatedAt` is access-head time, not the container content timestamp.
 Container access-manifest advancement, structural moves, and deletion replace
 the grants lane; ordinary document or blob content writes do not invalidate it.
 This avoids turning content sync into organization-wide grant fanout.
 
-`upsert` and `delete` apply to entity rows. `replace` invalidates a whole
-state-bound entity or lane snapshot.
+`directory`, `groups`, `grants`, and `organizationPolicy` deltas replace the
+whole lane. A `groupMemberships` delta replaces each changed group's
+state-bound membership head and deletes each tombstoned group.
 
 ## Protocol versioning
 
@@ -142,7 +163,7 @@ snapshot and delta contract.
 ## Snapshot and delta contract
 
 A client without a cursor requests an atomic full snapshot. A client with a
-cursor requests ordered changes after that cursor. Responses include an opaque
+cursor requests the lanes stamped after that cursor. Responses include an opaque
 `nextCursor`, `hasMore`, and unconditional requester metadata; the client
 advances its cursor and requester row in the same local SQLite transaction that
 applies the page. A concurrent response already applied at the same cursor may
@@ -152,9 +173,10 @@ A snapshot carries a membership head for the reserved `Members` group and for
 every stateful visible group, including groups with no members. Each head
 contains the complete ordered member list and the exact principal-state hash;
 snapshot `deletedGroupIds` is empty. A membership delta is entity-level rather
-than a member patch: `groups` contains the complete replacement for each changed
-group, while `deletedGroupIds` removes groups whose final coalesced operation is
-deletion. Unchanged memberships are omitted.
+than a member patch: `groups` contains the complete replacement for each group
+whose `membership_cursor` is after the request cursor, while `deletedGroupIds`
+removes groups whose tombstone `deleted_cursor` is after it (and any stamped
+group row without a current state). Unchanged memberships are omitted.
 
 The client applies group summaries, membership heads, member rows, grants,
 requester metadata, and the cursor in one SQLite transaction. Every stateful
@@ -163,14 +185,12 @@ group summary, and the reserved `Members` head must be present. Duplicate grant
 identities or a scope/binding mismatch rejects and rolls back the whole page,
 including cursor advancement.
 
-Each append prunes an older contiguous marker prefix in the same transaction as
-the source mutation, while retaining the newest 10,000 markers. A cursor
-immediately before the earliest retained marker can still replay every change;
-an older cursor receives reset semantics and the client atomically replaces the
-organization's projection from a new full snapshot. Applying the same response
-more than once is a no-op. This bounds live logical feed rows; physical database
-reclamation, such as PostgreSQL autovacuum or SQLite `VACUUM`, is separate
-database maintenance.
+Stamps are fixed-size columns on rows that exist anyway, so the feed keeps no
+history and needs no retention. Any valid cursor at or below the head therefore
+receives a delta, however old. A valid cursor ahead of the head cannot come
+from the organization's committed history; it receives reset semantics, and the
+client atomically replaces the organization's projection from a new full
+snapshot. Applying the same response more than once is a no-op.
 
 Network, server, and response-shape failures retain the last-known-good local
 snapshot. An authoritative 403 or 404 purges the organization's projection.
@@ -240,24 +260,26 @@ changed principal holds a grant in a current container manifest, or an ancestor
 discovery hint. Container-ancestor traversal surfaces a real access gain without
 turning every membership edit into root-container synchronization.
 
-Every HTTP request that observes one or more marker appends retains the highest
-observed cursor per organization. After the handler finishes, one batched head
-and active-roster read verifies which observations actually committed and
-resolves their audiences. Each committed organization publishes at most one
-hint, even if a later post-commit step changed the HTTP status. Rolled-back
-transactions, no-op writes, and exact policy replays publish none. Verification
-and publication are best-effort: a database or broker failure cannot turn a
-committed mutation into a retrying HTTP failure.
+Every HTTP request that observes one or more read-model cursor advances
+retains the highest observed cursor per organization. After the handler
+finishes, one batched head and active-roster read verifies which observations
+actually committed and resolves their audiences. Each committed organization
+publishes at most one hint, even if a later post-commit step changed the HTTP
+status. Rolled-back transactions, no-op writes, and exact policy replays
+publish none. Verification and publication are best-effort: a database or
+broker failure cannot turn a committed mutation into a retrying HTTP failure.
 
 Author sockets receive the hint because one auth session can own multiple client
 instances and session-wide suppression would strand siblings. The minimal frame
 marks whether it came from that socket's session without exposing the session
-identifier. While Org Manager itself is mutating, its own hints are held; the
-explicit post-mutation feed reconciliation absorbs them when it advances the
-local cursor, so correctness does not add duplicate requests. Other active
-clients reconcile immediately. A synchronous burst collapses before I/O, and a
-hint arriving during I/O sets one dirty bit for a sequential catch-up pass;
-parallel organization feed requests are never started for one SDK scope.
+identifier. While Org Manager itself is mutating, its own hints are held and
+released when the mutation ends. A session-scoped origin flag cannot prove a
+held hint is this client's own echo, because a sibling client of the same
+session sets the same flag, so the release reconciles the feed again even though
+the explicit post-mutation reconciliation has just run. Other active clients
+reconcile immediately. A synchronous burst collapses before I/O, and a hint
+arriving during I/O sets one dirty bit for a sequential catch-up pass; parallel
+organization feed requests are never started for one SDK scope.
 
 Socket closure or error enters a cancellable exponential-backoff loop with
 jitter. The first connection after login uses the one-time websocket ticket

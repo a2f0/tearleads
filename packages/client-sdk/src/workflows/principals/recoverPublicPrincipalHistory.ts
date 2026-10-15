@@ -67,7 +67,9 @@ async function readPublicPages(
   const current = () => !input.signal?.aborted && input.stillCurrent();
   let progress = initial;
   let lastPage: PrincipalPolicySnapshotPageResponse | undefined;
-  if (!input.offline) {
+  // Completed progress already verified every signed entry through the cited
+  // head; a read pinned to that head could only repeat it or refuse.
+  if (!input.offline && !progress.completedHead) {
     for await (const result of input.apiClient.getProjectionPolicyHistoryPages(
       input.source,
       { afterVersion: progress.afterVersion, signal: input.signal },
@@ -76,20 +78,12 @@ async function readPublicPages(
       if (!result.ok) throw new PrincipalPolicyHistoryReadError(result);
       const page = result.data;
       assertPage(input, page, progress.afterVersion);
-      if (!progress.completedHead)
-        progress = await appendPublicPrincipalHistoryPage(
-          input,
-          progress,
-          page,
-        );
-      else if (
-        page.previousStates.length ||
-        page.historyPage.nextAfterVersion !== null
-      )
+      if (progress.completedHead)
         throw new KeyingVerificationError(
           "invalid_shape",
           "Completed public history returned additional entries",
         );
+      progress = await appendPublicPrincipalHistoryPage(input, progress, page);
       lastPage = page;
     }
     if (lastPage?.historyPage.nextAfterVersion !== null)

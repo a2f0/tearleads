@@ -21,18 +21,27 @@ interface PrincipalPolicyWarmRuntime extends PrincipalPolicyRecoveryRuntime {
   };
 }
 
-/** Prefetch is best-effort; exact resolution still rejects unavailable evidence. */
+/**
+ * One warmer serves one workflow operation; create it per operation. Its
+ * projection collections share one authenticated directory view, discovered
+ * once per operation and discarded with the warmer. Prefetch is best-effort;
+ * exact resolution still rejects unavailable evidence.
+ */
 export function createRuntimePrincipalPolicyWarmer(
   runtime: PrincipalPolicyWarmRuntime,
   options: { readonly preferLocalCurrent?: boolean } = {},
 ): ReferencedPrincipalPolicyWarmer {
   const resolve = createRuntimePrincipalPolicyResolver(runtime, options);
+  const operation = {};
   const resolveReference: PolicyResolver = async (input) => {
     if (!resolve)
       throw new ProjectionDependencyUnavailableError(
         "Principal policies require private paged recovery",
       );
-    return resolve(input);
+    return resolve({
+      ...input,
+      recoveryBatch: input.recoveryBatch ?? operation,
+    });
   };
   return Object.assign(
     (input: Parameters<ReferencedPrincipalPolicyWarmer>[0]) =>
@@ -49,11 +58,10 @@ async function prefetchReferences(
   resolve: PolicyResolver,
   input: Parameters<ReferencedPrincipalPolicyWarmer>[0],
 ): Promise<void> {
-  const recoveryBatch = {};
   for (const reference of input.references) {
     try {
       assertProjectionVerificationCurrent(input.stillCurrent);
-      const resolved = await resolve({ ...input, reference, recoveryBatch });
+      const resolved = await resolve({ ...input, reference });
       assertProjectionVerificationCurrent(resolved.stillCurrent);
     } catch (error) {
       if (isProjectionVerificationCancelledError(error)) return;

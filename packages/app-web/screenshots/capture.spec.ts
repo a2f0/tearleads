@@ -23,6 +23,7 @@ import {
   assertAuthenticatedOrgManager,
   authenticateOrRegisterScreenshotIdentity,
 } from "./screenshotAuth";
+import { assertSeedArtifactCurrent } from "./seedArtifact";
 import { importSeedIdentity } from "./seedIdentity";
 import { restoreSeedBackup } from "./seedRestore";
 
@@ -212,12 +213,11 @@ async function captureOpenWindow(
   await disableAnimations(page);
   await window.locator(".window-maximize").click();
   // Let the freshly-mounted app's data queries resolve so content is not
-  // captured mid-"Loading…". Best-effort; resolves immediately if absent.
+  // captured mid-"Loading…". Resolves immediately if absent.
   await window
     .getByText("Loading...")
     .first()
-    .waitFor({ state: "hidden", timeout: 10_000 })
-    .catch(() => {});
+    .waitFor({ state: "hidden", timeout: 10_000 });
   if (onOpen) {
     await onOpen(window);
   }
@@ -314,6 +314,7 @@ async function applyTheme(page: Page, theme: string): Promise<void> {
 }
 
 test("capture screenshots", async ({ page }, testInfo) => {
+  assertSeedArtifactCurrent(SEED_ARTIFACT_PATH);
   const project = testInfo.project.name;
   if (project === "web") {
     preferWindowedScreenshotLayout(page);

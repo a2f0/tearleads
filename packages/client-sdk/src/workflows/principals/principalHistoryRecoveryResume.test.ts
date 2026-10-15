@@ -70,7 +70,7 @@ test("different retained selections share authenticated resumable progress", asy
     expect(
       retained.policy.retainedHistory.map(({ state }) => state.version),
     ).toEqual([1, 66]);
-    expect(fixture.requests).toEqual([0, 32, 32, 32, 64, 65]);
+    expect(fixture.requests).toEqual([0, 32, 32, 32, 64]);
   } finally {
     fixture.close();
   }

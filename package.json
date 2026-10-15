@@ -4,7 +4,7 @@
   "license": "UNLICENSED",
   "packageManager": "bun@1.4.2",
   "catalog": {
-    "@a2f0/continuity": "github:a2f0/continuity#9d9cc078f0b28470699a13d30c4c1141bc2960aa",
+    "@a2f0/continuity": "github:a2f0/continuity#d5ce89bfb3d48ca11fa39b75ecd609fb5f35790d",
     "@types/bun": "1.4.2",
     "@types/invariant": "2.2.37",
     "ajv": "8.20.0",
@@ -85,6 +85,9 @@
     "test:bun": "bun run build:packages && bun run --filter='*' --sequential test",
     "test:openapi:compatibility": "sh scripts/checks/testOpenApiCompatibility.sh",
     "test:postgres-concurrency": "sh scripts/checks/testPostgresConcurrency.sh",
+    "test:native-android-ci": "sh scripts/checks/testNativePurchaseBridge.sh android",
+    "test:native-ios-ci": "sh scripts/checks/testNativePurchaseBridge.sh ios",
+    "test:windows-ci": "bun run --cwd packages/app-electrobun prepare:devkit && bun test ./packages/app-electrobun/scripts/cefMonitorExpression.test.ts ./packages/app-electrobun/scripts/verifyWindowsArtifacts.test.ts ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts && pwsh -NoProfile -NonInteractive -File packages/app-electrobun/scripts/testWindowsPortConflict.ps1",
     "test:turso-concurrency": "sh scripts/checks/testTursoConcurrency.sh",
     "test:protocol-conformance": "sh scripts/checks/testProtocolConformance.sh",
     "test:protocol-models": "sh scripts/checks/testProtocolModels.sh",

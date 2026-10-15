@@ -1,6 +1,8 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
+import type { OrganizationGroupMemberResponse } from "@tearleads/validators/response";
 import { inArray } from "drizzle-orm";
+import type { StoredPrincipalProjectionMember } from "../../access/read/principalStateStore";
 
 export interface UserKeyRow {
   userId: string;
@@ -34,4 +36,20 @@ export async function loadUsersById(
     .where(inArray(users.id, [...userIds]));
 
   return new Map(rows.map((row) => [row.userId, row]));
+}
+
+export function toOrganizationGroupMemberResponse(input: {
+  readonly member: StoredPrincipalProjectionMember;
+  readonly usersById: ReadonlyMap<string, UserKeyRow>;
+}): OrganizationGroupMemberResponse {
+  const user = input.usersById.get(input.member.userId);
+
+  return {
+    userId: input.member.userId,
+    role: input.member.role,
+    signingKeyFingerprint: user?.signingKeyFingerprint ?? null,
+    signingPublicKey: user?.signingPublicKey ?? null,
+    encapsulationPublicKey: user?.encapsulationPublicKey ?? null,
+    encapsulationKeyFingerprint: user?.encapsulationKeyFingerprint ?? null,
+  };
 }

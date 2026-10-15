@@ -38,6 +38,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/container-keying/PrincipalHistory.md": 1,
   "formal/container-keying/PrincipalHistoryPages.md": 1,
   "formal/container-keying/PrincipalHistoryResume.md": 1,
+  "formal/container-keying/PrincipalRecoveryReuse.md": 1,
   "formal/container-keying/GroupGrantRevocation.md": 1,
   "formal/container-keying/InaccessibleIntermediateRepair.md": 1,
   "formal/container-keying/PrincipalReferenceProgress.md": 1,
@@ -58,6 +59,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/local-trust/DocumentMovePlacement.md": 1,
   "formal/local-trust/DurableIdentityBinding.md": 1,
   "formal/realtime/ContainerInterest.md": 1,
+  "formal/realtime/OrganizationReadModelStamps.md": 1,
 };
 
 export interface FormalSourceFile {

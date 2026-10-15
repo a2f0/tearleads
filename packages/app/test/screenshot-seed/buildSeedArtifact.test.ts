@@ -64,6 +64,7 @@ const PNG_1X1 = Uint8Array.from([
 ]);
 
 const SPEC: SeedSpec = {
+  schemaVersion: 2,
   contacts: [
     {
       avatar: { file: "ada.png", mimeType: "image/png" },
@@ -196,5 +197,42 @@ test("buildSeedArtifact produces a restorable backup with contacts, notes, and a
   } finally {
     source.close();
     target.close();
+  }
+});
+
+test("seed builder refuses ambiguous and duplicate single-image slots", async () => {
+  for (const slotNames of [
+    ["f"],
+    ["front", "front"],
+    ["front", "driver-license-front-image"],
+  ]) {
+    const database = await createTestExecSql("invalid-seed-slot");
+    try {
+      await expect(
+        buildSeedArtifact(
+          {
+            ...SPEC,
+            files: [
+              {
+                kind: "drivers_license",
+                fields: { licenseId: "TEST" },
+                attachments: slotNames.map((slot) => ({
+                  file: "front.png",
+                  mimeType: "image/png",
+                  slot,
+                })),
+              },
+            ],
+          },
+          {
+            blobStore: createMemoryBlobStore(),
+            execSql: database.execSql as ExecSql,
+            readAttachment: async () => PNG_1X1,
+          },
+        ),
+      ).rejects.toThrow("Unknown or duplicate");
+    } finally {
+      database.close();
+    }
   }
 });

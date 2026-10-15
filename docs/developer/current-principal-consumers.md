@@ -14,16 +14,30 @@ lease and durable pins. Missing evidence or a different cached current head uses
 the bounded online reader; other verification failures remain failures. This
 does not discover newer server state or replace live object authorization.
 Metadata verification uses the organization head supplied by its live writer
-projection. Directory discovery and cited recovery share one caller's batch,
-keeping the original lease guard; expiry requires a new batch even if a later
-caller is still live. Local attempts use a separate offline key in that batch.
+projection. Directory discovery and cited recovery share one caller's batch. A
+policy warmer is one workflow operation: every projection collection it verifies
+shares one batch, so the operation discovers the directory once
+([#2522](https://github.com/a2f0/tearleads/issues/2522)). A batch entry is
+reused only while its producing lease is live, no organization read-model hint
+has been applied since its reads began (a citation derived from a reused entry
+keeps that entry's epoch), and no durable pin has moved past or forked from a
+head it names; otherwise it is evicted and the later caller recovers again under
+its own lease. The batch dies with its operation. It is the only reuse of
+scoped evidence: a caller's policy cache keeps bare verified policies and
+resolves every scoped citation through the batch, so a cache shared across
+operations cannot skip a later operation's discovery or bypass the batch's
+hint and pin rules. Evidence handed out from the batch keeps its producer's
+lifetime alongside the consumer's until it is used: projection admission
+rechecks that composite and cancels a use whose producer has expired.
+Local attempts use a separate offline key in that batch.
 The discovery page passes through ordinary signature verification; continuation
 reads remain bound to its exact current artifacts. Additional historical
 directory or Admins citations use local proofs for the selected head, retaining
 the source lifetime even when another batch advances the private prefix.
 An unrelated server directory advance does not replace that batch's selected
-view; every group dependency must still match it exactly. A new batch discovers
-the advance, and mutations remain subject to the server's exact predecessor CAS.
+view; every group dependency must still match it exactly. The next operation
+discovers the advance, and mutations remain subject to the server's exact
+predecessor CAS.
 Group-name hydration supplies this same selected authority to metadata-root
 verification, preserving its directory binding and lifetime instead of starting
 an independent authority recovery for the name reader.
@@ -110,36 +124,41 @@ private custody, and checkpoint contracts.
 The private paged runtime adds directory and group reads for metadata authority
 and scoped projection recovery. Signed entries in a bare policy cache do not
 carry organization, dependency and operation-lifetime bindings; they cannot
-replace that recovery. Counts below include repeated authorization reads and
-are not attributed solely to metadata-root verification. See the
+replace that recovery. A completed local stage of an exact pinned head needs no
+confirmation read, and one workflow operation discovers the directory once, so
+the remaining policy reads are one discovery read per operation and first reads
+of heads new to the device. See the
 [acceptance evidence](../principal-history-acceptance.md#ordinary-workflow-cost)
 for the security tradeoff and measured byte costs.
 
-The current app fixtures measure 93 requests for personal bootstrap and 18 for
-creating and activating another organization, with ceilings of 95 and 18.
+The current app fixtures measure 37 requests for personal bootstrap and 9 for
+creating and activating another organization, with ceilings of 39 and 9.
+Provisioning seeds discovery evidence for the profile documents it signed and
+primes recovery of the founding policy heads, so neither flow fetches those
+documents' writer projections or reads the founding groups' history.
 A cold Org Manager open uses three requests: one read-model read, one
 organization-policy read and one Admins-policy read. An active peer reconciles
-an ungranted group change with five policy/read-model requests and no container
-or document fanout.
+an ungranted group change with four policy/read-model requests and no container
+or document fanout; its unchanged Admins stage needs no read.
 
-Group creation/addition measured 16/90 requests for first enrollment and 15/20
-for a later group. Creation ceilings are 20/18, addition ceilings 95/23, and
-whole-pair ceilings 112/38. Public history reads remain capped at 54/21 for the
-pairs. First addition permits 17 organization-policy and 14 group-policy reads.
+Group creation/addition measured 7/40 requests for first enrollment and 6/8
+for a later group. Creation ceilings are 10/9, addition ceilings 45/11, and
+whole-pair ceilings 53/17. Public history reads are capped at 11/3 for the
+pairs. First addition permits 10 organization-policy and 3 group-policy reads.
 Completed mutation counts are unchanged; creation may also receive one validated
 rollback preparation response with identical request bytes. These are local
 fixed-cardinality measurements, not production benchmarks.
 
-The Admins enrollment fixture measured 200–204 requests; its completed-request
-ceiling is 207, plus explicitly counted validated preparation continuations.
-It caps organization-policy reads at 45, group-policy reads at 33 and public
-history reads at 84. Body ceilings are 240,000 request bytes and 4,500,000 response
-bytes. The root attachment-sharing fixture measured 180–181 requests and permits
-188, with body ceilings of 195,000 request bytes and 3,900,000 response bytes.
+The Admins enrollment fixture measured 73–76 completed requests; its ceiling is
+79, plus explicitly counted validated preparation continuations. It caps
+organization-policy reads at 20, group-policy reads at 3 and public history
+reads at 7. Body ceilings are 240,000 request bytes and 2,650,000 response
+bytes. The root attachment-sharing fixture measured 63–69 requests and permits
+77, with body ceilings of 195,000 request bytes and 2,250,000 response bytes.
 Container mutations cite stored manifests by `{containerId, manifestHash}`
 rather than echoing path bundles, which halved both fixtures' request bytes
 (sharing 352 KB → 180 KB, Admins mutation 391 KB → 210 KB).
-The small Explorer upload fixture measured 31 calls and permits 41; its blob
+The small Explorer upload fixture measured 8 calls and permits 9; its blob
 stage costs three calls (initiate with the first part's upload source, the
 part bytes, and the attachment bind that completes the stage).
 
@@ -147,13 +166,15 @@ Folder mutation ceilings also include private current-policy reads:
 
 | Operation | Request ceiling |
 | --- | ---: |
-| Create folder | 20 |
-| Link document | 21 |
-| Unlink document | 56 |
-| Trash document | 71 |
-| Trash folder | 45 |
-| Restore folder | 45 |
+| Create folder | 5 |
+| Link document | 3 |
+| Unlink document | 8 |
+| Trash document | 10 |
+| Trash folder | 12 |
+| Restore folder | 13 |
 
-The tests retain per-route limits and mutation-count assertions. Deduplicating
-repeated authorization reads is future latency work; reuse must carry the same
-organization, dependency, checkpoint and lifetime checks as scoped recovery.
+The tests retain per-route limits and mutation-count assertions; the folder
+workflows, whose heads are all completed locally, permit no public history or
+group-policy reads. Sharing discovery reads across operations would need the
+same organization, dependency, checkpoint and lifetime checks as scoped
+recovery, plus a freshness argument the per-operation read now supplies.

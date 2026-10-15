@@ -1,26 +1,40 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { groups } from "@tearleads/api-shared/schema";
+import {
+  groups,
+  organizationGroupTombstones,
+} from "@tearleads/api-shared/schema";
 import { loadOrganizationGroupMembershipsInTransaction } from "./groupMemberships";
 
-test("missing membership delta targets converge as deletions", async () => {
+test("membership deltas report stamped tombstones and stateless rows as deletions", async () => {
   const organizationId = crypto.randomUUID();
-  const missingGroupId = crypto.randomUUID();
+  const deletedGroupId = crypto.randomUUID();
   const statelessGroupId = crypto.randomUUID();
-  await db.insert(groups).values({
-    id: statelessGroupId,
-    organizationId,
-  });
+  const unchangedGroupId = crypto.randomUUID();
+  const earlierDeletedGroupId = crypto.randomUUID();
+  await db.insert(groups).values([
+    { id: statelessGroupId, membershipCursor: 5n, organizationId },
+    { id: unchangedGroupId, membershipCursor: 3n, organizationId },
+  ]);
+  await db.insert(organizationGroupTombstones).values([
+    { deletedCursor: 6n, groupId: deletedGroupId, organizationId },
+    { deletedCursor: 2n, groupId: earlierDeletedGroupId, organizationId },
+  ]);
 
-  const result = await loadOrganizationGroupMembershipsInTransaction({
+  const delta = await loadOrganizationGroupMembershipsInTransaction({
+    changedAfterCursor: 4n,
     executor: db,
-    groupIds: [missingGroupId, statelessGroupId],
     organizationId,
   });
-
-  expect(result).toEqual({
+  expect(delta).toEqual({
     organizationId,
-    deletedGroupIds: [missingGroupId, statelessGroupId].sort(),
+    deletedGroupIds: [deletedGroupId, statelessGroupId].sort(),
     groups: [],
   });
+
+  const snapshot = await loadOrganizationGroupMembershipsInTransaction({
+    executor: db,
+    organizationId,
+  });
+  expect(snapshot).toEqual({ organizationId, deletedGroupIds: [], groups: [] });
 });

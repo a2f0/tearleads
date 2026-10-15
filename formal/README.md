@@ -154,7 +154,8 @@ algorithm or establish resource bounds. See the
 Principal state models cover
 [version availability](./container-keying/PrincipalHistory.md)
 and [page verification](./container-keying/PrincipalHistoryPages.md), including
-[authenticated resumption](./container-keying/PrincipalHistoryResume.md).
+[authenticated resumption](./container-keying/PrincipalHistoryResume.md) and
+[recovery reuse](./container-keying/PrincipalRecoveryReuse.md).
 
 ## No Bricked Device
 
@@ -294,13 +295,13 @@ See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
 ## Container Interest Authorization
 
 [`realtime/ContainerInterest.tla`](./realtime/ContainerInterest.tla) checks that
-container subscriptions require current read access before indexing and cannot
-be restored by an authorization result that outlived revocation or socket close,
-that a reconnected socket receives no container hint before its own client
-declares, that an ended session's socket never outlives the next session read
-the store answers, and that a session the store cannot confirm closes at its
-deadline.
+container subscriptions require current read access before indexing, cannot be
+restored by an authorization that outlived revocation or close, and reach a
+socket only after its own client declares; an ended session's
+socket never outlives the next answered session read, and an unconfirmed session
+closes at its deadline.
 See the [production mapping and bounds](./realtime/ContainerInterest.md).
+[Read-model stamps](./realtime/OrganizationReadModelStamps.md) never skip a change.
 
 ## Attachment Key Reachability
 

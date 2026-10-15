@@ -1,10 +1,10 @@
-import { createRequire } from "node:module";
-import { dirname, resolve } from "node:path";
+import { rename } from "node:fs/promises";
+import { resolve } from "node:path";
 import { createMemoryBlobStore } from "@tearleads/client-sdk";
 import type { ExecSql } from "@tearleads/client-sdk/sqlite";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { buildSeedArtifact } from "./buildSeedArtifact";
-import type { SeedSpec } from "./seedTypes";
+import { loadContinuityAssets, seedDigest } from "./continuityAssets";
 
 // CLI that regenerates the screenshot seed artifact:
 //   bun run screenshots:seed
@@ -20,26 +20,34 @@ import type { SeedSpec } from "./seedTypes";
 // This file is packages/app/test/screenshot-seed/buildScreenshotSeed.ts, so the
 // repo root is four levels up.
 const REPO_ROOT = resolve(import.meta.dir, "../../../..");
-const require = createRequire(import.meta.url);
-const SPEC_PATH = require.resolve(
-  "@a2f0/continuity/genesis/tearleads/seed.json",
-);
-const FIXTURES_DIR = dirname(SPEC_PATH);
 const ARTIFACT_PATH = resolve(REPO_ROOT, "tearleads-seed.tlbackup.json");
 
 async function main(): Promise<void> {
-  const spec = (await Bun.file(SPEC_PATH).json()) as SeedSpec;
+  const { spec, readAttachment, seedSha256, expectationsSha256 } =
+    await loadContinuityAssets();
   const database = await createTestExecSql("screenshot-seed-build-key");
   try {
     const artifact = await buildSeedArtifact(spec, {
       blobStore: createMemoryBlobStore(),
       execSql: database.execSql as ExecSql,
-      readAttachment: async (fileRef) =>
-        new Uint8Array(
-          await Bun.file(`${FIXTURES_DIR}/${fileRef}`).arrayBuffer(),
-        ),
+      readAttachment,
     });
-    await Bun.write(ARTIFACT_PATH, artifact.text);
+    await Bun.write(`${ARTIFACT_PATH}.tmp`, artifact.text);
+    await rename(`${ARTIFACT_PATH}.tmp`, ARTIFACT_PATH);
+    await Bun.write(
+      `${ARTIFACT_PATH}.provenance.json`,
+      JSON.stringify(
+        {
+          schemaVersion: spec.schemaVersion,
+          seedSha256,
+          expectationsSha256,
+          artifactSha256: seedDigest(artifact.text),
+          ...artifact.summary,
+        },
+        null,
+        2,
+      ),
+    );
     // Print everything a manual restore needs — the file path plus the two
     // credentials the encrypted backup is bound to — so the artifact can be
     // restored by hand (outside the Playwright run) without opening seed.json.

@@ -66,10 +66,6 @@ const groupMemberships = {
         {
           userId: "user-1",
           role: "admin",
-          signingKeyFingerprint: "signing-fingerprint-1",
-          signingPublicKey: "signing-public-key-1",
-          encapsulationPublicKey: "encapsulation-public-key-1",
-          encapsulationKeyFingerprint: "encapsulation-fingerprint-1",
         },
       ],
     },
@@ -347,6 +343,16 @@ test("rejects ambiguous group-membership lane data", () => {
     },
     { ...groupMemberships, deletedGroupIds: [""], groups: [] },
     { ...groupMemberships, groups: [duplicateMemberGroup] },
+    // Member public keys belong to the directory lane only.
+    {
+      ...groupMemberships,
+      groups: [
+        {
+          ...membershipGroup,
+          members: [{ ...membershipGroup.members[0], signingPublicKey: "k" }],
+        },
+      ],
+    },
   ];
 
   for (const groupMembershipLane of invalidLanes) {

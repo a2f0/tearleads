@@ -253,6 +253,12 @@ test("listLocalOrganizations resolves an org name from the read model's profile 
         cursor: "opaque-cursor",
         profileDocumentId: documentId,
         memberGroupId: "members-group",
+        memberGroupStateHash: "members-state",
+        organizationStateHash: "organization-state",
+        organizationStateVersion: 1,
+        organizationKeyEpoch: 1,
+        organizationKeyFingerprint: "organization-key-fingerprint",
+        organizationMemberCount: 1,
         updatedAt: "2026-07-01T00:00:00.000Z",
       });
     });
