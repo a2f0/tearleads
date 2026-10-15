@@ -87,7 +87,7 @@ test("a committed share racing a local rename preserves both after reconciliatio
       ).toBe("Renamed during share"),
     );
     const local = await ownerDb.execSql(
-      'select "display_name" from "container_projection" where "container_id" = ?',
+      'select "display_name" from "containers" where "id" = ?',
       [folder.id],
     );
     expect(local).toEqual([{ display_name: "Renamed during share" }]);

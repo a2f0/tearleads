@@ -1,7 +1,5 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { eq } from "drizzle-orm";
-import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
@@ -18,24 +16,17 @@ async function seededProgress(count: number) {
   const f = await createTestExecSql("principal-incomplete-retention");
   await ensureSqlTables(f.execSql, principalHistoryStageTables);
   const { db } = getClientSQLitePersistenceRuntime(f.execSql);
-  const rows = Array.from({ length: count }, (_, index) => ({
-    id: `old-${index}`,
-    organizationId: "org-1",
-    currentJson: "{}",
-    afterVersion: 32,
-    complete: false,
-    progress: `progress-${index}`,
-  }));
-  await db.insert(principalHistoryStages).values(rows);
-  await db.insert(principalHistoryStageScopes).values(
-    rows.map((row, index) => ({
-      id: row.id,
-      organizationId: row.organizationId,
+  await db.insert(principalHistoryStages).values(
+    Array.from({ length: count }, (_, index) => ({
+      id: `old-${index}`,
+      organizationId: "org-1",
       scopeId: "scope-1",
-      afterVersion: row.afterVersion,
-      complete: row.complete,
+      currentJson: "{}",
+      afterVersion: 32,
+      complete: false,
       // Hints may be skewed: the current writer must survive regardless.
       touchedAt: Number.MAX_SAFE_INTEGER - count + index,
+      progress: `progress-${index}`,
     })),
   );
   const stage = {
@@ -63,8 +54,16 @@ async function seededProgress(count: number) {
       stillCurrent: () => true,
     },
     snapshot: async () => ({
-      stages: await db.select().from(principalHistoryStages),
-      hints: await db.select().from(principalHistoryStageScopes),
+      stages: await db
+        .select({
+          id: principalHistoryStages.id,
+          organizationId: principalHistoryStages.organizationId,
+          currentJson: principalHistoryStages.currentJson,
+          afterVersion: principalHistoryStages.afterVersion,
+          complete: principalHistoryStages.complete,
+          progress: principalHistoryStages.progress,
+        })
+        .from(principalHistoryStages),
     }),
   };
 }
@@ -77,14 +76,10 @@ test("partial reclamation is bounded, scoped and preserves the current writer de
       { ...f.input.stage, id: "foreign-scope" },
       { ...f.input.stage, id: "foreign-organization", organizationId: "org-2" },
     ];
-    await f.db.insert(principalHistoryStages).values(protectedRows);
-    await f.db.insert(principalHistoryStageScopes).values(
+    await f.db.insert(principalHistoryStages).values(
       protectedRows.map((stage) => ({
-        id: stage.id,
-        organizationId: stage.organizationId,
+        ...stage,
         scopeId: stage.id === "foreign-scope" ? "scope-2" : "scope-1",
-        afterVersion: stage.afterVersion,
-        complete: stage.complete,
         touchedAt: 0,
       })),
     );
@@ -107,9 +102,6 @@ test("partial reclamation is bounded, scoped and preserves the current writer de
     for (const stage of protectedRows)
       expect(second.stages).toContainEqual(stage);
     expect(second.stages).toContainEqual(next);
-    expect(second.hints.map(({ id }) => id).sort()).toEqual(
-      second.stages.map(({ id }) => id).sort(),
-    );
     const lost = {
       ...f.input.stage,
       id: "old-0",
@@ -137,31 +129,6 @@ test("a completed writer retains eight incomplete stages", async () => {
     await savePrincipalHistoryStage({ ...f.input, stage });
     const saved = await f.snapshot();
     expect(saved.stages).toContainEqual(stage);
-    expect(saved.stages.filter((row) => !row.complete)).toHaveLength(8);
-    expect(saved.hints.map(({ id }) => id).sort()).toEqual(
-      saved.stages.map(({ id }) => id).sort(),
-    );
-  } finally {
-    f.close();
-  }
-});
-
-test("a stale incomplete hint cannot evict an actually completed stage", async () => {
-  const f = await seededProgress(9);
-  try {
-    await f.db
-      .update(principalHistoryStages)
-      .set({ complete: true })
-      .where(eq(principalHistoryStages.id, "old-0"));
-    await savePrincipalHistoryStage(f.input);
-    const saved = await f.snapshot();
-    expect(saved.stages.find(({ id }) => id === "old-0")).toMatchObject({
-      complete: true,
-      progress: "progress-0",
-    });
-    expect(saved.hints.find(({ id }) => id === "old-0")).toMatchObject({
-      complete: false,
-    });
     expect(saved.stages.filter((row) => !row.complete)).toHaveLength(8);
   } finally {
     f.close();
@@ -210,10 +177,7 @@ test("partial cleanup uses the recency index without sorting all staged rows", a
   let selection: { sql: string; bind: Parameters<ExecSql>[1] } | undefined;
   const execSql = createExecSql({
     exec: async ({ sql, bind, rowMode }) => {
-      if (
-        sql.startsWith("select ") &&
-        sql.includes('from "principal_history_stage_scopes" inner join')
-      )
+      if (sql.startsWith('select "id" from "principal_history_stages" where'))
         selection = { sql, bind };
       return {
         rows: await f.execSql(sql, bind, rowMode ? { rowMode } : undefined),
@@ -229,7 +193,7 @@ test("partial cleanup uses the recency index without sorting all staged rows", a
     );
     const details = plan.map((row) => String(Reflect.get(row, "detail")));
     expect(details).toContainEqual(
-      expect.stringContaining("principal_history_stage_scopes_incomplete_idx"),
+      expect.stringContaining("principal_history_stages_incomplete_idx"),
     );
     expect(details.some((detail) => detail.includes("USE TEMP B-TREE"))).toBe(
       false,

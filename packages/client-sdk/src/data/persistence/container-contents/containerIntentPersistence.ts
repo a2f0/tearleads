@@ -1,7 +1,9 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
-  containerCreateIntents,
-  containerMoveIntents,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  LOCAL_INTENT_SUBJECT,
+  localIntents,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -106,11 +108,12 @@ export async function saveContainerCreateIntent(input: {
   const { containerId, createIntent, tx, updatedAt } = input;
   const id = createIntent.id ?? crypto.randomUUID();
   await tx
-    .insert(containerCreateIntents)
+    .insert(localIntents)
     .values({
       id,
-      containerId,
-      parentContainerId: createIntent.parentContainerId,
+      lane: LOCAL_INTENT_LANES.containerCreate,
+      subjectId: containerId,
+      targetContainerId: createIntent.parentContainerId,
       intentType: CONTAINER_CREATE_INTENT_TYPE,
       syncStatus: "pending",
       remoteContainerId: null,
@@ -122,12 +125,12 @@ export async function saveContainerCreateIntent(input: {
       updatedAt,
     })
     .onConflictDoUpdate({
-      target: containerCreateIntents.containerId,
+      target: LOCAL_INTENT_SUBJECT,
       set: {
         // Timestamps can collide when a create is re-queued in one clock tick,
         // so every enqueue owns a fresh revision token too.
         id,
-        parentContainerId: createIntent.parentContainerId,
+        targetContainerId: createIntent.parentContainerId,
         intentType: CONTAINER_CREATE_INTENT_TYPE,
         syncStatus: "pending",
         remoteContainerId: null,
@@ -154,16 +157,17 @@ export async function deleteContainerMoveIntentRevision(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<boolean> {
   const deleted = await input.tx
-    .delete(containerMoveIntents)
+    .delete(localIntents)
     .where(
       and(
-        eq(containerMoveIntents.containerId, input.containerId),
-        eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
-        eq(containerMoveIntents.id, input.expectedIntentId),
-        eq(containerMoveIntents.updatedAt, input.expectedUpdatedAt),
+        inLocalIntentLane(LOCAL_INTENT_LANES.containerMove),
+        eq(localIntents.subjectId, input.containerId),
+        eq(localIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+        eq(localIntents.id, input.expectedIntentId),
+        eq(localIntents.updatedAt, input.expectedUpdatedAt),
       ),
     )
-    .returning({ containerId: containerMoveIntents.containerId });
+    .returning({ containerId: localIntents.subjectId });
   return deleted.length > 0;
 }
 
@@ -183,7 +187,7 @@ async function recordCreateIntentErrorAttempt(
   const record = async (tx: ClientSQLiteTransactionScope) => {
     const updatedAt = new Date().toISOString();
     await tx
-      .update(containerCreateIntents)
+      .update(localIntents)
       .set({
         lastAttemptedAt: updatedAt,
         lastError: message,
@@ -191,11 +195,12 @@ async function recordCreateIntentErrorAttempt(
       })
       .where(
         and(
-          eq(containerCreateIntents.containerId, containerId),
-          eq(containerCreateIntents.syncStatus, "pending"),
-          eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-          eq(containerCreateIntents.id, expectedIntentId),
-          eq(containerCreateIntents.updatedAt, expectedUpdatedAt),
+          inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate),
+          eq(localIntents.subjectId, containerId),
+          eq(localIntents.syncStatus, "pending"),
+          eq(localIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          eq(localIntents.id, expectedIntentId),
+          eq(localIntents.updatedAt, expectedUpdatedAt),
         ),
       )
       .run();
@@ -254,28 +259,28 @@ export const containerIntentPersistence = {
     const { db } = getClientSQLitePersistenceRuntime(execSql);
     const rows = await db
       .select({
-        id: containerCreateIntents.id,
-        containerId: containerCreateIntents.containerId,
-        parentContainerId: containerCreateIntents.parentContainerId,
-        syncStatus: containerCreateIntents.syncStatus,
-        remoteContainerId: containerCreateIntents.remoteContainerId,
-        remoteMetadataDocumentId:
-          containerCreateIntents.remoteMetadataDocumentId,
+        id: localIntents.id,
+        containerId: localIntents.subjectId,
+        parentContainerId: localIntents.targetContainerId,
+        syncStatus: localIntents.syncStatus,
+        remoteContainerId: localIntents.remoteContainerId,
+        remoteMetadataDocumentId: localIntents.remoteMetadataDocumentId,
         remoteMetadataAccessStateHash:
-          containerCreateIntents.remoteMetadataAccessStateHash,
-        lastError: containerCreateIntents.lastError,
-        lastAttemptedAt: containerCreateIntents.lastAttemptedAt,
-        createdAt: containerCreateIntents.createdAt,
-        updatedAt: containerCreateIntents.updatedAt,
+          localIntents.remoteMetadataAccessStateHash,
+        lastError: localIntents.lastError,
+        lastAttemptedAt: localIntents.lastAttemptedAt,
+        createdAt: localIntents.createdAt,
+        updatedAt: localIntents.updatedAt,
       })
-      .from(containerCreateIntents)
+      .from(localIntents)
       .where(
         and(
-          eq(containerCreateIntents.syncStatus, "pending"),
-          eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+          inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate),
+          eq(localIntents.syncStatus, "pending"),
+          eq(localIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
         ),
       )
-      .orderBy(asc(containerCreateIntents.createdAt));
+      .orderBy(asc(localIntents.createdAt));
 
     return rows.map((row) => mapContainerCreateIntentRecord(row));
   },
@@ -288,20 +293,24 @@ export const containerIntentPersistence = {
     // the move completes — and hydration must still not revert them.
     const rows = await db
       .select({
-        id: containerMoveIntents.id,
-        containerId: containerMoveIntents.containerId,
-        parentContainerId: containerMoveIntents.parentContainerId,
-        previousParentContainerId:
-          containerMoveIntents.previousParentContainerId,
-        syncStatus: containerMoveIntents.syncStatus,
-        lastError: containerMoveIntents.lastError,
-        lastAttemptedAt: containerMoveIntents.lastAttemptedAt,
-        createdAt: containerMoveIntents.createdAt,
-        updatedAt: containerMoveIntents.updatedAt,
+        id: localIntents.id,
+        containerId: localIntents.subjectId,
+        parentContainerId: localIntents.targetContainerId,
+        previousParentContainerId: localIntents.sourceContainerId,
+        syncStatus: localIntents.syncStatus,
+        lastError: localIntents.lastError,
+        lastAttemptedAt: localIntents.lastAttemptedAt,
+        createdAt: localIntents.createdAt,
+        updatedAt: localIntents.updatedAt,
       })
-      .from(containerMoveIntents)
-      .where(eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE))
-      .orderBy(asc(containerMoveIntents.createdAt));
+      .from(localIntents)
+      .where(
+        and(
+          inLocalIntentLane(LOCAL_INTENT_LANES.containerMove),
+          eq(localIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+        ),
+      )
+      .orderBy(asc(localIntents.createdAt));
 
     return rows.map((row) => mapContainerMoveIntentRecord(row));
   },
@@ -312,7 +321,7 @@ export const containerIntentPersistence = {
     const record = async (tx: ClientSQLiteTransactionScope) => {
       const updatedAt = new Date().toISOString();
       await tx
-        .update(containerMoveIntents)
+        .update(localIntents)
         .set({
           lastAttemptedAt: updatedAt,
           lastError: input.message,
@@ -321,16 +330,17 @@ export const containerIntentPersistence = {
         })
         .where(
           and(
-            eq(containerMoveIntents.containerId, input.containerId),
+            inLocalIntentLane(LOCAL_INTENT_LANES.containerMove),
+            eq(localIntents.subjectId, input.containerId),
             // Blocked rows stay updatable so a retried intent records its
             // fresh outcome and a transient failure unblocks it.
-            inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
-            eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+            inArray(localIntents.syncStatus, ["pending", "blocked"]),
+            eq(localIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
             ...(input.expectedIntentId
-              ? [eq(containerMoveIntents.id, input.expectedIntentId)]
+              ? [eq(localIntents.id, input.expectedIntentId)]
               : []),
             ...(input.expectedUpdatedAt
-              ? [eq(containerMoveIntents.updatedAt, input.expectedUpdatedAt)]
+              ? [eq(localIntents.updatedAt, input.expectedUpdatedAt)]
               : []),
           ),
         )

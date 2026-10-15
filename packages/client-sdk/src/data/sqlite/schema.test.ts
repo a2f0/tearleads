@@ -76,13 +76,10 @@ test("client sqlite schema creates tables and indexes", async () => {
       clientSqlTables.map((table) => table.name).sort(),
     );
     expect(indexNames).toEqual([
-      "container_create_intents_status_created_idx",
-      "container_move_intents_status_created_idx",
       "document_attachment_blob_projection_mime_type_idx",
       "document_attachment_blob_projection_storage_key_idx",
       "document_history_updates_scope_created_idx",
       "document_history_updates_update_id_idx",
-      "document_move_intents_status_created_idx",
       "document_pending_attachments_mime_type_idx",
       "document_pending_attachments_storage_key_idx",
       "document_projection_container_idx",
@@ -90,6 +87,7 @@ test("client sqlite schema creates tables and indexes", async () => {
       "document_projection_orphan_organization_idx",
       "documents_app_document_idx",
       "dormant_container_metadata_organization_idx",
+      "local_intents_lane_status_created_idx",
       "principal_history_entries_organization_idx",
       "principal_history_node_references_organization_idx",
       "principal_history_node_references_reclaim_idx",
@@ -97,11 +95,10 @@ test("client sqlite schema creates tables and indexes", async () => {
       "principal_history_prefixes_key_fingerprint_idx",
       "principal_history_prefixes_organization_idx",
       "principal_history_root_owners_organization_idx",
-      "principal_history_stage_scopes_incomplete_idx",
-      "principal_history_stage_scopes_organization_idx",
-      "principal_history_stage_scopes_scope_idx",
+      "principal_history_stages_incomplete_idx",
       "principal_history_stages_key_fingerprint_idx",
       "principal_history_stages_organization_idx",
+      "principal_history_stages_scope_idx",
       "principal_key_envelope_archive_fingerprint_idx",
       "principal_policies_key_fingerprint_idx",
       "principal_policy_history_key_fingerprint_idx",
@@ -365,45 +362,24 @@ test("client sqlite schema creates tables and indexes", async () => {
       });
     }
 
-    const intentIndexes = await readIndexList(
-      execSql,
-      "container_create_intents",
-    );
+    const intentIndexes = await readIndexList(execSql, "local_intents");
     expect(
-      readRecordValue(
-        intentIndexes,
-        "container_create_intents_status_created_idx",
-      ),
+      readRecordValue(intentIndexes, "local_intents_lane_status_created_idx"),
     ).toEqual({
       partial: 0,
       unique: 0,
     });
     expect(
-      await readIndexColumns(
-        execSql,
-        "container_create_intents_status_created_idx",
-      ),
-    ).toEqual(["sync_status", "created_at"]);
-
-    const moveIntentIndexes = await readIndexList(
-      execSql,
-      "container_move_intents",
+      await readIndexColumns(execSql, "local_intents_lane_status_created_idx"),
+    ).toEqual(["lane", "sync_status", "created_at"]);
+    // One intent per subject within a lane; a container may hold a create and
+    // a move at once.
+    const uniqueIntentColumns = await Promise.all(
+      Object.entries(intentIndexes)
+        .filter(([, index]) => index.unique === 1)
+        .map(([name]) => readIndexColumns(execSql, name)),
     );
-    expect(
-      readRecordValue(
-        moveIntentIndexes,
-        "container_move_intents_status_created_idx",
-      ),
-    ).toEqual({
-      partial: 0,
-      unique: 0,
-    });
-    expect(
-      await readIndexColumns(
-        execSql,
-        "container_move_intents_status_created_idx",
-      ),
-    ).toEqual(["sync_status", "created_at"]);
+    expect(uniqueIntentColumns).toContainEqual(["lane", "subject_id"]);
 
     const containers = await readTableColumns(execSql, "containers");
     expect("created_at" in containers).toBe(false);

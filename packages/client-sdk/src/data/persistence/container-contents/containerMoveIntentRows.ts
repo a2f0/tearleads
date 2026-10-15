@@ -1,5 +1,9 @@
 import { sql } from "drizzle-orm";
-import { containerMoveIntents } from "../../sqlite/schema";
+import {
+  LOCAL_INTENT_LANES,
+  LOCAL_INTENT_SUBJECT,
+  localIntents,
+} from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   CONTAINER_MOVE_INTENT_TYPE,
@@ -15,12 +19,13 @@ export async function saveContainerMoveIntent(input: {
   const { containerId, moveIntent, tx, updatedAt } = input;
   const id = moveIntent.id ?? crypto.randomUUID();
   await tx
-    .insert(containerMoveIntents)
+    .insert(localIntents)
     .values({
       id,
-      containerId,
-      parentContainerId: moveIntent.parentContainerId,
-      previousParentContainerId: moveIntent.previousParentContainerId ?? null,
+      lane: LOCAL_INTENT_LANES.containerMove,
+      subjectId: containerId,
+      targetContainerId: moveIntent.parentContainerId,
+      sourceContainerId: moveIntent.previousParentContainerId ?? null,
       intentType: CONTAINER_MOVE_INTENT_TYPE,
       syncStatus: "pending",
       lastError: null,
@@ -29,13 +34,13 @@ export async function saveContainerMoveIntent(input: {
       updatedAt,
     })
     .onConflictDoUpdate({
-      target: containerMoveIntents.containerId,
+      target: LOCAL_INTENT_SUBJECT,
       set: {
         // The timestamp can collide when two moves are queued in one clock
         // tick, so every enqueue also owns a fresh revision token.
         id,
-        parentContainerId: moveIntent.parentContainerId,
-        previousParentContainerId: sql`coalesce(${containerMoveIntents.previousParentContainerId}, ${moveIntent.previousParentContainerId ?? null})`,
+        targetContainerId: moveIntent.parentContainerId,
+        sourceContainerId: sql`coalesce(${localIntents.sourceContainerId}, ${moveIntent.previousParentContainerId ?? null})`,
         intentType: CONTAINER_MOVE_INTENT_TYPE,
         syncStatus: "pending",
         lastError: null,

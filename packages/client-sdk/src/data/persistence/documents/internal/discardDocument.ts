@@ -9,9 +9,11 @@ import { deleteDocumentHistory } from "../../../sqlite/documentHistoryPersistenc
 import { clearDocumentSyncFailure } from "../../../sqlite/documentPersistence";
 import {
   documentAttachmentBlobProjection,
-  documentMoveIntents,
-  documentMoveIntentTables,
   documentPendingAttachments,
+  documentPlacementIntentTables,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -92,9 +94,14 @@ async function loadDiscardCandidate(input: {
     return null;
   }
   const moveIntentRows = await tx
-    .select({ id: documentMoveIntents.id })
-    .from(documentMoveIntents)
-    .where(eq(documentMoveIntents.localId, localId))
+    .select({ id: localIntents.id })
+    .from(localIntents)
+    .where(
+      and(
+        inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+        eq(localIntents.localId, localId),
+      ),
+    )
     .limit(1);
   if (moveIntentRows.length > 0) return null;
 
@@ -265,7 +272,7 @@ export async function discardStoredDocumentToShell(input: {
 }): Promise<DiscardDocumentToShellResult> {
   const { expectedDocumentId, localId, persistence } = input;
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
-    await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+    await ensureSqlTables(lockedExecSql, documentPlacementIntentTables);
     return discardDocumentRowsToShell({
       documentProjectors: resolveDocumentProjectorRegistry(
         input.documentProjectors,

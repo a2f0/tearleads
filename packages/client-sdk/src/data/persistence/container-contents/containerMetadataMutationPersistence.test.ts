@@ -274,10 +274,10 @@ test("metadata failure clearance commits only with the expected state", async ()
       { localUpdatedAt: T1 },
     );
     await runtime.execSql(
-      `INSERT INTO document_sync_failures
-        (app_kind, local_id, status, message, attempted_at)
-       VALUES ('container-metadata', ?, NULL, 'quarantined', ?)`,
-      [container.id, T2],
+      `UPDATE documents
+       SET sync_failure_message = 'quarantined', sync_failure_attempted_at = ?
+       WHERE app_kind = 'container-metadata' AND local_id = ?`,
+      [T2, container.id],
     );
     const current =
       await sqlContainerContentsPersistence.loadContainerMetadataState(
@@ -299,8 +299,9 @@ test("metadata failure clearance commits only with the expected state", async ()
     ).resolves.toMatchObject({ committed: false });
     expect(
       await runtime.execSql(
-        `SELECT message FROM document_sync_failures
-         WHERE app_kind = 'container-metadata' AND local_id = ?`,
+        `SELECT sync_failure_message AS message FROM documents
+         WHERE app_kind = 'container-metadata' AND local_id = ?
+           AND sync_failure_message IS NOT NULL`,
         [container.id],
       ),
     ).toEqual([{ message: "quarantined" }]);
@@ -318,8 +319,9 @@ test("metadata failure clearance commits only with the expected state", async ()
     ).resolves.toMatchObject({ committed: true });
     expect(
       await runtime.execSql(
-        `SELECT message FROM document_sync_failures
-         WHERE app_kind = 'container-metadata' AND local_id = ?`,
+        `SELECT sync_failure_message AS message FROM documents
+         WHERE app_kind = 'container-metadata' AND local_id = ?
+           AND sync_failure_message IS NOT NULL`,
         [container.id],
       ),
     ).toEqual([]);

@@ -463,7 +463,7 @@ export async function runQueuedDocumentMoveFixture(input: {
     const pendingIntents =
       await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
     const intentRows = await execSql(
-      "SELECT sync_status AS syncStatus, last_error AS lastError FROM document_move_intents",
+      "SELECT sync_status AS syncStatus, last_error AS lastError FROM local_intents WHERE lane = 'document.placement'",
     );
     const linkedContainerIds =
       await sqlDocumentContainerProjectionPersistence.listLinkedContainerIds(

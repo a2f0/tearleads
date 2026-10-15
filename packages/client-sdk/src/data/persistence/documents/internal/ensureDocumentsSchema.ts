@@ -4,7 +4,7 @@ import {
 } from "../../../sqlite/documentPersistence";
 import {
   documentContainerProjectionTables,
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
   keyingCheckpointTables,
 } from "../../../sqlite/schema";
 import {
@@ -21,7 +21,7 @@ export async function ensureDocumentsSchema(execSql: ExecSql): Promise<void> {
       await ensureDocumentProjectionTables(lockedExecSql);
       await ensureSqlTables(lockedExecSql, [
         ...documentContainerProjectionTables,
-        ...documentMoveIntentTables,
+        ...documentPlacementIntentTables,
         ...keyingCheckpointTables,
       ]);
     }),

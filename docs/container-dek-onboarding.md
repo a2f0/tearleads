@@ -258,6 +258,9 @@ CREATE TABLE containers (
  parent_id TEXT,
  metadata_document_id TEXT,
  system_slot TEXT,
+ display_name TEXT,
+ icon TEXT,
+ effective_access_level TEXT NOT NULL DEFAULT 'read',
  local_created_at TEXT NOT NULL,
  local_updated_at TEXT NOT NULL,
  server_created_at TEXT,
@@ -265,9 +268,10 @@ CREATE TABLE containers (
 );
 ```
 
-Container display fields live in the sibling `container_projection` table.
-Container metadata document state is stored in the shared `documents` table
-under the container-metadata app kind.
+`display_name` and `icon` are the decrypted metadata fields lists read; a null
+`display_name` presents as `/` for a root and `Untitled` otherwise. Container
+metadata document state is stored in the shared `documents` table under the
+container-metadata app kind.
 
 ### Product Contact Projection
 

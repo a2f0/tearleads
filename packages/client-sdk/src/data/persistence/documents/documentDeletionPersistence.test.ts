@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { documentMoveIntentTables } from "../../sqlite/schema";
+import { documentPlacementIntentTables } from "../../sqlite/schema";
 import { ensureSqlTables } from "../../sqlite/sqlSchema";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
@@ -74,7 +74,7 @@ test("absent-record purge deletes remote document projections and move intents",
   const documentId = "remote-document";
   try {
     await sqlDocumentsPersistence.ensureSchema(execSql);
-    await ensureSqlTables(execSql, documentMoveIntentTables);
+    await ensureSqlTables(execSql, documentPlacementIntentTables);
     await execSql(
       `INSERT INTO document_container_projection
         (document_id, container_id, updated_at)
@@ -82,11 +82,11 @@ test("absent-record purge deletes remote document projections and move intents",
       [documentId, "container", "2026-08-27T00:00:00.000Z"],
     );
     await execSql(
-      `INSERT INTO document_move_intents (
-        id, local_id, document_id, target_container_id,
+      `INSERT INTO local_intents (
+        id, lane, local_id, subject_id, target_container_id,
         replace_linked_containers, intent_type, sync_status, created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, 'document.placement', ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         "move-intent",
         "missing-local",
@@ -117,8 +117,8 @@ test("absent-record purge deletes remote document projections and move intents",
     ).resolves.toEqual([]);
     await expect(
       execSql(
-        `SELECT document_id FROM document_move_intents
-         WHERE document_id = ?`,
+        `SELECT subject_id FROM local_intents
+         WHERE lane = 'document.placement' AND subject_id = ?`,
         [documentId],
       ),
     ).resolves.toEqual([]);

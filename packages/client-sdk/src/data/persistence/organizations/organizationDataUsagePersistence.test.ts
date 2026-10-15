@@ -3,7 +3,6 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import {
-  organizationDataUsageCategories,
   organizationDataUsageSnapshots,
   organizationDataUsageTables,
 } from "../../sqlite/organizationDataUsageSchema";
@@ -239,33 +238,45 @@ test("invalid stored usage is purged without affecting another requester", async
     expect(
       await db
         .select()
-        .from(organizationDataUsageCategories)
-        .where(
-          eq(organizationDataUsageCategories.requesterUserId, REQUESTER_1),
-        ),
+        .from(organizationDataUsageSnapshots)
+        .where(eq(organizationDataUsageSnapshots.requesterUserId, REQUESTER_1)),
     ).toEqual([]);
 
-    await saveOrganizationDataUsageProjection({
-      execSql,
-      requesterUserId: REQUESTER_1,
-      response: usage(),
-    });
-    await db
-      .delete(organizationDataUsageCategories)
-      .where(
-        and(
-          eq(organizationDataUsageCategories.organizationId, ORGANIZATION_ID),
-          eq(organizationDataUsageCategories.requesterUserId, REQUESTER_1),
-          eq(organizationDataUsageCategories.category, "user"),
-        ),
-      );
-    await expect(
-      loadOrganizationDataUsageProjection(
+    const requesterOne = and(
+      eq(organizationDataUsageSnapshots.organizationId, ORGANIZATION_ID),
+      eq(organizationDataUsageSnapshots.requesterUserId, REQUESTER_1),
+    );
+    const withoutUser = usage().documents.breakdown.filter(
+      (entry) => entry.category !== "user",
+    );
+    for (const categoryBreakdownJson of [
+      JSON.stringify(withoutUser),
+      JSON.stringify([...withoutUser, { ...withoutUser[0], extra: 1 }]),
+      "not json",
+    ]) {
+      await saveOrganizationDataUsageProjection({
         execSql,
-        ORGANIZATION_ID,
-        REQUESTER_1,
-      ),
-    ).resolves.toBeNull();
+        requesterUserId: REQUESTER_1,
+        response: usage(),
+      });
+      await db
+        .update(organizationDataUsageSnapshots)
+        .set({ categoryBreakdownJson })
+        .where(requesterOne);
+      await expect(
+        loadOrganizationDataUsageProjection(
+          execSql,
+          ORGANIZATION_ID,
+          REQUESTER_1,
+        ),
+      ).resolves.toBeNull();
+      expect(
+        await db
+          .select()
+          .from(organizationDataUsageSnapshots)
+          .where(requesterOne),
+      ).toEqual([]);
+    }
   } finally {
     close();
   }

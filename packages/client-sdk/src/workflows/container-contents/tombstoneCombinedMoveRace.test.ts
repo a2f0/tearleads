@@ -21,9 +21,10 @@ for (const additional of [false, true]) {
           expect(observed.additionalLinkContainerIds ?? []).toEqual(
             additional ? ["queued-move-extra-container"] : [],
           );
-          await execSql("UPDATE document_move_intents SET sync_status = ?", [
-            syncStatus,
-          ]);
+          await execSql(
+            "UPDATE local_intents SET sync_status = ? WHERE lane = 'document.placement'",
+            [syncStatus],
+          );
           await containers.deleteContainers(
             execSql,
             [

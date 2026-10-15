@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   clientSqlTables,
-  containerCreateIntents,
   containers,
   documents,
+  localIntents,
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
@@ -86,9 +86,7 @@ test("remote reset batches organizations beyond SQLite bind limits", async () =>
     expect(result.resetDocumentCount).toBe(childCount);
     expect(result.queuedContainerCreateCount).toBe(childCount + 1);
     expect(Math.max(...bindCounts)).toBeLessThanOrEqual(999);
-    expect(await db.select().from(containerCreateIntents)).toHaveLength(
-      childCount + 1,
-    );
+    expect(await db.select().from(localIntents)).toHaveLength(childCount + 1);
     expect(
       (await db.select().from(documents)).every(
         (row) => row.documentId === null,

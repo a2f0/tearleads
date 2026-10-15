@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalHistoryRootOwners } from "../sqlite/principalHistoryNodeRetentionSchema";
-import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import {
@@ -26,7 +25,6 @@ test("discarding a missing stage initializes its tables on a fresh database", as
     );
     const { db } = getClientSQLitePersistenceRuntime(f.execSql);
     expect(await db.select().from(principalHistoryStages)).toEqual([]);
-    expect(await db.select().from(principalHistoryStageScopes)).toEqual([]);
   } finally {
     f.close();
   }
@@ -65,17 +63,15 @@ test("a stale discard preserves newer stage progress and its scope hint", async 
       previousProgress: stage.progress,
     });
     const { db } = getClientSQLitePersistenceRuntime(f.execSql);
-    const hints = await db.select().from(principalHistoryStageScopes);
-    expect(hints).toHaveLength(1);
+    const saved = await db.select().from(principalHistoryStages);
+    expect(saved).toMatchObject([{ ...newer, scopeId: "scope-1" }]);
     const owners = await db.select().from(principalHistoryRootOwners);
     expect(owners).toMatchObject([{ rootHash: "newer-index-root" }]);
     await discardPrincipalHistoryStage(f.execSql, stage, () => true);
-    expect(await db.select().from(principalHistoryStages)).toEqual([newer]);
-    expect(await db.select().from(principalHistoryStageScopes)).toEqual(hints);
+    expect(await db.select().from(principalHistoryStages)).toEqual(saved);
     expect(await db.select().from(principalHistoryRootOwners)).toEqual(owners);
     await discardPrincipalHistoryStage(f.execSql, newer, () => true);
     expect(await db.select().from(principalHistoryStages)).toEqual([]);
-    expect(await db.select().from(principalHistoryStageScopes)).toEqual([]);
     expect(await db.select().from(principalHistoryRootOwners)).toEqual([]);
   } finally {
     f.close();

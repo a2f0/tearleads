@@ -233,10 +233,10 @@ test("document failure clearance commits only with the expected sync state", asy
     };
     await sqlDocumentsPersistence.saveDocument(execSql, document);
     await execSql(
-      `INSERT INTO document_sync_failures
-        (app_kind, local_id, status, message, attempted_at)
-       VALUES ('documents', ?, NULL, 'quarantined', ?)`,
-      [document.id, "2026-08-25T00:00:00.000Z"],
+      `UPDATE documents
+       SET sync_failure_message = 'quarantined', sync_failure_attempted_at = ?
+       WHERE app_kind = 'documents' AND local_id = ?`,
+      ["2026-08-25T00:00:00.000Z", document.id],
     );
     const current = await sqlDocumentsPersistence.loadDocument(
       execSql,
@@ -259,8 +259,9 @@ test("document failure clearance commits only with the expected sync state", asy
     ).resolves.toMatchObject({ committed: false });
     expect(
       await execSql(
-        `SELECT message FROM document_sync_failures
-         WHERE app_kind = 'documents' AND local_id = ?`,
+        `SELECT sync_failure_message AS message FROM documents
+         WHERE app_kind = 'documents' AND local_id = ?
+           AND sync_failure_message IS NOT NULL`,
         [document.id],
       ),
     ).toEqual([{ message: "quarantined" }]);
@@ -280,8 +281,9 @@ test("document failure clearance commits only with the expected sync state", asy
     ).resolves.toMatchObject({ committed: true });
     expect(
       await execSql(
-        `SELECT message FROM document_sync_failures
-         WHERE app_kind = 'documents' AND local_id = ?`,
+        `SELECT sync_failure_message AS message FROM documents
+         WHERE app_kind = 'documents' AND local_id = ?
+           AND sync_failure_message IS NOT NULL`,
         [document.id],
       ),
     ).toEqual([]);
