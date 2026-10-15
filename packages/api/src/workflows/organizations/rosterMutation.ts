@@ -98,9 +98,7 @@ export async function runUpdateOrganizationRosterEntryWorkflow(
     if (updatedRosterEntry) {
       await appendOrganizationReadModelChangeInTransaction(tx, {
         organizationId,
-        lane: "directory",
-        entityId: userId,
-        operation: "upsert",
+        lanes: ["directory"],
       });
     }
 

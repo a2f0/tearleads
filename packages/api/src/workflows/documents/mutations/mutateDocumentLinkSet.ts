@@ -196,12 +196,13 @@ async function appendRepairedRosterProfileChanges(
   executor: DatabaseTransaction,
   bindings: readonly RepairedRosterProfileBinding[],
 ): Promise<void> {
-  for (const binding of bindings) {
+  const organizationIds = new Set(
+    bindings.map((binding) => binding.organizationId),
+  );
+  for (const organizationId of organizationIds) {
     await appendOrganizationReadModelChangeInTransaction(executor, {
-      entityId: binding.userId,
-      lane: "directory",
-      operation: "upsert",
-      organizationId: binding.organizationId,
+      lanes: ["directory"],
+      organizationId,
     });
   }
 }

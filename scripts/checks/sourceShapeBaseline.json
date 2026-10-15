@@ -65,7 +65,7 @@
     },
     "docs/protocol-specification.md": {
       "lines": 674,
-      "bytes": 34855
+      "bytes": 34852
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -326,6 +326,10 @@
     "scripts/architecture/subsystems.ts": {
       "lines": 800,
       "bytes": 30600
+    },
+    "formal/README.md": {
+      "lines": 356,
+      "bytes": 20065
     }
   },
   "suppressions": {

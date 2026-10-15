@@ -9,10 +9,9 @@ import type {
   OrganizationDirectoryUserResponse,
   OrganizationGroupContainerResponse,
   OrganizationGroupContainersResponse,
-  OrganizationGroupMemberResponse,
-  OrganizationGroupMembersResponse,
   OrganizationGroupSummaryResponse,
   OrganizationProfileResponse,
+  OrganizationReadModelGroupMemberResponse,
   OrganizationUserDetailResponse,
 } from "@tearleads/validators/response";
 import type { OrganizationGroupPolicyHistory } from "./policyHistoryReadModel";
@@ -60,8 +59,13 @@ export interface OrganizationUserDetail
     readonly groupGrants: OrganizationContainerGrant[];
   };
 }
-export type OrganizationGroupMember = OrganizationGroupMemberResponse;
-export type OrganizationGroupMembers = OrganizationGroupMembersResponse;
+/** A projected group member: public keys live in the directory lane only. */
+export type OrganizationGroupMember = OrganizationReadModelGroupMemberResponse;
+export interface OrganizationGroupMembers {
+  readonly groupId: string;
+  readonly members: OrganizationGroupMember[];
+  readonly organizationId: string;
+}
 export type OrganizationGroupSummary = OrganizationGroupSummaryResponse & {
   readonly name: string;
   /**

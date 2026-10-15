@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type {
   OrganizationContainerGrantResponse,
-  OrganizationGroupMemberResponse,
+  OrganizationReadModelGroupMemberResponse,
   OrganizationReadModelSnapshotResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
@@ -27,14 +27,10 @@ const TARGET_USER_ID = "target-user";
 const MEMBERS_GROUP_ID = "members-group";
 const CYCLE_GROUP_ID = "cycle-group";
 
-function userMember(userId: string): OrganizationGroupMemberResponse {
+function userMember(userId: string): OrganizationReadModelGroupMemberResponse {
   return {
     userId,
     role: "member",
-    signingKeyFingerprint: `signing-fingerprint-${userId}`,
-    signingPublicKey: `signing-key-${userId}`,
-    encapsulationPublicKey: `encapsulation-key-${userId}`,
-    encapsulationKeyFingerprint: `encapsulation-fingerprint-${userId}`,
   };
 }
 

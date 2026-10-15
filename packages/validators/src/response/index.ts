@@ -388,6 +388,7 @@ export {
   type OrganizationReadModelDeltaResponse,
   type OrganizationReadModelDirectoryResponse,
   type OrganizationReadModelGrantsResponse,
+  type OrganizationReadModelGroupMemberResponse,
   type OrganizationReadModelGroupMembershipResponse,
   type OrganizationReadModelGroupMembershipsResponse,
   type OrganizationReadModelOrganizationPolicyResponse,

@@ -1,8 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import type {
-  OrganizationDirectory,
-  OrganizationGroupMembers,
-} from "@tearleads/client-sdk";
+import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { ORG_MANAGER_LABELS } from "../labels";
 import {
@@ -24,7 +21,10 @@ const DIRECTORY: OrganizationDirectory = {
   users: [],
 };
 
-const MEMBERS: OrganizationGroupMembers = {
+// Shaped like the group-members route response the action returns.
+const MEMBERS: NonNullable<
+  Awaited<ReturnType<OrgManagerActions["loadGroupMembers"]>>
+> = {
   groupId: "members",
   members: [],
   organizationId: DIRECTORY.organizationId,

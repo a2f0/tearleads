@@ -90,7 +90,7 @@ async function signedReadModelFixture() {
       return {
         groupId: bundle.currentState.principalId,
         stateHash: bundle.currentState.stateHash,
-        members: [member],
+        members: [{ userId, role: member.role }],
       };
     }),
   };

@@ -366,11 +366,11 @@ test("organization policy head and cursor roll back together on head failure", a
     });
 
     await execSql(`
-      CREATE TRIGGER fail_organization_policy_head_insert
-      BEFORE INSERT ON organization_read_model_policy_heads
-      WHEN NEW.state_hash = 'organization-state-must-roll-back'
+      CREATE TRIGGER fail_organization_policy_head_update
+      BEFORE UPDATE ON organization_read_model_state
+      WHEN NEW.organization_state_hash = 'organization-state-must-roll-back'
       BEGIN
-        SELECT RAISE(ABORT, 'forced organization policy head insert failure');
+        SELECT RAISE(ABORT, 'forced organization policy head update failure');
       END
     `);
     await expect(
@@ -427,9 +427,9 @@ test("an inexact persisted policy head purges the projection on load", async () 
       response: snapshot("org-1", "cursor-1"),
     });
     await execSql(
-      `UPDATE organization_read_model_policy_heads
-       SET state_hash = 'mismatched-state'
-       WHERE organization_id = 'org-1' AND principal_type = 'group'`,
+      `UPDATE organization_read_model_groups
+       SET key_fingerprint = NULL
+       WHERE organization_id = 'org-1' AND state_hash IS NOT NULL`,
     );
 
     // Invalid stored rows self-heal: the load purges the projection so the
