@@ -113,7 +113,14 @@ jq -r 'select(.label == "<label>") | .sql | gsub("\\s+"; " ")' <file> \
 The counter alone, `withDatabaseStatementCounter(counter, work)`, counts
 without text. Its scope must contain the awaited work: pass an `async`
 function that awaits the query. A bare Drizzle builder returned from the
-callback executes after the scope has closed and counts zero.
+callback executes after the scope has closed and counts zero. Like the
+capture, it sees transaction controls on SQLite but not on PGlite, so a
+SQLite count runs higher by each transaction's control statements (one per
+request in the document budget below). To assert an exact count for work
+inside one transaction, open the counter inside the transaction callback,
+as `packages/api/src/workflows/signerPublicKey.test.ts` does. Whole-request
+ceilings, with PGlite and SQLite measurements in a comment, are in
+`packages/api/src/workflows/documents/mutations/documentStatementBudget.test.ts`.
 
 ## Scenario set
 
@@ -149,7 +156,10 @@ SQLite wasm database from `createTestExecSql` in
 `packages/test-utils/src/createTestExecSql.ts` and records every call, as
 `packages/client-sdk/src/data/persistence/principalHistoryStageRetention.plan.test.ts`
 does. Use a fresh executor per measurement: executors are cached per client,
-and the first call on a connection also runs the schema ensure.
+and the first call on a connection also runs the schema ensure. Because
+the app canaries have no client hook, how often an SDK operation runs in a
+real flow is not measured; report client savings per operation and list
+the frequency under Not measured.
 
 ## Query plans
 
@@ -199,7 +209,9 @@ as `drizzle-orm` (`<REPO_ROOT>/packages/api-shared/node_modules/drizzle-orm/inde
 because a bare specifier does not resolve from outside the checkout. Run
 them with `<REPO_ROOT>/node_modules/.bin/agent-tool run -- bun test <absolute path>`
 from the owning package directory with the package's preloads. Never change
-constants, ceilings, or schema in the checkout to measure.
+constants, ceilings, or schema in the checkout to measure. Remove scratch
+files with a guarded path (`rm -rf -- "${PROBE_DIR:?}"`), never a bare
+variable that could expand to nothing.
 
 ## What a measurement is not
 

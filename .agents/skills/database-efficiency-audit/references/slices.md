@@ -27,8 +27,9 @@ live PlanetScale leads and baseline rows when dispatching it.
 - Count the statements every authenticated request pays before its route
   runs: session validation, user and signer lookups, activity stamps. The
   `users` lookup by id for `fingerprint` and `signing_public_key` was the
-  most frequent production pattern on 2026-10-15 and in the upload canary.
-  Find every caller and whether one request repeats it.
+  most frequent production pattern on 2026-10-15; #2546 reads it once per
+  transaction and once per history walk. Find callers that still repeat it
+  on the root executor.
 - Registration is the largest single transaction (hundreds of statements;
   see `services/auth/registration.batching.test.ts`). Capture it, group its
   statements by table, and find per-row loops that a multi-row insert or a
@@ -92,8 +93,9 @@ live PlanetScale leads and baseline rows when dispatching it.
 - Inventory every API index on both dialects. For each: the queries that
   use it, uniqueness and constraint role, write paths that maintain it, and
   dialect parity.
-- Evaluate every live PlanetScale recommendation (on 2026-10-15, 25
-  `duplicate_index` left-prefix cases) under the rules in `planetscale.md`.
+- Evaluate every live PlanetScale recommendation under the rules in
+  `planetscale.md`. The 23 live `duplicate_index` left-prefix cases of
+  2026-10-15 were dropped by #2546.
 - Missing indexes: predicates and joins found by the other API slices
   with no usable leading index, proven by plan.
 - Collate the other slices' index findings; propose a target index list
