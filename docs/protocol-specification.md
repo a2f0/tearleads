@@ -359,6 +359,30 @@ membership era. `GET /containers/:containerId/kek-log` serves the append-only
 rotation log — every epoch with its write-once bridge and sealed keyring — as
 the rebuild/repair read path for any current reader.
 
+Container and document writer projections carry each access-manifest bundle
+once, in a `bundles` map keyed by manifest hash. Every manifest position cites
+that map by hash: the container `path`, each KEK's `containerManifestHistory`,
+and, for documents, every authorizing path, `documentManifest`,
+`documentManifestHistory`, `documentContainerManifestHistory`, and each
+`documentManifestContainerPaths` row. Bundles are the stored bytes, so no signed
+bytes change. A cited hash without a bundle, a bundle stored under a key other
+than its own `manifestHash`, or a bundle nothing cites is a response-shape
+failure. The client resolves every citation to its own copy of the bundle
+before any cache or verifier sees the projection, then verifies it exactly as
+before, recomputing each cited manifest's hash before any position that cites
+it is trusted.
+
+A projection GET may send `x-known-manifests`: up to 48 unique lowercase
+SHA-256 manifest hashes whose verified bundles the device durably holds. After
+its ordinary authorization and stored-evidence verification, the API omits the
+bundle of each listed hash the projection cites and lists those hashes in the
+required `omittedBundles`; every other cited hash travels in `bundles`, and
+unknown hashes are ignored. A hash must not be both served and omitted, and an
+omitted hash must be cited. The client fills an omission only from the bytes
+its request cited and otherwise refetches once with no hints. Hints grant
+nothing: the projection is authorized, and the rebuilt projection verified,
+exactly as without them.
+
 Principal rotations and membership mutations rematerialize every retained
 group container grant in the same transaction as the new principal state. The
 resulting container mutation names the new principal head and wraps the current

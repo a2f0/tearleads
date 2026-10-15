@@ -3,6 +3,10 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
+import {
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
+} from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createContainerWriterProjectionResponse,
@@ -79,7 +83,7 @@ async function fetchContainerProjection(
 ) {
   server.use(
     http.get(`${apiBaseUrl}/containers/:containerId/writer-projection`, () =>
-      HttpResponse.json(served),
+      HttpResponse.json(encodeContainerWriterProjection(served)),
     ),
   );
   return new ApiClient(apiBaseUrl).getContainerWriterProjection(REQUESTED);
@@ -90,7 +94,7 @@ async function fetchDocumentProjection(
 ) {
   server.use(
     http.get(`${apiBaseUrl}/documents/:documentId/writer-projection`, () =>
-      HttpResponse.json(served),
+      HttpResponse.json(encodeDocumentWriterProjection(served)),
     ),
   );
   return new ApiClient(apiBaseUrl).getDocumentWriterProjection(REQUESTED);

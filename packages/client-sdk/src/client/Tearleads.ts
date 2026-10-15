@@ -6,6 +6,7 @@ import {
   resolveDocumentProjectorRegistry,
 } from "../data/documents/documentKinds";
 import { createDomainScope, type DomainScope } from "../data/domainScope";
+import { createVerifiedManifestCitations } from "../data/persistence/verifiedManifestBundlePersistence";
 import type { SecurityIncidentReporter } from "../data/securityIncidents";
 import { disposeDomainSyncCoordinator } from "../data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "../data/trustedUserIdentity";
@@ -275,6 +276,10 @@ export class Tearleads {
   }
 
   private configureApiClientCallbacks(): void {
+    // Projection reads cite bundles this identity's database already verified.
+    this.apiClient.setVerifiedManifestCitations(
+      createVerifiedManifestCitations(() => this.database.execSql),
+    );
     this.apiClient.setOnError((message) => this.logError(message));
     // An authoritative host source owns connectivity. Without one, request
     // outcomes remain reachability hints. Browser and native app bindings both

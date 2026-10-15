@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { encodeContainerWriterProjection } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import { createContainerWriterProjectionResponse } from "../test/helpers/apiClientTestFactories";
 import {
@@ -150,7 +151,7 @@ testApiClient(
         async ({ request }) => {
           calls.push(await captureHttpCall(request));
           seenHeaders.push(request.headers.get("x-caller-specific"));
-          return HttpResponse.json(projection);
+          return HttpResponse.json(encodeContainerWriterProjection(projection));
         },
       ),
     );
@@ -192,7 +193,7 @@ testApiClient(
               { status: 402, statusText: "Payment Required" },
             );
           }
-          return HttpResponse.json(projection);
+          return HttpResponse.json(encodeContainerWriterProjection(projection));
         },
       ),
     );

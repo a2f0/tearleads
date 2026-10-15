@@ -1,9 +1,9 @@
 import { test } from "bun:test";
 import type {
-  ContainerWriterProjectionResponse,
+  ContainerWriterProjectionWireResponse,
   DocumentNotFoundErrorResponse,
   DocumentWriterProjectionErrorResponse,
-  DocumentWriterProjectionResponse,
+  DocumentWriterProjectionWireResponse,
 } from "../response";
 import type { operations, paths } from "./generatedOpenApi";
 
@@ -60,7 +60,7 @@ test("generated OpenAPI types match writer projection contracts", () => {
   assertType<
     IsAssignable<
       NormalizeWireType<ContainerResponse>,
-      NormalizeWireType<ContainerWriterProjectionResponse>
+      NormalizeWireType<ContainerWriterProjectionWireResponse>
     >
   >();
   assertType<
@@ -72,7 +72,7 @@ test("generated OpenAPI types match writer projection contracts", () => {
   assertType<
     IsAssignable<
       NormalizeWireType<DocumentResponse>,
-      NormalizeWireType<DocumentWriterProjectionResponse>
+      NormalizeWireType<DocumentWriterProjectionWireResponse>
     >
   >();
   assertType<

@@ -27,7 +27,7 @@ credentials are separate.
 
 Schema changes update the Drizzle definitions and regenerate both baseline
 bundles. They require fresh server and client databases. Local database startup
-checks the current table shape, and backup imports require format version 10.
+checks the current table shape, and backup imports require format version 11.
 Request validation and signed-history verification enforce the active protocol
 throughout normal operation.
 
@@ -85,7 +85,7 @@ following onto a database that predates it requires the greenfield reset above
   `document_pending_updates` is gone. A local database without `update_id` is
   refused at startup with the obsolete-schema "reset the local database"
   error; queued edits it had not synced are discarded with that reset. Local
-  backups move to format 10 and refuse older ones.
+  backups move to format 11 and refuse older ones.
 - #2365 finding 25: login challenges are signed for the API origin
   (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`.
   A client built before it cannot log in, so the reset release ships every

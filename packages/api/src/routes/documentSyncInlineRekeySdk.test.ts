@@ -11,6 +11,10 @@ import {
   bootstrapRoot,
 } from "../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../test/helpers/registerUser";
+import {
+  decodeServedContainerProjection,
+  decodeServedDocumentProjection,
+} from "../../test/helpers/servedWriterProjection";
 import { routeApp } from "../routeApp";
 
 test("SDK document sync commits an inline root rekey against post-rekey targets", async () => {
@@ -34,8 +38,12 @@ test("SDK document sync commits an inline root rekey against post-rekey targets"
     `/documents/${synced.documentId}/writer-projection`,
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
-  const rootProjection: unknown = await rootResponse.json();
-  const documentProjection: unknown = await documentResponse.json();
+  const rootProjection = decodeServedContainerProjection(
+    await rootResponse.json(),
+  );
+  const documentProjection = decodeServedDocumentProjection(
+    await documentResponse.json(),
+  );
 
   expect(rootResponse.status).toBe(200);
   expect(isContainerWriterProjectionResponse(rootProjection)).toBe(true);

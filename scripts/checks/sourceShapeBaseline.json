@@ -40,8 +40,8 @@
       "bytes": 18865
     },
     "docs/developer/client-sdk.md": {
-      "lines": 964,
-      "bytes": 53122
+      "lines": 971,
+      "bytes": 53636
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 364,
@@ -64,8 +64,8 @@
       "bytes": 2464025
     },
     "docs/protocol-specification.md": {
-      "lines": 714,
-      "bytes": 37605
+      "lines": 738,
+      "bytes": 39173
     },
     "docs/security-guarantees.md": {
       "lines": 843,
@@ -80,8 +80,8 @@
       "bytes": 24635
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1963,
-      "bytes": 62518
+      "lines": 1966,
+      "bytes": 62652
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -140,8 +140,8 @@
       "bytes": 40902
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
-      "lines": 2256,
-      "bytes": 73188
+      "lines": 2278,
+      "bytes": 73775
     },
     "packages/api/src/routes/organizations/organizations.test.ts": {
       "lines": 854,
@@ -228,8 +228,8 @@
       "bytes": 18900
     },
     "packages/client-sdk/src/data/sqlite/schema.ts": {
-      "lines": 811,
-      "bytes": 31686
+      "lines": 817,
+      "bytes": 31869
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 579,
@@ -312,8 +312,8 @@
       "bytes": 914752
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 524,
-      "bytes": 18389
+      "lines": 536,
+      "bytes": 18838
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 582,
@@ -332,8 +332,8 @@
       "bytes": 91993
     },
     "formal/README.md": {
-      "lines": 356,
-      "bytes": 20065
+      "lines": 357,
+      "bytes": 20076
     }
   },
   "suppressions": {

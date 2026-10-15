@@ -23606,12 +23606,12 @@
           {
             "explode": false,
             "in": "header",
-            "name": "x-projection-history",
+            "name": "x-known-manifests",
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 4096,
-              "description": "URI-encoded JSON array of exact device-verified history prefixes (key, count, digest); at most 32 unique keys"
+              "maxLength": 3119,
+              "description": "Comma-separated manifest hashes whose verified bundles the device already holds; at most 48, unique"
             },
             "style": "simple"
           }
@@ -23623,6 +23623,66 @@
                 "schema": {
                   "type": "object",
                   "properties": {
+                    "bundles": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "body": {},
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "eventHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "body",
+                              "event",
+                              "eventHash"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "manifest": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          },
+                          "manifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "state": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
+                          }
+                        },
+                        "required": [
+                          "event",
+                          "manifest",
+                          "manifestHash",
+                          "state"
+                        ],
+                        "additionalProperties": {}
+                      }
+                    },
+                    "omittedBundles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
                     "containerId": {
                       "type": "string"
                     },
@@ -23650,51 +23710,8 @@
                           "containerManifestHistory": {
                             "type": "array",
                             "items": {
-                              "type": "object",
-                              "properties": {
-                                "event": {
-                                  "type": "object",
-                                  "properties": {
-                                    "body": {},
-                                    "event": {
-                                      "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
-                                    },
-                                    "eventHash": {
-                                      "type": "string",
-                                      "minLength": 1
-                                    }
-                                  },
-                                  "required": [
-                                    "body",
-                                    "event",
-                                    "eventHash"
-                                  ],
-                                  "additionalProperties": {}
-                                },
-                                "manifest": {
-                                  "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
-                                },
-                                "manifestHash": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "state": {
-                                  "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
-                                }
-                              },
-                              "required": [
-                                "event",
-                                "manifest",
-                                "manifestHash",
-                                "state"
-                              ],
-                              "additionalProperties": {}
+                              "type": "string",
+                              "minLength": 1
                             }
                           },
                           "keyEpoch": {
@@ -23805,51 +23822,8 @@
                       "minItems": 1,
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "event": {
-                            "type": "object",
-                            "properties": {
-                              "body": {},
-                              "event": {
-                                "type": "object",
-                                "properties": {},
-                                "additionalProperties": {}
-                              },
-                              "eventHash": {
-                                "type": "string",
-                                "minLength": 1
-                              }
-                            },
-                            "required": [
-                              "body",
-                              "event",
-                              "eventHash"
-                            ],
-                            "additionalProperties": {}
-                          },
-                          "manifest": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          },
-                          "manifestHash": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "state": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          }
-                        },
-                        "required": [
-                          "event",
-                          "manifest",
-                          "manifestHash",
-                          "state"
-                        ],
-                        "additionalProperties": {}
+                        "type": "string",
+                        "minLength": 1
                       }
                     },
                     "policyEvidence": {
@@ -24076,40 +24050,11 @@
                         "groups"
                       ],
                       "additionalProperties": {}
-                    },
-                    "historyPrefixes": {
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "key": {
-                            "maxLength": 512,
-                            "minLength": 1,
-                            "type": "string"
-                          },
-                          "count": {
-                            "maximum": 9007199254740991,
-                            "minimum": 1,
-                            "type": "integer"
-                          },
-                          "digest": {
-                            "maxLength": 64,
-                            "minLength": 64,
-                            "pattern": "^[0-9a-f]+$",
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "key",
-                          "count",
-                          "digest"
-                        ],
-                        "additionalProperties": false
-                      },
-                      "maxItems": 32,
-                      "type": "array"
                     }
                   },
                   "required": [
+                    "bundles",
+                    "omittedBundles",
                     "containerId",
                     "containerKeks",
                     "organizationId",
@@ -24319,8 +24264,12 @@
             "id": "response.organization-provisioning-container-keyring"
           },
           {
-            "id": "request.projection-history-prefixes",
-            "description": "x-projection-history must decode to at most 32 prefixes with unique keys, positive safe integer counts, and lowercase SHA-256 digests"
+            "description": "every cited manifest hash names one bundles entry, every bundles key equals its bundle's manifestHash, and every bundle is cited",
+            "id": "response.writer-projection-manifest-bundles"
+          },
+          {
+            "id": "request.known-manifest-hints",
+            "description": "x-known-manifests must list at most 48 unique lowercase SHA-256 manifest hashes"
           }
         ]
       }
@@ -31467,12 +31416,12 @@
           {
             "explode": false,
             "in": "header",
-            "name": "x-projection-history",
+            "name": "x-known-manifests",
             "required": false,
             "schema": {
               "type": "string",
-              "maxLength": 4096,
-              "description": "URI-encoded JSON array of exact device-verified history prefixes (key, count, digest); at most 32 unique keys"
+              "maxLength": 3119,
+              "description": "Comma-separated manifest hashes whose verified bundles the device already holds; at most 48, unique"
             },
             "style": "simple"
           }
@@ -31484,36 +31433,65 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "historyPrefixes": {
-                      "items": {
+                    "bundles": {
+                      "type": "object",
+                      "propertyNames": {
+                        "type": "string"
+                      },
+                      "additionalProperties": {
                         "type": "object",
                         "properties": {
-                          "key": {
-                            "maxLength": 512,
-                            "minLength": 1,
-                            "type": "string"
+                          "event": {
+                            "type": "object",
+                            "properties": {
+                              "body": {},
+                              "event": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {}
+                              },
+                              "eventHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "body",
+                              "event",
+                              "eventHash"
+                            ],
+                            "additionalProperties": {}
                           },
-                          "count": {
-                            "maximum": 9007199254740991,
-                            "minimum": 1,
-                            "type": "integer"
+                          "manifest": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
                           },
-                          "digest": {
-                            "maxLength": 64,
-                            "minLength": 64,
-                            "pattern": "^[0-9a-f]+$",
-                            "type": "string"
+                          "manifestHash": {
+                            "type": "string",
+                            "minLength": 1
+                          },
+                          "state": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": {}
                           }
                         },
                         "required": [
-                          "key",
-                          "count",
-                          "digest"
+                          "event",
+                          "manifest",
+                          "manifestHash",
+                          "state"
                         ],
-                        "additionalProperties": false
-                      },
-                      "maxItems": 32,
-                      "type": "array"
+                        "additionalProperties": {}
+                      }
+                    },
+                    "omittedBundles": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
                     },
                     "policyEvidence": {
                       "type": "object",
@@ -31773,51 +31751,8 @@
                                 "containerManifestHistory": {
                                   "type": "array",
                                   "items": {
-                                    "type": "object",
-                                    "properties": {
-                                      "event": {
-                                        "type": "object",
-                                        "properties": {
-                                          "body": {},
-                                          "event": {
-                                            "type": "object",
-                                            "properties": {},
-                                            "additionalProperties": {}
-                                          },
-                                          "eventHash": {
-                                            "type": "string",
-                                            "minLength": 1
-                                          }
-                                        },
-                                        "required": [
-                                          "body",
-                                          "event",
-                                          "eventHash"
-                                        ],
-                                        "additionalProperties": {}
-                                      },
-                                      "manifest": {
-                                        "type": "object",
-                                        "properties": {},
-                                        "additionalProperties": {}
-                                      },
-                                      "manifestHash": {
-                                        "type": "string",
-                                        "minLength": 1
-                                      },
-                                      "state": {
-                                        "type": "object",
-                                        "properties": {},
-                                        "additionalProperties": {}
-                                      }
-                                    },
-                                    "required": [
-                                      "event",
-                                      "manifest",
-                                      "manifestHash",
-                                      "state"
-                                    ],
-                                    "additionalProperties": {}
+                                    "type": "string",
+                                    "minLength": 1
                                   }
                                 },
                                 "keyEpoch": {
@@ -31928,51 +31863,8 @@
                             "minItems": 1,
                             "type": "array",
                             "items": {
-                              "type": "object",
-                              "properties": {
-                                "event": {
-                                  "type": "object",
-                                  "properties": {
-                                    "body": {},
-                                    "event": {
-                                      "type": "object",
-                                      "properties": {},
-                                      "additionalProperties": {}
-                                    },
-                                    "eventHash": {
-                                      "type": "string",
-                                      "minLength": 1
-                                    }
-                                  },
-                                  "required": [
-                                    "body",
-                                    "event",
-                                    "eventHash"
-                                  ],
-                                  "additionalProperties": {}
-                                },
-                                "manifest": {
-                                  "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
-                                },
-                                "manifestHash": {
-                                  "type": "string",
-                                  "minLength": 1
-                                },
-                                "state": {
-                                  "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
-                                }
-                              },
-                              "required": [
-                                "event",
-                                "manifest",
-                                "manifestHash",
-                                "state"
-                              ],
-                              "additionalProperties": {}
+                              "type": "string",
+                              "minLength": 1
                             }
                           }
                         },
@@ -32065,51 +31957,8 @@
                     "documentContainerManifestHistory": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "event": {
-                            "type": "object",
-                            "properties": {
-                              "body": {},
-                              "event": {
-                                "type": "object",
-                                "properties": {},
-                                "additionalProperties": {}
-                              },
-                              "eventHash": {
-                                "type": "string",
-                                "minLength": 1
-                              }
-                            },
-                            "required": [
-                              "body",
-                              "event",
-                              "eventHash"
-                            ],
-                            "additionalProperties": {}
-                          },
-                          "manifest": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          },
-                          "manifestHash": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "state": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          }
-                        },
-                        "required": [
-                          "event",
-                          "manifest",
-                          "manifestHash",
-                          "state"
-                        ],
-                        "additionalProperties": {}
+                        "type": "string",
+                        "minLength": 1
                       }
                     },
                     "documentId": {
@@ -32166,157 +32015,30 @@
                       "additionalProperties": {}
                     },
                     "documentManifest": {
-                      "type": "object",
-                      "properties": {
-                        "event": {
-                          "type": "object",
-                          "properties": {
-                            "body": {},
-                            "event": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            },
-                            "eventHash": {
-                              "type": "string",
-                              "minLength": 1
-                            }
-                          },
-                          "required": [
-                            "body",
-                            "event",
-                            "eventHash"
-                          ],
-                          "additionalProperties": {}
-                        },
-                        "manifest": {
-                          "type": "object",
-                          "properties": {},
-                          "additionalProperties": {}
-                        },
-                        "manifestHash": {
-                          "type": "string",
-                          "minLength": 1
-                        },
-                        "state": {
-                          "type": "object",
-                          "properties": {},
-                          "additionalProperties": {}
-                        }
-                      },
-                      "required": [
-                        "event",
-                        "manifest",
-                        "manifestHash",
-                        "state"
-                      ],
-                      "additionalProperties": {}
+                      "type": "string",
+                      "minLength": 1
                     },
                     "documentManifestContainerPaths": {
                       "type": "array",
                       "items": {
                         "type": "array",
                         "items": {
-                          "type": "object",
-                          "properties": {
-                            "event": {
-                              "type": "object",
-                              "properties": {
-                                "body": {},
-                                "event": {
-                                  "type": "object",
-                                  "properties": {},
-                                  "additionalProperties": {}
-                                },
-                                "eventHash": {
-                                  "type": "string",
-                                  "minLength": 1
-                                }
-                              },
-                              "required": [
-                                "body",
-                                "event",
-                                "eventHash"
-                              ],
-                              "additionalProperties": {}
-                            },
-                            "manifest": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            },
-                            "manifestHash": {
-                              "type": "string",
-                              "minLength": 1
-                            },
-                            "state": {
-                              "type": "object",
-                              "properties": {},
-                              "additionalProperties": {}
-                            }
-                          },
-                          "required": [
-                            "event",
-                            "manifest",
-                            "manifestHash",
-                            "state"
-                          ],
-                          "additionalProperties": {}
+                          "type": "string",
+                          "minLength": 1
                         }
                       }
                     },
                     "documentManifestHistory": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "event": {
-                            "type": "object",
-                            "properties": {
-                              "body": {},
-                              "event": {
-                                "type": "object",
-                                "properties": {},
-                                "additionalProperties": {}
-                              },
-                              "eventHash": {
-                                "type": "string",
-                                "minLength": 1
-                              }
-                            },
-                            "required": [
-                              "body",
-                              "event",
-                              "eventHash"
-                            ],
-                            "additionalProperties": {}
-                          },
-                          "manifest": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          },
-                          "manifestHash": {
-                            "type": "string",
-                            "minLength": 1
-                          },
-                          "state": {
-                            "type": "object",
-                            "properties": {},
-                            "additionalProperties": {}
-                          }
-                        },
-                        "required": [
-                          "event",
-                          "manifest",
-                          "manifestHash",
-                          "state"
-                        ],
-                        "additionalProperties": {}
+                        "type": "string",
+                        "minLength": 1
                       }
                     }
                   },
                   "required": [
+                    "bundles",
+                    "omittedBundles",
                     "policyEvidence",
                     "authorizingContainerPaths",
                     "contentKeyBundle",
@@ -32550,8 +32272,12 @@
             "id": "response.organization-provisioning-container-keyring"
           },
           {
-            "id": "request.projection-history-prefixes",
-            "description": "x-projection-history must decode to at most 32 prefixes with unique keys, positive safe integer counts, and lowercase SHA-256 digests"
+            "description": "every cited manifest hash names one bundles entry, every bundles key equals its bundle's manifestHash, and every bundle is cited",
+            "id": "response.writer-projection-manifest-bundles"
+          },
+          {
+            "id": "request.known-manifest-hints",
+            "description": "x-known-manifests must list at most 48 unique lowercase SHA-256 manifest hashes"
           }
         ]
       }

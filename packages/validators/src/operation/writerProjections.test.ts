@@ -1,12 +1,14 @@
 import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
-import { projectionHistoryHeaderRefinement } from "../projectionHistoryRefinements";
+import { knownManifestsHeaderRefinement } from "../knownManifestsRefinements";
 import {
   CONTAINER_NOT_FOUND_ERROR_CODE,
   DOCUMENT_NOT_FOUND_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
   DocumentWriterProjectionErrorResponseSchema,
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
 } from "../response";
 import { writerProjectionResponseRuntimeRefinements } from "../writerProjectionRefinements";
 import { openApiDocument } from "./openApi";
@@ -22,36 +24,27 @@ import {
   isGetDocumentWriterProjectionOperationResponse,
 } from "./writerProjections";
 
-test("history negotiation accepts only bounded, uniquely keyed exact prefix hints", () => {
-  const prefix = {
-    key: "organization-history",
-    count: 12,
-    digest: "a".repeat(64),
-  };
-  const accepts = (value: unknown) =>
+test("known-manifest hints accept only bounded, unique manifest hashes", () => {
+  const hash = (index: number) => index.toString(16).padStart(64, "0");
+  const accepts = (value: string) =>
     getContainerWriterProjectionOperation.headers.safeParse({
-      "x-projection-history": encodeURIComponent(JSON.stringify(value)),
+      "x-known-manifests": value,
     }).success;
-  expect(accepts([prefix])).toBe(true);
-  expect(accepts([prefix, prefix])).toBe(false);
-  expect(accepts([{ ...prefix, count: 0 }])).toBe(false);
-  expect(accepts([{ ...prefix, count: Number.MAX_SAFE_INTEGER + 1 }])).toBe(
-    false,
-  );
-  expect(accepts([{ ...prefix, digest: "untrusted" }])).toBe(false);
+  expect(accepts(hash(1))).toBe(true);
   expect(
-    accepts(
-      Array.from({ length: 33 }, (_, index) => ({
-        ...prefix,
-        key: `chain-${index}`,
-      })),
-    ),
-  ).toBe(false);
+    accepts(Array.from({ length: 48 }, (_, index) => hash(index)).join(",")),
+  ).toBe(true);
   expect(
-    getContainerWriterProjectionOperation.headers.safeParse({
-      "x-projection-history": "%invalid",
-    }).success,
+    accepts(Array.from({ length: 49 }, (_, index) => hash(index)).join(",")),
   ).toBe(false);
+  expect(accepts(`${hash(1)},${hash(1)}`)).toBe(false);
+  expect(accepts(hash(255).toUpperCase())).toBe(false);
+  expect(accepts(`${hash(1)},`)).toBe(false);
+  expect(accepts("")).toBe(false);
+  expect(accepts("untrusted")).toBe(false);
+  expect(
+    getContainerWriterProjectionOperation.headers.safeParse({}).success,
+  ).toBe(true);
 });
 
 test("writer projection operations own their complete wire metadata", () => {
@@ -62,7 +55,7 @@ test("writer projection operations own their complete wire metadata", () => {
     path: "/containers/{containerId}/writer-projection",
     runtimeRefinements: [
       ...writerProjectionResponseRuntimeRefinements,
-      projectionHistoryHeaderRefinement,
+      knownManifestsHeaderRefinement,
     ],
   });
   expect(getDocumentWriterProjectionOperation).toMatchObject({
@@ -72,7 +65,7 @@ test("writer projection operations own their complete wire metadata", () => {
     path: "/documents/{documentId}/writer-projection",
     runtimeRefinements: [
       ...writerProjectionResponseRuntimeRefinements,
-      projectionHistoryHeaderRefinement,
+      knownManifestsHeaderRefinement,
     ],
   });
   expect(
@@ -89,21 +82,25 @@ test("writer projection operations own their complete wire metadata", () => {
   ).toBe(true);
 });
 
-test("writer projection operation guards derive from the response schemas", () => {
+test("writer projection operation guards validate the hash-cited wire", () => {
+  const container = encodeContainerWriterProjection(
+    createContainerWriterProjectionResponse(),
+  );
+  expect(isGetContainerWriterProjectionOperationResponse(container)).toBe(true);
+  expect(
+    isGetDocumentWriterProjectionOperationResponse(
+      encodeDocumentWriterProjection(createDocumentWriterProjectionResponse()),
+    ),
+  ).toBe(true);
+  // A decoded projection is not the wire shape.
   expect(
     isGetContainerWriterProjectionOperationResponse(
       createContainerWriterProjectionResponse(),
     ),
-  ).toBe(true);
-  expect(
-    isGetDocumentWriterProjectionOperationResponse(
-      createDocumentWriterProjectionResponse(),
-    ),
-  ).toBe(true);
-
+  ).toBe(false);
   expect(
     isGetContainerWriterProjectionOperationResponse({
-      ...createContainerWriterProjectionResponse(),
+      ...container,
       containerKeks: [],
     }),
   ).toBe(false);
@@ -137,7 +134,7 @@ test("document writer projection conflict codes remain explicit", () => {
   ).toBe(false);
 });
 
-test("OpenAPI declares the runtime-only path and KEK count invariant", () => {
+test("OpenAPI declares the runtime-only path, KEK count, and bundle invariants", () => {
   const operation =
     openApiDocument.paths["/containers/{containerId}/writer-projection"]?.get;
   const responseSchema =
@@ -148,17 +145,22 @@ test("OpenAPI declares the runtime-only path and KEK count invariant", () => {
 
   expect(operation?.["x-tearleads-runtime-refinements"]).toEqual([
     ...writerProjectionResponseRuntimeRefinements,
-    projectionHistoryHeaderRefinement,
+    knownManifestsHeaderRefinement,
   ]);
 
-  const mismatched = jsonRoundTrip({
-    ...createContainerWriterProjectionResponse(),
-    containerKeks: [],
-  });
+  const wire = encodeContainerWriterProjection(
+    createContainerWriterProjectionResponse(),
+  );
   const validate = new Ajv2020({ strict: true }).compile(responseSchema);
-  expect(validate(mismatched)).toBe(true);
-  expect(
-    getContainerWriterProjectionOperation.responses[200].safeParse(mismatched)
-      .success,
-  ).toBe(false);
+  for (const mismatched of [
+    { ...wire, containerKeks: [] },
+    { ...wire, bundles: {} },
+    { ...wire, path: ["uncited-elsewhere"] },
+  ].map(jsonRoundTrip)) {
+    expect(validate(mismatched)).toBe(true);
+    expect(
+      getContainerWriterProjectionOperation.responses[200].safeParse(mismatched)
+        .success,
+    ).toBe(false);
+  }
 });
