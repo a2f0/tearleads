@@ -9,6 +9,23 @@ import type { DocumentState, DocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { documentIncomingUpdateIsolationFailureHandler } from "./syncShared";
 
+// Quarantines are recorded on the scope's `documents` row, which a syncing
+// document store always has.
+async function seedStoredDocument(
+  execSql: Parameters<typeof sqlDocumentsPersistence.ensureSchema>[0],
+  localId: string,
+): Promise<void> {
+  await sqlDocumentsPersistence.ensureSchema(execSql);
+  await sqlDocumentsPersistence.saveDocument(execSql, {
+    accessEpoch: 1,
+    containerId: null,
+    documentId: null,
+    id: localId,
+    snapshotEndVersion: "",
+    text: "",
+  });
+}
+
 for (const runtimeKind of ["documents", "container-contents"] as const) {
   test.each(["success", "throw", "reject"])(
     `quarantine reaches the ${runtimeKind} SDK logger: %s`,
@@ -31,7 +48,7 @@ for (const runtimeKind of ["documents", "container-contents"] as const) {
         },
       });
       try {
-        await sqlDocumentsPersistence.ensureSchema(database.execSql);
+        await seedStoredDocument(database.execSql, "private-local-document");
         const runtime =
           runtimeKind === "documents"
             ? sdk.documents.workflowRuntime()
@@ -69,7 +86,7 @@ test("quarantine queued behind an identity teardown is neither recorded nor repo
   const database = await createTestExecSql("stale-quarantine-diagnostics");
   const reported: unknown[] = [];
   try {
-    await sqlDocumentsPersistence.ensureSchema(database.execSql);
+    await seedStoredDocument(database.execSql, "old-identity-document");
     const doc = {} as DocumentState;
     const state = {
       doc,

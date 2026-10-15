@@ -18,6 +18,7 @@ import {
   shouldFoldCompactRows,
 } from "../../../../components/mini-app/MiniAppTable";
 import { useMiniAppVirtualWindow } from "../../../../components/mini-app/virtual/MiniAppVirtual";
+import { useLongPress } from "../../../../components/shared/useLongPress";
 import type { AvatarUrlByContactId } from "../../../../document-types/contact/useContactAvatarUrls";
 import { isExplorerOrphanedDocumentsId } from "../../../../stores/explorer/orphanedDocuments";
 import type { ExplorerContextMenuTarget } from "../../context-menu/ExplorerContextMenu";
@@ -56,18 +57,25 @@ function ExplorerContainerDetailHeader(params: {
 }) {
   const { online, recoveryCollection, selectedNode, showHeaderSyncIndicator } =
     params;
-  // The folder you are inside is the one thing on this pane with no row of its
-  // own — the list below shows its children — so its overflow menu belongs on
-  // the header that names it. It opens the same container menu the sidebar row
-  // and the list's blank area do (Get Info, New Folder, Upload, Rename, Move,
-  // Trash), which is the only way to reach a ROOT folder's own actions: a root
-  // has no parent listing to open it from, and the sidebar offers folder actions
-  // by right-click alone.
+  const longPress = useLongPress(!recoveryCollection);
+  const openContextMenu = recoveryCollection
+    ? undefined
+    : (event: MouseEvent<HTMLElement>) => {
+        params.onContainerContextMenu(event, selectedNode.id);
+      };
+  // The current folder has no row in its own listing. Its header opens the same
+  // menu as the sidebar row, including for root folders.
   const actionsLabel = `${EXPLORER_LABELS.containerHeaderActionsLabel}: ${selectedNode.name}`;
 
   return (
     <MiniAppHeader>
-      <div className="explorer-detail-header-identity">
+      <section
+        {...longPress}
+        aria-label={selectedNode.name}
+        className="explorer-detail-header-identity"
+        data-context-menu={!recoveryCollection}
+        onContextMenu={openContextMenu}
+      >
         {/* The same glyph the sidebar row and item table already show for this
             container, so the header names where you are the way the tree did. */}
         <ExplorerContainerIcon
@@ -83,7 +91,7 @@ function ExplorerContainerDetailHeader(params: {
               : EXPLORER_LABELS.folderType}
           </span>
         </MiniAppHeaderCopy>
-      </div>
+      </section>
       {/* Group the trailing controls: the header spreads its children apart, so
           a bare third child would strand the sync badge in the middle. */}
       {recoveryCollection ? null : (
@@ -96,9 +104,7 @@ function ExplorerContainerDetailHeader(params: {
           ) : null}
           <MiniAppRowActionsButton
             aria-label={actionsLabel}
-            onClick={(event) => {
-              params.onContainerContextMenu(event, selectedNode.id);
-            }}
+            onClick={openContextMenu}
             title={actionsLabel}
           />
         </MiniAppActions>

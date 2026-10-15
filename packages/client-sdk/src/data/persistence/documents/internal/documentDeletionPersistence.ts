@@ -9,12 +9,14 @@ import { documentIntentLinkTargets } from "../../../sqlite/documentPlacementInte
 import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
-  documentMoveIntents,
-  documentMoveIntentTables,
   documentPendingAttachments,
+  documentPlacementIntentTables,
   documentProjection,
   documentProjectionText,
   documents,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -68,22 +70,23 @@ async function deleteStoredDocumentRows(input: {
     await deleteContainerDocumentTombstoneHoldsForDocuments(tx, [
       existingDocumentId,
     ]);
+    const placementIntent = and(
+      inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+      eq(localIntents.subjectId, existingDocumentId),
+    );
     await tx
       .delete(documentIntentLinkTargets)
       .where(
         inArray(
           documentIntentLinkTargets.intentId,
           tx
-            .select({ id: documentMoveIntents.id })
-            .from(documentMoveIntents)
-            .where(eq(documentMoveIntents.documentId, existingDocumentId)),
+            .select({ id: localIntents.id })
+            .from(localIntents)
+            .where(placementIntent),
         ),
       )
       .run();
-    await tx
-      .delete(documentMoveIntents)
-      .where(eq(documentMoveIntents.documentId, existingDocumentId))
-      .run();
+    await tx.delete(localIntents).where(placementIntent).run();
   }
   const scope = getDocumentScope(localId);
   await deleteDocumentHistory(lockedExecSql, scope);
@@ -94,7 +97,7 @@ async function deleteStoredDocumentRows(input: {
 async function ensureDocumentDeletionTables(execSql: ExecSql): Promise<void> {
   // Move intents live in the container-contents schema, which document-only
   // callers may not have initialized yet.
-  await ensureSqlTables(execSql, documentMoveIntentTables);
+  await ensureSqlTables(execSql, documentPlacementIntentTables);
 }
 
 async function hasAnotherDocumentAlias(input: {

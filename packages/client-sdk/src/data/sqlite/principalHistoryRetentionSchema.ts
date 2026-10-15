@@ -1,4 +1,3 @@
-import { desc } from "drizzle-orm";
 import {
   index,
   integer,
@@ -35,40 +34,6 @@ export const principalKeyEnvelopeArchive = sqliteTable(
   ],
 );
 
-/** Scope and recency are eviction hints, never authenticated recovery state. */
-export const principalHistoryStageScopes = sqliteTable(
-  "principal_history_stage_scopes",
-  {
-    id: text("id").primaryKey(),
-    organizationId: text("organization_id").notNull(),
-    scopeId: text("scope_id").notNull(),
-    afterVersion: integer("after_version").notNull(),
-    complete: integer("complete", { mode: "boolean" }).notNull(),
-    touchedAt: integer("touched_at").notNull(),
-  },
-  (table) => [
-    index("principal_history_stage_scopes_scope_idx").on(
-      table.scopeId,
-      table.organizationId,
-      table.complete,
-      desc(table.afterVersion),
-      desc(table.touchedAt),
-      table.id,
-    ),
-    index("principal_history_stage_scopes_organization_idx").on(
-      table.organizationId,
-    ),
-    index("principal_history_stage_scopes_incomplete_idx").on(
-      table.scopeId,
-      table.organizationId,
-      table.complete,
-      desc(table.touchedAt),
-      table.id,
-    ),
-  ],
-);
-
 export const principalHistoryRetentionTables = [
   defineSqlTableSchema(principalKeyEnvelopeArchive),
-  defineSqlTableSchema(principalHistoryStageScopes),
 ];

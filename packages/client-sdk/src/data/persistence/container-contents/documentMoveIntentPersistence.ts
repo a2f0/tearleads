@@ -2,9 +2,11 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   containerTables,
-  documentMoveIntents,
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
   documentProjectionTables,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -20,6 +22,7 @@ import {
 } from "./documentPlacementIntentEnqueue";
 
 export const DOCUMENT_MOVE_INTENT_TYPE = "document.move";
+const placementLane = inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement);
 export const DOCUMENT_LINK_INTENT_TYPE = "document.link";
 const DOCUMENT_PLACEMENT_INTENT_TYPES = [
   DOCUMENT_MOVE_INTENT_TYPE,
@@ -91,7 +94,7 @@ interface SelectedDocumentMoveIntentRecord {
   intentType: string;
   lastAttemptedAt: string | null;
   lastError: string | null;
-  localId: string;
+  localId: string | null;
   replaceLinkedContainers: boolean;
   sourceContainerId: string | null;
   syncStatus: string;
@@ -131,7 +134,8 @@ function mapDocumentMoveIntentRecord(
         : DOCUMENT_MOVE_INTENT_TYPE,
     lastAttemptedAt: row.lastAttemptedAt,
     lastError: row.lastError,
-    localId: row.localId,
+    // Placement intents always carry their local document row.
+    localId: row.localId ?? "",
     replaceLinkedContainers: Boolean(row.replaceLinkedContainers),
     sourceContainerId: row.sourceContainerId,
     syncStatus: parseDocumentMoveIntentSyncStatus(row.syncStatus),
@@ -143,7 +147,7 @@ function mapDocumentMoveIntentRecord(
 
 export const sqlDocumentMoveIntentPersistence = {
   async ensureSchema(execSql: ExecSql): Promise<void> {
-    await ensureSqlTables(execSql, documentMoveIntentTables);
+    await ensureSqlTables(execSql, documentPlacementIntentTables);
   },
 
   enqueueMoveIntent: enqueueDocumentMoveIntent,
@@ -154,12 +158,25 @@ export const sqlDocumentMoveIntentPersistence = {
     execSql: ExecSql,
   ): Promise<DocumentMoveIntentRecord[]> {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await ensureSqlTables(lockedExecSql, documentMoveIntentTables);
+      await ensureSqlTables(lockedExecSql, documentPlacementIntentTables);
       return getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
         async (tx) => {
           const rows = await tx
-            .select()
-            .from(documentMoveIntents)
+            .select({
+              id: localIntents.id,
+              documentId: localIntents.subjectId,
+              intentType: localIntents.intentType,
+              lastAttemptedAt: localIntents.lastAttemptedAt,
+              lastError: localIntents.lastError,
+              localId: localIntents.localId,
+              replaceLinkedContainers: localIntents.replaceLinkedContainers,
+              sourceContainerId: localIntents.sourceContainerId,
+              syncStatus: localIntents.syncStatus,
+              targetContainerId: localIntents.targetContainerId,
+              createdAt: localIntents.createdAt,
+              updatedAt: localIntents.updatedAt,
+            })
+            .from(localIntents)
             // Blocked intents replay too: "blocked" names the reason the last
             // attempt could not proceed (missing local doc / destination), not a
             // terminal verdict. The blocking condition can heal after hydration or
@@ -170,14 +187,15 @@ export const sqlDocumentMoveIntentPersistence = {
             // (#2278 #4). Only the tombstone cascade or a re-enqueue revives them.
             .where(
               and(
-                inArray(documentMoveIntents.syncStatus, ["pending", "blocked"]),
+                placementLane,
+                inArray(localIntents.syncStatus, ["pending", "blocked"]),
                 inArray(
-                  documentMoveIntents.intentType,
+                  localIntents.intentType,
                   DOCUMENT_PLACEMENT_INTENT_TYPES,
                 ),
               ),
             )
-            .orderBy(asc(documentMoveIntents.createdAt));
+            .orderBy(asc(localIntents.createdAt));
 
           return Promise.all(
             rows.map(async (row) => {
@@ -215,13 +233,15 @@ export const sqlDocumentMoveIntentPersistence = {
   ): Promise<boolean> {
     return runSerializedSqlMutation(execSql, async (lockedExecSql) => {
       const deleted = await lockedExecSql(
-        `DELETE FROM document_move_intents
-         WHERE document_id = ?
+        `DELETE FROM local_intents
+         WHERE lane = ?
+           AND subject_id = ?
            AND intent_type IN (?, ?)
            AND updated_at = ?
            ${input.expectedIntentId ? "AND id = ?" : ""}
          RETURNING id`,
         [
+          LOCAL_INTENT_LANES.documentPlacement,
           input.documentId,
           ...DOCUMENT_PLACEMENT_INTENT_TYPES,
           input.expectedUpdatedAt,
@@ -273,7 +293,7 @@ export const sqlDocumentMoveIntentPersistence = {
       async (db) => {
         const updatedAt = new Date().toISOString();
         await db
-          .update(documentMoveIntents)
+          .update(localIntents)
           .set({
             lastAttemptedAt: updatedAt,
             lastError: input.message,
@@ -282,24 +302,22 @@ export const sqlDocumentMoveIntentPersistence = {
           })
           .where(
             and(
-              eq(documentMoveIntents.documentId, input.documentId),
+              placementLane,
+              eq(localIntents.subjectId, input.documentId),
               // Blocked/denied rows must stay updatable: a retried intent
               // records its fresh outcome, and a transient failure flips it
               // back to pending instead of freezing it forever.
-              inArray(documentMoveIntents.syncStatus, [
+              inArray(localIntents.syncStatus, [
                 "pending",
                 "blocked",
                 "denied",
               ]),
-              inArray(
-                documentMoveIntents.intentType,
-                DOCUMENT_PLACEMENT_INTENT_TYPES,
-              ),
+              inArray(localIntents.intentType, DOCUMENT_PLACEMENT_INTENT_TYPES),
               ...(input.expectedIntentId
-                ? [eq(documentMoveIntents.id, input.expectedIntentId)]
+                ? [eq(localIntents.id, input.expectedIntentId)]
                 : []),
               ...(input.expectedUpdatedAt
-                ? [eq(documentMoveIntents.updatedAt, input.expectedUpdatedAt)]
+                ? [eq(localIntents.updatedAt, input.expectedUpdatedAt)]
                 : []),
             ),
           )
@@ -323,16 +341,19 @@ export const sqlDocumentMoveIntentPersistence = {
       ...containerTables,
     ]);
     const rows = await execSql(
-      `SELECT intent.document_id AS document_id
-       FROM document_move_intents intent
+      `SELECT intent.subject_id AS document_id
+       FROM local_intents intent
        ${input?.organizationId ? DENIED_INTENT_ORGANIZATION_JOINS_SQL : ""}
-       WHERE intent.sync_status = 'denied'
+       WHERE intent.lane = ?
+         AND intent.sync_status = 'denied'
          AND intent.intent_type IN (?, ?)
          ${input?.organizationId ? `AND (${DENIED_INTENT_ORGANIZATION_SQL} = ? OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL)` : ""}
        LIMIT 1`,
-      input?.organizationId
-        ? [...DOCUMENT_PLACEMENT_INTENT_TYPES, input.organizationId]
-        : DOCUMENT_PLACEMENT_INTENT_TYPES,
+      [
+        LOCAL_INTENT_LANES.documentPlacement,
+        ...DOCUMENT_PLACEMENT_INTENT_TYPES,
+        ...(input?.organizationId ? [input.organizationId] : []),
+      ],
     );
     return rows.length > 0;
   },
@@ -356,26 +377,31 @@ export const sqlDocumentMoveIntentPersistence = {
       // un-park moves that another organization still denies. Rows with no
       // resolvable organization are included (device-first shapes).
       await lockedExecSql(
-        `UPDATE document_move_intents
+        `UPDATE local_intents
          SET sync_status = 'pending', updated_at = ?
-         WHERE sync_status = 'denied'
+         WHERE lane = ?
+           AND sync_status = 'denied'
            AND intent_type IN (?, ?)
            ${input?.localId ? "AND local_id = ?" : ""}
            ${
              input?.organizationId
                ? `AND local_id IN (
-                    SELECT intent.local_id FROM document_move_intents intent
+                    SELECT intent.local_id FROM local_intents intent
                     ${DENIED_INTENT_ORGANIZATION_JOINS_SQL}
-                    WHERE ${DENIED_INTENT_ORGANIZATION_SQL} = ?
-                      OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL
+                    WHERE intent.lane = ?
+                      AND (${DENIED_INTENT_ORGANIZATION_SQL} = ?
+                        OR ${DENIED_INTENT_ORGANIZATION_SQL} IS NULL)
                   )`
                : ""
            }`,
         [
           new Date().toISOString(),
+          LOCAL_INTENT_LANES.documentPlacement,
           ...DOCUMENT_PLACEMENT_INTENT_TYPES,
           ...(input?.localId ? [input.localId] : []),
-          ...(input?.organizationId ? [input.organizationId] : []),
+          ...(input?.organizationId
+            ? [LOCAL_INTENT_LANES.documentPlacement, input.organizationId]
+            : []),
         ],
       );
     });

@@ -1,7 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import {
-  containerCreateIntents,
-  containerCreateIntentTables,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
+  localIntentTables,
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
@@ -16,16 +18,17 @@ export async function isContainerCreatePending(
   execSql: ExecSql,
   containerId: string,
 ): Promise<boolean> {
-  await ensureSqlTables(execSql, containerCreateIntentTables);
+  await ensureSqlTables(execSql, localIntentTables);
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const [pending] = await db
-    .select({ containerId: containerCreateIntents.containerId })
-    .from(containerCreateIntents)
+    .select({ containerId: localIntents.subjectId })
+    .from(localIntents)
     .where(
       and(
-        eq(containerCreateIntents.containerId, containerId),
-        eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-        eq(containerCreateIntents.syncStatus, "pending"),
+        inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate),
+        eq(localIntents.subjectId, containerId),
+        eq(localIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+        eq(localIntents.syncStatus, "pending"),
       ),
     )
     .limit(1);

@@ -25,10 +25,8 @@ import {
   documentOrphanBlobReclaims,
   documentOrphanBlobReclaimTable,
 } from "./documentOrphanBlobReclaims";
-import {
-  documentIntentLinkTargets,
-  documentMoveIntents,
-} from "./documentPlacementIntentSchema";
+import { documentIntentLinkTargets } from "./documentPlacementIntentSchema";
+import { localIntents } from "./localIntentSchema";
 import * as organizationDataUsage from "./organizationDataUsageSchema";
 import { organizationFounders } from "./organizationFounderSchema";
 import * as provisioningAttempt from "./organizationProvisioningAttemptSchema";
@@ -47,10 +45,7 @@ import {
   principalHistoryNodeReferences,
   principalHistoryRootOwners,
 } from "./principalHistoryNodeRetentionSchema";
-import {
-  principalHistoryStageScopes,
-  principalKeyEnvelopeArchive,
-} from "./principalHistoryRetentionSchema";
+import { principalKeyEnvelopeArchive } from "./principalHistoryRetentionSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
@@ -78,7 +73,6 @@ import {
 
 export {
   containerHydrationTombstones,
-  containerProjection,
   containers,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
@@ -88,7 +82,13 @@ export {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
 } from "./documentAttachmentSchema";
-export { documentMoveIntents } from "./documentPlacementIntentSchema";
+export {
+  inContainerIntentLanes,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  LOCAL_INTENT_SUBJECT,
+  localIntents,
+} from "./localIntentSchema";
 export {
   principalPolicies,
   principalPolicyBundleHistory,
@@ -138,6 +138,14 @@ const accessLevelColumn = "effective_access_level";
  * - `recoveryGeneration`: Atomic raw-history recovery writer fence.
  * - `recoveryDocumentId`: Former server id for cross-client post-purge recreation.
  * - `pullContinuation`: Durable progress for the next bounded remote pull.
+ * - `syncFailureStatus`, `syncFailureMessage`, `syncFailureAttemptedAt`: The
+ *   last terminal sync failure or quarantined incoming update for this scope.
+ *   The durable write queue (queued rows of `documentHistoryUpdates`) has no
+ *   status columns, so these let the write-queue view and footer explain why
+ *   the document is blocked. `syncFailureMessage` is non-null exactly when a
+ *   failure is recorded; a newer failure replaces the old, and a later fully
+ *   validated sync pass, a remote reset, or the scope's teardown clears all
+ *   three.
  * - `updatedAt`: Local timestamp for the last persisted runtime-state update.
  *
  * Indexes:
@@ -163,6 +171,9 @@ export const documents = sqliteTable(
     recoveryGeneration: integer("recovery_generation").notNull().default(0),
     recoveryDocumentId: text("recovery_document_id"),
     snapshotEndVersion: text("snapshot_end_version").notNull().default(""),
+    syncFailureStatus: integer("sync_failure_status"),
+    syncFailureMessage: text("sync_failure_message"),
+    syncFailureAttemptedAt: text("sync_failure_attempted_at"),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
@@ -171,38 +182,6 @@ export const documents = sqliteTable(
       .on(table.appKind, table.documentId)
       .where(sql`${table.documentId} IS NOT NULL`),
   ],
-);
-
-/**
- * Last terminal sync failure or quarantined incoming update per document scope.
- *
- * The durable write queue (queued rows of `documentHistoryUpdates`) has no
- * status columns — a row is either queued or settled. Terminal submissions and
- * incoming updates that cannot be decrypted or imported are recorded here so
- * the write-queue view and footer can surface why the document is blocked.
- * Rows are upserted per scope and deleted only after a later fully validated
- * sync pass succeeds or the scope's local state is torn down.
- *
- * Columns:
- * - `appKind`: Local document namespace matching `documents.appKind`.
- * - `localId`: Local document id matching `documents.localId`.
- * - `status`: HTTP status of the failed submission when known.
- * - `message`: Human-readable failure description for queue display.
- * - `attemptedAt`: Timestamp of the failed attempt.
- *
- * Indexes:
- * - `(appKind, localId)` is the primary key and keeps one failure per scope.
- */
-export const documentSyncFailures = sqliteTable(
-  "document_sync_failures",
-  {
-    appKind: text("app_kind").notNull(),
-    localId: text("local_id").notNull(),
-    status: integer("status"),
-    message: text("message").notNull(),
-    attemptedAt: text("attempted_at").notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.appKind, table.localId] })],
 );
 
 /**
@@ -498,108 +477,6 @@ export const documentProjectionText = sqliteTable(
 );
 
 /**
- * Offline create queue for containers.
- *
- * A user can create a local container before the API has assigned all remote
- * state for the container and its metadata document. This table keeps the sync
- * intent until container-create sync either records the remote ids or stores an
- * error for retry.
- *
- * Columns:
- * - `id`: Client-generated intent id.
- * - `containerId`: Local container id created optimistically.
- * - `parentContainerId`: Parent container id used when the intent is sent.
- * - `intentType`: Intent discriminator, currently `container.create`.
- * - `syncStatus`: Current sync state, currently `pending` or `synced`.
- * - `remoteContainerId`: Remote container id recorded after successful sync.
- * - `remoteMetadataDocumentId`: Remote metadata document id recorded after
- *   successful sync.
- * - `remoteMetadataAccessStateHash`: Access state hash for the synced metadata
- *   document.
- * - `lastError`: Last sync error message for retry/debug display.
- * - `createdAt`: Intent creation timestamp used for FIFO sync.
- * - `updatedAt`: Local timestamp for the latest status/error change.
- *
- * Indexes:
- * - `id` is the primary key.
- * - `containerId` is unique so each local container has one create intent.
- * - `(syncStatus, createdAt)` supports listing pending intents in creation
- *   order.
- */
-export const containerCreateIntents = sqliteTable(
-  "container_create_intents",
-  {
-    id: text("id"),
-    containerId: text("container_id").notNull().unique(),
-    parentContainerId: text("parent_container_id").notNull(),
-    intentType: text("intent_type").notNull(),
-    syncStatus: text("sync_status").notNull(),
-    remoteContainerId: text("remote_container_id"),
-    remoteMetadataDocumentId: text("remote_metadata_document_id"),
-    remoteMetadataAccessStateHash: text("remote_metadata_access_state_hash"),
-    lastError: text("last_error"),
-    lastAttemptedAt: text("last_attempted_at"),
-    createdAt: text("created_at").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.id] }),
-    index("container_create_intents_status_created_idx").on(
-      table.syncStatus,
-      table.createdAt,
-    ),
-  ],
-);
-
-/**
- * Offline move queue for synced containers.
- *
- * A user can move a container whose server identity is already known while the
- * API or writer context is unavailable. This table stores only the desired
- * final parent and replay diagnostics; the signed move request is rebuilt from
- * current writer projections when sync resumes.
- *
- * Columns:
- * - `id`: Client-generated intent id.
- * - `containerId`: Synced container moved optimistically in the local tree.
- * - `parentContainerId`: Desired final parent container id.
- * - `previousParentContainerId`: Parent observed when the move was queued.
- * - `intentType`: Intent discriminator, currently `container.move`.
- * - `syncStatus`: Current sync state, currently `pending` or `blocked`.
- * - `lastError`: Last sync error message for retry/debug display.
- * - `lastAttemptedAt`: Timestamp of the last replay attempt.
- * - `createdAt`: Intent creation timestamp used for FIFO sync.
- * - `updatedAt`: Local timestamp for the latest target/status/error change.
- *
- * Indexes:
- * - `id` is the primary key.
- * - `containerId` is unique so same-container moves coalesce to one intent.
- * - `(syncStatus, createdAt)` supports listing pending intents in queue order.
- */
-export const containerMoveIntents = sqliteTable(
-  "container_move_intents",
-  {
-    id: text("id"),
-    containerId: text("container_id").notNull().unique(),
-    parentContainerId: text("parent_container_id").notNull(),
-    previousParentContainerId: text("previous_parent_container_id"),
-    intentType: text("intent_type").notNull(),
-    syncStatus: text("sync_status").notNull(),
-    lastError: text("last_error"),
-    lastAttemptedAt: text("last_attempted_at"),
-    createdAt: text("created_at").notNull(),
-    updatedAt: text("updated_at").notNull(),
-  },
-  (table) => [
-    primaryKey({ columns: [table.id] }),
-    index("container_move_intents_status_created_idx").on(
-      table.syncStatus,
-      table.createdAt,
-    ),
-  ],
-);
-
-/**
  * Per-lane sync state for container data: the server cursor and the local
  * freshness marker share one row per lane.
  *
@@ -646,9 +523,11 @@ export const documentTables: ReadonlyArray<SqlTableSchema> = [
       "pull_continuation",
       "recovery_generation",
       "recovery_document_id",
+      "sync_failure_status",
+      "sync_failure_message",
+      "sync_failure_attempted_at",
     ],
   },
-  defineSqlTableSchema(documentSyncFailures),
   defineSqlTableSchema(documentHistoryCheckpoints),
   {
     ...defineSqlTableSchema(documentHistoryUpdates),
@@ -704,8 +583,12 @@ export const documentContainerProjectionTables: ReadonlyArray<SqlTableSchema> =
     defineSqlTableSchema(documentDiscoverySequence),
   ];
 
-export const documentMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(documentMoveIntents),
+export const localIntentTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(localIntents),
+];
+
+export const documentPlacementIntentTables: ReadonlyArray<SqlTableSchema> = [
+  ...localIntentTables,
   defineSqlTableSchema(documentIntentLinkTargets),
 ];
 
@@ -721,14 +604,6 @@ export const documentProjectionTables: ReadonlyArray<SqlTableSchema> = [
     requiredColumns: ["content_sha256"],
   },
   documentOrphanBlobReclaimTable,
-];
-
-export const containerCreateIntentTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(containerCreateIntents),
-];
-
-export const containerMoveIntentTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(containerMoveIntents),
 ];
 
 export const containerSyncWatermarkTables: ReadonlyArray<SqlTableSchema> = [
@@ -748,10 +623,8 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...securityIncidentTables,
   ...containerTables,
   ...documentContainerProjectionTables,
-  ...documentMoveIntentTables,
+  ...documentPlacementIntentTables,
   ...documentProjectionTables,
-  ...containerCreateIntentTables,
-  ...containerMoveIntentTables,
   ...containerSyncWatermarkTables,
   ...organizationReadModelTables,
   ...organizationDataUsage.organizationDataUsageTables,
@@ -761,7 +634,6 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
 export const clientSQLiteSchema = {
   principalHistoryNodeReferences,
   principalHistoryRootOwners,
-  principalHistoryStageScopes,
   principalKeyEnvelopeArchive,
   principalMutationJournal,
   principalHistoryEntries,
@@ -771,7 +643,6 @@ export const clientSQLiteSchema = {
   organizationFounders,
   principalGrantRetirements,
   documents,
-  documentSyncFailures,
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
@@ -784,14 +655,12 @@ export const clientSQLiteSchema = {
   securityIncidents,
   ...containerSQLiteSchema,
   documentContainerProjection,
-  documentMoveIntents,
+  localIntents,
   documentIntentLinkTargets,
   documentProjection,
   documentPendingAttachments,
   documentAttachmentBlobProjection,
   documentOrphanBlobReclaims: documentOrphanBlobReclaims,
-  containerCreateIntents,
-  containerMoveIntents,
   containerSyncWatermarks,
   ...organizationReadModelSQLiteSchema,
   ...organizationDataUsage.organizationDataUsageSQLiteSchema,

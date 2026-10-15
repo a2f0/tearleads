@@ -3,7 +3,7 @@ import {
   containerDocumentTombstoneHolds,
   documentContainerProjection,
   documentContainerProjectionTables,
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
   documentTables,
 } from "../../sqlite/schema";
 import {
@@ -158,7 +158,7 @@ export const sqlDocumentContainerProjectionPersistence: DocumentContainerProject
     async replaceDocumentLinksBatch(execSql, inputs, options) {
       await ensureSqlTables(execSql, [
         ...documentContainerProjectionTables,
-        ...documentMoveIntentTables,
+        ...documentPlacementIntentTables,
         ...documentTables,
       ]);
       const latest = new Map(inputs.map((input) => [input.documentId, input]));

@@ -3,8 +3,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import {
-  containerCreateIntentTables,
   documentContainerProjectionTables,
+  localIntentTables,
 } from "../../data/sqlite/schema";
 import {
   type ExecSql,
@@ -25,7 +25,7 @@ const T1 = "2026-01-01T00:00:01.000Z";
 async function seedContainerWithMetadata(execSql: ExecSql): Promise<void> {
   await listPendingWrites(execSql);
   await ensureSqlTables(execSql, [
-    ...containerCreateIntentTables,
+    ...localIntentTables,
     ...documentContainerProjectionTables,
   ]);
   await saveTestSyncedContainer({
@@ -44,10 +44,10 @@ async function seedContainerWithMetadata(execSql: ExecSql): Promise<void> {
     localId: "doomed",
   });
   await execSql(
-    `INSERT INTO container_create_intents (
-      id, container_id, parent_container_id, intent_type, sync_status,
+    `INSERT INTO local_intents (
+      id, lane, subject_id, target_container_id, intent_type, sync_status,
       created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, 'container.create', ?, ?, ?, ?, ?, ?)`,
     ["intent-doomed", "doomed", "root", "create", "pending", T0, T0],
   );
   await sqlDocumentsPersistence.saveDocument(
@@ -153,8 +153,8 @@ test.each([false, true])(
       expect(
         await countRows(
           execSql,
-          `SELECT COUNT(*) AS n FROM container_create_intents
-         WHERE container_id = ?`,
+          `SELECT COUNT(*) AS n FROM local_intents
+         WHERE lane = 'container.create' AND subject_id = ?`,
           ["doomed"],
         ),
       ).toBe(1);
@@ -224,8 +224,8 @@ test.each([false, true])(
       expect(
         await countRows(
           execSql,
-          `SELECT COUNT(*) AS n FROM container_create_intents
-         WHERE container_id = ?`,
+          `SELECT COUNT(*) AS n FROM local_intents
+         WHERE lane = 'container.create' AND subject_id = ?`,
           ["doomed"],
         ),
       ).toBe(discoveryOnly ? 1 : 0);

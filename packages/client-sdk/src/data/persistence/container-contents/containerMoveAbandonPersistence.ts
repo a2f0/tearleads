@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { containerProjection, containers } from "../../sqlite/schema";
+import { containers } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { ContainerMoveIntentRevisionInput } from "./containerContentsPersistenceTypes";
@@ -27,11 +27,6 @@ export async function abandonStoredMoveIntentRevision(
         .update(containers)
         .set({ parentId: input.previousParentContainerId })
         .where(eq(containers.id, input.containerId))
-        .run();
-      await tx
-        .update(containerProjection)
-        .set({ updatedAt: new Date().toISOString() })
-        .where(eq(containerProjection.containerId, input.containerId))
         .run();
       return true;
     },

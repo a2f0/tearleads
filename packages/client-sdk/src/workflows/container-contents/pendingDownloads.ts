@@ -23,18 +23,15 @@ export async function listPendingDownloads(
     SELECT stored.local_id, stored.document_id, stored.app_kind,
       CASE WHEN ${emptyContentFrontierSql("stored")} THEN NULL
         WHEN stored.app_kind = 'documents' THEN d.title
-        ELSE c.display_name END AS title,
+        ELSE folder.display_name END AS title,
       CASE WHEN ${emptyContentFrontierSql("stored")} THEN 'initial'
         ELSE 'continuation' END AS reason,
-      failure.message AS last_error
+      stored.sync_failure_message AS last_error
     FROM documents stored
     LEFT JOIN document_projection d ON stored.app_kind = 'documents'
       AND d.local_id = stored.local_id
     LEFT JOIN containers folder ON stored.app_kind = 'container-metadata'
       AND folder.id = stored.local_id
-    LEFT JOIN container_projection c ON c.container_id = folder.id
-    LEFT JOIN document_sync_failures failure ON failure.app_kind = stored.app_kind
-      AND failure.local_id = stored.local_id
     WHERE stored.document_id IS NOT NULL
       AND (${emptyContentFrontierSql("stored")} OR stored.pull_continuation IS NOT NULL)
       AND ((stored.app_kind = 'documents' AND d.local_id IS NOT NULL)

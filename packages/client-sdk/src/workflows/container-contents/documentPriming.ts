@@ -1,8 +1,9 @@
 import {
   documentContainerProjectionTables,
-  documentMoveIntentTables,
+  documentPlacementIntentTables,
   documentProjectionTables,
   documentTables,
+  LOCAL_INTENT_LANES,
 } from "../../data/sqlite/schema";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import type {
@@ -57,12 +58,7 @@ const PENDING_PRIME_LOCAL_ID_SQL = `
           AND pending.local_id = stored.local_id
           AND pending.update_id IS NOT NULL
       )
-      OR EXISTS (
-        SELECT 1
-        FROM document_sync_failures failure
-        WHERE failure.app_kind = 'documents'
-          AND failure.local_id = stored.local_id
-      )
+      OR stored.sync_failure_message IS NOT NULL
       OR EXISTS (
         SELECT 1
         FROM document_pending_attachments attachment
@@ -84,14 +80,15 @@ const STARTUP_DOCUMENT_SYNC_WORK_SQL = `
   WHERE EXISTS (${PENDING_PRIME_LOCAL_ID_SQL})
     OR EXISTS (
       SELECT 1
-      FROM document_move_intents intent
+      FROM local_intents intent
       -- Blocked and parked denied moves count: blocked intents replay on
       -- every scan (the blocking condition can heal after hydration), and
       -- the once-per-launch replay makes denied moves retriable — so a
       -- relaunch whose only durable work is either kind must still schedule
       -- the structural pass that re-attempts it (row 7). Unavailable moves
       -- are excluded: no pass ever replays them (#2278 #4).
-      WHERE intent.sync_status IN ('pending', 'blocked', 'denied')
+      WHERE intent.lane = '${LOCAL_INTENT_LANES.documentPlacement}'
+        AND intent.sync_status IN ('pending', 'blocked', 'denied')
     )
   LIMIT 1
 `;
@@ -108,7 +105,7 @@ export async function hasStartupDocumentSyncWork(
   await ensureSqlTables(execSql, [
     ...documentTables,
     ...documentProjectionTables,
-    ...documentMoveIntentTables,
+    ...documentPlacementIntentTables,
   ]);
   const rows = await execSql(STARTUP_DOCUMENT_SYNC_WORK_SQL);
   return rows.length > 0;

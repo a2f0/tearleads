@@ -93,6 +93,19 @@ async function countRows(
   return Number(Reflect.get(rows[0] ?? {}, "n") ?? 0);
 }
 
+async function countRecordedFailures(
+  execSql: ExecSql,
+  localId: string,
+): Promise<number> {
+  const rows = await execSql(
+    `SELECT COUNT(*) AS n FROM documents
+     WHERE app_kind = 'container-metadata' AND local_id = ?
+       AND sync_failure_message IS NOT NULL`,
+    [localId],
+  );
+  return Number(Reflect.get(rows[0] ?? {}, "n") ?? 0);
+}
+
 test("deleted cascade drops the metadata document and queue", async () => {
   const { close, execSql } = await createTestExecSql(
     "tombstone-metadata-deleted",
@@ -155,9 +168,7 @@ test("access_revoked cascade retains the metadata document dormant", async () =>
     // re-attaches them when rehydration recreates the container.
     expect(await countRows(execSql, "documents", "revoked")).toBe(1);
     expect(await countRows(execSql, QUEUED_UPDATES_SQL, "revoked")).toBe(1);
-    expect(await countRows(execSql, "document_sync_failures", "revoked")).toBe(
-      1,
-    );
+    expect(await countRecordedFailures(execSql, "revoked")).toBe(1);
     expect(await countDormantMarkers(execSql, "revoked")).toBe(1);
   } finally {
     await close();
@@ -209,9 +220,7 @@ test("explicit local deletion purges dormant retained metadata", async () => {
 
     expect(await countRows(execSql, "documents", "revoked")).toBe(0);
     expect(await countRows(execSql, QUEUED_UPDATES_SQL, "revoked")).toBe(0);
-    expect(await countRows(execSql, "document_sync_failures", "revoked")).toBe(
-      0,
-    );
+    expect(await countRecordedFailures(execSql, "revoked")).toBe(0);
     // The dormant purge drops the retained document's history rows too.
     expect(
       await countRows(execSql, "document_history_checkpoints", "revoked"),

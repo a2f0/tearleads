@@ -10,10 +10,7 @@ import {
   principalHistoryNodes,
   principalHistoryPrefixes,
 } from "../sqlite/principalHistoryEvidenceSchema";
-import {
-  principalHistoryStageScopes,
-  principalKeyEnvelopeArchive,
-} from "../sqlite/principalHistoryRetentionSchema";
+import { principalKeyEnvelopeArchive } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import { principalPolicyCheckpoints } from "../sqlite/principalPolicySchema";
 import { createExecSql } from "../sqlite/sqlSchema";
@@ -114,7 +111,6 @@ test("cancellation after key archival rolls back completed eviction and proof pu
   });
   const snapshot = async () => ({
     stages: await f.db.select().from(principalHistoryStages),
-    hints: await f.db.select().from(principalHistoryStageScopes),
     archive: await f.db.select().from(principalKeyEnvelopeArchive),
     prefixes: await f.db.select().from(principalHistoryPrefixes),
     entries: await f.db.select().from(principalHistoryEntries),

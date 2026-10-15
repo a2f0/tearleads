@@ -8,11 +8,7 @@ import {
   DEFAULT_EFFECTIVE_ACCESS_LEVEL,
   normalizeEffectiveAccessLevel,
 } from "../../accessLevel";
-import {
-  containerProjection,
-  containers,
-  containerTables,
-} from "../../sqlite/schema";
+import { containers, containerTables } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -49,10 +45,10 @@ export function ensureContainerTables(execSql: ExecSql): Promise<void> {
   return ensureSqlTables(execSql, containerTables);
 }
 
-// The ONE display-name fallback: a projection row names the container; without
-// one the root reads '/' and everything else 'Untitled'.
+// The ONE display-name fallback: a decrypted metadata name names the container;
+// without one the root reads '/' and everything else 'Untitled'.
 const containerDisplayName = sql<string>`COALESCE(
-    ${containerProjection.displayName},
+    ${containers.displayName},
     CASE WHEN ${containers.parentId} IS NULL THEN '/' ELSE 'Untitled' END
   )`;
 
@@ -144,6 +140,8 @@ export async function saveContainerRows(input: {
     parentId: nextRecord.parentId,
     metadataDocumentId: nextRecord.metadataDocumentId,
     systemSlot: nextRecord.systemSlot ?? null,
+    displayName: nextRecord.name,
+    icon: nextRecord.icon,
     localCreatedAt: nextRecord.localCreatedAt,
     localUpdatedAt,
     serverCreatedAt: nextRecord.serverCreatedAt,
@@ -159,6 +157,8 @@ export async function saveContainerRows(input: {
         parentId: containerRow.parentId,
         metadataDocumentId: containerRow.metadataDocumentId,
         systemSlot: containerRow.systemSlot,
+        displayName: containerRow.displayName,
+        icon: containerRow.icon,
         effectiveAccessLevel: containerRow.effectiveAccessLevel,
         localUpdatedAt: containerRow.localUpdatedAt,
         serverCreatedAt:
@@ -170,21 +170,6 @@ export async function saveContainerRows(input: {
             ? sql`${containers.serverUpdatedAt}`
             : containerRow.serverUpdatedAt,
       },
-    })
-    .run();
-
-  const projectionRow = {
-    containerId: nextRecord.id,
-    displayName: nextRecord.name,
-    icon: nextRecord.icon,
-    updatedAt: localUpdatedAt,
-  };
-  await tx
-    .insert(containerProjection)
-    .values(projectionRow)
-    .onConflictDoUpdate({
-      target: containerProjection.containerId,
-      set: projectionRow,
     })
     .run();
 
@@ -204,17 +189,13 @@ export async function loadContainers(
       metadataDocumentId: containers.metadataDocumentId,
       systemSlot: containers.systemSlot,
       name: containerDisplayName,
-      icon: containerProjection.icon,
+      icon: containers.icon,
       localCreatedAt: containers.localCreatedAt,
       localUpdatedAt: containers.localUpdatedAt,
       serverCreatedAt: containers.serverCreatedAt,
       serverUpdatedAt: containers.serverUpdatedAt,
     })
     .from(containers)
-    .leftJoin(
-      containerProjection,
-      eq(containerProjection.containerId, containers.id),
-    )
     .orderBy(asc(sql`${containerDisplayName} COLLATE NOCASE`));
 
   return rows.map((row) => mapSelectedContainerRecord(row));
@@ -234,17 +215,13 @@ export async function loadContainerById(
       metadataDocumentId: containers.metadataDocumentId,
       systemSlot: containers.systemSlot,
       name: containerDisplayName,
-      icon: containerProjection.icon,
+      icon: containers.icon,
       localCreatedAt: containers.localCreatedAt,
       localUpdatedAt: containers.localUpdatedAt,
       serverCreatedAt: containers.serverCreatedAt,
       serverUpdatedAt: containers.serverUpdatedAt,
     })
     .from(containers)
-    .leftJoin(
-      containerProjection,
-      eq(containerProjection.containerId, containers.id),
-    )
     .where(eq(containers.id, containerId))
     .limit(1);
 
@@ -267,10 +244,6 @@ export async function loadContainerDisplayNamesByIds(
       name: containerDisplayName,
     })
     .from(containers)
-    .leftJoin(
-      containerProjection,
-      eq(containerProjection.containerId, containers.id),
-    )
     .where(inArray(containers.id, uniqueIds));
 
   return new Map(
@@ -312,9 +285,5 @@ export async function deleteContainerRowsInTransaction(
   if (uniqueIds.length === 0) {
     return;
   }
-  await tx
-    .delete(containerProjection)
-    .where(inArray(containerProjection.containerId, uniqueIds))
-    .run();
   await tx.delete(containers).where(inArray(containers.id, uniqueIds)).run();
 }

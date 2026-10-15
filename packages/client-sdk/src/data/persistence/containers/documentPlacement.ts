@@ -1,5 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { documentMoveIntents, documents } from "../../sqlite/schema";
+import {
+  documents,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
+} from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { DOCUMENTS_APP_KIND } from "../documents/internal/constants";
 
@@ -20,12 +25,17 @@ export async function loadDocumentMovePlacement(
 ) {
   const [intent] = await tx
     .select({
-      id: documentMoveIntents.id,
-      intentType: documentMoveIntents.intentType,
-      targetContainerId: documentMoveIntents.targetContainerId,
+      id: localIntents.id,
+      intentType: localIntents.intentType,
+      targetContainerId: localIntents.targetContainerId,
     })
-    .from(documentMoveIntents)
-    .where(eq(documentMoveIntents.documentId, documentId))
+    .from(localIntents)
+    .where(
+      and(
+        inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+        eq(localIntents.subjectId, documentId),
+      ),
+    )
     .limit(1);
   return intent;
 }
@@ -41,11 +51,16 @@ export async function filterWritableDocumentPlacements(
     (
       await tx
         .select({
-          documentId: documentMoveIntents.documentId,
-          id: documentMoveIntents.id,
+          documentId: localIntents.subjectId,
+          id: localIntents.id,
         })
-        .from(documentMoveIntents)
-        .where(inArray(documentMoveIntents.documentId, ids))
+        .from(localIntents)
+        .where(
+          and(
+            inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+            inArray(localIntents.subjectId, ids),
+          ),
+        )
     ).map((row) => [row.documentId, row.id]),
   );
   const versionedIds = inputs

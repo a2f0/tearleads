@@ -8,7 +8,6 @@ import {
   signedPrincipalPolicyBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
 import { recoverPrincipalPolicyHistory } from "../../workflows/principals/recoverPrincipalPolicyHistory";
-import { principalHistoryStageScopes } from "../sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 
 async function interruptedTargets() {
@@ -54,9 +53,6 @@ test("interrupted exact heads have bounded progress and evicted work can recover
         }),
       ).rejects.toThrow("503 Service Unavailable");
     expect(await f.db.select().from(principalHistoryStages)).toHaveLength(8);
-    expect(await f.db.select().from(principalHistoryStageScopes)).toHaveLength(
-      8,
-    );
     const versions = (await f.db.select().from(principalHistoryStages)).map(
       (stage) => JSON.parse(stage.currentJson).currentState.version,
     );

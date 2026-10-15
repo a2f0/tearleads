@@ -49,7 +49,12 @@ test("compound current acknowledgement retains protected artifacts and pins with
     );
     const stages = await f.db.select().from(principalHistoryStages);
     expect(stages).toHaveLength(beforeStages.length + 2);
-    for (const prior of beforeStages) expect(stages).toContainEqual(prior);
+    // Acknowledgement refreshes a retained predecessor's recency hint only.
+    for (const prior of beforeStages)
+      expect(stages).toContainEqual({
+        ...prior,
+        touchedAt: expect.any(Number),
+      });
     for (const entry of f.publication.entries) {
       const recovered = await recoverPrincipalPolicyHistory({
         ...entry.recovery,

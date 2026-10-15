@@ -174,22 +174,22 @@ test("clean synced removals leave only a hydration fence, without recovery clutt
 test("retry bookkeeping does not invalidate discard but a changed move target does", async () => {
   const f = await fixture();
   try {
-    await f.execSql(`INSERT INTO container_move_intents
-      (id, container_id, parent_container_id, previous_parent_container_id, intent_type, sync_status, created_at, updated_at)
-      VALUES ('move', 'folder', 'destination', 'source', 'container.move', 'pending', 'before', 'before')`);
+    await f.execSql(`INSERT INTO local_intents
+      (id, lane, subject_id, target_container_id, source_container_id, intent_type, sync_status, created_at, updated_at)
+      VALUES ('move', 'container.move', 'folder', 'destination', 'source', 'container.move', 'pending', 'before', 'before')`);
     const [folder] = await f.queries.listRecoveryFolders({
       currentOrganizationId: "org",
     });
     if (!folder) throw new Error("Missing recovery folder");
     await f.execSql(
-      `UPDATE container_move_intents SET sync_status = 'blocked', last_error = 'unavailable', last_attempted_at = 'after', updated_at = 'after'`,
+      `UPDATE local_intents SET sync_status = 'blocked', last_error = 'unavailable', last_attempted_at = 'after', updated_at = 'after' WHERE lane = 'container.move'`,
     );
     const [retried] = await f.queries.listRecoveryFolders({
       currentOrganizationId: "org",
     });
     expect(retried?.revision).toBe(folder.revision);
     await f.execSql(
-      `UPDATE container_move_intents SET parent_container_id = 'different'`,
+      `UPDATE local_intents SET target_container_id = 'different' WHERE lane = 'container.move'`,
     );
     expect(await f.queries.discardRecoveryFolder(folder)).toBe(false);
     const [changed] = await f.queries.listRecoveryFolders({
@@ -252,7 +252,7 @@ test.each([
         ),
       ).toEqual([]);
       const intents = await f.execSql(
-        "SELECT id, intent_type, target_container_id, replace_linked_containers FROM document_move_intents",
+        "SELECT id, intent_type, target_container_id, replace_linked_containers FROM local_intents WHERE lane = 'document.placement'",
       );
       if (extra) {
         expect(intents).toHaveLength(1);

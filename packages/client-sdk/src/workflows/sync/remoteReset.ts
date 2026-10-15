@@ -10,10 +10,8 @@ import {
   unqueueDocumentScopesInTransaction,
 } from "../../data/sqlite/documentPendingUpdatePersistence";
 import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
-import {
-  organizationDataUsageCategories,
-  organizationDataUsageSnapshots,
-} from "../../data/sqlite/organizationDataUsageSchema";
+import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../../data/sqlite/documentSyncFailurePersistence";
+import { organizationDataUsageSnapshots } from "../../data/sqlite/organizationDataUsageSchema";
 import {
   organizationPresentationDenials,
   organizationReadModelContainerGrants,
@@ -25,19 +23,19 @@ import {
 } from "../../data/sqlite/organizationReadModelSchema";
 import {
   clientSqlTables,
-  containerCreateIntents,
   containerHydrationTombstones,
-  containerMoveIntents,
   containers,
   documentAttachmentBlobProjection,
   documentHistoryUpdates,
-  documentMoveIntents,
   documentPendingAttachments,
   documentProjection,
-  documentSyncFailures,
   documents,
   dormantContainerMetadata,
   dormantMetadataSweepRequests,
+  inContainerIntentLanes,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../data/sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -87,7 +85,6 @@ async function clearOrganizationPresentationRows(
   organizationId: string,
 ): Promise<void> {
   for (const table of [
-    organizationDataUsageCategories,
     organizationDataUsageSnapshots,
     organizationReadModelContainerGrants,
     organizationReadModelGroupMembers,
@@ -119,12 +116,13 @@ async function clearScopedContainerRows(
   )) {
     await deleteDocumentPlacementRowsByContainerIds(input.tx, containerBatch);
     await input.tx
-      .delete(containerMoveIntents)
-      .where(inArray(containerMoveIntents.containerId, containerBatch))
-      .run();
-    await input.tx
-      .delete(containerCreateIntents)
-      .where(inArray(containerCreateIntents.containerId, containerBatch))
+      .delete(localIntents)
+      .where(
+        and(
+          inContainerIntentLanes(),
+          inArray(localIntents.subjectId, containerBatch),
+        ),
+      )
       .run();
     await input.tx
       .delete(containerHydrationTombstones)
@@ -146,38 +144,27 @@ async function clearScopedDocumentRows(
     tx,
   });
   for (const localIdBatch of remoteResetBatches(snapshot.documentLocalIds)) {
+    const placementIntents = and(
+      inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+      inArray(localIntents.localId, localIdBatch),
+    );
     await tx
       .delete(documentIntentLinkTargets)
       .where(
         inArray(
           documentIntentLinkTargets.intentId,
           tx
-            .select({ id: documentMoveIntents.id })
-            .from(documentMoveIntents)
-            .where(inArray(documentMoveIntents.localId, localIdBatch)),
+            .select({ id: localIntents.id })
+            .from(localIntents)
+            .where(placementIntents),
         ),
       )
       .run();
-    await tx
-      .delete(documentMoveIntents)
-      .where(inArray(documentMoveIntents.localId, localIdBatch))
-      .run();
+    await tx.delete(localIntents).where(placementIntents).run();
   }
+  // Sync failures clear with the document columns in resetRemoteColumns.
   for (const documentBatch of remoteResetBatches(snapshot.documentRows)) {
     await unqueueDocumentScopesInTransaction(tx, documentBatch);
-    await tx
-      .delete(documentSyncFailures)
-      .where(
-        or(
-          ...documentBatch.map((row) =>
-            and(
-              eq(documentSyncFailures.appKind, row.appKind),
-              eq(documentSyncFailures.localId, row.localId),
-            ),
-          ),
-        ),
-      )
-      .run();
   }
 }
 
@@ -229,6 +216,7 @@ async function resetRemoteColumns(input: {
         lastCommitLsn: null,
         pullContinuation: null,
         recoveryDocumentId: row.documentId ?? row.recoveryDocumentId,
+        ...CLEARED_DOCUMENT_SYNC_FAILURE,
         updatedAt: now,
       })
       .where(
@@ -319,12 +307,13 @@ async function queueResetContainerCreates(input: {
   if (rows.length === 0) return 0;
   for (const rowBatch of remoteResetBatches(rows)) {
     await input.tx
-      .insert(containerCreateIntents)
+      .insert(localIntents)
       .values(
         rowBatch.map((row) => ({
           id: crypto.randomUUID(),
-          containerId: row.id,
-          parentContainerId: row.parentId,
+          lane: LOCAL_INTENT_LANES.containerCreate,
+          subjectId: row.id,
+          targetContainerId: row.parentId,
           intentType: CONTAINER_CREATE_INTENT_TYPE,
           syncStatus: "pending" as const,
           remoteContainerId: null,

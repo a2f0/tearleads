@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import {
-  containerCreateIntents,
-  containerMoveIntents,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
@@ -21,7 +22,7 @@ async function markContainerCreateIntentRevisionSynced(input: {
   tx: ClientSQLiteTransactionScope;
 }): Promise<boolean> {
   const updated = await input.tx
-    .update(containerCreateIntents)
+    .update(localIntents)
     .set({
       syncStatus: "synced",
       remoteContainerId: input.remoteContainerId,
@@ -32,14 +33,15 @@ async function markContainerCreateIntentRevisionSynced(input: {
     })
     .where(
       and(
-        eq(containerCreateIntents.containerId, input.containerId),
-        eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-        eq(containerCreateIntents.syncStatus, "pending"),
-        eq(containerCreateIntents.id, input.expectedIntentId),
-        eq(containerCreateIntents.updatedAt, input.expectedUpdatedAt),
+        inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate),
+        eq(localIntents.subjectId, input.containerId),
+        eq(localIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+        eq(localIntents.syncStatus, "pending"),
+        eq(localIntents.id, input.expectedIntentId),
+        eq(localIntents.updatedAt, input.expectedUpdatedAt),
       ),
     )
-    .returning({ containerId: containerCreateIntents.containerId });
+    .returning({ containerId: localIntents.subjectId });
   return updated.length > 0;
 }
 
@@ -79,27 +81,28 @@ async function rebaseQueuedMove(input: {
   readonly tx: ClientSQLiteTransactionScope;
 }): Promise<"converted-to-move" | "none" | "synced"> {
   const queued = and(
-    eq(containerMoveIntents.containerId, input.containerId),
-    eq(containerMoveIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
+    inLocalIntentLane(LOCAL_INTENT_LANES.containerMove),
+    eq(localIntents.subjectId, input.containerId),
+    eq(localIntents.intentType, CONTAINER_MOVE_INTENT_TYPE),
   );
   const arrived = await input.tx
-    .delete(containerMoveIntents)
+    .delete(localIntents)
     .where(
       and(
         queued,
         eq(
-          containerMoveIntents.parentContainerId,
+          localIntents.targetContainerId,
           input.supersededMovePreviousParentId,
         ),
       ),
     )
-    .returning({ containerId: containerMoveIntents.containerId });
+    .returning({ containerId: localIntents.subjectId });
   if (arrived.length > 0) return "synced";
   const rebased = await input.tx
-    .update(containerMoveIntents)
-    .set({ previousParentContainerId: input.supersededMovePreviousParentId })
+    .update(localIntents)
+    .set({ sourceContainerId: input.supersededMovePreviousParentId })
     .where(queued)
-    .returning({ containerId: containerMoveIntents.containerId });
+    .returning({ containerId: localIntents.subjectId });
   return rebased.length > 0 ? "converted-to-move" : "none";
 }
 
@@ -157,16 +160,17 @@ export async function settleContainerCreateIntentRevision(input: {
 
   const [currentIntent] = await input.tx
     .select({
-      id: containerCreateIntents.id,
-      parentContainerId: containerCreateIntents.parentContainerId,
-      updatedAt: containerCreateIntents.updatedAt,
+      id: localIntents.id,
+      parentContainerId: localIntents.targetContainerId,
+      updatedAt: localIntents.updatedAt,
     })
-    .from(containerCreateIntents)
+    .from(localIntents)
     .where(
       and(
-        eq(containerCreateIntents.containerId, input.containerId),
-        eq(containerCreateIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
-        eq(containerCreateIntents.syncStatus, "pending"),
+        inLocalIntentLane(LOCAL_INTENT_LANES.containerCreate),
+        eq(localIntents.subjectId, input.containerId),
+        eq(localIntents.intentType, CONTAINER_CREATE_INTENT_TYPE),
+        eq(localIntents.syncStatus, "pending"),
       ),
     )
     .limit(1);

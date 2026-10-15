@@ -8,9 +8,11 @@ import {
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
 import {
   containerHydrationTombstones,
-  containerMoveIntents,
   containers,
   dormantContainerMetadata,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
@@ -132,12 +134,16 @@ async function saveRecoveredContainer(
   input: Parameters<ContainerContentsPersistence["commitHydratedContainer"]>[1],
 ) {
   const [move] = await tx
-    .select()
-    .from(containerMoveIntents)
+    .select({
+      parentContainerId: localIntents.targetContainerId,
+      updatedAt: localIntents.updatedAt,
+    })
+    .from(localIntents)
     .where(
       and(
-        eq(containerMoveIntents.containerId, input.container.id),
-        inArray(containerMoveIntents.syncStatus, ["pending", "blocked"]),
+        inLocalIntentLane(LOCAL_INTENT_LANES.containerMove),
+        eq(localIntents.subjectId, input.container.id),
+        inArray(localIntents.syncStatus, ["pending", "blocked"]),
       ),
     )
     .limit(1);

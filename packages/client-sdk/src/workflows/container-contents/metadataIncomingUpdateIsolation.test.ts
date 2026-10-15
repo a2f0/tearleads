@@ -18,6 +18,19 @@ import {
   recordCurrentMetadataSyncFailure,
 } from "./metadataIncomingUpdateIsolation";
 
+// A failure is recorded on the scope's `documents` row, which a syncing
+// metadata document always has.
+async function seedMetadataRow(
+  execSql: Parameters<typeof ensureDocumentTables>[0],
+  localId: string,
+): Promise<void> {
+  await ensureDocumentTables(execSql);
+  await execSql(
+    "INSERT INTO documents (app_kind, local_id, updated_at) VALUES ('container-metadata', ?, '2026-10-14T00:00:00.000Z')",
+    [localId],
+  );
+}
+
 test("metadata live import applies rotation snapshots before ordinary updates", async () => {
   const current = await createDocument("metadata-checkpoint-current");
   const rotated = await createDocument("metadata-checkpoint-rotated");
@@ -47,7 +60,7 @@ test("expired metadata quarantine cannot record or report across the SQL lock", 
     "metadata-failure-generation",
   );
   try {
-    await ensureDocumentTables(execSql);
+    await seedMetadataRow(execSql, "container-expired");
     let current = true;
     const reported: unknown[] = [];
     let releaseLock = () => {};
@@ -90,7 +103,7 @@ test("metadata quarantine preserves the original error and durable row when repo
     "metadata-quarantine-diagnostics",
   );
   try {
-    await ensureDocumentTables(execSql);
+    await seedMetadataRow(execSql, "container-quarantined");
     const failure = new DocumentSyncUpdateIsolationError({
       cause: new Error("private metadata payload"),
       stage: "loro_import",
@@ -126,7 +139,7 @@ test("metadata failure recording rolls back when generation expires before commi
     "metadata-failure-commit-generation",
   );
   try {
-    await ensureDocumentTables(execSql);
+    await seedMetadataRow(execSql, "container-expired-before-commit");
     let checks = 0;
 
     await recordCurrentMetadataSyncFailure({

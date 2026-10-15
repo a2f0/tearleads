@@ -9,10 +9,7 @@ import {
   principalHistoryNodeReferences,
   principalHistoryRootOwners,
 } from "../../data/sqlite/principalHistoryNodeRetentionSchema";
-import {
-  principalHistoryStageScopes,
-  principalKeyEnvelopeArchive,
-} from "../../data/sqlite/principalHistoryRetentionSchema";
+import { principalKeyEnvelopeArchive } from "../../data/sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
@@ -30,9 +27,11 @@ test("organization reset discards only its principal history stages and evidence
         ["org-1", "org-2"].map((organizationId) => ({
           id: `stage-${organizationId}`,
           organizationId,
+          scopeId: `scope-${organizationId}`,
           currentJson: "{}",
           afterVersion: 32,
           complete: false,
+          touchedAt: 1,
           progress: "opaque-authenticated-progress",
         })),
       )
@@ -52,16 +51,6 @@ test("organization reset discards only its principal history stages and evidence
         leftHash: "left",
         rightHash: "right",
       });
-      await db
-        .insert(principalHistoryStageScopes)
-        .values({
-          ...scope,
-          id: `stage-${organizationId}`,
-          afterVersion: 32,
-          complete: false,
-          touchedAt: 1,
-        })
-        .run();
       await db
         .insert(principalKeyEnvelopeArchive)
         .values({
@@ -109,7 +98,6 @@ test("organization reset discards only its principal history stages and evidence
       principalHistoryPrefixes,
       principalHistoryEntries,
       principalHistoryNodes,
-      principalHistoryStageScopes,
       principalKeyEnvelopeArchive,
     ])
       expect(
