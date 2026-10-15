@@ -53,6 +53,7 @@ function configurePushFixture(
   const { PATH = "" } = process.env;
   const env = {
     ...repo.env,
+    CI_TURBO_PROTOCOL_CACHE: "",
     PATH: `${join(repo.cwd, "bin")}:${PATH}`,
     COMMAND_LOG: log,
     FAILING_COMMAND: failingCommand,

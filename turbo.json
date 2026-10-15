@@ -8,7 +8,82 @@
   "globalDependencies": ["tsconfig.base.json", "patches/**"],
   "globalEnv": ["CI_TOOLCHAIN"],
   "tasks": {
+    "//#check:protocol-models": {
+      "inputs": [
+        "formal/**",
+        "scripts/checks/checkProtocolModels.sh",
+        "scripts/checks/tlaToolsPin.sh",
+        "scripts/checks/runCachedProtocolCheck.ts",
+        "scripts/protocol/tlcTools.ts",
+        ".mise.toml",
+        "mise.lock"
+      ],
+      "env": ["TLC_JAVA_RUNTIME", "PROTOCOL_TLC_PARALLELISM"],
+      "passThroughEnv": [
+        "JAVA_BIN",
+        "TLA_TOOLS_ROOT",
+        "PROTOCOL_TLC_FAILURE_LOG_DIR"
+      ],
+      "outputs": []
+    },
+    "//#check:protocol-negative-controls": {
+      "inputs": [
+        "formal/**",
+        "scripts/protocol/**",
+        "scripts/checks/tlaToolsPin.sh",
+        "scripts/checks/runCachedProtocolCheck.ts",
+        ".mise.toml",
+        "mise.lock"
+      ],
+      "env": ["TLC_JAVA_RUNTIME", "PROTOCOL_TLC_PARALLELISM"],
+      "passThroughEnv": ["JAVA_BIN", "TLA_TOOLS_ROOT"],
+      "outputs": []
+    },
     "//#test:architecture": {
+      "outputs": []
+    },
+    "//#test:native-android-ci": {
+      "dependsOn": ["app-capacitor#sources"],
+      "inputs": [
+        "scripts/**",
+        "!scripts/localstack/data/**",
+        ".github/workflows/native-purchase-bridges.yml",
+        ".mise.toml",
+        "mise.lock"
+      ],
+      "env": ["ImageOS", "ImageVersion"],
+      "passThroughEnv": ["ANDROID_HOME", "ANDROID_SDK_ROOT", "JAVA_HOME"],
+      "outputs": []
+    },
+    "//#test:native-ios-ci": {
+      "dependsOn": ["app-capacitor#sources"],
+      "inputs": [
+        "scripts/**",
+        "!scripts/localstack/data/**",
+        ".github/workflows/native-purchase-bridges.yml"
+      ],
+      "env": ["ImageOS", "ImageVersion", "DEVELOPER_DIR"],
+      "outputs": []
+    },
+    "//#test:postgres-concurrency": {
+      "dependsOn": ["@tearleads/api#sources", "@tearleads/client-sdk#build"],
+      "inputs": [
+        "scripts/checks/testPostgresConcurrency.sh",
+        ".github/workflows/ci.yml"
+      ],
+      "env": ["CI_POSTGRES_IMAGE"],
+      "passThroughEnv": ["DATABASE_URL"],
+      "outputs": []
+    },
+    "//#test:windows-ci": {
+      "dependsOn": ["app-electrobun#sources"],
+      "inputs": [
+        "scripts/lib/**",
+        ".github/workflows/electrobun-windows.yml",
+        "bunfig.toml",
+        "test/preload.ts"
+      ],
+      "env": ["ImageOS", "ImageVersion"],
       "outputs": []
     },
     "build": {
