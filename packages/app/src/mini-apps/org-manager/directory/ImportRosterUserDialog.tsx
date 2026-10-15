@@ -60,19 +60,23 @@ export function ImportRosterUserDialog({
           <h2 id="org-manager-import-user-title">
             {ORG_MANAGER_LABELS.importUserAction}
           </h2>
+          <MiniAppStatus>
+            Ask the person for their identity link through a trusted channel.
+            Their keys will be verified before they join the roster.
+          </MiniAppStatus>
           {error && (
             <MiniAppStatus className="org-manager-error" tone="error">
               {error}
             </MiniAppStatus>
           )}
           <MiniAppField>
-            <label htmlFor={inputId}>{ORG_MANAGER_LABELS.userId}</label>
+            <label htmlFor={inputId}>Identity link</label>
             <MiniAppInput
               id={inputId}
               autoFocus
               disabled={!canImportRosterUser || mutating}
               onChange={(event) => setImportUserIdDraft(event.target.value)}
-              placeholder={ORG_MANAGER_LABELS.userId}
+              placeholder="Paste the person's identity link"
               value={importUserIdDraft}
             />
           </MiniAppField>

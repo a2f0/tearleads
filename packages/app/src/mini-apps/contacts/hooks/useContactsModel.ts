@@ -1,13 +1,5 @@
 import { useCompactRoutedMode } from "@tearleads/windowing";
-import {
-  type Dispatch,
-  type ReactNode,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, useCallback, useEffect, useRef } from "react";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
@@ -19,10 +11,8 @@ import {
 } from "../context-menu/ContactsContextMenu";
 import type { ContactsRoute } from "../routes";
 import type { ContactEntries } from "../types";
-import {
-  useImportContactByUserId,
-  useImportContactMessage,
-} from "./useContactImport";
+import { useContactDrafts } from "./useContactDrafts";
+import { useImportContactMessage } from "./useContactImport";
 import { useContactsRouteState } from "./useContactsRouteState";
 
 function useContactsSelectionState(
@@ -91,173 +81,6 @@ function useSelectInitialSelfContact(input: {
   }, [enabled, entries, ready, route, selectedContactId, setSelectedContactId]);
 }
 
-function hasContactNameDraft(params: {
-  firstName: string;
-  lastName: string;
-  nickname: string;
-}): boolean {
-  return (
-    params.nickname.trim().length > 0 ||
-    params.firstName.trim().length > 0 ||
-    params.lastName.trim().length > 0
-  );
-}
-
-function useCreateDraftContact(input: {
-  canCreate: boolean;
-  createContact: ReturnType<typeof useContacts>["createContact"];
-  draftFirstName: string;
-  draftLastName: string;
-  draftNickname: string;
-  isSubmittingRef: { current: boolean };
-  logError: ReturnType<typeof useLog>["logError"];
-  setDraftFirstName: Dispatch<SetStateAction<string>>;
-  setDraftLastName: Dispatch<SetStateAction<string>>;
-  setDraftNickname: Dispatch<SetStateAction<string>>;
-  setIsSubmitting: Dispatch<SetStateAction<boolean>>;
-  setSelectedContactId: (contactId: string) => void;
-}) {
-  const {
-    canCreate,
-    createContact,
-    draftFirstName,
-    draftLastName,
-    draftNickname,
-    isSubmittingRef,
-    logError,
-    setDraftFirstName,
-    setDraftLastName,
-    setDraftNickname,
-    setIsSubmitting,
-    setSelectedContactId,
-  } = input;
-
-  return useCallback(async () => {
-    if (!canCreate || isSubmittingRef.current) {
-      return;
-    }
-
-    isSubmittingRef.current = true;
-    setIsSubmitting(true);
-    try {
-      const contactId = await createContact({
-        firstName: draftFirstName,
-        lastName: draftLastName,
-        nickname: draftNickname,
-      });
-      if (contactId) {
-        setSelectedContactId(contactId);
-        setDraftFirstName("");
-        setDraftLastName("");
-        setDraftNickname("");
-      }
-    } catch (error: unknown) {
-      logError("Contacts: failed to create contact.", error);
-    } finally {
-      isSubmittingRef.current = false;
-      setIsSubmitting(false);
-    }
-  }, [
-    canCreate,
-    createContact,
-    draftFirstName,
-    draftLastName,
-    draftNickname,
-    isSubmittingRef,
-    logError,
-    setDraftFirstName,
-    setDraftLastName,
-    setDraftNickname,
-    setIsSubmitting,
-    setSelectedContactId,
-  ]);
-}
-
-function useContactDrafts(input: {
-  canWrite: boolean;
-  createContact: ReturnType<typeof useContacts>["createContact"];
-  importKey: ReturnType<typeof useContacts>["importKey"];
-  isAuthenticated: boolean;
-  logError: ReturnType<typeof useLog>["logError"];
-  ready: boolean;
-  setSelectedContactId: (contactId: string) => void;
-}) {
-  const {
-    canWrite,
-    createContact,
-    importKey,
-    isAuthenticated,
-    logError,
-    ready,
-    setSelectedContactId,
-  } = input;
-  const [draftFirstName, setDraftFirstName] = useState("");
-  const [draftLastName, setDraftLastName] = useState("");
-  const [draftNickname, setDraftNickname] = useState("");
-  const [draftUserId, setDraftUserId] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const isSubmittingRef = useRef(false);
-  const canCreate =
-    !isSubmitting &&
-    canWrite &&
-    ready &&
-    hasContactNameDraft({
-      firstName: draftFirstName,
-      lastName: draftLastName,
-      nickname: draftNickname,
-    });
-  const isImportReady = canWrite && ready && isAuthenticated;
-  const canImport =
-    !isSubmitting && isImportReady && draftUserId.trim().length > 0;
-
-  const createDraftContact = useCreateDraftContact({
-    canCreate,
-    createContact,
-    draftFirstName,
-    draftLastName,
-    draftNickname,
-    isSubmittingRef,
-    logError,
-    setDraftFirstName,
-    setDraftLastName,
-    setDraftNickname,
-    setIsSubmitting,
-    setSelectedContactId,
-  });
-  const importContactByUserId = useImportContactByUserId({
-    importKey,
-    isImportReady,
-    isSubmittingRef,
-    logError,
-    setIsSubmitting,
-    setSelectedContactId,
-  });
-  const importDraftContact = useCallback(async () => {
-    const contactId = await importContactByUserId(draftUserId);
-    if (contactId) {
-      setDraftUserId("");
-    }
-  }, [draftUserId, importContactByUserId, setDraftUserId]);
-
-  return {
-    canCreate,
-    canImport,
-    createDraftContact,
-    draftFirstName,
-    draftLastName,
-    draftNickname,
-    draftUserId,
-    importContactByUserId,
-    importDraftContact,
-    isImportReady,
-    isSubmitting,
-    setDraftFirstName,
-    setDraftLastName,
-    setDraftNickname,
-    setDraftUserId,
-  };
-}
-
 export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const compactRoutedMode = useCompactRoutedMode();
   const appData = useTearleadsRuntime();
@@ -277,6 +100,9 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   const routeState = useContactsRouteState(compactRoutedMode);
   const selectionState = useContactsSelectionState(routeState);
   const drafts = useContactDrafts({
+    openImportContactRoute: routeState.openImportContactRoute,
+    identityLinkToken: routeState.identityLinkToken,
+    identityScope: `${appData.auth.userId}:${appData.crypto.signingFingerprint}:${appData.infra.dbId}`,
     canWrite,
     createContact,
     importKey,
@@ -324,17 +150,15 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
   return {
     contextMenuState,
     ...drafts,
+    ...routeState,
     blobStore: appData.infra.blobStore,
     canWrite,
     currentSigningFingerprint: appData.crypto.signingFingerprint,
     currentUserId: appData.auth.userId,
     entries,
     isAuthenticated,
-    openImportContactRoute: routeState.openImportContactRoute,
-    openNewContactRoute: routeState.openNewContactRoute,
     ready,
     removeContactAvatar,
-    route: routeState.route,
     selectContact: selectionState.selectContact,
     selectedContactId: selectionState.selectedContactId,
     setContactAvatar,
@@ -342,7 +166,6 @@ export function useContactsModel(setSidebar: (sidebar: ReactNode) => void) {
       compactRoutedMode &&
       routeState.route === "selection" &&
       selectionState.selectedContactId === null,
-    showSelectionRoute: routeState.showSelectionRoute,
     updateContact,
   };
 }

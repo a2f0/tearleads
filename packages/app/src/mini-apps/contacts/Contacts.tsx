@@ -1,4 +1,6 @@
 import { useWindowFileMenuItem, useWindowSidebar } from "@tearleads/windowing";
+import { IdentityLinkSignIn } from "../../components/identity/IdentityLinkSignIn";
+import { ShareIdentityLink } from "../../components/identity/ShareIdentityLink";
 import { MiniAppRoot } from "../../components/mini-app/MiniAppLayout";
 import { SystemBootstrapGate } from "../SystemBootstrapGate";
 import { ContactsContextMenuLayer } from "./context-menu/ContactsContextMenu";
@@ -34,7 +36,9 @@ function ContactsDetailRoute({
       draftUserId={model.draftUserId}
       entries={model.entries}
       importDraftContact={model.importDraftContact}
+      importError={model.importError}
       isAuthenticated={model.isAuthenticated}
+      signInAction={<IdentityLinkSignIn />}
       onAreaContextMenu={model.contextMenuState.handleAreaContextMenu}
       onBackToSelectionRoute={model.showSelectionRoute}
       ready={model.ready}
@@ -84,6 +88,7 @@ function ContactsContent() {
 
   return (
     <MiniAppRoot className="contacts">
+      <ShareIdentityLink />
       {model.showCompactListHome ? (
         <ContactsListHome
           blobStore={model.blobStore}

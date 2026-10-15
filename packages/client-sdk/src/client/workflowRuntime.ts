@@ -11,6 +11,7 @@ import {
   type LocalUserIdentityCandidate,
   loadPinnedUserIdentity,
   type TrustedUserIdentityResolver,
+  type TrustedUserIdentityService,
 } from "../data/trustedUserIdentity";
 import type { ContainerContentsRootAdopter } from "../workflows/container-contents/runtime";
 import {
@@ -71,6 +72,10 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
 }
 
 export interface InternalRuntime {
+  identityLinks: Pick<
+    TrustedUserIdentityService,
+    "createLink" | "verifyLink" | "resolvePinned"
+  >;
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
@@ -230,6 +235,7 @@ export function createRuntime(
   );
 
   return {
+    identityLinks: trustedUserIdentityService,
     retirePrincipalHistoryProtection: historyProtection.retire,
     get sessionGeneration() {
       return runtimeSubscription.sessionGeneration;

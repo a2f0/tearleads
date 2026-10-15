@@ -141,11 +141,11 @@ export function GroupDetailSection({
           <>
             <MiniAppToolbar className="org-manager-form-toolbar">
               <MiniAppInput
-                aria-label={ORG_MANAGER_LABELS.userId}
+                aria-label={ORG_MANAGER_LABELS.rosterIdentity}
                 disabled={!canMutateSelectedGroup || mutating}
                 list={addUserListId}
                 onChange={(event) => setAddUserId(event.target.value)}
-                placeholder={ORG_MANAGER_LABELS.userId}
+                placeholder="Select a roster user or paste an identity link"
                 value={addUserId}
               />
               <datalist id={addUserListId}>

@@ -453,10 +453,11 @@ test(
     await interact(() => {
       fireEvent.click(directoryButton);
     });
-    await waitFor(() => {
-      expect(within(leftPane).queryByLabelText("User ID")).toBeNull();
-    });
-
+    await waitFor(() =>
+      expect(
+        within(leftPane).queryByLabelText("Roster user or identity link"),
+      ).toBeNull(),
+    );
     await openExplorer(leftPane);
     const postShareBaseline = capturePostShareSyncBaseline();
     const sharedGroupId = await shareContainerWithGroup(

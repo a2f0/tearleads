@@ -45,6 +45,7 @@ import {
   summarizeProxiedApiRequests,
   truncateText,
 } from "../../../../test/helpers/dualPaneRequestSummary";
+import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFixtures";
 import {
   listProxiedApiRequests,
   resetMockServer,
@@ -80,7 +81,7 @@ async function selectGroup(pane: HTMLElement, groupName: string) {
   await interact(() => {
     fireEvent.click(group);
   });
-  await within(pane).findByLabelText("User ID");
+  await within(pane).findByLabelText("Roster user or identity link");
 }
 
 async function waitForPrincipalRematerialization() {
@@ -138,10 +139,13 @@ async function addGroupMember(
   userId: string,
 ) {
   await selectGroup(pane, groupName);
-  const userIdInput = within(pane).getByLabelText("User ID");
+  const userIdInput = within(pane).getByLabelText(
+    "Roster user or identity link",
+  );
   invariant(userIdInput instanceof HTMLInputElement, "Expected user ID input.");
+  const identityLink = await createPeerIdentityLink(userId);
   await interact(() => {
-    fireEvent.change(userIdInput, { target: { value: userId } });
+    fireEvent.change(userIdInput, { target: { value: identityLink } });
   });
   const addButton = within(pane).getByRole("button", { name: "Add" });
   invariant(addButton instanceof HTMLButtonElement, "Expected Add button.");

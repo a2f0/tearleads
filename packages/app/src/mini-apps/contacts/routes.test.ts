@@ -48,3 +48,10 @@ test("contacts selection route snapshot clears selection in compact routed mode"
     selectedContactId: null,
   });
 });
+
+test("identity permalink tokens round-trip through contact routes", () => {
+  const segments = ["import", "canonical-identity-token"];
+  const route = parseContactsRouteSegments(segments);
+  expect(route.identityLinkToken).toBe(segments[1]);
+  expect(formatContactsRouteSegments(route)).toEqual(segments);
+});

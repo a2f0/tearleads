@@ -1,3 +1,4 @@
+import type { UserIdentities } from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -10,13 +11,13 @@ import type { useLog } from "../../../providers/logging/LogProvider";
 import type { useContacts } from "../../../stores/contacts/ContactsProvider";
 import { useMiniAppMessage } from "../../bus";
 
-// Imports a contact from a user id and selects it, returning the new contact id
-// (or null when it could not be imported). Shared by the manual import dialog
-// and the org-manager "Import Into Contacts" action, which imports immediately
-// with no dialog. `isImportReady` gates on the store being authenticated,
-// writable, and ready.
+// Roster messages reuse any durable pin, including pins established by TOFU.
+// Directory rows alone grant no trust; unpinned users need the link form.
 export function useImportContactByUserId(input: {
+  identityScope: string;
   importKey: ReturnType<typeof useContacts>["importKey"];
+  resolvePinned: UserIdentities["resolvePinned"];
+  onUnpinnedIdentity: () => void;
   isImportReady: boolean;
   isSubmittingRef: { current: boolean };
   logError: ReturnType<typeof useLog>["logError"];
@@ -24,13 +25,23 @@ export function useImportContactByUserId(input: {
   setSelectedContactId: (contactId: string) => void;
 }) {
   const {
+    identityScope,
     importKey,
+    resolvePinned,
+    onUnpinnedIdentity,
     isImportReady,
     isSubmittingRef,
     logError,
     setIsSubmitting,
     setSelectedContactId,
   } = input;
+  const live = useRef<typeof input | null>(input);
+  useEffect(() => {
+    live.current = input;
+    return () => {
+      live.current = null;
+    };
+  });
 
   return useCallback(
     async (userId: string): Promise<string | null> => {
@@ -46,6 +57,17 @@ export function useImportContactByUserId(input: {
       isSubmittingRef.current = true;
       setIsSubmitting(true);
       try {
+        const pinned = await resolvePinned(trimmedUserId);
+        if (
+          live.current?.identityScope !== identityScope ||
+          live.current.importKey !== importKey ||
+          !live.current.isImportReady
+        )
+          return null;
+        if (!pinned) {
+          onUnpinnedIdentity();
+          return null;
+        }
         const contactId = await importKey(trimmedUserId);
         if (contactId) {
           setSelectedContactId(contactId);
@@ -61,6 +83,9 @@ export function useImportContactByUserId(input: {
     },
     [
       importKey,
+      identityScope,
+      resolvePinned,
+      onUnpinnedIdentity,
       isImportReady,
       isSubmittingRef,
       logError,

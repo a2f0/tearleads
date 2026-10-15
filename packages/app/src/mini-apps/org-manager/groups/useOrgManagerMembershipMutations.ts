@@ -1,9 +1,11 @@
 import type {
   OrganizationDirectory,
   OrganizationGroupMembers,
+  UserIdentities,
 } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
+import { useIdentityLinks } from "../../../providers/identity-links/useIdentityLinks";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
 import { runScopedOrgMutation } from "../hooks/runScopedOrgMutation";
@@ -13,6 +15,7 @@ import {
   addRosterUserToGroup,
   refreshAfterGroupMutation,
 } from "./orgManagerMutationOperations";
+import { resolveGroupIdentity } from "./resolveGroupIdentity";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 
@@ -39,6 +42,7 @@ interface OrgManagerMembershipMutationsParams {
 
 async function addUserToSelectedGroup(
   params: OrgManagerMembershipMutationsParams,
+  identities: Pick<UserIdentities, "verifyLink" | "resolvePinned">,
 ): Promise<void> {
   const targetUserId = params.addUserId.trim();
   const directoryUser = params.directory?.users.find(
@@ -80,8 +84,26 @@ async function addUserToSelectedGroup(
     logError: params.logError,
     operationOrganizationId,
     run: async () => {
-      const policyBundle = await addRosterUserToGroup({
+      // Raw directory selections reuse any existing pin, including TOFU pins.
+      // Without a pin, this flow requires an authenticated identity link.
+      const verifiedUser = await resolveGroupIdentity({
         directoryUser,
+        value: targetUserId,
+        ...identities,
+      });
+      if (!params.isOperationActive(operationOrganizationId)) return;
+      const verifiedDirectoryUser = params.directory?.users.find(
+        (user) => user.userId === verifiedUser.userId,
+      );
+      if (
+        verifiedDirectoryUser?.status === "disabled" &&
+        !params.selectedGroupIsMembersGroup
+      ) {
+        params.setError(ORG_MANAGER_LABELS.userNotFound);
+        return;
+      }
+      const policyBundle = await addRosterUserToGroup({
+        directoryUser: verifiedDirectoryUser,
         groupId: selectedGroupId,
         groupName,
         isOperationActive: params.isOperationActive,
@@ -89,7 +111,7 @@ async function addUserToSelectedGroup(
         operationOrganizationId,
         orgManagerActions: params.orgManagerActions,
         setError: params.setError,
-        targetUserId,
+        targetUserId: verifiedUser.userId,
       });
       if (!policyBundle) {
         return;
@@ -168,9 +190,12 @@ async function removeUserFromSelectedGroup(
 export function useOrgManagerMembershipMutations(
   params: OrgManagerMembershipMutationsParams,
 ) {
+  const { verifyLink, resolvePinned } = useIdentityLinks();
   const addUser = useCallback(
-    () => addUserToSelectedGroup(params),
+    () => addUserToSelectedGroup(params, { verifyLink, resolvePinned }),
     [
+      verifyLink,
+      resolvePinned,
       params.addUserId,
       params.appData.auth.userId,
       params.appData.crypto.encapsulationKeyPair,

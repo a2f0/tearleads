@@ -1,6 +1,7 @@
 export type ContactsRoute = "selection" | "new-contact" | "import-contact";
 
 export interface ContactsRouteSnapshot {
+  identityLinkToken?: string | undefined;
   route: ContactsRoute;
   selectedContactId: string | null;
 }
@@ -29,7 +30,11 @@ export function parseContactsRouteSegments(
   }
 
   if (firstSegment === "import") {
-    return { route: "import-contact", selectedContactId: null };
+    return {
+      route: "import-contact",
+      selectedContactId: null,
+      ...(secondSegment ? { identityLinkToken: secondSegment } : {}),
+    };
   }
 
   if (firstSegment === "contact" && secondSegment) {
@@ -40,6 +45,7 @@ export function parseContactsRouteSegments(
 }
 
 export function formatContactsRouteSegments({
+  identityLinkToken,
   route,
   selectedContactId,
 }: ContactsRouteSnapshot): ReadonlyArray<string> {
@@ -48,7 +54,7 @@ export function formatContactsRouteSegments({
   }
 
   if (route === "import-contact") {
-    return ["import"];
+    return identityLinkToken ? ["import", identityLinkToken] : ["import"];
   }
 
   return selectedContactId ? ["contact", selectedContactId] : [];

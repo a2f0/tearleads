@@ -28,6 +28,7 @@ import {
   openOrgManager,
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
+import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFixtures";
 import { dropNextMswServerEventWhere } from "../../../../test/helpers/mswEventRouter";
 import {
   listProxiedApiRequests,
@@ -166,15 +167,18 @@ async function addPeerToSelectedGroup(
   peerUserId: string,
   onBeforeAdd: () => void,
 ) {
-  const userIdInput = within(pane).getByLabelText("User ID");
+  const userIdInput = within(pane).getByLabelText(
+    "Roster user or identity link",
+  );
   invariant(
     userIdInput instanceof HTMLInputElement,
     "Expected group user id input.",
   );
   const addButton = within(pane).getByRole("button", { name: "Add" });
   invariant(addButton instanceof HTMLButtonElement, "Expected add button.");
+  const peerIdentityLink = await createPeerIdentityLink(peerUserId);
   await interact(() => {
-    fireEvent.change(userIdInput, { target: { value: peerUserId } });
+    fireEvent.change(userIdInput, { target: { value: peerIdentityLink } });
   });
   await waitFor(() => {
     expect(addButton.disabled).toBe(false);

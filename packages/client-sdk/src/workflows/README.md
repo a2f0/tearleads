@@ -220,12 +220,11 @@ Seed phrase generation/import lives on the `tearleads.identity` client facade.
 The phrase derives identity key pairs only; product backup/restore UX and any
 session/container recovery metadata stay in host/app code.
 
-Remote user identity material is a data-layer trust boundary shared by
-workflows, not an ad hoc key fetch. The `tearleads.userIdentities` facade
-exposes the same pinned identity gateway to host-owned contact projections.
-Workflow inputs accept the opaque trusted bundle or a user id resolved by the
-injected gateway; raw identity endpoint and organization response objects must
-not reach signature or encryption helpers.
+The `tearleads.userIdentities` gateway's `resolve` uses TOFU; `createLink` encodes
+keys; `verifyLink` checks before pinning; `resolvePinned` reads any pin, including
+TOFU ([trust scope](../../../../docs/developer/trusted-user-identity.md#identity-links)).
+Workflows accept opaque trusted bundles or gateway-resolved user IDs. Raw API
+identity and directory responses must not reach signature or encryption helpers.
 Lower-level integration tests may use `@tearleads/client-sdk/testing` to
 construct the nominal test values; production source must not import it.
 
