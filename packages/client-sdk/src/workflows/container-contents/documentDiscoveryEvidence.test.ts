@@ -8,6 +8,7 @@ import { documentContainerProjectionTables } from "../../data/sqlite/schema";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import { discoverAllContainerDocuments } from "./documentDiscovery";
 import {
+  laneLister,
   nullContainerDocumentWatermarks,
   pinTestDiscoveryHead,
 } from "./documentDiscovery.testUtils";
@@ -131,7 +132,7 @@ for (const available of [true, false]) {
         ...nullContainerDocumentWatermarks,
         containerIds: ["a", "b"],
         beginDocumentDiscovery: () => store.begin(),
-        listContainerDocuments: async () => ({
+        listContainerDocumentLanes: laneLister(async () => ({
           hasMore: false,
           nextWatermark: { id: "doc", updatedAt: at },
           tombstones: [],
@@ -146,7 +147,7 @@ for (const available of [true, false]) {
               referencedPrincipals: [],
             },
           ],
-        }),
+        })),
         listHeldContainerDocumentTombstones: async () => {
           retries++;
           return [];

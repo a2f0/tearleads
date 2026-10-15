@@ -1,0 +1,4 @@
+# #2522 item 10: greenfield batched document listing replaces the singular
+# route with POST /containers/documents/query (coordinated client/server reset).
+# Remove this exact diagnostic once the default branch contains the batch route.
+GET /containers/{containerId}/documents api path removed without deprecation

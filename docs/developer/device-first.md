@@ -144,7 +144,7 @@ Work items (each maps to an existing function, lane-scheduled here):
 | Work item           | Implementation reused                                         |
 |---------------------|---------------------------------------------------------------|
 | container hydration | `hydrateRemoteContainers` / `requestRemoteHydration`          |
-| document discovery  | `discoverContainerDocuments` (per container, watermark-based) |
+| document discovery  | `discoverContainerDocumentLanes` (batched, per-container)     |
 | metadata sync       | `syncContainerMetadataState`                                  |
 | writer projection   | `assertDocumentWriterProjectionConsistent` (on document sync) |
 
@@ -238,7 +238,7 @@ explicit registered-store revalidation, or other owning workflow opens them.
 
 Remote document discovery requires a current metadata document for every
 container. Local-first roots, regular folders, and system slots are never sent
-to `/containers/:id/documents` before their remote create commits; the document
+to the document listing before their remote create commits; the document
 lane rechecks this after structural hydration because a queued pre-auth root may
 have been replaced in the meantime. When the same local id becomes
 remote-backed, tree growth re-arms it even if it is still the active container.

@@ -59,9 +59,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Private metadata-root authority adds one directory discovery read per
   // operation; completed policy stages need no confirmation read. The
   // attachment's stage carries its part upload source and the bind completes
-  // it. Measured 63–69 calls (settle timing) and about 2.0–2.1 MB received;
-  // keep eight calls of scheduling room.
-  total: 77,
+  // it. Batched discovery lists each reconciliation pass's lanes in one
+  // request. Measured 62–68 calls (settle timing) and about 2.0–2.1 MB
+  // received; keep eight calls of scheduling room.
+  total: 76,
   // Container mutations cite stored manifests by hash, so the share and its
   // recitations no longer echo path bundles: 180 KB sent (was 352 KB). Keep
   // the same ~8% request headroom and room for two extra document projections.
@@ -70,7 +71,8 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,
     "POST /documents/:documentId/sync": 18,
-    "GET /containers/:containerId/documents": 10,
+    // Batched discovery: one listing per reconciliation pass (measured 2).
+    "POST /containers/documents/query": 4,
     "GET /containers": 0,
     // Four held descendants re-cite the shared root and publish refresh hints.
     "POST /containers/parent-lanes/query": 11,

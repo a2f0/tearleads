@@ -4,7 +4,7 @@ import type { SessionEnv } from "../../middleware/session";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { createContainerKekLogRoute } from "./kekLog";
-import { createListContainerDocumentsRoute } from "./listContainerDocuments";
+import { createListContainerDocumentLanesRoute } from "./listContainerDocumentLanes";
 import { createListContainerParentLanesRoute } from "./listContainerParentLanes";
 import { createContainerMutationsRoute } from "./mutations";
 import { createContainerReciteRoute } from "./recite";
@@ -31,7 +31,7 @@ export function createContainersRouter({
 
   containersRouter.route(
     "/",
-    createListContainerDocumentsRoute({ requireAuth, runtime }),
+    createListContainerDocumentLanesRoute({ requireAuth, runtime }),
   );
   containersRouter.route(
     "/",

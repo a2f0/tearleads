@@ -1,4 +1,7 @@
-import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
+import type {
+  ListContainerDocumentLanesRequest,
+  ListContainerParentLanesRequest,
+} from "@tearleads/validators/request";
 import type {
   EffectiveAccessLevel,
   ReferencedPrincipalStateResponse,
@@ -49,31 +52,35 @@ export interface ListContainerParentLanesResponse {
   }>;
 }
 
+export type ContainerDocumentLaneResult =
+  | { readonly laneId: string; readonly page: ListContainerDocumentsResponse }
+  | {
+      readonly failure: { readonly code?: string | undefined };
+      readonly laneId: string;
+    };
+
 export interface ContainerDocumentDiscoveryApi {
-  readonly listContainerDocuments: (
-    containerId: string,
-    options?: { watermark?: SyncWatermark | null },
-  ) => Promise<ListContainerDocumentsResponse | null>;
-  readonly listContainerDocumentsResult?: (
-    containerId: string,
-    options?: { watermark?: SyncWatermark | null },
-    requestOptions?: { reportErrors?: boolean | undefined },
-  ) => Promise<
-    | {
-        readonly data: ListContainerDocumentsResponse;
-        readonly ok: true;
-      }
-    | {
-        readonly message: string;
-        readonly ok: false;
-        readonly report: () => void;
-        readonly status: number | null;
-      }
-  >;
+  readonly listContainerDocumentLanes: (
+    input: ListContainerDocumentLanesRequest,
+    options?: { readonly reportErrors?: boolean | undefined },
+  ) => Promise<{
+    readonly results: ReadonlyArray<ContainerDocumentLaneResult>;
+  } | null>;
   readonly listContainerParentLanes: (
     input: ListContainerParentLanesRequest,
   ) => Promise<ListContainerParentLanesResponse | null>;
 }
+
+/**
+ * One page per lane, aligned with the requested lanes: `null` for a lane the
+ * server rejected, or `null` overall when the request itself failed.
+ */
+export type ContainerDocumentLaneLister = (
+  lanes: ReadonlyArray<{
+    readonly containerId: string;
+    readonly watermark: SyncWatermark | null;
+  }>,
+) => Promise<ReadonlyArray<ListContainerDocumentsResponse | null> | null>;
 
 export interface DocumentLinkInput {
   accessEpoch?: number | undefined;
@@ -184,7 +191,7 @@ export interface DiscoverContainerDocumentsOptions
   loadContainerDocumentWatermark: (
     containerId: string,
   ) => Promise<SyncWatermark | null>;
-  listContainerDocuments: ContainerDocumentDiscoveryApi["listContainerDocuments"];
+  listContainerDocumentLanes: ContainerDocumentLaneLister;
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
   ) => Promise<void>;
@@ -227,12 +234,10 @@ export interface RefreshAllContainerDocumentsOptions
 export interface RefreshAllContainerDocumentsFromApiOptions
   extends Omit<
     RefreshAllContainerDocumentsOptions,
-    "listContainerDocuments" | "listContainerParentLanes"
+    "listContainerDocumentLanes" | "listContainerParentLanes"
   > {
   readonly apiClient: Pick<
     ContainerDocumentDiscoveryApi,
-    | "listContainerDocuments"
-    | "listContainerDocumentsResult"
-    | "listContainerParentLanes"
+    "listContainerDocumentLanes" | "listContainerParentLanes"
   >;
 }

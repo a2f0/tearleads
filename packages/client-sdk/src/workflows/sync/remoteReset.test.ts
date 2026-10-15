@@ -18,7 +18,6 @@ import {
 } from "../../data/sqlite/organizationReadModelSchema";
 import {
   clientSqlTables,
-  containerSyncLaneChecks,
   containerSyncWatermarks,
   containers,
   documentAttachmentBlobProjection,
@@ -251,16 +250,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         updatedAt: stale,
       });
       await tx.insert(containerSyncWatermarks).values({
+        checkedAt: stale,
         laneKind: "container_parent",
         laneId: "root",
         watermarkUpdatedAt: stale,
         watermarkId: "child",
         updatedAt: stale,
-      });
-      await tx.insert(containerSyncLaneChecks).values({
-        laneKind: "container_parent",
-        laneId: "root",
-        checkedAt: stale,
       });
       await tx.insert(organizationReadModelState).values({
         organizationId: "org-old",
@@ -350,7 +345,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       clearedContainerMoveIntentCount: 1,
       clearedDocumentMoveIntentCount: 1,
       clearedPrincipalPolicyCount: 1,
-      clearedSyncCursorCount: 2,
+      clearedSyncCursorCount: 1,
       queuedAttachmentUploadCount: 1,
       queuedContainerCreateCount: 1,
       queuedDocumentUpdateCount: 2,
@@ -469,7 +464,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     for (const table of [
       documentContainerProjection,
       containerSyncWatermarks,
-      containerSyncLaneChecks,
       organizationReadModelState,
       organizationReadModelRequesters,
       organizationReadModelDirectoryUsers,

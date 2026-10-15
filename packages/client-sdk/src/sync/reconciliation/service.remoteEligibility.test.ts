@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createReconciliationService } from "./service";
-import { createReconciliationTestHost } from "./service.testFixtures";
+import {
+  createReconciliationTestHost,
+  perContainerDiscovery,
+} from "./service.testFixtures";
 import { enqueueReconciliationForEvents } from "./triggers";
 
 test("service drops a stale local active id and re-arms it after remote backing", async () => {
@@ -9,10 +12,10 @@ test("service drops a stale local active id and re-arms it after remote backing"
   let remoteBacked = false;
   const host = createReconciliationTestHost({
     canDiscoverContainerDocuments: () => remoteBacked,
-    discoverContainerDocuments: async (containerId) => {
+    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
       discovered.push(containerId);
       return [];
-    },
+    }),
     listKnownContainerIds: () => (remoteBacked ? ["active"] : []),
   });
   const service = createReconciliationService(host);
@@ -35,10 +38,10 @@ test("explicit refresh excludes an ineligible active container", async () => {
   const discovered: string[] = [];
   const host = createReconciliationTestHost({
     canDiscoverContainerDocuments: (containerId) => containerId === "remote",
-    discoverContainerDocuments: async (containerId) => {
+    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
       discovered.push(containerId);
       return [];
-    },
+    }),
     listKnownContainerIds: () => ["remote"],
   });
   const service = createReconciliationService(host);
@@ -56,10 +59,10 @@ test("idle backfill rechecks remote eligibility when queued work drains", async 
   let remoteBacked = false;
   const host = createReconciliationTestHost({
     canDiscoverContainerDocuments: () => remoteBacked,
-    discoverContainerDocuments: async (containerId) => {
+    discoverContainerDocuments: perContainerDiscovery(async (containerId) => {
       discovered.push(containerId);
       return [];
-    },
+    }),
     getRuntimeStatus: () => ({
       dbStatus: "ready",
       isAuthenticated: true,

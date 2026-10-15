@@ -2,21 +2,21 @@ import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { isDocumentUpdateCreatedEvent } from "../../data/documents/documentSync";
 import { dedupeReferencedPrincipalStates } from "../../data/keyingProjectionVerification/principalPolicyCache";
 import {
-  listAllContainerDocuments,
-  listContainerDocumentsFromApi,
+  listContainerDocumentLanesFromApi,
+  listContainerDocumentsFromWatermarks,
 } from "./containerDocumentListing";
 import { withoutDeferredDocumentLinks } from "./deferredDocumentLinks";
+import { saveAppliedContainerDocumentWatermark } from "./documentDiscoveryApply";
 import {
   collectApplicableDocumentTombstones,
   collectDiscoveredDocumentInputs,
-  getApplicableDocumentTombstones,
 } from "./documentDiscoveryInputs";
+import { discoverContainerDocumentLanes } from "./documentDiscoveryLanes";
 import type {
   ContainerDocumentDiscoveryApi,
   ContainerParentDiscoveryLane,
   DiscoverAllContainerDocumentsOptions,
   DiscoverContainerDocumentsOptions,
-  ListedContainerDocuments,
   ListedContainerDocumentsLane,
   RefreshAllContainerDocumentsFromApiOptions,
   RefreshAllContainerDocumentsOptions,
@@ -26,7 +26,6 @@ import { settleContainerDocumentTombstones } from "./documentTombstoneGate";
 export type { RefreshAllContainerDocumentsFromApiOptions } from "./documentDiscoveryTypes";
 
 const CONTAINER_PARENT_DISCOVERY_BATCH_SIZE = 4;
-const CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY = 4;
 
 type ContainerParentLaneRequest = Parameters<
   ContainerDocumentDiscoveryApi["listContainerParentLanes"]
@@ -84,71 +83,6 @@ function collectRemoteContainerIds(
   }
 
   return items.map(({ id }) => id);
-}
-
-async function saveAppliedContainerDocumentWatermark(input: {
-  containerId: string;
-  listedDocuments: ListedContainerDocuments;
-  saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"];
-}) {
-  const { containerId, listedDocuments, saveContainerDocumentWatermark } =
-    input;
-  if (!listedDocuments.nextWatermark) {
-    return;
-  }
-
-  await saveContainerDocumentWatermark(
-    containerId,
-    listedDocuments.nextWatermark,
-  );
-}
-
-async function listContainerDocumentLanes(input: {
-  containerIds: ReadonlyArray<string>;
-  loadContainerDocumentWatermark: DiscoverContainerDocumentsOptions["loadContainerDocumentWatermark"];
-  listContainerDocuments: DiscoverContainerDocumentsOptions["listContainerDocuments"];
-}): Promise<ListedContainerDocumentsLane[]> {
-  const {
-    containerIds,
-    loadContainerDocumentWatermark,
-    listContainerDocuments,
-  } = input;
-  const listedDocumentsByContainer: ListedContainerDocumentsLane[] = [];
-  let nextContainerIndex = 0;
-
-  async function worker() {
-    while (nextContainerIndex < containerIds.length) {
-      const containerIndex = nextContainerIndex;
-      nextContainerIndex += 1;
-      const containerId = containerIds[containerIndex];
-      if (!containerId) {
-        throw new Error("Container document discovery received an empty lane");
-      }
-
-      listedDocumentsByContainer[containerIndex] = {
-        containerId,
-        listedDocuments: await listAllContainerDocuments({
-          containerId,
-          loadContainerDocumentWatermark,
-          listContainerDocuments,
-        }),
-      };
-    }
-  }
-
-  await Promise.all(
-    Array.from(
-      {
-        length: Math.min(
-          CONTAINER_DOCUMENT_DISCOVERY_CONCURRENCY,
-          containerIds.length,
-        ),
-      },
-      () => worker(),
-    ),
-  );
-
-  return listedDocumentsByContainer;
 }
 
 export function hasUndiscoveredDocumentUpdateEvent(
@@ -238,110 +172,46 @@ export function listAllRemoteContainerIdsFromApi(
   );
 }
 
-export async function discoverContainerDocuments(
-  options: DiscoverContainerDocumentsOptions,
-): Promise<ReadonlyArray<DocumentSummary> | null> {
-  const {
-    cacheReferencedPrincipalPolicies,
-    containerId,
+export async function discoverContainerDocuments({
+  beginDocumentDiscovery,
+  listContainerDocumentLanes,
+  loadContainerDocumentWatermark,
+  ...lane
+}: DiscoverContainerDocumentsOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
+  const [outcome] = await discoverContainerDocumentLanes({
+    generation: await beginDocumentDiscovery(),
+    lanes: [lane],
+    listContainerDocumentLanes,
     loadContainerDocumentWatermark,
-    listContainerDocuments,
-    onFullListing,
-    replaceDocumentLinksBatch,
-    saveContainerDocumentWatermark,
-    upsertDiscoveredDocuments,
-  } = options;
-  const generation = await options.beginDocumentDiscovery();
-  const listedDocuments = await listAllContainerDocuments({
-    containerId,
-    loadContainerDocumentWatermark,
-    listContainerDocuments,
   });
-  if (!listedDocuments) {
-    return null;
-  }
-
-  await cacheReferencedPrincipalPolicies?.(
-    dedupeReferencedPrincipalStates(
-      listedDocuments.items.flatMap(
-        (document) => document.referencedPrincipals,
-      ),
-    ),
-  );
-
-  const verification = await options.verifyDiscoveredDocuments(
-    listedDocuments.items.map((document) => ({
-      accessEpoch: document.currentAccessEpoch,
-      accessStateHash: document.currentAccessStateHash,
-      containerId,
-      listedContainerIds: [containerId],
-      createdAt: document.createdAt,
-      documentId: document.id,
-      effectiveAccessLevel: document.effectiveAccessLevel,
-      linkedContainerIds: document.linkedContainerIds,
-    })),
-    [containerId],
-    generation,
-    getApplicableDocumentTombstones(listedDocuments),
-  );
-  if (!(await verification.isCurrent())) return null;
-  const verifiedInputs = verification.inputs;
-  const discoveredDocuments = verifiedInputs.length
-    ? await upsertDiscoveredDocuments(verifiedInputs)
-    : [];
-
-  if (verifiedInputs.length)
-    await replaceDocumentLinksBatch(
-      await withoutDeferredDocumentLinks(
-        verifiedInputs.map((document) => ({
-          documentId: document.documentId,
-          accessEpoch: document.accessEpoch,
-          containerIds: document.linkedContainerIds,
-        })),
-        discoveredDocuments,
-      ),
-    );
-
-  const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
-    containerIds: [containerId],
-    store: options,
-    tombstones: getApplicableDocumentTombstones(listedDocuments),
-  });
-
-  const complete = await verification.commit();
-  if (!(await verification.isCurrent())) return null;
-  await saveAppliedContainerDocumentWatermark({
-    containerId,
-    listedDocuments,
-    saveContainerDocumentWatermark,
-  });
-
-  if (listedDocuments.isFullListing) {
-    // Initial probes consume ids as discovery hints and verify their own heads.
-    onFullListing?.(listedDocuments.items.map((document) => document.id));
-  }
-
-  return !complete &&
-    discoveredDocuments.length === 0 &&
-    tombstoneDocumentSummaries.length === 0
-    ? null
-    : [...discoveredDocuments, ...tombstoneDocumentSummaries];
+  if (outcome?.status === "rejected") throw outcome.reason;
+  return outcome?.value ?? null;
 }
 
 export function discoverContainerDocumentsFromApi({
   apiClient,
   ...input
-}: Omit<DiscoverContainerDocumentsOptions, "listContainerDocuments"> & {
+}: Omit<DiscoverContainerDocumentsOptions, "listContainerDocumentLanes"> & {
   readonly apiClient: Pick<
     ContainerDocumentDiscoveryApi,
-    "listContainerDocuments" | "listContainerDocumentsResult"
+    "listContainerDocumentLanes"
   >;
 }): Promise<ReadonlyArray<DocumentSummary> | null> {
   return discoverContainerDocuments({
     ...input,
-    listContainerDocuments: (containerId, options) =>
-      listContainerDocumentsFromApi(apiClient, containerId, options),
+    listContainerDocumentLanes: (lanes) =>
+      listContainerDocumentLanesFromApi(apiClient, lanes),
   });
+}
+
+async function listDiscoveryLanes(
+  input: Parameters<typeof listContainerDocumentsFromWatermarks>[0],
+): Promise<ListedContainerDocumentsLane[]> {
+  const listed = await listContainerDocumentsFromWatermarks(input);
+  return input.containerIds.map((containerId) => ({
+    containerId,
+    listedDocuments: listed.get(containerId) ?? null,
+  }));
 }
 
 export async function discoverAllContainerDocuments(
@@ -351,7 +221,7 @@ export async function discoverAllContainerDocuments(
     cacheReferencedPrincipalPolicies,
     containerIds,
     loadContainerDocumentWatermark,
-    listContainerDocuments,
+    listContainerDocumentLanes,
     replaceDocumentLinksBatch,
     saveContainerDocumentWatermark,
     upsertDiscoveredDocuments,
@@ -361,10 +231,10 @@ export async function discoverAllContainerDocuments(
       typeof containerId === "string" && containerId.length > 0,
   );
   const generation = await options.beginDocumentDiscovery();
-  const listedDocumentsByContainer = await listContainerDocumentLanes({
+  const listedDocumentsByContainer = await listDiscoveryLanes({
     containerIds: uniqueContainerIds,
+    listContainerDocumentLanes,
     loadContainerDocumentWatermark,
-    listContainerDocuments,
   });
   await cacheReferencedPrincipalPolicies?.(
     dedupeReferencedPrincipalStates(
@@ -456,8 +326,8 @@ export function refreshAllContainerDocumentsFromApi({
 }: RefreshAllContainerDocumentsFromApiOptions): Promise<ReadonlyArray<DocumentSummary> | null> {
   return refreshAllContainerDocuments({
     ...input,
-    listContainerDocuments: (containerId, options) =>
-      listContainerDocumentsFromApi(apiClient, containerId, options),
+    listContainerDocumentLanes: (lanes) =>
+      listContainerDocumentLanesFromApi(apiClient, lanes),
     listContainerParentLanes: (input) =>
       apiClient.listContainerParentLanes(input),
   });

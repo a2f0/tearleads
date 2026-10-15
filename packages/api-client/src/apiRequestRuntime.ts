@@ -88,6 +88,11 @@ export class ApiRequestRuntime {
     this.onError = handler;
   }
 
+  /** Reports a failure carried inside a successful batched response. */
+  reportError(message: string): void {
+    this.onError?.(message);
+  }
+
   setOnNetworkError(handler: (() => void) | null): void {
     this.onNetworkError = handler;
   }

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import {
   getContainerKekLogOperation,
-  listContainerDocumentsOperation,
+  listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
   operationRoutePath,
 } from "@tearleads/validators/operation";
@@ -9,7 +9,7 @@ import type { MiddlewareHandler } from "hono";
 import type { SessionEnv } from "../middleware/session";
 import type { ApiServiceRuntime } from "../services/runtime";
 import { createContainerKekLogRoute } from "./containers/kekLog";
-import { createListContainerDocumentsRoute } from "./containers/listContainerDocuments";
+import { createListContainerDocumentLanesRoute } from "./containers/listContainerDocumentLanes";
 import { createListContainerParentLanesRoute } from "./containers/listContainerParentLanes";
 
 const runtime = {} as ApiServiceRuntime;
@@ -22,8 +22,8 @@ test("container read routes register from shared operations", () => {
       route: createContainerKekLogRoute({ requireAuth, runtime }),
     },
     {
-      operation: listContainerDocumentsOperation,
-      route: createListContainerDocumentsRoute({ requireAuth, runtime }),
+      operation: listContainerDocumentLanesOperation,
+      route: createListContainerDocumentLanesRoute({ requireAuth, runtime }),
     },
     {
       operation: listContainerParentLanesOperation,
@@ -51,9 +51,9 @@ test("container read routes authenticate before boundary parsing", async () => {
       route: createContainerKekLogRoute({ requireAuth, runtime }),
     },
     {
-      init: { method: "GET" },
-      path: "/containers/container-1/documents?limit=invalid",
-      route: createListContainerDocumentsRoute({ requireAuth, runtime }),
+      init: { method: "POST" },
+      path: "/containers/documents/query",
+      route: createListContainerDocumentLanesRoute({ requireAuth, runtime }),
     },
     {
       init: { method: "POST" },
@@ -71,23 +71,37 @@ test("container read routes authenticate before boundary parsing", async () => {
 
 test("container list inputs reject invalid values at the HTTP boundary", async () => {
   const requireAuth: MiddlewareHandler<SessionEnv> = (_c, next) => next();
-  const documentRoute = createListContainerDocumentsRoute({
+  const documentRoute = createListContainerDocumentLanesRoute({
     requireAuth,
     runtime,
   });
-  const documentResponse = await documentRoute.request(
-    "/containers/container-1/documents?limit=0",
-  );
-  expect(documentResponse.status).toBe(400);
-  expect(await documentResponse.json()).toEqual({ error: "Invalid limit" });
-
-  const watermarkResponse = await documentRoute.request(
-    "/containers/container-1/documents?watermarkId=document-1",
-  );
-  expect(watermarkResponse.status).toBe(400);
-  expect(await watermarkResponse.json()).toEqual({
-    error: "Invalid watermark",
-  });
+  const lane = {
+    containerId: "6f9619ff-8b86-4d01-b42d-00cf4fc964ff",
+    laneId: "lane-0",
+    watermark: null,
+  };
+  for (const lanes of [
+    [],
+    [{ ...lane, limit: 0 }],
+    [{ ...lane, watermark: { id: "document-1" } }],
+    [{ ...lane, containerId: "container-1" }],
+    Array.from({ length: 33 }, (_, index) => ({
+      ...lane,
+      laneId: `lane-${index}`,
+      limit: 1,
+    })),
+  ]) {
+    const documentResponse = await documentRoute.request(
+      "/containers/documents/query",
+      {
+        body: JSON.stringify({ lanes }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      },
+    );
+    expect(documentResponse.status).toBe(400);
+    expect(await documentResponse.json()).toEqual({ error: "Invalid request" });
+  }
 
   const parentRoute = createListContainerParentLanesRoute({
     requireAuth,

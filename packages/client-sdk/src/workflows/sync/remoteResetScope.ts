@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import {
-  containerSyncLaneChecks,
   containerSyncWatermarks,
   containers,
   documentContainerProjection,
@@ -185,10 +184,7 @@ async function loadSnapshotCounts(input: {
   const principalKeys = principalScope.principalKeys;
   const principalKeySet = new Set(principalKeys.map(principalKeyOfRow));
   const scopedContainerIds = new Set(input.containerIds);
-  const [watermarks, laneChecks] = await Promise.all([
-    tx.select().from(containerSyncWatermarks),
-    tx.select().from(containerSyncLaneChecks),
-  ]);
+  const syncLanes = await tx.select().from(containerSyncWatermarks);
 
   return {
     clearedContainerCreateIntentCount: containerIntentCount(
@@ -208,19 +204,12 @@ async function loadSnapshotCounts(input: {
     clearedPrincipalPolicyCount: principalScope.policyRows.filter((row) =>
       principalKeySet.has(`${row.type}\0${row.id}`),
     ).length,
-    clearedSyncCursorCount:
-      watermarks.filter((row) =>
-        isRemoteResetSyncCursor({
-          containerIds: scopedContainerIds,
-          row,
-        }),
-      ).length +
-      laneChecks.filter((row) =>
-        isRemoteResetSyncCursor({
-          containerIds: scopedContainerIds,
-          row,
-        }),
-      ).length,
+    clearedSyncCursorCount: syncLanes.filter((row) =>
+      isRemoteResetSyncCursor({
+        containerIds: scopedContainerIds,
+        row,
+      }),
+    ).length,
     principalKeys,
   };
 }

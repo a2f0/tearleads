@@ -13,7 +13,10 @@ import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
 } from "./documentDiscovery";
-import { nullContainerDocumentWatermarks } from "./documentDiscovery.testUtils";
+import {
+  laneLister,
+  nullContainerDocumentWatermarks,
+} from "./documentDiscovery.testUtils";
 import type { DiscoverContainerDocumentsOptions } from "./documentDiscoveryTypes";
 import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
 import { listContainerContentsDocumentsForContainers } from "./documentSubtreeQueries";
@@ -109,7 +112,7 @@ test.each([
       await discoverAllContainerDocuments({
         ...nullContainerDocumentWatermarks,
         containerIds: [first, second],
-        listContainerDocuments: async (containerId) => ({
+        listContainerDocumentLanes: laneLister(async (containerId) => ({
           hasMore: false,
           nextWatermark: null,
           tombstones: [],
@@ -124,7 +127,7 @@ test.each([
               referencedPrincipals: [],
             },
           ],
-        }),
+        })),
         replaceDocumentLinksBatch: (inputs) =>
           links.replaceDocumentLinksBatch(execSql, inputs),
         upsertDiscoveredDocuments: (inputs) =>
@@ -162,7 +165,7 @@ for (const mode of ["single", "all"]) {
       const options: DiscoverContainerDocumentsOptions = {
         ...nullContainerDocumentWatermarks,
         containerId: "root",
-        listContainerDocuments: async () => ({
+        listContainerDocumentLanes: laneLister(async () => ({
           hasMore: false,
           nextWatermark: null,
           tombstones: [],
@@ -175,7 +178,7 @@ for (const mode of ["single", "all"]) {
             linkedContainerIds: ["root"],
             referencedPrincipals: [],
           })),
-        }),
+        })),
         replaceDocumentLinksBatch: (inputs) =>
           links.replaceDocumentLinksBatch(execSql, inputs),
         upsertDiscoveredDocuments: (inputs) =>

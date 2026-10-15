@@ -3,10 +3,20 @@ export const containerKekLogSingleKeyringRefinement = {
   id: "response.container-kek-log-single-keyring",
 } as const;
 
-const containerDocumentWatermarkRefinement = {
+export const containerDocumentLaneRequestUniqueIdsRefinement = {
+  description: "container document-lane request lane ids must be unique",
+  id: "request.container-document-lane-unique-ids",
+} as const;
+
+export const containerDocumentLaneRequestPageTotalRefinement = {
   description:
-    "container-document watermark fields must be supplied together with a parseable date",
-  id: "request.container-documents-watermark",
+    "container document-lane request page limits must total at most 500",
+  id: "request.container-document-lane-page-total",
+} as const;
+
+export const containerDocumentLaneResponseUniqueIdsRefinement = {
+  description: "container document-lane response lane ids must be unique",
+  id: "response.container-document-lane-unique-ids",
 } as const;
 
 export const containerParentLaneRequestUniqueIdsRefinement = {
@@ -29,8 +39,10 @@ export const containerKekLogResponseRuntimeRefinements = [
   containerKekLogSingleKeyringRefinement,
 ] as const;
 
-export const containerDocumentRuntimeRefinements = [
-  containerDocumentWatermarkRefinement,
+export const containerDocumentLaneRuntimeRefinements = [
+  containerDocumentLaneRequestUniqueIdsRefinement,
+  containerDocumentLaneRequestPageTotalRefinement,
+  containerDocumentLaneResponseUniqueIdsRefinement,
 ] as const;
 
 export const containerParentLaneRuntimeRefinements = [

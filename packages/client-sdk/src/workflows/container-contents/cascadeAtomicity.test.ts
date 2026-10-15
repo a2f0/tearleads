@@ -72,14 +72,10 @@ async function seedContainerWithMetadata(execSql: ExecSql): Promise<void> {
   );
   await execSql(
     `INSERT INTO container_sync_watermarks (
-      lane_kind, lane_id, watermark_updated_at, watermark_id, updated_at
-    ) VALUES (?, ?, ?, ?, ?)`,
-    ["container_documents", "doomed", T0, "watermark-doomed", T0],
-  );
-  await execSql(
-    `INSERT INTO container_sync_lane_checks (lane_kind, lane_id, checked_at)
-     VALUES (?, ?, ?)`,
-    ["container_documents", "doomed", T0],
+      lane_kind, lane_id, watermark_updated_at, watermark_id, updated_at,
+      checked_at
+    ) VALUES (?, ?, ?, ?, ?, ?)`,
+    ["container_documents", "doomed", T0, "watermark-doomed", T0, T0],
   );
 }
 
@@ -118,7 +114,7 @@ test.each([false, true])(
         bind?: SqlBind,
         options?: { rowMode?: SqlRowMode },
       ) => {
-        if (/delete\s+from\s+"?container_sync_lane_checks/i.test(sql)) {
+        if (/delete\s+from\s+"?container_sync_watermarks/i.test(sql)) {
           throw new Error("injected crash at the cascade's final statement");
         }
         return execSql(sql, bind, options as { rowMode: "array" });
@@ -173,8 +169,8 @@ test.each([false, true])(
       expect(
         await countRows(
           execSql,
-          `SELECT COUNT(*) AS n FROM container_sync_lane_checks
-         WHERE lane_id = ?`,
+          `SELECT COUNT(*) AS n FROM container_sync_watermarks
+         WHERE lane_id = ? AND checked_at IS NOT NULL`,
           ["doomed"],
         ),
       ).toBe(1);
@@ -237,14 +233,6 @@ test.each([false, true])(
         await countRows(
           execSql,
           `SELECT COUNT(*) AS n FROM container_sync_watermarks
-         WHERE lane_id = ?`,
-          ["doomed"],
-        ),
-      ).toBe(0);
-      expect(
-        await countRows(
-          execSql,
-          `SELECT COUNT(*) AS n FROM container_sync_lane_checks
          WHERE lane_id = ?`,
           ["doomed"],
         ),

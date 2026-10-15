@@ -116,6 +116,13 @@ successful reconciliation, so the lossy hint cannot be discarded by discovery
 suppression, temporary ineligibility, a transient request failure, or database
 loss mid-request. A fulfilled discovery that reports an incompletely listed
 remote lane also retains the force for the next reconciliation signal.
+Discovery lists containers in batches through `POST /containers/documents/query`:
+a reconciliation lane run lists up to four queued containers and a sweep up to
+32 per request. Each container keeps its own watermark and page bound, then
+verifies and applies on its own, in order; a rejected lane or a failed apply
+leaves the other containers' results intact. Force generations are captured
+before the batched request is sent, so a hint arriving while it is in flight is
+never acknowledged by that batch.
 Rejected forced discovery receives one backoff-delayed automatic retry per
 force generation. A second failure settles the coordinator while retaining the
 force for a later event, reconnect, hydration, navigation, or manual sync
