@@ -95,7 +95,10 @@ Tests in a file run one at a time unless they opt into concurrency, so the
 per-test label is exact; filter with `-t` for one test. A probe sets
 `globalThis.sqlCaptureLabel` around the call it measures and clears it after,
 so fixture setup is labelled separately. Bind values are never recorded,
-only their count. Summarize with `jq`, for example the most repeated
+only their count. Transaction controls reach the logger only on
+`API_DATABASE=sqlite` and `postgres`: PGlite's native transaction method
+bypasses it, so a PGlite capture (including every canary) has no
+transaction count. Summarize with `jq`, for example the most repeated
 statements for one label:
 
 ```sh
@@ -124,9 +127,10 @@ capture file per run:
   registration, read-model, projection, and verification-marker counts.
 
 Record per scenario: total statements, statements per request where the
-phase gives a request count, the top repeated normalized statements, and
-transaction-control statements (an unexplained count of these is a
-transaction-scope lead). Compare the canary top ten with the PlanetScale
+phase gives a request count, and the top repeated normalized statements.
+Count transactions only from a SQLite or local Postgres capture of the same
+test, and mark the count unavailable for PGlite; an unexplained count is a
+transaction-scope lead. Compare the canary top ten with the PlanetScale
 Insights top ten; agreement confirms the canaries exercise the production
 hot path, and disagreement is itself a lead.
 

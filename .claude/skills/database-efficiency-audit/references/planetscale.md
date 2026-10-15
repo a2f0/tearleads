@@ -32,7 +32,8 @@ database:
 
 ## Endpoints
 
-Base: `https://api.planetscale.com/v1/organizations/tearleads/databases/<db>`.
+`BASE=https://api.planetscale.com/v1/organizations/tearleads/databases`;
+each path below follows `$BASE/<db>`.
 
 | Path | Use |
 | --- | --- |
