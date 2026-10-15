@@ -114,11 +114,13 @@ The counter alone, `withDatabaseStatementCounter(counter, work)`, counts
 without text. Its scope must contain the awaited work: pass an `async`
 function that awaits the query. A bare Drizzle builder returned from the
 callback executes after the scope has closed and counts zero. Like the
-capture, it counts `BEGIN` and `COMMIT` on SQLite but not on PGlite, so the
-same operation reads two higher on SQLite. To assert an exact count for
-work inside one transaction, open the counter inside the transaction
-callback. `packages/api/src/workflows/documents/mutations/documentStatementBudget.test.ts`
-pins document create, sync write, and sync pull this way.
+capture, it sees transaction controls on SQLite but not on PGlite, so a
+SQLite count runs higher by each transaction's control statements (one per
+request in the document budget below). To assert an exact count for work
+inside one transaction, open the counter inside the transaction callback,
+as `packages/api/src/workflows/signerPublicKey.test.ts` does. Whole-request
+ceilings, with PGlite and SQLite measurements in a comment, are in
+`packages/api/src/workflows/documents/mutations/documentStatementBudget.test.ts`.
 
 ## Scenario set
 
