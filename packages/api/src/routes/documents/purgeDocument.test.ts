@@ -10,7 +10,6 @@ import {
   blobs,
   containerDocumentSyncTombstones,
   containers,
-  documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documentContentWriteHeaders,
@@ -69,6 +68,7 @@ import {
 import { createTestContainerKekId } from "../../../test/helpers/containerKekMaterial";
 import { containerManifestRef } from "../../../test/helpers/containerManifestRefs";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
+import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
@@ -628,7 +628,7 @@ interface DocumentRowPresence {
   readonly accessManifestDocumentLinkProjection: number;
   readonly accessManifestHeads: number;
   readonly accessManifests: number;
-  readonly documentContainerLinks: number;
+  readonly currentDocumentLinks: number;
   readonly documentContentKeyEpochs: number;
   readonly documentContentKeyTargets: number;
   readonly documentContentWriteHeaders: number;
@@ -655,10 +655,7 @@ async function countDocumentRows(
       .select({ id: documents.id })
       .from(documents)
       .where(eq(documents.id, documentId)),
-    db
-      .select({ id: documentContainerLinks.id })
-      .from(documentContainerLinks)
-      .where(eq(documentContainerLinks.documentId, documentId)),
+    currentDocumentLinkRows(documentId),
     db
       .select({ manifestHash: accessManifests.manifestHash })
       .from(accessManifests)
@@ -720,7 +717,7 @@ async function countDocumentRows(
     accessManifestDocumentLinkProjection: linkProjectionRows.length,
     accessManifestHeads: manifestHeadRows.length,
     accessManifests: manifestRows.length,
-    documentContainerLinks: linkRows.length,
+    currentDocumentLinks: linkRows.length,
     documentContentKeyEpochs: epochRows.length,
     documentContentKeyTargets: targetRows.length,
     documentContentWriteHeaders: writeHeaderRows.length,
@@ -758,7 +755,7 @@ test("document purge succeeds when event publication fails", async () => {
 
   const before = await countDocumentRows(created.id);
   expect(before.documents).toBe(1);
-  expect(before.documentContainerLinks).toBe(1);
+  expect(before.currentDocumentLinks).toBe(1);
   expect(before.accessManifests).toBeGreaterThan(0);
   expect(before.accessEvents).toBeGreaterThan(0);
   expect(before.documentContentKeyEpochs).toBeGreaterThan(0);
@@ -812,7 +809,7 @@ test("document purge succeeds when event publication fails", async () => {
     accessManifestDocumentLinkProjection: 1,
     accessManifestHeads: 0,
     accessManifests: 1,
-    documentContainerLinks: 0,
+    currentDocumentLinks: 0,
     documentContentKeyEpochs: 0,
     documentContentKeyTargets: 0,
     documentContentWriteHeaders: 0,
@@ -884,7 +881,7 @@ test("POST document purge rejects a document linked to more than one container",
 
   const before = await countDocumentRows(created.id);
   expect(before.documents).toBe(1);
-  expect(before.documentContainerLinks).toBe(2);
+  expect(before.currentDocumentLinks).toBe(2);
 
   const response = await purgeDocumentViaRoute({
     documentId: created.id,
@@ -931,7 +928,7 @@ test("POST document purge rejects callers without container write access", async
 
   const after = await countDocumentRows(created.id);
   expect(after.documents).toBe(1);
-  expect(after.documentContainerLinks).toBe(1);
+  expect(after.currentDocumentLinks).toBe(1);
   expect(after.accessManifests).toBeGreaterThan(0);
   expect(after.documentContentKeyEpochs).toBeGreaterThan(0);
   expect(

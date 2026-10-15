@@ -80,6 +80,8 @@ interface StoredAccessManifestBundle {
   readonly manifest: AccessManifest;
   readonly manifestHash: string;
   readonly state: KeyingCanonicalJson;
+  /** Untrusted stored-history marker; honored only after its MAC verifies. */
+  readonly verificationMac: string | null;
 }
 
 function toStoredAccessManifestHead(
@@ -259,6 +261,7 @@ export async function getAccessManifestBundles(
         manifest.state,
         "stored access manifest state",
       ),
+      verificationMac: manifest.verificationMac,
     });
   }
 

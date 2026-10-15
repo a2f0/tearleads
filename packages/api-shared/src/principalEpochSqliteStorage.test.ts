@@ -17,12 +17,12 @@ test("SQLite principal key epochs round-trip the safe range and reject overflow"
       id, principal_type, principal_id, version, key_epoch,
       encapsulation_public_key, key_fingerprint, membership_mode, membership_root,
       member_envelopes_root, projection_root, grant_root, payload_ciphertext_hash,
-      member_count, grant_count, state_hash, signed_at, signer_user_id,
-      signer_user_key_fingerprint, signature
+      member_count, grant_count, container_grants, state_hash, signed_at,
+      signer_user_id, signer_user_key_fingerprint, signature
     ) VALUES (
       'state', 'group', 'principal', 1, 1, 'fixture', 'fixture', 'projection',
-      'fixture', 'fixture', 'fixture', 'fixture', 'fixture', 1, 0, 'fixture', 0,
-      'signer', 'fixture', 'fixture'
+      'fixture', 'fixture', 'fixture', 'fixture', 'fixture', 1, 0, '[]',
+      'fixture', 0, 'signer', 'fixture', 'fixture'
     )`);
     client.exec(`INSERT INTO access_manifest_principal_head_projection (
       id, manifest_hash, object_kind, object_id, principal_type, principal_id,

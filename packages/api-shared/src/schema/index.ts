@@ -5,7 +5,6 @@ export {
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
   accessManifests,
-  accessManifestVerifications,
   containerBuiltinGrants,
   documentManifestObservations,
 } from "./accessManifests";
@@ -29,7 +28,6 @@ export { documentInlineRekeyCommits } from "./documentInlineRekeyCommits";
 export {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
-  documentContainerLinks,
 } from "./documentLinks";
 export { groups, organizationGroupTombstones } from "./groups";
 export { documents, documentUpdateSpans, documentUpdates } from "./loro";
@@ -59,7 +57,6 @@ export {
 export { principalPolicyCommits } from "./principalPolicyCommits";
 export { principalPolicyMutationAcknowledgements } from "./principalPolicyMutationAcknowledgements";
 export {
-  principalContainerGrantProjection,
   principalEpochKeys,
   principalMemberEnvelopes,
   principalMembershipProjection,

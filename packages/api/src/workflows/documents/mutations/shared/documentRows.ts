@@ -3,7 +3,6 @@ import {
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
   containers,
-  documentContainerLinks,
   documents,
 } from "@tearleads/api-shared/schema";
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
@@ -20,7 +19,11 @@ import {
   documentNotFound,
 } from "../errors";
 
-export async function insertDocumentAndLinks(input: {
+/**
+ * Insert the document row and touch its linked containers. The links
+ * themselves are the stored manifest's link projection under its head.
+ */
+export async function insertDocumentRow(input: {
   readonly createdByFingerprint: string;
   readonly executor: DatabaseTransaction;
   readonly manifest: VerifiedDocumentLinkSetManifest;
@@ -50,14 +53,6 @@ export async function insertDocumentAndLinks(input: {
     throw new DocumentMutationError("Failed to create document", 409);
   }
 
-  if (input.manifest.state.linkedContainerIds.length > 0) {
-    await input.executor.insert(documentContainerLinks).values(
-      input.manifest.state.linkedContainerIds.map((containerId) => ({
-        documentId: input.manifest.state.documentId,
-        containerId,
-      })),
-    );
-  }
   await touchContainers(
     input.executor,
     input.manifest.state.linkedContainerIds,
@@ -170,35 +165,26 @@ export async function assertDocumentCanRelink(input: {
   }
 }
 
-export async function replaceDocumentContainerLinks(input: {
+/**
+ * Record a link-set change whose manifest the caller stored as the new head
+ * over `previousLinkedContainerIds` (the verified previous head's set): write
+ * discovery tombstones for removed containers and touch every affected row.
+ */
+export async function recordDocumentLinkSetChange(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly incrementAttributionRevision?: boolean;
   readonly linkedContainerIds: readonly string[];
+  readonly previousLinkedContainerIds: readonly string[];
 }): Promise<void> {
-  const previousRows = await input.executor
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, input.documentId));
-  const previousContainerIds = previousRows.map((row) => row.containerId);
+  const previousContainerIds = uniqueSortedStrings(
+    input.previousLinkedContainerIds,
+  );
   const nextContainerIds = uniqueSortedStrings(input.linkedContainerIds);
   const removedContainerIds = previousContainerIds.filter(
     (containerId) => !nextContainerIds.includes(containerId),
   );
   const updatedAt = new Date();
-
-  await input.executor
-    .delete(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, input.documentId));
-
-  if (nextContainerIds.length > 0) {
-    await input.executor.insert(documentContainerLinks).values(
-      nextContainerIds.map((containerId) => ({
-        documentId: input.documentId,
-        containerId,
-      })),
-    );
-  }
 
   if (removedContainerIds.length > 0) {
     await input.executor

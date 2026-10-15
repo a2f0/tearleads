@@ -8,7 +8,6 @@ import {
   containerMetadataDocuments,
   containerSyncTombstones,
   containers,
-  documentContainerLinks,
   documentContentKeyEpochs,
   documentContentKeyTargets,
   documents,
@@ -91,6 +90,10 @@ import {
   readContainerParentLanePage as readLanePage,
 } from "../../../test/helpers/containerParentLaneQuery";
 import { contentKeyEnvelopeFixture } from "../../../test/helpers/contentKeyEnvelope";
+import {
+  currentDocumentLinkRows,
+  seedCurrentDocumentLink,
+} from "../../../test/helpers/currentDocumentLinks";
 import { expectDocumentAccessHistoryAbsent } from "../../../test/helpers/documentAccessHistory";
 import { groupPolicyPayload } from "../../../test/helpers/groupPolicyPayload";
 import {
@@ -1201,11 +1204,6 @@ async function seedDownstreamContentKeyRows(input: {
     id: documentId,
     createdByFingerprint: input.owner.fingerprint,
   });
-  await db.insert(documentContainerLinks).values({
-    documentId,
-    containerId: input.containerId,
-  });
-
   const [documentContentKeyEpoch] = await db
     .insert(documentContentKeyEpochs)
     .values({
@@ -1564,17 +1562,11 @@ bunTest.each([null, TEST_CONTACTS_SYSTEM_SLOT])(
       parentId: owner.rootContainerId,
     });
 
-    const [documentLink] = await db
-      .select({
-        containerId: documentContainerLinks.containerId,
-        documentId: documentContainerLinks.documentId,
-      })
-      .from(documentContainerLinks)
-      .where(eq(documentContainerLinks.documentId, body.metadataDocument.id))
-      .limit(1);
+    const [documentLink] = await currentDocumentLinkRows(
+      body.metadataDocument.id,
+    );
     expect(documentLink).toEqual({
       containerId,
-      documentId: body.metadataDocument.id,
     });
   },
   10_000,
@@ -1637,12 +1629,7 @@ test("DELETE /containers/:id reserves the retired metadata ID", async () => {
       .from(containerMetadataDocuments)
       .where(eq(containerMetadataDocuments.containerId, containerId)),
   ).toEqual([{ documentId: metadataDocumentId }]);
-  expect(
-    await db
-      .select({ documentId: documentContainerLinks.documentId })
-      .from(documentContainerLinks)
-      .where(eq(documentContainerLinks.documentId, metadataDocumentId)),
-  ).toEqual([]);
+  expect(await currentDocumentLinkRows(metadataDocumentId)).toEqual([]);
   expect(
     await db
       .select({ id: documents.id })
@@ -1685,10 +1672,7 @@ test("DELETE /containers/:id still rejects a metadata folder holding a user docu
     id: userDocumentId,
     createdByFingerprint: owner.fingerprint,
   });
-  await db.insert(documentContainerLinks).values({
-    containerId,
-    documentId: userDocumentId,
-  });
+  await seedCurrentDocumentLink({ containerId, documentId: userDocumentId });
 
   const blocked = await deleteContainerForUser({
     containerId,
@@ -3654,7 +3638,7 @@ test("DELETE /containers/:containerId rejects system roots, child-bearing contai
     id: linkedDocumentId,
     createdByFingerprint: owner.fingerprint,
   });
-  await db.insert(documentContainerLinks).values({
+  await seedCurrentDocumentLink({
     containerId: child.containerId,
     documentId: linkedDocumentId,
   });

@@ -11,13 +11,13 @@ lifecycle outside this model. Retired ID pairs survive later organization purge.
 | --- | --- |
 | `BeginCreate` | `lockCreateContainerPath` takes shared manifest-head locks |
 | `CheckLiveContainer` | `loadLiveContainerOrganizations` requires a live row |
-| `CommitCreate` | `insertDocumentAndLinks` commits the document and target links |
+| `CommitCreate` | `insertDocumentRow` and `storeVerifiedAccessManifestInTransaction` commit the document, its head and its target links (the head's link projection) |
 | `BeginDelete` | `deleteContainer` takes an exclusive manifest-head lock |
-| `CommitDelete` / `RefuseNonemptyDelete` | `deleteLeafContainerRow` rejects nonempty containers |
+| `CommitDelete` / `RefuseNonemptyDelete` | `deleteLeafContainerRow` rejects containers with children or with a document whose current head links them (`containerHasCurrentDocumentLink`) |
 | `PreserveMetadataReservation` | `teardownContainerMetadataDocument` retains the metadata binding |
 | `BeginMetadataCreate` | `assertCreateCanAdvanceDocumentHead` rejects retired IDs |
 | `CheckMetadataScope` | `assertCreateCanAdvanceDocumentHead` binds metadata to its owning container |
-| `CommitMetadataCreate` | `insertDocumentAndLinks` commits metadata creation |
+| `CommitMetadataCreate` | `insertDocumentRow` and `storeVerifiedAccessManifestInTransaction` commit metadata creation |
 
 The finite model contains one leaf, its metadata document, and one ordinary
 document. A ready create holds the shared head lock until commit; a ready

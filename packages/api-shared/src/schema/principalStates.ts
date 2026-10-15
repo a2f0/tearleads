@@ -1,6 +1,6 @@
 import type {
   ManagedRecipientPrincipalType,
-  PrincipalContainerGrantAccessLevel,
+  PrincipalContainerGrant,
   PrincipalProjectionRole,
   PrincipalStateExternalAuthority,
   PrincipalStateMembershipMode,
@@ -57,6 +57,11 @@ import {
  *   `principalStatePayloads`; binds the private payload to the signed header.
  * - `memberCount`: Number of projected members signed into this state. Used as
  *   a cheap consistency check against `principalMembershipProjection`.
+ * - `containerGrants`: The state's complete direct-container grant set,
+ *   normalized and sorted by container id. Like the membership projection it
+ *   is unsigned storage; stored-policy verification recomputes `grantRoot`
+ *   from it. It is only ever read with its own state, never by container, so
+ *   it lives on the state row rather than in a projection table.
  * - `stateHash`: Hash of the normalized unsigned state header. This excludes
  *   `signature` and is the stable content address used by manifests, payload
  *   rows, projection rows, and epoch-key rows.
@@ -103,6 +108,9 @@ export const principalStates = pgTable(
     payloadCiphertextHash: text("payload_ciphertext_hash").notNull(),
     memberCount: integer("member_count").notNull(),
     grantCount: integer("grant_count").notNull(),
+    containerGrants: jsonb("container_grants")
+      .$type<PrincipalContainerGrant[]>()
+      .notNull(),
     externalAuthority:
       jsonb("external_authority").$type<PrincipalStateExternalAuthority>(),
     stateHash: text("state_hash").notNull(),
@@ -282,39 +290,6 @@ export const principalMembershipProjection = pgTable(
       table.principalId,
       table.stateHash,
       table.userId,
-    ),
-  ],
-);
-
-/** Historical complete direct-container grant projection committed by a state. */
-export const principalContainerGrantProjection = pgTable(
-  "principal_container_grant_projection",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    principalType: text("principal_type")
-      .$type<ManagedRecipientPrincipalType>()
-      .notNull(),
-    principalId: uuid("principal_id").notNull(),
-    stateHash: text("state_hash").notNull(),
-    containerId: uuid("container_id").notNull(),
-    accessLevel: text("access_level")
-      .$type<PrincipalContainerGrantAccessLevel>()
-      .notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-  },
-  (table) => [
-    index("principal_container_grant_projection_principal_idx").on(
-      table.principalType,
-      table.principalId,
-    ),
-    index("principal_container_grant_projection_container_idx").on(
-      table.containerId,
-    ),
-    uniqueIndex("principal_container_grant_projection_state_container_idx").on(
-      table.principalType,
-      table.principalId,
-      table.stateHash,
-      table.containerId,
     ),
   ],
 );

@@ -142,7 +142,9 @@ See [HTTP acceptance evidence](principal-history-acceptance.md) for the complete
 revocation and cold-decryption scenario beyond the former version cutoff.
 
 The API `readPrincipalHistoryPage` reader selects at most 100 state rows per
-query, with explicit principal scope and lower/upper version bounds. Its
+query, with explicit principal scope and lower/upper version bounds; each row
+carries its committed container-grant set, so a page adds one membership query
+and no grant query. Its
 `listPrincipalStateHistory` collector fixes the upper bound to the requested
 head, then reads successive pages and rejects a missing version. Other history
 readers have their own query bounds. The collector still returns the complete

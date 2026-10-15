@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
-  principalContainerGrantProjection,
   principalMembershipProjection,
   principalStates,
 } from "@tearleads/api-shared/schema";
@@ -27,8 +26,10 @@ async function seed(principalType: "group" | "organization") {
   // These tests target SQL shape and artifact attachment, not cryptography.
   const principalId = crypto.randomUUID();
   const otherId = crypto.randomUUID();
+  const containerId = crypto.randomUUID();
   const rows = Array.from({ length: 103 }, (_, index) => ({
     ...template,
+    containerGrants: [{ accessLevel: "read" as const, containerId }],
     id: crypto.randomUUID(),
     principalType,
     principalId: index < 101 ? principalId : otherId,
@@ -45,29 +46,20 @@ async function seed(principalType: "group" | "organization") {
       role: row.version % 2 ? ("admin" as const) : ("member" as const),
     })),
   );
-  const containerId = crypto.randomUUID();
-  await db.insert(principalContainerGrantProjection).values(
-    rows.map((row) => ({
-      principalType,
-      principalId: row.principalId,
-      stateHash: row.stateHash,
-      containerId,
-      accessLevel: "read" as const,
-    })),
-  );
   return { principalId, otherId, rows, user, containerId };
 }
 
 for (const kind of ["group", "organization"] as const) {
-  test(`${kind} history loads 101 versions in two state pages and six queries`, async () => {
+  test(`${kind} history loads 101 versions in two state pages and four queries`, async () => {
     const fixture = await seed(kind);
     const queries: unknown[][] = [];
     const history = await listPrincipalStateHistory(
       { principalType: kind, principalId: fixture.principalId, version: 101 },
       observeQueries(db, queries),
     );
-    expect(queries).toHaveLength(6);
-    expect([queries[0]?.length, queries[3]?.length]).toEqual([100, 1]);
+    // Per page: the state rows, which carry their grants, and the members.
+    expect(queries).toHaveLength(4);
+    expect([queries[0]?.length, queries[2]?.length]).toEqual([100, 1]);
     expect(history.map((entry) => entry.state.stateHash)).toEqual(
       fixture.rows.slice(0, 101).map((row) => row.stateHash),
     );
@@ -79,8 +71,8 @@ for (const kind of ["group", "organization"] as const) {
           role: entry.state.version % 2 ? "admin" : "member",
         },
       ]);
-      expect(entry.grants).toMatchObject([
-        { containerId: fixture.containerId, stateHash: entry.state.stateHash },
+      expect(entry.grants).toEqual([
+        { accessLevel: "read", containerId: fixture.containerId },
       ]);
     }
   });
@@ -112,7 +104,7 @@ test("one history page pins scope, lower cursor and upper version", async () => 
         entry.state.principalType === "group",
     ),
   ).toBe(true);
-  expect(queries).toHaveLength(3);
+  expect(queries).toHaveLength(2);
   expect(queries[0]).toHaveLength(100);
   const page = await readPrincipalHistoryPage(db, {
     principalType: "group",

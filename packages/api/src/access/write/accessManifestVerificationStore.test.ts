@@ -1,32 +1,50 @@
 import { expect, test } from "bun:test";
-import { db } from "@tearleads/api-shared/postgres";
-import { accessManifestVerifications } from "@tearleads/api-shared/schema";
-import { inArray } from "drizzle-orm";
-import { selectAccessManifestVerificationMacs } from "../read/accessManifestStore";
-import { upsertAccessManifestVerificationMacs } from "./accessManifestStore";
+import {
+  db,
+  withDatabaseStatementCounter,
+} from "@tearleads/api-shared/postgres";
+import { registerServiceUser } from "../../../test/helpers/registerServiceUser";
+import {
+  getAccessManifestBundles,
+  selectAccessManifestVerificationMac,
+} from "../read/accessManifestStore";
+import { updateAccessManifestVerificationMacs } from "./accessManifestStore";
 
-test("verification MACs round-trip across several statement batches", async () => {
+test("verification MACs live on their manifest rows and load with them", async () => {
+  const { registration } = await registerServiceUser();
+  const hashes = [
+    String(registration.rootMetadataDocument.accessManifest.manifestHash),
+    String(
+      registration.organizationMetadataContainer.metadataDocument.accessManifest
+        .manifestHash,
+    ),
+  ];
+  const absent = "0".repeat(64);
   const macs = new Map(
-    Array.from({ length: 1_201 }, (_, index) => [
-      `batch-${crypto.randomUUID()}`,
-      `mac-${index}`,
-    ]),
+    [...hashes, absent].map((hash) => [hash, `mac-${hash}`]),
   );
-  const hashes = [...macs.keys()];
-  try {
-    await upsertAccessManifestVerificationMacs(macs, db);
-    expect(await selectAccessManifestVerificationMacs(hashes, db)).toEqual(
-      macs,
+  const counter = { statements: 0 };
+  await withDatabaseStatementCounter(counter, () =>
+    updateAccessManifestVerificationMacs(macs, db),
+  );
+  // One single-row update per marker, in hash order.
+  expect(counter.statements).toBe(3);
+  for (const hash of hashes)
+    expect(await selectAccessManifestVerificationMac(hash, db)).toBe(
+      `mac-${hash}`,
     );
-    // Replacing is idempotent per row, including one row per statement.
-    const replaced = new Map(hashes.map((hash) => [hash, `new-${hash}`]));
-    await upsertAccessManifestVerificationMacs(replaced, db, 1);
-    expect(await selectAccessManifestVerificationMacs(hashes, db)).toEqual(
-      replaced,
+  // A manifest that is not stored gains no marker.
+  expect(await selectAccessManifestVerificationMac(absent, db)).toBeNull();
+  // The bundle load carries the marker, so checking it needs no second read.
+  const bundles = await getAccessManifestBundles(hashes, db);
+  for (const hash of hashes)
+    expect(bundles.get(hash)?.verificationMac).toBe(`mac-${hash}`);
+  // Replacing a marker from older rules or another secret is idempotent.
+  const replaced = new Map(hashes.map((hash) => [hash, `new-${hash}`]));
+  await updateAccessManifestVerificationMacs(replaced, db);
+  await updateAccessManifestVerificationMacs(replaced, db);
+  for (const hash of hashes)
+    expect(await selectAccessManifestVerificationMac(hash, db)).toBe(
+      `new-${hash}`,
     );
-  } finally {
-    await db
-      .delete(accessManifestVerifications)
-      .where(inArray(accessManifestVerifications.manifestHash, hashes));
-  }
-}, 60_000);
+});

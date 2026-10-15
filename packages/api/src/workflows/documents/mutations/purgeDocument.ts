@@ -6,12 +6,12 @@ import {
   attachmentBindings,
   containerDocumentSyncTombstones,
   containerMetadataDocuments,
-  documentContainerLinks,
   documents,
 } from "@tearleads/api-shared/schema";
 import type { DocumentPurgeRequest } from "@tearleads/validators/request";
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { lockAccessManifestHeadsForUpdate } from "../../../access/read/accessManifestStore";
+import { listCurrentDocumentContainerIds } from "../../../access/read/currentDocumentLinks";
 import { storeVerifiedAccessEventInTransaction } from "../../../access/write/accessManifestStore";
 import { projectionVerifiedAccessEventRecord } from "../../../keyingProjectionRecords";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
@@ -50,11 +50,10 @@ async function resolveSolePurgeContainerId(input: {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
 }): Promise<string> {
-  const linkRows = await input.executor
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, input.documentId));
-  const containerIds = [...new Set(linkRows.map((row) => row.containerId))];
+  const containerIds = await listCurrentDocumentContainerIds(
+    input.documentId,
+    input.executor,
+  );
 
   if (containerIds.length === 0) {
     throw new DocumentMutationError(

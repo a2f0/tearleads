@@ -3,7 +3,6 @@ import { db } from "@tearleads/api-shared/postgres";
 import {
   containerMetadataDocuments,
   containers,
-  documentContainerLinks,
   organizations,
   users,
 } from "@tearleads/api-shared/schema";
@@ -13,6 +12,7 @@ import { isOrganizationReadModelResponse } from "@tearleads/validators/response"
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { createCurrentDocumentProjection } from "../../../test/helpers/currentProtocolProjection";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { postDocumentPurge } from "../../../test/helpers/documentPurge";
@@ -237,10 +237,7 @@ test("a bound organization profile cannot gain another container link", async ()
     error:
       "Bound organization profile documents must remain exclusively in the organization metadata container",
   });
-  const links = await db
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, profile.id));
+  const links = await currentDocumentLinkRows(profile.id);
   expect(links.map((link) => link.containerId)).toEqual([
     root.kekState.containerId,
   ]);

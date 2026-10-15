@@ -1,5 +1,5 @@
 import { db } from "@tearleads/api-shared/postgres";
-import { accessManifestVerifications } from "@tearleads/api-shared/schema";
+import { accessManifests } from "@tearleads/api-shared/schema";
 import { clearProcessVerificationMarkers } from "../../src/workflows/containers/writerProjection/verificationMarkers";
 
 /**
@@ -7,6 +7,6 @@ import { clearProcessVerificationMarkers } from "../../src/workflows/containers/
  * secret or new rules): the next read verifies retained history in full.
  */
 export async function clearAccessManifestVerificationMarkers(): Promise<void> {
-  await db.delete(accessManifestVerifications);
+  await db.update(accessManifests).set({ verificationMac: null });
   clearProcessVerificationMarkers();
 }

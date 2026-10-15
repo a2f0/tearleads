@@ -1,9 +1,7 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
-import { documentContainerLinks } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { CONTAINER_UNAVAILABLE_ERROR_CODE } from "@tearleads/validators/response";
-import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
@@ -16,6 +14,7 @@ import {
   waitForPostgresLockWait,
 } from "../../../test/helpers/postgresConcurrency";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { listDocumentsCurrentlyLinkedToContainers } from "../../access/read/currentDocumentLinks";
 import { routeApp } from "../../routeApp";
 
 // #2278 M9: the link-set writer shares the destination's container head lock
@@ -99,13 +98,9 @@ for (const first of ["link", "delete"] as const) {
 
       // The loser left nothing behind: a link row exists exactly when the
       // link won (and then its container is still live).
-      const childLinks = await db
-        .select({ documentId: documentContainerLinks.documentId })
-        .from(documentContainerLinks)
-        .where(eq(documentContainerLinks.containerId, child.containerId));
-      expect(childLinks.map((row) => row.documentId)).toEqual(
-        first === "link" ? [created.id] : [],
-      );
+      expect(
+        await listDocumentsCurrentlyLinkedToContainers([child.containerId], db),
+      ).toEqual(first === "link" ? [created.id] : []);
 
       // Either way the document stays readable through its current heads.
       const projection = await routeApp.request(

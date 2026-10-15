@@ -11,7 +11,7 @@ batches from walking the accepted history again.
 | --- | --- |
 | `Commit` / `Revoke` | `storeVerifiedPrincipalStateInTransaction` validates the authorized successor and rotation commitments |
 | `Recover` | `resumeStoredPrincipalHistory` resumes bounded verification; `verifyPrincipalPolicySnapshot` verifies the requested signed chain |
-| `LoseCaches` | `clearProcessVerificationMarkers` discards volatile manifest hints; `accessManifestVerifications` may be lost, and fresh SDK storage contains no recovered keys |
+| `LoseCaches` | `clearProcessVerificationMarkers` discards volatile manifest hints; `accessManifests.verificationMac` markers may be lost, and fresh SDK storage contains no recovered keys |
 | `WriteAllowed` | `validatePrincipalStateIdentityFields` enforces exact representation without an artificial lifetime history budget |
 
 The positive configuration crosses a small modeled ceiling for both principals.

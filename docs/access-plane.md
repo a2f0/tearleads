@@ -30,12 +30,11 @@ The authority chain is:
 The durable tables are:
 
 - `access_events`
-- `access_manifests`
+- `access_manifests` (its `verification_mac` column holds the MAC'd
+  stored-history verification marker)
 - `access_manifest_heads`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
-- `access_manifest_verifications` (MAC'd stored-history verification markers;
-  deleted with the manifests they cover)
 - `container_key_epochs`
 - `container_key_wraps`
 - `document_content_key_epochs`
@@ -53,7 +52,8 @@ manifest path. They do not maintain a parallel mutable grant or epoch table.
 Users have registered signing and encapsulation keys. Groups and organizations
 are managed principals with signed policy state:
 
-- `principal_states`
+- `principal_states` (its `container_grants` column holds each state's
+  committed container-grant set, checked against the signed `grantRoot`)
 - `principal_state_payloads`
 - `principal_membership_projection`
 - `principal_epoch_keys`

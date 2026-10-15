@@ -1,14 +1,11 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
-import {
-  containers,
-  documentContainerLinks,
-  organizations,
-} from "@tearleads/api-shared/schema";
+import { containers, organizations } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
@@ -90,10 +87,7 @@ async function loadRaceState(fixture: RaceFixture) {
     .select({ profileDocumentId: organizations.profileDocumentId })
     .from(organizations)
     .where(eq(organizations.id, fixture.organizationId));
-  const links = await db
-    .select({ containerId: documentContainerLinks.containerId })
-    .from(documentContainerLinks)
-    .where(eq(documentContainerLinks.documentId, fixture.profile.id));
+  const links = await currentDocumentLinkRows(fixture.profile.id);
   return {
     linkedContainerIds: links.map((link) => link.containerId).sort(),
     profileDocumentId: organization?.profileDocumentId ?? null,
