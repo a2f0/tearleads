@@ -6,7 +6,7 @@ export function jsonRoundTrip(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value));
 }
 
-function createAccessManifestBundle() {
+export function createAccessManifestBundle() {
   return {
     event: {
       body: { eventType: "container.create" },
