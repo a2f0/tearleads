@@ -31,6 +31,8 @@ export function cacheFixture() {
         "check:protocol-models",
         "check:protocol-negative-controls",
         "--dry-run=json",
+        // Dry runs probe cache availability; fixtures only need task hashes.
+        "--cache=local:rw",
       ],
       {
         cwd: repo.cwd,
