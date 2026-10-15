@@ -97,6 +97,7 @@ export function createInternalRuntimeFixture(
     sessionGeneration: 0,
     boundUserId: async () => null,
     pinLocalUserIdentity: async () => {},
+    primeProvisionedPrincipalHistory: async () => {},
     publicRuntime: {
       version: 0,
       input: workflowInput,

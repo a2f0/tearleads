@@ -117,6 +117,11 @@ The app's request-budget regressions measured these fixed fixtures:
 | Admins enrollment (add + settle) | 202 | 74–77 | 29–30 |
 | Root attachment sharing (whole test) | 182 | 65–71 | 18–21 |
 
+Provisioning later primed the founding organization, Admins and Members heads
+and seeded discovery evidence for the profile documents it signed. Personal
+bootstrap fell from 40 to 37 requests (13 to 11 policy reads), and creating and
+activating another organization from 16 to 9 (7 to 1).
+
 The sharing scenario's phases are timing-dependent; its whole-test count is the
 stable comparison. Response bytes fell with the requests: the Admins enrollment
 received about 2.46–2.56 MB instead of 4.31 MB, the sharing test about 2.0 MB

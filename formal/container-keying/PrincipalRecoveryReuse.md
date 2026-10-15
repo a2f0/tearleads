@@ -12,12 +12,21 @@ are replayed online instead of refused. Later collections in the same operation
 reuse the recovered directory until a realtime organization hint or a durable
 pin past a memoized head evicts it. The memo never outlives its operation, and
 a value it hands out stays bound to its producer's lifetime until it is used.
+Organization provisioning primes the founding heads the device signed: after
+the server acknowledges the commit and the bootstrap pins them, the ordinary
+verifier checks the device's own states into completed durable stages in a
+later step. That step is bound to the provisioning identity and database and
+writes nothing once either changed. Priming writes no memo entry, so the first
+recovery still discovers and only skips the confirmation read.
 
 | Model action or predicate | Production seam |
 | --- | --- |
 | `ServerAdvance` | `commitOrganizationGroupPolicy` commits a group successor with its directory successor |
 | `Hint` | `applyOrganizationReadModelResponse` applies a hinted read-model change and calls `invalidatePrincipalRecovery` |
 | `AdmitPin` | `advanceKeyingCheckpointsAtomically` admits a verified head as the durable pin |
+| `ProvisionPin` | `persistRegistrationBootstrapFromExecSql` pins the acknowledged founding heads, checking identity currency inside its transaction |
+| `SwitchScope` | the host replaces the identity or database (`isIdentityCurrent`, `Database.client`, signing fingerprint) |
+| `FinishPrime` | `createProvisionedPrincipalHistoryPrimer` captures the provisioning scope before any await, reads the founder's existing trust pin without writing, and passes that scope into every guarded progress write; its private batch memo is discarded |
 | `Interrupt` | `savePrincipalHistoryStage` persists an incomplete page boundary |
 | `StoreRejectedCurrent` | `acceptPage` saves a completed stage before `verifyPrincipalPolicyCurrent` checks its current artifacts |
 | `BeginOperation` / `EndOperation` | `createRuntimePrincipalPolicyWarmer` creates one operation memo, discarded with the warmer |
@@ -34,6 +43,8 @@ a value it hands out stays bound to its producer's lifetime until it is used.
 | `NoRollback` | the checkpoint reload in `finishRecovery` and admission's pin checks in `commitProjectionCheckpoints` |
 | `ReuseCoversPin` | `directoryMemoValidity` reloads every named head's durable pin through `loadPrincipalPolicyCheckpoint` |
 | `NoUseAfterProducerExpiry` | `createPrincipalRecoveryReader` collects every handed-out lifetime into the scoped recovery's `stillCurrent` |
+| `PinCommitted` | provisioning pins and primes only after `provisioningAcknowledgedAccessHeads` accepts the response |
+| `NoPrimeAfterScopeSwitch` | `savePrincipalHistoryStage` and prefix publication run `guardedTransaction` with the scope-bound `stillCurrent` |
 
 Production is not atomic. A collection reads the server and local pins, then
 stores its entry; a hint or pin change can land in between. The model splits
@@ -46,7 +57,7 @@ producer, so the use checks the composite lifetime and is cancelled if the
 producer expired. Admission also rechecks durable pins at the use.
 
 The positive configuration explores three heads, three operations and two
-hints. Eight negative controls in
+hints. Ten negative controls in
 `scripts/protocol/protocolHistoryNegativeControls.ts` disable one guard each:
 
 - `DiscoverEachOperation = FALSE` (with hints disabled) violates
@@ -81,6 +92,14 @@ hints. Eight negative controls in
   collection that produced it expired (Codex re-review of 5c8239daf).
   `principalRecoveryOperation.test.ts` and `principalRecoveryMemo.test.ts` expire
   the producer after hand-out and before the consumer's use.
+- `PrimeRequiresAcknowledgement = FALSE` violates `PinCommitted`: priming a
+  head the server never acknowledged pins the device past the honest server,
+  whose own head every later collection then refuses as a rollback.
+- `PrimeChecksScope = FALSE` violates `NoPrimeAfterScopeSwitch`: priming that
+  binds its scope late writes progress (in production, it could pin a trust
+  binding) for the replacement identity or database.
+  `provisionedPrincipalHistoryScope.test.ts` switches both before and during
+  priming and requires no durable row in either database.
 
 Public projection sources follow the completed-stage rule: `readPublicPages`
 skips its pinned read once progress is complete, and every read that does occur

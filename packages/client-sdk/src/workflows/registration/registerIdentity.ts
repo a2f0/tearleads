@@ -30,6 +30,7 @@ import {
 } from "../organizations/principalPolicy";
 import type { OrganizationProvisioningArtifacts } from "./organizationProvisioningArtifacts";
 import { persistOrganizationProvisioningState } from "./organizationProvisioningPersistence";
+import type { ProvisionedPrincipalHistoryPrimer } from "./provisionedPrincipalHistory";
 import {
   buildInitialOrganizationMetadataBootstrap,
   buildInitialRootProvisioning,
@@ -96,6 +97,8 @@ export interface RegisterIdentityInput {
     userId: string,
     candidate: LocalUserIdentityCandidate,
   ) => Promise<void>;
+  /** Seeds verified recovery progress for the founding policy heads. */
+  primePrincipalHistory?: ProvisionedPrincipalHistoryPrimer | undefined;
   /**
    * App-owned system containers to provision atomically with the personal
    * organization (e.g. a trash bin). See {@link ProvisionedSystemContainerSpec}.
@@ -477,6 +480,7 @@ export async function registerIdentity(
     log: input.log,
     logError: input.logError,
     organizationMetadataBootstrap: artifacts.organizationMetadataBootstrap,
+    primePrincipalHistory: input.primePrincipalHistory,
     response,
     rootContainer: artifacts.rootContainer,
     rootMetadataDocument: artifacts.rootMetadataDocument,
