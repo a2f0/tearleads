@@ -78,20 +78,6 @@ export async function saveContainerSyncWatermark(
   );
 }
 
-export async function saveContainerSyncWatermarkIfCurrent(
-  execSql: ExecSql,
-  syncLane: ContainerSyncWatermarkLane,
-  watermark: SyncWatermark,
-  stillCurrent?: (() => boolean) | undefined,
-): Promise<boolean> {
-  return sqlContainerSyncWatermarkPersistence.saveWatermark(
-    execSql,
-    syncLane,
-    watermark,
-    { stillCurrent },
-  );
-}
-
 export async function loadContainerSyncLaneCheckRecords(
   execSql: ExecSql,
   syncLanes: ReadonlyArray<ContainerSyncWatermarkLane>,
@@ -109,12 +95,23 @@ export async function markContainerSyncLaneChecked(
   await sqlContainerSyncWatermarkPersistence.markChecked(execSql, syncLane);
 }
 
-export async function markContainerSyncLaneCheckedIfCurrent(
+/**
+ * Records one lane fetch in a single guarded upsert: the cursor when the page
+ * carried one and the freshness marker when the lane is fully drained.
+ */
+export async function recordContainerSyncLaneFetchIfCurrent(
   execSql: ExecSql,
   syncLane: ContainerSyncWatermarkLane,
+  fetch: {
+    readonly checked: boolean;
+    readonly watermark: SyncWatermark | null;
+  },
   stillCurrent?: (() => boolean) | undefined,
 ): Promise<boolean> {
-  return sqlContainerSyncWatermarkPersistence.markChecked(execSql, syncLane, {
-    stillCurrent,
-  });
+  return sqlContainerSyncWatermarkPersistence.recordLaneFetch(
+    execSql,
+    syncLane,
+    fetch,
+    { stillCurrent },
+  );
 }

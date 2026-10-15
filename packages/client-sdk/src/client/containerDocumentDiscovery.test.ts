@@ -8,7 +8,11 @@ import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../data/persistence
 import { clientSqlTables, containers } from "../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../data/sqlite/sqlitePersistenceRuntime";
 import { createExecSql, ensureSqlTables } from "../data/sqlite/sqlSchema";
-import { discoverContainerDocumentsForRuntime } from "./containerDocumentDiscovery";
+import { laneApi } from "../workflows/container-contents/documentDiscovery.testUtils";
+import {
+  discoverContainerDocumentLanesForRuntime,
+  discoverContainerDocumentsForRuntime,
+} from "./containerDocumentDiscovery";
 
 for (const mode of ["stored", "missing", "reset during scope read"] as const) {
   test(`runtime discovery reads durable organization scope (${mode})`, async () => {
@@ -53,7 +57,7 @@ for (const mode of ["stored", "missing", "reset during scope read"] as const) {
         nextWatermark: { id: "document", updatedAt: "2026-09-28" },
       }));
       const input = createWorkflowInputFixture({
-        apiClient: { listContainerDocuments: list } as never,
+        apiClient: laneApi(list) as never,
         execSql,
       });
       const onFullListing = mock(() => {});
@@ -74,3 +78,72 @@ for (const mode of ["stored", "missing", "reset during scope read"] as const) {
     }
   });
 }
+
+test("runtime discovery lists every stored lane in one request", async () => {
+  const native = createNativeTestExecSql();
+  try {
+    await ensureSqlTables(native.execSql, clientSqlTables);
+    const runtime = getClientSQLitePersistenceRuntime(native.execSql);
+    for (const id of ["first", "second", "rejected"])
+      await runtime.db.insert(containers).values({
+        id,
+        organizationId: "org",
+        parentId: null,
+        metadataDocumentId: `metadata-${id}`,
+        localCreatedAt: "2026-09-28",
+        localUpdatedAt: "2026-09-28",
+      });
+    const requestedLanes: string[][] = [];
+    const input = createWorkflowInputFixture({
+      apiClient: {
+        listContainerDocumentLanes: async ({
+          lanes,
+        }: {
+          lanes: ReadonlyArray<{ containerId: string; laneId: string }>;
+        }) => {
+          requestedLanes.push(lanes.map((lane) => lane.containerId));
+          return {
+            results: lanes.map(({ containerId, laneId }) =>
+              containerId === "rejected"
+                ? { failure: { error: "Forbidden", status: 403 }, laneId }
+                : {
+                    laneId,
+                    page: {
+                      hasMore: false,
+                      items: [],
+                      nextWatermark: null,
+                      tombstones: [],
+                    },
+                  },
+            ),
+          };
+        },
+      } as never,
+      execSql: native.execSql,
+    });
+    const fullListings: string[] = [];
+
+    const outcomes = await discoverContainerDocumentLanesForRuntime({
+      requests: ["first", "missing", "rejected", "second"].map(
+        (containerId) => ({
+          containerId,
+          onFullListing: () => fullListings.push(containerId),
+        }),
+      ),
+      runtimeService: createInternalRuntimeFixture(() => input),
+    });
+
+    // A container without durable scope is never listed; one rejected lane
+    // leaves the others applied.
+    expect(requestedLanes).toEqual([["first", "rejected", "second"]]);
+    expect(outcomes).toEqual([
+      { containerId: "first", status: "fulfilled", value: [] },
+      { containerId: "missing", status: "fulfilled", value: null },
+      { containerId: "rejected", status: "fulfilled", value: null },
+      { containerId: "second", status: "fulfilled", value: [] },
+    ]);
+    expect(fullListings).toEqual(["first", "second"]);
+  } finally {
+    native.close();
+  }
+});

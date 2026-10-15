@@ -76,8 +76,8 @@ Read surfaces:
 | Health check | `GET /` |
 | List auth sessions | `GET /auth/sessions` |
 | Get complete user identity | `GET /auth/user-identity/:userId` |
-| List containers | `GET /containers` |
-| List container documents | `GET /containers/:containerId/documents` |
+| List containers by parent lane | `POST /containers/parent-lanes/query` |
+| List container documents by lane | `POST /containers/documents/query` |
 | Get container writer projection | `GET /containers/:containerId/writer-projection` |
 | Get document writer projection | `GET /documents/:documentId/writer-projection` |
 | List active document attachments | `GET /documents/:documentId/attachments` |

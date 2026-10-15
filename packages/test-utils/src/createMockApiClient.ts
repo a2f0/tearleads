@@ -41,7 +41,7 @@ export function createMockApiClient(
       });
     },
     linkDocument: async () => null,
-    listContainerDocuments: async () => null,
+    listContainerDocumentLanes: async () => null,
     listContainerParentLanes: async (input) => ({
       results: input.lanes.map(({ laneId }) => ({
         laneId,

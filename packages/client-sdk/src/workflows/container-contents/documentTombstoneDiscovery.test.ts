@@ -16,6 +16,7 @@ import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
 } from "./documentDiscovery";
+import { laneLister } from "./documentDiscovery.testUtils";
 import type {
   ContainerDocumentTombstone,
   ContainerDocumentTombstoneHoldStore,
@@ -110,12 +111,12 @@ function discoverRealFolder(
   return discoverContainerDocuments({
     ...store,
     containerId: "real-folder",
-    listContainerDocuments: async () => ({
+    listContainerDocumentLanes: laneLister(async () => ({
       hasMore: false,
       items: [],
       nextWatermark: { id: "doc", updatedAt: at },
       tombstones: input.tombstones,
-    }),
+    })),
     verifyContainerDocumentTombstones: input.verify,
   });
 }
@@ -255,12 +256,12 @@ test("all-container discovery retries the holds of every listed container", asyn
     await discoverAllContainerDocuments({
       ...store,
       containerIds: ["real-folder", "other"],
-      listContainerDocuments: async () => ({
+      listContainerDocumentLanes: laneLister(async () => ({
         hasMore: false,
         items: [],
         nextWatermark: null,
         tombstones: [],
-      }),
+      })),
       verifyContainerDocumentTombstones: async (candidates) => {
         retried.push([...candidates]);
         return candidates.map((candidate) => ({
