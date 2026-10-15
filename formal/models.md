@@ -274,8 +274,9 @@ access from local signing authority and models an untrusted server echoing a pla
 
 [`local-trust/PurgeRecovery.tla`](./local-trust/PurgeRecovery.tla) covers
 finding 10 of #2365: recovery adopts a replacement organization or root that an
-untrusted API returns only with this identity's explicit signed replacement
-intent. See the [mapping and boundaries](./local-trust/PurgeRecovery.md).
+untrusted API returns, or re-homes the local corpus there, only with this
+identity's explicit signed replacement intent. See the
+[mapping and boundaries](./local-trust/PurgeRecovery.md).
 
 [`local-trust/SubtreePurgeScope.tla`](./local-trust/SubtreePurgeScope.tla)
 covers finding 1 of #2485: unsigned listing edges cannot select purge candidates
@@ -292,8 +293,9 @@ request as another. See the
 ### Principal Acknowledgement Race
 
 [`local-trust/PrincipalAcknowledgementRace.tla`](./local-trust/PrincipalAcknowledgementRace.tla)
-covers finding 4 of #2485: a signed compound receipt that arrives after an
-honest reader has recovered it, or a later descendant. See the
+covers finding 4 of #2485: a signed compound receipt arrives after an honest
+reader has recovered that receipt or a later descendant, and committing it must
+neither roll progress back nor report an incident. See the
 [mapping and boundaries](./local-trust/PrincipalAcknowledgementRace.md).
 
 ## Realtime
@@ -331,9 +333,9 @@ to destination-write authority.
 ### Pending Attachment Detach
 
 [`blob-attachments/PendingAttachmentDetach.tla`](./blob-attachments/PendingAttachmentDetach.tla)
-models #2491: a bind can commit before its response reaches the client, so
-removing the slot must keep a detached row the current store's detach pass, and
-a restart, still see. See the
+models #2491: a bind can commit before its response reaches the client or local
+settlement finishes, so removing the slot must preserve a detached row that the
+current store's detach pass sees, before and after a restart. See the
 [mapping and boundaries](./blob-attachments/PendingAttachmentDetach.md).
 
 ## Backup and Restore
