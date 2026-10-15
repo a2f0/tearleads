@@ -7,7 +7,10 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
-import type { AccessManifestBundleWire } from "@tearleads/validators/request";
+import type {
+  AccessManifestBundleWire,
+  ContainerManifestRef,
+} from "@tearleads/validators/request";
 import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
@@ -76,6 +79,22 @@ export function asContainerManifestBundle(
   bundle: ContainerWriterProjectionResponse["path"][number],
 ): AccessManifestBundleWire {
   return readCanonicalManifestBundle(bundle, "Container manifest bundle");
+}
+
+/**
+ * Cite a manifest the server already stores. Mutation requests carry these
+ * references instead of echoing the bundles a writer projection served; the
+ * server resolves each from its own verified store.
+ */
+export function containerManifestRef(bundle: {
+  readonly manifestHash: string;
+  readonly state: Record<string, unknown>;
+}): ContainerManifestRef {
+  const containerId = Reflect.get(bundle.state, "containerId");
+  if (typeof containerId !== "string" || containerId.length === 0) {
+    throw new Error("Container manifest is missing a container id");
+  }
+  return { containerId, manifestHash: bundle.manifestHash };
 }
 
 export function readContainerState(

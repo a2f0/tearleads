@@ -18,7 +18,6 @@ import {
   renderOpenApi,
 } from "./openApi";
 import {
-  createAccessManifestBundle,
   createContainerMutation,
   createSyncRequest,
   createSyncResponse,
@@ -401,23 +400,24 @@ test("emitted integer schemas preserve the runtime numeric range", () => {
 });
 
 test("container rekey projection follows every runtime guard field", () => {
-  const accessManifest = createAccessManifestBundle();
+  const manifestRef = { containerId: "container-1", manifestHash: "hash" };
   const completeMutation = {
     ...createContainerMutation(),
-    containerManifestHistory: [accessManifest],
-    destinationParentContainerPath: [accessManifest],
-    parentContainerPath: [accessManifest],
+    containerManifestHistoryRefs: [manifestRef],
+    destinationParentContainerPathRefs: [manifestRef],
+    parentContainerPathRefs: [manifestRef],
     parentKekState: { epoch: 1 },
-    previousContainerPath: [accessManifest],
-    previousManifest: accessManifest,
+    previousContainerPathRefs: [manifestRef],
+    previousManifestRef: manifestRef,
     userRecipientKeys: [{ userId: "user-1" }],
   };
   const validMutations = [
     completeMutation,
     {
       ...completeMutation,
+      parentContainerPathRefs: [],
       parentKekState: null,
-      previousManifest: null,
+      previousManifestRef: null,
     },
   ];
 
@@ -459,11 +459,14 @@ test("container rekey projection follows every runtime guard field", () => {
     { ...createContainerMutation(), manifest: [] },
     { ...createContainerMutation(), principalPolicies: [null] },
     { ...createContainerMutation(), wraps: [null] },
-    { ...createContainerMutation(), previousManifest: {} },
-    { ...createContainerMutation(), previousContainerPath: [{}] },
-    { ...createContainerMutation(), parentContainerPath: [{}] },
-    { ...createContainerMutation(), destinationParentContainerPath: [{}] },
-    { ...createContainerMutation(), containerManifestHistory: [{}] },
+    { ...createContainerMutation(), previousManifestRef: {} },
+    { ...createContainerMutation(), previousContainerPathRefs: [{}] },
+    { ...createContainerMutation(), parentContainerPathRefs: [{}] },
+    {
+      ...createContainerMutation(),
+      destinationParentContainerPathRefs: [{}],
+    },
+    { ...createContainerMutation(), containerManifestHistoryRefs: [{}] },
     { ...createContainerMutation(), parentKekState: "invalid" },
     { ...createContainerMutation(), userRecipientKeys: [null] },
   ];

@@ -104,13 +104,6 @@ test("four parts finish on a saturated 16 KiB/s uplink", async () => {
         part: { partNumber, etag: "slow", byteLength: request.byteLength },
       };
     },
-    completeMultipartBlobStage: async (stageId) => ({
-      stageId,
-      byteLength: encryption.byteLength,
-      sha256: encryption.sha256,
-      organizationId: "organization-1",
-      expiresAt: "2026-04-27T01:00:00.000Z",
-    }),
   });
   const upload = stageMultipartBlobAttachment({
     apiClient,

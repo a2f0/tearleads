@@ -60,7 +60,6 @@ function concatenateParts(parts: readonly StoredPart[]) {
 
 type MultipartApi = Pick<
   DocumentsRuntimeInput["apiClient"],
-  | "completeMultipartBlobStage"
   | "getMultipartBlobStage"
   | "initiateMultipartBlobStage"
   | "uploadMultipartBlobPartBytes"
@@ -68,10 +67,11 @@ type MultipartApi = Pick<
 
 export function createDocumentStoreMultipartApi(): {
   readonly api: MultipartApi;
-  getCompleted(stageId: string): {
+  /** What an attachment bind does: assemble and verify the staged parts. */
+  completeAsBind(stageId: string): Promise<{
     readonly bytes: Uint8Array<ArrayBuffer>;
     readonly sha256: string;
-  } | null;
+  } | null>;
 } {
   const stages = new Map<string, StoredStage>();
   let stageCount = 0;
@@ -80,8 +80,9 @@ export function createDocumentStoreMultipartApi(): {
     async initiateMultipartBlobStage(request) {
       stageCount += 1;
       const stageId = `stage-${stageCount}`;
+      const { firstParts, ...declared } = request;
       const stage: StoredStage = {
-        ...request,
+        ...declared,
         completedBytes: null,
         parts: new Map(),
         stageId,
@@ -89,8 +90,12 @@ export function createDocumentStoreMultipartApi(): {
       };
       stages.set(stageId, stage);
       return {
-        ...request,
+        ...declared,
         expiresAt: EXPIRES_AT,
+        partUploads: firstParts.map((part) => ({
+          ...part,
+          source: { kind: "api" as const },
+        })),
         stageId,
         uploadId: stage.uploadId,
         uploadedParts: [],
@@ -132,41 +137,28 @@ export function createDocumentStoreMultipartApi(): {
         uploadId: stage.uploadId,
       };
     },
-    async completeMultipartBlobStage(stageId, request) {
-      const stage = stages.get(stageId);
-      if (!stage || stage.uploadId !== request.uploadId) return null;
-      const parts = request.parts.map((commit) => {
-        const part = stage.parts.get(commit.partNumber);
-        if (!part || part.etag !== commit.etag) {
-          throw new Error("Multipart test stage part is missing");
-        }
-        return part;
-      });
-      const bytes = concatenateParts(parts);
-      if (
-        bytes.byteLength !== stage.byteLength ||
-        (await sha256Hex(bytes)) !== stage.sha256
-      ) {
-        throw new Error("Multipart test stage bytes do not match");
-      }
-      stage.completedBytes = bytes;
-      return {
-        organizationId: stage.organizationId,
-        byteLength: stage.byteLength,
-        expiresAt: EXPIRES_AT,
-        sha256: stage.sha256,
-        stageId,
-      };
-    },
   };
 
   return {
     api,
-    getCompleted(stageId) {
+    async completeAsBind(stageId) {
       const stage = stages.get(stageId);
-      return stage?.completedBytes
-        ? { bytes: stage.completedBytes.slice(), sha256: stage.sha256 }
-        : null;
+      if (!stage) return null;
+      if (!stage.completedBytes) {
+        const bytes = concatenateParts(
+          [...stage.parts.values()].sort(
+            (left, right) => left.partNumber - right.partNumber,
+          ),
+        );
+        if (
+          bytes.byteLength !== stage.byteLength ||
+          (await sha256Hex(bytes)) !== stage.sha256
+        ) {
+          throw new Error("Multipart test stage bytes do not match");
+        }
+        stage.completedBytes = bytes;
+      }
+      return { bytes: stage.completedBytes.slice(), sha256: stage.sha256 };
     },
   };
 }

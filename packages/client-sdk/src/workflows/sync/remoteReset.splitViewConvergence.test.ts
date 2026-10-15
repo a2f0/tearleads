@@ -37,7 +37,7 @@ import {
   containerCreateIntents,
   containers,
   documentHistoryCheckpoints,
-  documentPendingUpdates,
+  documentHistoryUpdates,
   documentProjection,
   documents,
 } from "../../data/sqlite/schema";
@@ -128,8 +128,17 @@ async function resetClient(input: {
       recoveryDocumentId: input.oldDocumentId,
     }),
   );
-  const [pending] = await db.select().from(documentPendingUpdates);
-  if (!pending?.id) throw new Error("Expected reset to queue local history");
+  const [pending] = await db
+    .select()
+    .from(documentHistoryUpdates)
+    .where(eq(documentHistoryUpdates.origin, "outbox"));
+  if (
+    !pending?.updateId ||
+    !pending.partialEndVersionVector ||
+    !pending.partialStartVersionVector
+  ) {
+    throw new Error("Expected reset to queue local history");
+  }
   // Reset re-queues the folder's create; a document waits for it, so settle
   // it as the structural lane would before the document create runs.
   await db
@@ -141,7 +150,7 @@ async function resetClient(input: {
     close,
     execSql,
     pending: {
-      id: pending.id,
+      id: pending.updateId,
       partialEndVersionVector: pending.partialEndVersionVector,
       partialStartVersionVector: pending.partialStartVersionVector,
       updateData: pending.updateData,

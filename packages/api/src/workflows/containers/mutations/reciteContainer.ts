@@ -52,18 +52,18 @@ async function verifyRecitation(
 ): Promise<VerifiedContainerAccessManifest> {
   const previousContainerPath = await assertCurrentContainerPath(
     context,
-    input.request.previousContainerPath,
-    "previousContainerPath",
+    input.request.previousContainerPathRefs,
+    "previousContainerPathRefs",
   );
   const previousManifest = await resolveVerifiedStoredContainerManifest(
     context,
-    input.request.previousManifest,
-    "previousManifest",
+    input.request.previousManifestRef,
+    "previousManifestRef",
   );
   await assertManifestHeadCurrent(
     context,
     previousManifest,
-    "previousManifest",
+    "previousManifestRef",
   );
   const principalPolicies = await assertPrincipalPoliciesCurrent(
     context.executor,

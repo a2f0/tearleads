@@ -39,12 +39,15 @@ test("container stale-parent replans require exact behavior codes", () => {
   ).toBe(true);
   expect(
     isStaleParentContainerPathFailure(
-      failure(undefined, "parentContainerPath[0] manifest head is stale"),
+      failure(undefined, "parentContainerPathRefs[0] manifest head is stale"),
     ),
   ).toBe(false);
   expect(
     isStaleParentContainerPathFailure(
-      failure("unknown_code", "parentContainerPath[0] manifest head is stale"),
+      failure(
+        "unknown_code",
+        "parentContainerPathRefs[0] manifest head is stale",
+      ),
     ),
   ).toBe(false);
   expect(

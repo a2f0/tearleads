@@ -106,7 +106,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
       }
       expect(await loserResponse.json()).toEqual({
         code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
-        error: "previousContainerPath[0] manifest head is stale",
+        error: "previousContainerPathRefs[0] manifest head is stale",
       });
       const winnerResponse = (await responses[winnerIndex]?.json()) as
         | ContainerMutationResponse

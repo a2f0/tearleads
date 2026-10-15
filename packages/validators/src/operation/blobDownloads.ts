@@ -5,11 +5,11 @@ import {
   sha256HexStringSchema,
   uuidStringSchema,
 } from "../schema";
-import { BlobBytesPathParamsSchema } from "./blobBytes";
 import {
   signedBlobUrlExpirySchema,
   signedBlobUrlSchema,
-} from "./blobTransferSchemas";
+} from "../util/blobTransferSchemas";
+import { BlobBytesPathParamsSchema } from "./blobBytes";
 import { defineJsonOperation } from "./definition";
 
 export const BlobDownloadResponseSchema = z.strictObject({

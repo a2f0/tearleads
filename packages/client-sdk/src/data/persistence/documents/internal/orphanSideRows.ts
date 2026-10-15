@@ -15,7 +15,6 @@ import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
   documentPendingAttachments,
-  documentPendingUpdates,
   documentSyncFailures,
   documents,
 } from "../../../sqlite/schema";
@@ -39,7 +38,6 @@ type DocumentSideLocalIdColumn =
   | typeof documentHistoryCheckpoints.localId
   | typeof documentHistoryUpdates.localId
   | typeof documentPendingAttachments.localId
-  | typeof documentPendingUpdates.localId
   | typeof documentSyncFailures.localId;
 
 function requirePredicate(predicate: SQL | undefined): SQL {
@@ -147,7 +145,6 @@ interface HistorySweepCandidates {
 }
 
 interface WriteSweepCandidates {
-  pendingUpdates: ReadonlyArray<{ id: string | null }>;
   syncFailures: ReadonlyArray<{ localId: string }>;
 }
 
@@ -190,18 +187,6 @@ async function selectWriteSweepCandidates(
   tx: ClientSQLiteTransactionScope,
   olderThan: string,
 ): Promise<WriteSweepCandidates> {
-  const pendingUpdates = await tx
-    .select({ id: documentPendingUpdates.id })
-    .from(documentPendingUpdates)
-    .where(
-      and(
-        eq(documentPendingUpdates.appKind, DOCUMENTS_APP_KIND),
-        isNotNull(documentPendingUpdates.id),
-        lt(documentPendingUpdates.createdAt, olderThan),
-        hasNoDocument(tx, documentPendingUpdates.localId),
-      ),
-    )
-    .limit(DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
   const syncFailures = await tx
     .select({ localId: documentSyncFailures.localId })
     .from(documentSyncFailures)
@@ -213,7 +198,7 @@ async function selectWriteSweepCandidates(
       ),
     )
     .limit(DOCUMENT_ORPHAN_SWEEP_BATCH_SIZE);
-  return { pendingUpdates, syncFailures };
+  return { syncFailures };
 }
 
 async function selectAttachmentSweepCandidates(
@@ -288,19 +273,6 @@ async function deleteWriteSweepCandidates(
   tx: ClientSQLiteTransactionScope,
   candidates: WriteSweepCandidates,
 ): Promise<void> {
-  if (candidates.pendingUpdates.length > 0) {
-    await tx
-      .delete(documentPendingUpdates)
-      .where(
-        inArray(
-          documentPendingUpdates.id,
-          candidates.pendingUpdates.flatMap((row) =>
-            row.id === null ? [] : [row.id],
-          ),
-        ),
-      )
-      .run();
-  }
   if (candidates.syncFailures.length > 0) {
     await tx
       .delete(documentSyncFailures)
@@ -348,7 +320,6 @@ function hasFullSweepBatch(
   return [
     history.checkpoints,
     history.updates,
-    writes.pendingUpdates,
     writes.syncFailures,
     attachments.pending,
     attachments.local,

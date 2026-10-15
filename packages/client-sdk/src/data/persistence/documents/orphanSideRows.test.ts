@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
+  insertQueuedUpdateRows,
+  QUEUED_UPDATES_SQL,
+} from "../../../../test/helpers/queuedUpdateRows";
+import {
   ensureDocumentProjectionTables,
   ensureDocumentTables,
 } from "../../sqlite/documentPersistence";
@@ -43,17 +47,32 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
         ('metadata-history', 'container-metadata', 'metadata', 'update', 'local', ?)`,
       [OLD, OLD, FRESH, OLD],
     );
-    await execSql(
-      `INSERT INTO document_pending_updates (
-        id, app_kind, local_id, update_data,
-        partial_start_version_vector, partial_end_version_vector, created_at
-      ) VALUES
-        ('live-update', 'documents', 'live', 'update', 'start', 'end', ?),
-        ('orphan-update', 'documents', 'orphan', 'update', 'start', 'end', ?),
-        ('fresh-update', 'documents', 'fresh', 'update', 'start', 'end', ?),
-        ('metadata-update', 'container-metadata', 'metadata', 'update', 'start', 'end', ?)`,
-      [OLD, OLD, FRESH, OLD],
-    );
+    await insertQueuedUpdateRows(execSql, [
+      {
+        appKind: "documents",
+        createdAt: OLD,
+        id: "live-update",
+        localId: "live",
+      },
+      {
+        appKind: "documents",
+        createdAt: OLD,
+        id: "orphan-update",
+        localId: "orphan",
+      },
+      {
+        appKind: "documents",
+        createdAt: FRESH,
+        id: "fresh-update",
+        localId: "fresh",
+      },
+      {
+        appKind: "container-metadata",
+        createdAt: OLD,
+        id: "metadata-update",
+        localId: "metadata",
+      },
+    ]);
     await execSql(
       `INSERT INTO document_sync_failures (
         app_kind, local_id, status, message, attempted_at
@@ -90,8 +109,8 @@ test("maintenance sweeps aged orphan rows but preserves fresh and live rows", as
 
     for (const table of [
       "document_history_checkpoints",
-      "document_history_updates",
-      "document_pending_updates",
+      "(SELECT * FROM document_history_updates WHERE update_id IS NULL)",
+      QUEUED_UPDATES_SQL,
       "document_sync_failures",
     ]) {
       expect(

@@ -16,6 +16,10 @@ import {
   readBlobObjectText,
 } from "../../../test/helpers/blobObjectStore";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
+import {
+  completeStageAsBind,
+  firstPartOf,
+} from "../../../test/helpers/blobStageParts";
 import { createFakeS3BlobObjectStore } from "../../../test/helpers/fakeS3BlobObjectStore";
 import {
   bootstrapRoot,
@@ -31,7 +35,6 @@ import { bindBlobAttachment, detachBlobAttachment } from "./blobMutations";
 import { getBlobBytes } from "./getBlob";
 import {
   cleanupExpiredBlobStages,
-  completeMultipartBlobStage,
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,
 } from "./multipartStage";
@@ -57,11 +60,12 @@ async function stageBytes(
   const stage = await initiateMultipartBlobStage(runtime, {
     ...metadata,
     ...input,
+    firstParts: firstPartOf(encryptedBytes),
   });
   const key = `organizations/${input.organizationId}/blob-stages/${stage.stageId}`;
   expect(stage.organizationId).toBe(input.organizationId);
   if (input.complete !== false) {
-    const part = await uploadMultipartBlobPartBytes(runtime, {
+    await uploadMultipartBlobPartBytes(runtime, {
       ...metadata,
       bytes: encryptedBytes,
       partNumber: 1,
@@ -69,13 +73,10 @@ async function stageBytes(
       uploadId: stage.uploadId,
       userId: input.userId,
     });
-    const completed = await completeMultipartBlobStage(runtime, {
-      parts: [{ etag: part.part.etag, partNumber: 1 }],
+    await completeStageAsBind(runtime, {
       stageId: stage.stageId,
-      uploadId: stage.uploadId,
       userId: input.userId,
     });
-    expect(completed.organizationId).toBe(input.organizationId);
   }
   return { ...stage, key };
 }
@@ -309,6 +310,7 @@ test("initiateMultipartBlobStage aborts the upload when stage persistence fails"
     initiateMultipartBlobStage(runtime, {
       organizationId,
       byteLength: bytes.byteLength,
+      firstParts: firstPartOf(bytes),
       sha256: sha256Hex(bytes),
       userId,
     }),

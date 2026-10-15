@@ -27,11 +27,19 @@ const descriptor = {
   stageId,
   uploadId: request.uploadId,
   source: {
-    kind: "signed-url",
+    kind: "signed-url" as const,
     url: `${storagePath}?signature=secret`,
     expiresAt: "2026-10-13T12:05:00.000Z",
   },
 };
+
+// What a stage initiation issued for part 1, still well within its lifetime.
+function issuedSource() {
+  return {
+    ...descriptor.source,
+    expiresAt: new Date(Date.now() + 300_000).toISOString(),
+  };
+}
 
 for (const invalid of [
   { byteLength: bytes.length + 1 },
@@ -371,5 +379,102 @@ testApiClient(
       uploadId: "upload-1",
       part: { etag: "etag-2", partNumber: 2 },
     });
+  },
+);
+
+testApiClient(
+  "an initiation-issued part URL is used without an authorization request",
+  async () => {
+    let authorizations = 0;
+    server.use(
+      http.post(`${apiBaseUrl}${partPath}`, () => {
+        authorizations += 1;
+        return HttpResponse.json(descriptor);
+      }),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    const urls: string[] = [];
+    const uploaded = await uploadMultipartBlobPartBytes(
+      Reflect.get(client, "transport"),
+      stageId,
+      1,
+      { ...request, source: issuedSource() },
+      async (url) => {
+        urls.push(url);
+        return new Response(null, { headers: { ETag: "issued-etag" } });
+      },
+    );
+    expect(uploaded).toMatchObject({ part: { etag: "issued-etag" } });
+    expect(urls).toEqual([descriptor.source.url]);
+    expect(authorizations).toBe(0);
+  },
+);
+
+testApiClient(
+  "an expired initiation-issued part URL is renewed once",
+  async () => {
+    let authorizations = 0;
+    const renewed = `${storagePath}?signature=renewed`;
+    server.use(
+      http.post(`${apiBaseUrl}${partPath}`, () => {
+        authorizations += 1;
+        return HttpResponse.json({
+          ...descriptor,
+          source: { ...descriptor.source, url: renewed },
+        });
+      }),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    const urls: string[] = [];
+    const uploaded = await uploadMultipartBlobPartBytes(
+      Reflect.get(client, "transport"),
+      stageId,
+      1,
+      { ...request, source: issuedSource() },
+      async (url) => {
+        urls.push(url);
+        return url === renewed
+          ? new Response(null, { headers: { ETag: "renewed-etag" } })
+          : new Response(null, { status: 403 });
+      },
+    );
+    expect(uploaded).toMatchObject({ part: { etag: "renewed-etag" } });
+    expect(urls).toEqual([descriptor.source.url, renewed]);
+    expect(authorizations).toBe(1);
+  },
+);
+
+testApiClient(
+  "an issued part URL that has lapsed in the queue is not spent on a 403",
+  async () => {
+    let authorizations = 0;
+    server.use(
+      http.post(`${apiBaseUrl}${partPath}`, () => {
+        authorizations += 1;
+        return HttpResponse.json(descriptor);
+      }),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    const urls: string[] = [];
+    const uploaded = await uploadMultipartBlobPartBytes(
+      Reflect.get(client, "transport"),
+      stageId,
+      1,
+      {
+        ...request,
+        source: {
+          ...descriptor.source,
+          url: `${storagePath}?signature=lapsed`,
+          expiresAt: new Date(Date.now() + 10_000).toISOString(),
+        },
+      },
+      async (url) => {
+        urls.push(url);
+        return new Response(null, { headers: { ETag: "fresh-etag" } });
+      },
+    );
+    expect(uploaded).toMatchObject({ part: { etag: "fresh-etag" } });
+    expect(urls).toEqual([descriptor.source.url]);
+    expect(authorizations).toBe(1);
   },
 );

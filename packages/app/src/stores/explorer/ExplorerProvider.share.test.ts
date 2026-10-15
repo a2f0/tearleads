@@ -308,8 +308,9 @@ test("explorer store persists commitLsn and reuses it as minLsn on the next meta
       const pendingRows = await runtime.infra.execSql(
         `
  SELECT COUNT(*) AS count
- FROM document_pending_updates
- WHERE app_kind = 'container-metadata'
+ FROM document_history_updates
+ WHERE update_id IS NOT NULL
+ AND app_kind = 'container-metadata'
  AND local_id = 'child-container'
  `,
       );

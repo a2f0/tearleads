@@ -7,6 +7,7 @@ import {
   positiveIntegerSchema,
 } from "../schema";
 import { AccessEventBundleWireResponseSchema } from "../util";
+import { MultipartBlobPartUploadSchema } from "../util/blobTransferSchemas";
 
 export const MultipartBlobStagePartSchema = loosePlainObject({
   byteLength: positiveIntegerSchema,
@@ -22,6 +23,8 @@ export const InitiateMultipartBlobStageResponseSchema = loosePlainObject({
   organizationId: nonEmptyStringSchema,
   byteLength: positiveIntegerSchema,
   expiresAt: z.string(),
+  // One upload source per requested first part, in request order.
+  partUploads: arraySchema(MultipartBlobPartUploadSchema),
   sha256: nonEmptyStringSchema,
   stageId: z.string(),
   uploadedParts: arraySchema(MultipartBlobStagePartSchema),
@@ -55,18 +58,6 @@ export const UploadMultipartBlobPartResponseSchema = loosePlainObject({
 
 export type UploadMultipartBlobPartResponse = z.infer<
   typeof UploadMultipartBlobPartResponseSchema
->;
-
-export const CompleteMultipartBlobStageResponseSchema = loosePlainObject({
-  organizationId: nonEmptyStringSchema,
-  byteLength: positiveIntegerSchema,
-  expiresAt: z.string(),
-  sha256: nonEmptyStringSchema,
-  stageId: z.string(),
-});
-
-export type CompleteMultipartBlobStageResponse = z.infer<
-  typeof CompleteMultipartBlobStageResponseSchema
 >;
 
 export const BlobContentKeyTargetEnvelopeResponseSchema = loosePlainObject({
@@ -180,12 +171,6 @@ export function isUploadMultipartBlobPartResponse(
   value: unknown,
 ): value is UploadMultipartBlobPartResponse {
   return UploadMultipartBlobPartResponseSchema.safeParse(value).success;
-}
-
-export function isCompleteMultipartBlobStageResponse(
-  value: unknown,
-): value is CompleteMultipartBlobStageResponse {
-  return CompleteMultipartBlobStageResponseSchema.safeParse(value).success;
 }
 
 export function isListDocumentAttachmentsResponse(

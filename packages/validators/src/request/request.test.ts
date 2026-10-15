@@ -1,10 +1,13 @@
 import { expect, test } from "bun:test";
-import { MAX_INLINE_CONTAINER_REKEYS, ML_DSA87_SIGNATURE_BYTES } from "../util";
+import {
+  MAX_INITIATE_PART_UPLOADS,
+  MAX_INLINE_CONTAINER_REKEYS,
+  ML_DSA87_SIGNATURE_BYTES,
+} from "../util";
 import { isOptionalContainerMutationRequestArray } from "./container";
 import {
   ChallengeRequestSchema,
   isChallengeRequest,
-  isCompleteMultipartBlobStageRequest,
   isCreateOrganizationGroupRequest,
   isInitiateMultipartBlobStageRequest,
   isPutPrincipalPolicyRequest,
@@ -93,46 +96,36 @@ test("isVerifyRequest", () => {
 });
 
 test("isInitiateMultipartBlobStageRequest", () => {
+  const firstPart = {
+    byteLength: 6,
+    contentMd5: "AAAAAAAAAAAAAAAAAAAAAA==",
+    partNumber: 1,
+  };
+  const request = {
+    organizationId: "fd48148f-2bb0-420d-925a-7007d5c1c40f",
+    byteLength: 6,
+    firstParts: [firstPart],
+    sha256: "sha256-1",
+  };
+  expect(isInitiateMultipartBlobStageRequest(request)).toBe(true);
   expect(
-    isInitiateMultipartBlobStageRequest({
-      organizationId: "fd48148f-2bb0-420d-925a-7007d5c1c40f",
-      byteLength: 6,
-      sha256: "sha256-1",
-    }),
-  ).toBe(true);
-  expect(
-    isInitiateMultipartBlobStageRequest({
-      organizationId: "fd48148f-2bb0-420d-925a-7007d5c1c40f",
-      byteLength: 0,
-      sha256: "sha256-1",
-    }),
+    isInitiateMultipartBlobStageRequest({ ...request, byteLength: 0 }),
   ).toBe(false);
+  for (const firstParts of [
+    [],
+    Array.from({ length: MAX_INITIATE_PART_UPLOADS + 1 }, () => firstPart),
+    [{ ...firstPart, contentMd5: "not-md5" }],
+    [{ ...firstPart, partNumber: 0 }],
+    [{ ...firstPart, unknown: true }],
+  ]) {
+    expect(
+      isInitiateMultipartBlobStageRequest({ ...request, firstParts }),
+    ).toBe(false);
+  }
   expect(
     isInitiateMultipartBlobStageRequest({ byteLength: 6, sha256: "sha256-1" }),
   ).toBe(false);
   expect(isInitiateMultipartBlobStageRequest(null)).toBe(false);
-});
-
-test("isCompleteMultipartBlobStageRequest", () => {
-  expect(
-    isCompleteMultipartBlobStageRequest({
-      uploadId: "upload-1",
-      parts: [{ partNumber: 1, etag: "etag-1" }],
-    }),
-  ).toBe(true);
-  expect(
-    isCompleteMultipartBlobStageRequest({
-      uploadId: "upload-1",
-      parts: [],
-    }),
-  ).toBe(false);
-  expect(
-    isCompleteMultipartBlobStageRequest({
-      uploadId: "upload-1",
-      parts: [{ partNumber: 0, etag: "etag-1" }],
-    }),
-  ).toBe(false);
-  expect(isCompleteMultipartBlobStageRequest(null)).toBe(false);
 });
 
 test("isPutPrincipalPolicyRequest", () => {

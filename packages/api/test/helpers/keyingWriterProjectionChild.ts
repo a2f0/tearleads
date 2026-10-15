@@ -16,6 +16,7 @@ import {
 } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";
 import { createTestContainerKekMaterial } from "./containerKekMaterial";
+import { containerManifestRefs } from "./containerManifestRefs";
 import {
   asVerifiedContainerManifest,
   createContainerKeyEpoch,
@@ -119,7 +120,7 @@ export async function createChildContainerFixture(
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    parentContainerPath,
+    parentContainerPathRefs: containerManifestRefs(parentContainerPath),
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown

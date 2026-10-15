@@ -1,8 +1,9 @@
-import { afterAll } from "bun:test";
+import { afterAll, afterEach } from "bun:test";
 import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { GlobalRegistrator } from "@happy-dom/global-registrator";
+import { resetContainerManifestRegistry } from "@tearleads/test-utils";
 import { takeUnhandledRequests } from "./test/helpers/unhandledRequests";
 
 // The app suite boots the real API runtime in-process (see mswServer.ts), which
@@ -141,6 +142,13 @@ afterAll(async () => {
     .href;
   const { closeApiTestAdapters } = await import(cleanupModuleUrl);
   await closeApiTestAdapters();
+});
+
+// Bun shares one module graph across every test file in a run, so the
+// container-mutation response fake's manifest registry must not carry one
+// test's manifests into the next.
+afterEach(() => {
+  resetContainerManifestRegistry();
 });
 
 // An unmocked request only makes MSW log and reject the fetch, which the SDK

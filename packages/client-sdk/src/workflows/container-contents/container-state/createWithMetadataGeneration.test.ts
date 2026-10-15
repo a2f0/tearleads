@@ -28,7 +28,7 @@ test("container-with-metadata does not retry or report after stale-parent refres
         code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
         kind: "http" as const,
         message:
-          "POST /containers/with-metadata-document: 409 Conflict: parentContainerPath[0] manifest head is stale",
+          "POST /containers/with-metadata-document: 409 Conflict: parentContainerPathRefs[0] manifest head is stale",
         method: "POST" as const,
         ok: false as const,
         path: "/containers/with-metadata-document",

@@ -48,10 +48,7 @@ test.each(["before verification", "before insertion"])(
           getContainerWriterProjection: async (id) =>
             id === original.containerId ? original : destination,
           moveContainer: async (_id, request) =>
-            createMutationResponseFromRequest(
-              request,
-              original.containerKeks.at(-1),
-            ),
+            createMutationResponseFromRequest(request, original),
           reciteContainer: async () => null,
         },
         author: parent.author,

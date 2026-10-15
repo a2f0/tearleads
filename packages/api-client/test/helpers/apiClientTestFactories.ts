@@ -234,7 +234,6 @@ export function createDocumentCreateRequest(): DocumentCreateRequest {
     body: { eventType: "document.link" },
     expectedManifestHash: "document-manifest-hash",
     manifest: { objectKind: "document" },
-    previousManifest: null,
     targetContainerPathRefs: [
       { containerId: "container-1", manifestHash: "container-manifest-hash" },
     ],

@@ -13,6 +13,10 @@ import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { routeApp } from "../../src/routeApp";
 import {
+  containerManifestRef,
+  containerManifestRefs,
+} from "./containerManifestRefs";
+import {
   asVerifiedContainerManifest,
   createContainerManifestBundle,
   createSignedAccessEvent,
@@ -92,9 +96,11 @@ async function buildContainerGroupGrantMutation(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.container.bundle,
-    previousContainerPath,
-    containerManifestHistory: [input.container.bundle],
+    previousManifestRef: containerManifestRef(input.container.bundle),
+    previousContainerPathRefs: containerManifestRefs(previousContainerPath),
+    containerManifestHistoryRefs: [
+      containerManifestRef(input.container.bundle),
+    ],
     principalPolicies: uniquePrincipalPolicies([
       ...pathPolicies,
       input.policy,

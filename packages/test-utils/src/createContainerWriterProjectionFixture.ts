@@ -19,6 +19,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { registerContainerManifestBundles } from "./createContainerMutationResponseFromRequest";
 
 const projectionKekMaterials = new WeakMap<
   ContainerWriterProjectionResponse,
@@ -321,6 +322,7 @@ export async function createContainerWriterProjectionFixture(
     ...(parentMaterials ?? []),
     containerKek,
   ]);
+  registerContainerManifestBundles(projection.path);
 
   return projection;
 }

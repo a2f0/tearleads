@@ -1,13 +1,11 @@
 import {
   blobWireHeaderKeys,
-  completeMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
   operationRoutePath,
   uploadMultipartBlobPartBytesOperation,
 } from "@tearleads/validators/operation";
 import type {
-  CompleteMultipartBlobStageResponse,
   InitiateMultipartBlobStageResponse,
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
@@ -16,7 +14,6 @@ import type { MiddlewareHandler } from "hono";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
 import {
-  completeMultipartBlobStage,
   getMultipartBlobStage,
   initiateMultipartBlobStage,
   MultipartBlobStageError,
@@ -150,35 +147,6 @@ function registerPartBytesRoute(
   );
 }
 
-function registerCompleteRoute(
-  route: Hono<SessionEnv>,
-  { requireAuth, runtime }: MultipartBlobStageRouteDeps,
-): void {
-  route.on(
-    completeMultipartBlobStageOperation.method,
-    operationRoutePath(completeMultipartBlobStageOperation),
-    requireAuth,
-    pathParamsValidator(completeMultipartBlobStageOperation.params),
-    jsonRequestValidator(completeMultipartBlobStageOperation.body),
-    async (c) => {
-      const session = c.get("session");
-      const { stageId } = c.req.valid("param");
-
-      try {
-        return c.json<CompleteMultipartBlobStageResponse>(
-          await completeMultipartBlobStage(runtime, {
-            ...c.req.valid("json"),
-            stageId,
-            userId: session.userId,
-          }),
-        );
-      } catch (error) {
-        return respondToStatusError(c, error, MultipartBlobStageError);
-      }
-    },
-  );
-}
-
 export function createMultipartBlobStageRoute(
   deps: MultipartBlobStageRouteDeps,
 ) {
@@ -187,7 +155,6 @@ export function createMultipartBlobStageRoute(
   registerInitiateRoute(route, deps);
   registerStatusRoute(route, deps);
   registerPartBytesRoute(route, deps);
-  registerCompleteRoute(route, deps);
 
   return route;
 }

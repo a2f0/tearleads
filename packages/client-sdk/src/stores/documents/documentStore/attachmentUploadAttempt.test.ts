@@ -3,6 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
+import { initiatedStage } from "../../../../test/helpers/multipartUpload";
 import type { BlobBytes } from "../../../data/blobContracts";
 import type { SecurityIncidentContext } from "../../../data/securityIncidents";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
@@ -174,7 +175,6 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =
     await createMaterializedSyncFixture();
   let bindRequests = 0;
-  let completeRequests = 0;
   let initiatedRequest:
     | {
         readonly byteLength: number;
@@ -205,17 +205,6 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
             bindRequests += 1;
             return null;
           },
-          completeMultipartBlobStage: async (stageId) => {
-            completeRequests += 1;
-            if (!initiatedRequest) {
-              throw new Error("Expected initiated multipart stage");
-            }
-            return {
-              ...initiatedRequest,
-              expiresAt: "2026-04-27T01:00:00.000Z",
-              stageId,
-            };
-          },
           getDocumentWriterProjection: async () => {
             projectionRequests += 1;
             return writerProjection;
@@ -236,14 +225,13 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
           },
           initiateMultipartBlobStage: async (request) => {
             initiateRequests += 1;
-            initiatedRequest = request;
-            return {
-              ...request,
-              expiresAt: "2026-04-27T01:00:00.000Z",
+            const { firstParts: _firstParts, ...declared } = request;
+            initiatedRequest = declared;
+            return initiatedStage(request, {
+              organizationId: request.organizationId,
               stageId: "stage-reused",
-              uploadedParts: [],
               uploadId: "upload-reused",
-            };
+            });
           },
           uploadMultipartBlobPartBytes: async (
             stageId,
@@ -289,7 +277,6 @@ test("reuses a multipart stage when retrying a null upload result", async () => 
     expect(result.uploaded).toBeNull();
     expect(initiateRequests).toBe(1);
     expect(uploadedParts).toBe(1);
-    expect(completeRequests).toBe(1);
     expect(bindRequests).toBe(2);
     expect(projectionRequests).toBe(1);
     expect(resumedStageIds).toEqual(["stage-reused"]);

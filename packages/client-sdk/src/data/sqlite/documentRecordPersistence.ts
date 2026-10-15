@@ -6,7 +6,7 @@ import type {
   DocumentScope,
   SelectedDocumentRecordRow,
 } from "./documentPersistenceTypes";
-import { documentPendingUpdates, documents } from "./schema";
+import { documentHistoryUpdates, documents } from "./schema";
 import { getClientSQLitePersistenceRuntime } from "./sqlitePersistenceRuntime";
 import type { ExecSql } from "./sqlSchema";
 
@@ -103,9 +103,10 @@ export async function findLocalIdByDocumentId(
   const { db } = getClientSQLitePersistenceRuntime(execSql);
   const hasPendingUpdates = sql<number>`EXISTS (
     SELECT 1
-    FROM ${documentPendingUpdates}
-    WHERE ${documentPendingUpdates.appKind} = ${documents.appKind}
-      AND ${documentPendingUpdates.localId} = ${documents.localId}
+    FROM ${documentHistoryUpdates}
+    WHERE ${documentHistoryUpdates.appKind} = ${documents.appKind}
+      AND ${documentHistoryUpdates.localId} = ${documents.localId}
+      AND ${documentHistoryUpdates.updateId} IS NOT NULL
   )`;
   const hasPendingLocalWork = sql<number>`(
     ${hasPendingUpdates}

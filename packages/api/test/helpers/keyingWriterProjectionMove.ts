@@ -22,6 +22,10 @@ import {
   createTestRotationKeyring,
 } from "./containerKekMaterial";
 import {
+  containerManifestRef,
+  containerManifestRefs,
+} from "./containerManifestRefs";
+import {
   asVerifiedContainerManifest,
   createContainerKeyEpoch,
   createContainerKeyWrap,
@@ -129,9 +133,13 @@ export async function buildContainerMoveRequest(input: {
     body: body as unknown,
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
-    previousManifest: input.previous,
-    previousContainerPath: [...input.previousContainerPath],
-    destinationParentContainerPath: [...input.destinationParentPath],
+    previousManifestRef: containerManifestRef(input.previous),
+    previousContainerPathRefs: containerManifestRefs(
+      input.previousContainerPath,
+    ),
+    destinationParentContainerPathRefs: containerManifestRefs(
+      input.destinationParentPath,
+    ),
     principalPolicies: principalPolicies as unknown as Record<
       string,
       unknown

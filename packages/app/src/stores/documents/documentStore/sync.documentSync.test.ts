@@ -150,10 +150,10 @@ test("large note edits remain a single pending update row before sync", async ()
       const pendingRows = await runtime.infra.execSql(
         `
  SELECT
- id,
+ update_id AS id,
  length(update_data) AS update_data_length
- FROM document_pending_updates
- WHERE app_kind = :appKind AND local_id = :localId
+ FROM document_history_updates
+ WHERE update_id IS NOT NULL AND app_kind = :appKind AND local_id = :localId
  `,
         {
           ":appKind": DOCUMENTS_APP_KIND,
@@ -186,12 +186,12 @@ test("large note edits remain a single pending update row before sync", async ()
     const pendingRows = await runtime.infra.execSql(
       `
  SELECT
- id,
+ update_id AS id,
  length(update_data) AS update_data_length,
  partial_start_version_vector,
  partial_end_version_vector
- FROM document_pending_updates
- WHERE app_kind = :appKind AND local_id = :localId
+ FROM document_history_updates
+ WHERE update_id IS NOT NULL AND app_kind = :appKind AND local_id = :localId
  `,
       {
         ":appKind": DOCUMENTS_APP_KIND,

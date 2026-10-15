@@ -52,8 +52,10 @@ the same size: one full encrypted chunk plus the header length. This satisfies
 [R2's multipart limits](https://developers.cloudflare.com/r2/objects/upload-objects/#multipart-upload-details)
 and keeps the maximum supported envelope within 10,000 parts. Uploads and
 retries read bounded source chunks and preserve the envelope's bytes and hash.
-The client validates each part's SHA-256, obtains a fresh five-minute UploadPart
-URL, and sends the bytes directly with a signed `Content-MD5` and body length.
+The client validates each part's SHA-256, obtains a five-minute UploadPart URL
+(from the stage initiation for the parts it starts with, and just in time for
+every later part or retry), and sends the bytes directly with a signed
+`Content-MD5` and body length.
 Each URL authorizes one part of the same upload ID; new URLs for later parts or
 retries preserve earlier ETags. Uploads may span more than five minutes, within
 the existing one-hour staging lifetime. The API rejects S3/R2 byte proxy uploads.

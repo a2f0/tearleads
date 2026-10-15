@@ -5,7 +5,7 @@ import type {
 } from "@tearleads/crypto";
 import { verifyContainerAccessManifest } from "@tearleads/crypto";
 import type {
-  AccessManifestBundleWire,
+  ContainerManifestRef,
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import { getCurrentAccessManifestHead } from "../../../../access/read/accessManifestStore";
@@ -19,7 +19,10 @@ import {
   mutationStateStale,
 } from "../errors";
 import type { ContainerMutationContext } from "../types";
-import { resolveVerifiedStoredContainerManifest } from "./storedManifestArtifacts";
+import {
+  assertDistinctManifestRefs,
+  resolveVerifiedStoredContainerManifest,
+} from "./storedManifestArtifacts";
 
 interface VerifyContainerManifestFromRequestArtifacts {
   readonly destinationParentContainerPath?:
@@ -114,18 +117,19 @@ export function assertContainerPathEdges(
 
 export async function assertCurrentContainerPath(
   context: ContainerMutationContext,
-  bundles: readonly AccessManifestBundleWire[] | undefined,
+  refs: readonly ContainerManifestRef[] | undefined,
   label: string,
 ): Promise<VerifiedContainerAccessManifest[] | undefined> {
-  if (bundles === undefined) {
+  if (refs === undefined) {
     return;
   }
+  assertDistinctManifestRefs(refs, label);
 
   const path: VerifiedContainerAccessManifest[] = [];
-  for (const [index, bundle] of bundles.entries()) {
+  for (const [index, ref] of refs.entries()) {
     const manifest = await resolveVerifiedStoredContainerManifest(
       context,
-      bundle,
+      ref,
       `${label}[${index}]`,
     );
     await assertManifestHeadCurrent(context, manifest, `${label}[${index}]`);
@@ -146,27 +150,6 @@ export async function assertCurrentContainerPath(
   }
   assertContainerPathEdges(path, label);
   return path;
-}
-
-export async function assertHistoricalContainerManifestsConsistent(
-  context: ContainerMutationContext,
-  bundles: readonly AccessManifestBundleWire[] | undefined,
-): Promise<VerifiedContainerAccessManifest[] | undefined> {
-  if (bundles === undefined) {
-    return;
-  }
-
-  const manifests: VerifiedContainerAccessManifest[] = [];
-  for (const [index, bundle] of bundles.entries()) {
-    manifests.push(
-      await resolveVerifiedStoredContainerManifest(
-        context,
-        bundle,
-        `containerManifestHistory[${index}]`,
-      ),
-    );
-  }
-  return manifests;
 }
 
 export async function assertMutationHeadCanAdvance(

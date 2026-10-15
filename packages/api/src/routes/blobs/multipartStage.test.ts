@@ -9,16 +9,21 @@ import {
   uploadBlobObject,
 } from "../../../test/helpers/blobObjectStore";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
+import {
+  completeStageAsBind,
+  declaredFirstPart,
+} from "../../../test/helpers/blobStageParts";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import type { SessionEnv } from "../../middleware/session";
 import { createRouteApp } from "../../routeApp";
 import {
-  completeMultipartBlobStage,
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,
 } from "../../services/blobs/multipartStage";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { sha256Hex } from "../../utils/sha256";
+
+const firstParts = declaredFirstPart(1);
 
 function createAuthenticatedTestApp(
   userId: string,
@@ -52,7 +57,12 @@ test.each([
     const response = await app.request("/blobs/stages/multipart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, byteLength: 1, sha256: "sha256" }),
+      body: JSON.stringify({
+        organizationId,
+        byteLength: 1,
+        firstParts,
+        sha256: "sha256",
+      }),
     });
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
@@ -74,7 +84,12 @@ test("multipart initiation conceals unknown and inaccessible organizations", asy
     const response = await app.request("/blobs/stages/multipart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, byteLength: 1, sha256: "sha256" }),
+      body: JSON.stringify({
+        organizationId,
+        byteLength: 1,
+        firstParts,
+        sha256: "sha256",
+      }),
     });
     expect(response.status).toBe(403);
     await expect(response.json()).resolves.toEqual({
@@ -95,7 +110,12 @@ test("multipart initiation rejects an organization being purged", async () => {
   const response = await app.request("/blobs/stages/multipart", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ organizationId, byteLength: 1, sha256: "sha256" }),
+    body: JSON.stringify({
+      organizationId,
+      byteLength: 1,
+      firstParts,
+      sha256: "sha256",
+    }),
   });
   expect(response.status).toBe(409);
   await expect(response.json()).resolves.toEqual({
@@ -103,7 +123,7 @@ test("multipart initiation rejects an organization being purged", async () => {
   });
 });
 
-test("multipart blob stage routes support resumable upload completion", async () => {
+test("multipart blob stage routes stage resumable parts that a bind completes", async () => {
   const encryptedBytes = "route-multipart-encrypted-bytes";
   const runtime = createServiceTestRuntime();
   const { userId, organizationId } = await createBlobStageOwner();
@@ -114,12 +134,21 @@ test("multipart blob stage routes support resumable upload completion", async ()
     body: JSON.stringify({
       organizationId,
       byteLength: new TextEncoder().encode(encryptedBytes).byteLength,
+      firstParts: declaredFirstPart("route-multipart".length),
       sha256: await sha256Hex(encryptedBytes),
     }),
   });
 
   expect(initiateResponse.status).toBe(200);
   const initiated = await initiateResponse.json();
+  // A store that cannot sign sends every part through the API byte route, so
+  // the first part needs no authorization request of its own.
+  expect(initiated.partUploads).toEqual([
+    {
+      ...declaredFirstPart("route-multipart".length)[0],
+      source: { kind: "api" },
+    },
+  ]);
 
   const firstPartResponse = await app.request(
     `/blobs/stages/multipart/${initiated.stageId}/parts/1/bytes`,
@@ -163,26 +192,24 @@ test("multipart blob stage routes support resumable upload completion", async ()
     },
   );
   expect(secondPartResponse.status).toBe(200);
-  const secondPart = await secondPartResponse.json();
 
+  // There is no completion route: the attachment bind assembles the parts.
   const completeResponse = await app.request(
     `/blobs/stages/multipart/${initiated.stageId}/complete`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        parts: [
-          { etag: firstPart.part.etag, partNumber: 1 },
-          { etag: secondPart.part.etag, partNumber: 2 },
-        ],
-        uploadId: initiated.uploadId,
-      }),
+      body: JSON.stringify({ uploadId: initiated.uploadId }),
     },
   );
-
-  expect(completeResponse.status).toBe(200);
-  await expect(completeResponse.json()).resolves.toMatchObject({
+  expect(completeResponse.status).toBe(404);
+  await completeStageAsBind(runtime, { stageId: initiated.stageId, userId });
+  const completedResponse = await app.request(
+    `/blobs/stages/multipart/${initiated.stageId}`,
+  );
+  await expect(completedResponse.json()).resolves.toMatchObject({
     byteLength: initiated.byteLength,
+    completed: true,
     sha256: initiated.sha256,
     stageId: initiated.stageId,
   });
@@ -229,7 +256,12 @@ test("multipart status identifies replaceable missing and expired stages", async
     const response = await app.request("/blobs/stages/multipart", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ organizationId, byteLength: 12, sha256 }),
+      body: JSON.stringify({
+        organizationId,
+        byteLength: 12,
+        firstParts: declaredFirstPart(12),
+        sha256,
+      }),
     });
     expect(response.status).toBe(200);
     return response.json();
@@ -284,10 +316,11 @@ test("multipart status keeps recovered object corruption terminal", async () => 
   const initiated = await initiateMultipartBlobStage(runtime, {
     organizationId,
     byteLength: encryptedBytes.length,
+    firstParts: declaredFirstPart(encryptedBytes.length),
     sha256: await sha256Hex(encryptedBytes),
     userId,
   });
-  const part = await uploadMultipartBlobPartBytes(runtime, {
+  await uploadMultipartBlobPartBytes(runtime, {
     byteLength: encryptedBytes.length,
     bytes: blobObjectBytes(encryptedBytes),
     partNumber: 1,
@@ -296,12 +329,7 @@ test("multipart status keeps recovered object corruption terminal", async () => 
     uploadId: initiated.uploadId,
     userId,
   });
-  await completeMultipartBlobStage(runtime, {
-    parts: [{ etag: part.part.etag, partNumber: 1 }],
-    stageId: initiated.stageId,
-    uploadId: initiated.uploadId,
-    userId,
-  });
+  await completeStageAsBind(runtime, { stageId: initiated.stageId, userId });
   await uploadBlobObject(
     runtime.blobObjectStore,
     `organizations/${organizationId}/blob-stages/${initiated.stageId}`,

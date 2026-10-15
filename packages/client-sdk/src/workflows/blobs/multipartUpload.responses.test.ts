@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { initiatedStage } from "../../../test/helpers/multipartUpload";
 import type { BlobEncryptionPlan } from "../../data/documents/blob/shared/crypto";
 import type { BlobAttachmentApi } from "../../data/documents/blob/shared/types";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
@@ -27,23 +28,10 @@ function createApi(
 ): BlobAttachmentApi {
   return {
     bindBlobAttachment: async () => null,
-    completeMultipartBlobStage: async (stageId) => ({
-      byteLength: 1,
-      organizationId: "organization-1",
-      expiresAt: "2026-04-27T01:00:00.000Z",
-      sha256: "encrypted-sha256",
-      stageId,
-    }),
     getDocumentWriterProjection: async () => null,
     getMultipartBlobStage: async () => null,
-    initiateMultipartBlobStage: async (request) => ({
-      ...request,
-      organizationId: "organization-1",
-      expiresAt: "2026-04-27T01:00:00.000Z",
-      stageId: "stage-1",
-      uploadedParts: [],
-      uploadId: "upload-1",
-    }),
+    initiateMultipartBlobStage: async (request) =>
+      initiatedStage(request, { stageId: "stage-1", uploadId: "upload-1" }),
     uploadMultipartBlobPartBytes: async (stageId, partNumber, request) => ({
       part: {
         byteLength: request.byteLength,
@@ -85,7 +73,10 @@ describe("multipart response identity", () => {
           organizationId: "organization-1",
           apiClient: createApi({
             initiateMultipartBlobStage: async (request) => ({
-              ...request,
+              ...initiatedStage(request, {
+                stageId: "stage-1",
+                uploadId: "upload-1",
+              }),
               byteLength:
                 mismatch === "byteLength"
                   ? request.byteLength + 1
@@ -111,7 +102,8 @@ describe("multipart response identity", () => {
       ).rejects.toThrow(
         "Multipart blob stage initiation response does not match its request.",
       );
-      expect(encryptCalls).toBe(0);
+      // The first part is encrypted once to describe it to the initiation.
+      expect(encryptCalls).toBe(1);
     }
   });
 
@@ -178,34 +170,50 @@ describe("multipart response identity", () => {
     }
   });
 
-  test("rejects completion responses for a different object", async () => {
-    for (const mismatch of [
-      "organizationId",
-      "stageId",
-      "byteLength",
-      "sha256",
-    ] as const) {
+  test("rejects initiation part uploads that differ from the described parts", async () => {
+    const signed = {
+      kind: "signed-url" as const,
+      url: "https://storage.test/part",
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    };
+    type Upload = ReturnType<typeof initiatedStage>["partUploads"][number];
+    const mismatches: Array<(uploads: Upload[]) => Upload[]> = [
+      (uploads) => uploads.map((upload) => ({ ...upload, partNumber: 2 })),
+      (uploads) => uploads.map((upload) => ({ ...upload, byteLength: 2 })),
+      (uploads) =>
+        uploads.map((upload) => ({
+          ...upload,
+          contentMd5: "AAAAAAAAAAAAAAAAAAAAAA==",
+        })),
+      () => [],
+      (uploads) => [...uploads, ...uploads],
+    ];
+    for (const mismatch of mismatches) {
       await expect(
         stageMultipartBlobAttachment({
           organizationId: "organization-1",
           apiClient: createApi({
-            completeMultipartBlobStage: async (stageId) => ({
-              byteLength: mismatch === "byteLength" ? 2 : 1,
-              organizationId:
-                mismatch === "organizationId"
-                  ? "organization-2"
-                  : "organization-1",
-              expiresAt: "2026-04-27T01:00:00.000Z",
-              sha256:
-                mismatch === "sha256" ? "different-sha256" : "encrypted-sha256",
-              stageId: mismatch === "stageId" ? "stage-wrong" : stageId,
-            }),
+            initiateMultipartBlobStage: async (request) => {
+              const stage = initiatedStage(request, {
+                stageId: "stage-1",
+                uploadId: "upload-1",
+              });
+              return {
+                ...stage,
+                partUploads: mismatch(
+                  stage.partUploads.map((upload) => ({
+                    ...upload,
+                    source: signed,
+                  })),
+                ),
+              };
+            },
           }),
           encryption: createPlan(),
           multipart,
         }),
       ).rejects.toThrow(
-        "Multipart blob stage stage-1 completion response does not match its request.",
+        "Multipart blob stage initiation part uploads do not match its request.",
       );
     }
   });

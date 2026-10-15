@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
 import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 
 const container = {
@@ -91,12 +92,13 @@ test("dormant metadata reattaches only when the fetch observed its revocation fe
       container,
       record,
     );
-    await execSql(
-      `INSERT INTO document_pending_updates
-      (id, app_kind, local_id, update_data, partial_start_version_vector, partial_end_version_vector, created_at)
-      VALUES ('pending-rename', 'container-metadata', ?, 'data', '', '', 'now')`,
-      [container.id],
-    );
+    await insertQueuedUpdateRows(execSql, [
+      {
+        appKind: "container-metadata",
+        id: "pending-rename",
+        localId: container.id,
+      },
+    ]);
     await sqlContainerContentsPersistence.deleteContainers(
       execSql,
       [

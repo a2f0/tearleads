@@ -131,10 +131,7 @@ test("a keyring entry claiming an uncommitted epoch id is rejected", async () =>
       reciteContainer: async () => null,
       getContainerWriterProjection: async () => parent.projection,
       rekeyContainer: async (_containerId, request) =>
-        createMutationResponseFromRequest(
-          request,
-          parent.projection.containerKeks.at(-1),
-        ),
+        createMutationResponseFromRequest(request, parent.projection),
     },
     author: parent.author,
     containerId: parent.projection.containerId,
@@ -425,10 +422,7 @@ test("a repair override inventing a predecessor epoch is rejected", async () => 
         reciteContainer: async () => null,
         getContainerWriterProjection: async () => parent.projection,
         rekeyContainer: async (_containerId, request) =>
-          createMutationResponseFromRequest(
-            request,
-            parent.projection.containerKeks.at(-1),
-          ),
+          createMutationResponseFromRequest(request, parent.projection),
       },
       author: parent.author,
       containerId: parent.projection.containerId,
