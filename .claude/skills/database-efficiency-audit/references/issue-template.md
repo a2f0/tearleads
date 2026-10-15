@@ -4,9 +4,14 @@ Title: `Database efficiency audit: <n> proposals (<k> High impact)`
 
 Draft the consolidated issue after the requested coverage and verification
 are complete. Earlier batches update the local checkpoint, not a new issue.
-If the user explicitly requests an interim issue, prefix the title with
-`Partial` and identify pending coverage and unverified proposals. Only the
-coordinator publishes.
+
+A request to publish before then (including "open the issue" at the end of
+a run whose slices are still partial) produces an interim issue: prefix the
+title with `Partial`, give every slice's coverage status in the Scope, and
+list unverified candidates in their own unranked section. When a later
+resume completes the audit, comment on that issue and drop the prefix from
+its title rather than opening a second issue. Only the coordinator
+publishes.
 
 The repository is public. The body carries normalized SQL, counts, plans,
 and index definitions only: no row data, bind values, credentials, role
@@ -41,18 +46,27 @@ Write the body in this order:
      verification reads, and commit guards it touches;
    - the statement-budget, plan, and concurrency tests, docs, and formal
      models that change with it, and the security findings it touches;
+   - its implementation path: Drizzle query builder, builder plus a short
+     `sql` fragment (`excluded.<column>`, a `sqlDialect.ts` helper), or an
+     edit to an existing raw `sql` statement, named as such;
+   - whether deploying it needs a database reset (any change to an API
+     baseline does, including an index drop);
    - prerequisites among the proposals, by number;
    - twin paths it generalizes to.
-6. **PlanetScale recommendations.** Each live or moved recommendation with
+6. **Candidates pending verification** (interim issues only): each
+   unverified candidate with its slice, claim, the auditor's impact and
+   risk, and the step that would verify it, in a table that is not ranked
+   with the proposals.
+7. **PlanetScale recommendations.** Each live or moved recommendation with
    its disposition: adopted as proposal `#`, or declined with the reason
    (unique constraint, other dialect, query that needs it).
-7. **Protocol leads.** Findings that would change what the protocol stores
+8. **Protocol leads.** Findings that would change what the protocol stores
    or sends, handed to `protocol-efficiency-audit`, never ranked here.
-8. **Recommended order.** A dependency-ordered sequence with the expected
+9. **Recommended order.** A dependency-ordered sequence with the expected
    statement totals after each step, marked Estimated unless measured
    together.
-9. **Checked and found lean.** Areas whose cost matched their result.
-10. **Not measured.** Scenarios, dialects, or sizes the audit did not
+10. **Checked and found lean.** Areas whose cost matched their result.
+11. **Not measured.** Scenarios, dialects, or sizes the audit did not
     measure and why.
 
 Keep each proposal readable on its own, cross-reference related proposals
@@ -65,6 +79,6 @@ Create the issue with
 without `--title` the command prompts and fails in a non-interactive session.
 
 GitHub rejects bodies over 65,536 characters. Measure the draft first. If it
-is too long, keep sections 1 to 5 and 8 in the body and post the rest as the
+is too long, keep sections 1 to 6 and 9 in the body and post the rest as the
 first comment (`gh issue comment <n> --body-file <path>`) with a pointer in
 the body. Do not drop evidence to fit.

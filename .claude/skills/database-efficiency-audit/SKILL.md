@@ -41,7 +41,9 @@ Four rules frame every proposal:
   baselines (`db:generate`, `db:generate:sqlite` in `packages/api-shared`);
   client schema changes fail the local shape check and ship with the
   coordinated reset in `docs/developer/api-persistence.md`. No migrations,
-  backfills, dual reads, or rollout flags.
+  backfills, dual reads, or rollout flags. Any baseline change, an index
+  drop included, means each deployed tier's database is re-initialized when
+  it ships; say so in the proposal.
 - **Measure before claiming.** A saving is a number from a statement capture,
   a query plan, or a probe at the audited revision. Production telemetry
   ranks where to look; it does not prove a saving on code it never ran.
@@ -118,8 +120,9 @@ and inspect bounded excerpts with `agent-tool logs <path>`.
    in `docs/request-budget-closeout.md` and
    `docs/principal-history-transport.md`, the table and index decisions in
    #2522 and its PRs (#2524 to #2541, including its declined items 7, 22,
-   27, 35, 36, and 37), project memory, and any earlier database audit
-   issue. A disposition is context for an auditor, not a reason to skip a
+   27, 35, 36, and 37), project memory, and earlier database audit issues
+   (#2544, with its comments, and what #2546 shipped from it). A
+   disposition is context for an auditor, not a reason to skip a
    candidate.
 
 ## 2. Collect PlanetScale evidence
@@ -179,7 +182,10 @@ most two distinct proposals per default batch; keep the rest pending.
 - Check each rule: behavior (results, atomicity, isolation, lock order,
   verification reads, commit guards), dialect parity, and bounds. A
   proposal that reorders statements inside a transaction names every lock
-  it takes and the concurrency test that covers the order.
+  it takes and the concurrency test that covers the order. A loop that
+  loads one row at a time may be the memory bound behind a byte ceiling in
+  `docs/limits.md`; a set load must keep it, or the proposal is a limits
+  decision rather than a saving.
 - Generalize each confirmed proposal across twin paths (documents and
   blobs, containers and documents, groups and organizations, API and client)
   and merge proposals that reshape the same query.
@@ -212,9 +218,12 @@ Impact:
 Risk, reported beside impact: **Low** reshapes a read or adds or drops an
 index with no change to transaction scope or lock order; **Medium** changes
 statement order or scope inside a transaction, an isolation-dependent read,
-or a client transaction boundary; **High** touches a verification read, a
-commit guard, a purge or delete path, or the subject of a Postgres
-concurrency test, and must carry the `test:postgres-concurrency` result.
+or a client transaction boundary; **High** removes or reorders a
+verification read, a commit guard, or a lock, changes a purge or delete
+path, or changes an isolation-dependent read whose timing a Postgres
+concurrency test pins. Running on a path a concurrency test covers does not
+by itself make a proposal High. Any proposal on such a path names the test,
+and its implementation must carry the `test:postgres-concurrency` result.
 
 ## 5. Check precedence and dependencies
 
@@ -230,7 +239,13 @@ For each verified proposal:
    subsystem docs) and the formal models in `formal/models.md` whose
    assumptions name the statements or locks it changes. Do not modify
    models; name the follow-up.
-4. Order proposals by dependency, and mark protocol leads for hand-off.
+4. Name the implementation path: Drizzle's query builder, the builder
+   with a short `sql` fragment (`excluded.<column>` in a multi-row upsert,
+   or a helper from `packages/api/src/utils/sqlDialect.ts`), or an edit to
+   an existing raw ``executor.execute(sql`...`)`` statement. The
+   maintainers prefer builder implementations; flag a raw-statement edit
+   so they can defer it.
+5. Order proposals by dependency, and mark protocol leads for hand-off.
 
 ## 6. Report
 
@@ -244,8 +259,8 @@ For each verified proposal:
    audit directory. Only the coordinator publishes: after confirmation, or
    if the user asked for an issue, create it with
    `gh issue create --label enhancement --title "<title>" --body-file <path>`.
-   An explicitly requested interim issue must identify its incomplete
-   coverage.
+   A request to publish before coverage and verification are complete
+   produces an interim issue; follow the template's `Partial` rule.
 3. State that nothing was implemented and no PlanetScale state was changed
    apart from the temporary role, and that the role was deleted.
 4. Save a project memory with the audited revision, checkpoint path,
