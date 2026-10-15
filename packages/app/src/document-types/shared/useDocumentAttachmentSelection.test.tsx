@@ -64,13 +64,13 @@ test("single-image receipts still replace and consume just one selected file", a
   expect(slots).toEqual(["receipt-image"]);
 });
 
-test("an existing single-slot photo can be replaced while additional photos append", async () => {
+test("an existing photo replaces in place while the collection slot appends", async () => {
   const writes: string[] = [];
   const slots = expandAttachmentSlots(
     EQUIPMENT_ATTACHMENT_SLOTS,
     [
       {
-        slotId: "equipment-photos",
+        slotId: "equipment-photos:existing",
         name: "original.jpg",
         contentSha256: "old-photo",
         byteLength: 3,
@@ -80,8 +80,8 @@ test("an existing single-slot photo can be replaced while additional photos appe
     true,
   );
   expect(slots.map((slot) => slot.slotId)).toEqual([
+    "equipment-photos:existing",
     "equipment-photos",
-    "equipment-photos:add",
     "receipt-image",
   ]);
   const { result } = renderHook(
@@ -95,10 +95,11 @@ test("an existing single-slot photo can be replaced while additional photos appe
       }),
     { wrapper },
   );
+  await act(() => result.current("equipment-photos:existing", photos));
+  expect(writes).toEqual(["equipment-photos:existing"]);
   await act(() => result.current("equipment-photos", photos));
-  expect(writes).toEqual(["equipment-photos"]);
-  await act(() => result.current("equipment-photos:add", photos));
   expect(writes).toHaveLength(3);
   expect(new Set(writes).size).toBe(3);
-  expect(writes[1]).toStartWith("equipment-photos:add:");
+  for (const slotId of writes.slice(1))
+    expect(slotId).toMatch(/^equipment-photos:[0-9a-f-]{36}$/);
 });

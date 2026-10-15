@@ -24,6 +24,7 @@ test("buildOrganizationGroupPolicyHistory diffs policy projections", () => {
   expect(history.principalId).toBe(groupId);
   expect(history.principalType).toBe("group");
   expect(history.entries.map((entry) => entry.version)).toEqual([3, 2, 1]);
+  expect(history.nextBeforeVersion).toBeNull();
   expect(history.entries[0]?.changes).toEqual([
     {
       changeType: "role_changed",
@@ -69,6 +70,7 @@ test("buildOrganizationPolicyHistory diffs organization policy projections", () 
   expect(history.principalId).toBe(organizationId);
   expect(history.principalType).toBe("organization");
   expect(history.entries.map((entry) => entry.version)).toEqual([3, 2, 1]);
+  expect(history.nextBeforeVersion).toBeNull();
   expect(history.entries[0]?.changes).toEqual([
     {
       changeType: "role_changed",
@@ -83,6 +85,27 @@ test("buildOrganizationPolicyHistory diffs organization policy projections", () 
       nextRole: null,
     },
   ]);
+});
+
+test("a bundle held without genesis cursors to its oldest version", () => {
+  const withoutGenesis = (bundle: typeof principalPolicy) => ({
+    ...bundle,
+    previousStates: bundle.previousStates.filter(
+      (entry) => entry.state.version > 1,
+    ),
+  });
+  const group = buildOrganizationGroupPolicyHistory(
+    withoutGenesis(principalPolicy),
+    organizationId,
+  );
+  const organization = buildOrganizationPolicyHistory(
+    withoutGenesis(organizationPrincipalPolicy),
+  );
+
+  expect(group.entries.map((entry) => entry.version)).toEqual([3, 2]);
+  expect(group.nextBeforeVersion).toBe(2);
+  expect(organization.entries.map((entry) => entry.version)).toEqual([3, 2]);
+  expect(organization.nextBeforeVersion).toBe(2);
 });
 
 test("updateOrganizationRosterEntry binds encrypted profile document ids", async () => {

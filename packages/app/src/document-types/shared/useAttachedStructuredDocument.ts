@@ -80,7 +80,8 @@ export function useAttachedStructuredDocument<Fields>(
     slots: uploadSlots,
   });
   const slotIds = useMemo(
-    // A returned pick must see hydrated attachments before resolving legacy slots.
+    // A returned pick waits for hydrated attachments, which list each photo's
+    // replace slot.
     () => (ready ? uploadSlots.map((slot) => slot.slotId) : []),
     [ready, uploadSlots],
   );

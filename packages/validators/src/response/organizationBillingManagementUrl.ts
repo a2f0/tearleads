@@ -14,8 +14,6 @@ import { loosePlainObject } from "../schema";
  * this response.
  */
 export const OrganizationBillingManagementUrlResponseSchema = loosePlainObject({
-  /** Retained for installed clients; current clients read this from the snapshot. */
-  canCancelDirectly: z.boolean(),
   managementUrl: z.string().nullable(),
 });
 

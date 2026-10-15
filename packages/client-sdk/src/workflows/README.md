@@ -72,9 +72,8 @@ explicit unknown-outcome acknowledgement; they never submit unreadable work.
 | `sync` | Platform runtime | Shared sync coordinator helpers and organization-scoped remote-state reset/recovery inputs. `SyncLaneConfig.priority()` ranks eligible work within a phase: lower finite values first, default zero, with fair rotation among ties. A throw or nonfinite result uses zero. |
 
 Organization billing views expose subscription ownership and direct cancellation
-availability in the billing snapshot. Current clients use management URL reads
-only for the native store link; they do not gate inline Stripe cancellation.
-The management response retains its cancellation field for installed clients.
+availability in the billing snapshot. The management URL read returns only the
+native store link; it does not gate inline Stripe cancellation.
 
 Container mutation API implementations must provide `ContainerReciteApi`.
 Acknowledged mutations schedule a bounded, best-effort pass over already-held

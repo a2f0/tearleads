@@ -34,15 +34,16 @@ export interface OrganizationPrincipalPolicyHistory {
 }
 export interface OrganizationGroupPolicyHistory
   extends OrganizationPrincipalPolicyHistory {
-  /** Exclusive cursor for older entries; absent on a legacy complete history. */
-  readonly nextBeforeVersion?: number | null;
+  /** Exclusive cursor for older entries; null once the oldest is loaded. */
+  readonly nextBeforeVersion: number | null;
   readonly groupId: string;
   readonly organizationId: string;
   readonly principalType: "group";
 }
 export interface OrganizationPolicyHistory
   extends OrganizationPrincipalPolicyHistory {
-  readonly nextBeforeVersion?: number | null;
+  /** Exclusive cursor for older entries; null once the oldest is loaded. */
+  readonly nextBeforeVersion: number | null;
   readonly entries: OrganizationPolicyHistoryEntry[];
   readonly organizationId: string;
   readonly principalType: "organization";

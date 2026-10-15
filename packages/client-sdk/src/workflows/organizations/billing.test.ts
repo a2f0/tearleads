@@ -236,19 +236,13 @@ test("loadOrganizationBillingManagementUrl passes through the org id", async () 
     apiClient: {
       getOrganizationBillingManagementUrl: async (organizationId) => {
         calls.push(organizationId);
-        return {
-          canCancelDirectly: false,
-          managementUrl: "https://manage.example/x",
-        };
+        return { managementUrl: "https://manage.example/x" };
       },
     },
     organizationId: "org-9",
   });
   expect(calls).toEqual(["org-9"]);
-  expect(result).toEqual({
-    canCancelDirectly: false,
-    managementUrl: "https://manage.example/x",
-  });
+  expect(result).toEqual({ managementUrl: "https://manage.example/x" });
 });
 
 test("startOrganizationTrial posts for the given org", async () => {
