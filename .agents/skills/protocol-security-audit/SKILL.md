@@ -80,7 +80,8 @@ excerpts with `agent-tool logs <path>` instead of loading successful logs.
    `packages/api`
    resolves the SDK from `dist`, so API probes otherwise test stale code. Do
    not rebuild it again mid-audit while other probes may be running.
-5. Read `docs/security-guarantees.md` and `formal/README.md` in full.
+5. Read `docs/security-guarantees.md`, `formal/README.md`, and the model index
+   `formal/models.md` in full.
 6. Build the known-issues list so slices do not re-report fixed work:
    - prior audit issues and their follow-ups, with each finding's fix PR
      (`gh issue list --state all --search "audit in:title"`, plus #2158 and

@@ -116,8 +116,10 @@ inspect bounded excerpts with `agent-tool logs <path>`.
    SDK tables, and the mechanism list. Record counts; the issue reports them.
 6. Build a compact known-dispositions index from project memory, the closeout
    document, and the issues it names (#1281, #1512, #1672, #2203, #2512,
-   #2521), plus the security audit issues above. A disposition is context for
-   an auditor, not a reason to skip a candidate.
+   #2521), the first efficiency audit (#2522: its implemented proposals and
+   the ones it declined with evidence), plus the security audit issues
+   above. A disposition is context for an auditor, not a reason to skip a
+   candidate.
 7. Size the surface with non-test TypeScript line counts per directory so
    slices stay balanced. Queue smaller parts of an oversized slice for later
    batches rather than creating more auditors in this invocation.
@@ -196,7 +198,7 @@ For each verified proposal:
    `docs/limits.md`, `docs/client-sync-ordering.md`, subsystem docs) and the
    canary ceilings that must be lowered with it, so a shipped proposal cannot
    silently regress.
-3. List the formal models in `formal/README.md` whose assumptions it changes.
+3. List the formal models in `formal/models.md` whose assumptions it changes.
    Do not modify models; name the follow-up.
 4. Order proposals by dependency: a table retirement that needs a response
    shape change lists that change as a prerequisite.

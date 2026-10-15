@@ -57,10 +57,11 @@ revision; scrutinize them first (read their diffs with `git show <sha>`):
 <RECENT_SECURITY_PRS>
 
 Read the coordinator's compact baseline at <BASELINE_FILE>, then the exact
-sections of docs/security-guarantees.md, formal/README.md, and model docs
-relevant to your work item. The baseline provides source references, not proof
-that the code meets a guarantee. Do not reload the whole issue history or all
-slice/model documents. Claims the code does not implement are findings.
+sections of docs/security-guarantees.md, formal/README.md, the model index
+formal/models.md, and model docs relevant to your work item. The baseline
+provides source references, not proof that the code meets a guarantee. Do not
+reload the whole issue history or all slice/model documents. Claims the code
+does not implement are findings.
 
 Quality bar: report only issues traced through real code paths with file:line
 evidence, ideally with a probe. Try to refute each candidate: is there a check

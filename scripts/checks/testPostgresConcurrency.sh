@@ -41,11 +41,13 @@ exec bun test \
   src/worker/workerRuntime.interest.pg.test.ts \
   src/worker/workerRuntime.hibernation.pg.test.ts \
   src/worker/workerRuntime.blobs.pg.test.ts \
+  src/routes/containers/createConcurrency.pg.test.ts \
   src/routes/containers/reciteConcurrency.pg.test.ts \
   src/routes/containers/rotationConcurrency.pg.test.ts \
   src/routes/containers/deleteScopeConcurrency.pg.test.ts \
   src/routes/documents/accessMutationConcurrency.pg.test.ts \
   src/routes/documents/deleteCreateConcurrency.pg.test.ts \
+  src/routes/documents/linkBlobRewrapConcurrency.pg.test.ts \
   src/routes/documents/linkDeleteConcurrency.pg.test.ts \
   src/routes/documents/metadataDeleteCreateConcurrency.pg.test.ts \
   src/routes/documents/deletedContainerReferences.test.ts \
@@ -71,6 +73,7 @@ exec bun test \
   src/workflows/blobs/mutations/persistenceTimestamp.pg.test.ts \
   src/workflows/documents/mutations/documentLifecycleRace.pg.test.ts \
   src/workflows/documents/mutations/purgeDocumentBlobRace.pg.test.ts \
+  src/workflows/documents/mutations/syncInlineRekeyCommitConcurrency.pg.test.ts \
   src/workflows/organizations/organizationProfilePurgeRace.pg.test.ts \
   src/workflows/organizations/organizationProfileUnlinkRace.pg.test.ts \
   src/workflows/organizations/rosterProfilePurgeRace.pg.test.ts \

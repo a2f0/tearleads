@@ -98,8 +98,9 @@ instead of loading successful logs.
    `packages/api`
    resolves the SDK from `dist`, so API probes otherwise test stale code. The
    brief tells auditors not to rebuild it themselves.
-4. On the first batch, read `docs/security-guarantees.md` and `formal/README.md`
-   in full. Save a compact baseline with source references for later batches.
+4. On the first batch, read `docs/security-guarantees.md`, `formal/README.md`,
+   and the model index `formal/models.md` in full. Save a compact baseline
+   with source references for later batches.
 5. Build a compact known-issues index, starting with project memory and the
    latest audit. Fetch details only for the selected slice or a candidate:
    - prior audit issues and their follow-ups, with each finding's fix PR
