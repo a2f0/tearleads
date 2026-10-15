@@ -5,7 +5,6 @@ import type {
 } from "@tearleads/api-shared/postgres";
 import {
   accessEvents,
-  accessManifestContainerGrantProjection,
   accessManifestDocumentLinkProjection,
   accessManifestHeads,
   accessManifestPrincipalHeadProjection,
@@ -15,7 +14,6 @@ import type {
   AccessManifest,
   AccessObjectKind,
   AnyVerifiedAccessManifest,
-  ContainerAccessManifestState,
   KeyingCanonicalJson,
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
@@ -32,14 +30,18 @@ import { insertAccessEvent } from "./accessEventStore";
 import {
   accessManifestReferencedHeads,
   accessManifestState,
-  containerManifestState,
-  documentLinkSetState,
-  isContainerDirectGrant,
   isReferencedPrincipalHead,
   readAccessVersion,
   readJsonArray,
   referencedPrincipalHeadsCanonicalJson,
 } from "./accessManifestJson";
+import {
+  insertAccessManifestPrincipalProjection,
+  regenerateAccessManifestContainerGrantProjection,
+  regenerateAccessManifestPrincipalProjection,
+  replaceAccessManifestContainerGrantProjection,
+  replaceAccessManifestDocumentLinkProjection,
+} from "./accessManifestProjections";
 import { selectOneOrThrow } from "./selectOneOrThrow";
 
 /**
@@ -105,10 +107,11 @@ export async function storeVerifiedAccessEventInTransaction(
   return verifiedEvent;
 }
 
+/** The inserted row, or null when the same manifest was already stored. */
 async function insertAccessManifest(
   verifiedManifest: AnyVerifiedAccessManifest,
   executor: DatabaseSession,
-): Promise<boolean> {
+): Promise<typeof accessManifests.$inferSelect | null> {
   const manifest = verifiedManifest.manifest;
 
   const [insertedManifest] = await executor
@@ -133,10 +136,10 @@ async function insertAccessManifest(
 
   if (!insertedManifest) {
     await ensureStoredAccessManifestMatches(verifiedManifest, executor);
-    return false;
+    return null;
   }
 
-  return true;
+  return insertedManifest;
 }
 
 async function ensureStoredAccessManifestMatches(
@@ -268,156 +271,6 @@ export async function getAccessManifestBundles(
   return bundles;
 }
 
-async function regenerateAccessManifestPrincipalProjection(
-  manifest: typeof accessManifests.$inferSelect,
-  executor: DatabaseSession,
-): Promise<void> {
-  await executor
-    .delete(accessManifestPrincipalHeadProjection)
-    .where(
-      eq(
-        accessManifestPrincipalHeadProjection.manifestHash,
-        manifest.manifestHash,
-      ),
-    );
-
-  const referencedPrincipalHeads = readJsonArray<ReferencedPrincipalHead>(
-    manifest.referencedPrincipalHeads,
-    "access manifest principal projection source",
-    isReferencedPrincipalHead,
-  );
-
-  if (referencedPrincipalHeads.length === 0) {
-    return;
-  }
-
-  await executor.insert(accessManifestPrincipalHeadProjection).values(
-    referencedPrincipalHeads.map((principalHead) => ({
-      manifestHash: manifest.manifestHash,
-      objectKind: manifest.objectKind,
-      objectId: manifest.objectId,
-      principalType: principalHead.principalType,
-      principalId: principalHead.principalId,
-      version: principalHead.version,
-      keyEpoch: principalHead.keyEpoch,
-      stateHash: principalHead.stateHash,
-      keyFingerprint: principalHead.keyFingerprint,
-    })),
-  );
-}
-
-async function regenerateAccessManifestContainerGrantProjection(
-  manifest: typeof accessManifests.$inferSelect,
-  executor: DatabaseSession,
-): Promise<void> {
-  await executor
-    .delete(accessManifestContainerGrantProjection)
-    .where(
-      eq(
-        accessManifestContainerGrantProjection.manifestHash,
-        manifest.manifestHash,
-      ),
-    );
-
-  if (manifest.objectKind !== "container") {
-    return;
-  }
-
-  const state =
-    typeof manifest.state === "object" && manifest.state !== null
-      ? manifest.state
-      : {};
-  const directGrantValue = Reflect.get(state, "directGrants");
-  if (directGrantValue === undefined) {
-    return;
-  }
-  const directGrants = readJsonArray<
-    ContainerAccessManifestState["directGrants"][number]
-  >(
-    directGrantValue,
-    "access manifest container grant projection source",
-    isContainerDirectGrant,
-  );
-
-  if (directGrants.length === 0) {
-    return;
-  }
-
-  await executor.insert(accessManifestContainerGrantProjection).values(
-    directGrants.map((grant) => ({
-      manifestHash: manifest.manifestHash,
-      containerId: manifest.objectId,
-      accessLevel: grant.accessLevel,
-      subjectType: grant.subjectType,
-      subjectId: grant.subjectId,
-    })),
-  );
-}
-
-async function replaceAccessManifestDocumentLinkProjection(
-  verifiedManifest: AnyVerifiedAccessManifest,
-  executor: DatabaseSession,
-): Promise<void> {
-  const state = documentLinkSetState(verifiedManifest);
-  if (!state) {
-    return;
-  }
-
-  await executor
-    .delete(accessManifestDocumentLinkProjection)
-    .where(
-      eq(
-        accessManifestDocumentLinkProjection.manifestHash,
-        verifiedManifest.manifestHash,
-      ),
-    );
-
-  if (state.linkedContainerIds.length === 0) {
-    return;
-  }
-
-  await executor.insert(accessManifestDocumentLinkProjection).values(
-    state.linkedContainerIds.map((containerId) => ({
-      manifestHash: verifiedManifest.manifestHash,
-      documentId: state.documentId,
-      containerId,
-    })),
-  );
-}
-
-async function replaceAccessManifestContainerGrantProjection(
-  verifiedManifest: AnyVerifiedAccessManifest,
-  executor: DatabaseSession,
-): Promise<void> {
-  const state = containerManifestState(verifiedManifest);
-  if (!state) {
-    return;
-  }
-
-  await executor
-    .delete(accessManifestContainerGrantProjection)
-    .where(
-      eq(
-        accessManifestContainerGrantProjection.manifestHash,
-        verifiedManifest.manifestHash,
-      ),
-    );
-
-  if (state.directGrants.length === 0) {
-    return;
-  }
-
-  await executor.insert(accessManifestContainerGrantProjection).values(
-    state.directGrants.map((grant) => ({
-      manifestHash: verifiedManifest.manifestHash,
-      containerId: state.containerId,
-      accessLevel: grant.accessLevel,
-      subjectType: grant.subjectType,
-      subjectId: grant.subjectId,
-    })),
-  );
-}
-
 export async function regenerateAccessManifestProjections(
   manifestHash: string,
   database: ApiDatabase,
@@ -521,22 +374,28 @@ export async function storeVerifiedAccessManifestInTransaction(
   tx: DatabaseTransaction,
 ): Promise<StoredAccessManifestHead> {
   await insertAccessEvent(input.verifiedManifest.event, tx);
-  const manifestInserted = await insertAccessManifest(
+  const insertedManifest = await insertAccessManifest(
     input.verifiedManifest,
     tx,
   );
-  if (manifestInserted) {
-    await regenerateAccessManifestProjectionsInTransaction(
-      input.verifiedManifest.manifestHash,
-      tx,
-    );
+  // A newly inserted hash has no projection rows: every path that deletes a
+  // manifest deletes its projections in the same transaction. Only a replay
+  // of a stored manifest replaces them.
+  const freshManifest = insertedManifest !== null;
+  if (insertedManifest) {
+    await insertAccessManifestPrincipalProjection(insertedManifest, tx);
   }
-  // Link-set membership is verifier state, so refresh it from the branded
-  // manifest rather than trying to infer it from generic manifest rows.
-  await replaceAccessManifestDocumentLinkProjection(input.verifiedManifest, tx);
+  // Link-set membership and direct grants are verifier state, so write them
+  // from the branded manifest rather than inferring them from generic rows.
+  await replaceAccessManifestDocumentLinkProjection(
+    input.verifiedManifest,
+    tx,
+    freshManifest,
+  );
   await replaceAccessManifestContainerGrantProjection(
     input.verifiedManifest,
     tx,
+    freshManifest,
   );
 
   return advanceAccessManifestHead(input.verifiedManifest, tx);
@@ -647,19 +506,44 @@ export async function listAccessManifestPrincipalHeadProjection(
     );
 }
 
-export async function listAccessManifestDocumentLinkProjection(
-  manifestHash: string,
+/** A document's current head and its link projection rows, in one read. */
+export async function getCurrentDocumentHeadWithLinks(
+  documentId: string,
   executor: DatabaseSession,
-): Promise<StoredAccessManifestDocumentLinkProjection[]> {
-  return executor
+): Promise<{
+  readonly head: StoredAccessManifestHead;
+  readonly links: StoredAccessManifestDocumentLinkProjection[];
+} | null> {
+  const rows = await executor
     .select({
-      manifestHash: accessManifestDocumentLinkProjection.manifestHash,
-      documentId: accessManifestDocumentLinkProjection.documentId,
-      containerId: accessManifestDocumentLinkProjection.containerId,
+      head: accessManifestHeads,
+      link: {
+        manifestHash: accessManifestDocumentLinkProjection.manifestHash,
+        documentId: accessManifestDocumentLinkProjection.documentId,
+        containerId: accessManifestDocumentLinkProjection.containerId,
+      },
     })
-    .from(accessManifestDocumentLinkProjection)
-    .where(eq(accessManifestDocumentLinkProjection.manifestHash, manifestHash))
+    .from(accessManifestHeads)
+    .leftJoin(
+      accessManifestDocumentLinkProjection,
+      eq(
+        accessManifestDocumentLinkProjection.manifestHash,
+        accessManifestHeads.manifestHash,
+      ),
+    )
+    .where(
+      and(
+        eq(accessManifestHeads.objectKind, "document"),
+        eq(accessManifestHeads.objectId, documentId),
+      ),
+    )
     .orderBy(asc(accessManifestDocumentLinkProjection.containerId));
+  const [first] = rows;
+  if (!first) return null;
+  return {
+    head: toStoredAccessManifestHead(first.head),
+    links: rows.flatMap(({ link }) => (link ? [link] : [])),
+  };
 }
 
 export async function listAccessManifestDocumentLinkProjections(

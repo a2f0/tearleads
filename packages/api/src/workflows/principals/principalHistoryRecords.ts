@@ -12,7 +12,7 @@ import {
 } from "@tearleads/crypto";
 import { readPrincipalHistoryPage } from "../../access/read/principalHistoryProgress";
 import { canonicalJsonEquals } from "../../utils/canonicalJson";
-import { loadSignerPublicKey } from "../signerPublicKey";
+import { loadSignerPublicKey, type SignerCache } from "../signerPublicKey";
 import { PrincipalPolicyError, toPrincipalStateResponse } from "./shared";
 
 export function principalHistoryHead(
@@ -66,17 +66,22 @@ export async function principalHistorySigner(
   executor: DatabaseSession,
   entry: PrincipalPolicyStateChainEntry,
   kind: PrincipalHistoryVerificationKind,
+  signers: SignerCache,
 ) {
   const { signerUserId, signerUserKeyFingerprint } = entry.state;
-  const signingPublicKey = await loadSignerPublicKey(executor, {
-    userId: signerUserId,
-    fingerprint: signerUserKeyFingerprint,
-    error: () =>
-      principalHistoryError(
-        kind,
-        "principal policy signer is missing or inconsistent",
-      ),
-  });
+  const signingPublicKey = await loadSignerPublicKey(
+    executor,
+    {
+      userId: signerUserId,
+      fingerprint: signerUserKeyFingerprint,
+      error: () =>
+        principalHistoryError(
+          kind,
+          "principal policy signer is missing or inconsistent",
+        ),
+    },
+    signers,
+  );
   if ((await toFingerprint(signingPublicKey)) !== signerUserKeyFingerprint)
     throw principalHistoryError(
       kind,
@@ -94,6 +99,7 @@ export async function assertPrincipalHistoryEntryUnchanged(
   executor: DatabaseSession,
   expected: PrincipalPolicyStateChainEntry,
   kind: PrincipalHistoryVerificationKind,
+  signers: SignerCache,
 ): Promise<void> {
   const stored = await readPrincipalHistoryEntry(
     executor,
@@ -135,5 +141,5 @@ export async function assertPrincipalHistoryEntryUnchanged(
       kind,
       "saved principal history differs from stored artifacts",
     );
-  await principalHistorySigner(executor, stored, kind);
+  await principalHistorySigner(executor, stored, kind, signers);
 }
