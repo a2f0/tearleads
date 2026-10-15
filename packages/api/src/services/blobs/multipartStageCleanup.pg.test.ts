@@ -8,6 +8,10 @@ import {
   readBlobObjectText,
 } from "../../../test/helpers/blobObjectStore";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
+import {
+  completeStageAsBind,
+  firstPartOf,
+} from "../../../test/helpers/blobStageParts";
 import { gateTransactionSelectAfterExecution } from "../../../test/helpers/gateDatabaseSelect";
 import {
   holdPostgresLock,
@@ -18,7 +22,6 @@ import { sha256Hex } from "../../utils/sha256";
 import { promoteStagedBlobIfPresent } from "../../workflows/blobs/mutations/persistence";
 import {
   cleanupExpiredBlobStages,
-  completeMultipartBlobStage,
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,
 } from "./multipartStage";
@@ -38,9 +41,10 @@ async function createStageFixture() {
   const stage = await initiateMultipartBlobStage(runtime, {
     organizationId,
     ...metadata,
+    firstParts: firstPartOf(bytes),
     userId,
   });
-  const part = await uploadMultipartBlobPartBytes(runtime, {
+  await uploadMultipartBlobPartBytes(runtime, {
     ...metadata,
     bytes,
     partNumber: 1,
@@ -48,12 +52,7 @@ async function createStageFixture() {
     uploadId: stage.uploadId,
     userId,
   });
-  await completeMultipartBlobStage(runtime, {
-    parts: [{ etag: part.part.etag, partNumber: 1 }],
-    stageId: stage.stageId,
-    uploadId: stage.uploadId,
-    userId,
-  });
+  await completeStageAsBind(runtime, { stageId: stage.stageId, userId });
   const storageKey = `organizations/${organizationId}/blob-stages/${stage.stageId}`;
   const promotion = {
     blobId,

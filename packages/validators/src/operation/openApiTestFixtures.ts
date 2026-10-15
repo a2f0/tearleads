@@ -409,7 +409,7 @@ export function createSyncResponse() {
     commitLsn: null,
     commitLsnMode: "tracked" as const,
     contentKeyBundle: createContentKeyBundleResponse(),
-    contentKeyBundles: [createContentKeyBundleResponse()],
+    contentKeyBundles: [],
     documentId: "document-1",
     documentKekTargets: {
       documentId: "document-1",

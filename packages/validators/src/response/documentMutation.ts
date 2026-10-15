@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
   arraySchema,
   loosePlainObject,
@@ -9,8 +10,11 @@ import {
   AccessEventBundleWireResponseSchema,
   AccessManifestBundleWireResponseSchema,
 } from "../util";
-import { ProjectionHistoryPrefixesSchema } from "../util/projectionHistoryWire";
-import { ContainerKeyingPathResponseSchema } from "./container";
+import { writerProjectionManifestBundlesRefinement } from "../writerProjectionRefinements";
+import {
+  ContainerKeyingPathResponseSchema,
+  ContainerKeyingPathWireResponseSchema,
+} from "./container";
 import {
   type DocumentContentKeyBundleResponse,
   DocumentContentKeyBundleResponseSchema,
@@ -19,6 +23,13 @@ import {
   type DocumentSyncResponse,
   DocumentSyncResponseSchema,
 } from "./documentSyncSchema";
+import {
+  containerKeyingPathReferences,
+  ManifestBundlesSchema,
+  ManifestHashReferenceSchema,
+  OmittedManifestBundlesSchema,
+  refineManifestBundleReferences,
+} from "./manifestBundleReferences";
 import { ProjectionPolicyEvidenceResponseSchema } from "./projectionPolicyEvidence";
 
 export {
@@ -95,7 +106,6 @@ export const DocumentPurgeResponseSchema = loosePlainObject({
 export type DocumentPurgeResponse = z.infer<typeof DocumentPurgeResponseSchema>;
 
 export const DocumentWriterProjectionResponseSchema = loosePlainObject({
-  historyPrefixes: ProjectionHistoryPrefixesSchema.optional(),
   policyEvidence: ProjectionPolicyEvidenceResponseSchema,
   authorizingContainerPaths: nonEmptyArraySchema(
     ContainerKeyingPathResponseSchema,
@@ -117,6 +127,63 @@ export const DocumentWriterProjectionResponseSchema = loosePlainObject({
 
 export type DocumentWriterProjectionResponse = z.infer<
   typeof DocumentWriterProjectionResponseSchema
+>;
+
+function documentWriterProjectionReferences(projection: {
+  readonly authorizingContainerPaths: unknown;
+  readonly documentContainerManifestHistory: unknown;
+  readonly documentManifest: unknown;
+  readonly documentManifestContainerPaths: unknown;
+  readonly documentManifestHistory: unknown;
+}): unknown[] {
+  const listed = (value: unknown): unknown[] =>
+    Array.isArray(value) ? value : [];
+  return [
+    projection.documentManifest,
+    ...listed(projection.documentManifestHistory),
+    ...listed(projection.documentContainerManifestHistory),
+    ...listed(projection.documentManifestContainerPaths).flatMap(listed),
+    ...listed(projection.authorizingContainerPaths).flatMap(
+      containerKeyingPathReferences,
+    ),
+  ];
+}
+
+/** The served shape; see ContainerWriterProjectionWireResponseSchema. */
+export const DocumentWriterProjectionWireResponseSchema =
+  registerJsonSchemaRuntimeRefinements(
+    loosePlainObject({
+      bundles: ManifestBundlesSchema,
+      omittedBundles: OmittedManifestBundlesSchema,
+      policyEvidence: ProjectionPolicyEvidenceResponseSchema,
+      authorizingContainerPaths: nonEmptyArraySchema(
+        ContainerKeyingPathWireResponseSchema,
+      ),
+      contentKeyBundle: DocumentContentKeyBundleResponseSchema,
+      /** Present only when the stored content-key bundle targets stale KEKs. */
+      contentKeyBundleStale: z.literal(true).optional(),
+      documentContainerManifestHistory: arraySchema(
+        ManifestHashReferenceSchema,
+      ),
+      documentId: z.string(),
+      documentKekTargets: DocumentKekTargetsResponseSchema,
+      documentManifest: ManifestHashReferenceSchema,
+      documentManifestContainerPaths: arraySchema(
+        arraySchema(ManifestHashReferenceSchema),
+      ),
+      documentManifestHistory: arraySchema(ManifestHashReferenceSchema),
+    }).superRefine((projection, context) =>
+      refineManifestBundleReferences(
+        projection,
+        documentWriterProjectionReferences(projection),
+        context,
+      ),
+    ),
+    [writerProjectionManifestBundlesRefinement],
+  );
+
+export type DocumentWriterProjectionWireResponse = z.infer<
+  typeof DocumentWriterProjectionWireResponseSchema
 >;
 
 /**
@@ -196,4 +263,10 @@ export function isDocumentWriterProjectionResponse(
   value: unknown,
 ): value is DocumentWriterProjectionResponse {
   return DocumentWriterProjectionResponseSchema.safeParse(value).success;
+}
+
+export function isDocumentWriterProjectionWireResponse(
+  value: unknown,
+): value is DocumentWriterProjectionWireResponse {
+  return DocumentWriterProjectionWireResponseSchema.safeParse(value).success;
 }

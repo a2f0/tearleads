@@ -73,14 +73,14 @@ export async function invalidateDocumentSyncPullContinuation(
 }
 
 export {
-  deleteDocumentPendingUpdate,
-  deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdate,
   enqueueDocumentPendingUpdateWithHistory,
   listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,
   resetDocumentPendingUpdateRekeyBudget,
+  settleDocumentPendingUpdate,
+  unqueueDocumentPendingUpdates,
 } from "./documentPendingUpdatePersistence";
 export type {
   DocumentRecord,

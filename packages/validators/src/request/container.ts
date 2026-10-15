@@ -2,23 +2,22 @@ import { z } from "zod";
 import { registerJsonSchemaView } from "../jsonSchema";
 import {
   arraySchema,
-  boundedNonEmptyArraySchema,
   loosePlainObject,
   nonEmptyStringSchema,
   plainObjectSchema,
   requiredUnknownSchema,
 } from "../schema";
 import {
-  AccessManifestBundleWireSchema,
   ContainerKekKeyringWireRecordSchema,
-  MAX_CONTAINER_PATH_LENGTH,
   MAX_INLINE_CONTAINER_REKEYS,
   MAX_ROTATION_CONTAINER_REKEYS,
 } from "../util";
-
-const AccessManifestBundleWireArraySchema = arraySchema(
-  AccessManifestBundleWireSchema,
-);
+import {
+  ContainerManifestPathSchema,
+  ContainerManifestRefListSchema,
+  ContainerManifestRefSchema,
+  OptionalContainerManifestPathSchema,
+} from "./containerManifestRef";
 
 const ContainerMutationKeyringSchema = registerJsonSchemaView(
   z.custom<Record<string, unknown>>(
@@ -27,21 +26,27 @@ const ContainerMutationKeyringSchema = registerJsonSchemaView(
   ContainerKekKeyringWireRecordSchema,
 );
 
+// Every manifest a mutation cites that the server already stores travels as a
+// {containerId, manifestHash} reference. The server resolves each one from its
+// own verified store (or from an earlier mutation of the same batch) and pins
+// paths and the previous manifest to current heads; the signed event binds the
+// same hashes as its dependencies, so no request copy of a stored bundle is
+// ever needed. Only the new manifest this mutation commits travels in full.
 const containerMutationRequestShape = {
   body: requiredUnknownSchema,
-  containerManifestHistory: AccessManifestBundleWireArraySchema.optional(),
-  destinationParentContainerPath:
-    AccessManifestBundleWireArraySchema.optional(),
+  containerManifestHistoryRefs: ContainerManifestRefListSchema.optional(),
+  destinationParentContainerPathRefs:
+    OptionalContainerManifestPathSchema.optional(),
   event: plainObjectSchema,
   expectedManifestHash: nonEmptyStringSchema,
   keyEpoch: plainObjectSchema,
   keyring: ContainerMutationKeyringSchema.nullable(),
   manifest: plainObjectSchema,
-  parentContainerPath: AccessManifestBundleWireArraySchema.optional(),
+  parentContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
   parentKekState: plainObjectSchema.nullable().optional(),
   predecessorBridge: plainObjectSchema.nullable(),
-  previousContainerPath: AccessManifestBundleWireArraySchema.optional(),
-  previousManifest: AccessManifestBundleWireSchema.nullable().optional(),
+  previousContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
+  previousManifestRef: ContainerManifestRefSchema.nullable().optional(),
   principalPolicies: arraySchema(plainObjectSchema),
   userRecipientKeys: arraySchema(plainObjectSchema).optional(),
   wraps: arraySchema(plainObjectSchema),
@@ -79,11 +84,8 @@ export const ContainerReciteRequestSchema = loosePlainObject({
   event: plainObjectSchema,
   expectedManifestHash: nonEmptyStringSchema,
   manifest: plainObjectSchema,
-  previousContainerPath: boundedNonEmptyArraySchema(
-    AccessManifestBundleWireSchema,
-    MAX_CONTAINER_PATH_LENGTH,
-  ),
-  previousManifest: AccessManifestBundleWireSchema,
+  previousContainerPathRefs: ContainerManifestPathSchema,
+  previousManifestRef: ContainerManifestRefSchema,
   principalPolicies: arraySchema(plainObjectSchema),
 });
 

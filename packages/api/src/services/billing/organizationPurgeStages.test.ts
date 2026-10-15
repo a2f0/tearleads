@@ -2,6 +2,7 @@ import { expect, spyOn, test } from "bun:test";
 import { blobStages, organizationBilling } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
+import { declaredFirstPart } from "../../../test/helpers/blobStageParts";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import * as background from "../../diagnostics/reportBackgroundFailure";
 import { initiateMultipartBlobStage } from "../blobs/multipartStage";
@@ -11,7 +12,11 @@ test("organization purge retries failed stage cleanup before finalizing and pres
   const first = await createBlobStageOwner();
   const second = await createBlobStageOwner();
   const runtime = createServiceTestRuntime();
-  const metadata = { byteLength: 1, sha256: "encrypted-sha256" };
+  const metadata = {
+    byteLength: 1,
+    firstParts: declaredFirstPart(1),
+    sha256: "encrypted-sha256",
+  };
   const staged = await initiateMultipartBlobStage(runtime, {
     ...metadata,
     ...first,
@@ -109,6 +114,7 @@ test("an upload created during organization purge is aborted instead of persisti
     initiateMultipartBlobStage(runtime, {
       ...owner,
       byteLength: 1,
+      firstParts: declaredFirstPart(1),
       sha256: "encrypted-sha256",
     }),
   ).rejects.toMatchObject({ status: 409 });

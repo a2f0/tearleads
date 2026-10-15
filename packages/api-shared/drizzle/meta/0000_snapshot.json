@@ -1,5 +1,5 @@
 {
-  "id": "a4afc343-7555-433c-9633-e232937ca6f3",
+  "id": "b2d2ab92-b09a-4658-980b-1eb90331b662",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -3947,6 +3947,13 @@
           "primaryKey": false,
           "notNull": false
         },
+        "membership_cursor": {
+          "name": "membership_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -5219,6 +5226,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "deleted_cursor": {
+          "name": "deleted_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
         "deleted_at": {
           "name": "deleted_at",
           "type": "timestamp",
@@ -5238,92 +5252,13 @@
               "nulls": "last"
             },
             {
-              "expression": "deleted_at",
+              "expression": "deleted_cursor",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.organization_read_model_changes": {
-      "name": "organization_read_model_changes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "cursor": {
-          "name": "cursor",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "lane": {
-          "name": "lane",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "entity_id": {
-          "name": "entity_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "operation": {
-          "name": "operation",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "organization_read_model_changes_org_cursor_idx": {
-          "name": "organization_read_model_changes_org_cursor_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "cursor",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5348,6 +5283,41 @@
         },
         "cursor": {
           "name": "cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "directory_cursor": {
+          "name": "directory_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "grants_cursor": {
+          "name": "grants_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "group_memberships_cursor": {
+          "name": "group_memberships_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "groups_cursor": {
+          "name": "groups_cursor",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "0"
+        },
+        "organization_policy_cursor": {
+          "name": "organization_policy_cursor",
           "type": "bigint",
           "primaryKey": false,
           "notNull": true,

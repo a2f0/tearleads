@@ -33,6 +33,7 @@ test("resumes R2 multipart uploads with equal nonfinal parts and intact cipherte
   const payloads = new Map<number, Uint8Array<ArrayBuffer>>();
   const parts = new Map<number, MultipartBlobStagePart>();
   const uploads: number[] = [];
+  const sources: Array<string | undefined> = [];
   let interrupted = false;
   const stage = {
     organizationId,
@@ -45,7 +46,19 @@ test("resumes R2 multipart uploads with equal nonfinal parts and intact cipherte
   const api: BlobAttachmentApi = {
     bindBlobAttachment: async () => null,
     getDocumentWriterProjection: async () => null,
-    initiateMultipartBlobStage: async () => ({ ...stage, uploadedParts: [] }),
+    // R2 signs the described first part in the initiation response.
+    initiateMultipartBlobStage: async (request) => ({
+      ...stage,
+      partUploads: request.firstParts.map((part) => ({
+        ...part,
+        source: {
+          kind: "signed-url" as const,
+          url: "https://storage.test/part",
+          expiresAt: "2099-01-01T00:00:00.000Z",
+        },
+      })),
+      uploadedParts: [],
+    }),
     getMultipartBlobStage: async () => ({
       ...stage,
       completed: false,
@@ -53,6 +66,7 @@ test("resumes R2 multipart uploads with equal nonfinal parts and intact cipherte
     }),
     async uploadMultipartBlobPartBytes(_id, partNumber, request) {
       uploads.push(partNumber);
+      sources.push(request.source?.kind);
       if (partNumber === 2 && !interrupted) {
         interrupted = true;
         throw new Error("connection interrupted");
@@ -72,48 +86,52 @@ test("resumes R2 multipart uploads with equal nonfinal parts and intact cipherte
       payloads.set(partNumber, bytes);
       return { ...stage, part };
     },
-    async completeMultipartBlobStage(_id, request) {
-      const lengths = request.parts.map(
-        ({ partNumber }) => parts.get(partNumber)?.byteLength,
-      );
-      for (const length of lengths.slice(0, -1)) {
-        expect(length).toBeGreaterThanOrEqual(chunkSize);
-        expect(length).toBe(lengths[0]);
-      }
-      const ciphertext = new Uint8Array(encryption.byteLength);
-      let offset = 0;
-      for (const { partNumber } of request.parts) {
-        const bytes = payloads.get(partNumber);
-        if (!bytes) throw new Error("Missing multipart payload");
-        ciphertext.set(bytes, offset);
-        offset += bytes.byteLength;
-      }
-      expect(offset).toBe(encryption.byteLength);
-      const hash = createIncrementalSha256();
-      hash.update(ciphertext);
-      expect(bytesToHex(hash.digest())).toBe(encryption.sha256);
-      const encrypted = parseBlobEncryptedBytes(ciphertext);
-      expect(encrypted.chunkCount).toBe(4);
-      const recordKey = await deriveBlobContentRecordKey({
-        blobId: encrypted.blobId,
-        contentRecordId: encrypted.contentRecordId,
-        contentKeyEpoch: encrypted.contentKeyEpoch,
-        contentKeyMaterial: await importContentKeyMaterial(
-          new Uint8Array(32).fill(7),
-        ),
-        organizationId,
-        usage: "decrypt",
-      });
-      const plaintext = await decryptBlobChunks({
-        encrypted,
-        recordKey,
-        organizationId,
-        expectedBlobId: encrypted.blobId,
-      });
-      expect(plaintext.byteLength).toBe(chunkSize * 3 + 123);
-      expect(plaintext.every((byte, index) => byte === index % 251)).toBe(true);
-      return stage;
-    },
+  };
+  // What binding does with the uploaded parts: assemble them in part order
+  // and verify the object before promotion.
+  const assembleUploadedParts = async () => {
+    const committed = [...parts.values()].sort(
+      (left, right) => left.partNumber - right.partNumber,
+    );
+    const [firstLength, ...laterLengths] = committed.map(
+      ({ byteLength }) => byteLength,
+    );
+    expect(firstLength).toBeGreaterThanOrEqual(chunkSize);
+    for (const length of laterLengths.slice(0, -1)) {
+      expect(length).toBe(firstLength ?? 0);
+    }
+    const ciphertext = new Uint8Array(encryption.byteLength);
+    let offset = 0;
+    for (const { partNumber } of committed) {
+      const bytes = payloads.get(partNumber);
+      if (!bytes) throw new Error("Missing multipart payload");
+      ciphertext.set(bytes, offset);
+      offset += bytes.byteLength;
+    }
+    expect(offset).toBe(encryption.byteLength);
+    const hash = createIncrementalSha256();
+    hash.update(ciphertext);
+    expect(bytesToHex(hash.digest())).toBe(encryption.sha256);
+    const encrypted = parseBlobEncryptedBytes(ciphertext);
+    expect(encrypted.chunkCount).toBe(4);
+    const recordKey = await deriveBlobContentRecordKey({
+      blobId: encrypted.blobId,
+      contentRecordId: encrypted.contentRecordId,
+      contentKeyEpoch: encrypted.contentKeyEpoch,
+      contentKeyMaterial: await importContentKeyMaterial(
+        new Uint8Array(32).fill(7),
+      ),
+      organizationId,
+      usage: "decrypt",
+    });
+    const plaintext = await decryptBlobChunks({
+      encrypted,
+      recordKey,
+      organizationId,
+      expectedBlobId: encrypted.blobId,
+    });
+    expect(plaintext.byteLength).toBe(chunkSize * 3 + 123);
+    expect(plaintext.every((byte, index) => byte === index % 251)).toBe(true);
   };
   const input = { apiClient: api, encryption, organizationId };
   await expect(
@@ -134,4 +152,8 @@ test("resumes R2 multipart uploads with equal nonfinal parts and intact cipherte
   });
   expect(resumed).toBe(stage.stageId);
   expect(uploads).toEqual([2, 3]);
+  // Only part 1 started first, so only it used an initiation-issued URL; the
+  // retried and later parts authorize just before they are sent.
+  expect(sources).toEqual(["signed-url", undefined, undefined, undefined]);
+  await assembleUploadedParts();
 });

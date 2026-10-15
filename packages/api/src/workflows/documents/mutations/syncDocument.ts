@@ -332,7 +332,6 @@ async function buildSyncDocumentTransactionResult(input: {
   }
   const responseWithoutCommit = await buildPaginatedSyncPullResponse({
     base: responseBase,
-    currentBundle: input.contentKeyBundle,
     cursorHmacKey: input.cursorHmacKey,
     entries,
     historyMode: input.request.historyMode,

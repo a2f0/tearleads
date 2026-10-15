@@ -234,7 +234,6 @@ export function createDocumentCreateRequest(): DocumentCreateRequest {
     body: { eventType: "document.link" },
     expectedManifestHash: "document-manifest-hash",
     manifest: { objectKind: "document" },
-    previousManifest: null,
     targetContainerPathRefs: [
       { containerId: "container-1", manifestHash: "container-manifest-hash" },
     ],
@@ -342,7 +341,7 @@ export function createDocumentSyncResponse(): DocumentSyncResponse {
     commitLsn: "0/16B6C50",
     commitLsnMode: "tracked",
     contentKeyBundle: mutationResponse.contentKeyBundle,
-    contentKeyBundles: [mutationResponse.contentKeyBundle],
+    contentKeyBundles: [],
     documentId: mutationResponse.id,
     documentKekTargets: mutationResponse.documentKekTargets,
     pullPage: { hasMore: false, nextCursor: null },

@@ -272,7 +272,7 @@ test("authenticated raw history reports a retained epoch with no predecessor key
     });
     const response = await createSyncResponse(materializedPlan.plan, {
       acceptedOutgoingUpdateIds: [],
-      contentKeyBundles: [fixture.writerProjection.contentKeyBundle],
+      contentKeyBundles: [],
       updates: [historicalUpdate],
     });
 

@@ -5,7 +5,6 @@ import {
   cancelStripeSubscriptionOperation,
   challengeOperation,
   claimNativeOrganizationSubscriptionOperation,
-  completeMultipartBlobStageOperation,
   createContainerOperation,
   createContainerWithMetadataDocumentOperation,
   createDocumentOperation,
@@ -66,7 +65,6 @@ import type {
   BlobAttachmentBindRequest,
   BlobAttachmentDetachRequest,
   CommitOrganizationGroupPolicyRequest,
-  CompleteMultipartBlobStageRequest,
   ContainerCreateWithMetadataDocumentRequest,
   ContainerMutationRequest,
   ContainerReciteRequest,
@@ -125,7 +123,6 @@ import {
 import { getOrganizationPolicyHistoryResult as organizationHistory } from "./organizationPolicyHistory";
 import type { PrincipalPolicyPageReadOptions } from "./principalPolicyPages";
 import { PrincipalPolicyRequests } from "./principalPolicyRequests";
-import { ProjectionHistoryTransport } from "./projectionHistoryTransport";
 import {
   bindPrototypeMethods,
   cachedRequest,
@@ -149,7 +146,6 @@ import {
   type UploadMultipartBlobPartBytesRequest,
 } from "./routes/blobs/get";
 import {
-  completeMultipartBlobStage as multipartComplete,
   getMultipartBlobStage as multipartGet,
   initiateMultipartBlobStage as multipartInitiate,
 } from "./routes/blobs/multipart";
@@ -196,6 +192,7 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "./types";
+import type { VerifiedManifestCitations } from "./verifiedManifestCitations";
 import { WebSocketTickets } from "./webSocketTickets";
 import {
   CitingProjectionCache,
@@ -225,7 +222,7 @@ const CONTAINER_ROTATIONS = {
 
 export class ApiClient {
   private readonly requestRuntime: ApiRequestRuntime;
-  private readonly projectionHistory = new ProjectionHistoryTransport();
+  private verifiedManifestCitations: VerifiedManifestCitations | null = null;
   private readonly containerDocumentLaneRequestsByKey = new Map<
     string,
     Promise<RequestResult<ListContainerDocumentLanesResponse>>
@@ -273,13 +270,12 @@ export class ApiClient {
       this.principalPolicyRequestsByKey,
       this.clearWriterProjectionCaches,
     );
-    const projectionRequests = writerProjectionRequests(this.requestRuntime);
-    this.request = this.projectionHistory.wrapRequest(
-      projectionRequests.request,
+    const projectionRequests = writerProjectionRequests(
+      this.requestRuntime,
+      () => this.verifiedManifestCitations,
     );
-    this.requestResult = this.projectionHistory.wrapRequestResult(
-      projectionRequests.requestResult,
-    );
+    this.request = projectionRequests.request;
+    this.requestResult = projectionRequests.requestResult;
     this.transport = createOperationTransport(
       this.requestRuntime.responseRequest,
     );
@@ -291,7 +287,6 @@ export class ApiClient {
     );
   }
   private clearAuthScopedCaches(): void {
-    this.projectionHistory.clear();
     this.containerDocumentLaneRequestsByKey.clear();
     this.containerParentLaneRequestsByKey.clear();
     this.documentAttachmentListRequestsByDocumentId.clear();
@@ -453,6 +448,11 @@ export class ApiClient {
 
   setOnPaymentRequired(handler: PaymentRequiredHandler | null): void {
     this.requestRuntime.setOnPaymentRequired(handler);
+  }
+
+  /** Verified bundles to cite on projection reads, scoped by their owner. */
+  setVerifiedManifestCitations(source: VerifiedManifestCitations | null): void {
+    this.verifiedManifestCitations = source;
   }
 
   setAuthToken(token: string | null): void {
@@ -1871,20 +1871,6 @@ export class ApiClient {
       input,
       undefined,
       options,
-    );
-  }
-
-  completeMultipartBlobStage(
-    stageId: string,
-    input: CompleteMultipartBlobStageRequest,
-  ) {
-    return this.request(
-      multipartComplete.path(stageId),
-      multipartComplete.isResponse,
-      multipartComplete.method,
-      JSON.stringify(input),
-      undefined,
-      completeMultipartBlobStageOperation,
     );
   }
 

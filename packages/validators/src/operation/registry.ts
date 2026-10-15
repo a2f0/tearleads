@@ -52,7 +52,6 @@ import {
 import { documentSyncOperation } from "./documentSync";
 import { getHealthOperation } from "./health";
 import {
-  completeMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
 } from "./multipartBlobs";
@@ -127,7 +126,6 @@ export const protocolOperations: readonly [
   typeof detachBlobAttachmentOperation,
   typeof initiateMultipartBlobStageOperation,
   typeof getMultipartBlobStageOperation,
-  typeof completeMultipartBlobStageOperation,
   typeof authorizeMultipartBlobPartUploadOperation,
   typeof uploadMultipartBlobPartBytesOperation,
   typeof listDocumentAttachmentsOperation,
@@ -203,7 +201,6 @@ export const protocolOperations: readonly [
   detachBlobAttachmentOperation,
   initiateMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
-  completeMultipartBlobStageOperation,
   authorizeMultipartBlobPartUploadOperation,
   uploadMultipartBlobPartBytesOperation,
   listDocumentAttachmentsOperation,

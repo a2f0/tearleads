@@ -110,10 +110,6 @@ function normalizeRequestPath(path: string): string {
         "/blobs/stages/multipart/:stageId/parts/:partNumber/bytes",
       )
       .replace(
-        /^\/blobs\/stages\/multipart\/[^/]+\/complete$/u,
-        "/blobs/stages/multipart/:stageId/complete",
-      )
-      .replace(
         /^\/blobs\/stages\/multipart\/[^/]+$/u,
         "/blobs/stages/multipart/:stageId",
       )

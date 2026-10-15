@@ -28,7 +28,6 @@ import {
 import { assertVerifiedContainerGrantReferencesValid } from "./groupReferences";
 import {
   assertCurrentContainerPath,
-  assertHistoricalContainerManifestsConsistent,
   assertManifestHeadCurrent,
   assertMutationHeadCanAdvance,
   verifyContainerManifestFromRequest,
@@ -37,7 +36,10 @@ import { planContainerMutationBatchLocks } from "./mutationBatchLocks";
 import { persistVerifiedMutation } from "./persistence";
 import { assertPrincipalPoliciesCurrent } from "./principalPolicies";
 import { principalPoliciesFromRequest } from "./principalPolicyRecords";
-import { resolveVerifiedStoredContainerManifest } from "./storedManifestArtifacts";
+import {
+  resolveCitedContainerHistory,
+  resolveVerifiedStoredContainerManifest,
+} from "./storedManifestArtifacts";
 
 function collectReferencedPrincipalHeads(
   paths: readonly (
@@ -82,16 +84,16 @@ async function assertMutationOrganizationCanSync(
 
 async function loadPreviousContainerManifest(
   context: ContainerMutationContext,
-  previousManifest: MutateContainerWithExecutorInput["request"]["previousManifest"],
+  previousManifestRef: MutateContainerWithExecutorInput["request"]["previousManifestRef"],
 ): Promise<VerifiedContainerAccessManifest | null> {
-  if (previousManifest === undefined || previousManifest === null) {
+  if (previousManifestRef === undefined || previousManifestRef === null) {
     return null;
   }
 
   return resolveVerifiedStoredContainerManifest(
     context,
-    previousManifest,
-    "previousManifest",
+    previousManifestRef,
+    "previousManifestRef",
   );
 }
 
@@ -100,7 +102,7 @@ async function assertPreviousManifestHeadCurrent(
   manifest: VerifiedContainerAccessManifest | null,
 ): Promise<void> {
   if (manifest) {
-    await assertManifestHeadCurrent(context, manifest, "previousManifest");
+    await assertManifestHeadCurrent(context, manifest, "previousManifestRef");
   }
 }
 
@@ -206,29 +208,29 @@ async function verifyMutationArtifacts(
 ): Promise<VerifiedMutationArtifacts> {
   const previousContainerPath = await assertCurrentContainerPath(
     context,
-    input.request.previousContainerPath,
-    "previousContainerPath",
+    input.request.previousContainerPathRefs,
+    "previousContainerPathRefs",
   );
   const parentContainerPath = await assertCurrentContainerPath(
     context,
-    input.request.parentContainerPath,
-    "parentContainerPath",
+    input.request.parentContainerPathRefs,
+    "parentContainerPathRefs",
   );
   const destinationParentContainerPath = await assertCurrentContainerPath(
     context,
-    input.request.destinationParentContainerPath,
-    "destinationParentContainerPath",
+    input.request.destinationParentContainerPathRefs,
+    "destinationParentContainerPathRefs",
   );
-  const containerManifestHistory =
-    await assertHistoricalContainerManifestsConsistent(
-      context,
-      input.request.containerManifestHistory,
-    );
   const previousManifest = await loadPreviousContainerManifest(
     context,
-    input.request.previousManifest,
+    input.request.previousManifestRef,
   );
   await assertPreviousManifestHeadCurrent(context, previousManifest);
+  const containerManifestHistory = await resolveCitedContainerHistory(
+    context,
+    input.request.containerManifestHistoryRefs,
+    previousManifest,
+  );
   const principalPolicies = await readCurrentPrincipalPolicies({
     executor: context.executor,
     request: input.request,
@@ -389,9 +391,24 @@ function assertMutationWithinPrelockedScope(
   }
 }
 
+/**
+ * A committed mutation and the parent its verified previous manifest named,
+ * which a move's realtime hint needs and the request no longer carries.
+ */
+export interface ContainerMutationOutcome {
+  readonly previousParentId: string | null | undefined;
+  readonly response: ContainerMutationResponse;
+}
+
 export async function mutateContainerWithExecutor(
   input: MutateContainerWithExecutorInput,
 ): Promise<ContainerMutationResponse> {
+  return (await mutateContainerWithExecutorOutcome(input)).response;
+}
+
+export async function mutateContainerWithExecutorOutcome(
+  input: MutateContainerWithExecutorInput,
+): Promise<ContainerMutationOutcome> {
   const context: ContainerMutationContext = input.context ?? {
     executor: input.executor,
     manifestHeadByContainerId: new Map(),
@@ -466,11 +483,14 @@ export async function mutateContainerWithExecutor(
     input.userId,
   );
 
-  return persistVerifiedMutation(
-    context,
-    artifacts.manifest,
-    verifiedKekMutation,
-    artifacts.previousManifest,
-    artifacts.previousContainerPath,
-  );
+  return {
+    previousParentId: artifacts.previousManifest?.state.parentContainerId,
+    response: await persistVerifiedMutation(
+      context,
+      artifacts.manifest,
+      verifiedKekMutation,
+      artifacts.previousManifest,
+      artifacts.previousContainerPath,
+    ),
+  };
 }

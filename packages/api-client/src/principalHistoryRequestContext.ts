@@ -4,7 +4,6 @@ import type { HttpMethod, RequestFailure, RequestResultOptions } from "./types";
 /** Keep continuations within their authentication context without hiding commit uncertainty. */
 export class PrincipalHistoryRequestContext {
   readonly options: RequestResultOptions;
-  private token: string | null;
   private submitted = false;
   private renewedRead = false;
   private restartedRead = false;
@@ -14,25 +13,41 @@ export class PrincipalHistoryRequestContext {
     private readonly method: HttpMethod,
     private readonly path: string,
     options: RequestResultOptions | undefined,
+    // Requests of one operation share the identity they started under.
+    private readonly identity = { token: runtime.getAuthToken() },
   ) {
-    this.token = runtime.getAuthToken();
     this.options = {
       ...options,
       retryOnSessionExpired:
         options?.retryOnSessionExpired === false ? false : "renew-only",
       onSessionRenewed: () => {
         if (method === "GET" && !options?.signal?.aborted) {
-          this.token = runtime.getAuthToken();
+          this.identity.token = runtime.getAuthToken();
           this.renewedRead = true;
         }
       },
     };
   }
 
+  /**
+   * Another request of the same operation, with its own options: an account
+   * switch at any point cancels both, while a session renewal in either
+   * carries over.
+   */
+  derive(options: RequestResultOptions): PrincipalHistoryRequestContext {
+    return new PrincipalHistoryRequestContext(
+      this.runtime,
+      this.method,
+      this.path,
+      options,
+      this.identity,
+    );
+  }
+
   cancelled(): boolean {
     return (
       this.options.signal?.aborted === true ||
-      this.runtime.getAuthToken() !== this.token
+      this.runtime.getAuthToken() !== this.identity.token
     );
   }
 

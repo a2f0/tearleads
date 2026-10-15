@@ -52,18 +52,18 @@ async function verifyRecitation(
 ): Promise<VerifiedContainerAccessManifest> {
   const previousContainerPath = await assertCurrentContainerPath(
     context,
-    input.request.previousContainerPath,
-    "previousContainerPath",
+    input.request.previousContainerPathRefs,
+    "previousContainerPathRefs",
   );
   const previousManifest = await resolveVerifiedStoredContainerManifest(
     context,
-    input.request.previousManifest,
-    "previousManifest",
+    input.request.previousManifestRef,
+    "previousManifestRef",
   );
   await assertManifestHeadCurrent(
     context,
     previousManifest,
-    "previousManifest",
+    "previousManifestRef",
   );
   const principalPolicies = await assertPrincipalPoliciesCurrent(
     context.executor,
@@ -113,9 +113,7 @@ async function persistRecitation(
   // descendant. A later request therefore cannot own this durable cursor.
   await appendOrganizationReadModelChangeInTransaction(context.executor, {
     organizationId: manifest.state.organizationId,
-    lane: "grants",
-    entityId: manifest.state.organizationId,
-    operation: "replace",
+    lanes: ["grants"],
   });
   return {
     ...(isContainerSystemSlot(container.systemSlot)

@@ -113,7 +113,7 @@ export async function documentWorkflowRuntimePatch(input: {
       ...multipart.api,
       bindBlobAttachment: async (blobId, request) => {
         const stagedBlob = request.stagedBlob
-          ? multipart.getCompleted(request.stagedBlob.stageId)
+          ? await multipart.completeAsBind(request.stagedBlob.stageId)
           : null;
         if (request.stagedBlob && !stagedBlob) {
           return null;

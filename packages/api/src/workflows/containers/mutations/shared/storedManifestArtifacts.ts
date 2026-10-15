@@ -1,105 +1,50 @@
 import type { VerifiedContainerAccessManifest } from "@tearleads/crypto";
+import type { ContainerManifestRef } from "@tearleads/validators/request";
 import {
-  computeAccessManifestHash,
-  deriveContainerAccessManifest,
-} from "@tearleads/crypto";
-import type { AccessManifestBundleWire } from "@tearleads/validators/request";
-import { canonicalJsonEquals } from "../../../../utils/canonicalJson";
-import { loadContainerManifestBundleByHash } from "../../writerProjection/accessPaths";
+  loadContainerManifestBundleByHash,
+  prefetchContainerManifestHistory,
+} from "../../writerProjection/accessPaths";
 import { verifyStoredContainerManifest } from "../../writerProjection/storedManifestVerification";
 import { ContainerWriterProjectionError } from "../../writerProjection/types";
-import { ContainerMutationError } from "../errors";
+import { ContainerMutationError, mutationShapeError } from "../errors";
 import type { ContainerMutationContext } from "../types";
-import { readVerifiedContainerManifest } from "./accessManifestRecords";
 
-async function readConsistentContainerManifestBundle(
-  bundle: AccessManifestBundleWire,
-  label: string,
-): Promise<VerifiedContainerAccessManifest> {
-  const verified = readVerifiedContainerManifest(bundle, label);
-  const derivedManifest = await deriveContainerAccessManifest(verified.state);
-  const derivedManifestHash = await computeAccessManifestHash(derivedManifest);
-  const suppliedManifestHash = await computeAccessManifestHash(
-    verified.manifest,
-  );
-
-  if (
-    verified.manifestHash !== derivedManifestHash ||
-    verified.manifestHash !== suppliedManifestHash ||
-    !canonicalJsonEquals(derivedManifest, verified.manifest)
-  ) {
-    throw new ContainerMutationError(
-      `${label} manifest bundle is not self-consistent`,
-      409,
-    );
-  }
-
-  if (
-    verified.manifest.objectKind !== "container" ||
-    verified.manifest.objectId !== verified.state.containerId ||
-    verified.manifest.organizationId !== verified.state.organizationId ||
-    verified.manifest.epoch !== verified.state.epoch ||
-    verified.manifest.previousManifestHash !==
-      verified.state.previousManifestHash ||
-    verified.manifest.eventHash !== verified.state.eventHash ||
-    verified.event.eventHash !== verified.state.eventHash ||
-    verified.event.event.objectId !== verified.state.containerId ||
-    verified.event.event.organizationId !== verified.state.organizationId
-  ) {
-    throw new ContainerMutationError(
-      `${label} manifest bundle has inconsistent domains`,
-      409,
-    );
-  }
-
-  return verified;
-}
-
-function containerManifestArtifact(
+function assertReferencedContainer(
+  ref: ContainerManifestRef,
   manifest: VerifiedContainerAccessManifest,
-): Record<string, unknown> {
-  return {
-    event: {
-      body: manifest.event.body,
-      event: manifest.event.event,
-      eventHash: manifest.event.eventHash,
-    },
-    manifest: manifest.manifest,
-    manifestHash: manifest.manifestHash,
-    state: manifest.state,
-  };
+  label: string,
+): VerifiedContainerAccessManifest {
+  // The cited containerId is advisory; reject a confused reference before any
+  // head lookup authorizes against a container the request did not name.
+  if (manifest.state.containerId !== ref.containerId) {
+    throw new ContainerMutationError(
+      `${label} container id does not match the referenced manifest`,
+      409,
+    );
+  }
+  return manifest;
 }
 
+/**
+ * Resolve a cited container manifest from the server's own artifacts, never
+ * from request bytes: first a manifest an earlier mutation of this batch
+ * verified, then the stored bundle, which is re-verified because database
+ * contents are not a trust boundary. Callers still pin the result to the
+ * current head where freshness matters.
+ */
 export async function resolveVerifiedStoredContainerManifest(
   context: ContainerMutationContext,
-  bundle: AccessManifestBundleWire,
+  ref: ContainerManifestRef,
   label: string,
 ): Promise<VerifiedContainerAccessManifest> {
-  const requestManifest = await readConsistentContainerManifestBundle(
-    bundle,
-    label,
-  );
-  const batchManifest = context.verifiedManifestByHash.get(
-    requestManifest.manifestHash,
-  );
+  const batchManifest = context.verifiedManifestByHash.get(ref.manifestHash);
   if (batchManifest) {
-    if (
-      !canonicalJsonEquals(
-        containerManifestArtifact(requestManifest),
-        containerManifestArtifact(batchManifest),
-      )
-    ) {
-      throw new ContainerMutationError(
-        `${label} does not match verified batch manifest`,
-        409,
-      );
-    }
-    return batchManifest;
+    return assertReferencedContainer(ref, batchManifest, label);
   }
   try {
     const storedBundle = await loadContainerManifestBundleByHash(
       context.writerProjectionContext,
-      requestManifest.manifestHash,
+      ref.manifestHash,
     );
     const storedManifest = await verifyStoredContainerManifest({
       bundle: storedBundle,
@@ -110,22 +55,8 @@ export async function resolveVerifiedStoredContainerManifest(
           manifestHash,
         ),
     });
-    if (
-      !canonicalJsonEquals(
-        containerManifestArtifact(requestManifest),
-        containerManifestArtifact(storedManifest),
-      )
-    ) {
-      throw new ContainerMutationError(
-        `${label} does not match verified stored manifest`,
-        409,
-      );
-    }
-    return storedManifest;
+    return assertReferencedContainer(ref, storedManifest, label);
   } catch (error) {
-    if (error instanceof ContainerMutationError) {
-      throw error;
-    }
     if (!(error instanceof ContainerWriterProjectionError)) {
       throw error;
     }
@@ -134,4 +65,70 @@ export async function resolveVerifiedStoredContainerManifest(
       409,
     );
   }
+}
+
+/**
+ * Refuse a citation list that repeats a manifest before reading any of it: a
+ * path visits each container once and KEK verification rejects a duplicate
+ * history entry, so a repeat is malformed rather than work to dedupe.
+ */
+export function assertDistinctManifestRefs(
+  refs: readonly ContainerManifestRef[],
+  label: string,
+): void {
+  const seen = new Set<string>();
+  for (const [index, ref] of refs.entries()) {
+    if (seen.has(ref.manifestHash)) {
+      throw mutationShapeError(`${label}[${index}] repeats a cited manifest`);
+    }
+    seen.add(ref.manifestHash);
+  }
+}
+
+const HISTORY_LABEL = "containerManifestHistoryRefs";
+
+/**
+ * Resolve the cited lineage of the container a mutation advances. Every entry
+ * must be that container's manifest (KEK verification refuses any other), so
+ * each citation is checked against it before any read, and the lineage loads
+ * in one bulk query: a long history costs one read, not one per entry.
+ */
+export async function resolveCitedContainerHistory(
+  context: ContainerMutationContext,
+  refs: readonly ContainerManifestRef[] | undefined,
+  previousManifest: VerifiedContainerAccessManifest | null,
+): Promise<VerifiedContainerAccessManifest[] | undefined> {
+  if (refs === undefined) {
+    return;
+  }
+  assertDistinctManifestRefs(refs, HISTORY_LABEL);
+  if (refs.length === 0) {
+    return [];
+  }
+  if (!previousManifest) {
+    throw mutationShapeError(`${HISTORY_LABEL} requires previousManifestRef`);
+  }
+  const { containerId } = previousManifest.state;
+  for (const [index, ref] of refs.entries()) {
+    if (ref.containerId !== containerId) {
+      throw mutationShapeError(
+        `${HISTORY_LABEL}[${index}] cites another container`,
+      );
+    }
+  }
+  await prefetchContainerManifestHistory(
+    context.writerProjectionContext,
+    containerId,
+  );
+  const manifests: VerifiedContainerAccessManifest[] = [];
+  for (const [index, ref] of refs.entries()) {
+    manifests.push(
+      await resolveVerifiedStoredContainerManifest(
+        context,
+        ref,
+        `${HISTORY_LABEL}[${index}]`,
+      ),
+    );
+  }
+  return manifests;
 }

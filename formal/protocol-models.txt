@@ -36,6 +36,7 @@ formal/local-trust/UnacknowledgedInput.tla|formal/local-trust/UnacknowledgedInpu
 formal/local-trust/ContainerCreateAdoption.tla|formal/local-trust/ContainerCreateAdoption.cfg
 formal/local-trust/QueuedDocumentCreate.tla|formal/local-trust/QueuedDocumentCreate.cfg
 formal/realtime/ContainerInterest.tla|formal/realtime/ContainerInterest.cfg
+formal/realtime/OrganizationReadModelStamps.tla|formal/realtime/OrganizationReadModelStamps.cfg
 formal/document-sync/AttachmentContentIdentity.tla|formal/document-sync/AttachmentContentIdentity.cfg
 formal/blob-attachments/BlobSourceAuthority.tla|formal/blob-attachments/BlobSourceAuthority.cfg
 formal/local-trust/DocumentMovePlacement.tla|formal/local-trust/DocumentMovePlacement.cfg

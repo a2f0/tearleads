@@ -89,13 +89,17 @@ test("repeated shares submit every same-container manifest needed by retained wr
       if (!verifiedManifest.ok) {
         throw verifiedManifest.error;
       }
-      const history = (request.containerManifestHistory ?? []).map((bundle) => {
-        const verified = verifiedByHash.get(bundle.manifestHash);
-        if (!verified) {
-          throw new Error(`Unverified manifest history ${bundle.manifestHash}`);
-        }
-        return verified;
-      });
+      const history = (request.containerManifestHistoryRefs ?? []).map(
+        (bundle) => {
+          const verified = verifiedByHash.get(bundle.manifestHash);
+          if (!verified) {
+            throw new Error(
+              `Unverified manifest history ${bundle.manifestHash}`,
+            );
+          }
+          return verified;
+        },
+      );
       const verifiedKek = await verifyContainerKekState({
         containerManifest: verifiedManifest.value,
         containerManifestHistory: history,
@@ -160,7 +164,7 @@ test("repeated shares submit every same-container manifest needed by retained wr
       throw new Error("Expected two share requests");
     }
     expect(
-      secondRequest.containerManifestHistory?.map(
+      secondRequest.containerManifestHistoryRefs?.map(
         (bundle) => bundle.manifestHash,
       ),
     ).toEqual([

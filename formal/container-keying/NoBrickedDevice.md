@@ -178,3 +178,11 @@ production makes separate reads (the organization, its Admins group, the
 metadata root). A commit between two reads serves a chain extending the head
 the other read cites; the client rereads once instead of reporting tampering
 (#2365 finding 22). This is exhaustive bounded model checking, not a proof.
+
+Writer projections may omit manifest bundles a device cited from its own
+durable verified-bundle table (#2522). The device rebuilds the same served
+tuple from those exact bytes before any rule here runs, so the projections this
+model serves are unchanged, and nothing a device reads depends on another
+device's table. Losing the table only removes citations; the next read arrives
+complete. The cite-held and omit-cited rules that make this hold for every
+eviction are checked in [`ManifestHistory`](./ManifestHistory.md).

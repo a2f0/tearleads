@@ -18,16 +18,11 @@ export {
   BlobContentKeyTargetEnvelopeRequestSchema,
   type BlobStagedBlobRequest,
   BlobStagedBlobRequestSchema,
-  type CompleteMultipartBlobStageRequest,
-  CompleteMultipartBlobStageRequestSchema,
   type InitiateMultipartBlobStageRequest,
   InitiateMultipartBlobStageRequestSchema,
   isBlobAttachmentBindRequest,
   isBlobAttachmentDetachRequest,
-  isCompleteMultipartBlobStageRequest,
   isInitiateMultipartBlobStageRequest,
-  type MultipartBlobPartCommitRequest,
-  MultipartBlobPartCommitRequestSchema,
 } from "./blob";
 export {
   type ContainerMutationRequest,

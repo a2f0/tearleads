@@ -173,11 +173,8 @@ export {
   isGetHealthOperationResponse,
 } from "./health";
 export {
-  completeMultipartBlobStageOperation,
   getMultipartBlobStageOperation,
   initiateMultipartBlobStageOperation,
-  isCompleteMultipartBlobStageOperationRequest,
-  isCompleteMultipartBlobStageOperationResponse,
   isGetMultipartBlobStageOperationResponse,
   isInitiateMultipartBlobStageOperationRequest,
   isInitiateMultipartBlobStageOperationResponse,

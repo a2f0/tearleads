@@ -67,7 +67,13 @@ test(
       restored.getByRole("region", { name: "API request counts" }),
     );
     const totalRow = requests.getByText("Total requests").closest("tr");
-    expect(totalRow?.textContent).toBe(`Total requests${snapshot.total}`);
+    // Background sync may issue requests after the settle point; the monitor
+    // must show the live retained count, which can only have grown.
+    await waitFor(() => {
+      const live = metrics.getSnapshot(fingerprint).total;
+      expect(live).toBeGreaterThanOrEqual(snapshot.total);
+      expect(totalRow?.textContent).toBe(`Total requests${live}`);
+    });
     expect(requests.getByText("POST /auth/register")).toBeTruthy();
     restored.unmount();
   },

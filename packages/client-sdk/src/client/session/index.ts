@@ -308,6 +308,8 @@ class SessionService implements Session {
         logError: this.dependencies.logError,
         organizationProfileName: options?.organizationProfileName,
         pinLocalUserIdentity,
+        primePrincipalHistory:
+          this.dependencies.primeProvisionedPrincipalHistory,
         provisionedSystemContainers:
           this.dependencies.provisionedSystemContainers,
         rosterProfileNickname: options?.rosterProfileNickname,
@@ -319,10 +321,7 @@ class SessionService implements Session {
       throw error;
     }
 
-    if (this.dependencies.identity.snapshot !== identitySnapshot) {
-      return null;
-    }
-
+    if (this.dependencies.identity.snapshot !== identitySnapshot) return null;
     if (!response) {
       this.dependencies.log("Registration failed");
       return null;

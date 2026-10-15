@@ -26,6 +26,42 @@ export async function summarizeBlobEnvelopeStage(
   // Parsing as soon as the header is buffered lets a malformed one cancel the
   // upload stream, rather than hashing the whole object first to reject it.
   const summary = await summarizeSha256Stream(stream, header.observe);
+  return { ...summary, envelopeHeader: judgeEnvelopeHeader(header, summary) };
+}
+
+/**
+ * Observe the header during a read someone else drives (the multipart
+ * completion that digests the assembled object), judging it only once that
+ * read is done: the stage's length and digest are checked first, so a
+ * mismatched object is still reported and deleted as a mismatch.
+ */
+export function createDeferredEnvelopeReader() {
+  let header = createEnvelopeHeaderObserver();
+  let failure: { readonly error: unknown } | null = null;
+  return {
+    observe(chunk: Uint8Array): void {
+      if (failure !== null) return;
+      try {
+        header.observe(chunk);
+      } catch (error) {
+        failure = { error };
+      }
+    },
+    restart(): void {
+      header = createEnvelopeHeaderObserver();
+      failure = null;
+    },
+    judge(summary: { readonly byteLength: number }): BlobEnvelopeHeaderRecord {
+      if (failure !== null) throw failure.error;
+      return judgeEnvelopeHeader(header, summary);
+    },
+  };
+}
+
+function judgeEnvelopeHeader(
+  header: ReturnType<typeof createEnvelopeHeaderObserver>,
+  summary: { readonly byteLength: number },
+): BlobEnvelopeHeaderRecord {
   const envelopeHeader = header.parsed();
   if (envelopeHeader === null) {
     throw new BlobMutationError(
@@ -39,7 +75,7 @@ export async function summarizeBlobEnvelopeStage(
       400,
     );
   }
-  return { ...summary, envelopeHeader };
+  return envelopeHeader;
 }
 
 /** Buffers at most the bounded header and parses it as soon as it is whole. */

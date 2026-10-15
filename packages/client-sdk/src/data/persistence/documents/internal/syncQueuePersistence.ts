@@ -7,11 +7,11 @@ import {
   replaceDocumentHistoryCheckpoint,
 } from "../../../sqlite/documentHistoryPersistence";
 import {
-  deleteDocumentPendingUpdate,
-  deleteDocumentPendingUpdates,
   enqueueDocumentPendingUpdateWithHistory,
   listDocumentPendingUpdates,
   rekeyDocumentPendingUpdate,
+  settleDocumentPendingUpdate,
+  unqueueDocumentPendingUpdates,
 } from "../../../sqlite/documentPersistence";
 import {
   documentAttachmentBlobProjection,
@@ -247,12 +247,12 @@ export const documentSyncQueuePersistence: DocumentSyncQueuePersistence = {
   },
   async deletePendingUpdate(execSql, id) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await deleteDocumentPendingUpdate(lockedExecSql, id);
+      await settleDocumentPendingUpdate(lockedExecSql, id);
     });
   },
   async deletePendingUpdates(execSql, localId) {
     await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
-      await deleteDocumentPendingUpdates(
+      await unqueueDocumentPendingUpdates(
         lockedExecSql,
         getDocumentScope(localId),
       );

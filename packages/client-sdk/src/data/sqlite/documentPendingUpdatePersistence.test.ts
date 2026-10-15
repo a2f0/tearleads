@@ -1,13 +1,19 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
-  deleteDocumentPendingUpdate,
-  deleteDocumentPendingUpdates,
+  listDocumentHistoryTailEntries,
+  loadDocumentHistoryRestoreState,
+  replaceDocumentHistoryCheckpoint,
+} from "./documentHistoryPersistence";
+import {
   enqueueDocumentPendingUpdate,
+  enqueueDocumentPendingUpdateWithHistory,
   ensureDocumentTables,
   listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,
+  settleDocumentPendingUpdate,
+  unqueueDocumentPendingUpdates,
 } from "./documentPersistence";
 
 const documentScope = {
@@ -15,7 +21,7 @@ const documentScope = {
   localId: "local-document-1",
 };
 
-test("document pending updates persist queue fields and delete by id", async () => {
+test("settling an outbox update removes it from the update log", async () => {
   const { close, execSql } = await createTestExecSql(
     "document-pending-update-persistence-test",
   );
@@ -45,10 +51,13 @@ test("document pending updates persist queue fields and delete by id", async () 
       sourceVersionVector: null,
     });
 
-    await deleteDocumentPendingUpdate(execSql, pendingUpdate?.id ?? "");
+    await settleDocumentPendingUpdate(execSql, pendingUpdate?.id ?? "");
 
     await expect(
       listDocumentPendingUpdates(execSql, documentScope),
+    ).resolves.toEqual([]);
+    await expect(
+      execSql("SELECT id FROM document_history_updates"),
     ).resolves.toEqual([]);
   } finally {
     close();
@@ -180,7 +189,7 @@ test("document pending update cleanup is scoped by app kind and local id", async
       });
     }
 
-    await deleteDocumentPendingUpdates(execSql, documentScope);
+    await unqueueDocumentPendingUpdates(execSql, documentScope);
 
     await expect(
       listDocumentPendingUpdates(execSql, documentScope),
@@ -216,25 +225,27 @@ test("document pending update listing preserves insertion order for equal timest
 
     for (const updateData of ["update-1", "update-2", "update-3"]) {
       await execSql(
-        `INSERT INTO document_pending_updates (
+        `INSERT INTO document_history_updates (
           id,
           app_kind,
           local_id,
           update_data,
+          origin,
+          created_at,
+          update_id,
           partial_start_version_vector,
-          partial_end_version_vector,
-          source_version_vector,
-          created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          partial_end_version_vector
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
-          `${updateData}-id`,
+          `${updateData}-row`,
           documentScope.appKind,
           documentScope.localId,
           updateData,
+          "local",
+          "2026-05-08T00:00:00.000Z",
+          `${updateData}-id`,
           `${updateData}-start`,
           `${updateData}-end`,
-          null,
-          "2026-05-08T00:00:00.000Z",
         ],
       );
     }
@@ -246,6 +257,63 @@ test("document pending update listing preserves insertion order for equal timest
       { updateData: "update-2" },
       { updateData: "update-3" },
     ]);
+  } finally {
+    close();
+  }
+});
+
+test("a queued local update is one tail row that compaction spares until settled", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "document-pending-update-tail-row-test",
+  );
+
+  try {
+    await ensureDocumentTables(execSql);
+    const updateId = await enqueueDocumentPendingUpdateWithHistory(
+      execSql,
+      documentScope,
+      {
+        updateData: "local-edit",
+        partialStartVersionVector: "start",
+        partialEndVersionVector: "end",
+      },
+    );
+    const rows = await execSql(
+      "SELECT id, origin, update_id FROM document_history_updates",
+    );
+    expect(rows).toEqual([
+      { id: expect.any(String), origin: "local", update_id: updateId },
+    ]);
+    const rowId = String(Reflect.get(rows[0] ?? {}, "id"));
+    await expect(
+      loadDocumentHistoryRestoreState(execSql, documentScope),
+    ).resolves.toMatchObject({
+      tailUpdates: [{ origin: "local", updateData: "local-edit" }],
+    });
+
+    // A checkpoint may cover the queued operation, but the row is still the
+    // unsent update: neither the candidate scan nor a named delete removes it.
+    await expect(
+      listDocumentHistoryTailEntries(execSql, documentScope),
+    ).resolves.toEqual([]);
+    await replaceDocumentHistoryCheckpoint(execSql, documentScope, {
+      coveredTailIds: [rowId],
+      endVersionVector: "end",
+      force: true,
+      snapshot: "",
+    });
+    await expect(
+      listDocumentPendingUpdates(execSql, documentScope),
+    ).resolves.toMatchObject([{ id: updateId, updateData: "local-edit" }]);
+
+    // Settlement keeps the row as history, now compactable.
+    await settleDocumentPendingUpdate(execSql, updateId ?? "");
+    await expect(
+      listDocumentPendingUpdates(execSql, documentScope),
+    ).resolves.toEqual([]);
+    await expect(
+      listDocumentHistoryTailEntries(execSql, documentScope),
+    ).resolves.toEqual([{ id: rowId, updateData: "local-edit" }]);
   } finally {
     close();
   }

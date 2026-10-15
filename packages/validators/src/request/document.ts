@@ -9,7 +9,6 @@ import {
   requiredUnknownSchema,
 } from "../schema";
 import {
-  AccessManifestBundleWireSchema,
   MAX_CONTAINER_PATH_LENGTH,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS,
   MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS,
@@ -52,7 +51,6 @@ export const documentCreateRequestShape = {
   event: plainObjectSchema,
   expectedManifestHash: nonEmptyStringSchema,
   manifest: plainObjectSchema,
-  previousManifest: AccessManifestBundleWireSchema.nullable().optional(),
   targetContainerPathRefs: ContainerManifestPathSchema.optional(),
 } satisfies z.ZodRawShape;
 

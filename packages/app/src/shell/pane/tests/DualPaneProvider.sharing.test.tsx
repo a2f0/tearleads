@@ -57,12 +57,16 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Retain headroom for independently scheduled verification/recovery pulls.
   // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
   // Private metadata-root authority adds one directory discovery read per
-  // operation; completed policy stages need no confirmation read. Measured
-  // 65–71 calls (settle timing) before batched discovery saved one listing and about 2.0–2.1 MB received; keep eight
-  // calls of scheduling room.
-  total: 78,
-  // Preserve the request-byte cap and room for two extra document projections.
-  bodyBytes: { request: 380_000, response: 2_250_000 },
+  // operation; completed policy stages need no confirmation read. The
+  // attachment's stage carries its part upload source and the bind completes
+  // it. Batched discovery lists each reconciliation pass's lanes in one
+  // request. Measured 62–68 calls (settle timing) and about 2.0–2.1 MB
+  // received; keep eight calls of scheduling room.
+  total: 76,
+  // Container mutations cite stored manifests by hash, so the share and its
+  // recitations no longer echo path bundles: 180 KB sent (was 352 KB). Keep
+  // the same ~8% request headroom and room for two extra document projections.
+  bodyBytes: { request: 195_000, response: 2_250_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

@@ -59,6 +59,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/local-trust/DocumentMovePlacement.md": 1,
   "formal/local-trust/DurableIdentityBinding.md": 1,
   "formal/realtime/ContainerInterest.md": 1,
+  "formal/realtime/OrganizationReadModelStamps.md": 1,
 };
 
 export interface FormalSourceFile {

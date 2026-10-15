@@ -22,7 +22,8 @@ source of truth and the tables are a map to it.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Container path length | 100 containers, including root and leaf (`MAX_CONTAINER_PATH_LENGTH`); depths zero through 99 | API: create and subtree-move checks in `workflows/containers/mutations/shared/containerDepth.ts`, under the organization lock; the CTE in `access/shared/internal/containerKekTargets.ts` and writer/stored path loaders. SDK: local create/move refused before queuing (`workflows/container-contents/container-state/localPathDepth.ts`), plan-time destination prechecks, and `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Final refusal (409 `container_path_too_deep`) before creating an unreadable path. A subtree move checks the deepest descendant, including descendants the caller cannot discover; a queued move refused for that reason is abandoned and its previous placement restored in the same local transaction. |
+| Container path length | 100 containers, including root and leaf (`MAX_CONTAINER_PATH_LENGTH`); depths zero through 99 | API: create and subtree-move checks in `workflows/containers/mutations/shared/containerDepth.ts`, under the organization lock; the CTE in `access/shared/internal/containerKekTargets.ts` and writer/stored path loaders; container mutation and recitation request schemas bound every cited path (`*ContainerPathRefs`) to the same 100 references. SDK: local create/move refused before queuing (`workflows/container-contents/container-state/localPathDepth.ts`), plan-time destination prechecks, and `data/keyingProjectionVerification/documentDependencyPaths.ts`. | Final refusal (409 `container_path_too_deep`) before creating an unreadable path. A subtree move checks the deepest descendant, including descendants the caller cannot discover; a queued move refused for that reason is abandoned and its previous placement restored in the same local transaction. |
+| Cited manifest history per container mutation | 4,096 references (`MAX_CONTAINER_MANIFEST_HISTORY_REFS`, `validators/src/util/containerLimits.ts`) | Validators: `request/containerManifestRef.ts` bounds `containerManifestHistoryRefs`. API: `workflows/containers/mutations/shared/storedManifestArtifacts.ts` refuses a repeated citation or one naming another container before any read, then loads the container's lineage in one bulk query. | Refusal (400). Inline bundles of 8-14 KiB fit about this many under the 32 MiB request ceiling, so the reference form keeps that capacity rather than letting a small body cite ~50x more. |
 
 Create and move preserve the reader's structural bound. Policy rotations and
 revocations do not change structure and do not run these depth guards. The
@@ -68,8 +69,11 @@ wherever the server verifies it; a rotated secret or new rule revision
 re-verifies each object's history once, on its next projection read or
 mutation. Serving a
 writer projection still loads every retained manifest its key history cites,
-in a few batched queries. Writer-projection responses can omit exact prefixes
-retained after successful device verification; see
+in a few batched queries, and carries each distinct manifest bundle once however
+many paths and histories cite it. A request may cite at most 48 manifests whose
+verified bundles the device holds (`x-known-manifests`); their bytes are then
+omitted, and the device keeps at most 1,024 such bundles. Neither bound limits
+the history a reader receives; see
 [the incremental evidence contract](./projection-policy-evidence.md#cost-and-retained-history-tradeoff).
 For N ancestor
 manifests, the request-local lineage index uses O(N log N) work and space, with

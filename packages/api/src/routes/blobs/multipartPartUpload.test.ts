@@ -6,11 +6,11 @@ import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import { createBlobStageOwner } from "../../../test/helpers/blobStageOwner";
+import { completeStageAsBind } from "../../../test/helpers/blobStageParts";
 import { createServiceTestRuntime } from "../../../test/helpers/serviceRuntime";
 import { requireAuth, type SessionEnv } from "../../middleware/session";
 import { createRouteApp } from "../../routeApp";
 import {
-  completeMultipartBlobStage,
   getMultipartBlobStage,
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,
@@ -47,9 +47,15 @@ async function fixture(
   const owner = await createBlobStageOwner();
   const runtime = createServiceTestRuntime();
   const memory = runtime.blobObjectStore;
+  const contentMd5 = createHash("md5")
+    .update(bytes.subarray(0, firstPartByteLength))
+    .digest("base64");
   const stage = await initiateMultipartBlobStage(runtime, {
     ...owner,
     byteLength: bytes.byteLength,
+    firstParts: [
+      { byteLength: firstPartByteLength, contentMd5, partNumber: 1 },
+    ],
     sha256: sha256Hex(bytes),
   });
   createdStages.push({ runtime, stageId: stage.stageId });
@@ -73,9 +79,7 @@ async function fixture(
   });
   const body = {
     byteLength: firstPartByteLength,
-    contentMd5: createHash("md5")
-      .update(bytes.subarray(0, firstPartByteLength))
-      .digest("base64"),
+    contentMd5,
     uploadId: stage.uploadId,
   };
   const path = `/blobs/stages/multipart/${stage.stageId}/parts/1/upload`;
@@ -291,14 +295,21 @@ test("later chunks receive fresh URLs after five minutes and complete with earli
         sha256: sha256Hex("part-2"),
       },
     });
+    expect(part2.partNumber).toBe(2);
+    await completeStageAsBind(f.runtime, {
+      stageId: f.stage.stageId,
+      userId: f.owner.userId,
+    });
     expect(
-      await completeMultipartBlobStage(f.runtime, {
+      await getMultipartBlobStage(f.runtime, {
         stageId: f.stage.stageId,
         userId: f.owner.userId,
-        uploadId: f.stage.uploadId,
-        parts: [part1, part2],
       }),
-    ).toMatchObject({ byteLength: bytes.byteLength, sha256: sha256Hex(bytes) });
+    ).toMatchObject({
+      byteLength: bytes.byteLength,
+      completed: true,
+      sha256: sha256Hex(bytes),
+    });
   } finally {
     clock.mockRestore();
   }

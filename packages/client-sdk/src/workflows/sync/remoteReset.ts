@@ -5,6 +5,10 @@ import {
   deleteDocumentPlacementRowsByDocumentIds,
 } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
+import {
+  queuedUpdateRow,
+  unqueueDocumentScopesInTransaction,
+} from "../../data/sqlite/documentPendingUpdatePersistence";
 import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
 import {
   organizationDataUsageCategories,
@@ -15,9 +19,7 @@ import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
@@ -28,9 +30,9 @@ import {
   containerMoveIntents,
   containers,
   documentAttachmentBlobProjection,
+  documentHistoryUpdates,
   documentMoveIntents,
   documentPendingAttachments,
-  documentPendingUpdates,
   documentProjection,
   documentSyncFailures,
   documents,
@@ -43,6 +45,7 @@ import {
 } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { verifiedAccessManifestBundles } from "../../data/sqlite/verifiedManifestBundleSchema";
 import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
 import { clearResetPendingAttachments } from "./remoteResetAttachments";
 import { remoteResetBatches } from "./remoteResetBatches";
@@ -88,10 +91,8 @@ async function clearOrganizationPresentationRows(
     organizationDataUsageSnapshots,
     organizationReadModelContainerGrants,
     organizationReadModelGroupMembers,
-    organizationReadModelGroupMemberships,
     organizationReadModelDirectoryUsers,
     organizationReadModelGroups,
-    organizationReadModelPolicyHeads,
     organizationReadModelRequesters,
     organizationReadModelState,
     organizationPresentationDenials,
@@ -163,19 +164,7 @@ async function clearScopedDocumentRows(
       .run();
   }
   for (const documentBatch of remoteResetBatches(snapshot.documentRows)) {
-    await tx
-      .delete(documentPendingUpdates)
-      .where(
-        or(
-          ...documentBatch.map((row) =>
-            and(
-              eq(documentPendingUpdates.appKind, row.appKind),
-              eq(documentPendingUpdates.localId, row.localId),
-            ),
-          ),
-        ),
-      )
-      .run();
+    await unqueueDocumentScopesInTransaction(tx, documentBatch);
     await tx
       .delete(documentSyncFailures)
       .where(
@@ -200,6 +189,7 @@ async function clearScopedRemoteRows(
   for (const table of [
     dormantContainerMetadata,
     dormantMetadataSweepRequests,
+    verifiedAccessManifestBundles,
   ] as const) {
     await tx
       .delete(table)
@@ -299,13 +289,17 @@ async function queueResetDocumentUpdates(input: {
 }): Promise<void> {
   for (const updateBatch of remoteResetBatches(input.documentUpdates)) {
     await input.tx
-      .insert(documentPendingUpdates)
+      .insert(documentHistoryUpdates)
       .values(
-        updateBatch.map((update) => ({
-          ...update,
-          id: crypto.randomUUID(),
-          createdAt: input.now,
-        })),
+        updateBatch.map((update) =>
+          queuedUpdateRow({
+            createdAt: input.now,
+            origin: "outbox",
+            pendingUpdate: update,
+            scope: update,
+            updateId: crypto.randomUUID(),
+          }),
+        ),
       )
       .run();
   }

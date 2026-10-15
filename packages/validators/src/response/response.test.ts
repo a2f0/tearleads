@@ -6,7 +6,6 @@ import {
   isBlobAttachmentDetachResponse,
   isChallengeErrorResponse,
   isChallengeResponse,
-  isCompleteMultipartBlobStageResponse,
   isContainerDeleteResponse,
   isCurrentPrincipalMemberEnvelopesResponse,
   isDestroySessionResponse,
@@ -115,17 +114,23 @@ test("session responses", () => {
 });
 
 test("multipart blob stage responses", () => {
+  const md5 = `${"A".repeat(22)}==`;
+  const part = { byteLength: 6, contentMd5: md5, partNumber: 1 };
   const initiated = {
     organizationId: "organization-1",
     byteLength: 12,
     expiresAt: new Date().toISOString(),
     sha256: "sha256-1",
+    partUploads: [{ ...part, source: { kind: "api" } }],
     stageId: "stage-1",
     uploadId: "upload-1",
     uploadedParts: [{ byteLength: 6, etag: "etag-1", partNumber: 1 }],
   };
 
   expect(isInitiateMultipartBlobStageResponse(initiated)).toBe(true);
+  const bad = { ...part, source: { kind: "signed-url" } };
+  const stage = { ...initiated, partUploads: [bad] };
+  expect(isInitiateMultipartBlobStageResponse(stage)).toBe(false);
   expect(
     isMultipartBlobStageStatusResponse({
       ...initiated,
@@ -139,15 +144,6 @@ test("multipart blob stage responses", () => {
       uploadId: "upload-1",
     }),
   ).toBe(true);
-  expect(
-    isCompleteMultipartBlobStageResponse({
-      organizationId: "organization-1",
-      byteLength: 12,
-      expiresAt: new Date().toISOString(),
-      sha256: "sha256-1",
-      stageId: "stage-1",
-    }),
-  ).toBe(true);
 
   expect(
     isInitiateMultipartBlobStageResponse({
@@ -157,7 +153,6 @@ test("multipart blob stage responses", () => {
   ).toBe(false);
   expect(isMultipartBlobStageStatusResponse(initiated)).toBe(false);
   expect(isUploadMultipartBlobPartResponse(null)).toBe(false);
-  expect(isCompleteMultipartBlobStageResponse(null)).toBe(false);
 });
 
 function createBlobContentKeyBundleResponse(overrides = {}) {

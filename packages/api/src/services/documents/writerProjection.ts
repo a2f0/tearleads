@@ -1,5 +1,5 @@
-import { omitProjectionHistory } from "@tearleads/crypto";
-import { parseProjectionHistoryHints } from "@tearleads/validators/util";
+import { encodeDocumentWriterProjection } from "@tearleads/validators/response";
+import { parseKnownManifestHints } from "@tearleads/validators/util";
 import {
   DocumentWriterProjectionError,
   runDocumentWriterProjectionWorkflow,
@@ -14,12 +14,13 @@ const getFullProjection = createDatabaseWorkflowService(
 export async function getDocumentWriterProjection(
   runtime: Parameters<typeof getFullProjection>[0],
   input: Parameters<typeof getFullProjection>[1] & {
-    readonly historyPrefixes?: string | undefined;
+    readonly knownManifests?: string | undefined;
   },
 ) {
   const projection = await getFullProjection(runtime, input);
-  return omitProjectionHistory(
+  // See getContainerWriterProjection.
+  return encodeDocumentWriterProjection(
     projection,
-    parseProjectionHistoryHints(input.historyPrefixes ?? "[]") ?? [],
+    new Set(parseKnownManifestHints(input.knownManifests ?? "") ?? []),
   );
 }

@@ -40,6 +40,10 @@ still catches an unsigned removal while the remote head links the original
 container.
 
 The model abstracts cryptography, content, network failures, and SQL internals.
+Its verified evidence also covers the exact-head cache that organization
+provisioning seeds for documents the client signed and the server acknowledged;
+those heads are pinned as verification checkpoints in the same transaction, so
+the seeding adds no model action.
 The local relink transaction includes intent enqueue or settlement and link
 writes. The server still performs link and unlink separately; waiting in the
 unlink phase models a failed request awaiting retry. The two destinations are

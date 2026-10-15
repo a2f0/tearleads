@@ -1,4 +1,8 @@
 import { expect } from "bun:test";
+import {
+  encodeContainerWriterProjection,
+  encodeDocumentWriterProjection,
+} from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createBlobAttachmentBindRequest,
@@ -32,14 +36,22 @@ testApiClient(
         `${apiBaseUrl}/containers/:containerId/writer-projection`,
         async ({ request }) => {
           calls.push(await captureHttpCall(request));
-          return HttpResponse.json(createContainerWriterProjectionResponse());
+          return HttpResponse.json(
+            encodeContainerWriterProjection(
+              createContainerWriterProjectionResponse(),
+            ),
+          );
         },
       ),
       http.get(
         `${apiBaseUrl}/documents/:documentId/writer-projection`,
         async ({ request }) => {
           calls.push(await captureHttpCall(request));
-          return HttpResponse.json(createDocumentWriterProjectionResponse());
+          return HttpResponse.json(
+            encodeDocumentWriterProjection(
+              createDocumentWriterProjectionResponse(),
+            ),
+          );
         },
       ),
       http.post(
@@ -146,7 +158,11 @@ testApiClient(
         `${apiBaseUrl}/documents/:documentId/writer-projection`,
         async ({ request }) => {
           calls.push(await captureHttpCall(request));
-          return HttpResponse.json(createDocumentWriterProjectionResponse());
+          return HttpResponse.json(
+            encodeDocumentWriterProjection(
+              createDocumentWriterProjectionResponse(),
+            ),
+          );
         },
       ),
       http.post(
@@ -329,7 +345,11 @@ testApiClient(
         `${apiBaseUrl}/documents/:documentId/writer-projection`,
         async ({ request }) => {
           calls.push(await captureHttpCall(request));
-          return HttpResponse.json(createDocumentWriterProjectionResponse());
+          return HttpResponse.json(
+            encodeDocumentWriterProjection(
+              createDocumentWriterProjectionResponse(),
+            ),
+          );
         },
       ),
       http.post(

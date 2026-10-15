@@ -12,9 +12,7 @@ import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
@@ -27,9 +25,9 @@ import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
   documentHistoryCheckpoints,
+  documentHistoryUpdates,
   documentMoveIntents,
   documentPendingAttachments,
-  documentPendingUpdates,
   documentProjection,
   documentProjectionText,
   documents,
@@ -173,15 +171,14 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         contentSha256: "0".repeat(64),
         updatedAt: stale,
       });
-      await tx.insert(documentPendingUpdates).values({
-        id: "old-update",
+      await tx.insert(documentHistoryUpdates).values({
+        id: "old-update-row",
         appKind: "documents",
         localId: "doc-1",
         updateData: "old",
-        partialStartVersionVector: "old",
-        partialEndVersionVector: "old",
-        sourceVersionVector: null,
+        origin: "outbox",
         createdAt: stale,
+        updateId: "old-update",
       });
       await tx.insert(documentContainerProjection).values({
         documentId: "doc-remote-old",
@@ -264,6 +261,12 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         cursor: "opaque-cursor",
         profileDocumentId: null,
         memberGroupId: "members-group",
+        memberGroupStateHash: "members-state",
+        organizationStateHash: "organization-state",
+        organizationStateVersion: 1,
+        organizationKeyEpoch: 1,
+        organizationKeyFingerprint: "organization-key-fingerprint",
+        organizationMemberCount: 1,
         updatedAt: stale,
       });
       await tx.insert(organizationReadModelRequesters).values({
@@ -299,22 +302,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         stateHash: "group-state",
         stateVersion: 1,
         keyEpoch: 1,
-        memberCount: 1,
-      });
-      await tx.insert(organizationReadModelPolicyHeads).values({
-        organizationId: "org-old",
-        principalType: "group",
-        principalId: "group-old",
-        stateHash: "group-state",
-        stateVersion: 1,
-        keyEpoch: 1,
         keyFingerprint: "group-key-fingerprint",
         memberCount: 1,
-      });
-      await tx.insert(organizationReadModelGroupMemberships).values({
-        organizationId: "org-old",
-        groupId: "group-old",
-        stateHash: "group-state",
+        membersStateHash: "group-state",
       });
       await tx.insert(organizationReadModelGroupMembers).values({
         organizationId: "org-old",
@@ -323,10 +313,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         sortOrder: 0,
         stateHash: "group-state",
         role: "member",
-        signingKeyFingerprint: "signing-fingerprint",
-        signingPublicKey: "signing-public-key",
-        encapsulationPublicKey: "encapsulation-public-key",
-        encapsulationKeyFingerprint: "encapsulation-fingerprint",
       });
       await tx.insert(organizationReadModelContainerGrants).values({
         organizationId: "org-old",
@@ -399,7 +385,9 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
     expect(await db.select().from(securityIncidents)).toEqual([
       expect.objectContaining({ id: "incident-1", code: "rollback" }),
     ]);
-    const pendingUpdates = await db.select().from(documentPendingUpdates);
+    const pendingUpdates = (
+      await db.select().from(documentHistoryUpdates)
+    ).filter((row) => row.updateId !== null);
     expect(pendingUpdates).toHaveLength(2);
     expect(pendingUpdates.every((row) => row.updateData !== "old")).toBe(true);
 
@@ -478,8 +466,6 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
       organizationReadModelRequesters,
       organizationReadModelDirectoryUsers,
       organizationReadModelGroups,
-      organizationReadModelPolicyHeads,
-      organizationReadModelGroupMemberships,
       organizationReadModelGroupMembers,
       organizationReadModelContainerGrants,
     ]) {

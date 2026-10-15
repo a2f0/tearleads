@@ -3,11 +3,12 @@ import {
   createFakePlan,
   createMultipartApi,
   DEFAULT_CHUNK_SIZE,
+  initiatedStage,
 } from "../../../test/helpers/multipartUpload";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 describe("stageMultipartBlobAttachment", () => {
-  test("encrypts parts lazily with bounded concurrency", async () => {
+  test("describes the first parts at initiation and encrypts each part once", async () => {
     const partLengths = [3, 4, 5, 6];
     const encryptedPartIndices: number[] = [];
     const uploadedPartNumbers: number[] = [];
@@ -29,29 +30,31 @@ describe("stageMultipartBlobAttachment", () => {
       },
     });
 
+    const sources: Array<string | undefined> = [];
     await stageMultipartBlobAttachment({
       organizationId: "organization-1",
       apiClient: createMultipartApi({
-        completeMultipartBlobStage: async (stageId) => ({
-          byteLength: encryption.byteLength,
-          organizationId: "organization-1",
-          expiresAt: "2026-04-27T01:00:00.000Z",
-          sha256: encryption.sha256,
-          stageId,
-        }),
         initiateMultipartBlobStage: async (request) => {
-          expect(encryptedPartIndices).toEqual([]);
-          return {
-            ...request,
-            organizationId: "organization-1",
-            expiresAt: "2026-04-27T01:00:00.000Z",
+          // Only the parts the two workers start with are encrypted up front;
+          // their descriptors ride on the initiation.
+          expect(encryptedPartIndices).toEqual([0, 1]);
+          expect(
+            request.firstParts.map(({ byteLength, partNumber }) => ({
+              byteLength,
+              partNumber,
+            })),
+          ).toEqual([
+            { byteLength: 3, partNumber: 1 },
+            { byteLength: 4, partNumber: 2 },
+          ]);
+          return initiatedStage(request, {
             stageId: "stage-lazy",
-            uploadedParts: [],
             uploadId: "upload-lazy",
-          };
+          });
         },
         uploadMultipartBlobPartBytes: async (stageId, partNumber, request) => {
           uploadedPartNumbers.push(partNumber);
+          sources.push(request.source?.kind);
           expect(request.sha256).toMatch(/^[0-9a-f]{64}$/);
           expect(request.byteLength).toBe(partLengths[partNumber - 1] ?? 0);
           return {
@@ -72,6 +75,9 @@ describe("stageMultipartBlobAttachment", () => {
     expect(encryptedPartIndices).toEqual([0, 1, 2, 3]);
     expect(uploadedPartNumbers).toEqual([1, 2, 3, 4]);
     expect(maxActiveEncryptions).toBe(2);
+    // A store that cannot sign answered with API sources, so no part, issued
+    // or not, needs its own authorization request.
+    expect(sources).toEqual(["api", "api", "api", "api"]);
   });
 
   test("surfaces the failed binary multipart part number", async () => {
@@ -109,15 +115,10 @@ describe("stageMultipartBlobAttachment", () => {
     });
     const uploadedPartNumbers: number[] = [];
     const progressParts: number[] = [];
-    let completed = false;
 
     const upload = stageMultipartBlobAttachment({
       organizationId: "organization-1",
       apiClient: createMultipartApi({
-        completeMultipartBlobStage: async () => {
-          completed = true;
-          return null;
-        },
         uploadMultipartBlobPartBytes: async (stageId, partNumber, request) => {
           uploadedPartNumbers.push(partNumber);
           if (partNumber === 2) {
@@ -162,7 +163,6 @@ describe("stageMultipartBlobAttachment", () => {
     await expect(upload).rejects.toThrow("part 2 network failure");
     expect(uploadedPartNumbers).toEqual([1, 2]);
     expect(progressParts).toEqual([0, 1]);
-    expect(completed).toBe(false);
   });
 
   test("resumes by part length without encrypting completed parts", async () => {
@@ -255,9 +255,6 @@ describe("stageMultipartBlobAttachment", () => {
     await stageMultipartBlobAttachment({
       organizationId: "organization-1",
       apiClient: createMultipartApi({
-        completeMultipartBlobStage: async () => {
-          throw new Error("Completed stage must not be completed again");
-        },
         getMultipartBlobStage: async (id) => ({
           byteLength: encryption.byteLength,
           completed: true,
