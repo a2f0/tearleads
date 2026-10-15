@@ -1,6 +1,9 @@
 export { createApiUserIdentitySource } from "./apiAdapter";
 export { requireTrustedUserIdentityResolver } from "./requiredResolver";
-export { createTrustedUserIdentityService } from "./service";
+export {
+  createTrustedUserIdentityService,
+  loadPinnedUserIdentity,
+} from "./service";
 export { resolveIdentityTrustDomain } from "./trustDomain";
 export type {
   LocalUserIdentityCandidate,
