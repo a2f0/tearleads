@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { identityLinkAppUrl } from "./identityLinkAppUrl";
+import {
+  identityLinkAppUrl,
+  identityLinkFromToken,
+} from "./identityLinkAppUrl";
 
 test("native identity links point to the matching public web deployment", () => {
   for (const currentHref of [
@@ -48,4 +51,26 @@ test("web identity links retain the host origin for local and custom deployments
       currentHref: "views://main/",
     }),
   ).toThrow("Configure the web app URL");
+});
+
+test("custom native hosts require a shareable URL but can import received tokens without it", () => {
+  for (const currentHref of [
+    "capacitor://localhost/",
+    "views://main/",
+    "https://localhost/",
+  ]) {
+    const input = { apiBaseUrl: "https://custom-api.test", currentHref };
+    expect(() => identityLinkAppUrl(input)).toThrow(
+      "Configure the web app URL",
+    );
+    expect(identityLinkFromToken("received-token", input)).toBe(
+      "https://app.tearleads.com/app/contacts/import/received-token",
+    );
+    expect(
+      identityLinkFromToken("received-token", {
+        ...input,
+        configuredUrl: "https://custom-app.test",
+      }),
+    ).toBe("https://custom-app.test/app/contacts/import/received-token");
+  }
 });

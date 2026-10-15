@@ -97,3 +97,19 @@ test("identity switches and unmounts during verification prevent contact writes"
     view.unmount();
   }
 });
+
+test("link errors belong to their draft and identity scope", async () => {
+  const input = inputs();
+  input.verifyLink.mockImplementation(async () => {
+    throw new Error("Mismatch");
+  });
+  const view = renderHook((props) => useImportContactIdentityLink(props), {
+    initialProps: input,
+  });
+  await act(() => view.result.current.importContact());
+  expect(view.result.current.error).toBe("Mismatch");
+  view.rerender({ ...input, draft: "another-link" });
+  expect(view.result.current.error).toBeNull();
+  view.rerender({ ...input, identityScope: "charlie" });
+  expect(view.result.current.error).toBeNull();
+});

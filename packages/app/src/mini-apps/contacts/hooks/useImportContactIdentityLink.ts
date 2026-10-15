@@ -21,7 +21,11 @@ function importFailure(error: unknown): string {
 }
 
 export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
-  const [error, setError] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{
+    draft: string;
+    identityScope: string;
+    message: string;
+  } | null>(null);
   const live = useRef<ContactIdentityLinkImport | null>(input);
   useEffect(() => {
     live.current = input;
@@ -42,7 +46,7 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
       live.current.isImportReady;
     input.isSubmittingRef.current = true;
     input.setIsSubmitting(true);
-    setError(null);
+    setFailure(null);
     try {
       const identity = await input.verifyLink(input.draft);
       if (!active()) return;
@@ -57,7 +61,11 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
     } catch (caught) {
       if (active()) {
         input.logError("Contacts: failed to import identity link.", caught);
-        setError(importFailure(caught));
+        setFailure({
+          draft: input.draft,
+          identityScope: input.identityScope,
+          message: importFailure(caught),
+        });
       }
     } finally {
       input.isSubmittingRef.current = false;
@@ -75,5 +83,10 @@ export function useImportContactIdentityLink(input: ContactIdentityLinkImport) {
     input.setIsSubmitting,
     input.verifyLink,
   ]);
+  const error =
+    failure?.draft === input.draft &&
+    failure.identityScope === input.identityScope
+      ? failure.message
+      : null;
   return { importContact, error };
 }

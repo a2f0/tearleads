@@ -1,7 +1,10 @@
 import { useCallback } from "react";
 import { useAppHostConfig } from "../host/AppHostConfigProvider";
 import { useTearleads } from "../sdk/TearleadsProvider";
-import { identityLinkAppUrl } from "./identityLinkAppUrl";
+import {
+  identityLinkAppUrl,
+  identityLinkFromToken,
+} from "./identityLinkAppUrl";
 
 export function useIdentityLinks() {
   const sdk = useTearleads();
@@ -20,8 +23,13 @@ export function useIdentityLinks() {
     [appUrl, sdk],
   );
   const linkFromToken = useCallback(
-    (token: string) => new URL(`/app/contacts/import/${token}`, appUrl()).href,
-    [appUrl],
+    (token: string) =>
+      identityLinkFromToken(token, {
+        apiBaseUrl,
+        configuredUrl: identityLinkWebUrl,
+        currentHref: window.location.href,
+      }),
+    [apiBaseUrl, identityLinkWebUrl],
   );
   const verifyLink = useCallback(
     (link: string) => sdk.userIdentities.verifyLink(link),

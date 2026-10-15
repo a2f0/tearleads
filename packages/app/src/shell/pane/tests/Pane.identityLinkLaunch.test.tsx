@@ -38,7 +38,9 @@ for (const [mode, native] of [
             <PaneProvider
               hostConfig={{
                 ...createTestHostConfig({ autoProvisionIdentity: true }),
-                identityLinkWebUrl: "http://localhost:3000",
+                identityLinkWebUrl: native
+                  ? undefined
+                  : "http://localhost:3000",
               }}
             >
               <Pane

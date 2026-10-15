@@ -18,7 +18,11 @@ export function IdentityLinkLaunchBridge({
     const openLink = () => {
       const path = window.location.pathname;
       const prefix = "/app/contacts/import/";
-      if (!path.startsWith(prefix) || handled.current === path) return;
+      if (!path.startsWith(prefix)) {
+        handled.current = null;
+        return;
+      }
+      if (handled.current === path) return;
       handled.current = path;
       if (!enabled || mode !== "windowed") return;
       openMiniApp({

@@ -47,7 +47,7 @@ and `userId`. The reverse signing-fingerprint-to-user binding is also unique
 within that trust domain and checked in the same durable transaction. A new
 session without restored acknowledgments cannot bind a known signing identity
 to a different user. Later substitutions hard-fail, and policy verification
-also checks the signing fingerprint in signed state. Ordinary resolution uses
+also checks the signing fingerprint in signed state. Resolution uses
 TOFU; independently exchanged identity links authenticate both keys before
 pinning. Neither mechanism proves global currentness.
 
@@ -659,14 +659,14 @@ still exercising the cold-start rollback limit above.
 
 ### First-Contact Identity-Key Substitution
 
-TOFU cannot authenticate a stranger's first key bundle.
+Signer lookups, SDK user-ID imports, and Explorer sharing still use TOFU,
+which cannot authenticate an unpinned stranger's keys.
 
-Contacts and Roster onboarding accept independently exchanged identity links.
-The client checks a commitment to the service, user ID, algorithms, and both
-public keys before pinning or adding the user. Existing pin conflicts fail
-closed. An authenticated channel must deliver the link. It proves no
-revocation, freshness, or global consistency. See
-[identity links](developer/trusted-user-identity.md#identity-links).
+Contacts and Roster can verify an independently exchanged
+[identity link](developer/trusted-user-identity.md#identity-links)
+before pinning or adding a user. It binds the service, user ID, algorithms,
+and both keys. Pin conflicts fail closed. Deliver links through an authenticated
+channel; they prove no revocation, freshness, or global consistency.
 
 ### Projection Rows Are Not A Security Boundary
 
