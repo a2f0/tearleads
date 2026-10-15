@@ -102,6 +102,7 @@ const groupPolicyHistory: OrganizationGroupPolicyHistory = {
     },
   ],
   groupId: group.groupId,
+  nextBeforeVersion: null,
   organizationId: directory.organizationId,
   principalId: group.groupId,
   principalType: "group",

@@ -8,6 +8,7 @@ afterEach(cleanup);
 
 const EMPTY_HISTORY: OrganizationPolicyHistory = {
   entries: [],
+  nextBeforeVersion: null,
   organizationId: "org-a",
   principalId: "org-a",
   principalType: "organization",
