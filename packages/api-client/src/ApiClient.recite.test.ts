@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import type { ContainerReciteRequest } from "@tearleads/validators/request";
+import { encodeContainerWriterProjection } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
 import {
   createContainerMutationResponse,
@@ -37,7 +38,11 @@ testApiClient(
     server.use(
       http.get(`${apiBaseUrl}/containers/container-1/writer-projection`, () => {
         projectionReads += 1;
-        return HttpResponse.json(createContainerWriterProjectionResponse());
+        return HttpResponse.json(
+          encodeContainerWriterProjection(
+            createContainerWriterProjectionResponse(),
+          ),
+        );
       }),
       http.post(
         `${apiBaseUrl}/containers/container-1/recite`,

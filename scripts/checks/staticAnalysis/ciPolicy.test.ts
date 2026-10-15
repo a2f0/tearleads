@@ -86,6 +86,9 @@ test("selects native and infrastructure checks without skipping their dependenci
   expect(ciScopes(["packages/app-capacitor/ios/App/App.swift"]).native).toBe(
     true,
   );
+  expect(ciScopes(["scripts/checks/testNativePurchaseBridge.sh"]).native).toBe(
+    true,
+  );
   expect(ciScopes(["terraform/main.tf"]).terraform).toBe(true);
   for (const path of [
     "scripts/deployStaging.sh",

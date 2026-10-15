@@ -12,6 +12,7 @@ import {
   createDocument,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { decodeServedDocumentProjection } from "../../../test/helpers/servedWriterProjection";
 import { listDocumentContentWriteDependencyHashes } from "../../access/read/contentWriteDependencies";
 import { routeApp } from "../../routeApp";
 
@@ -72,7 +73,7 @@ test("a write retains its advanced linked head independently of the original lin
     { headers },
   );
   expect(response.status).toBe(200);
-  const projection = await response.json();
+  const projection = decodeServedDocumentProjection(await response.json());
   if (!isDocumentWriterProjectionResponse(projection))
     throw new Error("Expected writer projection");
   expect(projection.documentManifest.manifestHash).toBe(

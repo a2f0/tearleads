@@ -21,23 +21,23 @@ export async function recoverCurrentOrganizationPolicy(
   };
   try {
     let directory: RecoveredPolicyDirectory;
+    let reader = createPrincipalRecoveryReader(input, memo);
     try {
-      directory = await createPrincipalRecoveryReader(input, memo).directory(
-        [],
-      );
+      directory = await reader.directory([]);
     } catch (error) {
       assertProjectionVerificationCurrent(input.stillCurrent);
       if (input.offline || !isPrincipalRecoveryOutage(error)) throw error;
-      directory = await createPrincipalRecoveryReader(
-        { ...input, offline: true },
-        memo,
-      ).directory([]);
+      reader = createPrincipalRecoveryReader({ ...input, offline: true }, memo);
+      directory = await reader.directory([]);
     }
-    assertProjectionVerificationCurrent(input.stillCurrent);
+    // A reused directory keeps its producer's lifetime to the point of use.
+    const stillCurrent = () => input.stillCurrent() && reader.stillCurrent();
+    assertProjectionVerificationCurrent(stillCurrent);
     return {
       current: directory.current,
       policy: directory.policy,
       dependencies: [],
+      stillCurrent,
     };
   } finally {
     input.protection.localKey.fill(0);

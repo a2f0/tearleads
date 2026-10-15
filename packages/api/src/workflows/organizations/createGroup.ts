@@ -126,16 +126,9 @@ async function appendCreatedGroupReadModelChanges(input: {
   readonly tx: DatabaseTransaction;
 }): Promise<void> {
   await appendOrganizationReadModelChangeInTransaction(input.tx, {
+    lanes: ["groups"],
+    membershipGroupIds: [input.groupId],
     organizationId: input.organizationId,
-    lane: "groups",
-    entityId: input.groupId,
-    operation: "upsert",
-  });
-  await appendOrganizationReadModelChangeInTransaction(input.tx, {
-    organizationId: input.organizationId,
-    lane: "groupMemberships",
-    entityId: input.groupId,
-    operation: "replace",
   });
 }
 

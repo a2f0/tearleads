@@ -45,7 +45,7 @@ points before the environment reset and coordinated release.
   and recency eviction hints, and container create, container move, and document
   placement intents share the `local_intents` outbox. A database that predates a
   fold fails the required-column check and is reset rather than converted.
-- Local backup payloads and encrypted envelopes require format version 9.
+- Local backup payloads and encrypted envelopes require format version 11.
   Previous versions are refused, with no conversion path. Security-anchor
   merging during a current-format restore prevents rollback and remains required.
 - IndexedDB's version-one creation handler initializes the local keyring store.

@@ -192,6 +192,14 @@ use key epoch `1`, be signed by the registering user, project only the
 registering user as admin, and carry a version-2 authority descriptor committing
 the exact initial heads of both reserved groups.
 
+The response returns each created container and document head. The client
+checks every one against the request it signed before pinning it as a local
+verification checkpoint. The acknowledged heads of the roster and organization
+profile documents also seed discovery evidence, and the founding policy heads
+seed verified recovery progress, so the device fetches neither those documents'
+writer projections nor the founding groups' history. Creating an additional
+organization follows the same rule.
+
 `organizations.adminGroupId` is the reserved org-admin authority. Reachability
 through it grants org-admin behavior. `organizations.memberGroupId` is the
 reserved org-membership authority. Reachability through it drives active roster
@@ -210,8 +218,8 @@ A warm organization read-model client discards its opaque cursor and requests a
 fresh snapshot only for the exact `400 organization_read_model_cursor_invalid`
 failure. Other `400` responses, missing or malformed codes, unknown codes, and
 the cursor code on another status retain the last-known-good projection and are
-reported instead of triggering reset behavior. Ahead or retention-expired valid
-cursors continue to converge through a `200` snapshot response.
+reported instead of triggering reset behavior. Only a valid cursor ahead of the
+head converges through a `200` snapshot; others get a delta.
 
 Authentication uses challenge signing:
 
@@ -334,6 +342,30 @@ not return superseded recipient envelopes or filter old epochs by requester
 membership era. `GET /containers/:containerId/kek-log` serves the append-only
 rotation log — every epoch with its write-once bridge and sealed keyring — as
 the rebuild/repair read path for any current reader.
+
+Container and document writer projections carry each access-manifest bundle
+once, in a `bundles` map keyed by manifest hash. Every manifest position cites
+that map by hash: the container `path`, each KEK's `containerManifestHistory`,
+and, for documents, every authorizing path, `documentManifest`,
+`documentManifestHistory`, `documentContainerManifestHistory`, and each
+`documentManifestContainerPaths` row. Bundles are the stored bytes, so no signed
+bytes change. A cited hash without a bundle, a bundle stored under a key other
+than its own `manifestHash`, or a bundle nothing cites is a response-shape
+failure. The client resolves every citation to its own copy of the bundle
+before any cache or verifier sees the projection, then verifies it exactly as
+before, recomputing each cited manifest's hash before any position that cites
+it is trusted.
+
+A projection GET may send `x-known-manifests`: up to 48 unique lowercase
+SHA-256 manifest hashes whose verified bundles the device durably holds. After
+its ordinary authorization and stored-evidence verification, the API omits the
+bundle of each listed hash the projection cites and lists those hashes in the
+required `omittedBundles`; every other cited hash travels in `bundles`, and
+unknown hashes are ignored. A hash must not be both served and omitted, and an
+omitted hash must be cited. The client fills an omission only from the bytes
+its request cited and otherwise refetches once with no hints. Hints grant
+nothing: the projection is authorized, and the rebuilt projection verified,
+exactly as without them.
 
 Principal rotations and membership mutations rematerialize every retained
 group container grant in the same transaction as the new principal state. The

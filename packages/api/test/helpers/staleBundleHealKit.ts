@@ -14,6 +14,7 @@ import {
 } from "./keyingWriterProjectionKit";
 import { buildRootRevokeRequest } from "./keyingWriterProjectionRevoke";
 import { registerUser } from "./registerUser";
+import { decodeServedDocumentProjection } from "./servedWriterProjection";
 
 /**
  * Shares the root with a throwaway recipient and immediately revokes them,
@@ -93,7 +94,14 @@ export async function getWriterProjection(
       },
     },
   );
-  return { response, projection: await response.json() };
+  const projection: unknown = await response.json();
+  return {
+    response,
+    projection:
+      response.status === 200
+        ? decodeServedDocumentProjection(projection)
+        : projection,
+  };
 }
 
 export async function postDocumentSync(

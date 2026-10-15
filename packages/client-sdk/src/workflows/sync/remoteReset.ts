@@ -13,9 +13,7 @@ import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../data/sqlite/organizationReadModelSchema";
@@ -41,6 +39,7 @@ import {
 } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { verifiedAccessManifestBundles } from "../../data/sqlite/verifiedManifestBundleSchema";
 import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
 import { clearResetPendingAttachments } from "./remoteResetAttachments";
 import { remoteResetBatches } from "./remoteResetBatches";
@@ -85,10 +84,8 @@ async function clearOrganizationPresentationRows(
     organizationDataUsageSnapshots,
     organizationReadModelContainerGrants,
     organizationReadModelGroupMembers,
-    organizationReadModelGroupMemberships,
     organizationReadModelDirectoryUsers,
     organizationReadModelGroups,
-    organizationReadModelPolicyHeads,
     organizationReadModelRequesters,
     organizationReadModelState,
     organizationPresentationDenials,
@@ -186,6 +183,7 @@ async function clearScopedRemoteRows(
   for (const table of [
     dormantContainerMetadata,
     dormantMetadataSweepRequests,
+    verifiedAccessManifestBundles,
   ] as const) {
     await tx
       .delete(table)

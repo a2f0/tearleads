@@ -14,7 +14,7 @@ const rootToolingWorkspace = {
   // and neither `.mise.toml` nor CI installs Node). Knip cannot resolve the
   // binary through `bun x`, so the dependency has to be declared used here.
   ignoreDependencies: ["@commitlint/cli", "lint-staged", "markdownlint-cli2"],
-  ignoreBinaries: ["du", "shellcheck", "tokei"],
+  ignoreBinaries: ["du", "pwsh", "shellcheck", "tokei"],
 };
 
 const capacitorNativePluginDependencies = [

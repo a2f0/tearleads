@@ -6,7 +6,30 @@ completed stages through the published head and deletes at most 16 older rows.
 It preserves newer, incomplete, other-scope and other-organization progress. The
 scope index bounds candidate selection without sorting all stored stages. Each
 stage row's `scope_id` and `touched_at` columns are eviction hints; only private
-authentication permits recovery reuse.
+authentication permits recovery reuse. An authenticated completed stage or
+prefix of the exact pinned head serves online recovery without a confirmation
+read; if its stored current artifacts fail verification, the stage is discarded
+and signed history is replayed online once
+([#2522](https://github.com/a2f0/tearleads/issues/2522)). Evicting such a stage
+costs only requests while online. Above these durable rows, one workflow
+operation keeps its recovered directory and Admins views in memory only; an
+organization read-model hint, a durable pin past a memoized head, or the end of
+the producing lease evicts them, and nothing is persisted from that memo.
+
+Organization provisioning (registration and each additional organization)
+writes the first completed stages for the founding organization, Admins and
+Members heads. Once the provisioning response acknowledges the commit and the
+bootstrap pins those heads, the SDK runs scoped recovery over the states the
+device itself signed, served from memory rather than the network. Priming is
+bound to the provisioning scope, captured before its first await: the
+database the bootstrap committed to, the identity whose key signed the states,
+and a protection lease for them. It reads the founder's existing trust pin and
+never writes one. Every step and every progress transaction rechecks that
+scope, so an identity or database switch aborts priming with no durable write.
+The ordinary verifier checks signatures, the directory binding and the strict
+Admins rules before any progress is saved, so the first runtime recovery of a
+founding head reads only directory discovery. Priming never performs HTTP; a
+failure is logged and leaves the ordinary online recovery in place.
 
 Encrypted member envelopes are retained separately for each principal key
 fingerprint before progress is removed. Candidate retention checks the envelope

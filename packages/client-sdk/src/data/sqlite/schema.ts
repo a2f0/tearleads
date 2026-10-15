@@ -66,6 +66,10 @@ import {
   securityIncidentTable,
 } from "./securityIncidentSchema";
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
+import {
+  verifiedAccessManifestBundles,
+  verifiedManifestBundleTables,
+} from "./verifiedManifestBundleSchema";
 
 export {
   containerHydrationTombstones,
@@ -639,6 +643,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...documentTables,
   ...principalPolicyTables,
   ...keyingCheckpointTables,
+  ...verifiedManifestBundleTables,
   ...trustedUserIdentityPinTables,
   ...securityIncidentTables,
   ...containerTables,
@@ -671,6 +676,7 @@ export const clientSQLiteSchema = {
   accessManifestCheckpoints,
   documentPurgeCheckpoints,
   principalPolicyCheckpoints,
+  verifiedAccessManifestBundles,
   trustedUserIdentityPins,
   securityIncidents,
   ...containerSQLiteSchema,

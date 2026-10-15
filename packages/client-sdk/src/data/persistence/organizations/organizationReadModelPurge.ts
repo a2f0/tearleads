@@ -1,12 +1,10 @@
-import { and, type Column, eq, ne, notInArray, type SQL } from "drizzle-orm";
+import { and, type Column, eq, ne, notExists, type SQL } from "drizzle-orm";
 import { organizationDataUsageSnapshots } from "../../sqlite/organizationDataUsageSchema";
 import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "../../sqlite/organizationReadModelSchema";
@@ -19,22 +17,37 @@ import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { notifyOrganizationReadModelInvalidated } from "./organizationReadModelInvalidation";
 import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";
 
+/**
+ * Rows for users the persisted directory does not list as active. The
+ * exclusion is one anti-join against the directory rows rather than a bound
+ * list, so an organization of any size fits SQLite's bound-variable budget.
+ */
 function inactiveUserScope(
   input: {
-    readonly activeUserIds: readonly string[];
     readonly organizationId: string;
     readonly retainUserId: string;
+    readonly tx: ClientSQLiteTransactionScope;
   },
   organizationIdColumn: Column,
   userIdColumn: Column,
 ): SQL | undefined {
-  const scope = and(
+  const directory = organizationReadModelDirectoryUsers;
+  return and(
     eq(organizationIdColumn, input.organizationId),
     ne(userIdColumn, input.retainUserId),
+    notExists(
+      input.tx
+        .select({ userId: directory.userId })
+        .from(directory)
+        .where(
+          and(
+            eq(directory.organizationId, input.organizationId),
+            eq(directory.userId, userIdColumn),
+            eq(directory.status, "active"),
+          ),
+        ),
+    ),
   );
-  return input.activeUserIds.length > 0
-    ? and(scope, notInArray(userIdColumn, [...input.activeUserIds]))
-    : scope;
 }
 
 /**
@@ -43,10 +56,10 @@ function inactiveUserScope(
  * active. Without this, a removed member whose identity shares the database
  * keeps presentation access until it personally sees a 403. The applying
  * requester's own rows are never pruned here: the server response that
- * carried this directory already proved that user's access.
+ * carried this directory already proved that user's access. The caller must
+ * have replaced the organization's directory rows earlier in `tx`.
  */
 export async function pruneInactiveOrganizationRequestersInTransaction(input: {
-  readonly activeUserIds: readonly string[];
   readonly organizationId: string;
   readonly retainUserId: string;
   readonly tx: ClientSQLiteTransactionScope;
@@ -86,12 +99,6 @@ export async function purgeOrganizationReadModelProjectionInTransaction(input: {
   readonly tx: ClientSQLiteTransactionScope;
 }): Promise<void> {
   await input.tx
-    .delete(organizationReadModelPolicyHeads)
-    .where(
-      eq(organizationReadModelPolicyHeads.organizationId, input.organizationId),
-    )
-    .run();
-  await input.tx
     .delete(organizationReadModelContainerGrants)
     .where(
       eq(
@@ -105,15 +112,6 @@ export async function purgeOrganizationReadModelProjectionInTransaction(input: {
     .where(
       eq(
         organizationReadModelGroupMembers.organizationId,
-        input.organizationId,
-      ),
-    )
-    .run();
-  await input.tx
-    .delete(organizationReadModelGroupMemberships)
-    .where(
-      eq(
-        organizationReadModelGroupMemberships.organizationId,
         input.organizationId,
       ),
     )

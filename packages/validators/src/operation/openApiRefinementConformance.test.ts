@@ -5,6 +5,7 @@ import {
   documentSyncRequestRotationRefinement,
   documentSyncResponseCommitLsnModeRefinement,
   documentSyncResponseCommitLsnSentinelRefinement,
+  documentSyncResponseHistoricalBundlesRefinement,
   documentSyncResponsePullPageRefinement,
   documentSyncResponseRotationRefinement,
 } from "../documentSyncRefinements";
@@ -155,6 +156,15 @@ const witnesses = {
       },
     }),
     expectedMessage: "pull page continuation does not match hasMore",
+    kind: "response",
+  },
+  [documentSyncResponseHistoricalBundlesRefinement.id]: {
+    createInput: () => {
+      const response = createSyncResponse();
+      return { ...response, contentKeyBundles: [response.contentKeyBundle] };
+    },
+    expectedMessage:
+      "content-key bundles must be distinct epochs older than contentKeyBundle",
     kind: "response",
   },
 } satisfies Record<RuntimeRefinementId, RefinementWitness>;

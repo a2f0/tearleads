@@ -24,11 +24,7 @@ const staleMembers: OrganizationGroupMembers = {
   groupId: "group-a",
   members: [
     {
-      encapsulationKeyFingerprint: null,
-      encapsulationPublicKey: null,
       role: "member",
-      signingKeyFingerprint: null,
-      signingPublicKey: null,
       userId: "stale-user",
     },
   ],

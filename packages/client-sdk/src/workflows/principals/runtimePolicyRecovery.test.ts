@@ -53,30 +53,33 @@ async function fixture() {
       key.fill(0);
     }
   };
-  const warmer = createRuntimePrincipalPolicyWarmer({
-    apiClient: createMockApiClient({
-      getPrincipalPolicyPages:
-        source.options.apiClient.getPrincipalPolicyPages.bind(
-          source.options.apiClient,
-        ),
-      getCurrentPrincipalPolicy: async () => {
-        state.fullReads += 1;
-        throw new Error("Full history is unavailable");
+  // Each warmer is one workflow operation with its own recovery memo.
+  const createWarmer = () =>
+    createRuntimePrincipalPolicyWarmer({
+      apiClient: createMockApiClient({
+        getPrincipalPolicyPages:
+          source.options.apiClient.getPrincipalPolicyPages.bind(
+            source.options.apiClient,
+          ),
+        getCurrentPrincipalPolicy: async () => {
+          state.fullReads += 1;
+          throw new Error("Full history is unavailable");
+        },
+      }),
+      infra: { execSql: source.options.execSql },
+      state,
+      withPrincipalHistoryProtection: lease,
+      resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
+      util: {
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
+        },
       },
-    }),
-    infra: { execSql: source.options.execSql },
-    state,
-    withPrincipalHistoryProtection: lease,
-    resolveTrustedUserIdentity: source.options.resolveTrustedUserIdentity,
-    util: {
-      reportSecurityIncident: async (error) => {
-        incidents.push(error);
-      },
-    },
-  });
+    });
+  const warmer = createWarmer();
   const collect = async (
     cache: PrincipalPolicyCache = new Map(),
-    selectedWarmer: ReferencedPrincipalPolicyWarmer = warmer,
+    selectedWarmer: ReferencedPrincipalPolicyWarmer = createWarmer(),
     stillCurrent: () => boolean = () => state.current,
   ) => {
     const context = createProjectionCheckpointContext(source.options);
@@ -91,14 +94,23 @@ async function fixture() {
     });
     return { context, policies };
   };
-  return { ...source, state, collect, warmer, ownedKeys, incidents };
+  return {
+    ...source,
+    state,
+    collect,
+    createWarmer,
+    warmer,
+    ownedKeys,
+    incidents,
+  };
 }
 
 test("runtime projection recovery carries bounded history and dependencies through atomic admission and offline reuse", async () => {
   const f = await fixture();
   try {
     const cache: PrincipalPolicyCache = new Map();
-    const first = await f.collect(cache);
+    const operation = f.createWarmer();
+    const first = await f.collect(cache, operation);
     expect(first.context.policies).toHaveLength(3);
     const directory = first.context.policies[0];
     if (!directory) throw new Error("Missing directory evidence");
@@ -127,15 +139,20 @@ test("runtime projection recovery carries bounded history and dependencies throu
     );
     const requests = f.requests.length;
     const keys = f.ownedKeys.length;
-    const cached = await f.collect(cache);
+    // The same operation reuses its memoized evidence without a request; the
+    // reuse runs under the private lease and the memo's validity rules.
+    const cached = await f.collect(cache, operation);
     expect(cached.context.policies).toHaveLength(3);
     expect(f.requests).toHaveLength(requests);
-    expect(f.ownedKeys).toHaveLength(keys);
+    expect(f.ownedKeys).toHaveLength(keys + 1);
+    // A new operation sharing the cache still discovers the directory itself.
+    await f.collect(cache);
+    expect(f.requests).toHaveLength(requests + 1);
     f.state.online = false;
     const offline = await f.collect();
     expect(offline.context.policies).toHaveLength(3);
     await commitProjectionCheckpoints(offline.context);
-    expect(f.requests).toHaveLength(requests);
+    expect(f.requests).toHaveLength(requests + 1);
     expect(f.state.fullReads).toBe(0);
     expect(f.ownedKeys.every((key) => key.every((byte) => byte === 0))).toBe(
       true,
@@ -182,7 +199,8 @@ test.each(["target", "dependency"] as const)(
     const f = await fixture();
     try {
       const cache: PrincipalPolicyCache = new Map();
-      await f.collect(cache);
+      const operation = f.createWarmer();
+      await f.collect(cache, operation);
       const policy = kind === "target" ? history.group : history.admin;
       await f.db
         .insert(principalPolicyCheckpoints)
@@ -195,10 +213,12 @@ test.each(["target", "dependency"] as const)(
         })
         .run();
       const requests = f.requests.length;
-      await expect(f.collect(cache)).rejects.toMatchObject({
+      await expect(f.collect(cache, operation)).rejects.toMatchObject({
         code: "equivocation",
       });
-      expect(f.requests).toHaveLength(requests);
+      // The forked pin evicts the memoized view; one rediscovery precedes
+      // the terminal refusal.
+      expect(f.requests).toHaveLength(requests + 1);
     } finally {
       f.close();
     }
@@ -369,6 +389,7 @@ test("one projection batch reuses directory and Admins recovery for several grou
     await commitProjectionCheckpoints(context);
     const laterDirectory = await history.advanceDirectory(directory, second);
     f.policies.set(history.organizationId, laterDirectory);
+    // A new operation discovers the advance.
     const nextContext = createProjectionCheckpointContext(f.options);
     await collectReferencedPrincipalPolicies({
       checkpointContext: nextContext,
@@ -376,7 +397,7 @@ test("one projection batch reuses directory and Admins recovery for several grou
       principalPolicyCache: new Map(),
       references: [principalPolicyHead(second)],
       resolveUserKey: f.options.resolveTrustedUserIdentity,
-      warmReferencedPrincipalPolicies: f.warmer,
+      warmReferencedPrincipalPolicies: f.createWarmer(),
     });
     expect(
       nextContext.policies.find(

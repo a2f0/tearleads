@@ -1,4 +1,3 @@
-import { retainVerifiedProjectionHistory } from "@tearleads/api-client";
 import type {
   PrincipalPolicyAuthorization,
   VerifiedContainerAccessManifest,
@@ -15,6 +14,7 @@ import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
   observeAccessManifestCheckpoints,
+  observeVerifiedProjectionBundles,
   type ProjectionCheckpointContext,
 } from "./checkpointContext";
 import { verifyContainerManifestPath } from "./containerPathVerification";
@@ -262,6 +262,32 @@ async function verifyDocumentWriterProjectionWithContext(
   };
 }
 
+/** Each served bundle, document and container, whose manifest verified. */
+function observeVerifiedDocumentProjectionBundles(
+  checkpointContext: ProjectionCheckpointContext,
+  projection: DocumentWriterProjectionResponse,
+  authorization: DocumentWriterProjectionAuthorization,
+): void {
+  observeVerifiedProjectionBundles(
+    checkpointContext,
+    new Map(
+      [projection.documentManifest, ...projection.documentManifestHistory].map(
+        (bundle) => [bundle.manifestHash, bundle],
+      ),
+    ),
+    authorization.documentManifestByHash,
+  );
+  observeVerifiedProjectionBundles(
+    checkpointContext,
+    collectDocumentProjectionContainerBundles(projection),
+    new Map(
+      [...authorization.containerPathByManifestHash.values()]
+        .flat()
+        .map((manifest) => [manifest.manifestHash, manifest]),
+    ),
+  );
+}
+
 export async function verifyDocumentWriterProjection(
   input: DocumentWriterProjectionVerificationInput,
 ): Promise<VerifiedDocumentLinkSetManifest> {
@@ -272,8 +298,12 @@ export async function verifyDocumentWriterProjection(
     withGenerationGuardedPolicyWarmer(input),
     checkpointContext,
   );
+  observeVerifiedDocumentProjectionBundles(
+    checkpointContext,
+    input.projection,
+    verified.authorization,
+  );
   await finalizeProjectionCheckpoints(checkpointContext, input);
-  retainVerifiedProjectionHistory(input.projection);
   return verified.headManifest;
 }
 
@@ -288,8 +318,12 @@ export async function verifyDocumentWriterProjectionAuthorization(
       withGenerationGuardedPolicyWarmer(input),
       checkpointContext,
     );
+    observeVerifiedDocumentProjectionBundles(
+      checkpointContext,
+      input.projection,
+      verified.authorization,
+    );
     await finalizeProjectionCheckpoints(checkpointContext, input);
-    retainVerifiedProjectionHistory(input.projection);
     return verified.authorization;
   } catch (error) {
     throwKeyingVerificationShapeFailure(error);

@@ -395,10 +395,7 @@ test("content-key recovery preserves projection integrity errors", async () => {
     });
     const response = await createSyncResponse(materializedPlan.plan, {
       acceptedOutgoingUpdateIds: [],
-      contentKeyBundles: [
-        writerProjection.contentKeyBundle,
-        rotatedProjection.contentKeyBundle,
-      ],
+      contentKeyBundles: [writerProjection.contentKeyBundle],
       updates: [historicalUpdate],
     });
     const integrityError = new KeyingVerificationError(

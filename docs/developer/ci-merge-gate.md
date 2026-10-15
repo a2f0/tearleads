@@ -20,7 +20,42 @@ and `Build and test` runs the remaining package tests. The gate requires both
 jobs, so the suites need no ruleset entries of their own. Turbo serves cached
 results from the GitHub Actions cache: a pull request reads entries written on
 its own ref or on `main`, while `main` never reads an entry a pull request wrote.
-The nightly `Uncached tests` workflow reruns every suite without the cache.
+The nightly `Uncached tests` workflow calls the entire CI workflow with
+`force: true`, including Postgres, Windows, native bridge compiles, and protocol
+models. Manual workflow dispatches also bypass the cache.
+
+CI runs the Postgres concurrency probe, Windows CEF persistence probe, and native
+purchase bridge compiles through dedicated root Turbo tasks. They cache a
+successful verification with no build artifacts, keyed on their workspace source
+dependencies and external scripts. Windows and native tasks also hash the hosted
+runner image version; Postgres hashes the service image. The native release tests
+in `Lint` reuse the same `app-capacitor#test` task as `Build and test`.
+
+`Lint` opts into caching the two pure TLC model passes with
+`CI_TURBO_PROTOCOL_CACHE=1`. Their inputs include the formal models, registry,
+checker scripts, tool pins, and Java runtime identity. The wrapper validates the
+installed Java version and jar digest before every lookup, including cache hits.
+Implementation projections, conformance tests, and other static checks still run.
+Local `check:fast`, pre-push, and the direct model commands still execute TLC.
+
+Website-only source changes and website version bumps leave application test and
+platform verification hashes unchanged. Shared UI changes invalidate the website
+and app consumers; shared validators can also invalidate API and SDK checks.
+Website deployment scripts have tests in `app-capacitor`, so changes to those
+scripts also invalidate its suite. Local screenshot captures feed only the
+website build; CI does not recapture them. No application-code extraction is
+needed to keep ordinary website edits independent.
+
+A cache miss can still occur while `main` is producing a new result: a PR cannot
+reuse another PR's cache or a task that has not finished. The
+[GitHub cache access rules](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache)
+apply to the Turbo cache bridge. For example, the footer-only PR
+[run 38627337483](https://github.com/a2f0/tearleads/actions/runs/38627337483)
+started its API/app suites before the preceding main run finished; the subsequent
+[main run](https://github.com/a2f0/tearleads/actions/runs/38632214420) reused all
+three long-suite results. A job starting is not itself evidence of a cache miss.
+The web application build remains uncached because it embeds the current Git
+commit; deployments and local screenshot generation keep their existing behavior.
 
 `scripts/checks/ciPolicy.ts` owns the path selection and gate verdict. A platform
 job may be skipped only when successful change detection explicitly marked it

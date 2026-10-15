@@ -32,6 +32,7 @@ import {
 import { buildRootContainerRekeyMutation } from "./containerRekey";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
 import { recoverRegisteredRootKek } from "./registeredRootKek";
+import { decodeServedContainerProjection } from "./servedWriterProjection";
 
 async function loadDecryptableGroupRoot(input: {
   actor: TestUser;
@@ -42,7 +43,7 @@ async function loadDecryptableGroupRoot(input: {
     { headers: { Authorization: `Bearer ${input.actor.token}` } },
   );
   invariant(response.ok, await response.clone().text());
-  const projection: unknown = await response.json();
+  const projection = decodeServedContainerProjection(await response.json());
   invariant(
     isContainerWriterProjectionResponse(projection),
     "expected a container writer projection",

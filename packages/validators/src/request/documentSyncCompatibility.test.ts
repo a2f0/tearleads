@@ -79,7 +79,7 @@ function createSyncResponse() {
     commitLsn: null,
     commitLsnMode: "tracked",
     contentKeyBundle: createContentKeyBundleResponse(),
-    contentKeyBundles: [createContentKeyBundleResponse()],
+    contentKeyBundles: [],
     documentId: "document-1",
     documentKekTargets: createKekTargetsResponse(),
     pullPage: { hasMore: false, nextCursor: null },

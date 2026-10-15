@@ -10,6 +10,7 @@ import { AttachmentActionButton } from "./AttachmentActionButton";
 import { useDocumentBlobOpen } from "./DocumentBlobOpenContext";
 import {
   type DocumentAttachmentSlot,
+  expandAttachmentSlots,
   getDocumentAttachmentStatusLabel,
   getLatestDocumentAttachmentBySlotId,
 } from "./documentAttachmentUtils";
@@ -46,7 +47,13 @@ function DocumentAttachmentSlotActions(params: {
   return (
     <>
       <AttachmentActionButton
-        label={storedAttachment ? "Replace Image" : "Upload Image"}
+        label={
+          slot.multiple
+            ? "Add Photos"
+            : storedAttachment
+              ? "Replace Image"
+              : "Upload Image"
+        }
         onClick={onUploadAttachment}
       />
       {blobPicker ? (
@@ -212,6 +219,8 @@ function DocumentAttachmentSlotCard(params: {
         className="structured-document-file-input"
         type="file"
         accept="image/*"
+        aria-label={slot.label}
+        multiple={slot.multiple}
         disabled={!canAttach}
         onChange={handleInputChange}
       />
@@ -248,7 +257,7 @@ export function DocumentAttachmentSlots(params: {
 
   return (
     <div className={classNames("structured-document-attachments", className)}>
-      {slots.map((slot) => (
+      {expandAttachmentSlots(slots, attachments, canAttach).map((slot) => (
         <DocumentAttachmentSlotCard
           key={slot.slotId}
           attachmentStorageKey={attachmentStorageKeyBySlotId[slot.slotId]}

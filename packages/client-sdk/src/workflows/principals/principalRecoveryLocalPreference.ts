@@ -3,12 +3,15 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import { PrincipalHistoryRecoveryRaceError } from "./principalHistoryRecoveryTypes";
 import { recoverWithPrincipalOutageFallback } from "./principalRecoveryOutage";
-import type { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
+import type {
+  RecoverScopedPrincipalPolicyHistoryOptions,
+  ScopedPrincipalPolicyRecoveryBatch,
+} from "./recoverScopedPrincipalPolicyHistory";
 
 /** Reuse exact current artifacts, or a proved historical page within a newer prefix. */
 export async function recoverWithPrincipalLocalPreference(
-  recover: typeof recoverScopedPrincipalPolicyHistory,
-  options: Parameters<typeof recoverScopedPrincipalPolicyHistory>[0],
+  recover: ScopedPrincipalPolicyRecoveryBatch,
+  options: RecoverScopedPrincipalPolicyHistoryOptions,
   preferLocalCurrent: boolean,
   allowHistoricalReference = false,
 ) {

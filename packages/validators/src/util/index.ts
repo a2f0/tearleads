@@ -46,6 +46,11 @@ export {
   type SerializedKeyEnvelope,
 } from "./keyEnvelope";
 export {
+  KNOWN_MANIFEST_HINT_LIMIT,
+  KnownManifestsHeadersSchema,
+  parseKnownManifestHints,
+} from "./knownManifestWire";
+export {
   isOrganizationReplacementAuthorization,
   type OrganizationReplacementAuthorization,
   OrganizationReplacementAuthorizationSchema,
@@ -54,13 +59,6 @@ export {
   PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT,
   PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT,
 } from "./principalHistoryWire";
-export {
-  PROJECTION_HISTORY_HINT_CHARACTERS,
-  ProjectionHistoryHeadersSchema,
-  type ProjectionHistoryPrefix,
-  ProjectionHistoryPrefixesSchema,
-  parseProjectionHistoryHints,
-} from "./projectionHistoryWire";
 export {
   hasArrayProperty,
   hasBooleanProperty,

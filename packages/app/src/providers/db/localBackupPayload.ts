@@ -1,6 +1,11 @@
 export const BACKUP_PAYLOAD_FORMAT = "tearleads.local-backup.payload";
-/** Current local schema, including required directory ownership flags. */
-export const BACKUP_FORMAT_VERSION = 9;
+/**
+ * Current local schema. v11 folded one-row-per-key side tables and the
+ * structural intent tables into their host rows and `local_intents`; v10 added
+ * the verified manifest bundle cache; v9 changed the organization read-model
+ * table shapes.
+ */
+export const BACKUP_FORMAT_VERSION = 11;
 
 export type BackupSqlValue = string | number | null;
 export type BackupSqlRow = Record<string, BackupSqlValue>;

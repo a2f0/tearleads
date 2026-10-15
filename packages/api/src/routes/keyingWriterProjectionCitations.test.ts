@@ -17,6 +17,10 @@ import {
 } from "../../test/helpers/keyingWriterProjectionKit";
 import { moveContainer } from "../../test/helpers/keyingWriterProjectionMove";
 import { registerUser } from "../../test/helpers/registerUser";
+import {
+  decodeServedContainerProjection,
+  decodeServedDocumentProjection,
+} from "../../test/helpers/servedWriterProjection";
 import { routeApp } from "../routeApp";
 
 // A container manifest pins the parent manifest it was created under, and
@@ -154,7 +158,7 @@ async function loadContainerProjection(
     { headers: { Authorization: `Bearer ${owner.token}` } },
   );
   expect(response.status, await response.clone().text()).toBe(200);
-  const body = await response.json();
+  const body = decodeServedContainerProjection(await response.json());
   expect(isContainerWriterProjectionResponse(body)).toBe(true);
   return {
     kekHistories: body.containerKeks.map(
@@ -259,7 +263,7 @@ test(
       },
     );
     expect(response.status, await response.clone().text()).toBe(200);
-    const projection: unknown = await response.json();
+    const projection = decodeServedDocumentProjection(await response.json());
     if (!isDocumentWriterProjectionResponse(projection))
       throw new Error("Expected writer projection");
     const served = new Set(
@@ -420,7 +424,7 @@ test(
     );
 
     expect(response.status, await response.clone().text()).toBe(200);
-    const body = await response.json();
+    const body = decodeServedDocumentProjection(await response.json());
     expect(isDocumentWriterProjectionResponse(body)).toBe(true);
     const historyHashes = body.documentContainerManifestHistory.map(
       (entry: { manifestHash: string }) => entry.manifestHash,

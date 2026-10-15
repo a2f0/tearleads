@@ -101,39 +101,58 @@ admission rechecks historical capabilities against current durable pins without
 advancing principal checkpoints. See [principal-history recovery](developer/principal-history-recovery.md)
 for the private lease, checkpoint and availability contracts.
 
-After successful SDK verification, `ApiClient` retains an isolated copy of the
-projection's manifest histories and directory payloads. Its next projection GET
-can send an
-`x-projection-history` header: a URI-encoded JSON array of exact prefixes, each
-with a scope key, count, and SHA-256 digest of the complete retained entries.
-Scope keys bind the requested object, organization, evidence location, and
-manifest chain or directory payload array. The server performs its ordinary
-authorization
-and stored-evidence checks, then omits only matching prefixes and identifies them
-in the response's `historyPrefixes`. Unknown or changed bases receive full
-history. The routes disable HTTP response caching.
+Writer projections carry each access-manifest bundle once, cited by hash (see
+the [protocol
+specification](protocol-specification.md#container-access-and-kek-protocol)).
+After a projection verifies, the SDK stores its verified bundles in the local
+`verified_access_manifest_bundles` table, keyed by manifest hash. A later
+projection GET for any object may send an `x-known-manifests` header listing up
+to 48 of those hashes: the requested object's own lineage first, then the
+lineages of the containers its projection walks (its local ancestors, or the
+containers a document is linked to, listed in, or describes as metadata, and
+their ancestors), then the organization's most recently verified bundles, which
+covers a child read before its row is listed locally. Citations never leave the
+object's organization: every local source (verified bundles of the object and of
+the containers on its walk, a document's verified discovery head, and listed
+container rows) must name the same single organization, and any disagreement or
+absence cites nothing. Citing is bounded: a source that has not answered within
+250 ms, fails, or is overtaken by the caller's abort leaves the read uncited,
+and a late answer is discarded. The citation is therefore shared across objects
+and survives restarts and reconnects. The server performs its ordinary
+authorization, lineage walk, stored-evidence verification and policy evidence
+loading, then omits the bundle bytes of exactly the cited hashes it would have
+served and lists them in the response's `omittedBundles`. Unknown hashes are
+ignored. The routes disable HTTP response caching.
 
-The client accepts omissions only from the exact prefixes it requested and still
-holds. It reconstructs the evidence before normal SDK verification. Current
-heads and key material still travel; authorization, policy commitments, signer
-resolution, predecessor links, directory binding, and durable rollback and
-conflict checks still run. A server-supplied hash or verification marker never
-becomes a client trust anchor. Malformed, unsolicited, or altered prefix claims
-are rejected. Deleted-group citations retain their historical directory proofs.
-Dependency paths preserve their order; document manifest
-history restores newest-first order for predecessor verification. Other manifest
-history collections are indexed by signed hash; reconstruction may regroup those
-unordered entries without changing their signed contents.
+The client fills each omission only from the exact bytes it cited for that
+request, copied before the request was sent, and rejects a response that omits
+anything else. The read binds its authentication context before citations
+load; an account switch while they load, or before the refetch, cancels the
+read rather than sending one identity's hints or answer under another's
+session. A response it cannot rebuild is refetched once with no hints,
+which an honest server answers in full; losing or emptying the table likewise
+yields complete responses, so no device depends on a cache to read. Rebuilt
+projections are verified from scratch: manifest hashes are recomputed,
+signatures, authorization, policy commitments, signer resolution, predecessor
+links, directory binding, and durable rollback and conflict checks all run. A
+stored bundle is evidence bytes, never a verification result, and a
+server-supplied hash or marker never becomes a client trust anchor. Policy
+evidence and current heads, keys and key material always travel. Stored rows
+carry a SHA-256 digest of their exact JSON; a mismatched row is dropped instead
+of cited.
 
-The session-scoped history cache keeps at most 16 projections and 16 million
-serialized characters. Headers contain at most 32 hints and 4,096 encoded
-characters; these bounds limit optimization, not accepted history. Eviction,
-auth changes, and cold restart fall back to complete evidence and verification
-from genesis, constrained by existing durable security checkpoints. In-flight
-requests hold their requested prefixes; late verification cannot repopulate a
-cleared auth scope. Custom request headers do not share this cache. Current-head
-eviction retains immutable evidence so a policy change can use incremental
-transport.
+Verified bundles are stored inside the transaction that advances, or for a move
+destination re-validates, the projection's checkpoints. They commit only under
+that transaction's generation and lease guard, and no cache write outlives the
+verification or holds the database after it settles. The table keeps at most
+1,024 bundles and evicts the least recently verified first; eviction and an
+organization's remote reset only remove citations. The API cannot skip loading a
+cited manifest: its own KEK verification consumes the same states, and the
+policy evidence it serves must cover every bundle the device re-verifies.
+Citation saves response bytes, not server work. The [manifest history
+model](../formal/container-keying/ManifestHistory.md) checks that citing only
+held bytes and omitting only cited hashes keep every honest read available under
+any eviction.
 
 Principal-state and access-event signature results are separately memoized by
 the exact signature, message bytes, and resolved public key. Only successful
@@ -157,12 +176,14 @@ to history; this change does not promise constant-time reads or bounded cold
 responses. Future paged cold delivery and compact witnessed checkpoints are
 separate protocol work.
 
-The API/SDK regression measures a 32-successor projection at about 343 KB cold,
-38 KB on a repeat fetch, and 47 KB after another successor, with equivalent
-verified evidence on both database backends. Further regressions cover actual
-container rotations, deleted groups, wrong prefixes, forged successors, auth
-changes, and eviction. A signature-call probe verifies 64 entries once, reuses
-all 64 on a repeat pass, and makes only 64 further calls when extended to 128.
+The API/SDK regression measures a 32-successor projection at about 21.6 KB
+cold, and 8.0 KB on a repeat fetch and after another successor once the root
+manifest is cited, with equivalent verified evidence on both database backends.
+Further regressions cover actual container rotations, document links, deleted
+groups, forged successors, omissions a request never cited, damaged and evicted
+rows, and cold devices without a table. A signature-call probe verifies 64
+entries once, reuses all 64 on a repeat pass, and makes only 64 further calls
+when extended to 128.
 
 Principal versions have no artificial lifetime history budget. They remain
 positive exact JavaScript integers through `Number.MAX_SAFE_INTEGER`; PostgreSQL

@@ -124,7 +124,6 @@ import {
 import { getOrganizationPolicyHistoryResult as organizationHistory } from "./organizationPolicyHistory";
 import type { PrincipalPolicyPageReadOptions } from "./principalPolicyPages";
 import { PrincipalPolicyRequests } from "./principalPolicyRequests";
-import { ProjectionHistoryTransport } from "./projectionHistoryTransport";
 import {
   bindPrototypeMethods,
   cachedRequest,
@@ -196,6 +195,7 @@ import type {
   RequestResult,
   RequestResultOptions,
 } from "./types";
+import type { VerifiedManifestCitations } from "./verifiedManifestCitations";
 import { WebSocketTickets } from "./webSocketTickets";
 import {
   CitingProjectionCache,
@@ -225,7 +225,7 @@ const CONTAINER_ROTATIONS = {
 
 export class ApiClient {
   private readonly requestRuntime: ApiRequestRuntime;
-  private readonly projectionHistory = new ProjectionHistoryTransport();
+  private verifiedManifestCitations: VerifiedManifestCitations | null = null;
   private readonly containerDocumentListRequestsByKey = new Map<
     string,
     Promise<ListContainerDocumentsResponse | null>
@@ -273,13 +273,12 @@ export class ApiClient {
       this.principalPolicyRequestsByKey,
       this.clearWriterProjectionCaches,
     );
-    const projectionRequests = writerProjectionRequests(this.requestRuntime);
-    this.request = this.projectionHistory.wrapRequest(
-      projectionRequests.request,
+    const projectionRequests = writerProjectionRequests(
+      this.requestRuntime,
+      () => this.verifiedManifestCitations,
     );
-    this.requestResult = this.projectionHistory.wrapRequestResult(
-      projectionRequests.requestResult,
-    );
+    this.request = projectionRequests.request;
+    this.requestResult = projectionRequests.requestResult;
     this.transport = createOperationTransport(
       this.requestRuntime.responseRequest,
     );
@@ -291,7 +290,6 @@ export class ApiClient {
     );
   }
   private clearAuthScopedCaches(): void {
-    this.projectionHistory.clear();
     this.containerDocumentListRequestsByKey.clear();
     this.containerParentLaneRequestsByKey.clear();
     this.documentAttachmentListRequestsByDocumentId.clear();
@@ -453,6 +451,11 @@ export class ApiClient {
 
   setOnPaymentRequired(handler: PaymentRequiredHandler | null): void {
     this.requestRuntime.setOnPaymentRequired(handler);
+  }
+
+  /** Verified bundles to cite on projection reads, scoped by their owner. */
+  setVerifiedManifestCitations(source: VerifiedManifestCitations | null): void {
+    this.verifiedManifestCitations = source;
   }
 
   setAuthToken(token: string | null): void {

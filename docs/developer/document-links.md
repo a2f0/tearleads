@@ -83,6 +83,12 @@ pass; later calls or background reconciliation resume the durable remainder.
 Signed heads are cached by document id and exact manifest hash. Reuse also
 requires an exact match with the durable document verification checkpoint; a
 head verified by another path cannot be rolled back through this cache.
+Organization provisioning (registration and additional organizations) seeds
+this cache with the epoch-1 heads of the roster and organization profile
+documents. The client signed those heads; the provisioning response must
+acknowledge each exactly, and the same transaction pins them as the documents'
+verification checkpoints, so the first discovery of a seeded document needs no
+writer-projection GET.
 Unavailable candidates retry independently with the tombstone backoff (fifteen
 minutes, doubling to thirty-two hours); verified siblings and tombstones
 settle immediately. Pending candidates are acknowledged only after local

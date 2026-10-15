@@ -1,16 +1,11 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import { type DocumentExpectation, seedExpectations } from "./continuity";
+import { seedExpectations } from "./continuity";
+
+import { openDocumentDetail, openDocumentImage } from "./documentImages";
+import { HOUSEHOLD_SCREENS } from "./householdScreens";
+import { assertImagesDecoded } from "./imageReadiness";
 
 type OpenDetail = (scope: Page | Locator) => Promise<void>;
-
-// Blob URLs resolve asynchronously. Wait for decoded pixels before capturing.
-async function assertImagesDecoded(images: Locator, count: number) {
-  await expect(images).toHaveCount(count, { timeout: 20_000 });
-  for (let i = 0; i < count; i++) {
-    await expect(images.nth(i)).toHaveJSProperty("complete", true);
-    await expect(images.nth(i)).not.toHaveJSProperty("naturalWidth", 0);
-  }
-}
 
 const openNoteDetail: OpenDetail = async (scope) => {
   await scope
@@ -43,39 +38,6 @@ export const openContactDetail: OpenDetail = async (scope) => {
   );
 };
 
-function openDocumentDetail(expected: DocumentExpectation): OpenDetail {
-  return async (scope) => {
-    await scope
-      .locator(".explorer-item-row-button", { hasText: expected.title })
-      .first()
-      .click();
-    await assertImagesDecoded(
-      scope.locator("img.structured-document-slot-preview-image"),
-      expected.imageCount,
-    );
-  };
-}
-
-function openDocumentImage(
-  expected: DocumentExpectation,
-  label: string,
-): OpenDetail {
-  return async (scope) => {
-    await openDocumentDetail(expected)(scope);
-    await scope
-      .getByRole("button", { name: `Open ${label}`, exact: true })
-      .click();
-    await assertImagesDecoded(
-      scope.locator("img.explorer-blob-preview-media"),
-      1,
-    );
-    await scope.locator(".explorer-blob-preview-open").click();
-    const image = scope.locator("img.mini-app-image-viewer-image");
-    await expect(image).toBeVisible();
-    await assertImagesDecoded(image, 1);
-  };
-}
-
 interface DetailScreen {
   name: string;
   route: string;
@@ -84,6 +46,7 @@ interface DetailScreen {
 }
 
 export const DETAIL_SCREENS: readonly DetailScreen[] = [
+  ...HOUSEHOLD_SCREENS,
   {
     name: "note-detail",
     route: "/app/notes",

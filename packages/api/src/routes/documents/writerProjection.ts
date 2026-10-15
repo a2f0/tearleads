@@ -2,7 +2,7 @@ import {
   getDocumentWriterProjectionOperation,
   operationRoutePath,
 } from "@tearleads/validators/operation";
-import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
+import type { DocumentWriterProjectionWireResponse } from "@tearleads/validators/response";
 import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
 import type { Context, MiddlewareHandler } from "hono";
 import { Hono } from "hono";
@@ -103,11 +103,11 @@ export function createDocumentWriterProjectionRoute({
 
       c.header("Cache-Control", "no-store");
       try {
-        return c.json<DocumentWriterProjectionResponse>(
+        return c.json<DocumentWriterProjectionWireResponse>(
           await getDocumentWriterProjection(runtime, {
             documentId,
             userId: session.userId,
-            historyPrefixes: c.req.valid("header")["x-projection-history"],
+            knownManifests: c.req.valid("header")["x-known-manifests"],
           }),
         );
       } catch (error) {
