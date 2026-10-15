@@ -44,6 +44,16 @@ export interface RecoveredScopedPrincipalPolicyHistory
   readonly historyPage?: RecoveredPrincipalHistoryPage | undefined;
 }
 
+/** Internal result: valid only while every evidence producer behind it is. */
+export interface ScopedPrincipalPolicyRecovery
+  extends RecoveredScopedPrincipalPolicyHistory {
+  readonly stillCurrent: () => boolean;
+}
+
+export type ScopedPrincipalPolicyRecoveryBatch = (
+  options: RecoverScopedPrincipalPolicyHistoryOptions,
+) => Promise<ScopedPrincipalPolicyRecovery>;
+
 function groupHead(directory: RecoveredPolicyDirectory, principalId: string) {
   const head = directory.descriptor.groupHeads.find(
     (entry) => entry.principalId === principalId,
@@ -70,7 +80,7 @@ function authorityHead(state: ReferencedPrincipalHead) {
 async function recoverScopedPolicy(
   input: RecoverScopedPrincipalPolicyHistoryOptions,
   memo?: PrincipalRecoveryMemo,
-): Promise<RecoveredScopedPrincipalPolicyHistory> {
+): Promise<ScopedPrincipalPolicyRecovery> {
   if (
     input.reference.principalType === "organization" &&
     input.reference.principalId !== input.organizationId
@@ -80,6 +90,9 @@ async function recoverScopedPolicy(
       "Requested organization policy is outside its scope",
     );
   const read = createPrincipalRecoveryReader(input, memo);
+  // Reused or derived evidence keeps its producers' lifetimes to its use.
+  const stillCurrent = () =>
+    !input.signal?.aborted && input.stillCurrent() && read.stillCurrent();
   const directory = await read.directory(
     input.reference.principalType === "organization" ? [input.reference] : [],
   );
@@ -88,6 +101,7 @@ async function recoverScopedPolicy(
       current: directory.current,
       policy: directory.policy,
       dependencies: [],
+      stillCurrent,
       ...(await selectDisplayHistory(input, {
         ...input,
         expectedHead: principalPolicyReferenceFromBundle(directory.current),
@@ -149,6 +163,7 @@ async function recoverScopedPolicy(
   return {
     ...recovered,
     dependencies: admins ? [directory.policy, admins] : [directory.policy],
+    stillCurrent,
     ...(await selectDisplayHistory(input, recoveryOptions)),
   };
 }
@@ -157,7 +172,7 @@ async function recoverScopedPolicy(
 async function recoverScopedPrincipalPolicyHistoryInBatch(
   options: RecoverScopedPrincipalPolicyHistoryOptions,
   memo?: PrincipalRecoveryMemo,
-): Promise<RecoveredScopedPrincipalPolicyHistory> {
+): Promise<ScopedPrincipalPolicyRecovery> {
   if (options.offline !== undefined && typeof options.offline !== "boolean")
     throw new KeyingVerificationError(
       "invalid_shape",
@@ -190,9 +205,7 @@ async function recoverScopedPrincipalPolicyHistoryInBatch(
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const recovered = await recoverScopedPolicy(input, memo);
-        assertProjectionVerificationCurrent(
-          () => !input.signal?.aborted && input.stillCurrent(),
-        );
+        assertProjectionVerificationCurrent(recovered.stillCurrent);
         return recovered;
       } catch (error) {
         if (!(error instanceof PrincipalRecoveryDirectoryAdvanced)) throw error;
@@ -219,6 +232,10 @@ export function recoverScopedPrincipalPolicyHistory(
   return recoverScopedPrincipalPolicyHistoryInBatch(options);
 }
 
+/** Internal unbatched recovery that keeps its result's lifetime. */
+export const recoverLeasedScopedPrincipalPolicyHistory: ScopedPrincipalPolicyRecoveryBatch =
+  (options) => recoverScopedPrincipalPolicyHistoryInBatch(options);
+
 async function selectDisplayHistory(
   input: RecoverScopedPrincipalPolicyHistoryOptions,
   options: RecoverPrincipalPolicyHistoryOptions,
@@ -232,12 +249,12 @@ async function selectDisplayHistory(
   };
 }
 
-/** Internal runtime batch: shared results never outlive one caller's collection. */
+/** Internal runtime batch: shared results never outlive its operation or caller. */
 export function createScopedPrincipalPolicyHistoryBatch(
   memo: PrincipalRecoveryMemo = {
     directories: new Map(),
     admins: new Map(),
   },
-): typeof recoverScopedPrincipalPolicyHistory {
+): ScopedPrincipalPolicyRecoveryBatch {
   return (options) => recoverScopedPrincipalPolicyHistoryInBatch(options, memo);
 }

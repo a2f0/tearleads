@@ -24,7 +24,7 @@ import {
 } from "./principalHistoryRecoveryTypes";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
-import type { RecoveredScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
+import type { ScopedPrincipalPolicyRecovery } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<
@@ -123,27 +123,30 @@ export function createRuntimePrincipalPolicyCurrentResolver(
                 stillCurrent,
               };
               const batch = recoverFor(input.recoveryBatch);
-              const result: RecoveredScopedPrincipalPolicyHistory =
-                input.reference
-                  ? await recoverWithPrincipalLocalPreference(
-                      batch.recover,
-                      {
-                        ...options,
-                        reference: input.reference,
-                        historyPage: input.historyPage,
-                      },
-                      input.preferLocalCurrent === true ||
-                        input.preferLocalHistory === true,
+              const result: ScopedPrincipalPolicyRecovery = input.reference
+                ? await recoverWithPrincipalLocalPreference(
+                    batch.recover,
+                    {
+                      ...options,
+                      reference: input.reference,
+                      historyPage: input.historyPage,
+                    },
+                    input.preferLocalCurrent === true ||
                       input.preferLocalHistory === true,
-                    )
-                  : await batch.discover(options);
+                    input.preferLocalHistory === true,
+                  )
+                : await batch.discover(options);
+              // Reused evidence stays bound to every producer lifetime.
+              const resultCurrent = () =>
+                stillCurrent() && result.stillCurrent();
+              assertProjectionVerificationCurrent(resultCurrent);
               return {
                 current: result.current,
                 organizationId: input.organizationId,
                 policy: result.policy,
                 dependencies: result.dependencies,
                 historyPage: result.historyPage,
-                stillCurrent,
+                stillCurrent: resultCurrent,
               };
             } catch (error) {
               assertProjectionVerificationCurrent(stillCurrent);

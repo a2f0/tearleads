@@ -85,14 +85,13 @@ test.each(["key", "context", "organization"] as const)(
   },
 );
 
-test("a shared completed prefix still requires a successful pinned HTTP read", async () => {
+test("a shared completed prefix serves its exact pinned head without a read", async () => {
   const fixture = await cachedFixture();
   try {
     fixture.controls.failAfterVersion = 65;
-    await expect(
-      recoverPrincipalPolicyHistory(fixture.options),
-    ).rejects.toMatchObject({ failure: { status: 503 } });
-    expect(fixture.requests).toEqual([65]);
+    const recovered = await recoverPrincipalPolicyHistory(fixture.options);
+    expect(recovered.policy.stateHash).toBe(history.expectedHead.stateHash);
+    expect(fixture.requests).toEqual([]);
     expect(
       await fixture.db.select().from(principalHistoryPrefixes),
     ).toHaveLength(1);

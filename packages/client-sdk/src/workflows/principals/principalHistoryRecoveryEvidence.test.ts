@@ -65,7 +65,7 @@ for (const corruption of [
       expect(
         recovered.policy.retainedHistory.map(({ state }) => state.version),
       ).toEqual([16, 66]);
-      expect(fixture.requests).toEqual([65, 0, 32, 64]);
+      expect(fixture.requests).toEqual([0, 32, 64]);
     } finally {
       fixture.close();
     }
@@ -83,7 +83,7 @@ test("a wrong caller citation does not discard evidence or replay signed history
         retainedReferences: [{ ...reference, stateHash: "f".repeat(64) }],
       }),
     ).rejects.toMatchObject({ code: "object_mismatch" });
-    expect(fixture.requests).toEqual([65]);
+    expect(fixture.requests).toEqual([]);
   } finally {
     fixture.close();
   }
@@ -109,7 +109,7 @@ test("persistent proof loss permits only one rebuild attempt per recovery call",
     await expect(
       recoverPrincipalPolicyHistory({ ...fixture.options, execSql }),
     ).rejects.toMatchObject({ code: "missing_dependency" });
-    expect(fixture.requests).toEqual([65, 0, 32, 64]);
+    expect(fixture.requests).toEqual([0, 32, 64]);
   } finally {
     fixture.close();
   }

@@ -96,9 +96,10 @@ Corrupt progress or a changed protection key or trust context causes replay.
 If the transport rejects a saved pin's shape, that operation's saved progress is
 discarded and the call fails; a subsequent call starts from a valid completed
 prefix or genesis.
-Online recovery requires a pinned HTTP read even for a completed prefix. The
-reader throws `PrincipalPolicyHistoryReadError` with the underlying structured
-transport failure; a concurrent staged writer can raise
+A completed stage or prefix of the pinned head needs no HTTP read; discovery
+supplies currency. A stored current that fails verification discards the stage
+and replays once. The reader throws `PrincipalPolicyHistoryReadError` with the
+underlying structured transport failure; a concurrent staged writer can raise
 `principal_history_stage_changed`, requiring a fresh recovery call. The stable
 `error.code` string is the supported way to recognize this retryable conflict.
 Organization remote reset deletes its stages, prefixes, signed entries, and index
@@ -129,10 +130,8 @@ authenticates each reusable hint.
 A new head extends an authenticated earlier prefix; a newer cached prefix is
 preserved when recovering an older target. Older completions cannot replace a
 newer prefix.
-Default online recovery still obtains a live pinned read for a completed
-same-head prefix and verifies current artifacts. The exact-head read-model path
-explicitly opts into local recovery. Neither path treats the cache as an
-application trust pin.
+The exact-head read-model path also skips directory discovery by opting into
+local recovery. No path treats the cache as an application trust pin.
 An interrupted stage can resume for a different citation selection at the same
 head. Concurrent writers compare saved progress and a loser retries; no caller
 can publish over another accepted page. Normal browsing creates at most one
@@ -243,10 +242,11 @@ The internal public-history recovery path stores no keying artifacts. It uses
 its own protected scope, including organization, strict Admins mode and the
 bound authority group. A completed prefix can prove an older source head through
 its private inclusion index, or extend to a newer source without replaying prior
-signatures. Each online read checks the returned public head artifacts against
-that same root. Offline reads require the local protection key; an unreadable
-offline hint is left intact for its owner. Completed public stages are removed
-after prefix publication, and reference selections do not create separate stages.
+signatures. A completed source needs no read; each read that occurs checks the
+returned public head artifacts against that same root. Offline reads require the
+local protection key; an unreadable offline hint is left intact for its owner.
+Completed public stages are removed after prefix publication, and reference
+selections do not create separate stages.
 
 Public progress also authenticates the greatest cited Admins head. Before reusing
 an incomplete stage or completed group prefix, recovery proves that citation
