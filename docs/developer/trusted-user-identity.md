@@ -44,8 +44,9 @@ host-controlled trust domain can be established.
 ## Scope And Lifecycle
 
 TOFU detects server substitution after the first accepted sight in this trust
-store. It does not authenticate a malicious first response or bootstrap trust
-on a new device.
+store. TOFU alone does not authenticate a malicious first response or bootstrap
+trust on a new device; independently exchanged identity links do authenticate
+the supplied bundle before its first pin.
 
 Pins survive SDK recreation, ordinary logout, remote-state reset, and
 current-format local backup restore. Restore monotonically merges identity pins,
@@ -75,3 +76,62 @@ Encryption authenticates the file against the supplied password, not the
 identity of its author. Users must trust the source of a backup in either
 format. The restore UI highlights unencrypted files and labels their action
 "Restore Unencrypted Backup" so the user explicitly chooses that restore.
+
+## Identity Links
+
+`await tearleads.userIdentities.createLink(appUrl)` creates a public permalink
+from the current user's local keys and registered user ID. It performs no
+remote identity lookup. Give the link to peers through an authenticated channel.
+It is reusable for anyone verifying this exact identity; it grants no access.
+
+`await tearleads.userIdentities.verifyLink(link)` fetches through the existing
+identity endpoint, validates both keys, checks the independently supplied bundle
+fingerprint, and only then compares or inserts the durable pin. A foreign
+service is refused before fetching. A mismatch, unavailable identity, or changed
+active identity fails without inserting a pin. Existing conflicting pins remain
+unchanged. The Add by Identity Link actions finish verification before changing
+Contacts or Roster. Links do not override pin conflicts.
+
+`userIdentities.resolvePinned(userId)` reads an existing durable pin without a
+network lookup or first-use trust. Roster selections and Import Into Contacts
+reuse any existing pin, regardless of how or when it was established. Explorer
+sharing, ordinary SDK `resolve`, and signer lookups still establish TOFU pins;
+this includes resolutions made after identity links were introduced. A pin
+created by one of these flows can therefore be reused for a roster selection or
+contact import without exchanging a link. This preserves continuity with the
+earlier accepted key; it does not establish out-of-band authentication.
+
+Pin provenance is not stored, so `resolvePinned` cannot assert that a link was
+ever verified. Hosts that require an authenticated exchange for every admission
+must use `verifyLink`, even when a pin already exists. The Add by Identity Link
+actions do this. An unpinned directory row must supply a link; directory
+projections alone grant no trust.
+
+The v1 URL is `/app/contacts/import/<token>`. The token is unpadded canonical
+base64url of the UTF-8 JSON array `[1, identityTrustDomain, userId, fingerprint]`.
+The fingerprint is lowercase SHA-256 of this UTF-8 `JSON.stringify` result:
+
+```ts
+JSON.stringify([
+  "tearleads.identity-link.v1", identityTrustDomain, userId,
+  "ML-DSA-87", signingPublicKey, "ML-KEM-1024", encapsulationPublicKey
+])
+```
+
+Public keys use canonical base64. JSON tuple order is fixed. The trust domain
+is the canonical API base URL, including its base path. The web destination is
+only a launch location: verification uses the configured API and never switches
+servers based on a link. Algorithm changes require a new link format.
+
+Contacts and Roster accept identity links for manual onboarding. The Contacts
+route retains the token through unlock, registration, and sign-in; importing
+requires an explicit Verify and Add action. Both mini-apps expose Share my
+identity link. Native hosts use the corresponding production or staging web
+app; custom deployments may configure `AppHostConfig.identityLinkWebUrl`.
+
+A link authenticates the exact identity bundle provided by its owner. Rotation
+requires a new authenticated exchange; this format does not prove currentness,
+revocation, or the freshness of signed policies. It does not replace #2186's
+remaining transparency and currentness work. Link-verification errors are
+shown to the user; a mismatched supplied link alone is not attributed as a
+server security incident.

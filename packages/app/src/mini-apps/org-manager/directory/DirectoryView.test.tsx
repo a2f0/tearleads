@@ -340,7 +340,7 @@ test("org manager roster import dialog submits the user id draft", () => {
   expect(
     view.getByRole("dialog", { name: ORG_MANAGER_LABELS.importUserAction }),
   ).toBeTruthy();
-  fireEvent.change(view.getByLabelText(ORG_MANAGER_LABELS.userId), {
+  fireEvent.change(view.getByLabelText("Identity link"), {
     target: { value: "user-3" },
   });
   fireEvent.click(

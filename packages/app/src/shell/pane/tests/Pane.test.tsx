@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { registerAndWaitForUserId } from "../../../../test/helpers/identityPaneTestUtils";
+import { mockIdentityLink } from "../../../../test/helpers/mockIdentityLink";
 import { useTestApiAppHandlers } from "../../../../test/helpers/mswServer";
 import {
   cleanupPaneTestEnvironment,
@@ -192,7 +193,7 @@ test(
     );
 
     expect(
-      within(firstContactsApp).queryByLabelText("Contact user ID"),
+      within(firstContactsApp).queryByLabelText("Identity link"),
     ).toBeNull();
 
     fireEvent.click(within(firstContactsWindow).getByText("File"));
@@ -200,7 +201,7 @@ test(
     await waitFor(() => {
       expect(within(firstContactsWindow).getByText("New Contact")).toBeTruthy();
       const menuItem = within(firstContactsWindow).getByRole("menuitem", {
-        name: "Import Contact",
+        name: "Add by Identity Link",
       });
       invariant(
         menuItem instanceof HTMLButtonElement,
@@ -212,15 +213,16 @@ test(
     invariant(importContactMenuItem, "import contact menu item not found");
     fireEvent.click(importContactMenuItem);
 
-    const firstInput = await view.findByLabelText("Contact user ID");
+    const firstInput = await view.findByLabelText("Identity link");
     invariant(firstInput, "contact input not found");
 
+    const peerIdentityLink = await mockIdentityLink(peerUserId);
     fireEvent.change(firstInput, {
-      target: { value: peerUserId },
+      target: { value: peerIdentityLink },
     });
 
     const updatedFirstContactsApp = view
-      .getByDisplayValue(peerUserId)
+      .getByDisplayValue(peerIdentityLink)
       .closest(".contacts");
     invariant(
       updatedFirstContactsApp instanceof HTMLDivElement,
@@ -238,7 +240,7 @@ test(
     await waitFor(() => {
       const importButton = within(updatedFirstContactsWindow).getByRole(
         "button",
-        { name: "Import" },
+        { name: "Verify and Add" },
       );
       invariant(
         importButton instanceof HTMLButtonElement,
@@ -250,7 +252,7 @@ test(
     const firstImportButton = within(updatedFirstContactsWindow).getByRole(
       "button",
       {
-        name: "Import",
+        name: "Verify and Add",
       },
     );
     invariant(

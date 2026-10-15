@@ -127,15 +127,19 @@ async function openContactAction(window: HTMLElement, name: string) {
 
 export async function importMiniAppContact(
   window: HTMLElement,
-  userId: string,
+  identityLink: string,
 ) {
-  await openContactAction(window, "Import Contact");
+  await openContactAction(window, "Add by Identity Link");
   const input = await within(window).findByRole("textbox", {
-    name: "Contact user ID",
+    name: "Identity link",
   });
-  await interact(() => fireEvent.change(input, { target: { value: userId } }));
   await interact(() =>
-    fireEvent.click(within(window).getByRole("button", { name: "Import" })),
+    fireEvent.change(input, { target: { value: identityLink } }),
+  );
+  await interact(() =>
+    fireEvent.click(
+      within(window).getByRole("button", { name: "Verify and Add" }),
+    ),
   );
   await within(window).findByRole("button", { name: "Edit" });
 }

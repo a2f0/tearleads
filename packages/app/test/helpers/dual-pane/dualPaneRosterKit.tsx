@@ -7,6 +7,7 @@ import {
   summarizeProxiedApiRequests,
   truncateText,
 } from "../dualPaneRequestSummary";
+import { createPeerIdentityLink } from "../identityLinkFixtures";
 import { waitForCondition } from "../waitForCondition";
 import {
   interact,
@@ -45,7 +46,7 @@ export async function importPeerIntoRoster(
     scope: pane,
     timeoutMs: ORG_MANAGER_IMPORT_USER_TIMEOUT_MS,
   });
-  const userIdInput = within(dialog).getByLabelText(ORG_MANAGER_LABELS.userId);
+  const userIdInput = within(dialog).getByLabelText("Identity link");
   invariant(
     userIdInput instanceof HTMLInputElement,
     "Expected roster import user id input.",
@@ -58,8 +59,9 @@ export async function importPeerIntoRoster(
     "Expected roster import submit button.",
   );
 
+  const identityLink = await createPeerIdentityLink(peerUserId);
   await interact(() => {
-    fireEvent.change(userIdInput, { target: { value: peerUserId } });
+    fireEvent.change(userIdInput, { target: { value: identityLink } });
   });
   await waitFor(() => {
     expect(importButton.disabled).toBe(false);

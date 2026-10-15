@@ -205,7 +205,7 @@ test("group detail separates members, policy history, and links into tabs", () =
   expect(
     within(view.getByRole("tabpanel")).queryByText(ORG_MANAGER_LABELS.members),
   ).toBeNull();
-  expect(view.queryByLabelText(ORG_MANAGER_LABELS.userId)).toBeNull();
+  expect(view.queryByLabelText(ORG_MANAGER_LABELS.rosterIdentity)).toBeNull();
 
   fireEvent.click(linksTab);
 

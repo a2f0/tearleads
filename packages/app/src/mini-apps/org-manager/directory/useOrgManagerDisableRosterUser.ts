@@ -6,14 +6,14 @@ import type { Dispatch, SetStateAction } from "react";
 import { useCallback } from "react";
 import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
 import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
+import { refreshAfterGroupMutation } from "../groups/orgManagerMutationOperations";
+import { runScopedOrgMutation } from "../hooks/runScopedOrgMutation";
+import { canDisableRosterUser } from "../permissions";
+import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
 import {
   loadRosterDisableMembershipTargets,
   type RosterDisableMembershipTarget,
-} from "../directory/rosterDisableMembershipTargets";
-import { refreshAfterGroupMutation } from "../groups/orgManagerMutationOperations";
-import { canDisableRosterUser } from "../permissions";
-import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
-import { runScopedOrgMutation } from "./runScopedOrgMutation";
+} from "./rosterDisableMembershipTargets";
 
 type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
 

@@ -1,4 +1,3 @@
-import { AddressBookIcon } from "@phosphor-icons/react/dist/csr/AddressBook";
 import { CheckIcon } from "@phosphor-icons/react/dist/csr/Check";
 import { PencilSimpleIcon } from "@phosphor-icons/react/dist/csr/PencilSimple";
 import type {
@@ -9,7 +8,7 @@ import {
   useMiniAppRouteSegments,
   useWindowTitleBarAction,
 } from "@tearleads/windowing";
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import {
   MiniAppField,
   MiniAppFormPanel,
@@ -34,6 +33,7 @@ import {
   type ContactsAreaContextMenuHandler,
   ContactsDetailContextTarget,
 } from "./ContactsDetailContextTarget";
+import { ContactsImportContactPanel } from "./ContactsImportContactPanel";
 
 type UpdateContact = (contactId: string, patch: ContactEntryPatch) => void;
 type RemoveContactAvatar = (contactId: string) => void;
@@ -225,64 +225,6 @@ function ContactsNewContactPanel(params: {
   );
 }
 
-function ContactsImportContactPanel(params: {
-  canImport: boolean;
-  draftUserId: string;
-  importDraftContact: () => Promise<void>;
-  isAuthenticated: boolean;
-  setDraftUserId: (userId: string) => void;
-}) {
-  const {
-    canImport,
-    draftUserId,
-    importDraftContact,
-    isAuthenticated,
-    setDraftUserId,
-  } = params;
-  const importAction = useMemo(
-    () => ({
-      disabled: !canImport,
-      icon: <AddressBookIcon aria-hidden size={18} />,
-      id: "contacts-import-contact-submit",
-      label: CONTACTS_LABELS.importContactSubmitAction,
-      onClick: importDraftContact,
-      priority: 100,
-    }),
-    [canImport, importDraftContact],
-  );
-
-  useWindowTitleBarAction(importAction);
-
-  return (
-    <MiniAppFormPanel
-      onSubmit={(event) => {
-        event.preventDefault();
-        void importDraftContact();
-      }}
-    >
-      <MiniAppHeader>
-        <MiniAppHeaderCopy>
-          <strong>{CONTACTS_LABELS.importContactAction}</strong>
-        </MiniAppHeaderCopy>
-      </MiniAppHeader>
-      <MiniAppField>
-        <span>{CONTACTS_LABELS.contactUserIdField}</span>
-        <MiniAppInput
-          aria-label={CONTACTS_LABELS.contactUserIdField}
-          value={draftUserId}
-          onChange={(event) => setDraftUserId(event.target.value)}
-          placeholder={CONTACTS_LABELS.userIdPlaceholder}
-        />
-      </MiniAppField>
-      {!isAuthenticated && (
-        <MiniAppStatus>
-          {CONTACTS_LABELS.unauthenticatedImportState}
-        </MiniAppStatus>
-      )}
-    </MiniAppFormPanel>
-  );
-}
-
 export function ContactsDetailPanel(params: {
   blobStore: BlobStore;
   canCreate: boolean;
@@ -294,6 +236,8 @@ export function ContactsDetailPanel(params: {
   draftUserId: string;
   entries: ContactEntries;
   importDraftContact: () => Promise<void>;
+  importError?: string | null | undefined;
+  signInAction?: ReactNode;
   isAuthenticated: boolean;
   onAreaContextMenu: ContactsAreaContextMenuHandler;
   onBackToSelectionRoute: (options?: { replace?: boolean | undefined }) => void;
@@ -319,6 +263,7 @@ export function ContactsDetailPanel(params: {
     draftUserId,
     entries,
     importDraftContact,
+    importError,
     isAuthenticated,
     onAreaContextMenu,
     onBackToSelectionRoute,
@@ -374,6 +319,8 @@ export function ContactsDetailPanel(params: {
         canImport={canImport}
         draftUserId={draftUserId}
         importDraftContact={importDraftContact}
+        error={importError}
+        signInAction={params.signInAction}
         isAuthenticated={isAuthenticated}
         setDraftUserId={setDraftUserId}
       />

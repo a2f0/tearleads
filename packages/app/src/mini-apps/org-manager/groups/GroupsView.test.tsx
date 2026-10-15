@@ -194,7 +194,7 @@ test("org manager groups view hides group detail until a group is selected", () 
   expect(view.queryByText(compactFingerprint(group.groupId))).toBeNull();
   expect(view.getByText(ORG_MANAGER_LABELS.builtIn)).toBeTruthy();
   expect(view.container.querySelector(".org-manager-panel--detail")).toBeNull();
-  expect(view.queryByLabelText(ORG_MANAGER_LABELS.userId)).toBeNull();
+  expect(view.queryByLabelText(ORG_MANAGER_LABELS.rosterIdentity)).toBeNull();
   expect(view.queryByLabelText(ORG_MANAGER_LABELS.groupName)).toBeNull();
 
   fireEvent.click(view.getByText(group.name));

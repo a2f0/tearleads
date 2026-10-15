@@ -11,6 +11,11 @@ import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUse
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import {
+  assertIdentityLinkMatches,
+  createIdentityLink,
+  parseIdentityLink,
+} from "./identityLink";
+import {
   brandTrustedUserIdentity,
   TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
   TRUSTED_USER_IDENTITY_FORMAT_VERSION,
@@ -27,14 +32,9 @@ import {
   validateUserIdentityKeys,
 } from "./validation";
 
-function requireTrustStore(
+function requireTrustDomain(
   dependencies: TrustedUserIdentityServiceDependencies,
-): {
-  readonly execSql: NonNullable<
-    ReturnType<TrustedUserIdentityServiceDependencies["getExecSql"]>
-  >;
-  readonly identityTrustDomain: string;
-} {
+): string {
   // A missing trust domain is a static misconfiguration and must stay loud.
   if (!dependencies.identityTrustDomain) {
     throw new KeyingVerificationError(
@@ -42,6 +42,13 @@ function requireTrustStore(
       "Trusted user identity resolution requires a stable API trust domain",
     );
   }
+  return dependencies.identityTrustDomain;
+}
+
+function requireTrustStore(
+  dependencies: TrustedUserIdentityServiceDependencies,
+) {
+  const identityTrustDomain = requireTrustDomain(dependencies);
   // An absent trust store is not: getExecSql() returns null exactly while the
   // database is not ready, which happens routinely when the runtime is swapped
   // under in-flight sync work. Callers that tolerate a vanishing database
@@ -52,7 +59,7 @@ function requireTrustStore(
       "Trusted user identity resolution requires a ready SQLite trust store",
     );
   }
-  return { execSql, identityTrustDomain: dependencies.identityTrustDomain };
+  return { execSql, identityTrustDomain };
 }
 
 async function compareWithDurablePin(input: {
@@ -184,6 +191,56 @@ export function createTrustedUserIdentityService(
   dependencies: TrustedUserIdentityServiceDependencies,
 ): TrustedUserIdentityService {
   return {
+    async resolvePinned(userId) {
+      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+      return loadPinnedUserIdentity({ execSql, identityTrustDomain, userId });
+    },
+    async createLink(appUrl) {
+      const identityTrustDomain = requireTrustDomain(dependencies);
+      const userId = dependencies.getLocalUserId();
+      const candidate = userId ? dependencies.getLocalIdentity(userId) : null;
+      if (!userId || !candidate) {
+        throw new Error("Sign in before sharing your identity link.");
+      }
+      const identity = await validateLocalUserIdentity({
+        candidate,
+        identityTrustDomain,
+        userId,
+      });
+      return createIdentityLink(identity, appUrl);
+    },
+    async verifyLink(link) {
+      const expectation = parseIdentityLink(link);
+      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+      if (expectation.identityTrustDomain !== identityTrustDomain) {
+        throw new Error(
+          "This identity link belongs to a different Tearleads service.",
+        );
+      }
+      const localUserId = dependencies.getLocalUserId();
+      try {
+        const identity = await resolveCandidate(
+          dependencies,
+          expectation.userId,
+          identityTrustDomain,
+        );
+        if (!identity)
+          throw new Error("The identity in this link is unavailable.");
+        await assertIdentityLinkMatches(expectation, identity);
+        if (
+          dependencies.getExecSql() !== execSql ||
+          dependencies.getLocalUserId() !== localUserId
+        ) {
+          throw new DatabaseUnavailableError(
+            "The active identity changed. Open the identity link again.",
+          );
+        }
+        return await pinIdentity({ dependencies, execSql, identity });
+      } catch (error) {
+        dependencies.remoteSource.invalidate(expectation.userId);
+        throw error;
+      }
+    },
     async boundUserId(signingKeyFingerprint) {
       const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
       return loadTrustedUserIdForSigningKey({

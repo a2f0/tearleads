@@ -43,3 +43,49 @@ test("Tearleads wires workflow security incidents to durable host callbacks", as
     await close();
   }
 });
+
+test("identity links report server pin conflicts but not mismatched supplied links", async () => {
+  const { identityLinkFixture, LINK_TRUST_DOMAIN } = await import(
+    "../data/trustedUserIdentity/identityLink.testFixtures"
+  );
+  const { close, execSql } = await createTestExecSql("identity-link-incidents");
+  const bob = await identityLinkFixture(1);
+  const replacement = await identityLinkFixture(2);
+  const callbackCodes: string[] = [];
+  const sdk = new Tearleads({
+    apiBaseUrl: LINK_TRUST_DOMAIN,
+    database: { execSql },
+    logger: quietLogger,
+    onSecurityIncident: (incident) => callbackCodes.push(incident.code),
+  });
+  const api = Reflect.get(sdk, "apiClient");
+  if (!(api instanceof ApiClient)) throw new Error("Expected API client");
+  let remote = bob.remote;
+  api.getUserIdentity = async () => remote;
+  try {
+    await sdk.userIdentities.verifyLink(bob.link);
+    await expect(
+      sdk.userIdentities.verifyLink(replacement.link),
+    ).rejects.toThrow("do not match");
+    expect(callbackCodes).toEqual([]);
+    expect(await sdk.securityIncidents.list()).toEqual([]);
+    remote = replacement.remote;
+    await expect(
+      sdk.userIdentities.verifyLink(replacement.link),
+    ).rejects.toThrow("Trusted user identity changed");
+    expect(callbackCodes).toEqual(["equivocation"]);
+    expect(await sdk.securityIncidents.list()).toEqual([
+      expect.objectContaining({
+        code: "equivocation",
+        objectId: bob.remote.userId,
+        operation: "user.identity.verify_link",
+      }),
+    ]);
+    remote = { ...bob.remote, signingPublicKey: "invalid-key" };
+    await expect(sdk.userIdentities.verifyLink(bob.link)).rejects.toThrow();
+    expect(callbackCodes).toHaveLength(2);
+  } finally {
+    sdk.dispose();
+    await close();
+  }
+});

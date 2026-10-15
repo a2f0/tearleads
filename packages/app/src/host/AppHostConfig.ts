@@ -213,6 +213,8 @@ export function resolveAppHostProfile(
 /** @public */
 export interface AppHostConfigOptions {
   readonly apiBaseUrl: string;
+  /** Web destination for public identity links on custom native deployments. */
+  readonly identityLinkWebUrl?: string | undefined;
   readonly diagnostics?: AppDiagnostics | undefined;
   /**
    * Build identity for the running bundle. Omitted by tests and by any shell

@@ -79,6 +79,7 @@ export function useContactsRouteState(compactRoutedMode: boolean) {
   );
 
   return {
+    identityLinkToken: routeSnapshot.identityLinkToken,
     openImportContactRoute,
     openNewContactRoute,
     route: routeSnapshot.route,
