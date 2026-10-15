@@ -66,9 +66,14 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
         queryFragment: "organization_read_model_heads",
       });
       contenders.push(postCreate({ request, token: owner.token }));
+      // A container mutation verifies its request, then locks its organization
+      // head before it checks or writes the container head, so the second
+      // contender queues on that same row behind the first. Both are in flight
+      // before either commits; the loser fails its locked head check.
       await waitForPostgresLockWait({
         blockerPid: organizationLock.backendPid,
-        queryFragment: "containers",
+        minimumWaiters: 2,
+        queryFragment: "organization_read_model_heads",
       });
     } catch (error) {
       synchronizationError = error;
