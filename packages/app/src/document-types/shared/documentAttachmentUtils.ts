@@ -9,6 +9,47 @@ import type {
 export interface DocumentAttachmentSlot {
   label: string;
   slotId: string;
+  /** A named collection; each image has its own immutable storage slot. */
+  multiple?: boolean;
+}
+
+export function resolveAttachmentUploadSlot(
+  slotId: string,
+  slots: ReadonlyArray<DocumentAttachmentSlot>,
+): string {
+  return slots.some((slot) => slot.slotId === slotId && slot.multiple)
+    ? `${slotId}:${crypto.randomUUID()}`
+    : slotId;
+}
+
+export function expandAttachmentSlots(
+  slots: ReadonlyArray<DocumentAttachmentSlot>,
+  attachments: ReadonlyArray<DocumentAttachment>,
+  canAttach: boolean,
+): ReadonlyArray<DocumentAttachmentSlot> {
+  return slots.flatMap((slot) => {
+    if (!slot.multiple) return [slot];
+    const photos = attachments.filter(
+      (attachment) =>
+        attachment.slotId === slot.slotId ||
+        attachment.slotId.startsWith(`${slot.slotId}:`),
+    );
+    const expanded: DocumentAttachmentSlot[] = photos.map((photo, index) => ({
+      label: `${slot.label} ${index + 1}`,
+      slotId: photo.slotId,
+    }));
+    // Earlier clients stored one photo in the bare slot; keep its replace
+    // action separate from the collection append action.
+    if (canAttach || expanded.length === 0) {
+      expanded.push({
+        ...slot,
+        slotId: photos.some((photo) => photo.slotId === slot.slotId)
+          ? `${slot.slotId}:add`
+          : slot.slotId,
+      });
+    }
+    return expanded;
+  });
 }
 
 export interface DocumentAttachmentUpload {

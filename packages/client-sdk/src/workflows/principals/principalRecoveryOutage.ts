@@ -2,7 +2,11 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
-import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
+import {
+  type RecoverScopedPrincipalPolicyHistoryOptions,
+  recoverLeasedScopedPrincipalPolicyHistory,
+  type ScopedPrincipalPolicyRecoveryBatch,
+} from "./recoverScopedPrincipalPolicyHistory";
 
 /** Refusals and invalid evidence must never silently select a cached policy. */
 export function isPrincipalRecoveryOutage(error: unknown): boolean {
@@ -19,8 +23,8 @@ export function isPrincipalRecoveryOutage(error: unknown): boolean {
 }
 
 export async function recoverWithPrincipalOutageFallback(
-  recover: typeof recoverScopedPrincipalPolicyHistory,
-  options: Parameters<typeof recoverScopedPrincipalPolicyHistory>[0],
+  recover: ScopedPrincipalPolicyRecoveryBatch,
+  options: RecoverScopedPrincipalPolicyHistoryOptions,
 ) {
   try {
     return await recover(options);
@@ -28,7 +32,7 @@ export async function recoverWithPrincipalOutageFallback(
     assertProjectionVerificationCurrent(options.stillCurrent);
     if (options.offline || !isPrincipalRecoveryOutage(error)) throw error;
     try {
-      return await recoverScopedPrincipalPolicyHistory({
+      return await recoverLeasedScopedPrincipalPolicyHistory({
         ...options,
         offline: true,
       });

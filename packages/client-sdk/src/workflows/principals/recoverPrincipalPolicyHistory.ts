@@ -48,6 +48,14 @@ class PrincipalHistoryPrefixDisconnectedError extends Error {
   }
 }
 
+/** Stored current artifacts of a completed stage failed their signed-history check. */
+class StoredPrincipalCurrentRejectedError extends Error {
+  constructor(readonly verificationError: KeyingVerificationError) {
+    super(verificationError.message);
+    this.name = "StoredPrincipalCurrentRejectedError";
+  }
+}
+
 function currentArtifacts(
   page: PrincipalPolicyPageResponse,
 ): PrincipalPolicyPageCurrent {
@@ -182,6 +190,7 @@ async function finishRecovery(
   input: PrincipalHistorySelectionOptions,
   stage: PrincipalHistoryRecoveryStage,
   checkpoint: PrincipalPolicyCheckpoint | null,
+  storedCurrent: boolean,
 ): Promise<RecoveredPrincipalPolicyHistory> {
   if (!stage.current || !stage.complete)
     throw new KeyingVerificationError(
@@ -200,7 +209,11 @@ async function finishRecovery(
     current: stage.current,
     history: selected,
   });
-  if (!current.ok) throw current.error;
+  if (!current.ok) {
+    if (storedCurrent)
+      throw new StoredPrincipalCurrentRejectedError(current.error);
+    throw current.error;
+  }
   verifyPrincipalPolicyCheckpoint({
     chain: current.value.retainedHistory,
     currentState: current.value.state,
@@ -230,10 +243,29 @@ async function finishRecovery(
   return { current: stage.current, policy: current.value };
 }
 
+function completedStageMatchesHead(
+  stage: PrincipalHistoryRecoveryStage,
+  expectedHead: RecoverPrincipalPolicyHistoryOptions["expectedHead"],
+): boolean {
+  if (!stage.complete || !stage.current) return false;
+  try {
+    assertExpectedHead(stage.current, expectedHead);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns whether the stage's current artifacts came from local storage. A
+ * completed stage already authenticates every signed entry through the exact
+ * pinned head, so an online read of that head could only return the pinned
+ * bytes or refuse. Server-current freshness belongs to the caller's discovery.
+ */
 async function readRecoveryPages(
   input: RecoverPrincipalPolicyHistoryOptions,
   stage: PrincipalHistoryRecoveryStage,
-): Promise<void> {
+): Promise<boolean> {
   if (input.offline) {
     if (!stage.complete || !stage.current)
       throw new KeyingVerificationError(
@@ -241,8 +273,9 @@ async function readRecoveryPages(
         "Completed principal history is unavailable offline",
       );
     assertExpectedHead(stage.current, input.expectedHead);
-    return;
+    return true;
   }
+  if (completedStageMatchesHead(stage, input.expectedHead)) return true;
   let receivedFinalPage = false;
   for await (const result of input.apiClient.getPrincipalPolicyPages(
     input.expectedHead.principalType,
@@ -277,6 +310,7 @@ async function readRecoveryPages(
       "missing_dependency",
       "Principal history transport did not complete",
     );
+  return false;
 }
 
 async function recover(
@@ -313,14 +347,21 @@ async function recover(
   try {
     if (stage.fromCache)
       await validatePrincipalHistoryRecoveryAuthority(input, stage.verifier);
-    await readRecoveryPages(input, stage);
-    return await finishRecovery(input, stage, checkpoint);
+    const stored = await readRecoveryPages(input, stage);
+    return await finishRecovery(
+      input,
+      stage,
+      checkpoint,
+      stored && !input.offline,
+    );
   } catch (error) {
     const lostEvidence =
       error instanceof PrincipalHistoryEvidenceUnavailableError;
-    const disconnected =
-      error instanceof PrincipalHistoryPrefixDisconnectedError;
-    if (!lostEvidence && !disconnected) throw error;
+    // Disposable stored artifacts never refuse an online reader: replay them.
+    const disposable =
+      error instanceof PrincipalHistoryPrefixDisconnectedError ||
+      error instanceof StoredPrincipalCurrentRejectedError;
+    if (!lostEvidence && !disposable) throw error;
     if (stage.saved)
       await discardPrincipalHistoryStage(input.execSql, stage.saved, () =>
         recoveryIsCurrent(input),
@@ -331,7 +372,7 @@ async function recover(
       (lostEvidence || stage.fromCache)
     )
       return recover(input, false);
-    throw lostEvidence || disconnected ? error.verificationError : error;
+    throw error.verificationError;
   }
 }
 

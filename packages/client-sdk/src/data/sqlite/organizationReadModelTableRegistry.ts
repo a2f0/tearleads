@@ -3,24 +3,27 @@ import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroupMembers,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
   organizationReadModelRequesters,
   organizationReadModelState,
 } from "./organizationReadModelSchema";
 import { defineSqlTableSchema, type SqlTableSchema } from "./sqlTableSchema";
 
 export const organizationReadModelTables: ReadonlyArray<SqlTableSchema> = [
-  defineSqlTableSchema(organizationReadModelState),
+  // Lane heads folded into these rows (#2522); an older local shape must reset.
+  {
+    ...defineSqlTableSchema(organizationReadModelState),
+    requiredColumns: ["member_group_state_hash", "organization_state_hash"],
+  },
   defineSqlTableSchema(organizationReadModelRequesters),
   {
     ...defineSqlTableSchema(organizationReadModelDirectoryUsers),
     requiredColumns: ["is_personal_organization_owner"],
   },
-  defineSqlTableSchema(organizationReadModelGroups),
-  defineSqlTableSchema(organizationReadModelPolicyHeads),
-  defineSqlTableSchema(organizationReadModelGroupMemberships),
+  {
+    ...defineSqlTableSchema(organizationReadModelGroups),
+    requiredColumns: ["key_fingerprint", "members_state_hash"],
+  },
   defineSqlTableSchema(organizationReadModelGroupMembers),
   defineSqlTableSchema(organizationReadModelContainerGrants),
   defineSqlTableSchema(organizationPresentationDenials),
@@ -31,8 +34,6 @@ export const organizationReadModelSQLiteSchema = {
   organizationReadModelRequesters,
   organizationReadModelDirectoryUsers,
   organizationReadModelGroups,
-  organizationReadModelPolicyHeads,
-  organizationReadModelGroupMemberships,
   organizationReadModelGroupMembers,
   organizationReadModelContainerGrants,
   organizationPresentationDenials,

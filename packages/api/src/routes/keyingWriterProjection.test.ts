@@ -1377,11 +1377,11 @@ test("POST /documents/:documentId/sync redirects historical updates to the atomi
   expect(
     synced.updates.map((update: { id: string }) => update.id),
   ).not.toContain(updateId);
-  expect(
-    synced.contentKeyBundles
-      .map((bundle: { contentKeyEpoch: number }) => bundle.contentKeyEpoch)
-      .sort((left: number, right: number) => left - right),
-  ).toEqual([unlinkedDocument.contentKeyBundle.contentKeyEpoch]);
+  // The baseline is at the current epoch, whose bundle is contentKeyBundle.
+  expect(synced.contentKeyBundle.contentKeyEpoch).toBe(
+    unlinkedDocument.contentKeyBundle.contentKeyEpoch,
+  );
+  expect(synced.contentKeyBundles).toEqual([]);
 });
 
 test("POST /documents/:documentId/sync rolls back optional rekeys when write validation fails", async () => {

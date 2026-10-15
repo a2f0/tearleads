@@ -13,6 +13,10 @@ import {
   sqlContainerContentsPersistence,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 import {
+  type AuthoredDiscoveryHead,
+  primeAuthoredDocumentDiscoveryHeads,
+} from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
@@ -21,11 +25,13 @@ import {
   type LocallyAcknowledgedAccessManifestHead,
 } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
+import { documentContainerProjectionTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {
   createExecSql,
   type ExecSql,
   type ExecSqlClientLike,
+  ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { persistDocumentState } from "../documents/persistence";
@@ -69,6 +75,8 @@ interface ProvisionedProfileDocumentBootstrapInput {
 
 export interface RegistrationBootstrapInput {
   acknowledgedAccessHeads: readonly LocallyAcknowledgedAccessManifestHead[];
+  /** Seeded documents' acknowledged signed heads; see the discovery cache. */
+  authoredDiscoveryHeads: readonly AuthoredDiscoveryHead[];
   /** Checked inside the mutation queue claim; false skips every write. */
   canStartDurableMutation?: (() => boolean) | undefined;
   /**
@@ -357,6 +365,7 @@ export async function persistRegistrationBootstrapFromExecSql(
     // Idempotent DDL stays outside the atomic boundary.
     await sqlContainerContentsPersistence.ensureSchema(lockedExecSql);
     await sqlDocumentsPersistence.ensureSchema(lockedExecSql);
+    await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
     // Pre-commit currency guard: the write sequence awaits real work, so
     // the identity can be replaced mid-sequence. The guard runs
     // synchronously with the COMMIT dispatch, so a refusal rolls the whole
@@ -402,6 +411,12 @@ export async function persistRegistrationBootstrapFromExecSql(
           ORGANIZATION_PROFILE_DOCUMENT_KIND,
         );
         await persistSystemContainersBootstrap(lockedExecSql, input);
+        // After the checkpoints above: discovery reuses a cached head only
+        // while its access-manifest checkpoint still matches.
+        await primeAuthoredDocumentDiscoveryHeads(
+          lockedExecSql,
+          input.authoredDiscoveryHeads,
+        );
       },
       () => !input.canStartDurableMutation || input.canStartDurableMutation(),
     );

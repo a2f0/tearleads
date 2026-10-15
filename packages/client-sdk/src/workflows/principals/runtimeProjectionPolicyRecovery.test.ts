@@ -79,16 +79,19 @@ test.each([403, 409, 503])(
   async (status) => {
     const f = await fixture();
     try {
+      f.controls.failAfter = 0;
+      f.controls.failureStatus = status;
+      await expect(f.resolve()).rejects.toMatchObject({
+        name: "ProjectionDependencyUnavailableError",
+      });
+      expect(f.incidents).toEqual([]);
+      f.controls.failAfter = null;
       await f.resolve();
+      // Completed evidence for the cited heads needs no confirmation read.
       f.requests.length = 0;
       f.controls.failAfter = 65;
-      f.controls.failureStatus = status;
-      if (status === 503) expect((await f.resolve()).policies).toHaveLength(3);
-      else
-        await expect(f.resolve()).rejects.toMatchObject({
-          name: "ProjectionDependencyUnavailableError",
-        });
-      expect(f.requests).toEqual([65]);
+      expect((await f.resolve()).policies).toHaveLength(3);
+      expect(f.requests).toEqual([]);
       expect(f.incidents).toEqual([]);
       expect(f.state.fullReads).toBe(0);
     } finally {

@@ -1,8 +1,12 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { organizations } from "@tearleads/api-shared/schema";
+import {
+  organizations,
+  principalMembershipProjection,
+} from "@tearleads/api-shared/schema";
 import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
+import { currentPrincipalStateHashSql } from "../principals/currentPrincipalStateSql";
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "../principals/getCurrentPrincipalPolicy";
 import { PrincipalPolicyError } from "../principals/shared";
 import { OrganizationManagerError } from "./errors";
@@ -195,4 +199,48 @@ export async function requireDirectOrganizationAccess(input: {
   }
 
   return access;
+}
+
+/**
+ * One-statement screen run before a caller takes a shared organization lock:
+ * the organization must exist and the user must appear in the current stored
+ * projection of its reserved Admins or Members group. It is a filter, not an
+ * authorization decision; `requireDirectOrganizationAccess` must still verify
+ * the signed policies before any organization data is returned.
+ */
+export async function requireOrganizationAccessCandidate(input: {
+  readonly executor: DatabaseSession;
+  readonly organizationId: string;
+  readonly userId: string;
+}): Promise<void> {
+  const member = principalMembershipProjection;
+  const [row] = await input.executor
+    .select({ userId: member.userId })
+    .from(organizations)
+    .leftJoin(
+      member,
+      and(
+        eq(member.principalType, "group"),
+        or(
+          eq(member.principalId, organizations.adminGroupId),
+          eq(member.principalId, organizations.memberGroupId),
+        ),
+        eq(member.userId, input.userId),
+        eq(
+          member.stateHash,
+          currentPrincipalStateHashSql({
+            principalId: sql`${member.principalId}`,
+            principalType: sql`'group'`,
+          }),
+        ),
+      ),
+    )
+    .where(eq(organizations.id, input.organizationId))
+    .limit(1);
+  if (!row) {
+    throw new OrganizationManagerError("Organization not found", 404);
+  }
+  if (row.userId === null) {
+    throw new OrganizationManagerError("Organization access denied", 403);
+  }
 }

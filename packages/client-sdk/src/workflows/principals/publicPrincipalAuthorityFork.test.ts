@@ -172,7 +172,8 @@ test("a verified Admins successor reuses cached group authorization", async () =
       },
     };
     await recoverProjectionPolicyHistory(next);
-    expect(f.requests).toEqual([66, 66, 65]);
+    // Only the advanced heads are read; the unchanged group stage is complete.
+    expect(f.requests).toEqual([66, 66]);
     f.requests.length = 0;
     await recoverProjectionPolicyHistory({ ...next, offline: true });
     expect(f.requests).toEqual([]);

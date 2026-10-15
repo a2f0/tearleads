@@ -41,9 +41,19 @@ export type OrganizationReadModelGrantsResponse = z.infer<
   typeof OrganizationReadModelGrantsResponseSchema
 >;
 
-const OrganizationReadModelGroupMemberResponseSchema = z.strictObject(
-  OrganizationGroupMemberResponseShape,
-);
+/**
+ * A projected member names only the user and role. Public keys live once per
+ * user in the directory lane; keying never reads either copy from the read
+ * model.
+ */
+const OrganizationReadModelGroupMemberResponseSchema = z.strictObject({
+  role: OrganizationGroupMemberResponseShape.role,
+  userId: OrganizationGroupMemberResponseShape.userId,
+});
+
+export type OrganizationReadModelGroupMemberResponse = z.infer<
+  typeof OrganizationReadModelGroupMemberResponseSchema
+>;
 
 const OrganizationReadModelGroupMembershipResponseSchema = z.strictObject({
   groupId: z.string(),

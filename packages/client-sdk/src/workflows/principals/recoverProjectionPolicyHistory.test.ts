@@ -122,7 +122,7 @@ test("lost selected evidence replays only that principal and cannot be used offl
     ).rejects.toThrow("proof root does not match");
     expect(f.requests).toEqual([]);
     await recoverProjectionPolicyHistory(f.options);
-    expect(f.requests).toEqual([65, 65, 65, 0, 32, 64]);
+    expect(f.requests).toEqual([0, 32, 64]);
     expect(await f.db.select().from(principalPolicyCheckpoints)).toEqual([]);
   } finally {
     f.close();

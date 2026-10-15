@@ -66,8 +66,9 @@ test("strict Admins progress is separate from general history and resumes indepe
     expect(recovered.policy.stateHash).toBe(history.expectedHead.stateHash);
     expect(fixture.requests).toEqual([0, 32, 64]);
     fixture.requests.length = 0;
+    // The completed strict stage serves its exact pinned head without a read.
     await recoverPrincipalPolicyHistory(options);
-    expect(fixture.requests).toEqual([65]);
+    expect(fixture.requests).toEqual([]);
     expect(
       await fixture.db.select().from(principalHistoryPrefixes),
     ).toHaveLength(2);

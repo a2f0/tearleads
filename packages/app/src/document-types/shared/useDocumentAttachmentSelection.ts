@@ -2,19 +2,22 @@ import type { BlobInfo, BlobStore } from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { useLog } from "../../providers/logging/LogProvider";
 import {
+  type DocumentAttachmentSlot,
   type DocumentAttachmentUpload,
   readBlobDocumentAttachmentUpload,
   readDocumentAttachmentUpload,
+  resolveAttachmentUploadSlot,
 } from "./documentAttachmentUtils";
 
 export function useDocumentAttachmentSelection(params: {
   errorMessage: string;
+  slots?: ReadonlyArray<DocumentAttachmentSlot>;
   replaceAttachment: (
     slotId: string,
     attachment: DocumentAttachmentUpload,
-  ) => void;
+  ) => void | Promise<void>;
 }) {
-  const { errorMessage, replaceAttachment } = params;
+  const { errorMessage, replaceAttachment, slots } = params;
   const { logError } = useLog();
 
   return useCallback(
@@ -24,17 +27,23 @@ export function useDocumentAttachmentSelection(params: {
           return;
         }
 
-        const [file] = Array.from(fileList);
-        if (!file) {
-          return;
+        const multiple = slots?.some(
+          (slot) => slot.slotId === slotId && slot.multiple,
+        );
+        for (const file of Array.from(fileList).slice(
+          0,
+          multiple ? undefined : 1,
+        )) {
+          await replaceAttachment(
+            resolveAttachmentUploadSlot(slotId, slots ?? []),
+            await readDocumentAttachmentUpload(file),
+          );
         }
-
-        replaceAttachment(slotId, await readDocumentAttachmentUpload(file));
       } catch (error) {
         logError(errorMessage, error);
       }
     },
-    [errorMessage, logError, replaceAttachment],
+    [errorMessage, logError, replaceAttachment, slots],
   );
 }
 
@@ -44,7 +53,7 @@ export function useDocumentBlobAttachmentSelection(params: {
   replaceAttachment: (
     slotId: string,
     attachment: DocumentAttachmentUpload,
-  ) => void;
+  ) => void | Promise<void>;
 }) {
   const { blobStore, errorMessage, replaceAttachment } = params;
   const { logError } = useLog();
@@ -52,7 +61,7 @@ export function useDocumentBlobAttachmentSelection(params: {
   return useCallback(
     async (slotId: string, blob: BlobInfo) => {
       try {
-        replaceAttachment(
+        await replaceAttachment(
           slotId,
           await readBlobDocumentAttachmentUpload({ blob, blobStore }),
         );

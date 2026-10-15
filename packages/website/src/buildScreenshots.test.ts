@@ -100,6 +100,30 @@ test("staged captures record their PNG pixel size in the manifest", async () => 
   );
 });
 
+test("household and tracker captures are included in the website gallery", async () => {
+  const names = [
+    "family-photo-1",
+    "family-photo-2",
+    "tool-detail-1",
+    "tool-detail-2",
+    "appliance-detail-1",
+    "appliance-detail-2",
+    "tool-receipt",
+    "appliance-receipt",
+    "weight-detail",
+    "blood-pressure-detail",
+  ];
+  const { code, log, output } = await stageScreenshots(
+    Object.fromEntries(
+      names.map((name) => [`web/light/${name}.png`, pngHeader(1440, 900)]),
+    ),
+  );
+  expect(code, log).toBe(0);
+  const manifest = await Bun.file(join(output, "manifest.json")).json();
+  expect(manifest.screens).toEqual(names);
+  expect(manifest.entries).toHaveLength(names.length);
+});
+
 test("truncated or non-PNG captures fail staging before the gallery changes", async () => {
   const jpeg = new Uint8Array(40);
   jpeg.set([0xff, 0xd8, 0xff, 0xe0], 0);

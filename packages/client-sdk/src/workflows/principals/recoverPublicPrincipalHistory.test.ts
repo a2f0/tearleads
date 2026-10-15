@@ -10,6 +10,7 @@ import {
   principalHistoryPrefixes,
 } from "../../data/sqlite/principalHistoryEvidenceSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
+import { createExecSql } from "../../data/sqlite/sqlSchema";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;
@@ -70,7 +71,8 @@ test("public recovery extends durable prefixes and selects older heads without r
       source: f.source(previous),
     });
     expect(older.history.currentEntry.state.version).toBe(67);
-    expect(f.requests).toEqual([65]);
+    // The newer completed prefix proves the older cited head locally.
+    expect(f.requests).toEqual([]);
     expect(
       (await f.db.select().from(principalHistoryPrefixes))[0]?.version,
     ).toBe(67);
@@ -190,10 +192,10 @@ test("public recovery authenticates stored source proofs and replays lost eviden
     ).rejects.toThrow("proof root does not match");
     f.requests.length = 0;
     await recoverPublicPrincipalHistory(options);
-    expect(f.requests).toEqual([65, 0, 32, 64]);
+    expect(f.requests).toEqual([0, 32, 64]);
     f.requests.length = 0;
     await recoverPublicPrincipalHistory(options);
-    expect(f.requests).toEqual([65]);
+    expect(f.requests).toEqual([]);
   } finally {
     f.close();
   }
@@ -219,19 +221,50 @@ test("strict public Admins verification cannot reuse a general history prefix", 
   }
 });
 
-test("a warm public prefix checks the returned head artifact against its private root", async () => {
+test("a warm public prefix authenticates its cited head locally without a read", async () => {
   const f = await createPublicHistoryFixture(history);
   try {
     await recoverPublicPrincipalHistory(f.options);
+    // A served head artifact can no longer replace or refuse completed evidence.
     f.controls.mutate = (page) => {
       page.currentState.signature =
         history.bundle.previousStates[0]?.state.signature ?? "";
     };
     f.requests.length = 0;
-    await expect(recoverPublicPrincipalHistory(f.options)).rejects.toThrow(
-      "proof root does not match",
+    const recovered = await recoverPublicPrincipalHistory(f.options);
+    expect(recovered.history.currentEntry.state.signature).toBe(
+      history.bundle.currentState.signature,
     );
-    expect(f.requests).toEqual([66]);
+    expect(f.requests).toEqual([]);
+  } finally {
+    f.close();
+  }
+});
+
+test("completed public evidence is returned only while its caller is current", async () => {
+  const f = await createPublicHistoryFixture(history);
+  try {
+    await recoverPublicPrincipalHistory(f.options);
+    f.requests.length = 0;
+    let current = true;
+    // The caller's lifetime ends after the completed prefix is read.
+    const execSql = createExecSql({
+      async exec({ sql, bind, rowMode }) {
+        const rows =
+          rowMode === "array"
+            ? await f.options.execSql(sql, bind, { rowMode: "array" })
+            : await f.options.execSql(sql, bind);
+        if (sql.includes('from "principal_history_prefixes"')) current = false;
+        return { rows };
+      },
+    });
+    const error = await recoverPublicPrincipalHistory({
+      ...f.options,
+      execSql,
+      stillCurrent: () => current,
+    }).catch((error: unknown) => error);
+    expect(isProjectionVerificationCancelledError(error)).toBe(true);
+    expect(f.requests).toEqual([]);
   } finally {
     f.close();
   }
