@@ -23,9 +23,7 @@ function isSuccess(request: ProxiedApiRequest): boolean {
   return request.status >= 200 && request.status < 300;
 }
 
-export function isRetryableDocumentSyncFailure(
-  request: ProxiedApiRequest,
-): boolean {
+function isRetryableDocumentSyncFailure(request: ProxiedApiRequest): boolean {
   const code = readJsonProperty(request.responseBody, "code");
   return (
     request.method === "POST" &&
@@ -61,7 +59,7 @@ function hasLaterSuccessfulRetry(
  * conflict as an idempotent create and adopts the existing document
  * (`isDocumentManifestAlreadyExistsConflict`).
  */
-export function stableDocumentCreateConflictId(
+function stableDocumentCreateConflictId(
   request: ProxiedApiRequest,
 ): string | null {
   if (
