@@ -27,22 +27,30 @@ unset AWS_SESSION_TOKEN AWS_SECURITY_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
 export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
 export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
 r2() { aws --endpoint-url "$ENDPOINT" --region auto "$@"; }
+# Write one bucket listing to "$STORAGE_DIR/<command>.json". The AWS CLI prints
+# nothing for some empty listings: a failed command still aborts the script,
+# while empty output from a successful one reads as an empty listing.
+r2_list() {
+  r2 s3api "$1" --bucket "$BUCKET" --output json >"$STORAGE_DIR/$1.raw"
+  jq -s 'if length == 0 then {} elif length == 1 and (.[0] | type) == "object" then .[0] else error("unexpected listing output") end' \
+    "$STORAGE_DIR/$1.raw" >"$STORAGE_DIR/$1.json"
+}
 r2 s3 rm "s3://$BUCKET/" --recursive --only-show-errors
 # AWS CLI automatically retrieves every page; do not disable pagination.
-r2 s3api list-multipart-uploads --bucket "$BUCKET" --output json >"$STORAGE_DIR/uploads.json"
-jq -c '.Uploads[]?' "$STORAGE_DIR/uploads.json" >"$STORAGE_DIR/uploads.ndjson"
+r2_list list-multipart-uploads
+jq -c '.Uploads[]?' "$STORAGE_DIR/list-multipart-uploads.json" >"$STORAGE_DIR/uploads.ndjson"
 while IFS= read -r upload; do
   key="$(jq -er '.Key' <<<"$upload")"
   upload_id="$(jq -er '.UploadId' <<<"$upload")"
   r2 s3api abort-multipart-upload --bucket "$BUCKET" --key "$key" --upload-id "$upload_id"
 done <"$STORAGE_DIR/uploads.ndjson"
-r2 s3api list-objects-v2 --bucket "$BUCKET" --output json >"$STORAGE_DIR/objects.json"
-r2 s3api list-multipart-uploads --bucket "$BUCKET" --output json >"$STORAGE_DIR/uploads.json"
-if ! jq -e '(.Contents // []) | length == 0' "$STORAGE_DIR/objects.json" >/dev/null; then
+r2_list list-objects-v2
+r2_list list-multipart-uploads
+if ! jq -e '(.Contents // []) | length == 0' "$STORAGE_DIR/list-objects-v2.json" >/dev/null; then
   echo "ERROR: Staging R2 bucket still contains objects; refusing teardown." >&2
   exit 1
 fi
-if ! jq -e '(.Uploads // []) | length == 0' "$STORAGE_DIR/uploads.json" >/dev/null; then
+if ! jq -e '(.Uploads // []) | length == 0' "$STORAGE_DIR/list-multipart-uploads.json" >/dev/null; then
   echo "ERROR: Staging R2 bucket still contains multipart uploads; refusing teardown." >&2
   exit 1
 fi

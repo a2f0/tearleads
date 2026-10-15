@@ -3,11 +3,13 @@
 require 'shellwords'
 require_relative '../lib/ios_signing_keychain'
 require_relative '../lib/native_release_target'
+require_relative '../lib/swift_package_pins'
 
 IOS_PACKAGE_DIR = File.expand_path('../..', __dir__)
 IOS_DIR = File.expand_path('../../ios', __dir__)
 IOS_APP_DIR = File.join(IOS_DIR, 'App')
 IOS_PROJECT_PATH = File.join(IOS_APP_DIR, 'App.xcodeproj')
+IOS_PACKAGE_RESOLVED_PATH = File.join(IOS_PROJECT_PATH, 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved')
 IOS_TARGET = 'App'
 IOS_SCHEME = NATIVE_RELEASE_TARGET.fetch(:ios_scheme)
 IOS_CONFIGURATION = NATIVE_RELEASE_TARGET.fetch(:ios_configuration)
@@ -332,27 +334,30 @@ platform :ios do
     end
     ensure_release_ios_capacitor_sync!
     generate_capacitor_image_assets!(IOS_BUILD_IMAGES_SCRIPT)
-    ipa_path = with_ios_signing_keychain do
-      profile_name = install_ios_appstore_signing_assets!
-      pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
-      original_pbxproj = File.read(pbxproj_path)
-      begin
-        configure_ios_manual_signing!(profile_name, team_id)
-        ipa_path = build_app(
-          archive_path: IOS_ARCHIVE_PATH,
-          clean: true,
-          configuration: IOS_CONFIGURATION,
-          export_method: 'app-store',
-          export_options: ios_export_options(team_id, profile_name),
-          include_symbols: true,
-          output_directory: IOS_OUTPUT_DIR,
-          output_name: IOS_IPA_NAME,
-          project: IOS_PROJECT_PATH,
-          scheme: IOS_SCHEME,
-          xcargs: ios_build_xcargs(release_build, team_id)
-        )
-      ensure
-        File.write(pbxproj_path, original_pbxproj)
+    ipa_path = SwiftPackagePins.verify_around(IOS_PACKAGE_RESOLVED_PATH) do
+      with_ios_signing_keychain do
+        profile_name = install_ios_appstore_signing_assets!
+        pbxproj_path = File.join(IOS_PROJECT_PATH, 'project.pbxproj')
+        original_pbxproj = File.read(pbxproj_path)
+        begin
+          configure_ios_manual_signing!(profile_name, team_id)
+          ipa_path = build_app(
+            archive_path: IOS_ARCHIVE_PATH,
+            clean: true,
+            configuration: IOS_CONFIGURATION,
+            disable_package_automatic_updates: true,
+            export_method: 'app-store',
+            export_options: ios_export_options(team_id, profile_name),
+            include_symbols: true,
+            output_directory: IOS_OUTPUT_DIR,
+            output_name: IOS_IPA_NAME,
+            project: IOS_PROJECT_PATH,
+            scheme: IOS_SCHEME,
+            xcargs: ios_build_xcargs(release_build, team_id)
+          )
+        ensure
+          File.write(pbxproj_path, original_pbxproj)
+        end
       end
     end
     assets = require_ios_testflight_assets!(ipa_path)
