@@ -9,6 +9,11 @@ import {
 import { TrustedUserIdentityPinContentionError } from "../persistence/trustedUserIdentityPinTransaction";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import {
+  assertIdentityLinkMatches,
+  createIdentityLink,
+  parseIdentityLink,
+} from "./identityLink";
+import {
   brandTrustedUserIdentity,
   TRUSTED_USER_IDENTITY_ENCAPSULATION_SUITE,
   TRUSTED_USER_IDENTITY_FORMAT_VERSION,
@@ -153,6 +158,52 @@ export function createTrustedUserIdentityService(
   dependencies: TrustedUserIdentityServiceDependencies,
 ): TrustedUserIdentityService {
   return {
+    async createLink(appUrl) {
+      const { identityTrustDomain } = requireTrustStore(dependencies);
+      const userId = dependencies.getLocalUserId();
+      const candidate = userId ? dependencies.getLocalIdentity(userId) : null;
+      if (!userId || !candidate) {
+        throw new Error("Sign in before sharing your identity link.");
+      }
+      const identity = await validateLocalUserIdentity({
+        candidate,
+        identityTrustDomain,
+        userId,
+      });
+      return createIdentityLink(identity, appUrl);
+    },
+    async verifyLink(link) {
+      const expectation = parseIdentityLink(link);
+      const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
+      if (expectation.identityTrustDomain !== identityTrustDomain) {
+        throw new Error(
+          "This identity link belongs to a different Tearleads service.",
+        );
+      }
+      const localUserId = dependencies.getLocalUserId();
+      try {
+        const identity = await resolveCandidate(
+          dependencies,
+          expectation.userId,
+          identityTrustDomain,
+        );
+        if (!identity)
+          throw new Error("The identity in this link is unavailable.");
+        await assertIdentityLinkMatches(expectation, identity);
+        if (
+          dependencies.getExecSql() !== execSql ||
+          dependencies.getLocalUserId() !== localUserId
+        ) {
+          throw new DatabaseUnavailableError(
+            "The active identity changed. Open the identity link again.",
+          );
+        }
+        return await pinIdentity({ dependencies, execSql, identity });
+      } catch (error) {
+        dependencies.remoteSource.invalidate(expectation.userId);
+        throw error;
+      }
+    },
     async boundUserId(signingKeyFingerprint) {
       const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
       return loadTrustedUserIdForSigningKey({

@@ -93,6 +93,14 @@ export function createInternalRuntimeFixture(
 ): InternalRuntime {
   return {
     adoptRootContainer: overrides.adoptRootContainer ?? (() => false),
+    identityLinks: {
+      createLink: async () => {
+        throw new Error("Identity links are not configured in this fixture.");
+      },
+      verifyLink: async () => {
+        throw new Error("Identity links are not configured in this fixture.");
+      },
+    },
     retirePrincipalHistoryProtection: () => {},
     sessionGeneration: 0,
     boundUserId: async () => null,

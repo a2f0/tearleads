@@ -13,6 +13,7 @@ import {
   openOrgManager,
 } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import { requestPath } from "../../../../test/helpers/dualPaneRequestSummary";
+import { createPeerIdentityLink } from "../../../../test/helpers/identityLinkFixtures";
 import {
   listProxiedApiRequests,
   useTestApiAppHandlers,
@@ -70,8 +71,9 @@ test("group creation and adding a peer have separate request budgets", async () 
       operation: async () => {
         const input = within(pane).getByLabelText("User ID");
         invariant(input instanceof HTMLInputElement, "Expected user id input");
+        const peerIdentityLink = await createPeerIdentityLink(peerId);
         await interact(() => {
-          fireEvent.change(input, { target: { value: peerId } });
+          fireEvent.change(input, { target: { value: peerIdentityLink } });
         });
         const add = within(pane).getByRole("button", { name: "Add" });
         await waitFor(() => {

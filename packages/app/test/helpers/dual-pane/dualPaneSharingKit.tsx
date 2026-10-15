@@ -13,6 +13,7 @@ import {
   summarizeProxiedApiRequests,
   truncateText,
 } from "../dualPaneRequestSummary";
+import { createPeerIdentityLink } from "../identityLinkFixtures";
 import {
   getProxiedApiNetworkActivitySnapshot,
   listProxiedApiRequests,
@@ -274,9 +275,10 @@ export async function addPeerToAdminsGroup(
   await waitFor(() => {
     expect(userIdInput.disabled).toBe(false);
   });
+  const identityLink = await createPeerIdentityLink(peerUserId);
   await interact(() => {
     fireEvent.change(userIdInput, {
-      target: { value: peerUserId },
+      target: { value: identityLink },
     });
   });
   await waitFor(() => {
@@ -363,9 +365,10 @@ export async function createGroupAndAddPeer(
   await waitFor(() => {
     expect(userIdInput.disabled).toBe(false);
   });
+  const identityLink = await createPeerIdentityLink(peerUserId);
   await interact(() => {
     fireEvent.change(userIdInput, {
-      target: { value: peerUserId },
+      target: { value: identityLink },
     });
   });
   await waitFor(() => {

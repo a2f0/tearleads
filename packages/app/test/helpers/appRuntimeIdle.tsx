@@ -9,6 +9,7 @@ import {
   useTearleads,
   useTearleadsRuntime,
 } from "../../src/providers/sdk/TearleadsProvider";
+import { observeIdentityLinkRuntime } from "./identityLinkFixtures";
 import { getProxiedApiNetworkActivitySnapshot } from "./mswServer";
 import {
   hasPendingOrganizationRuntimeWork,
@@ -192,6 +193,7 @@ export function AppTestRuntimeScopeProbe() {
   } = useTearleadsRuntime();
 
   useEffect(() => observeOrganizationRuntime(tearleads), [tearleads]);
+  useEffect(() => observeIdentityLinkRuntime(tearleads), [tearleads]);
 
   useEffect(() => {
     activeDomainScopeMountCounts.set(

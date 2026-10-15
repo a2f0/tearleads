@@ -10,6 +10,7 @@ import {
   createTrustedUserIdentityService,
   type LocalUserIdentityCandidate,
   type TrustedUserIdentityResolver,
+  type TrustedUserIdentityService,
 } from "../data/trustedUserIdentity";
 import type { ContainerContentsRootAdopter } from "../workflows/container-contents/runtime";
 import type {
@@ -66,6 +67,10 @@ export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
 }
 
 export interface InternalRuntime {
+  readonly identityLinks: Pick<
+    TrustedUserIdentityService,
+    "createLink" | "verifyLink"
+  >;
   retirePrincipalHistoryProtection(): void;
   readonly sessionGeneration: number;
   readonly adoptRootContainer: ContainerContentsRootAdopter;
@@ -133,10 +138,10 @@ function createRuntimeMutationApi(
   });
 }
 
-export function createRuntime(
+function createRuntimeIdentityService(
   dependencies: WorkflowRuntimeDependencies,
-): InternalRuntime {
-  const trustedUserIdentityService = createTrustedUserIdentityService({
+) {
+  return createTrustedUserIdentityService({
     getExecSql: () =>
       dependencies.database.status === "ready"
         ? dependencies.database.requireExecSql("trusted user identity")
@@ -157,6 +162,12 @@ export function createRuntime(
     identityTrustDomain: dependencies.identityTrustDomain,
     remoteSource: createApiUserIdentitySource(dependencies.api),
   });
+}
+
+export function createRuntime(
+  dependencies: WorkflowRuntimeDependencies,
+): InternalRuntime {
+  const trustedUserIdentityService = createRuntimeIdentityService(dependencies);
   const resolveTrustedUserIdentity: TrustedUserIdentityResolver = (userId) =>
     runWithSecurityIncidentReporting(
       dependencies.reportSecurityIncident,
@@ -199,6 +210,7 @@ export function createRuntime(
   );
 
   return {
+    identityLinks: trustedUserIdentityService,
     retirePrincipalHistoryProtection: historyProtection.retire,
     get sessionGeneration() {
       return runtimeSubscription.sessionGeneration;

@@ -1,71 +1,12 @@
-import type {
-  OrganizationContainerGrants,
-  OrganizationDirectory,
-  OrganizationGroupContainers,
-  OrganizationGroupMembers,
-  OrganizationGroupPolicyHistory,
-  OrganizationGroupSummary,
-  OrganizationUserDetail,
-} from "@tearleads/client-sdk";
-import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useMemo } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
-import type { useTearleadsRuntime } from "../../../providers/sdk/TearleadsProvider";
-import type { useOrgManagerActions } from "../../../stores/org-manager/OrgManagerProvider";
-import { prepareRosterImport } from "../groups/orgManagerMutationOperations";
+import { useImportRosterIdentityLink } from "../directory/useImportRosterIdentityLink";
+import { useOrgManagerDisableRosterUser } from "../directory/useOrgManagerDisableRosterUser";
 import { useOrgManagerMembershipMutations } from "../groups/useOrgManagerMembershipMutations";
 import { groupSignedName } from "../labels";
-import type { useOrgManagerRefreshers } from "../refreshers/useOrgManagerRefreshers";
-import type { OrgManagerView } from "../routes";
+import type { OrgManagerMutationsParams } from "./orgManagerMutationsTypes";
 import { runScopedOrgMutation } from "./runScopedOrgMutation";
-import { useOrgManagerDisableRosterUser } from "./useOrgManagerDisableRosterUser";
 import { useOrgManagerRevokeGrant } from "./useOrgManagerRevokeGrant";
-
-type Refreshers = ReturnType<typeof useOrgManagerRefreshers>;
-
-interface OrgManagerMutationsParams {
-  addUserId: string;
-  appData: ReturnType<typeof useTearleadsRuntime>;
-  canDeleteGroup: (group: OrganizationGroupSummary) => boolean;
-  canDisableRosterUsers: boolean;
-  canImportRosterUser: boolean;
-  directory: OrganizationDirectory | null;
-  groupNameDraft: string;
-  groups: ReadonlyArray<OrganizationGroupSummary>;
-  importUserIdDraft: string;
-  invalidateSelectedGroupDetails: Refreshers["invalidateSelectedGroupDetails"];
-  memberGroupId: string | null;
-  members: OrganizationGroupMembers | null;
-  openGroupRoute: (groupId: string) => void;
-  orgManagerActions: ReturnType<typeof useOrgManagerActions>;
-  refreshDirectoryAndGroups: Refreshers["refreshDirectoryAndGroups"];
-  refreshSelectedGroupDetails: Refreshers["refreshSelectedGroupDetails"];
-  refreshSelectedUserDetail: Refreshers["refreshSelectedUserDetail"];
-  selectGroup: (groupId: string | null) => void;
-  selectUser: (userId: string | null) => void;
-  selectedGroupId: string | null;
-  selectedGroupIdRef: { current: string | null };
-  selectedGroupIsAdminsGroup: boolean;
-  selectedGroupIsMembersGroup: boolean;
-  selectedUserIdRef: { current: string | null };
-  setAddUserId: Dispatch<SetStateAction<string>>;
-  setError: Dispatch<SetStateAction<string | null>>;
-  setGrants: Dispatch<SetStateAction<OrganizationContainerGrants | null>>;
-  setGroupContainers: Dispatch<
-    SetStateAction<OrganizationGroupContainers | null>
-  >;
-  setGroupPolicyHistory: Dispatch<
-    SetStateAction<OrganizationGroupPolicyHistory | null>
-  >;
-  setGroupNameDraft: Dispatch<SetStateAction<string>>;
-  setImportUserIdDraft: Dispatch<SetStateAction<string>>;
-  setIsCreateGroupDialogOpen: Dispatch<SetStateAction<boolean>>;
-  setIsImportUserDialogOpen: Dispatch<SetStateAction<boolean>>;
-  setMembers: Dispatch<SetStateAction<OrganizationGroupMembers | null>>;
-  setMutating: Dispatch<SetStateAction<boolean>>;
-  setOrgManagerView: (nextView: OrgManagerView) => void;
-  setUserDetail: Dispatch<SetStateAction<OrganizationUserDetail | null>>;
-}
 
 // biome-ignore lint/complexity/noExcessiveLinesPerFunction: Colocates org-manager write actions that share setters and refresh sequencing.
 export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
@@ -223,65 +164,11 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     ],
   );
 
-  const importRosterUser = useCallback(async () => {
-    const targetUserId = importUserIdDraft.trim();
-    if (
-      !canImportRosterUser ||
-      !directory ||
-      !memberGroupId ||
-      targetUserId.length === 0 ||
-      !appData.auth.userId ||
-      !appData.crypto.signingFingerprint ||
-      !appData.crypto.signingKeyPair ||
-      !appData.crypto.encapsulationKeyPair
-    ) {
-      return;
-    }
-    const operationOrganizationId = directory.organizationId;
-    await runScopedOrgMutation({
-      isOperationActive,
-      logError,
-      operationOrganizationId,
-      run: async () => {
-        const targetUser = await prepareRosterImport({
-          directory,
-          isOperationActive,
-          memberGroupId,
-          operationOrganizationId,
-          orgManagerActions,
-          setError,
-          targetUserId,
-        });
-        if (!targetUser) {
-          return;
-        }
-
-        await refreshDirectoryAndGroups({
-          afterMutation: true,
-          skipNextGroupDetailsEffect: true,
-        });
-        if (!isOperationActive(operationOrganizationId)) {
-          return;
-        }
-        setImportUserIdDraft("");
-        setIsImportUserDialogOpen(false);
-        setOrgManagerView("directory");
-        selectUser(targetUser.userId);
-        await refreshSelectedUserDetail(targetUser.userId);
-      },
-      setError,
-      setMutating,
-    });
-  }, [
-    appData.auth.userId,
-    appData.crypto.encapsulationKeyPair,
-    appData.crypto.signingFingerprint,
-    appData.crypto.signingKeyPair,
+  const importRosterUser = useImportRosterIdentityLink({
+    appData,
     canImportRosterUser,
     directory,
     importUserIdDraft,
-    isOperationActive,
-    logError,
     memberGroupId,
     orgManagerActions,
     refreshDirectoryAndGroups,
@@ -292,7 +179,9 @@ export function useOrgManagerMutations(params: OrgManagerMutationsParams) {
     setImportUserIdDraft,
     setIsImportUserDialogOpen,
     setMutating,
-  ]);
+    isOperationActive,
+    logError,
+  });
 
   const { addUser, removeMember } = useOrgManagerMembershipMutations({
     addUserId,

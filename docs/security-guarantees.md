@@ -47,9 +47,9 @@ and `userId`. The reverse signing-fingerprint-to-user binding is also unique
 within that trust domain and checked in the same durable transaction. A new
 session without restored acknowledgments cannot bind a known signing identity
 to a different user. Later substitutions hard-fail, and policy verification
-also checks the signing fingerprint embedded in signed state. The first
-accepted response is still TOFU, not a key-transparency or out-of-band identity
-proof.
+also checks the signing fingerprint in signed state. Ordinary resolution uses
+TOFU; independently exchanged identity links authenticate both keys before
+pinning. Neither mechanism proves global currentness.
 
 ## Root And System Destinations
 
@@ -659,15 +659,14 @@ still exercising the cold-start rollback limit above.
 
 ### First-Contact Identity-Key Substitution
 
-The app fetches signer public keys from the server by `userId` and verifies
-that the returned key fingerprint matches the fingerprint embedded in signed
-policy state.
+TOFU cannot authenticate a stranger's first key bundle.
 
-That catches malformed responses. It does not, by itself, prove that the
-server gave the client the real public key for a user the client has never seen
-before. A compromised server that controls the first key lookup can construct a
-coherent fake signer identity unless clients have a previously pinned key, an
-out-of-band identity check, or a key-transparency mechanism.
+Contacts and Roster onboarding accept independently exchanged identity links.
+The client checks a commitment to the service, user ID, algorithms, and both
+public keys before pinning or adding the user. Existing pin conflicts fail
+closed. An authenticated channel must deliver the link. It proves no
+revocation, freshness, or global consistency. See
+[identity links](developer/trusted-user-identity.md#identity-links).
 
 ### Projection Rows Are Not A Security Boundary
 

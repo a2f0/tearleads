@@ -145,7 +145,7 @@ export function GroupDetailSection({
                 disabled={!canMutateSelectedGroup || mutating}
                 list={addUserListId}
                 onChange={(event) => setAddUserId(event.target.value)}
-                placeholder={ORG_MANAGER_LABELS.userId}
+                placeholder="Select a roster user or paste an identity link"
                 value={addUserId}
               />
               <datalist id={addUserListId}>

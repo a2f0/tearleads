@@ -1,4 +1,4 @@
-// Current SDK contract: unified device-first handles and atomic revision checks.
+// SDK: verified identity links, device-first handles and revision checks.
 // Authority loaders take exact heads, including cached citations. Obsolete
 // adapters are excluded; authored policy journals survive restart. See workflows/README.md.
 export {

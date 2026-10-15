@@ -146,7 +146,7 @@ test("contacts selection route omits create and import controls", () => {
   const view = renderContactsDetailPanel();
 
   expect(view.getByText("No contacts imported yet.")).toBeTruthy();
-  expect(view.queryByLabelText("Contact user ID")).toBeNull();
+  expect(view.queryByLabelText("Identity link")).toBeNull();
   expect(view.queryByRole("button", { name: "Create" })).toBeNull();
 });
 
@@ -344,12 +344,12 @@ test("contacts import-contact route keeps import auth feedback scoped to import"
     route: "import-contact",
   });
 
-  expect(view.getByText("Import Contact")).toBeTruthy();
+  expect(view.getByText("Add by Identity Link")).toBeTruthy();
   expect(
-    view.getByText("Authenticate before importing peer keys."),
+    view.getByText("Sign in to verify this identity link and add the contact."),
   ).toBeTruthy();
   expect(
-    (view.getByRole("button", { name: "Import" }) as HTMLButtonElement)
+    (view.getByRole("button", { name: "Verify and Add" }) as HTMLButtonElement)
       .disabled,
   ).toBe(true);
 });

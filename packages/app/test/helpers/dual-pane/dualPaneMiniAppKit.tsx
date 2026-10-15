@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { useTearleads } from "../../../src/providers/sdk/TearleadsProvider";
 import { usePaneSide } from "../../../src/shell/pane/dual-pane";
 import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
+import { createPeerIdentityLink } from "../identityLinkFixtures";
 import { listProxiedApiRequests } from "../mswServer";
 import { waitForCondition } from "../waitForCondition";
 import {
@@ -129,13 +130,18 @@ export async function importMiniAppContact(
   window: HTMLElement,
   userId: string,
 ) {
-  await openContactAction(window, "Import Contact");
+  await openContactAction(window, "Add by Identity Link");
   const input = await within(window).findByRole("textbox", {
-    name: "Contact user ID",
+    name: "Identity link",
   });
-  await interact(() => fireEvent.change(input, { target: { value: userId } }));
+  const identityLink = await createPeerIdentityLink(userId);
   await interact(() =>
-    fireEvent.click(within(window).getByRole("button", { name: "Import" })),
+    fireEvent.change(input, { target: { value: identityLink } }),
+  );
+  await interact(() =>
+    fireEvent.click(
+      within(window).getByRole("button", { name: "Verify and Add" }),
+    ),
   );
   await within(window).findByRole("button", { name: "Edit" });
 }

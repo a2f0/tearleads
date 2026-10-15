@@ -6,5 +6,6 @@ export type {
   LocalUserIdentityCandidate,
   TrustedUserIdentity,
   TrustedUserIdentityResolver,
+  TrustedUserIdentityService,
 } from "./types";
 export { validateUserIdentityKeys } from "./validation";

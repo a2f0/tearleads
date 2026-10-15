@@ -20,6 +20,14 @@ test("user identity resolution returns the verified trusted bundle", async () =>
     encapsulationKeyPair.publicKey,
   );
   const userIdentities = createUserIdentities({
+    identityLinks: {
+      createLink: async () => {
+        throw new Error("unused");
+      },
+      verifyLink: async () => {
+        throw new Error("unused");
+      },
+    },
     log: (message) => logs.push(message),
     resolveTrustedUserIdentity: async (userId) =>
       createTestTrustedUserIdentity({
@@ -44,6 +52,14 @@ test("user identity resolution returns the verified trusted bundle", async () =>
 test("user identity resolution returns null when the trusted resolver has no identity", async () => {
   const logs: string[] = [];
   const userIdentities = createUserIdentities({
+    identityLinks: {
+      createLink: async () => {
+        throw new Error("unused");
+      },
+      verifyLink: async () => {
+        throw new Error("unused");
+      },
+    },
     log: (message) => logs.push(message),
     resolveTrustedUserIdentity: async () => null,
   });
@@ -58,6 +74,14 @@ test("user identity resolution preserves typed integrity failures", async () => 
     "Trusted user identity changed",
   );
   const userIdentities = createUserIdentities({
+    identityLinks: {
+      createLink: async () => {
+        throw new Error("unused");
+      },
+      verifyLink: async () => {
+        throw new Error("unused");
+      },
+    },
     log: () => undefined,
     resolveTrustedUserIdentity: async () => {
       throw mismatch;

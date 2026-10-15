@@ -10,6 +10,7 @@ import {
 } from "@tearleads/windowing";
 import { type PropsWithChildren, useMemo } from "react";
 import { isMiniAppId, type MiniAppId } from "../mini-apps/types";
+import { IdentityLinkLaunchBridge } from "./IdentityLinkLaunchBridge";
 
 // The windowing launcher's navigation, bound to the app's mini-app ids.
 
@@ -31,6 +32,10 @@ export function AppNavigationProvider({
       definition={launcher}
       mode={mode}
     >
+      <IdentityLinkLaunchBridge
+        enabled={defaultWindowEnabled !== false}
+        mode={mode}
+      />
       {children}
     </LauncherNavigationProvider>
   );
