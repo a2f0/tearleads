@@ -10,7 +10,11 @@ import {
   buildOrganizationProfileBootstrapInput,
   buildRosterProfileBootstrapInput,
 } from "./profileBootstrapPersistence";
-import { provisioningAcknowledgedAccessHeads } from "./provisioningAcknowledgement";
+import type { ProvisionedPrincipalHistoryPrimer } from "./provisionedPrincipalHistory";
+import {
+  provisioningAcknowledgedAccessHeads,
+  provisioningDiscoveryHeads,
+} from "./provisioningAcknowledgement";
 import {
   principalPolicyBundleFromInitialGroupRequest,
   principalPolicyBundleFromInitialOrganizationRequest,
@@ -39,6 +43,10 @@ type PersistOrganizationProvisioningStateInput = Pick<
   readonly log?: ((message: string) => void) | undefined;
   readonly logError?:
     | ((message: string | Error, cause?: unknown) => void)
+    | undefined;
+  /** Seeds verified recovery progress once the bootstrap commits. */
+  readonly primePrincipalHistory?:
+    | ProvisionedPrincipalHistoryPrimer
     | undefined;
   readonly response: OrganizationProvisioningResponse;
 };
@@ -167,6 +175,19 @@ async function buildProvisioningPersistenceArtifacts(
   ]);
   return {
     acknowledgedAccessHeads,
+    // Discovery lists the seeded profile documents; their signed heads are the
+    // ones this client just authored and the server acknowledged.
+    authoredDiscoveryHeads: provisioningDiscoveryHeads([
+      {
+        plan: input.rosterProfileBootstrap.profileDocument.plan,
+        response: input.response.rosterProfileDocument,
+      },
+      {
+        plan: input.organizationMetadataBootstrap.organizationProfileDocument
+          .plan,
+        response: input.response.organizationProfileDocument,
+      },
+    ]),
     initialAdminGroupPolicy,
     initialMemberGroupPolicy,
     initialOrganizationPolicy,
@@ -211,6 +232,7 @@ export async function persistOrganizationProvisioningState(
       createExecSql(input.dbClient),
       {
         acknowledgedAccessHeads: artifacts.acknowledgedAccessHeads,
+        authoredDiscoveryHeads: artifacts.authoredDiscoveryHeads,
         canStartDurableMutation: input.canStartDurableMutation,
         onPersistQueued: input.onPersistQueued,
         containerId: input.containerId,
@@ -262,6 +284,18 @@ export async function persistOrganizationProvisioningState(
         ? "Local organization bootstrap persisted"
         : "Local organization bootstrap skipped: identity replaced",
     );
+    if (persisted)
+      await input.primePrincipalHistory?.({
+        database: input.dbClient,
+        isCurrent: input.canStartDurableMutation ?? (() => true),
+        organizationId: input.response.organizationId,
+        policies: {
+          adminGroup: artifacts.initialAdminGroupPolicy,
+          memberGroup: artifacts.initialMemberGroupPolicy,
+          organization: artifacts.initialOrganizationPolicy,
+        },
+        userId: input.response.userId,
+      });
   } catch (error: unknown) {
     if (input.logError) {
       input.logError("Failed to persist registration data", error);

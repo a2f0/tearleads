@@ -126,13 +126,6 @@ function organizationReadModelMemberships(
                   {
                     userId: "user-1",
                     role: "admin" as const,
-                    signingKeyFingerprint: "signing-fingerprint-user-1",
-                    signingPublicKey: "signing-public-key-user-1",
-                    encapsulationPublicKey: "encapsulation-public-key-user-1",
-                    encapsulationKeyFingerprint:
-                      "encapsulation-fingerprint-user-1",
-                    groupId: null,
-                    groupName: null,
                   },
                 ],
               },

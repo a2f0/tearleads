@@ -2,7 +2,15 @@ name: Native Purchase Bridges
 
 on:
   workflow_call:
+    inputs:
+      force:
+        description: Execute checks without reading Turbo cache entries
+        type: boolean
+        default: false
   workflow_dispatch:
+
+env:
+  TURBO_FORCE: ${{ inputs.force || github.event_name == 'workflow_dispatch' }}
 
 permissions:
   contents: read
@@ -42,25 +50,8 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build workspace packages
-        run: bun run build:packages
-
-      - name: Build Capacitor web assets
-        working-directory: packages/app-capacitor
-        env:
-          VITE_API_BASE_URL: https://api-staging.tearleads.com
-        run: bun run build
-
-      - name: Synchronize Android project
-        working-directory: packages/app-capacitor
-        env:
-          CAPACITOR_BUILD_CONFIGURATION: Release-Staging
-          NATIVE_RELEASE_TIER: staging
-        run: bunx cap sync android
-
       - name: Compile and test Android purchase bridge
-        working-directory: packages/app-capacitor/android
-        run: gradle :app:compileDebugKotlin :app:testDebugUnitTest --no-daemon
+        run: bun scripts/testing/runVerifiedTurbo.ts test:native-android-ci
 
   ios:
     name: iOS purchase bridge
@@ -85,35 +76,5 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build workspace packages
-        run: bun run build:packages
-
-      - name: Build Capacitor web assets
-        working-directory: packages/app-capacitor
-        env:
-          VITE_API_BASE_URL: https://api-staging.tearleads.com
-        run: bun run build
-
-      - name: Synchronize iOS project
-        working-directory: packages/app-capacitor
-        env:
-          CAPACITOR_BUILD_CONFIGURATION: Release-Staging
-          NATIVE_RELEASE_TIER: staging
-        run: bunx cap sync ios
-
-      - name: Test iOS prepared-package state
-        working-directory: packages/app-capacitor
-        run: swift test --package-path ios/App/RevenueCatPurchaseState
-
       - name: Compile iOS purchase bridge
-        working-directory: packages/app-capacitor
-        run: |
-          xcodebuild \
-            -quiet \
-            -project ios/App/App.xcodeproj \
-            -scheme App-Staging \
-            -configuration Release-Staging \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+        run: bun scripts/testing/runVerifiedTurbo.ts test:native-ios-ci

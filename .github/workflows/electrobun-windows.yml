@@ -2,6 +2,11 @@ name: Electrobun Windows
 
 on:
   workflow_call:
+    inputs:
+      force:
+        description: Execute checks without reading Turbo cache entries
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       tier:
@@ -16,6 +21,9 @@ on:
 
 permissions:
   contents: read
+
+env:
+  TURBO_FORCE: ${{ inputs.force || github.event_name == 'workflow_dispatch' }}
 
 concurrency:
   group: electrobun-windows-${{ github.run_id }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.tier }}
@@ -39,18 +47,18 @@ jobs:
         with:
           bun-version: 1.4.2
 
+      - name: Key the Turbo cache to this runtime
+        shell: bash
+        run: echo "CI_TOOLCHAIN=bun-$(bun --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
+
+      - name: Serve the Turbo remote cache from the Actions cache
+        uses: rharkor/caching-for-turbo@2238fae6eb9a9936f92356f54cb3660200d105e7 # v2.5.1
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Prepare Electrobun SDK
-        run: bun run --cwd packages/app-electrobun prepare:devkit
-
-      - name: Verify Windows archives and source-map staging
-        run: bun test ./packages/app-electrobun/scripts/cefMonitorExpression.test.ts ./packages/app-electrobun/scripts/verifyWindowsArtifacts.test.ts ./packages/app-electrobun/scripts/windowsSourceMapStaging.test.ts ./packages/app-electrobun/scripts/sentryReleaseSource.test.ts
-
       - name: Build and reopen CEF with a port conflict
-        shell: pwsh
-        run: ./packages/app-electrobun/scripts/testWindowsPortConflict.ps1
+        run: bun scripts/testing/runVerifiedTurbo.ts test:windows-ci
 
   release:
     name: Windows ${{ matrix.tier }} installer

@@ -8,7 +8,10 @@ import {
 } from "@tearleads/validators/response";
 import { purgeOrganizationAccessProjection } from "../../data/persistence/organizations/organizationAccessRevocationPersistence";
 import { recordOrganizationPresentationDenials } from "../../data/persistence/organizations/organizationPresentationDenialPersistence";
-import { loadOrganizationReadModelGroupMembers } from "../../data/persistence/organizations/organizationReadModelMemberLoad";
+import {
+  loadOrganizationReadModelGroupMembers,
+  type OrganizationReadModelGroupMembers,
+} from "../../data/persistence/organizations/organizationReadModelMemberLoad";
 import { OrganizationReadModelBindingError } from "../../data/persistence/organizations/organizationReadModelMembershipPersistence";
 import {
   applyOrganizationReadModelResponse,
@@ -390,7 +393,7 @@ export async function loadLocalOrganizationDirectoryAndGroups(
 
 export async function loadLocalOrganizationGroupMembers(
   input: OrganizationReadModelProjectionInput & { readonly groupId: string },
-) {
+): Promise<OrganizationReadModelGroupMembers | null> {
   return runOrganizationPresentationRead(
     organizationPresentationAccessInput(input),
     "readModel",

@@ -20,10 +20,3 @@ export type OrganizationBillingStatus =
   | "deleting"
   | "purged";
 export type OrganizationRosterStatus = "active" | "disabled";
-export type OrganizationReadModelLane =
-  | "directory"
-  | "grants"
-  | "groupMemberships"
-  | "groups"
-  | "organizationPolicy";
-export type OrganizationReadModelOperation = "delete" | "replace" | "upsert";

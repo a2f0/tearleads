@@ -111,43 +111,26 @@ async function appendPolicyReadModelChanges(input: {
   readonly rosterSync: RosterSyncResult;
   readonly tx: DatabaseTransaction;
 }): Promise<void> {
-  const isOrganizationGroupChange =
-    input.policy.expectedPrincipalType === "group";
-  const isVisibleOrganizationGroupChange =
-    isOrganizationGroupChange &&
-    input.policy.expectedPrincipalId !== input.rosterSync.memberGroupId;
+  const { expectedPrincipalId, expectedPrincipalType } = input.policy;
+  const lanes: ("directory" | "groups" | "organizationPolicy")[] = [];
   if (input.rosterSync.changedRosterUserIds.length > 0) {
-    await appendOrganizationReadModelChangeInTransaction(input.tx, {
-      organizationId: input.rosterSync.organizationId,
-      lane: "directory",
-      entityId: input.rosterSync.organizationId,
-      operation: "replace",
-    });
+    lanes.push("directory");
   }
-  if (input.policy.expectedPrincipalType === "organization") {
-    await appendOrganizationReadModelChangeInTransaction(input.tx, {
-      organizationId: input.rosterSync.organizationId,
-      lane: "organizationPolicy",
-      entityId: input.rosterSync.organizationId,
-      operation: "replace",
-    });
+  if (expectedPrincipalType === "organization") {
+    lanes.push("organizationPolicy");
   }
-  if (isVisibleOrganizationGroupChange) {
-    await appendOrganizationReadModelChangeInTransaction(input.tx, {
-      organizationId: input.rosterSync.organizationId,
-      lane: "groups",
-      entityId: input.policy.expectedPrincipalId,
-      operation: "upsert",
-    });
+  const isOrganizationGroupChange = expectedPrincipalType === "group";
+  if (
+    isOrganizationGroupChange &&
+    expectedPrincipalId !== input.rosterSync.memberGroupId
+  ) {
+    lanes.push("groups");
   }
-  if (isOrganizationGroupChange) {
-    await appendOrganizationReadModelChangeInTransaction(input.tx, {
-      organizationId: input.rosterSync.organizationId,
-      lane: "groupMemberships",
-      entityId: input.policy.expectedPrincipalId,
-      operation: "replace",
-    });
-  }
+  await appendOrganizationReadModelChangeInTransaction(input.tx, {
+    lanes,
+    membershipGroupIds: isOrganizationGroupChange ? [expectedPrincipalId] : [],
+    organizationId: input.rosterSync.organizationId,
+  });
 }
 
 export function assertPutPrincipalPolicyRouteBinding(

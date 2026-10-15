@@ -301,6 +301,7 @@ socket only after its own client declares; an ended session's
 socket never outlives the next answered session read, and an unconfirmed session
 closes at its deadline.
 See the [production mapping and bounds](./realtime/ContainerInterest.md).
+[Read-model stamps](./realtime/OrganizationReadModelStamps.md) never skip a change.
 
 ## Attachment Key Reachability
 

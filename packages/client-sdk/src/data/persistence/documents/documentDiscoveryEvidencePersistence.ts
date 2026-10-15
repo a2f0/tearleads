@@ -1,4 +1,5 @@
 import { and, asc, eq, inArray, lte, min, sql } from "drizzle-orm";
+import { uniqueSortedStrings } from "../../documents/shared/readers";
 import { readStringArray } from "../../recordReaders";
 import {
   documentDiscoveryHeads,
@@ -349,6 +350,47 @@ class SqlDocumentDiscoveryEvidenceStore
         .run();
       return true;
     });
+}
+
+/**
+ * A document head this client signed, already checked against the server's
+ * create acknowledgement and pinned as its access-manifest checkpoint in the
+ * same transaction. It is the same signed head a discovery projection would
+ * verify, so it seeds the exact-head cache; `loadHead` still reuses it only
+ * while that checkpoint matches.
+ */
+export interface AuthoredDiscoveryHead {
+  readonly documentId: string;
+  readonly organizationId: string;
+  readonly accessEpoch: number;
+  readonly accessStateHash: string;
+  readonly linkedContainerIds: readonly string[];
+}
+
+/** Writes authored heads inside the caller's serialized write transaction. */
+export async function primeAuthoredDocumentDiscoveryHeads(
+  execSql: ExecSql,
+  authored: readonly AuthoredDiscoveryHead[],
+): Promise<void> {
+  const db = getClientSQLitePersistenceRuntime(execSql).db;
+  for (const head of authored) {
+    const row = {
+      documentId: head.documentId,
+      organizationId: head.organizationId,
+      manifestHash: head.accessStateHash,
+      accessEpoch: head.accessEpoch,
+      linksJson: JSON.stringify(uniqueSortedStrings(head.linkedContainerIds)),
+    };
+    await db
+      .insert(heads)
+      .values(row)
+      .onConflictDoUpdate({
+        target: [heads.documentId, heads.organizationId],
+        set: row,
+        setWhere: lte(heads.accessEpoch, head.accessEpoch),
+      })
+      .run();
+  }
 }
 
 export function createDocumentDiscoveryEvidenceStore(
