@@ -104,6 +104,6 @@ test("local identity links onboard contacts and roster users; a mismatch never g
   await importPeerIntoRoster(alice, bobId);
 
   const aliceContacts = await openMiniApp(alice, "Contacts");
-  await importMiniAppContact(aliceContacts, bobId);
+  await importMiniAppContact(aliceContacts, bobLink);
   expect(within(aliceContacts).getByText(bobId)).toBeTruthy();
 }, 120_000);

@@ -12,7 +12,6 @@ import { useEffect } from "react";
 import { useTearleads } from "../../../src/providers/sdk/TearleadsProvider";
 import { usePaneSide } from "../../../src/shell/pane/dual-pane";
 import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
-import { createPeerIdentityLink } from "../identityLinkFixtures";
 import { listProxiedApiRequests } from "../mswServer";
 import { waitForCondition } from "../waitForCondition";
 import {
@@ -128,13 +127,12 @@ async function openContactAction(window: HTMLElement, name: string) {
 
 export async function importMiniAppContact(
   window: HTMLElement,
-  userId: string,
+  identityLink: string,
 ) {
   await openContactAction(window, "Add by Identity Link");
   const input = await within(window).findByRole("textbox", {
     name: "Identity link",
   });
-  const identityLink = await createPeerIdentityLink(userId);
   await interact(() =>
     fireEvent.change(input, { target: { value: identityLink } }),
   );

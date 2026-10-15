@@ -95,13 +95,16 @@ for (const app of ["Notes", "Contacts"] as const) {
   test(`${app} writes and shares after clearing browser cache and adding an Admin`, async () => {
     useTestApiAppHandlers();
     const previous = await renderSeededDemo();
-    const previousPeerUserId = getPaneUserId(previous.rightPane);
+    const previousPeerIdentityLink =
+      await previous.rightRuntime.userIdentities.createLink(
+        "http://localhost:3000",
+      );
     const initialBaseline = capturePostShareSyncBaseline();
     if (app === "Notes") {
       const notes = await openMiniApp(previous.leftPane, "Notes");
       await typeMiniAppNote(notes, "Note from the previous browser identity");
     }
-    // Contacts seeding already imported previousPeerUserId into Peer 1's book.
+    // Contacts seeding already imported the previous peer into Peer 1's book.
     await waitForNoPostShareSyncFailures(
       [previous.leftPane, previous.rightPane],
       initialBaseline,
@@ -119,7 +122,7 @@ for (const app of ["Notes", "Contacts"] as const) {
     if (app === "Notes") {
       await typeMiniAppNote(window, title);
     } else {
-      await importMiniAppContact(window, previousPeerUserId);
+      await importMiniAppContact(window, previousPeerIdentityLink);
       await editMiniAppContact(window, title);
     }
     await waitForNoPostShareSyncFailures([leftPane, rightPane], baseline);
