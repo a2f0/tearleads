@@ -29,24 +29,16 @@ export function expandAttachmentSlots(
 ): ReadonlyArray<DocumentAttachmentSlot> {
   return slots.flatMap((slot) => {
     if (!slot.multiple) return [slot];
-    const photos = attachments.filter(
-      (attachment) =>
-        attachment.slotId === slot.slotId ||
-        attachment.slotId.startsWith(`${slot.slotId}:`),
-    );
-    const expanded: DocumentAttachmentSlot[] = photos.map((photo, index) => ({
-      label: `${slot.label} ${index + 1}`,
-      slotId: photo.slotId,
-    }));
-    // Earlier clients stored one photo in the bare slot; keep its replace
-    // action separate from the collection append action.
+    // Each photo lives in its own `<slot>:<uuid>` slot; the bare slot is only
+    // the collection's append action.
+    const expanded: DocumentAttachmentSlot[] = attachments
+      .filter((attachment) => attachment.slotId.startsWith(`${slot.slotId}:`))
+      .map((photo, index) => ({
+        label: `${slot.label} ${index + 1}`,
+        slotId: photo.slotId,
+      }));
     if (canAttach || expanded.length === 0) {
-      expanded.push({
-        ...slot,
-        slotId: photos.some((photo) => photo.slotId === slot.slotId)
-          ? `${slot.slotId}:add`
-          : slot.slotId,
-      });
+      expanded.push(slot);
     }
     return expanded;
   });
