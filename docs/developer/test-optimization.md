@@ -295,3 +295,19 @@ the step that caused it. Their 10 caller files (21 tests) took 232.5 and
 220.3 s before and 213.1 and 214.0 s after, with no settle timeouts in either.
 The first baseline ran during other host load, and CI had logged no timeouts at
 these sites, so this is not a claimed speedup.
+
+### Request-metrics restore test
+
+PR #2555's first CI run failed `SystemMonitorRequests.restore.test.tsx`, where
+`inFlight` was 1 right after `waitForPaneRuntimeToSettle`. The settle point
+tracks proxied traffic and quiet time, while the client counts a request from
+dispatch until its response resolves. Explorer reads such as
+`POST /containers/documents/query` and principal policy fetches could still be
+counted in flight. Under 10-way parallel load, an untracked probe failed 2 of
+40 runs on this branch and 3 of 40 with the previous Explorer selection hook,
+so the flake predates this pass.
+
+The test now waits until neither identity has a request in flight, and takes
+the client totals and the proxied request count in that same snapshot before
+asserting that they reconcile exactly. It passed 80 of 80 runs under the same
+load.
