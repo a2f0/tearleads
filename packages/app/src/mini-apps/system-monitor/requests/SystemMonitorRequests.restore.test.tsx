@@ -55,12 +55,22 @@ test(
     );
     await openExplorer(restored);
     await waitForPaneRuntimeToSettle();
-    const snapshot = metrics.getSnapshot(fingerprint);
+    // The settle point tracks proxied traffic, but Explorer reads can still be
+    // counted in flight on the client. Reconcile the counts at an instant when
+    // neither identity has a request in flight, read in one snapshot.
+    let snapshot = metrics.getSnapshot(fingerprint);
+    let anonymousTotal = 0;
+    let proxiedTotal = 0;
+    await waitFor(() => {
+      snapshot = metrics.getSnapshot(fingerprint);
+      const anonymous = metrics.getSnapshot(null);
+      expect(snapshot.inFlight).toBe(0);
+      expect(anonymous.inFlight).toBe(0);
+      anonymousTotal = anonymous.total;
+      proxiedTotal = listProxiedApiRequests().length;
+    });
     expect(snapshot.total).toBeGreaterThanOrEqual(beforeRestore);
-    expect(snapshot.inFlight).toBe(0);
-    expect(snapshot.total + metrics.getSnapshot(null).total).toBe(
-      listProxiedApiRequests().length,
-    );
+    expect(snapshot.total + anonymousTotal).toBe(proxiedTotal);
     fireEvent.click(restored.getByRole("button", { name: "System Monitor" }));
     fireEvent.click(await restored.findByRole("tab", { name: "API Requests" }));
     const requests = within(

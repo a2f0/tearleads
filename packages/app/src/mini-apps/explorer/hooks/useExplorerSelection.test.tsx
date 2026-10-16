@@ -299,3 +299,79 @@ test("a local system container moved under the remote root still follows its rep
     expect(view.result.current.selectedId).toBe("contacts");
   });
 });
+
+// A recovered pane's tree can reload through an empty and a root-only state
+// before the identity's own Contacts arrives in a later batch.
+test("a replaced device-local system container is followed through a reload", async () => {
+  const localContacts = containerNode("local-contacts", {
+    organizationId: "",
+    systemSlot: "slot",
+  });
+  const view = renderSelection([root, localContacts]);
+  act(() => view.result.current.setSelectedId("local-contacts"));
+
+  view.rerender({ current: [] });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBeNull();
+  });
+  view.rerender({ current: [replacedRoot] });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("replaced-root");
+  });
+
+  view.rerender({
+    current: [
+      replacedRoot,
+      replacedChild("trash", "trash-slot"),
+      replacedChild("contacts", "slot"),
+    ],
+  });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("contacts");
+  });
+});
+
+test("choosing another container stops following a replaced system container", async () => {
+  const localContacts = containerNode("local-contacts", {
+    organizationId: "",
+    systemSlot: "slot",
+  });
+  const view = renderSelection([root, localContacts]);
+  act(() => view.result.current.setSelectedId("local-contacts"));
+
+  view.rerender({ current: [] });
+  view.rerender({
+    current: [replacedRoot, replacedChild("trash", "trash-slot")],
+  });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("replaced-root");
+  });
+  act(() => view.result.current.setSelectedId("trash"));
+
+  view.rerender({
+    current: [
+      replacedRoot,
+      replacedChild("trash", "trash-slot"),
+      replacedChild("contacts", "slot"),
+    ],
+  });
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("trash");
+  });
+});
+
+test("a synced system container does not follow its slot through a reload", async () => {
+  const trash = containerNode("org-1-trash", { systemSlot: "trash-slot" });
+  const view = renderSelection([root, trash]);
+  act(() => view.result.current.setSelectedId("org-1-trash"));
+
+  view.rerender({ current: [] });
+  view.rerender({ current: [replacedRoot] });
+  view.rerender({
+    current: [replacedRoot, replacedChild("org-2-trash", "trash-slot")],
+  });
+
+  await waitFor(() => {
+    expect(view.result.current.selectedId).toBe("replaced-root");
+  });
+});

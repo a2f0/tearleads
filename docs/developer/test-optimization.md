@@ -246,3 +246,68 @@ fresh app test run before claiming it.
   marks in an untracked probe copy of a test, and compare wall time with user
   CPU time to separate idle waits from compute.
 - The API and SDK leads from the second pass were not re-measured here.
+
+## Fourth pass: October 16, 2026
+
+This pass followed up the third pass's leads, starting from
+`fdf76713348b40e1198353f362dcd5a488ddc89f`.
+
+### Flaky recovered-identity test
+
+`DualPaneProvider.sameIdentity.test.tsx` failed the pre-push gate for PR #2553
+at "a recovered peer shares a newly created local organization name and
+preserves the You label (0ms responses)". It reported `Unable to find an
+accessible element with the role "table" and name "Items in Contacts"`
+immediately after a wait had seen that table. The file passed 5 isolated runs
+and 42 runs under 4- or 10-way parallel load.
+
+A probe copy, which waited 3 s before the follow-up query, reproduced the
+failure in 7 of 11 runs. Logging the container list showed the cause.
+When the recovered pane opened Contacts, Explorer still showed the device's own
+Contacts. The tree then reloaded from empty, through a root-only list, to the
+identity's Contacts. Emptying the tree cleared the selection, so the slot
+follow added in #2435 had no vanished selection to match and fell back to the
+root. Users of a recovered device viewing Contacts saw the same jump.
+
+`useExplorerSelection` now remembers the slot of a vanished device-local
+system container until exactly one node has it, then selects that node. An
+ambiguous slot stops following, and any explicit selection cancels it. Three
+hook tests cover a reload through empty and root-only lists, a selection made
+mid-reload, and a synced container through a reload. With the previous hook,
+the reload test ended on the remote root instead of the replacement Contacts.
+The same probe with the fix ended all five runs on the identity's Contacts.
+
+The reload can still remove the table briefly after the wait is satisfied.
+`expectSingleYouContact` therefore reads the user-ID button in the snapshot
+that satisfied the wait instead of querying the table again. The fixed file
+passed 3 isolated runs and 12 runs under 4-way load.
+
+A second failure mode, `Primary session did not materialize the new
+organization profile name` (CI runs 38586581274 and 38567819572 on
+2026-10-14), was not reproduced. Its CI DOM dumps are truncated before the
+organization selector, and no failed CI run since then shows it.
+
+### Sharing-kit settle sites
+
+`addPeerToAdminsGroup` and `shareContainerWithGroup` now use
+`settleAppTestRuntimeInAct` and assert the result, so a future stall fails at
+the step that caused it. Their 10 caller files (21 tests) took 232.5 and
+220.3 s before and 213.1 and 214.0 s after, with no settle timeouts in either.
+The first baseline ran during other host load, and CI had logged no timeouts at
+these sites, so this is not a claimed speedup.
+
+### Request-metrics restore test
+
+PR #2555's first CI run failed `SystemMonitorRequests.restore.test.tsx`, where
+`inFlight` was 1 right after `waitForPaneRuntimeToSettle`. The settle point
+tracks proxied traffic and quiet time, while the client counts a request from
+dispatch until its response resolves. Explorer reads such as
+`POST /containers/documents/query` and principal policy fetches could still be
+counted in flight. Under 10-way parallel load, an untracked probe failed 2 of
+40 runs on this branch and 3 of 40 with the previous Explorer selection hook,
+so the flake predates this pass.
+
+The test now waits until neither identity has a request in flight, and takes
+the client totals and the proxied request count in that same snapshot before
+asserting that they reconcile exactly. It passed 80 of 80 runs under the same
+load.

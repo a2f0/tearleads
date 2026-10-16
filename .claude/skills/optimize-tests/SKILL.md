@@ -92,6 +92,11 @@ Read the test and its fixture helpers, not only the name or coverage percentage.
   back the commit it is waiting for until the timeout. In the app, use
   `settleAppTestRuntimeInAct`, and assert a wait helper's result rather than
   discarding it.
+- **Explain flakes before changing them.** If a failure will not reproduce
+  under repeated or parallel runs, widen its race window in an untracked probe
+  (for example, delay the follow-up query) and log the state transitions. The
+  cause may be a product bug the test correctly detected. Read the DOM in the
+  same snapshot that satisfies a wait instead of querying it again afterward.
 - **Delete only with a coverage map.** For every removal or consolidated case,
   name the surviving test and assertion that detects the same failure at the
   same relevant boundary and layer. For obsolete behavior, cite the removed

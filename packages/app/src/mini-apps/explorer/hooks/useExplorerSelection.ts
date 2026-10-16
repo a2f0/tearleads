@@ -45,28 +45,70 @@ function getDefaultSelectedNode(
 }
 
 /**
- * The node that took over a vanished device-local system container, when
- * exactly one has its slot. A recovered device replaces its locally created
- * Contacts or Trash, which is not yet on the server, with the identity's
- * existing one under a new id (#2393); the selection follows it rather than
- * falling back to the root. Switching organizations still resets to the root.
+ * The slot of a vanished device-local system container selection. A recovered
+ * device replaces its locally created Contacts or Trash, which is not yet on
+ * the server, with the identity's existing one under a new id (#2393); the
+ * selection follows it rather than falling back to the root. Switching
+ * organizations still resets to the root.
  */
-function getLocalSystemContainerReplacement(
-  nodes: ReadonlyArray<ContainerNode>,
+function getVanishedLocalSystemSlot(
   selectedId: string | null,
   vanished: LastSelectedContainer | null,
-): ContainerNode | undefined {
-  if (
-    !vanished?.systemSlot ||
-    !vanished.deviceLocal ||
-    vanished.id !== selectedId
-  ) {
-    return undefined;
+): string | null {
+  return vanished?.systemSlot &&
+    vanished.deviceLocal &&
+    vanished.id === selectedId
+    ? vanished.systemSlot
+    : null;
+}
+
+/**
+ * The replacement when exactly one node has the slot. The tree can reload
+ * through an empty or root-only state before the replacement arrives, so a
+ * missing slot keeps waiting, while an ambiguous one stops following.
+ */
+function findSystemSlotReplacement(
+  nodes: ReadonlyArray<ContainerNode>,
+  systemSlot: string,
+): ContainerNode | "ambiguous" | undefined {
+  const candidates = nodes.filter((node) => node.systemSlot === systemSlot);
+  return candidates.length > 1 ? "ambiguous" : candidates[0];
+}
+
+interface ContainerSelectionResolution {
+  /** The slot still awaiting its replacement after this pass. */
+  readonly followedSlot: string | null;
+  /** The id to select, or undefined to keep the current selection. */
+  readonly selectId?: string | null;
+}
+
+/** Follow a vanished selection's slot, or fall back to the root. */
+function resolveContainerSelection(input: {
+  readonly followedSlot: string | null;
+  readonly nodes: ReadonlyArray<ContainerNode>;
+  readonly selectedId: string | null;
+  readonly selectionMissing: boolean;
+  readonly vanished: LastSelectedContainer | null;
+}): ContainerSelectionResolution {
+  const slot =
+    input.followedSlot ??
+    (input.selectionMissing
+      ? getVanishedLocalSystemSlot(input.selectedId, input.vanished)
+      : null);
+  const replacement =
+    slot === null ? undefined : findSystemSlotReplacement(input.nodes, slot);
+  if (replacement !== undefined && replacement !== "ambiguous") {
+    return replacement.id === input.selectedId
+      ? { followedSlot: null }
+      : { followedSlot: null, selectId: replacement.id };
   }
-  const candidates = nodes.filter(
-    (node) => node.systemSlot === vanished.systemSlot,
-  );
-  return candidates.length === 1 ? candidates[0] : undefined;
+  const followedSlot = replacement === "ambiguous" ? null : slot;
+  return input.selectionMissing
+    ? {
+        followedSlot,
+        selectId: getDefaultSelectedNode(input.nodes)?.id ?? null,
+      }
+    : { followedSlot };
 }
 
 function getSelectedDocumentActiveContainerId(
@@ -90,19 +132,35 @@ function useExplorerSelectedId(
   const [pendingSelectedDocument, setPendingSelectedDocument] =
     useState<PendingSelectedDocument | null>(null);
   const selectedContainer = useRef<LastSelectedContainer | null>(null);
+  // A vanished selection's slot that is still awaiting its replacement. Any
+  // explicit selection abandons it.
+  const followedSystemSlot = useRef<string | null>(null);
 
   const selectItem = useCallback((id: string | null) => {
     setPendingSelectedDocument(null);
     setSelectedId(id);
   }, []);
 
+  const chooseItem = useCallback(
+    (id: string | null) => {
+      followedSystemSlot.current = null;
+      selectItem(id);
+    },
+    [selectItem],
+  );
+
   const selectDocument = useCallback((id: string, containerId: string) => {
+    followedSystemSlot.current = null;
     setPendingSelectedDocument({ containerId, id });
     setSelectedId(id);
   }, []);
 
   useEffect(() => {
     if (nodes.length === 0) {
+      followedSystemSlot.current ??= getVanishedLocalSystemSlot(
+        selectedId,
+        selectedContainer.current,
+      );
       selectItem(null);
       return;
     }
@@ -134,20 +192,19 @@ function useExplorerSelectedId(
       setPendingSelectedDocument(null);
     }
 
-    if (
-      !selectedId ||
-      (!selectedMatchesContainer &&
-        !selectedMatchesNote &&
-        !selectedMatchesPendingDocument)
-    ) {
-      const fallback =
-        getLocalSystemContainerReplacement(
-          nodes,
-          selectedId,
-          selectedContainer.current,
-        ) ?? getDefaultSelectedNode(nodes);
-      selectItem(fallback?.id ?? null);
-    }
+    const resolution = resolveContainerSelection({
+      followedSlot: followedSystemSlot.current,
+      nodes,
+      selectedId,
+      selectionMissing:
+        !selectedId ||
+        (!selectedMatchesContainer &&
+          !selectedMatchesNote &&
+          !selectedMatchesPendingDocument),
+      vanished: selectedContainer.current,
+    });
+    followedSystemSlot.current = resolution.followedSlot;
+    if (resolution.selectId !== undefined) selectItem(resolution.selectId);
   }, [
     documentSummaries,
     nodes,
@@ -160,7 +217,7 @@ function useExplorerSelectedId(
     pendingSelectedDocument,
     selectDocument,
     selectedId,
-    setSelectedId: selectItem,
+    setSelectedId: chooseItem,
   };
 }
 
