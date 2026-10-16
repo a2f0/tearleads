@@ -84,7 +84,7 @@ async function stage(root: string, commit: string, kind: LinuxUploadCase) {
   if (kind === "linkedMap") {
     await rm(join(stagingDir, dist, "chunk-a1b2c3.js.map"));
     await symlink(
-      join(root, "repo/.secrets/root.env"),
+      join(root, "repo/.secrets/staging/shared.env"),
       join(stagingDir, dist, "chunk-a1b2c3.js.map"),
     );
   }

@@ -42,8 +42,9 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 TF_TIER="$TIER"
 [[ "$TIER" != production ]] || TF_TIER=prod
 load_secrets_env "$TF_TIER"
-# load_secrets_env exports every root.env name. The upload token stays out of
-# Docker and every child; uploadDeferredSourceMaps.ts reads it from .secrets itself.
+# load_secrets_env exports every name in the tier's shared.env and app.env. The
+# upload token stays out of Docker and every child; uploadDeferredSourceMaps.ts
+# reads it from .secrets itself.
 unset SENTRY_AUTH_TOKEN
 # These add env files, preload modules or a debugger to every Bun process.
 unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \

@@ -8,7 +8,7 @@ saving on the audited revision.
 
 ## Access and safety
 
-The service token in `.secrets/planetscale.env`
+The service token in each tier's `.secrets/<tier>/planetscale.env`
 (`PLANETSCALE_SERVICE_TOKEN_ID`, `PLANETSCALE_SERVICE_TOKEN`) reads the API
 below and can create branch roles. Load it with `set -a; . <file>; set +a`
 and send `Authorization: <id>:<token>`. Never print, log, or save the token

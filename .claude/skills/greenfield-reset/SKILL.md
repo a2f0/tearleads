@@ -75,10 +75,11 @@ request a reset.
 
 ## Resume and reporting
 
-Keep per-phase records under a new private `.secrets/greenfield-<run-id>/`
-directory: source SHA, tier, command, phase, exit status, nonsecret resource IDs,
-and verification results. Plans and raw outputs can contain credentials; never
-publish them or copy a prior run's credentials into the skill.
+Keep per-phase records in a `greenfield-<run-id>/` directory in the session's
+private scratchpad, never under `.secrets` or the checkout: source SHA, tier,
+command, phase, exit status, nonsecret resource IDs, and verification results.
+Plans and raw outputs can contain credentials; never publish them or copy a
+prior run's credentials into the skill. Delete the records once the work ships.
 
 On failure, stop dependent work, inspect live state, and resume the incomplete
 phase. Reuse success records only for the same run, revision, and resource or

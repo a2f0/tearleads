@@ -8,8 +8,9 @@
 # and the org-manager billing panel offers no purchase at all. Store releases get
 # these from Fastlane, whose native_release_target.rb parses the release dotenv
 # files and selectively assigns their values before shelling out to the build.
-# The dev scripts have no Fastlane in the path, so they read root.env here and a
-# simulator/device run can exercise billing like a release can.
+# The dev scripts have no Fastlane in the path, so they read the production
+# tier's shared.env here and a simulator/device run can exercise billing like a
+# release can.
 #
 # These are public client keys, safe to inline; the file is git-ignored only
 # because it holds secret values too. A missing file or missing key is not an

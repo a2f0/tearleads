@@ -1,7 +1,10 @@
 # shellcheck shell=bash
-# Resolve existing local Apple credentials without printing private values.
+# Resolve existing local Apple credentials without printing private values. The
+# argument is the secrets tier (staging or prod) whose App Store Connect key is
+# the default.
 configure_macos_signing() {
   : "${REPO_ROOT:?Set REPO_ROOT before configuring macOS signing}"
+  local secrets_tier="${1:?Pass the secrets tier when configuring macOS signing}"
   if [[ -z "${ELECTROBUN_DEVELOPER_ID:-}" ]]; then
     ELECTROBUN_DEVELOPER_ID="$(security find-identity -v -p codesigning | sed -n 's/.*"\(Developer ID Application: [^"]*\)".*/\1/p' | sort -u)"
   fi
@@ -12,7 +15,7 @@ configure_macos_signing() {
   export ELECTROBUN_DEVELOPER_ID
   export ELECTROBUN_APPLEAPIKEY="${ELECTROBUN_APPLEAPIKEY:-${APP_STORE_CONNECT_KEY_ID:-}}"
   export ELECTROBUN_APPLEAPIISSUER="${ELECTROBUN_APPLEAPIISSUER:-${APP_STORE_CONNECT_ISSUER_ID:-}}"
-  export ELECTROBUN_APPLEAPIKEYPATH="${ELECTROBUN_APPLEAPIKEYPATH:-${APP_STORE_CONNECT_API_KEY_KEY_FILEPATH:-${APP_STORE_CONNECT_KEY_FILEPATH:-$REPO_ROOT/.secrets/AuthKey_${ELECTROBUN_APPLEAPIKEY}.p8}}}"
+  export ELECTROBUN_APPLEAPIKEYPATH="${ELECTROBUN_APPLEAPIKEYPATH:-${APP_STORE_CONNECT_API_KEY_KEY_FILEPATH:-${APP_STORE_CONNECT_KEY_FILEPATH:-$REPO_ROOT/.secrets/$secrets_tier/AuthKey_${ELECTROBUN_APPLEAPIKEY}.p8}}}"
   if [[ -z "$ELECTROBUN_APPLEAPIKEY" || -z "$ELECTROBUN_APPLEAPIISSUER" || ! -f "$ELECTROBUN_APPLEAPIKEYPATH" ]]; then
     echo "App Store Connect key ID, issuer, and private key file are required for notarization." >&2
     return 1

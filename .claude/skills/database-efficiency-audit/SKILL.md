@@ -128,12 +128,13 @@ and inspect bounded excerpts with `agent-tool logs <path>`.
 ## 2. Collect PlanetScale evidence
 
 Follow [`references/planetscale.md`](references/planetscale.md). In short:
-read the service token from `.secrets/planetscale.env`; snapshot schema
-recommendations, Query Insights patterns, and `pg_stat_*` views for
-`tearleads-prod` and `tearleads-staging` into a timestamped snapshot
-directory; delete the temporary read-only role at once; and record which
-revision the databases were deployed from (from the deploy record or the
-session that ran it; otherwise infer it from the deployed table set).
+read each tier's service token from `.secrets/<tier>/planetscale.env` (`prod`
+or `staging`); snapshot schema recommendations, Query Insights patterns, and
+`pg_stat_*` views for `tearleads-prod` and `tearleads-staging` into a
+timestamped snapshot directory; delete the temporary read-only role at once;
+and record which revision the databases were deployed from (from the deploy
+record or the session that ran it; otherwise infer it from the deployed table
+set).
 
 Then map every recommendation and Insights pattern to the audited revision:
 **live** (the table, index, and query still exist), **moved** (the same

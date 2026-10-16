@@ -229,6 +229,11 @@ test("Android staging inherits the production release signing variant", async ()
     /release\s*\{[\s\S]*?signingConfig = hasReleaseKeystore\(\) \? signingConfigs\.release : signingConfigs\.debug/,
   );
   expect(gradle).toMatch(/staging\s*\{[\s\S]*?initWith release/);
+  // The keystore comes from the selected tier's secrets folder.
+  expect(gradle).toContain('[production: "prod", staging: "staging"][tier]');
+  expect(gradle).toMatch(
+    /rootProject\.file\("\.\.\/\.\.\/\.\.\/\.secrets\/\$\{secretsTier\}\/tearleads-release\.keystore"\)/,
+  );
   expect(effectiveAndroidApplicationId(gradle, "debug")).toBe(
     "com.tearleads.app",
   );

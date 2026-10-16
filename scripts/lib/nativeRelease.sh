@@ -31,9 +31,10 @@ Environment:
   VITE_API_BASE_URL  API URL inlined into the Capacitor bundle.
                      Defaults to ${native_default_api}.
 
-Store credentials and signing values are loaded by Fastlane from
-.secrets/root.env plus the tier file (.secrets/prod.env or .secrets/staging.env).
-Explicitly exported environment variables take precedence.
+Store credentials and signing values are loaded by Fastlane from the tier's
+secrets folder (.secrets/prod or .secrets/staging): its shared.env, plus only
+the native RevenueCat client keys from staging's app.env. Explicitly exported
+environment variables take precedence.
 
 When the platform/tier Sentry DSN is configured, the build uploads JavaScript
 source maps before native packaging. Maps and the private SENTRY_AUTH_TOKEN are
@@ -69,7 +70,7 @@ Android options:
   validate_only:true          Validate the upload without publishing.
 
 GOOGLE_PLAY_JSON_KEY_FILE (or SUPPLY_JSON_KEY) can override the default
-.secrets/google-play-service-account-admin.json key path.
+.secrets/<tier>/google-play-service-account-admin.json key path.
 EOF
   else
     cat <<'EOF'
@@ -88,7 +89,7 @@ and splash images, so ImageMagick must be installed.
 
 App Store Connect authentication uses APP_STORE_CONNECT_KEY_ID,
 APP_STORE_CONNECT_ISSUER_ID, and TEAM_ID. The private key defaults to
-.secrets/AuthKey_<key-id>.p8.
+.secrets/<tier>/AuthKey_<key-id>.p8.
 EOF
   fi
 }

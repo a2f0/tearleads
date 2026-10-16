@@ -20,9 +20,9 @@ scripts/deployStagingWebsite.sh
 scripts/deployProductionWebsite.sh
 ```
 
-Each script loads `.secrets/root.env` and its tier environment, builds Astro with
-the tier's application and billing URLs, publishes the Worker, then applies its
-domain stack. A failed build or upload stops before changing the domain.
+Each script loads its tier's `.secrets/<tier>/shared.env` and `app.env`, builds
+Astro with the tier's application and billing URLs, publishes the Worker, then
+applies its domain stack. A failed build or upload stops before changing the domain.
 `--dry-run` builds, checks the Wrangler configuration and bundle, and plans
 Terraform without uploading assets or publishing. `--skip-terraform` publishes
 assets against an existing domain. Both commands select the Worker name from

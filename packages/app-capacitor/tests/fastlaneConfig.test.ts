@@ -92,6 +92,7 @@ const fastlanePathConstantNames = [
   "IOS_BUILD_IMAGES_SCRIPT",
   "NATIVE_SECRETS_DIR",
   "GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH",
+  "ANDROID_RELEASE_KEYSTORE_PATH",
 ] as const;
 
 type FastlanePathConstantName = (typeof fastlanePathConstantNames)[number];
@@ -101,7 +102,7 @@ const fastlanePathConstantsScript = [
   'require "fastlane"',
   "Fastlane.load_actions",
   'Fastlane::FastFile.new("fastlane/Fastfile")',
-  "names = %w[ANDROID_DIR ANDROID_BUILD_IMAGES_SCRIPT IOS_PACKAGE_DIR IOS_DIR IOS_BUILD_IMAGES_SCRIPT GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH]",
+  "names = %w[ANDROID_DIR ANDROID_BUILD_IMAGES_SCRIPT IOS_PACKAGE_DIR IOS_DIR IOS_BUILD_IMAGES_SCRIPT GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH ANDROID_RELEASE_KEYSTORE_PATH]",
   "constants = names.to_h { |name| [name, Fastlane::FastFile.const_get(name)] }",
   'puts JSON.generate(constants.merge("NATIVE_SECRETS_DIR" => NATIVE_SECRETS_DIR))',
 ].join("; ");
@@ -126,47 +127,60 @@ function parseFastlanePathConstants(stdout: string) {
   return constants;
 }
 
-test("Fastlane lane files resolve paths outside their directory", async () => {
-  await requireRubyBundle();
-  const child = Bun.spawn(
-    ["bundle", "exec", "ruby", "-e", fastlanePathConstantsScript],
-    {
-      cwd: packageRoot,
-      env: {
-        ...process.env,
-        FASTLANE_OPT_OUT_USAGE: "1",
-        FASTLANE_SKIP_UPDATE_CHECK: "1",
-        NATIVE_RELEASE_TIER: "production",
+for (const [tier, secretsTier] of [
+  ["production", "prod"],
+  ["staging", "staging"],
+] as const) {
+  test(`Fastlane lane files resolve ${tier} paths outside their directory`, async () => {
+    await requireRubyBundle();
+    const child = Bun.spawn(
+      ["bundle", "exec", "ruby", "-e", fastlanePathConstantsScript],
+      {
+        cwd: packageRoot,
+        env: {
+          ...process.env,
+          FASTLANE_OPT_OUT_USAGE: "1",
+          FASTLANE_SKIP_UPDATE_CHECK: "1",
+          NATIVE_RELEASE_TIER: tier,
+        },
+        stderr: "pipe",
+        stdout: "pipe",
       },
-      stderr: "pipe",
-      stdout: "pipe",
-    },
-  );
-  const [exitCode, stderr, stdout] = await Promise.all([
-    child.exited,
-    new Response(child.stderr).text(),
-    new Response(child.stdout).text(),
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`Fastlane path constants failed to load: ${stderr}`);
-  }
+    );
+    const [exitCode, stderr, stdout] = await Promise.all([
+      child.exited,
+      new Response(child.stderr).text(),
+      new Response(child.stdout).text(),
+    ]);
+    if (exitCode !== 0) {
+      throw new Error(`Fastlane path constants failed to load: ${stderr}`);
+    }
 
-  expect(parseFastlanePathConstants(stdout)).toEqual({
-    ANDROID_DIR: resolve(packageRoot, "android"),
-    ANDROID_BUILD_IMAGES_SCRIPT: resolve(
-      packageRoot,
-      "scripts/buildAndroidImages.sh",
-    ),
-    IOS_PACKAGE_DIR: packageRoot,
-    IOS_DIR: resolve(packageRoot, "ios"),
-    IOS_BUILD_IMAGES_SCRIPT: resolve(packageRoot, "scripts/buildIosImages.sh"),
-    NATIVE_SECRETS_DIR: resolve(packageRoot, "../../.secrets"),
-    GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH: resolve(
-      packageRoot,
-      "../../.secrets/google-play-service-account-admin.json",
-    ),
+    const secretsDir = resolve(packageRoot, "../../.secrets", secretsTier);
+    expect(parseFastlanePathConstants(stdout)).toEqual({
+      ANDROID_DIR: resolve(packageRoot, "android"),
+      ANDROID_BUILD_IMAGES_SCRIPT: resolve(
+        packageRoot,
+        "scripts/buildAndroidImages.sh",
+      ),
+      IOS_PACKAGE_DIR: packageRoot,
+      IOS_DIR: resolve(packageRoot, "ios"),
+      IOS_BUILD_IMAGES_SCRIPT: resolve(
+        packageRoot,
+        "scripts/buildIosImages.sh",
+      ),
+      NATIVE_SECRETS_DIR: secretsDir,
+      GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH: resolve(
+        secretsDir,
+        "google-play-service-account-admin.json",
+      ),
+      ANDROID_RELEASE_KEYSTORE_PATH: resolve(
+        secretsDir,
+        "tearleads-release.keystore",
+      ),
+    });
   });
-});
+}
 
 const iosXcargsScript = [
   'require "json"',

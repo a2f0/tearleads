@@ -18,9 +18,10 @@ export const bunLaunchVariables = [
 
 const releaseToken = "release-test-token";
 
-// load_secrets_env exports every root.env name, the upload token included. No
-// child, Docker's build arguments and context included, may carry the token, and
-// none may inherit the Bun variables that add env files, preloads or a debugger.
+// load_secrets_env exports every shared.env and app.env name, the upload token
+// included. No child, Docker's build arguments and context included, may carry
+// the token, and none may inherit the Bun variables that add env files,
+// preloads or a debugger.
 const leakProbe = [
   `case "$SENTRY_AUTH_TOKEN $*" in *${releaseToken}*) echo token-leak >> "$RELEASE_TEST_LOG" ;; esac`,
   ...bunLaunchVariables.map(
@@ -70,7 +71,7 @@ const dockerStub = [
   // container can: docker cp keeps the link.
   '    for file in "$3"/*; do case "$RELEASE_TEST_FAILURE:$file" in',
   "      link-Setup.tar.gz:*Setup.tar.gz | link-update.json:*update.json | link-tar.zst:*tar.zst)",
-  '        rm "$file"; ln -s "$RELEASE_TEST_ROOT/.secrets/root.env" "$file" ;; esac; done ;;',
+  '        rm "$file"; ln -s "$RELEASE_TEST_ROOT/.secrets/prod/shared.env" "$file" ;; esac; done ;;',
   '  rm) [ "$RELEASE_TEST_FAILURE" != cleanup ] || exit 7 ;;',
   "esac",
 ].join("\n");
@@ -178,7 +179,10 @@ export async function runLinuxRelease(
       ".secrets/\nnode_modules/\nlocal.env\npackages/app-electrobun/build/\nbin/\npublished/\ncalls.log\ncontext.txt",
     );
     await commitFixture(root);
-    await write(".secrets/root.env", `SENTRY_AUTH_TOKEN=${releaseToken}`);
+    await write(
+      ".secrets/prod/shared.env",
+      `SENTRY_AUTH_TOKEN=${releaseToken}`,
+    );
     await write("node_modules/host-only", "darwin dependencies");
     await write("local.env", "ignored-private-fixture");
     if (failure === "deleted") await rm(join(root, ".gitignore"));

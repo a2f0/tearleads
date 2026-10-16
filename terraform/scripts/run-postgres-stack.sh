@@ -22,9 +22,10 @@ STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/postgres"
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
-# Backend credentials come from root.env; PlanetScale has its own secret file.
+# Backend credentials come from the tier's shared.env; PlanetScale has its own
+# secret file in the same tier folder.
 load_secrets_env "$TIER"
-_source_optional_env_file "$REPO_ROOT/.secrets/planetscale.env"
+_source_optional_env_file "$REPO_ROOT/.secrets/$TIER/planetscale.env"
 validate_aws_env
 export TF_VAR_planetscale_service_token_id="${PLANETSCALE_SERVICE_TOKEN_ID:-}"
 export TF_VAR_planetscale_service_token="${PLANETSCALE_SERVICE_TOKEN:-}"
@@ -33,7 +34,7 @@ case "$ACTION" in
   plan | apply | destroy)
     validate_cloudflare_env
     if [[ "${PLANETSCALE_SERVICE_TOKEN_ID:+set}" != set || "${PLANETSCALE_SERVICE_TOKEN:+set}" != set ]]; then
-      echo "ERROR: Set PLANETSCALE_SERVICE_TOKEN_ID and PLANETSCALE_SERVICE_TOKEN in .secrets/planetscale.env or the environment." >&2
+      echo "ERROR: Set PLANETSCALE_SERVICE_TOKEN_ID and PLANETSCALE_SERVICE_TOKEN in .secrets/$TIER/planetscale.env or the environment." >&2
       exit 1
     fi
     ;;

@@ -14,15 +14,14 @@ const { NATIVE_RELEASE_TIER } = process.env;
 const tier = NATIVE_RELEASE_TIER ?? "production";
 if (tier !== "staging" && tier !== "production")
   throw new Error("Invalid NATIVE_RELEASE_TIER");
+const secretsDir = resolve(
+  repoRoot,
+  ".secrets",
+  tier === "production" ? "prod" : "staging",
+);
 const env = {
-  ...(await readSentrySecrets(resolve(repoRoot, ".secrets/root.env"))),
-  ...(await readSentrySecrets(
-    resolve(
-      repoRoot,
-      ".secrets",
-      tier === "production" ? "prod.env" : "staging.env",
-    ),
-  )),
+  ...(await readSentrySecrets(resolve(secretsDir, "shared.env"))),
+  ...(await readSentrySecrets(resolve(secretsDir, "app.env"))),
   ...process.env,
 };
 const dsnName = `SENTRY_${platform.toUpperCase()}_${tier.toUpperCase()}_DSN`;

@@ -23,7 +23,8 @@ reset of a populated database first runs `DROP OWNED BY CURRENT_USER CASCADE`
 through the migration connection, then destroys the roles and database. This
 deletes application data and belongs only in a complete database teardown.
 
-Store these exports in gitignored `.secrets/planetscale.env`, mode `0600`:
+Store these exports in gitignored `.secrets/prod/planetscale.env` (staging:
+`.secrets/staging/planetscale.env`), mode `0600`:
 
 ```sh
 export PLANETSCALE_SERVICE_TOKEN_ID='your-token-id'
@@ -34,21 +35,24 @@ export TF_VAR_planetscale_cluster_size='PS_5_AWS_ARM'
 The token needs organization database creation access and the database/branch
 and PostgreSQL role permissions used by the provider. The wrapper loads backend
 credentials and Cloudflare settings (`TF_VAR_cloudflare_api_token` and
-`TF_VAR_cloudflare_account_id`) from `.secrets/root.env`, and PlanetScale settings
-from `.secrets/planetscale.env`. The Cloudflare token needs Hyperdrive Edit.
+`TF_VAR_cloudflare_account_id`) from the tier's `.secrets/<tier>/shared.env`,
+and PlanetScale settings from `.secrets/<tier>/planetscale.env`. The Cloudflare
+token needs Hyperdrive Edit.
 
 ```sh
 umask 077
-bash terraform/scripts/run-postgres-stack.sh prod plan -out="$PWD/.secrets/planetscale-prod.tfplan"
-bash terraform/scripts/run-postgres-stack.sh prod apply "$PWD/.secrets/planetscale-prod.tfplan"
+PLAN_DIR="$(mktemp -d)"
+bash terraform/scripts/run-postgres-stack.sh prod plan -out="$PLAN_DIR/planetscale-prod.tfplan"
+bash terraform/scripts/run-postgres-stack.sh prod apply "$PLAN_DIR/planetscale-prod.tfplan"
+rm -rf "$PLAN_DIR"
 bash terraform/scripts/run-postgres-stack.sh prod output -json database
 ```
 
 A fresh apply creates the database, configures protection, waits for readiness,
 creates two roles, and provisions Hyperdrive. Subsequent plans should be empty.
-Terraform state and
-saved plans contain credentials and require private
-storage. The wrapper disables interactive variable prompts.
+Terraform state and saved plans contain credentials and require private storage;
+keep saved plans outside `.secrets` and delete them once applied. The wrapper
+disables interactive variable prompts.
 
 ## Production API dependency
 

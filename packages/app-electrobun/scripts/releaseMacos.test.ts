@@ -66,6 +66,14 @@ test("build mode verifies artifacts without storage credentials or publication",
   expect(result.calls.some((call) => call.startsWith("upload "))).toBe(false);
 });
 
+for (const tier of ["staging", "production"]) {
+  test(`${tier} notarizes with the tier's App Store Connect key by default`, async () => {
+    const result = await runMacosRelease(["build", tier], "", {}, true);
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.calls).toContain("stapler");
+  });
+}
+
 test("no release step or Bun process inherits Bun launch variables", async () => {
   const directory = mkdtempSync(join(tmpdir(), "macos-release-launch-"));
   try {

@@ -55,7 +55,7 @@ fi
 # Blob garbage collection pings Healthchecks around every hourly run; a tier
 # without a check would fail silently, as the retired timer refused to.
 if [[ "${BLOB_GC_HEALTHCHECK_URL:-}" != https://* ]]; then
-  echo "ERROR: BLOB_GC_HEALTHCHECK_URL must be an https URL; set it in .secrets/$TIER.healthchecks.env." >&2
+  echo "ERROR: BLOB_GC_HEALTHCHECK_URL must be an https URL; set it in .secrets/$TIER/healthchecks.env." >&2
   exit 1
 fi
 
@@ -74,7 +74,7 @@ fi
 
 # The cursor HMAC key is generated once per tier and kept beside the other
 # tier secrets; rotating it re-verifies every object's history once.
-WORKER_ENV_FILE="$REPO_ROOT/.secrets/$TIER.worker.env"
+WORKER_ENV_FILE="$REPO_ROOT/.secrets/$TIER/worker.env"
 if [[ -z "${DOCUMENT_SYNC_CURSOR_HMAC_KEY:-}" ]]; then
   (
     umask 077

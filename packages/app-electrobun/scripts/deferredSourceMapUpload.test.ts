@@ -58,7 +58,10 @@ async function fixture(options: { checkout?: boolean; secrets?: boolean }) {
   await mkdir(packageRoot, { recursive: true });
   await Bun.write(join(root, "hook.ts"), hookScript);
   if (options.secrets)
-    await Bun.write(join(repoRoot, ".secrets/root.env"), "SYNTHETIC=1\n");
+    await Bun.write(
+      join(repoRoot, ".secrets/staging/shared.env"),
+      "SYNTHETIC=1\n",
+    );
   if (options.checkout) {
     // Fixture Git calls run with no GIT_* variable, so none reaches the
     // repository running these tests.

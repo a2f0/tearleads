@@ -14,6 +14,12 @@
 7. Run `bun run --filter=@tearleads/api dev` to start the API.
 8. Run `bun run --filter=app-web dev` to start the dev server.
 
+Deployment and release credentials live in `.secrets`, a gitignored link to
+`../matrix-secrets/tearleads`. The a2f0/matrix repository manages and backs them
+up; see its [`docs/secrets.md`](https://github.com/a2f0/matrix/blob/main/docs/secrets.md).
+Each tier reads only `.secrets/staging/` or `.secrets/prod/`: `shared.env`, then
+`app.env`, which wins. Commands without a tier use `prod`.
+
 ## Public Hostnames
 
 Production uses `tearleads.com`, `app.tearleads.com`, `demo.tearleads.com`, and
@@ -53,9 +59,10 @@ Each tier is four Cloudflare Workers plus three independent Terraform stacks:
 sequence: storage, database, API migrations and Worker, app bundles, edge
 hostnames (which need the Workers to exist), API verification, then website. `packages/api/scripts/deployApi.sh`
 migrates with the PlanetScale migration login, syncs the Worker secrets from
-the Terraform outputs and `.secrets/<tier>.env`, and publishes with the build
-constants from `packages/api/scripts/workerDefines.ts`. The document sync
-cursor HMAC key is generated once per tier into `.secrets/<tier>.worker.env`.
+the Terraform outputs and the `.secrets/<tier>/` env files, and publishes with
+the build constants from `packages/api/scripts/workerDefines.ts`. The
+document sync cursor HMAC key is generated once per tier into
+`.secrets/<tier>/worker.env`.
 `scripts/destroyStaging.sh` removes every staging resource; production stacks
 refuse destruction through their wrappers.
 

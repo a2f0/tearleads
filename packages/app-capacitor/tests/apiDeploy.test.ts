@@ -23,6 +23,7 @@ async function deployFixture(
     readonly hyperdriveId?: string;
     readonly tier?: "staging" | "prod";
     readonly storage?: Readonly<Record<string, unknown>>;
+    readonly generateCursorKey?: boolean;
   } = {},
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-api-deploy-"));
@@ -43,7 +44,9 @@ async function deployFixture(
     resolve(root, billingReader),
   );
   await mkdir(resolve(root, "packages/api-cli"), { recursive: true });
-  await mkdir(resolve(root, ".secrets"), { recursive: true });
+  await mkdir(resolve(root, ".secrets", options.tier ?? "staging"), {
+    recursive: true,
+  });
   await executable(
     resolve(root, "terraform/scripts/common.sh"),
     [
@@ -52,7 +55,10 @@ async function deployFixture(
       '  local traced=0; if [[ "$-" == *x* ]]; then traced=1; set +x; fi',
       "  TF_VAR_domain=example.test",
       `  TF_VAR_cloudflare_account_id=${"b".repeat(32)}`,
-      '  DOCUMENT_SYNC_CURSOR_HMAC_KEY="fixture-cursor-key-with-at-least-32-bytes"',
+      // A generated key is read back from the tier's worker.env.
+      options.generateCursorKey
+        ? '  if [[ -f "$API_DEPLOY_TEST_ROOT/.secrets/$1/worker.env" ]]; then . "$API_DEPLOY_TEST_ROOT/.secrets/$1/worker.env"; fi'
+        : '  DOCUMENT_SYNC_CURSOR_HMAC_KEY="fixture-cursor-key-with-at-least-32-bytes"',
       `  BLOB_GC_HEALTHCHECK_URL=${options.healthcheckUrl ?? "https://hc.example.test/ping/fixture"}`,
       "  SENTRY_API_STAGING_DSN=https://staging-dsn.example.test/1",
       "  export STRIPE_SECRET_KEY=sk_test_fixture",
@@ -176,8 +182,20 @@ async function deployFixture(
     resolve(root, "deployed-config.jsonc"),
     "utf8",
   ).catch(() => "");
+  const workerEnv = await readFile(
+    resolve(root, ".secrets", options.tier ?? "staging", "worker.env"),
+    "utf8",
+  ).catch(() => null);
   await rm(root, { recursive: true, force: true });
-  return { exitCode, stdout, stderr, calls, secrets, deployedConfig };
+  return {
+    exitCode,
+    stdout,
+    stderr,
+    calls,
+    secrets,
+    deployedConfig,
+    workerEnv,
+  };
 }
 
 test("migrations use the stack's migration login and ignore inherited connection URLs", async () => {
@@ -259,9 +277,21 @@ for (const [label, healthcheckUrl] of [
     const run = await deployFixture({}, { healthcheckUrl });
     expect(run.exitCode).toBe(1);
     expect(run.stderr).toContain(
-      "BLOB_GC_HEALTHCHECK_URL must be an https URL",
+      "BLOB_GC_HEALTHCHECK_URL must be an https URL; set it in .secrets/staging/healthchecks.env",
     );
     expect(run.calls).toEqual([]);
+  });
+}
+
+for (const tier of ["staging", "prod"] as const) {
+  test(`a missing ${tier} cursor key is generated once into the tier's worker.env`, async () => {
+    const run = await deployFixture({}, { tier, generateCursorKey: true });
+    expect(run.exitCode, run.stderr).toBe(0);
+    const key = run.workerEnv?.match(
+      /^export DOCUMENT_SYNC_CURSOR_HMAC_KEY=([0-9a-f]{64})\n$/,
+    )?.[1];
+    expect(key).toBeDefined();
+    expect(run.secrets).toMatchObject({ DOCUMENT_SYNC_CURSOR_HMAC_KEY: key });
   });
 }
 

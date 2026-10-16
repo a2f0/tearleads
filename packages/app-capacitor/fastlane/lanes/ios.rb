@@ -182,7 +182,8 @@ end
 
 # Resolve the signing team from the first source that is set. The iOS-specific
 # names come first; TEAM_ID is last because it is generic enough to collide with
-# unrelated tooling in a shared shell, but it is the name .secrets/root.env ships.
+# unrelated tooling in a shared shell, but it is the name each tier's shared.env
+# ships.
 def ios_team_id(options)
   lane_option(options, :team_id, 'IOS_TEAM_ID') ||
     lane_option(options, :apple_team_id, 'APPLE_TEAM_ID') ||

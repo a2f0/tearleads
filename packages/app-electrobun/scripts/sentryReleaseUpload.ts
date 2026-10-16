@@ -52,7 +52,8 @@ export function assertNoBunLaunchVariables(env: Environment): void {
 // Bun loads dotenv files, and any --env-file in BUN_OPTIONS, into this process
 // before it runs, and a build machine may export another project's settings.
 // So every SENTRY_* name, the upload token, organization, project and DSN
-// included, comes only from .secrets; the environment supplies everything else.
+// included, comes only from the tier's .secrets folder (shared.env, then
+// app.env); the environment supplies everything else.
 export async function readReleaseSecrets(
   repoRoot: string,
   tier: string,
@@ -61,15 +62,14 @@ export async function readReleaseSecrets(
   const ambient = Object.entries(env).filter(
     ([name]) => !name.startsWith("SENTRY_"),
   );
+  const secretsDir = resolve(
+    repoRoot,
+    ".secrets",
+    tier === "production" ? "prod" : "staging",
+  );
   return {
-    ...(await readDesktopSentrySecrets(resolve(repoRoot, ".secrets/root.env"))),
-    ...(await readDesktopSentrySecrets(
-      resolve(
-        repoRoot,
-        ".secrets",
-        tier === "production" ? "prod.env" : "staging.env",
-      ),
-    )),
+    ...(await readDesktopSentrySecrets(resolve(secretsDir, "shared.env"))),
+    ...(await readDesktopSentrySecrets(resolve(secretsDir, "app.env"))),
     ...Object.fromEntries(ambient),
   };
 }

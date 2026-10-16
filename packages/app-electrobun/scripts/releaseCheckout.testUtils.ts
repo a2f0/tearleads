@@ -66,17 +66,18 @@ async function createCheckout(root: string, label: string) {
     await cp(join(sourceRoot, path), join(root, path));
   await write(join(root, ".gitignore"), ".secrets/\nnested/");
   await write(join(root, "checkout.txt"), label);
-  await write(
-    join(root, ".secrets/root.env"),
-    [
-      `RELEASE_TEST_SECRETS=${label}`,
-      "AWS_ACCESS_KEY_ID=release-test",
-      "AWS_SECRET_ACCESS_KEY=release-test",
-      `printf 'secrets %s\\n' ${label} >> "$RELEASE_TEST_LOG"`,
-    ].join("\n"),
-  );
-  for (const tier of ["prod", "staging"])
-    await write(join(root, `.secrets/${tier}.env`), "");
+  for (const tier of ["prod", "staging"]) {
+    await write(
+      join(root, `.secrets/${tier}/shared.env`),
+      [
+        `RELEASE_TEST_SECRETS=${label}`,
+        "AWS_ACCESS_KEY_ID=release-test",
+        "AWS_SECRET_ACCESS_KEY=release-test",
+        `printf 'secrets %s\\n' ${label} >> "$RELEASE_TEST_LOG"`,
+      ].join("\n"),
+    );
+    await write(join(root, `.secrets/${tier}/app.env`), "");
+  }
 }
 
 // Stubs outside both checkouts. Git records its directory, how many GIT_*
