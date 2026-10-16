@@ -49,6 +49,7 @@ case "$PLATFORM" in
       -configuration Debug -sdk iphonesimulator \
       -derivedDataPath "$DERIVED_DATA" \
       -destination 'generic/platform=iOS Simulator' \
+      -disableAutomaticPackageResolution \
       CODE_SIGNING_ALLOWED=NO -quiet build
 
     if [ -n "${MAESTRO_IOS_SIMULATOR:-}" ]; then

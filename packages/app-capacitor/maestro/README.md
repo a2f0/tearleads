@@ -51,6 +51,7 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App \
   -configuration Debug -sdk iphonesimulator \
   -derivedDataPath "$TMPDIR/tearleads-maestro-derived-data" \
   -destination 'generic/platform=iOS Simulator' \
+  -disableAutomaticPackageResolution \
   CODE_SIGNING_ALLOWED=NO build
 xcrun simctl boot 'iPhone 16' || true
 xcrun simctl install booted \
