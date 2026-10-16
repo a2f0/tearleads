@@ -10,15 +10,18 @@ test("blob store key listing reads S3 settings from current env names", () => {
     BLOB_OBJECT_STORE: "s3",
     BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "test-access-key",
     BLOB_OBJECT_STORE_S3_BUCKET: "blob-test-bucket",
-    BLOB_OBJECT_STORE_S3_ENDPOINT: "http://127.0.0.1:3900",
+    BLOB_OBJECT_STORE_S3_ENDPOINT:
+      "https://example-account.r2.cloudflarestorage.com",
     BLOB_OBJECT_STORE_S3_FORCE_PATH_STYLE: "true",
-    BLOB_OBJECT_STORE_S3_REGION: "garage",
+    BLOB_OBJECT_STORE_S3_REGION: "auto",
     BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY: "test-secret-key",
   });
 
   expect(settings.bucket).toBe("blob-test-bucket");
-  expect(settings.clientConfig.region).toBe("garage");
-  expect(settings.clientConfig.endpoint).toBe("http://127.0.0.1:3900");
+  expect(settings.clientConfig.region).toBe("auto");
+  expect(settings.clientConfig.endpoint).toBe(
+    "https://example-account.r2.cloudflarestorage.com",
+  );
   expect(settings.clientConfig.forcePathStyle).toBe(true);
   expect(settings.clientConfig.credentials).toEqual({
     accessKeyId: "test-access-key",
@@ -93,7 +96,7 @@ test("blob store key listing requires complete S3 credentials", () => {
       BLOB_OBJECT_STORE: "s3",
       BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID: "test-access-key",
       BLOB_OBJECT_STORE_S3_BUCKET: "blob-test-bucket",
-      BLOB_OBJECT_STORE_S3_REGION: "garage",
+      BLOB_OBJECT_STORE_S3_REGION: "auto",
     }),
   ).toThrow(
     "Both BLOB_OBJECT_STORE_S3_ACCESS_KEY_ID and BLOB_OBJECT_STORE_S3_SECRET_ACCESS_KEY are required when either is set",
