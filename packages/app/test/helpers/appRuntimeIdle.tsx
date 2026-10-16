@@ -4,6 +4,7 @@ import {
   hasDomainSyncCoordinatorPendingWork,
   waitForDomainSyncCoordinatorToSettle,
 } from "@tearleads/client-sdk";
+import { act } from "@testing-library/react";
 import { useEffect } from "react";
 import {
   useTearleads,
@@ -27,6 +28,9 @@ const DEFAULT_APP_TEST_RUNTIME_API_QUIET_MS = 25;
 const DEFAULT_APP_TEST_RUNTIME_INTERVAL_MS = 10;
 const DEFAULT_APP_TEST_RUNTIME_SYNC_QUIET_MS = 0;
 const DEFAULT_APP_TEST_RUNTIME_TIMEOUT_MS = 500;
+// React defers renders scheduled inside an async act scope until the scope
+// exits, so one long scope can withhold a commit the runtime is waiting on.
+const APP_TEST_RUNTIME_ACT_SLICE_MS = 250;
 
 const activeDomainScopeMountCounts = new Map<DomainScope, number>();
 
@@ -214,8 +218,9 @@ export function AppTestRuntimeScopeProbe() {
   return null;
 }
 
-export async function waitForAppTestRuntimeToSettle(
-  options: AppTestRuntimeSettleOptions = {},
+async function settleAppTestRuntime(
+  options: AppTestRuntimeSettleOptions,
+  reportTimeout: (phase: string) => false,
 ): Promise<boolean> {
   const apiQuietMs =
     options.apiQuietMs ?? DEFAULT_APP_TEST_RUNTIME_API_QUIET_MS;
@@ -227,7 +232,7 @@ export async function waitForAppTestRuntimeToSettle(
   const syncOptions = { intervalMs, syncQuietMs };
 
   if (!(await waitForObservedDomainSyncScopesToSettle(deadline, syncOptions))) {
-    return reportSettleTimeout("sync");
+    return reportTimeout("sync");
   }
 
   const settled = await waitForAppTestRuntimeFinalDrain({
@@ -235,5 +240,39 @@ export async function waitForAppTestRuntimeToSettle(
     intervalMs,
     quietMs: apiQuietMs,
   });
-  return settled || reportSettleTimeout("final drain");
+  return settled || reportTimeout("final drain");
+}
+
+export function waitForAppTestRuntimeToSettle(
+  options: AppTestRuntimeSettleOptions = {},
+): Promise<boolean> {
+  return settleAppTestRuntime(options, reportSettleTimeout);
+}
+
+/**
+ * Settle in short act scopes so React commits between them. A single long
+ * scope can hold the commit that ends pending work, such as Org Manager
+ * clearing its mutation flag to release a deferred organization hint, and so
+ * wait out the whole timeout.
+ */
+export async function settleAppTestRuntimeInAct(
+  options: AppTestRuntimeSettleOptions = {},
+): Promise<boolean> {
+  const apiQuietMs =
+    options.apiQuietMs ?? DEFAULT_APP_TEST_RUNTIME_API_QUIET_MS;
+  const sliceMs = Math.max(APP_TEST_RUNTIME_ACT_SLICE_MS, 2 * apiQuietMs);
+  const deadline =
+    Date.now() + (options.timeoutMs ?? DEFAULT_APP_TEST_RUNTIME_TIMEOUT_MS);
+  while (true) {
+    const remainingMs = remainingTimeoutMs(deadline);
+    const finalSlice = remainingMs <= sliceMs;
+    let settled = false;
+    await act(async () => {
+      settled = await settleAppTestRuntime(
+        { ...options, timeoutMs: Math.min(remainingMs, sliceMs) },
+        finalSlice ? reportSettleTimeout : () => false,
+      );
+    });
+    if (settled || finalSlice) return settled;
+  }
 }
