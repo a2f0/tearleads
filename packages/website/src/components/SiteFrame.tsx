@@ -52,7 +52,6 @@ function footerGroups(appUrl: string): readonly FooterGroup[] {
         { href: "/manage-subscription", label: "Manage subscription" },
         { href: "/privacy-policy", label: "Privacy Policy" },
         { href: "/terms-of-service", label: "Terms of Service" },
-        { href: `mailto:${legalDetails.email}`, label: legalDetails.email },
       ],
     },
   ];
