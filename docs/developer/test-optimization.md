@@ -201,8 +201,8 @@ commit, Org Manager keeps a self-originated organization hint deferred,
 browser commits immediately; the delay came only from the test helper.
 
 `settleAppTestRuntimeInAct` in `test/helpers/appRuntimeIdle.tsx` waits in act
-scopes of at most 250 ms (or twice the API quiet window), so React commits
-between them. It logs a timeout only for the final slice. `importPeerIntoRoster`
+scopes of at most 250 ms (or twice its combined sync and API quiet windows), so
+React commits between them. It logs a timeout only for the final slice. `importPeerIntoRoster`
 now uses it and asserts that the runtime settled, as `waitForPaneRuntimeToSettle`
 already did. No production code, timeout bound, or test case changed.
 

@@ -258,9 +258,12 @@ export function waitForAppTestRuntimeToSettle(
 export async function settleAppTestRuntimeInAct(
   options: AppTestRuntimeSettleOptions = {},
 ): Promise<boolean> {
-  const apiQuietMs =
-    options.apiQuietMs ?? DEFAULT_APP_TEST_RUNTIME_API_QUIET_MS;
-  const sliceMs = Math.max(APP_TEST_RUNTIME_ACT_SLICE_MS, 2 * apiQuietMs);
+  // Each slice waits out the sync and then the API quiet window, so it must
+  // fit both or no slice could ever report settled.
+  const quietMs =
+    (options.apiQuietMs ?? DEFAULT_APP_TEST_RUNTIME_API_QUIET_MS) +
+    (options.syncQuietMs ?? DEFAULT_APP_TEST_RUNTIME_SYNC_QUIET_MS);
+  const sliceMs = Math.max(APP_TEST_RUNTIME_ACT_SLICE_MS, 2 * quietMs);
   const deadline =
     Date.now() + (options.timeoutMs ?? DEFAULT_APP_TEST_RUNTIME_TIMEOUT_MS);
   while (true) {
