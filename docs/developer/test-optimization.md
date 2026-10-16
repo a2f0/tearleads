@@ -149,3 +149,100 @@ PGlite / 83.80 s SQLite case time), container mutations (40.41 / 27.83 s across
 budgeting (8.91 s). These case sums omit hooks and 13 PGlite, 11 SQLite, and
 11 SDK cases with missing durations. Re-measure before another optimization;
 the focused local improvement above is not a measured whole-CI speedup.
+
+## Third pass: October 16, 2026
+
+Baseline: `b31da8d3c1cb115e9d76c70f36c92df5e465eab6`, after PR #2551 merged.
+Its [main CI run](https://github.com/a2f0/tearleads/actions/runs/38840939333)
+executed API and app tests and replayed the SDK suite. Bun reported 1,325.97 s
+for the app suite's 552 files, against 949.96 s (PGlite) and 754.75 s (SQLite)
+for the concurrent API backends. The SDK's most recent fresh run took 859.88 s.
+The app suite was the critical path in all three recent fresh runs (21-24 min),
+so this pass worked on the app suite rather than API or SDK. The app suite runs
+files serially (`--max-concurrency=1`), so its case sums approximate elapsed time.
+
+| App test file | Cases | Case sum |
+| --- | ---: | ---: |
+| `DualPaneProvider.recoveredNoteBackspace.test.tsx` | 8 | 230.43 s |
+| `DualPaneProvider.sharing.test.tsx` | 4 | 138.56 s |
+| `DualPaneProvider.groups.test.tsx` | 8 | 121.31 s |
+| `DualPaneProvider.miniAppWrites.test.tsx` | 2 | 84.65 s |
+| `DualPaneProvider.currentPrincipalRecovery.test.tsx` | 2 | 78.56 s |
+| `DualPaneProvider.attribution.test.tsx` | 1 | 47.77 s |
+
+### Retained: recovered-note backspaces
+
+The backspace file is CPU-bound (113.4 s wall, 125.2 s user CPU locally). Each
+of its 51 sequential uploads spends about 106 ms (delayed sync) or 193 ms (live
+sync, where the peer pulls concurrently) in client commit, upload, and API work.
+A probe found that the upload helper returned within 1 ms of the server
+recording the accepted update, so faster polling would not help. The 51-update
+batch reproduces the regression fixed in PR #2259, and each cell of its
+creator, editor, and sync-mode matrix drives a different UI or delivery path.
+The file is unchanged. Its per-update client cost is a production-performance
+lead, not a test-fixture problem.
+
+### Retained optimization: roster-import settling
+
+The attribution test's elapsed time was bimodal locally: about 13 s or 41 s,
+with the same ~18 s of user CPU. Each slow run spent 30 s in
+`importPeerIntoRoster`, which waited for the app runtime inside a single
+`act(async ...)` scope and ignored the helper's timeout result. CI logged four
+of these `App runtime settle timed out` diagnostics per run: three in
+`DualPaneProvider.sharing.test.tsx` and one in the attribution test. Two other
+diagnostics come from intentional short timeouts in
+`organizationReadModelRealtime.idle.test.ts`.
+
+Selecting the imported user starts a roster profile-document mutation. If that
+mutation completes after the test's act scope opens, React holds the commit
+that clears Org Manager's `mutating` state until the scope exits. Until that
+commit, Org Manager keeps a self-originated organization hint deferred,
+`organizationPending` stays true, and the wait runs to its 30 s timeout. A real
+browser commits immediately; the delay came only from the test helper.
+
+`settleAppTestRuntimeInAct` in `test/helpers/appRuntimeIdle.tsx` waits in act
+scopes of at most 250 ms (or twice its combined sync and API quiet windows), so
+React commits between them. It logs a timeout only for the final slice. `importPeerIntoRoster`
+now uses it and asserts that the runtime settled, as `waitForPaneRuntimeToSettle`
+already did. No production code, timeout bound, or test case changed.
+
+The five files that import a roster peer (attribution, sharing, organization
+name, active-peer request volume, and identity links) ran in one sequential
+invocation through the output harness. Darwin arm64, Bun 1.4.2:
+
+| Scope | Before runs | After runs | Median change |
+| --- | ---: | ---: | ---: |
+| 5 files, 8 tests | 124.90 / 125.55 / 154.37 s | 68.37 / 68.92 / 73.49 s | 45.1% less |
+
+Before: 2, 2, and 3 settle timeouts. After: none. Every run passed all 8 tests.
+Per case, attribution moved from 12.5 or 40.5 s to 12.4-13.5 s, and the sharing
+cases that had taken 35-37 s now took 7.4-10.6 s.
+The first baseline's log was overwritten by a later run; its receipt remains.
+
+Negative controls in an isolated worktree:
+
+- Restoring one act scope for the whole timeout made two of three attribution
+  runs fail at the new `Roster import ... did not settle` assertion. The third
+  run took the fast side of the race.
+- Making `releaseDeferredOrganizationReadModelHint` a no-op failed three of
+  three runs at the same assertion, with `organizationPending` true. With the
+  original helpers, the same production bug was caught only by the next
+  `waitForPaneRuntimeToSettle`, after 67 s and two silent timeouts.
+
+This is a local measurement of the affected files. If CI reaches the same four
+timeouts, about two minutes of the app job should disappear; verify this with a
+fresh app test run before claiming it.
+
+### Next leads
+
+- `addPeerToAdminsGroup` (eight files) and `shareContainerWithGroup` also wait
+  inside a single 30 s act scope and ignore the result. CI showed no timeouts
+  for them, so switching them offers no measured gain yet; it would make a
+  future stall fail where it occurs.
+- Nineteen other call sites wrap `waitForAppTestRuntimeToSettle` in one act
+  scope. A stall at any of them would show up as `App runtime settle timed out`
+  in the app log.
+- `bun test` ignores `--cpu-prof` in Bun 1.4.2. Use `performance.now()` phase
+  marks in an untracked probe copy of a test, and compare wall time with user
+  CPU time to separate idle waits from compute.
+- The API and SDK leads from the second pass were not re-measured here.

@@ -21,8 +21,11 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    Consult `docs/developer/test-optimization.md` for earlier findings; re-measure
    them before treating them as a current baseline.
    Default to `packages/api` and `packages/client-sdk`; verify that they actually
-   dominate the current CI critical path. Mention another bottleneck when the
-   evidence identifies one, without silently expanding the requested work.
+   dominate the current CI critical path. The app suite runs its files serially
+   (`--max-concurrency=1`), so its case sum approximates its elapsed time; while
+   it is the longest job, API and SDK savings cannot shorten CI. Mention another
+   bottleneck when the evidence identifies one, and state any change of scope
+   rather than silently expanding the requested work.
 2. Prefer a recent successful CI run with actual cache misses. Use `gh run list`,
    `gh run view <run> --json jobs`, and
    `gh run view <run> --job <job> --log` to save timings locally. Distinguish
@@ -41,7 +44,10 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    `bun test --cwd packages/api ./src/path/to/file.test.ts` (or the SDK
    directory), retaining the package's normal preload.
    Use explicit file paths: appending a filename to `bun run test` does not
-   narrow a script that already passes `src` to Bun.
+   narrow a script that already passes `src` to Bun. Local Bun output omits
+   passing cases, so add `--reporter=junit --reporter-outfile=<evidence path>`
+   for case durations. Record user CPU beside wall time, for example with
+   `/usr/bin/time -p`.
 5. Measure API candidates on both `API_DATABASE=memory` (PGlite) and
    `API_DATABASE=sqlite`. Run comparisons sequentially with the same flags,
    concurrency, and machine load. Avoid launching competing heavy checks or
@@ -49,6 +55,13 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    and qualify timing claims. Include setup/teardown in process wall
    time; keep case timings as a separate diagnostic. Save raw logs under a
    local evidence directory such as `git rev-parse --git-path test-optimization`.
+6. Separate waiting from compute. Wall time well above user CPU, or elapsed
+   times that alternate between two values with similar CPU, mean a test is
+   waiting out a timeout, often after a race; repeat such runs before comparing.
+   Search CI logs for timeout diagnostics such as `App runtime settle timed out`,
+   and look for wait helpers whose timeout result is discarded. `bun test`
+   ignores `--cpu-prof` in Bun 1.4.2; time phases with `performance.now()` marks
+   in an untracked probe copy of the test, and delete the probe afterward.
 
 Use the longest tests first, then repeated setup that makes a whole file or
 suite expensive. Pick a coherent, reviewable group of changes; complete its
@@ -72,6 +85,13 @@ Read the test and its fixture helpers, not only the name or coverage percentage.
   fixture data when appropriate, but give each test fresh mutable state,
   databases, checkpoints, and mocks. Re-register shared fixture data after
   per-test registry resets; never warm the cold verifier the test is measuring.
+  Before shortening a poll or wait, measure when the awaited event occurs: if
+  the helper already returns promptly, the remaining cost is production work.
+- **Do not starve React while waiting.** React defers renders scheduled inside
+  an async `act` scope until it exits, so a long wait inside one scope can hold
+  back the commit it is waiting for until the timeout. In the app, use
+  `settleAppTestRuntimeInAct`, and assert a wait helper's result rather than
+  discarding it.
 - **Delete only with a coverage map.** For every removal or consolidated case,
   name the surviving test and assertion that detects the same failure at the
   same relevant boundary and layer. For obsolete behavior, cite the removed

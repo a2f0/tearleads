@@ -1,8 +1,8 @@
 import { expect } from "bun:test";
-import { act, fireEvent, waitFor, within } from "@testing-library/react";
+import { fireEvent, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
 import { ORG_MANAGER_LABELS } from "../../../src/mini-apps/org-manager/labels";
-import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
+import { settleAppTestRuntimeInAct } from "../appRuntimeIdle";
 import {
   summarizeProxiedApiRequests,
   truncateText,
@@ -71,7 +71,9 @@ export async function importPeerIntoRoster(
   });
 
   // On success `importRosterUser` closes the dialog and selects the imported
-  // user; wait for the dialog to close, then let sync settle.
+  // user; wait for the dialog to close, then let sync settle. Selecting the
+  // user can start a roster profile mutation whose completion must commit
+  // before Org Manager releases the deferred organization hint.
   await waitForCondition(
     () =>
       within(pane).queryByRole("dialog", {
@@ -79,10 +81,11 @@ export async function importPeerIntoRoster(
       }) === null,
     `Roster import dialog for ${peerUserId} did not close.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
-  await act(async () => {
-    await waitForAppTestRuntimeToSettle({
+  expect(
+    await settleAppTestRuntimeInAct({
       apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
       timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
-    });
-  });
+    }),
+    `Roster import for ${peerUserId} did not settle.\nrequests=\n${summarizeProxiedApiRequests()}`,
+  ).toBe(true);
 }
