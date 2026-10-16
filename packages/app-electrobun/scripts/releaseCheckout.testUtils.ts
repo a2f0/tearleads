@@ -71,12 +71,16 @@ async function createCheckout(root: string, label: string) {
       join(root, `.secrets/${tier}/shared.env`),
       [
         `RELEASE_TEST_SECRETS=${label}`,
-        "AWS_ACCESS_KEY_ID=release-test",
-        "AWS_SECRET_ACCESS_KEY=release-test",
         `printf 'secrets %s\\n' ${label} >> "$RELEASE_TEST_LOG"`,
       ].join("\n"),
     );
-    await write(join(root, `.secrets/${tier}/app.env`), "");
+    await write(
+      join(root, `.secrets/${tier}/app.env`),
+      [
+        "TF_STATE_ACCESS_KEY_ID=release-test",
+        "TF_STATE_SECRET_ACCESS_KEY=release-test",
+      ].join("\n"),
+    );
   }
 }
 

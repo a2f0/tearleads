@@ -6,13 +6,6 @@ get_repo_root() {
   git rev-parse --show-toplevel
 }
 
-# Get the backend config file path
-get_backend_config() {
-  local repo_root
-  repo_root="$(get_repo_root)"
-  echo "$repo_root/terraform/configs/backend.hcl"
-}
-
 COMMON_SCRIPT_DIR="$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 # shellcheck source=terraform/scripts/secretsEnv.sh
 . "$COMMON_SCRIPT_DIR/secretsEnv.sh"
@@ -49,11 +42,9 @@ validate_azure_env() {
   fi
 }
 
-validate_aws_env() {
-  if [[ -n "${AWS_PROFILE:-}" || -n "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" || -n "${AWS_CONTAINER_CREDENTIALS_RELATIVE_URI:-}" ]]; then
-    return 0
-  fi
-
+# Every stack keeps its state in the Cloudflare R2 bucket
+# tearleads-terraform-state. The tier's app.env holds that bucket's R2 key.
+validate_tf_state_env() {
   local missing=()
 
   # A traced run would otherwise print the secret key in the test's expansion.
@@ -62,16 +53,42 @@ validate_aws_env() {
     xtrace_was_enabled=1
     set +x
   fi
-  [[ -z "${AWS_ACCESS_KEY_ID:-}" ]] && missing+=("AWS_ACCESS_KEY_ID")
-  [[ -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && missing+=("AWS_SECRET_ACCESS_KEY")
+  [[ -z "${TF_STATE_ACCESS_KEY_ID:-}" ]] && missing+=("TF_STATE_ACCESS_KEY_ID")
+  [[ -z "${TF_STATE_SECRET_ACCESS_KEY:-}" ]] && missing+=("TF_STATE_SECRET_ACCESS_KEY")
   if [[ "$xtrace_was_enabled" -eq 1 ]]; then
     set -x
   fi
 
   if [[ ${#missing[@]} -gt 0 ]]; then
-    echo "ERROR: Missing required environment variables for S3 backend:" >&2
+    echo "ERROR: Missing the R2 state backend key; set it in .secrets/<tier>/app.env:" >&2
     printf '  - %s\n' "${missing[@]}" >&2
     return 1
+  fi
+}
+
+# Hand the R2 state key to Terraform as the AWS credentials the S3 backend
+# reads. Only the stack wrappers call this, and they run nothing but Terraform
+# afterwards. No stack configures the AWS provider, so the key reaches only the
+# backend; a stack that adds one must not share this environment. Clearing the
+# profile and session variables keeps an ambient AWS login from replacing or
+# corrupting the key.
+export_tf_state_env() {
+  local xtrace_was_enabled=0
+  if [[ "$-" == *x* ]]; then
+    xtrace_was_enabled=1
+    set +x
+  fi
+  if ! validate_tf_state_env; then
+    if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+      set -x
+    fi
+    return 1
+  fi
+  unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_SESSION_TOKEN AWS_SECURITY_TOKEN
+  export AWS_ACCESS_KEY_ID="$TF_STATE_ACCESS_KEY_ID"
+  export AWS_SECRET_ACCESS_KEY="$TF_STATE_SECRET_ACCESS_KEY"
+  if [[ "$xtrace_was_enabled" -eq 1 ]]; then
+    set -x
   fi
 }
 

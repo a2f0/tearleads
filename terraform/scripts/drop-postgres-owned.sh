@@ -15,7 +15,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck disable=SC1091
 source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env staging
-validate_aws_env
+validate_tf_state_env
 
 umask 077
 CONNECTION_FILE="$(mktemp "${TMPDIR:-/tmp}/tearleads-staging-postgres-XXXXXX")"

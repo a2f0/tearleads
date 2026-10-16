@@ -10,6 +10,8 @@ async function runWrapper(
     token?: string;
     cloudflareToken?: string;
     initStatus?: string;
+    stateKeyId?: string;
+    stateSecret?: string;
   } = {},
 ) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-postgres-stack-"));
@@ -42,10 +44,18 @@ async function runWrapper(
     await Bun.write(
       resolve(secrets, "shared.env"),
       [
-        "AWS_ACCESS_KEY_ID=fixture-id",
-        "AWS_SECRET_ACCESS_KEY=fixture-secret",
+        // The account's AWS keys must never reach the R2 state backend.
+        "AWS_ACCESS_KEY_ID=ambient-aws-id",
+        "AWS_SECRET_ACCESS_KEY=ambient-aws-secret",
         "TF_VAR_cloudflare_account_id=fixture-account",
         `TF_VAR_cloudflare_api_token=${options.cloudflareToken ?? "fixture-cloudflare-token"}`,
+      ].join("\n"),
+    );
+    await Bun.write(
+      resolve(secrets, "app.env"),
+      [
+        `TF_STATE_ACCESS_KEY_ID=${options.stateKeyId ?? "fixture-state-id"}`,
+        `TF_STATE_SECRET_ACCESS_KEY=${options.stateSecret ?? "fixture-state-secret"}`,
       ].join("\n"),
     );
     await Bun.write(
@@ -64,6 +74,9 @@ async function runWrapper(
       resolve(bin, "terraform"),
       [
         "#!/bin/sh",
+        // Terraform sees only the R2 state key, never an ambient AWS login.
+        '[ "$AWS_ACCESS_KEY_ID" = fixture-state-id ] && [ "$AWS_SECRET_ACCESS_KEY" = fixture-state-secret ] || exit 93',
+        "! env | grep -Eq '^AWS_(PROFILE|DEFAULT_PROFILE|SESSION_TOKEN|SECURITY_TOKEN)=' || exit 94",
         '{ printf "%s" "$1"; shift; printf "|%s" "$@"; printf "\\n"; } >> "$POSTGRES_TEST_LOG"',
         'if [ "$1" = init ]; then',
         '  echo "initializing backend"',
@@ -83,6 +96,10 @@ async function runWrapper(
         cwd: tmpdir(),
         env: {
           PATH: `${bin}:/usr/bin:/bin`,
+          AWS_PROFILE: "inherited-profile",
+          AWS_DEFAULT_PROFILE: "inherited-profile",
+          AWS_SESSION_TOKEN: "inherited-session",
+          AWS_SECURITY_TOKEN: "inherited-session",
           POSTGRES_TEST_ROOT: root,
           POSTGRES_TEST_LOG: log,
           POSTGRES_TEST_INIT_STATUS: options.initStatus ?? "0",
@@ -114,7 +131,7 @@ async function runWrapper(
 const stackArg = (tier: string) =>
   `-chdir=<repo>/terraform/stacks/${tier}/postgres`;
 const initCall = (tier: string) =>
-  `${stackArg(tier)}|init|-input=false|-reconfigure|-backend-config=<repo>/terraform/configs/backend.hcl`;
+  `${stackArg(tier)}|init|-input=false|-reconfigure`;
 
 for (const args of [[], ["prod"], ["prod", "destroy"], ["unknown", "apply"]]) {
   test(`rejects unsupported invocation ${args.join(" ") || "(missing)"}`, async () => {
@@ -204,3 +221,19 @@ test("failed initialization prevents apply", async () => {
   expect(result.exitCode).toBe(7);
   expect(result.calls).toEqual([initCall("prod")]);
 });
+
+for (const missing of ["stateKeyId", "stateSecret"] as const) {
+  test(`a missing R2 state ${missing} stops before Terraform`, async () => {
+    const result = await runWrapper(["prod", "output", "-json", "database"], {
+      [missing]: "",
+    });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain(
+      missing === "stateKeyId"
+        ? "TF_STATE_ACCESS_KEY_ID"
+        : "TF_STATE_SECRET_ACCESS_KEY",
+    );
+    expect(result.stderr).not.toContain("fixture-state-secret");
+    expect(result.calls).toEqual([]);
+  });
+}

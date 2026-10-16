@@ -20,15 +20,13 @@ STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/storage"
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env "$TIER"
-validate_aws_env
+export_tf_state_env
 validate_cloudflare_env
 
 if [[ "$ACTION" == init ]]; then
-  terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
-    -backend-config="$(get_backend_config)" "$@"
+  terraform -chdir="$STACK_DIR" init -input=false -reconfigure "$@"
 else
-  terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
-    -backend-config="$(get_backend_config)" >&2
+  terraform -chdir="$STACK_DIR" init -input=false -reconfigure >&2
   case "$ACTION" in
     plan | apply) set -- -input=false "$@" ;;
   esac

@@ -24,7 +24,7 @@ if [[ "$ACTION" == upload ]]; then
   TF_TIER="$TIER"
   [[ "$TIER" != production ]] || TF_TIER=prod
   load_secrets_env "$TF_TIER"
-  validate_aws_env
+  validate_tf_state_env
 fi
 unset SENTRY_AUTH_TOKEN BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY BUN_INSPECT_PRELOAD
 exec bun --no-env-file --config=/dev/null "$REPO_ROOT/packages/app-electrobun/scripts/releaseWindows.ts" "$@"

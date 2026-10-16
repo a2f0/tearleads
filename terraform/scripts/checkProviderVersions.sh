@@ -127,10 +127,6 @@ collect_versions_files() {
     echo "$vf"
   done
 
-  if [ -z "${ONLY_TIER:-}" ] && [ -f "$TF_ROOT/bootstrap/versions.tf" ]; then
-    echo "$TF_ROOT/bootstrap/versions.tf"
-  fi
-
   if [ "${INCLUDE_MODULES:-0}" -eq 1 ]; then
     for vf in "$TF_ROOT"/modules/*/versions.tf; do
       [ -f "$vf" ] || continue

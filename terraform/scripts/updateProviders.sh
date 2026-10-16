@@ -5,7 +5,6 @@
 # directly, and reports which lock files changed.
 #
 # Environment toggles:
-#   SKIP_BOOTSTRAP=1        Skip the bootstrap stack
 #   ONLY_TIER=<tier>        Only update stacks in a specific tier (dev|staging|prod|shared)
 #   ONLY_STACK=<path>       Only update a single stack (relative to terraform/stacks/, e.g. prod/k8s)
 #   DRY_RUN=1               Show which stacks would be updated without running anything
@@ -31,13 +30,6 @@ warn() {
 # Collect all stacks with versions.tf files.
 collect_stacks() {
   local stacks=""
-
-  # Bootstrap (no tier)
-  if [ "${SKIP_BOOTSTRAP:-0}" -ne 1 ] && [ -z "${ONLY_TIER:-}" ] && [ -z "${ONLY_STACK:-}" ]; then
-    if [ -f "$TF_ROOT/bootstrap/versions.tf" ]; then
-      stacks="bootstrap"
-    fi
-  fi
 
   # Walk stacks/<tier>/<stack>/versions.tf
   for versions_file in "$TF_ROOT"/stacks/*/*/versions.tf; do

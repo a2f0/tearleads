@@ -49,7 +49,7 @@ unset SENTRY_AUTH_TOKEN
 # These add env files, preload modules or a debugger to every Bun process.
 unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
   BUN_INSPECT_PRELOAD
-if [[ "$ACTION" == upload ]]; then validate_aws_env; fi
+if [[ "$ACTION" == upload ]]; then validate_tf_state_env; fi
 if [[ "$TIER" == staging ]]; then
   CHANNEL=canary
   BUCKET=tearleads-downloads-staging

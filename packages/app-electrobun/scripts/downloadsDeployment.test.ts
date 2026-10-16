@@ -33,10 +33,9 @@ async function runScript(
       "terraform/scripts/common.sh",
       [
         'load_secrets_env() { echo secrets >> "$DOWNLOADS_TEST_LOG"; }',
-        "validate_aws_env() { :; }",
+        'export_tf_state_env() { echo state >> "$DOWNLOADS_TEST_LOG"; }',
         "validate_cloudflare_env() { :; }",
         "validate_domain_env() { :; }",
-        "get_backend_config() { echo /dev/null; }",
       ].join("\n"),
     );
     await write(
@@ -110,7 +109,8 @@ for (const [tier, action, args] of [
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.calls).toEqual([
       "secrets",
-      `${terraform} init -input=false -reconfigure -backend-config=/dev/null`,
+      "state",
+      `${terraform} init -input=false -reconfigure`,
       [terraform, action, ...input, ...args].join(" "),
     ]);
   });
@@ -121,8 +121,8 @@ test("failed downloads initialization prevents apply", async () => {
     failInit: true,
   });
   expect(result.exitCode).toBe(8);
-  expect(result.calls).toHaveLength(2);
-  expect(result.calls[1]).toContain(" init ");
+  expect(result.calls).toHaveLength(3);
+  expect(result.calls[2]).toContain(" init ");
 });
 
 test("downloads lifecycle policy accepts the production and staging roots", async () => {

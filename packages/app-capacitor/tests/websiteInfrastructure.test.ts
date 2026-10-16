@@ -30,7 +30,9 @@ test("website domains and Workers agree across the two independent stacks", asyn
         ? /hostname\s*= var.domain/
         : /hostname\s*= "website-staging\.\$\{var.domain\}"/,
     );
-    expect(versions).toContain(`key = "${tier}/website/terraform.tfstate"`);
+    expect(versions).toMatch(
+      new RegExp(`key\\s+= "${tier}/website/terraform\\.tfstate"`),
+    );
     expect(main).not.toContain("terraform_remote_state");
     expect(main).not.toContain("edge");
   }
@@ -62,7 +64,9 @@ test("edge domains attach the API, app, and demo hostnames to their Workers", as
       `env.${tier}.vars.API_BILLING_RETURN_ORIGINS`,
     );
     expect(variables).toContain(`default     = "${tier}"`);
-    expect(versions).toContain(`key = "${tier}/edge/terraform.tfstate"`);
+    expect(versions).toMatch(
+      new RegExp(`key\\s+= "${tier}/edge/terraform\\.tfstate"`),
+    );
     expect(main).toContain(
       `worker_name           = "tearleads-platform-api-\${var.deployment_tier}"`,
     );

@@ -31,8 +31,9 @@ the explicit Wrangler environment.
 Cloudflare credentials use `TF_VAR_cloudflare_api_token` and
 `TF_VAR_cloudflare_account_id`. The token needs Workers Scripts Edit, Workers
 Routes Edit, and Zone Read for the target account/zone. Terraform also needs the
-existing AWS credentials for its S3 backend. No SSH or Hetzner credentials are
-needed for a standalone website deployment.
+tier's R2 state key, `TF_STATE_ACCESS_KEY_ID` and `TF_STATE_SECRET_ACCESS_KEY`
+in `app.env`. No SSH or Hetzner credentials are needed for a standalone website
+deployment.
 
 The full `scripts/deployStaging.sh` and `scripts/deployProduction.sh` include this
 website deployment. Their `--skip-terraform` skips server/storage provisioning;
@@ -118,7 +119,7 @@ terraform/scripts/run-continuity-stack.sh apply /path/to/gallery.tfplan
 Subsequent gallery asset deployments do not need Terraform. The gallery sends
 `noindex` in HTML and response headers. Publish the Worker into the tearleads.com
 Cloudflare account (`TF_VAR_cloudflare_account_id`). The hostname stack needs
-Workers Routes Edit and Zone Read, plus AWS credentials for its S3 backend.
+Workers Routes Edit and Zone Read, plus production's R2 state key.
 
 Initial publishing is an operator task using existing production credentials.
 Workers Scripts Edit grants account-wide edits, including the production API,

@@ -105,7 +105,7 @@ export async function runMacosRelease(
       "terraform/scripts/common.sh",
       [
         'load_secrets_env() { printf "secrets %s\\n" "$1" >> "$RELEASE_TEST_LOG"; export SENTRY_AUTH_TOKEN=release-test-token; }',
-        'validate_aws_env() { echo credentials >> "$RELEASE_TEST_LOG"; }',
+        'validate_tf_state_env() { echo credentials >> "$RELEASE_TEST_LOG"; }',
       ].join("\n"),
     );
     await write(

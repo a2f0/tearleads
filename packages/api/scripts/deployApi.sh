@@ -38,7 +38,7 @@ API_DIR="$REPO_ROOT/packages/api"
 . "$REPO_ROOT/terraform/scripts/common.sh"
 
 load_secrets_env "$TIER"
-validate_aws_env
+validate_tf_state_env
 validate_domain_env
 validate_stripe_env "$TIER"
 export_wrangler_env

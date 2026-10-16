@@ -37,10 +37,9 @@ async function runStorageScript(
       resolve(root, "terraform/scripts/common.sh"),
       [
         'load_secrets_env() { echo secrets >> "$STORAGE_TEST_LOG"; }',
-        "validate_aws_env() { :; }",
+        'export_tf_state_env() { echo state >> "$STORAGE_TEST_LOG"; }',
         "validate_cloudflare_env() { :; }",
         "validate_domain_env() { :; }",
-        "get_backend_config() { echo /dev/null; }",
       ].join("\n"),
     );
     await executable(
@@ -247,7 +246,8 @@ for (const [tier, action, args] of [
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.calls).toEqual([
       "secrets",
-      `${terraform} init -input=false -reconfigure -backend-config=/dev/null`,
+      "state",
+      `${terraform} init -input=false -reconfigure`,
       [terraform, action, ...input, ...args].join(" "),
     ]);
   });

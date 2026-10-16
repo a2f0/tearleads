@@ -32,8 +32,8 @@ async function runWebsite(script: string, args: string[] = [], failure = "") {
         'load_secrets_env() { echo "secrets|$1" >> "$WEBSITE_TEST_LOG"; }',
         'validate_cloudflare_env() { [ "$WEBSITE_TEST_FAILURE" != credentials ] || exit 7; }',
         "validate_domain_env() { :; }",
-        'validate_aws_env() { echo aws >> "$WEBSITE_TEST_LOG"; }',
-        "get_backend_config() { echo /fixture/backend.hcl; }",
+        'validate_tf_state_env() { echo state-check >> "$WEBSITE_TEST_LOG"; }',
+        'export_tf_state_env() { echo state >> "$WEBSITE_TEST_LOG"; }',
       ].join("\n"),
     );
     await executable(
@@ -96,12 +96,12 @@ for (const [label, tier, environment, portal] of [
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.calls).toEqual([
       `secrets|${tier}`,
-      "aws",
+      "state-check",
       `bun|run build|${environment}|https://billing.stripe.com/p/login/${portal}`,
       `bun|run deploy:assets --env ${tier}|${environment}|https://billing.stripe.com/p/login/${portal}`,
       `secrets|${tier}`,
-      "aws",
-      `terraform|-chdir=ROOT/terraform/stacks/${tier}/website init -input=false -reconfigure -backend-config=/fixture/backend.hcl`,
+      "state",
+      `terraform|-chdir=ROOT/terraform/stacks/${tier}/website init -input=false -reconfigure`,
       `terraform|-chdir=ROOT/terraform/stacks/${tier}/website apply -input=false -auto-approve`,
     ]);
   });
@@ -122,7 +122,8 @@ for (const [label, tier, environment, portal] of [
   test(`${tier} can publish without Terraform or backend credentials`, async () => {
     const result = await runWebsite(script, ["--skip-terraform"]);
     expect(result.exitCode, result.stderr).toBe(0);
-    expect(result.calls).not.toContain("aws");
+    expect(result.calls).not.toContain("state-check");
+    expect(result.calls).not.toContain("state");
     expect(result.calls.some((call) => call.startsWith("terraform|"))).toBe(
       false,
     );
@@ -206,7 +207,7 @@ test("website initialization forwards provider upgrade arguments", async () => {
   ]);
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls.at(-1)).toBe(
-    "terraform|-chdir=ROOT/terraform/stacks/staging/website init -input=false -reconfigure -backend-config=/fixture/backend.hcl -upgrade",
+    "terraform|-chdir=ROOT/terraform/stacks/staging/website init -input=false -reconfigure -upgrade",
   );
   expect(
     result.calls.filter((call) => call.startsWith("terraform|")),
@@ -232,8 +233,8 @@ test("continuity initialization forwards provider upgrade arguments", async () =
   expect(result.exitCode, result.stderr).toBe(0);
   expect(result.calls).toEqual([
     "secrets|prod",
-    "aws",
-    "terraform|-chdir=ROOT/terraform/stacks/prod/continuity init -input=false -reconfigure -backend-config=/fixture/backend.hcl -upgrade",
+    "state",
+    "terraform|-chdir=ROOT/terraform/stacks/prod/continuity init -input=false -reconfigure -upgrade",
   ]);
 });
 
@@ -249,8 +250,8 @@ for (const [action, argument] of [
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.calls).toEqual([
       "secrets|prod",
-      "aws",
-      "terraform|-chdir=ROOT/terraform/stacks/prod/continuity init -input=false -reconfigure -backend-config=/fixture/backend.hcl",
+      "state",
+      "terraform|-chdir=ROOT/terraform/stacks/prod/continuity init -input=false -reconfigure",
       `terraform|-chdir=ROOT/terraform/stacks/prod/continuity ${action} -input=false ${argument}`,
     ]);
   });

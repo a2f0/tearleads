@@ -65,7 +65,7 @@ async function deployFixture(
       '  if [[ "$traced" -eq 1 ]]; then set -x; fi',
       "  return 0",
       "}",
-      "validate_aws_env() { :; }",
+      "validate_tf_state_env() { :; }",
       "validate_domain_env() { :; }",
       "validate_stripe_env() { :; }",
       "export_wrangler_env() {",

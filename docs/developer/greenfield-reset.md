@@ -42,9 +42,9 @@ Check these before teardown:
 - Clean source, available `ship-pr` skill, required build/check tooling from
   `.mise.toml`, and release prerequisites in the
   [release runbook](greenfield-reset-releases.md).
-- Authenticated Terraform backend, AWS, Cloudflare (the Terraform token, which
-  the deploy scripts also export for Wrangler), and PlanetScale access. Do not
-  print tokens while checking.
+- Authenticated Terraform state backend (the tier's R2 state key), Cloudflare
+  (the Terraform token, which the deploy scripts also export for Wrangler), and
+  PlanetScale access. Do not print tokens while checking.
 - Each stack's state key and resource identities; current database branch ID,
   connection metadata, blob count, multipart uploads, and
   relevant external billing state. Preserve the production

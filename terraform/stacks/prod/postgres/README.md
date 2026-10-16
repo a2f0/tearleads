@@ -2,7 +2,7 @@
 
 This stack owns `tearleads/tearleads-prod`, branch `main`, its API roles, and the
 API Hyperdrive configuration.
-Its independent S3 state key is `prod/postgres/terraform.tfstate`. Worker
+Its independent R2 state key is `prod/postgres/terraform.tfstate`. Worker
 redeploys preserve the database; the API deploy reads its connection output.
 
 ## Provisioning
@@ -33,11 +33,12 @@ export TF_VAR_planetscale_cluster_size='PS_5_AWS_ARM'
 ```
 
 The token needs organization database creation access and the database/branch
-and PostgreSQL role permissions used by the provider. The wrapper loads backend
-credentials and Cloudflare settings (`TF_VAR_cloudflare_api_token` and
+and PostgreSQL role permissions used by the provider. The wrapper loads
+Cloudflare settings (`TF_VAR_cloudflare_api_token` and
 `TF_VAR_cloudflare_account_id`) from the tier's `.secrets/<tier>/shared.env`,
-and PlanetScale settings from `.secrets/<tier>/planetscale.env`. The Cloudflare
-token needs Hyperdrive Edit.
+the R2 state key (`TF_STATE_ACCESS_KEY_ID` and `TF_STATE_SECRET_ACCESS_KEY`)
+from `.secrets/<tier>/app.env`, and PlanetScale settings from
+`.secrets/<tier>/planetscale.env`. The Cloudflare token needs Hyperdrive Edit.
 
 ```sh
 umask 077
@@ -59,7 +60,7 @@ disables interactive variable prompts.
 This stack owns the database and its non-expiring `tearleads-runtime` and
 `tearleads-migrations` logins. The database, protection setting, and roles use
 `prevent_destroy`; the main branch also has PlanetScale deletion protection.
-Keep this stack and its S3 state when redeploying the Workers. Deletion protection
+Keep this stack and its R2 state when redeploying the Workers. Deletion protection
 is a guard against accidents, not a substitute for retaining state and backups.
 
 `packages/api/scripts/deployApi.sh prod` reads the sensitive `api_connection`
@@ -72,7 +73,7 @@ Worker secrets, including `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`,
 `POSTGRES_PASSWORD`, and `POSTGRES_DATABASE`. The runtime credentials stay in
 this Terraform state and Hyperdrive; they are no longer exported through
 `api_connection`. The Worker never receives the migration login, the PlanetScale
-service token, or AWS state credentials.
+service token, or the R2 state key.
 
 The runtime login inherits `pg_read_all_data` and `pg_write_all_data`. Hyperdrive
 connects with it through the included PgBouncer on port 6432. Its `require` SSL
