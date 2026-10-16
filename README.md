@@ -65,6 +65,13 @@ ignoring any AWS profile or session. That pair is the R2 S3 key of a token
 limited to the state bucket: the token ID and the SHA-256 of the token value.
 No stack uses the AWS provider.
 
+State moved here from the AWS S3 bucket of the same name in October 2026. Every
+object was copied under its existing key, and its lineage and serial were
+verified, before the backends changed. The wrappers' `init -reconfigure`
+therefore attaches each stack to its copied state without migrating anything.
+The AWS bucket, its DynamoDB lock table, and the local bootstrap state are
+retired; never initialize a stack against them.
+
 `scripts/deployStaging.sh` and `scripts/deployProduction.sh` run the whole
 sequence: storage, database, API migrations and Worker, app bundles, edge
 hostnames (which need the Workers to exist), API verification, then website. `packages/api/scripts/deployApi.sh`
