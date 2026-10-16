@@ -23,7 +23,7 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env "$TIER"
 validate_cloudflare_env
 validate_domain_env
-if [[ "$SKIP_TERRAFORM" == false ]]; then validate_aws_env; fi
+if [[ "$SKIP_TERRAFORM" == false ]]; then validate_tf_state_env; fi
 
 export CLOUDFLARE_API_TOKEN="${TF_VAR_cloudflare_api_token:?}"
 export CLOUDFLARE_ACCOUNT_ID="${TF_VAR_cloudflare_account_id:?}"

@@ -116,7 +116,7 @@ export async function runWindowsRelease(
     );
     await write(
       "terraform/scripts/common.sh",
-      "load_secrets_env() { export SENTRY_AUTH_TOKEN=fixture-token; }\nvalidate_aws_env() { :; }\n",
+      "load_secrets_env() { export SENTRY_AUTH_TOKEN=fixture-token; }\nvalidate_tf_state_env() { :; }\n",
     );
     await write(
       ".gitignore",

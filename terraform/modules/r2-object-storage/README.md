@@ -12,7 +12,8 @@ after seven days, and creates one account token scoped to object access in its
 bucket. Only downloads receive a custom domain: `downloads.tearleads.com` or
 `downloads-staging.tearleads.com`. Application blobs have no public endpoint.
 Production roots retain `prevent_destroy`; R2 requires empty buckets before
-deletion in either tier. Terraform state stays in its existing S3 backend.
+deletion in either tier. Terraform state lives in the separate
+`tearleads-terraform-state` bucket, which no stack manages.
 
 Private blob roots set `download_cors_origins = ["*"]` for cross-origin signed
 GETs and PUTs from web, desktop, and mobile clients. CORS does not grant object

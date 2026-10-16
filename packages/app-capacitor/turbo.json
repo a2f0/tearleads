@@ -14,6 +14,7 @@
         "!$TURBO_ROOT$/scripts/localstack/data/**",
         "$TURBO_ROOT$/terraform/scripts/**",
         "$TURBO_ROOT$/terraform/stacks/**/*.tf",
+        "$TURBO_ROOT$/terraform/modules/**/*.tf",
         "$TURBO_ROOT$/terraform/stacks/**/scripts/**",
         "!$TURBO_ROOT$/terraform/**/.terraform/**",
         "$TURBO_ROOT$/packages/api/scripts/**",

@@ -36,7 +36,7 @@ async function tracedRun(scriptPath: string, args: readonly string[]) {
     );
     await executable(
       resolve(root, "terraform/scripts/common.sh"),
-      "load_secrets_env() { :; }\nvalidate_aws_env() { :; }",
+      "load_secrets_env() { :; }\nvalidate_tf_state_env() { :; }",
     );
     await executable(
       resolve(root, "terraform/scripts/run-storage-stack.sh"),
@@ -100,15 +100,16 @@ test("the real credential validators never print a secret under tracing", async 
     [
       "bash",
       "-c",
-      `source "$1"; set -x; validate_aws_env; validate_cloudflare_env; export_wrangler_env; set +x; echo validated`,
+      // The exported key is compared only after tracing stops.
+      `source "$1"; set -x; validate_tf_state_env; export_tf_state_env; validate_cloudflare_env; export_wrangler_env; set +x; [ "$AWS_SECRET_ACCESS_KEY" = state-secret-sentinel ] && echo validated`,
       "bash",
       script,
     ],
     {
       env: {
         PATH: process.env[pathKey] ?? "",
-        AWS_ACCESS_KEY_ID: "aws-key-id-sentinel",
-        AWS_SECRET_ACCESS_KEY: "aws-secret-sentinel",
+        TF_STATE_ACCESS_KEY_ID: "state-key-id-sentinel",
+        TF_STATE_SECRET_ACCESS_KEY: "state-secret-sentinel",
         TF_VAR_cloudflare_api_token: "cloudflare-token-sentinel",
         TF_VAR_cloudflare_account_id: "account",
       },
@@ -123,8 +124,9 @@ test("the real credential validators never print a secret under tracing", async 
   ]);
   expect(exitCode, stderr).toBe(0);
   expect(stdout).toContain("validated");
-  expect(stderr).toContain("+ validate_aws_env");
-  for (const secret of ["aws-secret-sentinel", "cloudflare-token-sentinel"]) {
+  expect(stderr).toContain("+ validate_tf_state_env");
+  expect(stderr).toContain("+ export_tf_state_env");
+  for (const secret of ["state-secret-sentinel", "cloudflare-token-sentinel"]) {
     expect(stderr).not.toContain(secret);
   }
 });

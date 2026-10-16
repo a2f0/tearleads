@@ -22,11 +22,11 @@ STACK_DIR="$REPO_ROOT/terraform/stacks/$TIER/postgres"
 # shellcheck source=terraform/scripts/common.sh
 source "$REPO_ROOT/terraform/scripts/common.sh"
 
-# Backend credentials come from the tier's shared.env; PlanetScale has its own
+# The R2 state key comes from the tier's app.env; PlanetScale has its own
 # secret file in the same tier folder.
 load_secrets_env "$TIER"
 _source_optional_env_file "$REPO_ROOT/.secrets/$TIER/planetscale.env"
-validate_aws_env
+export_tf_state_env
 export TF_VAR_planetscale_service_token_id="${PLANETSCALE_SERVICE_TOKEN_ID:-}"
 export TF_VAR_planetscale_service_token="${PLANETSCALE_SERVICE_TOKEN:-}"
 
@@ -41,11 +41,9 @@ case "$ACTION" in
 esac
 
 if [[ "$ACTION" == init ]]; then
-  terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
-    -backend-config="$(get_backend_config)" "$@"
+  terraform -chdir="$STACK_DIR" init -input=false -reconfigure "$@"
 else
-  terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
-    -backend-config="$(get_backend_config)" >&2
+  terraform -chdir="$STACK_DIR" init -input=false -reconfigure >&2
   case "$ACTION" in
     plan | apply | destroy) set -- -input=false "$@" ;;
   esac

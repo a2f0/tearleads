@@ -13,14 +13,13 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # shellcheck disable=SC1091
 source "$REPO_ROOT/terraform/scripts/common.sh"
 load_secrets_env prod
-validate_aws_env
+export_tf_state_env
 validate_cloudflare_env
 validate_domain_env
 STACK_DIR="$REPO_ROOT/terraform/stacks/prod/continuity"
 INIT_ARGS=()
 if [[ "$ACTION" == init ]]; then INIT_ARGS=("$@"); fi
-terraform -chdir="$STACK_DIR" init -input=false -reconfigure \
-  -backend-config="$(get_backend_config)" "${INIT_ARGS[@]+"${INIT_ARGS[@]}"}" >&2
+terraform -chdir="$STACK_DIR" init -input=false -reconfigure "${INIT_ARGS[@]+"${INIT_ARGS[@]}"}" >&2
 if [[ "$ACTION" != init ]]; then
   INPUT_ARGS=()
   case "$ACTION" in plan | apply) INPUT_ARGS=(-input=false) ;; esac

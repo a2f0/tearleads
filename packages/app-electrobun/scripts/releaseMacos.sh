@@ -54,7 +54,7 @@ unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
 # shellcheck source=packages/app-electrobun/scripts/macosSigning.sh
 source "$PACKAGE_DIR/scripts/macosSigning.sh"
 configure_macos_signing "$TF_TIER"
-if [[ "$ACTION" == upload ]]; then validate_aws_env; fi
+if [[ "$ACTION" == upload ]]; then validate_tf_state_env; fi
 
 export ELECTROBUN_RELEASE_TIER="$TIER"
 if [[ "$TIER" == staging ]]; then

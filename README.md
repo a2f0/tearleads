@@ -55,6 +55,16 @@ Each tier is four Cloudflare Workers plus three independent Terraform stacks:
   app, and demo hostnames to the published Workers. The website keeps its own
   domain stack.
 
+Every stack keeps its state in the Cloudflare R2 bucket
+`tearleads-terraform-state`, at `<tier>/<stack>/terraform.tfstate`, through the
+S3 backend with lockfile locking. The bucket was created by hand and no stack
+manages it. The `terraform/scripts/run-*-stack.sh` wrappers hand Terraform the
+tier's `TF_STATE_ACCESS_KEY_ID` and `TF_STATE_SECRET_ACCESS_KEY` from
+`.secrets/<tier>/app.env` as `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`,
+ignoring any AWS profile or session. That pair is the R2 S3 key of a token
+limited to the state bucket: the token ID and the SHA-256 of the token value.
+No stack uses the AWS provider.
+
 `scripts/deployStaging.sh` and `scripts/deployProduction.sh` run the whole
 sequence: storage, database, API migrations and Worker, app bundles, edge
 hostnames (which need the Workers to exist), API verification, then website. `packages/api/scripts/deployApi.sh`

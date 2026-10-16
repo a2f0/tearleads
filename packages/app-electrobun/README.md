@@ -194,7 +194,7 @@ does not require a separate Node executable for this launcher.
 Only Git-tracked working files enter the Docker context; stage new source files
 before building. Host `node_modules`, ignored build output, `.git`, and
 `.secrets` are excluded. The host supplies the source commit and public desktop
-Sentry DSNs as build arguments; AWS credentials and the Sentry upload token stay
+Sentry DSNs as build arguments; R2 credentials and the Sentry upload token stay
 on the host. Local source edits are included in build mode. Upload refuses
 staged, unstaged, or untracked files before any Bun process runs, so the release
 identity names the committed source. Both release drivers resolve their own
@@ -304,9 +304,10 @@ runs the packaged setup executable, checks the installed build hash, then
 reopens the installed app twice and checks encrypted database persistence.
 The GitHub repository
 variables `SENTRY_ELECTROBUN_STAGING_DSN` and
-`SENTRY_ELECTROBUN_PRODUCTION_DSN` contain the public desktop DSNs. No AWS or
-Sentry upload token is needed on the runner. Release jobs build a committed
-source archive and stage source maps separately, like the Linux container.
+`SENTRY_ELECTROBUN_PRODUCTION_DSN` contain the public desktop DSNs. No R2
+credentials or Sentry upload token are needed on the runner. Release jobs build
+a committed source archive and stage source maps separately, like the Linux
+container.
 
 Push the commit first, then dispatch from the Actions UI, or use:
 
