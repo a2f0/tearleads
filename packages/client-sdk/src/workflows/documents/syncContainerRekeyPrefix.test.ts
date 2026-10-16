@@ -1,47 +1,34 @@
-import { expect, test } from "bun:test";
+import { beforeAll, expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import {
   MAX_CONTAINER_PATH_LENGTH,
   MAX_INLINE_CONTAINER_REKEYS,
 } from "@tearleads/validators/util";
-import { createDeepRotatedAncestorFixture } from "../../../test/helpers/ancestorRotationRecovery";
 import { createMutationResponseFromRequest } from "../../../test/helpers/containerFixtures";
+import { prepareDeepDocumentRepairFixture } from "../../../test/helpers/deepDocumentRepairFixture";
 import { writerKeyResolver } from "../../../test/helpers/documentFixtures";
-import {
-  createPendingUpdateRecord,
-  createResponseFromRequest,
-} from "../../../test/helpers/documentResponseFixtures";
+import { createPendingUpdateRecord } from "../../../test/helpers/documentResponseFixtures";
 import { createFullHistoryRotationSnapshot } from "../../../test/helpers/staleBundleSyncFixture";
-import {
-  buildMaterializedDocumentCreatePlan,
-  documentWriterProjectionFromCreateResponse,
-} from "./create";
 import { syncRemoteDocument } from "./sync";
 import { prepareAutomaticContainerRekeys } from "./syncContainerRekeyPreparation";
 
+let createFixture: Awaited<ReturnType<typeof prepareDeepDocumentRepairFixture>>;
+beforeAll(async () => {
+  createFixture = await prepareDeepDocumentRepairFixture(17);
+}, 180_000);
+
 test("a cold device can acknowledge repairs it commits through the prefix", async () => {
-  const fixture = await createDeepRotatedAncestorFixture(17);
-  const staging = await createTestExecSql("deep-prefix-document");
+  const fixture = createFixture();
+  const { projection } = fixture;
   const cold = await createTestExecSql("cold-prefix-acknowledgement");
   try {
-    const created = await buildMaterializedDocumentCreatePlan({
-      ...fixture.input,
-      execSql: staging.execSql,
-      containerProjection: fixture.leaf,
-    });
-    const original = documentWriterProjectionFromCreateResponse({
-      containerProjection: fixture.leaf,
-      response: await createResponseFromRequest(created.plan.request),
-    });
-    const projection = {
-      ...original,
-      authorizingContainerPaths: [fixture.projection],
-    };
     const committed: string[] = [];
     // Each container on the chain is repaired exactly once, so its pre-repair
     // KEK is the one the stale projection already carries.
     const previousKeks = new Map(
-      fixture.projection.containerKeks.map((kek) => [kek.containerId, kek]),
+      projection.authorizingContainerPaths
+        .flatMap((path) => path.containerKeks)
+        .map((kek) => [kek.containerId, kek]),
     );
     const sync = {
       ...fixture.input,
@@ -72,7 +59,6 @@ test("a cold device can acknowledge repairs it commits through the prefix", asyn
     ).rejects.toThrow(/abandoned: unrefreshable/);
     expect(committed).toHaveLength(MAX_INLINE_CONTAINER_REKEYS);
   } finally {
-    staging.close();
     cold.close();
   }
 }, 180_000);
@@ -83,23 +69,10 @@ test("a cold device can acknowledge repairs it commits through the prefix", asyn
 // rather than absorbed.
 
 test("a refused standalone repair abandons the pass", async () => {
-  const fixture = await createDeepRotatedAncestorFixture(17);
-  const staging = await createTestExecSql("refused-prefix-document");
+  const fixture = createFixture();
+  const { projection } = fixture;
   const cold = await createTestExecSql("refused-prefix-repair");
   try {
-    const created = await buildMaterializedDocumentCreatePlan({
-      ...fixture.input,
-      execSql: staging.execSql,
-      containerProjection: fixture.leaf,
-    });
-    const original = documentWriterProjectionFromCreateResponse({
-      containerProjection: fixture.leaf,
-      response: await createResponseFromRequest(created.plan.request),
-    });
-    const projection = {
-      ...original,
-      authorizingContainerPaths: [fixture.projection],
-    };
     const abandoned: string[] = [];
     const terminal: string[] = [];
     const traced: string[] = [];
@@ -132,7 +105,6 @@ test("a refused standalone repair abandons the pass", async () => {
       traced.filter((line) => line.includes("ancestor repair abandoned")),
     ).toHaveLength(1);
   } finally {
-    staging.close();
     cold.close();
   }
 }, 180_000);
@@ -145,25 +117,14 @@ test("a refused standalone repair abandons the pass", async () => {
 // two-linked document needs a full link round-trip.
 
 test("a refetched projection for another document is refused", async () => {
-  const fixture = await createDeepRotatedAncestorFixture(17);
-  const staging = await createTestExecSql("swap-prefix-document");
+  const fixture = createFixture();
+  const { projection } = fixture;
   const cold = await createTestExecSql("swap-prefix-repair");
   try {
-    const created = await buildMaterializedDocumentCreatePlan({
-      ...fixture.input,
-      execSql: staging.execSql,
-      containerProjection: fixture.leaf,
-    });
-    const original = documentWriterProjectionFromCreateResponse({
-      containerProjection: fixture.leaf,
-      response: await createResponseFromRequest(created.plan.request),
-    });
-    const projection = {
-      ...original,
-      authorizingContainerPaths: [fixture.projection],
-    };
     const previousKeks = new Map(
-      fixture.projection.containerKeks.map((kek) => [kek.containerId, kek]),
+      projection.authorizingContainerPaths
+        .flatMap((path) => path.containerKeks)
+        .map((kek) => [kek.containerId, kek]),
     );
     const sync = {
       ...fixture.input,
@@ -188,7 +149,6 @@ test("a refetched projection for another document is refused", async () => {
       prepareAutomaticContainerRekeys(sync, projection),
     ).rejects.toMatchObject({ code: "object_mismatch" });
   } finally {
-    staging.close();
     cold.close();
   }
 }, 180_000);
@@ -199,25 +159,14 @@ test("a refetched projection for another document is refused", async () => {
 // — which stops it well before the depth budget backstop is reached.
 
 test("a server replaying a stale chain cannot drive endless rekeys", async () => {
-  const fixture = await createDeepRotatedAncestorFixture(17);
-  const staging = await createTestExecSql("replayed-prefix-document");
+  const fixture = createFixture();
+  const { projection } = fixture;
   const cold = await createTestExecSql("replayed-prefix-repair");
   try {
-    const created = await buildMaterializedDocumentCreatePlan({
-      ...fixture.input,
-      execSql: staging.execSql,
-      containerProjection: fixture.leaf,
-    });
-    const original = documentWriterProjectionFromCreateResponse({
-      containerProjection: fixture.leaf,
-      response: await createResponseFromRequest(created.plan.request),
-    });
-    const projection = {
-      ...original,
-      authorizingContainerPaths: [fixture.projection],
-    };
     const previousKeks = new Map(
-      fixture.projection.containerKeks.map((kek) => [kek.containerId, kek]),
+      projection.authorizingContainerPaths
+        .flatMap((path) => path.containerKeks)
+        .map((kek) => [kek.containerId, kek]),
     );
     let rekeys = 0;
     const sync = {
@@ -249,7 +198,6 @@ test("a server replaying a stale chain cannot drive endless rekeys", async () =>
     expect(rekeys).toBeLessThanOrEqual(MAX_INLINE_CONTAINER_REKEYS);
     expect(rekeys).toBeLessThan(MAX_CONTAINER_PATH_LENGTH);
   } finally {
-    staging.close();
     cold.close();
   }
 }, 300_000);
@@ -265,23 +213,10 @@ test.each([
 ])(
   "a %i refusal records %i terminal failures",
   async (status, expected) => {
-    const fixture = await createDeepRotatedAncestorFixture(17);
-    const staging = await createTestExecSql(`refusal-${status}-document`);
+    const fixture = createFixture();
+    const { projection } = fixture;
     const cold = await createTestExecSql(`refusal-${status}-repair`);
     try {
-      const created = await buildMaterializedDocumentCreatePlan({
-        ...fixture.input,
-        execSql: staging.execSql,
-        containerProjection: fixture.leaf,
-      });
-      const original = documentWriterProjectionFromCreateResponse({
-        containerProjection: fixture.leaf,
-        response: await createResponseFromRequest(created.plan.request),
-      });
-      const projection = {
-        ...original,
-        authorizingContainerPaths: [fixture.projection],
-      };
       const terminal: (number | null)[] = [];
       const sync = {
         ...fixture.input,
@@ -312,7 +247,6 @@ test.each([
       ).rejects.toThrow(/abandoned: refused/);
       expect(terminal).toHaveLength(expected);
     } finally {
-      staging.close();
       cold.close();
     }
   },
