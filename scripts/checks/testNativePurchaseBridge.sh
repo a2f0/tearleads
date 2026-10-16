@@ -26,6 +26,7 @@ else
     -configuration Release-Staging \
     -sdk iphonesimulator \
     -destination 'generic/platform=iOS Simulator' \
+    -disableAutomaticPackageResolution \
     CODE_SIGNING_ALLOWED=NO \
     build
 fi
