@@ -12,15 +12,16 @@ import type { PrincipalPolicyCache } from "../../data/keyingProjectionVerificati
 import { referencedPrincipalPolicyKey } from "../../data/keyingProjectionVerification/principalPolicyCache";
 import type { PrincipalPolicyCurrentEvidence } from "../../data/principals/principalPolicyEvidence";
 import type { SpeculativePath } from "../containers/child/carriedDescendantRekeys";
-import { containerWriterProjectionFromRotationPlan } from "../containers/child/rekeyProjection";
 
 export type MaterializedPrincipalContainerMutationPlan =
   | MaterializedContainerRekeyPlan
   | MaterializedContainerRevokePlan
   | MaterializedContainerSharePlan;
 
-/** A plan with its container's path once accepted; null for a grant, which rotates nothing. */
+/** Authored paths for chaining plans; only rotated is null for a grant. */
 export interface PlannedRematerialization {
+  /** The authored successor for either a grant or a rotation. */
+  readonly nextProjection?: ContainerWriterProjectionResponse | undefined;
   /** A descendant rekey carried for a rotation above, not a rematerialization. */
   readonly carried: boolean;
   readonly planned: MaterializedPrincipalContainerMutationPlan;
@@ -154,17 +155,4 @@ export function seededPrincipalPolicyCache(
       nextPolicy,
     ],
   ]);
-}
-
-/** A rematerialization's path once accepted; null for a grant. */
-export async function rotatedPath(input: {
-  readonly planned: MaterializedPrincipalContainerMutationPlan;
-  readonly previousProjection: ContainerWriterProjectionResponse;
-}): Promise<SpeculativePath | null> {
-  const { plan } = input.planned;
-  if (!("keyring" in plan)) return null;
-  return containerWriterProjectionFromRotationPlan({
-    plan,
-    previousProjection: input.previousProjection,
-  });
 }

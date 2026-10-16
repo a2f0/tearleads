@@ -23,15 +23,21 @@ import { createProjectionUserKeyResolver } from "../../data/keyingProjectionVeri
 import { rebaseOnDeepestAncestor } from "../containers/child/carriedDescendantRekeys";
 import { scheduleHeldDescendantRecitations } from "../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";
-import { isSpeculativeContainerWriterProjection } from "../containers/child/rekeyProjection";
+import {
+  containerWriterProjectionFromRotationPlan,
+  containerWriterProjectionFromSharePlan,
+  isSpeculativeContainerWriterProjection,
+} from "../containers/child/rekeyProjection";
 import { selectReplacementPrincipalPolicyReferences } from "../containers/child/replacementPrincipalPolicyReferences";
 import { buildMaterializedContainerRevokePlan } from "../containers/child/revoke";
 import { buildMaterializedContainerSharePlan } from "../containers/child/shareMaterialization";
+import { withPrecedingRematerialization } from "./precedingPrincipalRematerialization";
 import {
   addPlan,
   type BatchPlanning,
   carryLevel,
   type PrincipalContainerRematerializationInput,
+  type PrincipalRematerializationPredecessor,
   staleLevelsAbove,
 } from "./principalContainerRematerializationPlanning";
 import {
@@ -40,7 +46,6 @@ import {
   type MaterializedPrincipalContainerMutationPlan,
   type PlannedRematerialization,
   type RematerializationTarget,
-  rotatedPath,
   seededPrincipalPolicyCache,
 } from "./principalContainerRematerializationTargets";
 
@@ -129,6 +134,7 @@ export async function buildPrincipalContainerRematerializationBatch(
 }
 
 export interface PreparedPrincipalContainerRematerializationBatch {
+  readonly preceding?: PrincipalRematerializationPredecessor | undefined;
   readonly retiredContainerIds: readonly string[];
   readonly acknowledge: (
     responses: readonly ContainerMutationResponse[],
@@ -298,10 +304,21 @@ async function planRematerializationTarget(
     rematerialization,
     resolveProjectionUserKey: batch.resolveProjectionUserKey,
   });
+  const nextProjection =
+    "keyring" in planned.plan
+      ? await containerWriterProjectionFromRotationPlan({
+          plan: planned.plan,
+          previousProjection,
+        })
+      : await containerWriterProjectionFromSharePlan({
+          plan: planned.plan,
+          previousProjection,
+        });
   addPlan(batch, {
     carried: false,
     planned,
-    rotated: await rotatedPath({ planned, previousProjection }),
+    rotated: "keyring" in planned.plan ? nextProjection : null,
+    nextProjection,
   });
 }
 
@@ -317,7 +334,9 @@ async function buildPrincipalContainerRematerializationPlans(
 ): Promise<{
   entries: PlannedRematerialization[];
   retiredContainerIds: readonly string[];
+  preceding: PrincipalRematerializationPredecessor;
 }> {
+  input = withPrecedingRematerialization(input);
   if (
     input.revokedContainerId &&
     !input.grants.some(
@@ -332,11 +351,16 @@ async function buildPrincipalContainerRematerializationPlans(
     grants: input.grants,
   });
   const batch: BatchPlanning = {
-    knownContainerKeks: new Map(),
+    knownContainerKeks: new Map(input.preceding?.knownContainerKeks),
     plans: [],
     // A rotation planned above cites the group at the head this batch commits,
     // which no store holds yet; the cache is what lets a rebased path verify.
-    principalPolicyCache: seededPrincipalPolicyCache(input.nextPolicy),
+    principalPolicyCache: new Map([
+      ...(input.preceding?.policies ?? []).flatMap((policy) => [
+        ...seededPrincipalPolicyCache(policy),
+      ]),
+      ...seededPrincipalPolicyCache(input.nextPolicy),
+    ]),
     rematerialization: input,
     resolveProjectionUserKey: createProjectionUserKeyResolver({
       resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -346,7 +370,20 @@ async function buildPrincipalContainerRematerializationPlans(
   for (const target of targets) {
     await planRematerializationTarget(batch, target);
   }
-  return { entries: batch.plans, retiredContainerIds };
+  return {
+    entries: batch.plans,
+    retiredContainerIds,
+    preceding: {
+      policies: [...(input.preceding?.policies ?? []), input.nextPolicy],
+      projections: [
+        ...(input.preceding?.projections ?? []),
+        ...batch.plans.flatMap((entry) =>
+          entry.nextProjection ? [entry.nextProjection] : [],
+        ),
+      ],
+      knownContainerKeks: batch.knownContainerKeks,
+    },
+  };
 }
 
 /**
@@ -378,10 +415,13 @@ function assertNamedContainersRotated(
 export async function preparePrincipalContainerRematerializationBatch(
   input: PrincipalContainerRematerializationInput,
 ): Promise<PreparedPrincipalContainerRematerializationBatch> {
-  let { entries, retiredContainerIds } =
+  let { entries, retiredContainerIds, preceding } =
     await buildPrincipalContainerRematerializationPlans(input);
   const requests = () => entries.map((entry) => entry.planned.plan.request);
   return {
+    get preceding() {
+      return preceding;
+    },
     get retiredContainerIds() {
       return retiredContainerIds;
     },
@@ -401,6 +441,7 @@ export async function preparePrincipalContainerRematerializationBatch(
       assertNamedContainersRotated(replanned.entries, requiredContainerIds);
       entries = replanned.entries;
       retiredContainerIds = replanned.retiredContainerIds;
+      preceding = replanned.preceding;
       return requests();
     },
     acknowledge: async (responses, stillCurrent) => {

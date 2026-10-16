@@ -94,7 +94,11 @@ export function CreateOrganizationDialog({
             >
               {ORG_MANAGER_LABELS.cancel}
             </MiniAppButton>
-            <MiniAppButton disabled={!canCreate} type="submit">
+            <MiniAppButton
+              disabled={!canCreate}
+              loading={creating}
+              type="submit"
+            >
               {creating
                 ? ORG_MANAGER_LABELS.creatingOrganization
                 : ORG_MANAGER_LABELS.create}

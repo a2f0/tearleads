@@ -92,7 +92,7 @@ export function GroupDetailSection({
   setAddUserId,
   userId,
 }: {
-  addUser: () => void;
+  addUser: () => void | Promise<void>;
   addUserId: string;
   addUserListId: string;
   addableUsers: ReadonlyArray<OrganizationDirectoryUser>;
@@ -118,6 +118,7 @@ export function GroupDetailSection({
 }) {
   const idPrefix = useId();
   const [activeTab, setActiveTab] = useState<GroupDetailTabId>("members");
+  const [addingToGroupId, setAddingToGroupId] = useState<string | null>(null);
 
   return (
     <section className="org-manager-panel">
@@ -165,7 +166,15 @@ export function GroupDetailSection({
                   addUserId.trim().length === 0 ||
                   memberUserIds.has(addUserId.trim())
                 }
-                onClick={addUser}
+                onClick={async () => {
+                  setAddingToGroupId(selectedGroup.groupId);
+                  try {
+                    await addUser();
+                  } finally {
+                    setAddingToGroupId(null);
+                  }
+                }}
+                loading={addingToGroupId === selectedGroup.groupId}
               >
                 {ORG_MANAGER_LABELS.add}
               </MiniAppButton>

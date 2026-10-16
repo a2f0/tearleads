@@ -17,27 +17,38 @@ import {
   replaceOrganizationGroupHead,
 } from "./organizationGroupDirectory";
 import type { PreparedPrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
+import type { PrincipalRematerializationPredecessor } from "./principalContainerRematerializationPlanning";
+import { assertAuthoredPrincipalMutationReceipt } from "./principalMutationReceipt";
 import type { RuntimeCurrentGroupMutationContext } from "./runtimeCurrentGroupMutation";
 import {
   projectionUserIds,
   resolveRequiredUserIdentities,
 } from "./trustedOrganizationUsers";
 
-/** Commit and retain one exact compound successor without rebuilding full history. */
-export async function commitCurrentGroupPolicyMutation(input: {
-  readonly apiClient: PrincipalPolicyReadWriteApi;
+interface GroupPolicyChange {
   readonly context: RuntimeCurrentGroupMutationContext;
+  readonly request: PutPrincipalPolicyRequest;
+  readonly prepareContainerMutations: (
+    nextPolicy: VerifiedPrincipalPolicyCurrent,
+    preceding?: PrincipalRematerializationPredecessor | undefined,
+  ) => Promise<PreparedPrincipalContainerRematerializationBatch>;
+}
+
+interface CommitInput extends GroupPolicyChange {
+  readonly member?: GroupPolicyChange | undefined;
+  readonly apiClient: PrincipalPolicyReadWriteApi;
   readonly groupId: string;
   readonly organizationId: string;
-  readonly request: PutPrincipalPolicyRequest;
   readonly signerUserId: string;
   readonly signingFingerprint: string;
   readonly signingKeyPair: SigningKeyPair;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
-  readonly prepareContainerMutations: (
-    nextPolicy: VerifiedPrincipalPolicyCurrent,
-  ) => Promise<PreparedPrincipalContainerRematerializationBatch>;
-}): Promise<PrincipalPolicyMutationResponse> {
+}
+
+/** Commit and retain the group, optional roster enrollment and directory together. */
+export async function commitCurrentGroupPolicyMutation(
+  input: CommitInput,
+): Promise<PrincipalPolicyMutationResponse> {
   const { context } = input;
   assertProjectionVerificationCurrent(context.stillCurrent);
   const [signer] = await resolveRequiredUserIdentities({
@@ -45,39 +56,19 @@ export async function commitCurrentGroupPolicyMutation(input: {
     userIds: [input.signerUserId],
   });
   if (!signer) throw new Error("Group policy signer is unavailable");
-  const expectedHead = await groupPolicyMutationHead(input.request);
-  const nextPolicy = await prepareAuthoredGroupPolicy({
-    verifiedCurrentPolicy: context.verifiedCurrentPolicy,
+  const member = input.member
+    ? await prepareChange(input.member, signer)
+    : null;
+  const { expectedHead, prepared } = await prepareChange(
+    input,
+    signer,
+    member?.preceding,
+  );
+  const organizationRequest = await prepareDirectory(
+    input,
     expectedHead,
-    request: input.request,
-    signerPublicKeys: [signer],
-    externalAuthority: context.externalAuthority,
-    localPolicyCheckpoint: context.localPolicyCheckpoint,
-    stillCurrent: context.stillCurrent,
-  });
-  const prepared = await input.prepareContainerMutations(nextPolicy);
-  input.request.containerMutations = [...prepared.requests];
-  const adminProjection = context.isOrganizationAdminsGroup
-    ? input.request.projection
-    : context.adminCurrent.current.currentProjection;
-  const adminUsers = await resolveRequiredUserIdentities({
-    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
-    userIds: projectionUserIds(adminProjection),
-  });
-  const organizationRequest =
-    await buildOrganizationGroupDirectoryPolicyRequest({
-      adminProjection,
-      adminUsers,
-      currentPolicy: context.organizationCurrent.current,
-      descriptor: context.organizationDescriptor,
-      groupHeads: replaceOrganizationGroupHead({
-        descriptor: context.organizationDescriptor,
-        nextHead: expectedHead,
-      }),
-      signerUserId: input.signerUserId,
-      signingFingerprint: input.signingFingerprint,
-      signingKeyPair: input.signingKeyPair,
-    });
+    member?.expectedHead,
+  );
   assertProjectionVerificationCurrent(context.stillCurrent);
   const response = await submitGroupPolicyCommit({
     apiClient: input.apiClient,
@@ -85,21 +76,139 @@ export async function commitCurrentGroupPolicyMutation(input: {
     organizationId: input.organizationId,
     request: input.request,
     organizationRequest,
-    carryDescendantRekeys: prepared.carry,
+    memberRequest: input.member?.request,
+    // A compound retry must rebuild both batches' shared speculative heads.
+    // Refuse the whole transaction if a damaged-key repair needs extra rekeys;
+    // ordinary adds preserve key epochs and need no descendant carry retry.
+    carryDescendantRekeys: member ? undefined : prepared.carry,
     stillCurrent: context.stillCurrent,
   });
   if (!response) throw new Error("Group policy update failed");
   assertProjectionVerificationCurrent(context.stillCurrent);
+  await assertAuthoredPrincipalMutationReceipt(
+    {
+      groupPolicy: input.request,
+      organizationPolicy: organizationRequest,
+      ...(input.member ? { memberPolicy: input.member.request } : {}),
+    },
+    response,
+  );
   await context.retainAcknowledged({
+    additionalGroups:
+      input.member && response.memberPolicy
+        ? [
+            {
+              ...input.member.context.groupRetention,
+              request: input.member.request,
+              response: response.memberPolicy,
+              retiredContainerIds: member?.prepared.retiredContainerIds,
+            },
+          ]
+        : [],
     request: input.request,
     organizationRequest,
     response,
     retiredContainerIds: prepared.retiredContainerIds,
   });
+  if (member && response.memberPolicy) {
+    await member.prepared.acknowledge(
+      response.memberPolicy.containerMutations,
+      context.stillCurrent,
+    );
+  }
   await prepared.acknowledge(
     response.groupPolicy.containerMutations,
     context.stillCurrent,
   );
   assertProjectionVerificationCurrent(context.stillCurrent);
   return response.groupPolicy;
+}
+
+async function prepareChange(
+  change: GroupPolicyChange,
+  signer: Awaited<ReturnType<typeof resolveRequiredUserIdentities>>[number],
+  preceding?: PrincipalRematerializationPredecessor,
+) {
+  const expectedHead = await groupPolicyMutationHead(change.request);
+  const nextPolicy = await prepareAuthoredGroupPolicy({
+    verifiedCurrentPolicy: change.context.verifiedCurrentPolicy,
+    expectedHead,
+    request: change.request,
+    signerPublicKeys: [signer],
+    externalAuthority: change.context.externalAuthority,
+    localPolicyCheckpoint: change.context.localPolicyCheckpoint,
+    stillCurrent: change.context.stillCurrent,
+  });
+  const prepared = await change.prepareContainerMutations(
+    nextPolicy,
+    preceding,
+  );
+  change.request.containerMutations = [...prepared.requests];
+  return {
+    expectedHead,
+    prepared,
+    preceding: prepared.preceding
+      ? {
+          ...prepared.preceding,
+          authored: [
+            ...(preceding?.authored ?? []),
+            {
+              organizationId:
+                change.context.organizationDescriptor.organizationId,
+              policy: nextPolicy,
+              dependencies: [
+                change.context.organizationCurrent.policy,
+                change.context.adminCurrent.policy,
+              ],
+              stillCurrent: change.context.stillCurrent,
+            },
+          ],
+        }
+      : undefined,
+  };
+}
+
+async function prepareDirectory(
+  input: CommitInput,
+  expectedHead: Awaited<ReturnType<typeof groupPolicyMutationHead>>,
+  memberHead: Awaited<ReturnType<typeof groupPolicyMutationHead>> | undefined,
+) {
+  const { context } = input;
+  if (
+    input.member &&
+    (input.member.context.currentPolicy.currentState.principalId !==
+      context.memberGroupId ||
+      input.member.context.organizationCurrent.current.currentState
+        .stateHash !==
+        context.organizationCurrent.current.currentState.stateHash)
+  )
+    throw new Error(
+      "Roster and group changes must share the same organization policy",
+    );
+  let groupHeads = replaceOrganizationGroupHead({
+    descriptor: context.organizationDescriptor,
+    nextHead: expectedHead,
+  });
+  if (memberHead)
+    groupHeads = replaceOrganizationGroupHead({
+      descriptor: { ...context.organizationDescriptor, groupHeads },
+      nextHead: memberHead,
+    });
+  const adminProjection = context.isOrganizationAdminsGroup
+    ? input.request.projection
+    : context.adminCurrent.current.currentProjection;
+  const adminUsers = await resolveRequiredUserIdentities({
+    resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
+    userIds: projectionUserIds(adminProjection),
+  });
+  return buildOrganizationGroupDirectoryPolicyRequest({
+    adminProjection,
+    adminUsers,
+    currentPolicy: context.organizationCurrent.current,
+    descriptor: context.organizationDescriptor,
+    groupHeads,
+    signerUserId: input.signerUserId,
+    signingFingerprint: input.signingFingerprint,
+    signingKeyPair: input.signingKeyPair,
+  });
 }

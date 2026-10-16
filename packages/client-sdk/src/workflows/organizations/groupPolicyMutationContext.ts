@@ -1,4 +1,3 @@
-import type { RequestFailureKind } from "@tearleads/api-client";
 import type {
   PrincipalPolicyCheckpoint,
   PrincipalPolicyExternalAuthority,
@@ -6,18 +5,13 @@ import type {
   SigningKeyPair,
 } from "@tearleads/crypto";
 import type {
-  CommitOrganizationGroupPolicyRequest,
   ContainerMutationRequest,
-  CreateOrganizationGroupWithPolicyRequest,
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
-import {
-  CONTAINER_MUTATION_ERROR_CODES,
-  type CommitOrganizationGroupPolicyResponse,
-  type CreateOrganizationGroupResponse,
-  type CurrentPrincipalMemberEnvelopesResponse,
-  type PrincipalPolicyBundleResponse,
-  type PrincipalPolicyMutationResponse,
+import type {
+  CurrentPrincipalMemberEnvelopesResponse,
+  PrincipalPolicyBundleResponse,
+  PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
 import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
@@ -47,57 +41,18 @@ import {
   verifyGroupPolicy,
   verifyGroupPolicyWithExternalOrganizationAdmins,
 } from "./groupPolicyVerification";
+import type {
+  PrincipalPolicyReadApi,
+  PrincipalPolicyReadWriteApi,
+} from "./principalPolicyApi";
+import { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
 
-export interface PrincipalPolicyReadApi {
-  /** Resolve authored work before reading the state for a new mutation. */
-  readonly recoverPendingPrincipalMutation?:
-    | ((organizationId: string) => Promise<void>)
-    | undefined;
-  getCurrentPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
-}
-
-export interface PrincipalPolicyReadWriteApi extends PrincipalPolicyReadApi {
-  commitOrganizationGroupPolicy: (
-    organizationId: string,
-    groupId: string,
-    input: CommitOrganizationGroupPolicyRequest,
-  ) => Promise<CommitOrganizationGroupPolicyResponse | null>;
-  /**
-   * Optional status-bearing variant. A rematerialized rotation the server
-   * refuses for stranding a granted path names the descendant rekeys the batch
-   * must carry; without this the refusal is a plain failure.
-   */
-  commitOrganizationGroupPolicyResult?: (
-    organizationId: string,
-    groupId: string,
-    input: CommitOrganizationGroupPolicyRequest,
-    options?: { readonly reportErrors?: boolean | undefined },
-  ) => Promise<
-    | {
-        readonly ok: true;
-        readonly data: CommitOrganizationGroupPolicyResponse;
-      }
-    | {
-        readonly ok: false;
-        readonly kind?: RequestFailureKind | undefined;
-        readonly message?: string | undefined;
-        readonly code?: string | undefined;
-        readonly report?: (() => void) | undefined;
-        readonly requiredContainerIds?: readonly string[] | undefined;
-        readonly status: number | null;
-      }
-  >;
-}
-
-export interface OrganizationPrincipalPolicyApi extends PrincipalPolicyReadApi {
-  createOrganizationGroup: (
-    organizationId: string,
-    input: CreateOrganizationGroupWithPolicyRequest,
-  ) => Promise<CreateOrganizationGroupResponse | null>;
-}
+export type {
+  OrganizationPrincipalPolicyApi,
+  PrincipalPolicyReadApi,
+  PrincipalPolicyReadWriteApi,
+} from "./principalPolicyApi";
+export { submitGroupPolicyCommit } from "./submitGroupPolicyCommit";
 
 interface LoadedGroupPolicyMutationContext
   extends FullGroupMembershipMutationInput {
@@ -261,99 +216,6 @@ export async function loadGroupPolicyMutationContext(input: {
     signingFingerprint: input.signingFingerprint,
     signingKeyPair: input.signingKeyPair,
   };
-}
-
-/**
- * Commit, answering one refusal: a rematerialized rekey or revoke that would
- * strand a level above a directly granted container is refused with the
- * descendant rekeys it must carry. The refused attempt rolled back whole, so
- * the served heads still stand; the batch is signed again with the named
- * levels woven in, replaces the container mutations, and the commit is retried
- * once. A second refusal means the tree moved underneath, and the caller's own
- * retry starts from a fresh policy.
- */
-export async function submitGroupPolicyCommit(input: {
-  readonly apiClient: PrincipalPolicyReadWriteApi;
-  readonly carryDescendantRekeys?:
-    | ((
-        requiredContainerIds: readonly string[],
-      ) => Promise<readonly ContainerMutationRequest[]>)
-    | undefined;
-  readonly groupId: string;
-  readonly organizationId: string;
-  readonly organizationRequest: PutPrincipalPolicyRequest;
-  readonly request: PutPrincipalPolicyRequest;
-  readonly stillCurrent?: (() => boolean) | undefined;
-}): Promise<CommitOrganizationGroupPolicyResponse | null> {
-  const body = () => ({
-    groupPolicy: input.request,
-    organizationPolicy: input.organizationRequest,
-  });
-  const { commitOrganizationGroupPolicyResult } = input.apiClient;
-  if (!commitOrganizationGroupPolicyResult) {
-    return input.apiClient.commitOrganizationGroupPolicy(
-      input.organizationId,
-      input.groupId,
-      body(),
-    );
-  }
-  const first = await commitOrganizationGroupPolicyResult.call(
-    input.apiClient,
-    input.organizationId,
-    input.groupId,
-    body(),
-    { reportErrors: false },
-  );
-  if (first.ok) return first.data;
-  if (first.kind === "cancelled") return null;
-  if (first.kind === "outcome-unknown")
-    throw new Error(
-      first.message ??
-        "Policy request may have committed; refresh before retrying",
-    );
-  if (
-    !input.carryDescendantRekeys ||
-    first.code !== CONTAINER_MUTATION_ERROR_CODES.descendantRekeysRequired ||
-    !first.requiredContainerIds?.length
-  ) {
-    first.report?.();
-    return null;
-  }
-  let carried: readonly ContainerMutationRequest[];
-  try {
-    carried = await input.carryDescendantRekeys(first.requiredContainerIds);
-  } catch (error) {
-    // The refusal was answerable, and the answer failed: surface both. Once
-    // the generation that owned the attempt is gone, only the failure is
-    // surfaced; a superseded refusal is not an error.
-    if (input.stillCurrent?.() !== false) first.report?.();
-    throw error;
-  }
-  if (input.stillCurrent?.() === false) return null;
-  // Nothing signed means the same refusal again; report the one already had.
-  if (carried.length === 0) {
-    first.report?.();
-    return null;
-  }
-  input.request.containerMutations = [...carried];
-  const second = await commitOrganizationGroupPolicyResult.call(
-    input.apiClient,
-    input.organizationId,
-    input.groupId,
-    body(),
-    { reportErrors: false },
-  );
-  if (!second.ok) {
-    if (second.kind === "cancelled") return null;
-    if (second.kind === "outcome-unknown")
-      throw new Error(
-        second.message ??
-          "Policy request may have committed; refresh before retrying",
-      );
-    second.report?.();
-    return null;
-  }
-  return second.data;
 }
 
 export async function commitGroupPolicyMutation(input: {

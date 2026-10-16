@@ -1,7 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import type { OrganizationDirectory } from "@tearleads/client-sdk";
 import type { Dispatch, SetStateAction } from "react";
-import { ORG_MANAGER_LABELS } from "../labels";
 import {
   addRosterUserToGroup,
   prepareRosterImport,
@@ -164,7 +163,6 @@ test("adding a roster user stops before the write when an import resolves in a s
     groupId: "custom-group",
     groupName: "Operators",
     isOperationActive,
-    memberGroupId: null,
     operationOrganizationId: DIRECTORY.organizationId,
     orgManagerActions: actions,
     setError: createErrorSetter().setError,
@@ -194,7 +192,6 @@ test("adding a roster user reports a stale result when the organization changes 
     groupId: "custom-group",
     groupName: "Operators",
     isOperationActive,
-    memberGroupId: null,
     operationOrganizationId: DIRECTORY.organizationId,
     orgManagerActions: actions,
     setError: createErrorSetter().setError,
@@ -211,49 +208,29 @@ test("adding a roster user reports a stale result when the organization changes 
 });
 
 test.each(["admins", "custom-group"])(
-  "a failed %s add after enrollment reports the billed membership",
+  "adding a new user to %s delegates one atomic membership operation",
   async (groupId) => {
-    // The two writes cannot be one transaction. When the second fails the first
-    // has already landed, so the user is an organization member and on the
-    // invoice; reporting a bare failure would hide that.
-    const addUserToGroup = mock(async (targetGroupId: string) => {
-      if (targetGroupId === groupId) {
-        throw new Error("policy write failed");
-      }
-      return undefined as never;
+    const addUserToGroup = mock(async () => {
+      throw new Error("policy write failed");
     });
-    const { observed, setError } = createErrorSetter();
-    const actions = createActions({
-      addUserToGroup,
-      loadGroupMembers: mock(async () => MEMBERS),
-    });
-
-    const result = await addRosterUserToGroup({
-      directoryUser: { ...TARGET_USER } as never,
-      groupId,
-      groupName: "Admins",
-      isOperationActive: () => true,
-      memberGroupId: "members",
-      operationOrganizationId: DIRECTORY.organizationId,
-      orgManagerActions: actions,
-      setError,
-      targetUserId: TARGET_USER.userId,
-    });
-
-    expect(result).toBeNull();
-    expect(addUserToGroup).toHaveBeenCalledTimes(2);
-    expect(addUserToGroup).toHaveBeenNthCalledWith(
-      1,
-      "members",
-      TARGET_USER.userId,
-      "Members",
-    );
-    expect(addUserToGroup).toHaveBeenNthCalledWith(
-      2,
+    const actions = createActions({ addUserToGroup });
+    await expect(
+      addRosterUserToGroup({
+        directoryUser: { ...TARGET_USER } as never,
+        groupId,
+        groupName: "Target group",
+        isOperationActive: () => true,
+        operationOrganizationId: DIRECTORY.organizationId,
+        orgManagerActions: actions,
+        setError: createErrorSetter().setError,
+        targetUserId: TARGET_USER.userId,
+      }),
+    ).rejects.toThrow("policy write failed");
+    expect(addUserToGroup).toHaveBeenCalledTimes(1);
+    expect(addUserToGroup).toHaveBeenCalledWith(
       groupId,
       TARGET_USER.userId,
-      "Admins",
+      "Target group",
     );
-    expect(observed).toContain(ORG_MANAGER_LABELS.failedAddGroupAfterMemberAdd);
   },
 );

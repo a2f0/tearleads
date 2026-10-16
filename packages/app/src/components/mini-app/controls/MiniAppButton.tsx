@@ -17,6 +17,7 @@ type MiniAppButtonVariant = "default" | "ghost";
 
 type MiniAppButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   block?: boolean | undefined;
+  loading?: boolean | undefined;
   variant?: MiniAppButtonVariant | undefined;
   diagnosticAction?: DiagnosticAction | undefined;
   /** Lays the children out as a centered icon + label row with a small gap. */
@@ -27,6 +28,8 @@ export const MiniAppButton = forwardRef<HTMLButtonElement, MiniAppButtonProps>(
   function MiniAppButton(
     {
       block = false,
+      loading = false,
+      children,
       className,
       type = "button",
       variant = "default",
@@ -40,6 +43,8 @@ export const MiniAppButton = forwardRef<HTMLButtonElement, MiniAppButtonProps>(
     return (
       <button
         {...props}
+        aria-busy={loading || props["aria-busy"]}
+        disabled={loading || props.disabled}
         onClick={(event) => {
           if (diagnosticAction) breadcrumb(diagnosticAction);
           props.onClick?.(event);
@@ -47,13 +52,18 @@ export const MiniAppButton = forwardRef<HTMLButtonElement, MiniAppButtonProps>(
         className={classNames(
           "mini-app-button",
           block && "mini-app-button--block",
-          withIcon && "mini-app-button--with-icon",
+          (withIcon || loading) && "mini-app-button--with-icon",
           variant !== "default" && `mini-app-button--${variant}`,
           className,
         )}
         ref={ref}
         type={type}
-      />
+      >
+        {loading && (
+          <span className="mini-app-button-spinner" aria-hidden="true" />
+        )}
+        {children}
+      </button>
     );
   },
 );

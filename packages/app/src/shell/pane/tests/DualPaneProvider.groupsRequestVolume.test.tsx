@@ -54,10 +54,9 @@ const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   },
 };
 
-// Adding a brand-new admin requires two signed mutations: Members first, then
-// Admins. The Members mutation establishes the roster and causes one billing
-// refresh. Each group successor is paired with its signed organization-policy
-// successor and dependent root rematerialization in one commit. Those container
+// Adding a brand-new admin commits Members, Admins, their signed directory,
+// and dependent root rematerializations in one request. Enrollment establishes
+// the roster and causes one billing refresh. Those container
 // changes advance the organization feed, so the two active panes may consume
 // several cursor positions. Standalone share POSTs stay pinned at zero because
 // a separately committed repair would reintroduce the recovery gap this flow is
@@ -99,7 +98,7 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
     "GET /organizations/:organizationId/billing": 1,
     "GET /principals/organization/:organizationId/policy": 20,
     "POST /containers/:containerId/share": 0,
-    "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 2,
+    "PUT /organizations/:organizationId/groups/:groupId/policy-commit": 1,
     "POST /containers/:containerId/recite": 2,
   },
 } satisfies ProxiedApiRequestBudget;
@@ -259,7 +258,7 @@ test(
           ADMIN_GROUP_MUTATION_REQUEST_BUDGET.byRequest[
             "GET /principals/history"
           ] + pendingHistory.length,
-        // Either membership commit can advance root key targets while a
+        // The membership commit can advance root key targets while a
         // peer's read-only sync is in flight. A real stale-target response
         // requires one fresh projection; do not grant that allowance when
         // no conflict occurred, or relax the total/byte budgets.
@@ -268,7 +267,7 @@ test(
       },
     });
     // The extra settle rounds are read-only; a membership add still writes
-    // nothing through the document sync lane, however many mutations it takes.
+    // nothing through the document sync lane.
     expect(syncIntents.writeBearing).toBe(0);
     expect(syncIntents.readOnly).toBeLessThanOrEqual(12);
   },

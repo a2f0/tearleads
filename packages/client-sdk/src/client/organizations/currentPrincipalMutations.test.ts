@@ -4,6 +4,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
+import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import {
   createAuthorityRecoveryFixture,
@@ -38,6 +39,10 @@ async function fixture() {
     ...history,
     resolveTrustedUserIdentity,
   });
+  f.policies.set(
+    history.memberPolicy.currentState.principalId,
+    history.memberPolicy,
+  );
   const state = {
     current: true,
     corruptReceipt: false,
@@ -46,6 +51,15 @@ async function fixture() {
     fullReads: 0,
   };
   const apiClient = f.options.apiClient;
+  const advance = async (mutation: PutPrincipalPolicyRequest) => {
+    const principalId = mutation.state.principalId;
+    const previous = f.policies.get(principalId);
+    if (!previous) throw new Error("Missing committed predecessor");
+    const next = await policyBundleAfterMutation({ previous, mutation });
+    f.policies.set(principalId, next);
+    const { previousStates: _history, ...current } = structuredClone(next);
+    return current;
+  };
   apiClient.getCurrentPrincipalPolicy = async () => {
     state.fullReads += 1;
     throw new Error("Unexpected full policy read");
@@ -56,27 +70,23 @@ async function fixture() {
     request,
   ) => {
     expect(organizationId).toBe(history.organizationId);
-    const group = f.policies.get(groupId);
-    const directory = f.policies.get(organizationId);
-    if (!group || !directory) throw new Error("Missing committed predecessor");
-    const next = await policyBundleAfterMutation({
-      previous: group,
-      mutation: request.groupPolicy,
-    });
-    const nextDirectory = await policyBundleAfterMutation({
-      previous: directory,
-      mutation: request.organizationPolicy,
-    });
-    f.policies.set(groupId, next);
-    f.policies.set(organizationId, nextDirectory);
+    expect(groupId).toBe(request.groupPolicy.state.principalId);
+    const memberPolicy = request.memberPolicy
+      ? await advance(request.memberPolicy)
+      : undefined;
+    const groupPolicy = await advance(request.groupPolicy);
+    const organizationPolicy = await advance(request.organizationPolicy);
     state.writes += 1;
-    const { previousStates: _groupHistory, ...groupPolicy } =
-      structuredClone(next);
-    const { previousStates: _directoryHistory, ...organizationPolicy } =
-      structuredClone(nextDirectory);
     if (state.corruptReceipt) groupPolicy.currentProjection = [];
     if (state.expireOnReceipt) state.current = false;
-    return { ok: true, data: { groupPolicy, organizationPolicy } };
+    return {
+      ok: true,
+      data: {
+        groupPolicy,
+        organizationPolicy,
+        ...(memberPolicy ? { memberPolicy } : {}),
+      },
+    };
   };
   const signingFingerprint = await toFingerprint(
     history.signingKeyPair.signingPublicKey,
@@ -134,6 +144,15 @@ test("built-in current mutation adds then removes an Admin with only paged reads
       targetUserId: history.targetUserId,
     });
     expect(added.response).not.toHaveProperty("previousStates");
+    expect(added.enrolled).toBe(true);
+    expect(f.state.writes).toBe(1);
+    expect(
+      f.policies.get(history.memberPolicy.currentState.principalId)
+        ?.currentProjection,
+    ).toContainEqual({
+      userId: history.targetUserId,
+      role: "member",
+    });
     expect(added.response.currentProjection).toContainEqual({
       userId: history.targetUserId,
       role: "admin",
@@ -153,20 +172,21 @@ test("built-in current mutation adds then removes an Admin with only paged reads
     expect(f.state.writes).toBe(2);
     expect(f.state.fullReads).toBe(0);
     expect(f.requests.every((request) => request.count <= 32)).toBe(true);
-    for (const [kind, id] of [
-      ["group", f.groupId],
-      ["organization", history.organizationId],
+    for (const [kind, id, version] of [
+      ["group", f.groupId, 68],
+      ["group", history.memberPolicy.currentState.principalId, 2],
+      ["organization", history.organizationId, 68],
     ] as const)
       expect(
         await loadPrincipalPolicyCheckpoint(f.options.execSql, kind, id),
-      ).toMatchObject({ version: 68 });
+      ).toMatchObject({ version });
   } finally {
     f.close();
   }
 }, 20_000);
 
 test.each(["corruptReceipt", "expireOnReceipt"] as const)(
-  "current mutation rejects %s without admitting either successor",
+  "current mutation rejects %s without admitting any successor",
   async (mode) => {
     const f = await fixture();
     f.state[mode] = true;
@@ -179,13 +199,14 @@ test.each(["corruptReceipt", "expireOnReceipt"] as const)(
         }),
       ).rejects.toThrow();
       expect(f.state.writes).toBe(1);
-      for (const [kind, id] of [
-        ["group", f.groupId],
-        ["organization", history.organizationId],
+      for (const [kind, id, version] of [
+        ["group", f.groupId, 66],
+        ["group", history.memberPolicy.currentState.principalId, 1],
+        ["organization", history.organizationId, 66],
       ] as const)
         expect(
           await loadPrincipalPolicyCheckpoint(f.options.execSql, kind, id),
-        ).toMatchObject({ version: 66 });
+        ).toMatchObject({ version });
       expect(f.state.fullReads).toBe(0);
     } finally {
       f.close();
