@@ -228,7 +228,7 @@ def require_android_release_signing!
 
   UI.user_error!(
     "Android release signing is not configured. Missing #{missing_names.join(', ')} " \
-    "in the environment or #{NATIVE_ROOT_ENV_PATH}."
+    "in the environment or #{NATIVE_SHARED_ENV_PATH}."
   )
 end
 

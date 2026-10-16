@@ -227,11 +227,11 @@ export async function createRepository(repoRoot: string, token: string) {
     join(repoRoot, "packages/app/node_modules"),
   );
   await Bun.write(
-    join(repoRoot, ".secrets/root.env"),
+    join(repoRoot, ".secrets/staging/shared.env"),
     `SENTRY_ORG=test-org\nSENTRY_AUTH_TOKEN=${token}\n`,
   );
   await Bun.write(
-    join(repoRoot, ".secrets/staging.env"),
+    join(repoRoot, ".secrets/staging/app.env"),
     `SENTRY_ELECTROBUN_STAGING_PROJECT=tearleads-electrobun-staging\nSENTRY_ELECTROBUN_STAGING_DSN=${fixtureDsn}\n`,
   );
   git(repoRoot, "init", "--quiet");

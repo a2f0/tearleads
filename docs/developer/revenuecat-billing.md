@@ -8,7 +8,7 @@ activate or revoke server sync.
 
 This documents how the integration is wired; the actual keys,
 project/app/offering IDs, and operational state live in the git-ignored
-`.secrets/revenuecat.md`, not here.
+`.secrets/prod/revenuecat.md`, not here.
 
 Provider MCP registration, CLI fallbacks, the declarative provisioning order,
 and the current external-account handoff live in
@@ -119,8 +119,8 @@ purchase path is direct Stripe checkout, configured by
 
 | Platform | Env var | How it's injected |
 | --- | --- | --- |
-| iOS | `VITE_REVENUECAT_IOS_API_KEY` | `.secrets/root.env`, loaded by Fastlane and inlined by Vite. |
-| Android | `VITE_REVENUECAT_ANDROID_API_KEY` | `.secrets/root.env`, same path. |
+| iOS | `VITE_REVENUECAT_IOS_API_KEY` | `.secrets/prod/shared.env` (staging: `.secrets/staging/app.env`), loaded by Fastlane and inlined by Vite. |
+| Android | `VITE_REVENUECAT_ANDROID_API_KEY` | Same files and path. |
 
 Local web development with fixed-tier checkout enabled:
 
@@ -184,9 +184,9 @@ the admin upgrades or reduces the roster. An oversized Stripe grant is claimed,
 applied without seat reconciliation, and logged for operator repair instead of
 returning an unbounded 503.
 
-- The server value comes from `.secrets/root.env` and is synced as a Worker
-  secret by `packages/api/scripts/deployApi.sh`, so it reaches a deployed tier
-  on every API deploy.
+- The server value comes from `.secrets/<tier>/shared.env` and is synced as a
+  Worker secret by `packages/api/scripts/deployApi.sh`, so it reaches a
+  deployed tier on every API deploy.
 - Register the endpoint in the RevenueCat dashboard, or via the v2 API
   (`POST /v2/projects/{project_id}/integrations/webhooks`), with the `Authorization`
   value set to match `REVENUECAT_WEBHOOK_AUTH_HEADER`.
@@ -249,13 +249,13 @@ leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
   configured for the management-URL lookup (shared via
   [`revenueCatConfig.ts`](../../packages/api/src/billing/revenueCatConfig.ts))
   — no separate legacy v1 secret key. Shared provider credentials may live in
-  `.secrets/root.env`, while each `STRIPE_WEBHOOK_SECRET` must live in the
-  matching `.secrets/<tier>.env`; the API deploy syncs the merged values as
-  Worker secrets. End-to-end entitlement activation also requires
+  `.secrets/<tier>/shared.env`, while each `STRIPE_WEBHOOK_SECRET` must live in
+  the matching `.secrets/<tier>/app.env`; the API deploy syncs the merged
+  values as Worker secrets. End-to-end entitlement activation also requires
   `REVENUECAT_WEBHOOK_AUTH_HEADER` and a matching RevenueCat webhook.
 - Stripe gives every webhook endpoint its own signing secret. Staging and
   production therefore need separate `STRIPE_WEBHOOK_SECRET` values in their
-  tier env files; do not leave one shared root value when both endpoints are
+  tier `app.env` files; do not leave one shared value when both endpoints are
   enabled. The publishable key, secret key, and all three price ids must
   likewise belong to the same Stripe mode for that tier.
 - One-time provider steps: create one Stripe product with the three monthly

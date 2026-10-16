@@ -22,7 +22,7 @@ android {
     signingConfigs {
         release {
             if (hasReleaseKeystore()) {
-                storeFile = rootProject.file("../../../.secrets/tearleads-release.keystore")
+                storeFile = releaseKeystoreFile()
                 storePassword = System.getenv("ANDROID_KEYSTORE_STORE_PASS")
                 keyAlias = "tearleads"
                 keyPassword = System.getenv("ANDROID_KEYSTORE_KEY_PASS")
@@ -49,8 +49,19 @@ android {
     }
 }
 
+// The release keystore comes from the secrets folder of the tier the native
+// release wrappers select with NATIVE_RELEASE_TIER; without one, production.
+def releaseKeystoreFile() {
+    def tier = (System.getenv("NATIVE_RELEASE_TIER") ?: "production").trim().toLowerCase()
+    def secretsTier = [production: "prod", staging: "staging"][tier]
+    if (secretsTier == null) {
+        throw new GradleException("Unknown NATIVE_RELEASE_TIER '${tier}'. Expected production or staging.")
+    }
+    return rootProject.file("../../../.secrets/${secretsTier}/tearleads-release.keystore")
+}
+
 def hasReleaseKeystore() {
-    def keystoreFile = rootProject.file("../../../.secrets/tearleads-release.keystore")
+    def keystoreFile = releaseKeystoreFile()
     return keystoreFile.exists() &&
         System.getenv("ANDROID_KEYSTORE_STORE_PASS") != null &&
         System.getenv("ANDROID_KEYSTORE_KEY_PASS") != null

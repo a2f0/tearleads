@@ -78,8 +78,7 @@ RevenueCat reports these webhook events with `store: "TEST_STORE"` and
 the personal-organization restriction, and staging must opt into sandbox events.
 
 Pass the public Test Store key as a one-build override. The run scripts preserve
-an already-exported value, so the platform keys in `.secrets/root.env` remain
-untouched:
+an already-exported value, so the platform keys in `.secrets` remain untouched:
 
 ```sh
 VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/runIos.sh
@@ -155,39 +154,39 @@ store and RevenueCat records before enabling billing.
    `ios:fetch:appstore-profile:staging` lane only verifies/fetches it with
    `readonly: true`; it cannot generate a missing profile.
 3. Create the `com.tearleads.staging.app` Play app, grant the identity from
-   `.secrets/google-play-service-account-admin.json` access, and create an
-   internal testing track.
+   `.secrets/staging/google-play-service-account-admin.json` access, and create
+   an internal testing track.
 4. Create matching RevenueCat apps. Upload
-   `.secrets/google-play-service-account-revenue-cat.json` to the Google app,
-   connect the Apple credentials, then add the public SDK keys below.
+   `.secrets/prod/google-play-service-account-revenue-cat.json` to the Google
+   app, connect the Apple credentials, then add the public SDK keys below.
 
 Query both staging stores without building with
 `bun run --cwd packages/app-capacitor store:build-numbers:staging`.
 
 Create separate RevenueCat Apple and Google apps with that platform identifier,
-then set their public keys in `.secrets/staging.env` as
+then set their public keys in `.secrets/staging/app.env` as
 `VITE_REVENUECAT_IOS_API_KEY` and `VITE_REVENUECAT_ANDROID_API_KEY`. Fastlane
-loads release credentials from `root.env`, but imports only allowlisted native
-RevenueCat client settings from the server-oriented `staging.env`. Explicit
-caller overrides still win when they differ from the production platform key.
-If staging has no platform key, or resolves to the production key, it fails the
-release guard before the store build begins. The production key in `root.env`
-is the default comparison baseline. Env-only CI and key-rotation workflows may
-instead export the independent
+loads release credentials from `shared.env`, but imports only allowlisted native
+RevenueCat client settings from the server-oriented `app.env`. Explicit caller
+overrides still win when they differ from the production platform key. If
+staging has no platform key, or resolves to the production key, it fails the
+release guard before the store build begins. The key in production's
+`shared.env` is the default comparison baseline. Env-only CI and key-rotation
+workflows may instead export the independent
 `NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY` or
 `NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY` baseline. Without
-either the root default or an explicit baseline, staging fails closed. Staging
+either default or an explicit baseline, staging fails closed. Staging
 may override the shared
 `VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a different entitlement
 identifier. Production releases likewise reject the resolved platform key
 unless it exactly matches its independent production baseline. The allowlist
 controls dotenv imports only; callers remain responsible for variables they
-export explicitly. Add any future root `VITE_*` setting that staging must
+export explicitly. Add any future shared `VITE_*` setting that staging must
 inherit intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is
 stripped from staging dotenv imports.
 
 The staging tier must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` in
-`.secrets/staging.env` when its API Worker deploys. This controls webhook
+staging's `app.env` when its API Worker deploys. This controls webhook
 application only; it is separate from the public SDK keys bundled into the
 native clients.
 
@@ -195,8 +194,8 @@ The wrappers set their public API default before Fastlane loads dotenv files.
 Export `VITE_API_BASE_URL` explicitly when overriding the default; the release
 guard requires the exact selected-tier API host and permits WebSocket hosts only
 on the selected tier's domain. Fastlane repeats these checks after dotenv is
-resolved, so values from `root.env` cannot bypass them. Do not put an API
-override in `.secrets/staging.env`.
+resolved, so dotenv values cannot bypass them. Keep API overrides out of
+staging's `app.env`.
 
 ## Apple sandbox / TestFlight
 
@@ -258,8 +257,8 @@ Before testing the real Google Play purchase sheet:
    `sync_team_5_monthly`, and `sync_team_10_monthly`, each with a `monthly`
    auto-renewing base plan for application ID `com.tearleads.app`.
 2. Connect it to RevenueCat with
-   `.secrets/google-play-service-account-revenue-cat.json`; import and attach the
-   products to their packages and the `sync` entitlement.
+   `.secrets/prod/google-play-service-account-revenue-cat.json`; import and
+   attach the products to their packages and the `sync` entitlement.
 3. Keep `VITE_REVENUECAT_ANDROID_API_KEY` set to that Google app's public
    `goog_...` key. The activity uses `singleTop`, so returning from a banking or
    verification app does not cancel the purchase flow.
@@ -288,13 +287,13 @@ dependency during manifest merging.
 
 ## Getting the SDK key into a dev build
 
-Fastlane's `Dotenv.load` puts the whole of `.secrets/root.env` into the
-environment before it shells out to `bun run build`, and Vite folds
-`VITE_`-prefixed `process.env` vars into `import.meta.env` — that is the entire
-chain for a store release.
+Fastlane loads the tier's `shared.env` (plus staging's allowlisted `app.env`
+keys) before it shells out to `bun run build`, and Vite folds `VITE_`-prefixed
+`process.env` vars into `import.meta.env` — that is the entire chain for a store
+release.
 
 The dev run-on-device scripts have no Fastlane in the path, so `runIos.sh` and
-`runAndroid.sh` read the same file through
+`runAndroid.sh` read production's `shared.env` through
 [`exportRevenueCatKeys.sh`](../../scripts/lib/exportRevenueCatKeys.sh).
 Without it, a simulator or device build inlines no key,
 `createCapacitorPurchases()` returns the unavailable stub, and the billing panel

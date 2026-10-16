@@ -11,7 +11,7 @@ import { getSubscriptionBinding } from "./stripeSubscriptionBinding";
 
 /**
  * Environment variable holding the exact value RevenueCat must send in the
- * webhook `Authorization` header. Configured per environment in `.secrets/*.env`
+ * webhook `Authorization` header. Configured per tier in `.secrets/<tier>/*.env`
  * and mirrored in the RevenueCat dashboard. Absent → the webhook is disabled
  * (fails closed).
  */

@@ -327,7 +327,7 @@ LocalStack helper:
 ```sh
 sh scripts/localstack/setupLocalS3.sh
 set -a
-. ./.secrets/dev.env
+. ./.secrets/staging/dev.env
 set +a
 bun run --filter=@tearleads/api dev
 ```

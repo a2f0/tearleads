@@ -21,12 +21,12 @@ Keep **Prevent Storing of IP Addresses**, default data scrubbing, and data
 scrubbing enabled in every project. Copy DSNs from **Settings → Projects →
 project → Client Keys (DSN)**. Hosted US, EU, and legacy ingestion URLs work.
 
-The existing ignored `.secrets/root.env` holds `SENTRY_ORG=tearleads` and
-`SENTRY_AUTH_TOKEN`. The latter needs source-map upload access and stays in the
-build/deploy process. It must never have a `VITE_` or `BUN_PUBLIC_` prefix.
+Each tier's ignored `.secrets/<tier>/shared.env` holds `SENTRY_ORG=tearleads`
+and `SENTRY_AUTH_TOKEN`. The latter needs source-map upload access and stays in
+the build/deploy process. It must never have a `VITE_` or `BUN_PUBLIC_` prefix.
 
-Configure these variables in `.secrets/staging.env`; use `PRODUCTION` instead of
-`STAGING` in `.secrets/prod.env`:
+Configure these variables in `.secrets/staging/app.env`; use `PRODUCTION`
+instead of `STAGING` in `.secrets/prod/app.env`:
 
 ```sh
 SENTRY_STAGING_PROJECT='tearleads-web-staging'
@@ -75,11 +75,12 @@ deployment.
 Google Play builds and iOS TestFlight builds invoke `bun
 run build:release android` or `bun run build:release ios` in
 `packages/app-capacitor`. `NATIVE_RELEASE_TIER` selects `staging` or
-`production` (default). The builder reads the root and selected tier secrets,
-injects only the selected public Sentry configuration, uploads maps, and removes
-them before Capacitor packaging. Publishing maps requires a clean Git checkout;
-staged, modified, or untracked sources stop the release before building. Upload
-failures stop packaging. Debug and local Android APK/sideload builds stay local.
+`production` (default). The builder reads the selected tier's `shared.env` and
+`app.env`, injects only the selected public Sentry configuration, uploads maps,
+and removes them before Capacitor packaging. Publishing maps requires a clean
+Git checkout; staged, modified, or untracked sources stop the release before
+building. Upload failures stop packaging. Debug and local Android APK/sideload
+builds stay local.
 The root `scripts/buildAndroidRelease.sh`,
 `scripts/buildIosRelease.sh`, their `StagingRelease.sh` counterparts, and all
 corresponding `upload*Release.sh` wrappers reach this step through Fastlane.
@@ -282,13 +283,14 @@ no runtime environment fallback. Before Electrobun signs or archives the app,
 the packaging hook copies each script and its map, with repository-relative
 sources, to `build/sentry-sourcemaps/<dist>`, then deletes every map in the
 build directory, even after a failure. The release shell unsets its exported
-upload token; after the build, the wrapper reads it from `.secrets/root.env`,
-uploads the staged files with `app:///` URLs, removes them, and exits non-zero
-on failure so nothing is published. Publishing requires a clean checkout before
-any Bun process runs and again before upload. `BUN_OPTIONS` and `BUN_INSPECT*`
-are unset first; Bun launches add `--no-env-file --config=/dev/null`. The
-wrapper refuses those variables and `DYLD_*`, and reads `SENTRY_*` names only
-from `.secrets`.
+upload token; after the build, the wrapper reads it from the tier's
+`.secrets/<tier>/shared.env`, uploads the staged files with `app:///` URLs,
+removes them, and exits non-zero on failure so nothing is published. Publishing
+requires a clean checkout before any Bun process runs and again before upload.
+`BUN_OPTIONS` and `BUN_INSPECT*` are unset first; Bun launches add
+`--no-env-file --config=/dev/null`. The wrapper refuses those variables and
+`DYLD_*`, and reads `SENTRY_*` names only from the tier's `.secrets/<tier>/`
+files.
 
 The upload token reaches only the pinned `sentry-cli` binary, resolved via
 `@sentry/cli`, not `PATH`, and run without a Bun or npm shim. It runs in a fresh

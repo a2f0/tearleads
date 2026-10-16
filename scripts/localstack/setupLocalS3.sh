@@ -4,7 +4,7 @@ set -eu
 ROOT_DIR="$(cd -- "$(dirname -- "$0")/../.." && pwd -P)"
 LOCALSTACK_DIR="${ROOT_DIR}/scripts/localstack"
 COMPOSE_FILE="${LOCALSTACK_DIR}/docker-compose.yml"
-DEV_ENV_FILE="${ROOT_DIR}/.secrets/dev.env"
+DEV_ENV_FILE="${ROOT_DIR}/.secrets/staging/dev.env"
 
 read_env_value() {
   file_path="$1"

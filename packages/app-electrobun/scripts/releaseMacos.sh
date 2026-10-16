@@ -45,15 +45,15 @@ source "$REPO_ROOT/terraform/scripts/common.sh"
 TF_TIER="$TIER"
 [[ "$TIER" != production ]] || TF_TIER=prod
 load_secrets_env "$TF_TIER"
-# load_secrets_env exports every root.env name. Only the Sentry wrapper needs
-# the upload token, and it reads the file itself.
+# load_secrets_env exports every name in the tier's shared.env and app.env.
+# Only the Sentry wrapper needs the upload token, and it reads the files itself.
 unset SENTRY_AUTH_TOKEN
 # These add env files, preload modules or a debugger to every Bun process.
 unset BUN_OPTIONS BUN_INSPECT BUN_INSPECT_CONNECT_TO BUN_INSPECT_NOTIFY \
   BUN_INSPECT_PRELOAD
 # shellcheck source=packages/app-electrobun/scripts/macosSigning.sh
 source "$PACKAGE_DIR/scripts/macosSigning.sh"
-configure_macos_signing
+configure_macos_signing "$TF_TIER"
 if [[ "$ACTION" == upload ]]; then validate_aws_env; fi
 
 export ELECTROBUN_RELEASE_TIER="$TIER"

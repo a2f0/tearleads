@@ -103,26 +103,31 @@ _source_optional_env_file() {
   _source_env_file "$env_file"
 }
 
-# Layer the tier's secrets over the shared root file. The optional
-# `<tier>.worker.env` holds values generated for the Workers deployment, such
+# Load one tier's secrets from `.secrets/<tier>/`: the values copied from the
+# shared account root (`shared.env`), then this project's own values for the
+# tier (`app.env`), which win. The optional `healthchecks.env` and `worker.env`
+# follow; `worker.env` holds values generated for the Workers deployment, such
 # as the document sync cursor HMAC key, which must persist across deploys.
+# Without a tier, only production's shared values load.
 load_secrets_env() {
   local tier="${1:-}"
   local secrets_dir
   secrets_dir="$(get_repo_root)/.secrets"
 
-  _source_env_file "$secrets_dir/root.env" || return 1
-
-  if [[ -n "$tier" ]]; then
-    case "$tier" in
-      staging | prod) ;;
-      *)
-        echo "ERROR: Unknown deployment tier: $tier" >&2
-        return 1
-        ;;
-    esac
-    _source_env_file "$secrets_dir/${tier}.env" || return 1
-    _source_optional_env_file "$secrets_dir/${tier}.healthchecks.env" || return 1
-    _source_optional_env_file "$secrets_dir/${tier}.worker.env" || return 1
+  if [[ -z "$tier" ]]; then
+    _source_env_file "$secrets_dir/prod/shared.env" || return 1
+    return 0
   fi
+
+  case "$tier" in
+    staging | prod) ;;
+    *)
+      echo "ERROR: Unknown deployment tier: $tier" >&2
+      return 1
+      ;;
+  esac
+  _source_env_file "$secrets_dir/$tier/shared.env" || return 1
+  _source_env_file "$secrets_dir/$tier/app.env" || return 1
+  _source_optional_env_file "$secrets_dir/$tier/healthchecks.env" || return 1
+  _source_optional_env_file "$secrets_dir/$tier/worker.env" || return 1
 }

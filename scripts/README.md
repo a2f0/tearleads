@@ -1,7 +1,7 @@
 # Repository scripts
 
 The top level holds commands you run directly: local app launchers, release
-builds and uploads, deployments, screenshots, backups, and maintenance tools.
+builds and uploads, deployments, screenshots, and maintenance tools.
 For example, run `./scripts/runApp.sh`, `./scripts/buildIosRelease.sh`, or
 `./scripts/deployStaging.sh` from the repository root.
 

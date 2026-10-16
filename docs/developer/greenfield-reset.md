@@ -192,7 +192,7 @@ their database and storage stacks to exist; the API deploy initializes the
 schema with the migration login, syncs the Worker secrets, publishes the
 Worker, and the edge stack reattaches the hostnames. A fresh tier starts with
 an empty key/value Durable Object, so no old session can survive the reset.
-The document sync cursor HMAC key persists in `.secrets/<tier>.worker.env`;
+The document sync cursor HMAC key persists in `.secrets/<tier>/worker.env`;
 delete that file before the rebuild when the reset should rotate it.
 
 Verify current schema initialization and application-table emptiness before any

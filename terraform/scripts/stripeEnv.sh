@@ -4,9 +4,9 @@
 # Staging must run Stripe test mode end to end and production must run live
 # mode end to end: the secret key the API signs requests with, the publishable
 # key the web bundle inlines, the three fixed-tier Price IDs, and the webhook
-# signing secret all belong to one Stripe mode. `load_secrets_env` layers the
-# tier file over `root.env`, so a live key left in the shared file silently
-# reaches staging with test-mode prices, and the API then rejects its own
+# signing secret all belong to one Stripe mode. `load_secrets_env` layers each
+# tier's `app.env` over its `shared.env`, so a live key left in staging's shared
+# file silently reaches staging with test-mode prices, and the API then rejects its own
 # catalog at runtime. Fail here instead, before any artifact is rendered or
 # bundled. Values are never printed; only variable names and expected prefixes.
 
@@ -78,7 +78,7 @@ _validate_stripe_env_untraced() {
   if [[ -n "$problems" ]]; then
     echo "ERROR: Stripe configuration for the $tier tier must be complete and in $mode mode:" >&2
     printf '%s\n' "$problems" >&2
-    echo "Shared credentials live in .secrets/root.env (test mode); the live key, publishable key, and prices belong only in .secrets/prod.env." >&2
+    echo "Shared credentials live in .secrets/<tier>/shared.env (test mode); the live key, publishable key, and prices belong only in .secrets/prod/app.env." >&2
     return 1
   fi
 }

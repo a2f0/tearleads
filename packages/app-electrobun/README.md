@@ -55,8 +55,9 @@ same origin after a restart.
 ## macOS releases
 
 Build locally on an Apple silicon Mac with Xcode, ImageMagick, Bun, and the AWS
-CLI installed. These scripts load `.secrets/root.env` plus the selected tier's
-environment file and select its API, WebSocket, Sentry, and download bucket.
+CLI installed. These scripts load the selected tier's
+`.secrets/<tier>/shared.env` and `app.env` and select its API, WebSocket,
+Sentry, and download bucket.
 
 ```sh
 scripts/buildMacosStagingRelease.sh
@@ -91,7 +92,7 @@ argument. Dispatch is shared in `scripts/lib/desktopRelease.sh`.
 Signing uses the installed Developer ID Application identity. Set
 `ELECTROBUN_DEVELOPER_ID` if more than one is installed. Notarization uses
 `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and
-`.secrets/AuthKey_<key-id>.p8`, matching the existing iOS credentials. The
+`.secrets/<tier>/AuthKey_<key-id>.p8`, matching the existing iOS credentials. The
 `ELECTROBUN_APPLEAPIKEY`, `ELECTROBUN_APPLEAPIISSUER`, and
 `ELECTROBUN_APPLEAPIKEYPATH` variables can override those values. The private key
 must be accessible to `codesign`; the existing
@@ -210,7 +211,8 @@ temporary directory and runs `scripts/uploadDeferredSourceMaps.ts`, which requir
 the source commit to be the clean checkout's `HEAD`, accepts exactly the
 renderer and main-process pairs as regular files under the `linux-x64` dist
 that `releaseLinux.sh` names (never the host's own platform), and uploads them
-with the token from `.secrets`. A failed or partial upload stops before R2.
+with the token from the tier's `.secrets/<tier>/shared.env`. A failed or
+partial upload stops before R2.
 Build mode uploads no maps. The artifact check refuses any `.map` in the
 artifacts.
 
@@ -329,9 +331,9 @@ Both helpers require a clean checkout at exactly the run's commit. They check
 that the run was a successful manual invocation of the Windows workflow, then
 verify the artifact's tier, target, commit, and all payload checksums. Packages
 are saved under `build/win-x64/<tier>/<commit>/` in this package. Upload mode
-loads the tier's local `.secrets`, downloads and uploads the matching source maps
-to Sentry, and only then publishes immutable ZIP/checksum/update payloads to the
-same downloads buckets as macOS and Linux. Discovery uses
+loads the tier's local `.secrets/<tier>/`, downloads and uploads the matching
+source maps to Sentry, and only then publishes immutable ZIP/checksum/update
+payloads to the same downloads buckets as macOS and Linux. Discovery uses
 `<channel>-win-x64-download.json` and `<channel>-win-x64-update.json`.
 
 Actions artifacts expire after 14 days; publish or download them before then.

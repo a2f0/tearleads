@@ -16,10 +16,17 @@ async function runWrapper(
   const bin = resolve(root, "bin");
   const scripts = resolve(root, "terraform/scripts");
   const log = resolve(root, "calls.log");
+  // Only the invoked tier's folder holds secrets, so reading another tier's
+  // files leaves the credentials unset.
+  const secrets = resolve(
+    root,
+    ".secrets",
+    args[0] === "staging" ? "staging" : "prod",
+  );
   try {
     await mkdir(bin);
     await mkdir(scripts, { recursive: true });
-    await mkdir(resolve(root, ".secrets"));
+    await mkdir(secrets, { recursive: true });
     for (const file of [
       "run-postgres-stack.sh",
       "common.sh",
@@ -33,7 +40,7 @@ async function runWrapper(
       );
     }
     await Bun.write(
-      resolve(root, ".secrets/root.env"),
+      resolve(secrets, "shared.env"),
       [
         "AWS_ACCESS_KEY_ID=fixture-id",
         "AWS_SECRET_ACCESS_KEY=fixture-secret",
@@ -42,7 +49,7 @@ async function runWrapper(
       ].join("\n"),
     );
     await Bun.write(
-      resolve(root, ".secrets/planetscale.env"),
+      resolve(secrets, "planetscale.env"),
       [
         `PLANETSCALE_SERVICE_TOKEN_ID=${options.tokenId ?? "fixture-id"}`,
         `PLANETSCALE_SERVICE_TOKEN=${options.token ?? "fixture-token"}`,
@@ -123,7 +130,7 @@ for (const action of ["plan", "apply"]) {
     test(`${action} rejects missing ${missing} before Terraform`, async () => {
       const result = await runWrapper(["prod", action], { [missing]: "" });
       expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain(".secrets/planetscale.env");
+      expect(result.stderr).toContain(".secrets/prod/planetscale.env");
       expect(result.stderr).not.toContain("fixture-token");
       expect(result.calls).toEqual([]);
     });

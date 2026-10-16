@@ -116,8 +116,8 @@ Official references:
 - RevenueCat API v2 accepts Google Play credentials through
   `play_store.play_service_account_credentials_json` on app updates; an extra
   top-level `credentials` property is not the supported field. Read
-  `.secrets/google-play-service-account-revenue-cat.json` directly into the
-  request without logging its contents or passing them in shell arguments.
+  `.secrets/prod/google-play-service-account-revenue-cat.json` directly into
+  the request without logging its contents or passing them in shell arguments.
   Verify each app's package name and
   `credentials.configured` afterward, then check product store state. Keep this
   credential separate from the admin key used by Fastlane and store tooling.
@@ -136,17 +136,17 @@ or CLI tooling.
 
 | Provider | Preferred automation | Existing API/CLI credential source | Notes |
 | --- | --- | --- | --- |
-| Stripe | Stripe MCP; Stripe CLI | `.secrets/root.env` plus the tier env | Prefer OAuth for MCP. `brew install stripe-cli`; use test mode until live credentials are explicitly selected. |
+| Stripe | Stripe MCP; Stripe CLI | `.secrets/<tier>/shared.env`, then the tier's `app.env` | Prefer OAuth for MCP. `brew install stripe-cli`; use test mode until live credentials are explicitly selected. |
 | RevenueCat | RevenueCat MCP; API v2 | `REVENUECAT_V2_SECRET_KEY` and `REVENUECAT_PROJECT_ID` | Prefer OAuth for MCP. There is no separate RevenueCat CLI requirement. |
-| Apple | App Store Connect API; `asc` CLI | `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and `.secrets/AuthKey_<id>.p8` | `brew install asc`; `asc` is community maintained, while the underlying API is Apple-supported. |
-| Google | Android Publisher API | `.secrets/google-play-service-account-admin.json` | `gcloud` manages Cloud/API bootstrap but not the Play subscription catalog. The pinned Fastlane Google client can read and write Android Publisher resources when its Play permissions allow it. RevenueCat uses the separate `.secrets/google-play-service-account-revenue-cat.json` credential configured on each Play app through API v2 or its dashboard. |
+| Apple | App Store Connect API; `asc` CLI | `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and `.secrets/<tier>/AuthKey_<id>.p8` | `brew install asc`; `asc` is community maintained, while the underlying API is Apple-supported. |
+| Google | Android Publisher API | `.secrets/<tier>/google-play-service-account-admin.json` | `gcloud` manages Cloud/API bootstrap but not the Play subscription catalog. The pinned Fastlane Google client can read and write Android Publisher resources when its Play permissions allow it. RevenueCat uses the separate `.secrets/prod/google-play-service-account-revenue-cat.json` credential configured on each Play app through API v2 or its dashboard. |
 
 Configure `asc` without copying a private key into its own profile:
 
 ```sh
 export ASC_KEY_ID="$APP_STORE_CONNECT_KEY_ID"
 export ASC_ISSUER_ID="$APP_STORE_CONNECT_ISSUER_ID"
-export ASC_PRIVATE_KEY_PATH=".secrets/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
+export ASC_PRIVATE_KEY_PATH=".secrets/prod/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p8"
 asc auth status --validate
 ```
 
@@ -227,7 +227,7 @@ and review submission. Each Google app needs three subscriptions with an active
 
 Volatile provider state, resource identifiers, local authentication status, and
 pending account-owner actions live in the git-ignored
-`.secrets/revenuecat.md`, as described in
+`.secrets/prod/revenuecat.md`, as described in
 [revenuecat-billing.md](./revenuecat-billing.md). An agent working in an
 authorized checkout must read that handoff, perform a fresh read-only provider
 audit, and update it after provisioning. Do not copy its account snapshot into

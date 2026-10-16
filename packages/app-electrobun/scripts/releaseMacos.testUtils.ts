@@ -23,9 +23,10 @@ export const bunLaunchVariables = [
   "BUN_INSPECT_PRELOAD",
 ];
 
-// The release shell exports every root.env name; only the Sentry wrapper may
-// hold the upload token, so no other child may inherit it. No child may inherit
-// the Bun variables that add env files, preloads or a debugger either.
+// The release shell exports every shared.env and app.env name; only the Sentry
+// wrapper may hold the upload token, so no other child may inherit it. No child
+// may inherit the Bun variables that add env files, preloads or a debugger
+// either.
 const tokenLeakProbe = [
   '[ -z "$SENTRY_AUTH_TOKEN" ] || echo token-leak >> "$RELEASE_TEST_LOG"',
   ...bunLaunchVariables.map(
@@ -44,10 +45,13 @@ const gitStub = [
   "esac",
 ].join("\n");
 
+// `tierKey` leaves the notarization key path unset, so signing must find the
+// key in the selected tier's secrets folder, the only place it is written.
 export async function runMacosRelease(
   args: string[],
   failure = "",
   ambient: Record<string, string> = {},
+  tierKey = false,
 ) {
   // The release compares Git's physical top level with its own location.
   const root = realpathSync(
@@ -88,6 +92,11 @@ export async function runMacosRelease(
       ].join("\n"),
     );
     await write("key.p8", "test-only-key");
+    if (tierKey)
+      await write(
+        `.secrets/${args[1] === "production" ? "prod" : "staging"}/AuthKey_test-key.p8`,
+        "test-only-key",
+      );
     await write(
       "terraform/scripts/run-downloads-stack.sh",
       r2ReleaseStorageStub,
@@ -188,7 +197,7 @@ export async function runMacosRelease(
           RELEASE_TEST_FAILURE: failure,
           APP_STORE_CONNECT_KEY_ID: "test-key",
           APP_STORE_CONNECT_ISSUER_ID: "test-issuer",
-          ELECTROBUN_APPLEAPIKEYPATH: "key.p8",
+          ...(tierKey ? {} : { ELECTROBUN_APPLEAPIKEYPATH: "key.p8" }),
         },
         stdout: "pipe",
         stderr: "pipe",
