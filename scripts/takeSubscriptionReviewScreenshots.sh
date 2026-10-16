@@ -140,6 +140,7 @@ echo "Building the Capacitor app for $DEVICE_NAME ($DEVICE_UDID)..."
     -sdk iphonesimulator \
     -derivedDataPath "$BUILD_DIR" \
     -destination "id=$DEVICE_UDID" \
+    -disableAutomaticPackageResolution \
     CODE_SIGNING_ALLOWED=NO \
     build
 )
