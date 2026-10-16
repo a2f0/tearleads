@@ -89,14 +89,19 @@ async function expectSingleYouContact(input: {
     SELF_CONTACT_TIMEOUT_MS,
   );
   await selectContainerAndWaitForItemTable(input.pane, "Contacts");
+  let userIdContactShown = false;
   await waitForCondition(
     () => {
       const table = within(input.pane).queryByRole("table", {
         name: "Items in Contacts",
       });
       // A recovered device replaces its local Contacts with the identity's
-      // existing one, and the selection follows it (#2393), so the table stays.
+      // existing one, and the selection follows it (#2393). The tree can
+      // reload through an empty state first, so the table may vanish briefly:
+      // read it only in the snapshot that satisfies this condition.
       if (!table) return false;
+      userIdContactShown =
+        within(table).queryByRole("button", { name: input.userId }) !== null;
       const selfButtons = within(table).queryAllByRole("button", {
         name: "You",
       });
@@ -110,13 +115,7 @@ async function expectSingleYouContact(input: {
     "Explorer did not preserve the current identity's You contact.",
     SELF_CONTACT_TIMEOUT_MS,
   );
-
-  const table = within(input.pane).getByRole("table", {
-    name: "Items in Contacts",
-  });
-  expect(
-    within(table).queryByRole("button", { name: input.userId }),
-  ).toBeNull();
+  expect(userIdContactShown).toBe(false);
 }
 
 afterEach(async () => {

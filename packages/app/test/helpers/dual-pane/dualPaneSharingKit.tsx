@@ -1,13 +1,7 @@
 import { expect } from "bun:test";
-import {
-  act,
-  fireEvent,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import invariant from "invariant";
-import { waitForAppTestRuntimeToSettle } from "../appRuntimeIdle";
+import { settleAppTestRuntimeInAct } from "../appRuntimeIdle";
 import {
   requestPath,
   summarizeProxiedApiRequests,
@@ -154,12 +148,13 @@ export async function shareContainerWithGroup(
   await waitFor(() => {
     expect(initialGroupSelect.disabled).toBe(false);
   });
-  await act(async () => {
-    await waitForAppTestRuntimeToSettle({
+  expect(
+    await settleAppTestRuntimeInAct({
       apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
       timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
-    });
-  });
+    }),
+    `Sharing ${name} with ${groupName} did not settle.\nrequests=\n${summarizeProxiedApiRequests()}`,
+  ).toBe(true);
 
   const groupSelect = within(pane).getByRole("combobox", { name: "Group" });
   invariant(groupSelect instanceof HTMLButtonElement, "Expected group select.");
@@ -304,12 +299,13 @@ export async function addPeerToAdminsGroup(
       ),
     `Peer ${peerUserId} did not appear in Admins.\nrequests=\n${summarizeProxiedApiRequests()}\npane=${truncateText(pane.textContent ?? "")}`,
   );
-  await act(async () => {
-    await waitForAppTestRuntimeToSettle({
+  expect(
+    await settleAppTestRuntimeInAct({
       apiQuietMs: POST_SHARE_NETWORK_IDLE_QUIET_MS,
       timeoutMs: POST_SHARE_SYNC_SETTLE_TIMEOUT_MS,
-    });
-  });
+    }),
+    `Adding ${peerUserId} to Admins did not settle.\nrequests=\n${summarizeProxiedApiRequests()}`,
+  ).toBe(true);
 }
 
 export async function createGroupAndAddPeer(
