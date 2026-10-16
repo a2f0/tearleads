@@ -28,12 +28,24 @@ type CurrentMutationContext = Awaited<
 
 export type RuntimeCurrentGroupMutationContext = CurrentMutationContext & {
   readonly resolveAuthoredPolicyReferences: CurrentPolicyReferenceResolver;
+  readonly loadGroup: (
+    groupId: string,
+  ) => Promise<RuntimeCurrentGroupMutationContext>;
+  readonly groupRetention: Pick<
+    AcknowledgedPrincipalCurrentInput,
+    "recovery" | "predecessor"
+  >;
   readonly retainAcknowledged: (
     receipt: CurrentMutationReceipt,
   ) => Promise<void>;
 };
 
 interface CurrentMutationReceipt {
+  readonly additionalGroups?:
+    | readonly (AcknowledgedPrincipalCurrentInput & {
+        readonly retiredContainerIds?: readonly string[] | undefined;
+      })[]
+    | undefined;
   readonly request: PutPrincipalPolicyRequest;
   readonly organizationRequest: PutPrincipalPolicyRequest;
   readonly response: CommitOrganizationGroupPolicyResponse;
@@ -65,33 +77,42 @@ export function createRuntimeCurrentGroupMutation(runtime: MutationRuntime) {
         readPages,
         directoryRecovery,
       }) => {
-        const context = await loadCurrentGroupPolicyMutationContext({
-          ...input,
-          execSql: runtime.infra.execSql,
-          resolveCurrentPolicy,
-          recoverPendingPrincipalMutation: (organizationId) =>
-            runtime.apiClient.recoverPendingPrincipalMutation(organizationId),
-          stillCurrent,
-        });
-        const result = await work({
-          ...context,
-          resolveAuthoredPolicyReferences: (current, references) =>
-            resolveCurrentGroupMutationReferences({
-              current,
-              predecessor: context.verifiedCurrentPolicy,
-              references,
-              readPredecessorReference: context.readPredecessorReference,
-              stillCurrent: context.stillCurrent,
-            }),
-          retainAcknowledged: await createCurrentMutationRetention(
+        const loadGroup = async (
+          groupId: string,
+        ): Promise<RuntimeCurrentGroupMutationContext> => {
+          const context = await loadCurrentGroupPolicyMutationContext({
+            ...input,
+            groupId,
+            execSql: runtime.infra.execSql,
+            resolveCurrentPolicy,
+            recoverPendingPrincipalMutation: (organizationId) =>
+              runtime.apiClient.recoverPendingPrincipalMutation(organizationId),
+            stillCurrent,
+          });
+          const retention = await createCurrentMutationRetention(
             runtime,
-            input,
+            { ...input, groupId },
             context,
             protection,
             readPages,
             directoryRecovery(context.organizationCurrent.current),
-          ),
-        });
+          );
+          return {
+            ...context,
+            ...retention,
+            loadGroup,
+            resolveAuthoredPolicyReferences: (current, references) =>
+              resolveCurrentGroupMutationReferences({
+                current,
+                predecessor: context.verifiedCurrentPolicy,
+                references,
+                readPredecessorReference: context.readPredecessorReference,
+                stillCurrent: context.stillCurrent,
+              }),
+          };
+        };
+        const context = await loadGroup(input.groupId);
+        const result = await work(context);
         assertProjectionVerificationCurrent(context.stillCurrent);
         return result;
       },
@@ -137,12 +158,15 @@ async function createCurrentMutationRetention(
     });
   const groupPredecessor = await capture(groupRecovery);
   const directoryPredecessor = await capture(directoryRecovery);
-  return async (receipt: CurrentMutationReceipt): Promise<void> => {
+  const retainAcknowledged = async (
+    receipt: CurrentMutationReceipt,
+  ): Promise<void> => {
     assertProjectionVerificationCurrent(context.stillCurrent);
     await retainAcknowledgedPrincipalCurrents({
       execSql: runtime.infra.execSql,
       organizationId: input.organizationId,
       entries: [
+        ...(receipt.additionalGroups ?? []),
         {
           recovery: groupRecovery,
           predecessor: groupPredecessor,
@@ -157,6 +181,11 @@ async function createCurrentMutationRetention(
         },
       ],
       retirements: [
+        ...(receipt.additionalGroups ?? []).map((entry) => ({
+          principalId: entry.request.state.principalId,
+          principalType: "group" as const,
+          containerIds: entry.retiredContainerIds ?? [],
+        })),
         {
           principalId: input.groupId,
           principalType: "group",
@@ -165,5 +194,9 @@ async function createCurrentMutationRetention(
       ],
       stillCurrent: context.stillCurrent,
     });
+  };
+  return {
+    groupRetention: { recovery: groupRecovery, predecessor: groupPredecessor },
+    retainAcknowledged,
   };
 }

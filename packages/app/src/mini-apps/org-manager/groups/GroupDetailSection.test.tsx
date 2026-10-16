@@ -29,7 +29,7 @@ const group: OrganizationGroupSummary = {
   organizationId: "organization-1",
 };
 
-test("the personal owner is protected in Admins but removable from an ordinary group", () => {
+test("member controls protect the owner and keep removal progress off Add", () => {
   const owner: OrganizationDirectoryUser = {
     userId: "owner",
     isPersonalOrganizationOwner: true,
@@ -99,6 +99,10 @@ test("the personal owner is protected in Admins but removable from an ordinary g
       .getAllByRole("button", { name: ORG_MANAGER_LABELS.remove })
       .filter((button) => !button.hasAttribute("disabled")),
   ).toHaveLength(1);
+  view.rerender(<GroupDetailSection {...props} mutating />);
+  const add = view.getByRole("button", { name: ORG_MANAGER_LABELS.add });
+  expect(add.hasAttribute("disabled")).toBe(true);
+  expect(add.querySelector(".mini-app-button-spinner")).toBeNull();
 });
 
 test("a group whose signed name does not open shows a placeholder", () => {

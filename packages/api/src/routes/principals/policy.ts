@@ -84,7 +84,11 @@ async function publishPrincipalAccessChanges(
       .map((principal) =>
         publishBestEffort(
           publish,
-          { type: "principal_access_changed", ...principal },
+          {
+            type: "principal_access_changed",
+            principalType: principal.principalType,
+            principalId: principal.principalId,
+          },
           "principal interest invalidation",
         ),
       ),
@@ -143,7 +147,12 @@ export function createPrincipalPolicyRoute({
         if (!result.replayed)
           await publishPrincipalAccessChanges(
             publish,
-            [{ principalType: "group", principalId: groupId }],
+            [
+              result.policy.groupPolicy.currentState,
+              ...(result.policy.memberPolicy
+                ? [result.policy.memberPolicy.currentState]
+                : []),
+            ],
             result.sharedWithYouUserIds,
           );
         return c.json<CommitOrganizationGroupPolicyResponse>(result.policy);

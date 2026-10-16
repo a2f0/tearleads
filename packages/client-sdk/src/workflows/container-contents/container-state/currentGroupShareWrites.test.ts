@@ -159,7 +159,7 @@ test("Current share rejects a substituted policy receipt without advancing its g
   };
   try {
     await expect(shareRemoteContainerWithGroup(f.input)).rejects.toThrow(
-      "Group policy state acknowledgement mismatch",
+      "Principal mutation receipt state differs from the authored request",
     );
     expect(f.compoundCalls()).toBe(1);
     expect(

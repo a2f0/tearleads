@@ -83,6 +83,7 @@ export function CreateGroupDialog({
                 groupNameDraft.trim().length === 0
               }
               type="submit"
+              loading={mutating}
             >
               {ORG_MANAGER_LABELS.create}
             </MiniAppButton>

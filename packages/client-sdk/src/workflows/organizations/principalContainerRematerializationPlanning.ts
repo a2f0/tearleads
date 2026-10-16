@@ -8,6 +8,7 @@ import type {
   PrincipalPolicyCache,
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
+import type { ResolvedPrincipalPolicyEvidence } from "../../data/keyingProjectionVerification/types";
 import type { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { CurrentPolicyReferenceResolver } from "../../data/principals/currentPolicyReferenceResolver";
 import type { PrincipalPolicyCurrentEvidence } from "../../data/principals/principalPolicyEvidence";
@@ -28,7 +29,15 @@ export interface RematerializationApi
   ): Promise<ContainerWriterProjectionResponse | null>;
 }
 
+export interface PrincipalRematerializationPredecessor {
+  readonly authored?: readonly ResolvedPrincipalPolicyEvidence[] | undefined;
+  readonly policies: readonly PrincipalPolicyCurrentEvidence[];
+  readonly projections: readonly ContainerWriterProjectionResponse[];
+  readonly knownContainerKeks: ReadonlyMap<string, Uint8Array>;
+}
+
 export interface PrincipalContainerRematerializationInput {
+  readonly preceding?: PrincipalRematerializationPredecessor | undefined;
   readonly reportSecurityIncident: SecurityIncidentReporter;
   readonly apiClient: RematerializationApi;
   readonly author: ContainerMutationAuthor;
@@ -111,7 +120,12 @@ export async function carryLevel(
     warmReferencedPrincipalPolicies:
       rematerialization.warmReferencedPrincipalPolicies,
   });
-  addPlan(batch, { carried: true, planned, rotated: planned.writerProjection });
+  addPlan(batch, {
+    carried: true,
+    planned,
+    rotated: planned.writerProjection,
+    nextProjection: planned.writerProjection,
+  });
 }
 
 export function addPlan(

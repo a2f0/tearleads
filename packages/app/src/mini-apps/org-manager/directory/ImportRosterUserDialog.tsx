@@ -95,6 +95,7 @@ export function ImportRosterUserDialog({
                 importUserIdDraft.trim().length === 0
               }
               type="submit"
+              loading={mutating}
             >
               {ORG_MANAGER_LABELS.importUserSubmitAction}
             </MiniAppButton>

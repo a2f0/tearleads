@@ -4,7 +4,10 @@ import {
   computeContainerKeyEpochHash,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import type { MaterializedContainerRekeyPlan } from "../../../data/containers/shared/types";
+import type {
+  MaterializedContainerRekeyPlan,
+  MaterializedContainerSharePlan,
+} from "../../../data/containers/shared/types";
 import {
   canonicalKeyingJsonString,
   readCanonicalRecord,
@@ -40,7 +43,7 @@ export interface RotationPlanArtifacts {
 }
 
 function recipientTargets(
-  plan: RotationPlanArtifacts,
+  plan: Pick<RotationPlanArtifacts, "wraps">,
 ): ContainerKekRecipientTarget[] {
   return plan.wraps
     .map((wrap) => ({
@@ -172,6 +175,59 @@ export function rebaseContainerWriterProjection(
     containerKeks: [
       ...rotated.containerKeks,
       ...descendant.containerKeks.slice(index + 1),
+    ],
+  };
+  speculativeProjections.add(projection);
+  return projection;
+}
+
+/** A grant keeps its key epoch while advancing the manifest and recipient wraps. */
+export async function containerWriterProjectionFromSharePlan(input: {
+  plan: MaterializedContainerSharePlan["plan"];
+  previousProjection: ContainerWriterProjectionResponse;
+}): Promise<ContainerWriterProjectionResponse> {
+  const { plan, previousProjection } = input;
+  const previous = previousProjection.path.at(-1);
+  const kek = previousProjection.containerKeks.at(-1);
+  if (
+    !previous ||
+    !kek ||
+    previous.manifestHash !== plan.previousManifest.manifestHash ||
+    kek.containerId !== plan.containerId
+  )
+    throw new Error("Container grant projection predecessor mismatch");
+  const targets = recipientTargets({ wraps: plan.wraps });
+  const projection = {
+    ...previousProjection,
+    path: [
+      ...previousProjection.path.slice(0, -1),
+      {
+        event: {
+          body: readCanonicalRecord(plan.body, "Container grant body"),
+          event: readCanonicalRecord(plan.event, "Container grant event"),
+          eventHash: plan.eventHash,
+        },
+        manifest: readCanonicalRecord(
+          plan.manifest,
+          "Container grant manifest",
+        ),
+        manifestHash: plan.manifestHash,
+        state: readCanonicalRecord(plan.state, "Container grant state"),
+      },
+    ],
+    containerKeks: [
+      ...previousProjection.containerKeks.slice(0, -1),
+      {
+        ...kek,
+        accessManifestHash: plan.manifestHash,
+        containerManifestHistory: [previous, ...kek.containerManifestHistory],
+        keyTargetHash: await computeContainerKekRecipientTargetHash(targets),
+        recipientTargets: readCanonicalRecords(
+          targets,
+          "Container grant targets",
+        ),
+        wraps: readCanonicalRecords(plan.wraps, "Container grant wraps"),
+      },
     ],
   };
   speculativeProjections.add(projection);

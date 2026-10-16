@@ -89,6 +89,19 @@ export function readPrincipalMutation(
     throw new Error("Principal mutation journal operation is unsupported");
   const request = CommitOrganizationGroupPolicyRequestSchema.parse(body);
   assertStateScope(request.groupPolicy.state, "group", groupId, scope);
+  if (request.memberPolicy) {
+    // The server binds this signed group ID to the organization's Members group.
+    assertStateScope(
+      request.memberPolicy.state,
+      "group",
+      request.memberPolicy.state.principalId,
+      scope,
+    );
+    if (request.memberPolicy.state.principalId === groupId)
+      throw new Error(
+        "Principal mutation journal Members target is duplicated",
+      );
+  }
   assertStateScope(
     request.organizationPolicy.state,
     "organization",

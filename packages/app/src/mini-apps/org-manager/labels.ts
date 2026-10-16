@@ -166,8 +166,6 @@ export const ORG_MANAGER_LABELS = {
   failedLoadGroupMembers: "Failed to load group members.",
   groupNameUnavailable: "Group details are unavailable. Refresh and try again.",
   unreadableGroupName: "Group name unavailable",
-  failedAddGroupAfterMemberAdd:
-    "The user was added to Members but not to the requested group. They are an organization member and count toward billing. Retry the group add, or remove them from Members.",
   failedLoadOrganizations: "Failed to load organizations.",
   failedLoadUserDetail: "Failed to load user detail.",
   failedCreateProfileDocument: "Failed to create profile document.",

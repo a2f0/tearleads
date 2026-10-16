@@ -6,10 +6,12 @@ import {
   type PreparedPrincipalContainerRematerializationBatch,
   preparePrincipalContainerRematerializationBatch,
 } from "../../workflows/organizations/principalContainerRematerialization";
+import type { PrincipalRematerializationPredecessor } from "../../workflows/organizations/principalContainerRematerializationPlanning";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
 
 export async function preparePrincipalContainerMutations(input: {
+  readonly preceding?: PrincipalRematerializationPredecessor | undefined;
   readonly currentPolicy: Pick<PrincipalPolicyBundleResponse, "currentGrants">;
   readonly groupId: string;
   readonly nextPolicy: PrincipalPolicyCurrentEvidence;
@@ -30,6 +32,7 @@ export async function preparePrincipalContainerMutations(input: {
     );
   }
   return preparePrincipalContainerRematerializationBatch({
+    preceding: input.preceding,
     stillCurrent: input.stillCurrent,
     recitationStillCurrent: input.recitationStillCurrent,
     reportSecurityIncident: input.runtime.util.reportSecurityIncident,

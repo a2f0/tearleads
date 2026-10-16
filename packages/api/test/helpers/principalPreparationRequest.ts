@@ -5,9 +5,13 @@ import { routeApp } from "../../src/routeApp";
 export async function requestAfterPrincipalPreparation(
   path: string,
   init: RequestInit,
+  request: (path: string, init: RequestInit) => Response | Promise<Response> = (
+    path,
+    init,
+  ) => routeApp.request(path, init),
 ) {
   for (let attempt = 0; attempt < 32; attempt += 1) {
-    const response = await routeApp.request(path, init);
+    const response = await request(path, init);
     if (response.status !== 202) return response;
     const progress = createOrganizationGroupOperation.responses[202].parse(
       await response.json(),
