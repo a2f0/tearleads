@@ -54,24 +54,35 @@ test.each([
       writer,
     );
     try {
-      const createChild = (parentContainerId: string) =>
-        createRemoteContainer({
+      const initialProjection =
+        await context.common.apiClient.getContainerWriterProjection(rootId);
+      if (!initialProjection) throw new Error("Expected root projection");
+      const depth = mode.includes("deep-owner") ? 18 : mode === "owner" ? 2 : 1;
+      const descendantIds: string[] = [];
+      let parentProjection = initialProjection;
+      for (let index = 0; index < depth; index += 1) {
+        const child = await createRemoteContainer({
           ...context.common,
-          parentContainerId,
+          parentContainerId: parentProjection.containerId,
+          parentProjection,
           parentSecretKey: owner.kem.secretKey,
           reportSecurityIncident: async () => undefined,
           resolveTrustedUserIdentity: context.resolveTrustedUserIdentity,
         });
-      const depth = mode.includes("deep-owner") ? 18 : mode === "owner" ? 2 : 1;
-      const descendantIds: string[] = [];
-      let parentId = rootId;
-      for (let index = 0; index < depth; index += 1) {
-        const child = await createChild(parentId);
         if (!child) throw new Error("Expected child");
         descendantIds.push(child.containerId);
-        parentId = child.containerId;
+        // Reuse acknowledged setup data; repair still starts in a fresh cold SDK.
+        parentProjection = {
+          ...parentProjection,
+          containerId: child.containerId,
+          path: [...parentProjection.path, child.response.accessManifest],
+          containerKeks: [
+            ...parentProjection.containerKeks,
+            child.response.containerKek,
+          ],
+        };
       }
-      const leafId = parentId;
+      const leafId = parentProjection.containerId;
       const created = await createEncryptedColdDocument({
         containerId: leafId,
         organizationId,

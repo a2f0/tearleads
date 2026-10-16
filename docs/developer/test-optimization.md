@@ -91,3 +91,61 @@ before acting; these historical totals identify where to look.
 
 Raw baseline, experiment, and negative-control logs were saved locally under
 `git rev-parse --git-path test-optimization`; they are not tracked artifacts.
+
+## Second pass: October 15, 2026
+
+Baseline: `063e2744abcb3b7d6d6a5b34b873e2935ba0208b`, after PR #2550 merged.
+The [fresh CI run](https://github.com/a2f0/tearleads/actions/runs/38832488726)
+at `3f966ab636719fb21aa9a50a79ef1cb2b810461c` executed API and SDK tests with
+cache misses. The app job was longest at 24m26s; API took 17m37s and SDK 14m53s.
+API and SDK remain the requested scope, but these changes alone cannot remove
+the app bottleneck.
+
+`packages/api/src/routes/documents/automaticAncestorRepair.test.ts` now passes
+the parent projection explicitly when creating its setup chain. Each successful
+child creation contributes its acknowledged manifest and key record to the next
+parent projection. This avoids fetching the same growing parent path again on
+every level while retaining real SDK creation, API writes, crypto verification,
+and acknowledgement. The root is fetched again before rotation, and repair and
+subsequent reading still use independent cold SDK databases.
+
+Two sequential before/after pairs on an otherwise quiet Darwin arm64 host,
+Bun 1.4.2, reported these full-file elapsed times including setup:
+
+| API backend | Before runs | After runs | Median reduction |
+| --- | ---: | ---: | ---: |
+| PGlite (`memory`) | 30.30 / 30.25 s | 28.51 / 28.09 s | 6.5% |
+| SQLite | 25.81 / 25.71 s | 24.39 / 24.38 s | 5.3% |
+
+These are Bun's reported elapsed times, not sums of case timings. The local
+harness also records process wall time; the first SQLite wall receipt was lost,
+so the table consistently uses Bun totals. Commands, each through the harness:
+
+```sh
+API_DATABASE=memory bun run agent:run --label ancestor-memory -- \
+  bun test --cwd packages/api \
+  ./src/routes/documents/automaticAncestorRepair.test.ts --max-concurrency=4
+API_DATABASE=sqlite bun run agent:run --label ancestor-sqlite -- \
+  bun test --cwd packages/api \
+  ./src/routes/documents/automaticAncestorRepair.test.ts --max-concurrency=4
+```
+
+Every run passed the same five cases and 49 assertions. Owner, child-only,
+deep-owner, interrupted-response, and blocked-sync behavior remain distinct.
+The three deep cases still create 18 descendants and assert the 16-repair prefix
+boundary, with the interrupted case checking its additional acknowledged repair.
+No tests, assertions, backends, or depth boundaries were removed.
+
+In an isolated scratch checkout, reducing the SDK's automatic repair batch from
+16 to 15 made the deep-owner case fail at its existing inline-repair assertion:
+three container IDs were received where two were expected. The scratch SDK was
+rebuilt before running the API test, and its resolved dist path was verified.
+Restoring the guard, rebuilding, and rerunning the case passed. No production
+change is part of this optimization.
+
+Remaining CI leads include the retained 4,098-entry API history test (77.47 s
+PGlite / 83.80 s SQLite case time), container mutations (40.41 / 27.83 s across
+39 cases), SDK repair limits (10.19 s across two cases), and SDK authority-page
+budgeting (8.91 s). These case sums omit hooks and 13 PGlite, 11 SQLite, and
+11 SDK cases with missing durations. Re-measure before another optimization;
+the focused local improvement above is not a measured whole-CI speedup.
