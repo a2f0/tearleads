@@ -67,14 +67,16 @@ Negative controls in a scratch checkout confirmed that the retained tests fail:
 A scratch isolation probe mutated one clone's key bytes and paths, cleared the
 manifest registry, and confirmed that a second clone retained the original data
 and restored its citations. It and the six regressions passed together in
-randomized order with seed 2544. The deliberate production mutations remained
-in the scratch checkout and were restored before this run.
+randomized order with seed 2544. The deliberate production mutations existed
+only in the scratch checkout and were restored before this run; they never
+reached this branch.
 
 ## Rejected experiment and next leads
 
 The API history fixture was experimentally changed to bulk-insert signed
 events/manifests without maintaining unused projections. Its local wall times
-were 110.79 to 105.59 seconds on PGlite, but 100.20 to 106.44 seconds on SQLite.
+(before → after) were 110.79 s → 105.59 s on PGlite and 100.20 s → 106.44 s on
+SQLite.
 That inconsistent result did not justify another fixture implementation, so
 the experiment was reverted. The SQLite diagnostic split was 85.37 seconds of
 signed-history setup and 20.47 seconds of verification. The first PGlite run

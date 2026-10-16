@@ -108,9 +108,10 @@ record why. There is no deletion quota.
    evidence to confirm every intended suite ran. Rebuild
    SDK dist after SDK source edits before API tests; API tests have no stale
    dist guard. Follow `AGENTS.md` for TypeScript, architecture, and static checks.
-   For full gates from temporary checkouts, use a private `TMPDIR` outside
-   world-writable ancestor directories. Desktop upload tests deliberately reject
-   unsafe temporary paths; correct the environment without weakening that guard.
+   Keep isolated worktrees beneath a private user-owned path. Desktop upload
+   tests reject world-writable temporary ancestors; Turbo filters `TMPDIR`, so
+   a shell override alone does not repair their fallback inside the checkout.
+   Correct the environment without weakening that guard.
 4. Inspect failures, warnings, counts, and verification reports, not just the
    harness exit receipt. Do not edit sources during a verified run. If a helper
    changes outside a package, inspect that package's Turbo inputs/dependencies.
