@@ -1,6 +1,8 @@
 import { expect } from "bun:test";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { createDomainScope } from "../../data/domainScope";
+import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
+import { type ReconciliationClock, systemReconciliationClock } from "./clock";
 import type {
   ContainerDiscoveryOutcome,
   ContainerDiscoveryRequest,
@@ -39,13 +41,18 @@ export function perContainerDiscovery(
   };
 }
 
-/** A fully no-op reconciliation host; tests override only what they observe. */
+/**
+ * A fully no-op reconciliation host; tests override only what they observe.
+ * Its lane runs on the real coordinator for the host's scope, so lane failure
+ * backoff and delayed requests keep production timing.
+ */
 export function createReconciliationTestHost(
   overrides: Partial<ReconciliationHost> = {},
 ): ReconciliationHost {
-  return {
+  const host: ReconciliationHost = {
     applyReconciled: () => undefined,
     canDiscoverContainerDocuments: () => true,
+    clock: systemReconciliationClock,
     discoverContainerDocuments: perContainerDiscovery(async () => []),
     domainScope: createDomainScope(),
     getRuntimeStatus: () => ({
@@ -68,9 +75,59 @@ export function createReconciliationTestHost(
     }),
     refreshRootTree: async () => undefined,
     refreshTree: async () => undefined,
+    registerLane: (key, config) =>
+      getOrCreateDomainSyncCoordinator(host.domainScope).registerLane(
+        key,
+        config,
+      ),
     reportInitialDocumentProbeComplete: () => undefined,
     requestDocumentContentPull: () => undefined,
     ...overrides,
+  };
+  return host;
+}
+
+/** A reconciliation clock that only moves when the test advances it. */
+export interface ManualReconciliationClock extends ReconciliationClock {
+  /** Move time forward, running every timer that falls due in order. */
+  readonly advance: (ms: number) => void;
+}
+
+export function createManualReconciliationClock(
+  startMs = 0,
+): ManualReconciliationClock {
+  let nowMs = startMs;
+  let nextId = 0;
+  const timers = new Map<number, { callback: () => void; dueMs: number }>();
+  return {
+    advance: (ms) => {
+      const targetMs = nowMs + ms;
+      for (;;) {
+        let next: [number, { callback: () => void; dueMs: number }] | null =
+          null;
+        for (const entry of timers) {
+          if (
+            entry[1].dueMs <= targetMs &&
+            (!next || entry[1].dueMs < next[1].dueMs)
+          ) {
+            next = entry;
+          }
+        }
+        if (!next) break;
+        timers.delete(next[0]);
+        nowMs = next[1].dueMs;
+        next[1].callback();
+      }
+      nowMs = targetMs;
+    },
+    now: () => nowMs,
+    schedule: (callback, delayMs) => {
+      const id = nextId++;
+      timers.set(id, { callback, dueMs: nowMs + Math.max(0, delayMs) });
+      return () => {
+        timers.delete(id);
+      };
+    },
   };
 }
 

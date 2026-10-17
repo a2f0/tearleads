@@ -1,4 +1,4 @@
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../domainScope";
 
 /**
  * Per-scope set of remote document ids this client just originated (created or

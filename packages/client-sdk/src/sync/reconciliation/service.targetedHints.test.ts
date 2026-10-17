@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
+import { createReconciledDocumentContentPuller } from "../../client/reconciledDocumentContentPull";
 import { getOrCreateDomainSyncCoordinator } from "../../data/sync/syncCoordinator";
-import { createReconciledDocumentContentPuller } from "./documentContentPull";
 import { createReconciliationService } from "./service";
 import {
   createGate,

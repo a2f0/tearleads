@@ -2,6 +2,7 @@ export {
   createDomainScope,
   type DomainScope,
 } from "../../data/domainScope";
+export { markOriginatedDocuments } from "../../data/sync/originatedDocuments";
 export type {
   DomainSyncCoordinator,
   DomainSyncSnapshot,
