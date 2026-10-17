@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { ContainerNode } from "../../stores/container-contents";
-import { syncedContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
-import { createReconciledDocumentContentPuller } from "./documentContentPull";
+import type { ContainerNode } from "../stores/container-contents";
+import { syncedContainerDocumentObjectSyncState } from "../workflows/container-contents/syncState";
+import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 
 function container(input: {
   id: string;

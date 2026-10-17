@@ -102,7 +102,10 @@ runtime helpers:
 - lane registration and request coalescing;
 - pending-work and idle/settle observation for tests and runtime idle helpers;
 - common "sync prerequisites regained" checks such as online/auth/key restore;
-- common teardown-error detection for destroyed database clients.
+- common teardown-error detection for destroyed database clients;
+- per-scope ids of documents this client just wrote, which the document
+  store records and reconciliation consumes so the server's echo of the
+  write is skipped once (`originatedDocuments.ts`).
 
 Do not add domain-specific document, container, blob, or persistence
 logic here. Add that to the owning workflow/store lane and register it with the

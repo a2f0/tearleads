@@ -1,3 +1,5 @@
+import type { ReconciliationClock } from "./clock";
+
 export interface InitialDocumentProbeBatchInput {
   readonly afterLocalId: string | null;
   readonly listedContainerIds: ReadonlySet<string>;
@@ -11,6 +13,7 @@ export interface InitialDocumentProbeBatchResult {
 }
 
 export interface InitialDocumentProbeHost {
+  readonly clock: ReconciliationClock;
   readonly listContainerDocumentIds: (
     containerId: string,
   ) => Promise<ReadonlyArray<string> | null>;
@@ -111,7 +114,7 @@ function unlistedContainerRetries(
     }));
 }
 
-function canRun(state: InitialDocumentProbeState, nowMs = Date.now()): boolean {
+function canRun(state: InitialDocumentProbeState, nowMs: number): boolean {
   if (!state.armed || state.running || !hasPendingWork(state)) {
     return false;
   }
@@ -123,7 +126,7 @@ function canRun(state: InitialDocumentProbeState, nowMs = Date.now()): boolean {
 
 function continuationDelayMs(
   state: InitialDocumentProbeState,
-  nowMs = Date.now(),
+  nowMs: number,
 ): number {
   const retries = unlistedContainerRetries(state);
   if (
@@ -248,7 +251,7 @@ async function listNextEligibleContainer(input: {
   readonly state: InitialDocumentProbeState;
 }): Promise<boolean> {
   const { eligibleIds, host, runGeneration, state } = input;
-  const nowMs = Date.now();
+  const nowMs = host.clock.now();
   const containerId = eligibleIds.find(
     (id) =>
       !state.listedDocumentIdsByContainer.has(id) &&
@@ -284,7 +287,7 @@ async function listNextEligibleContainer(input: {
         INITIAL_DOCUMENT_LISTING_RETRY_BASE_DELAY_MS * 2 ** (attempts - 1);
       state.listingRetryNotBeforeByContainer.set(
         containerId,
-        Date.now() + retryDelayMs,
+        host.clock.now() + retryDelayMs,
       );
     }
     return true;
@@ -299,7 +302,7 @@ async function runProbe(
   host: InitialDocumentProbeHost,
   state: InitialDocumentProbeState,
 ): Promise<void> {
-  if (!canRun(state)) {
+  if (!canRun(state, host.clock.now())) {
     return;
   }
 
@@ -394,8 +397,8 @@ export function createInitialDocumentProbe(
         state.listingRetryNotBeforeByContainer.delete(containerId);
       };
     },
-    canRun: () => canRun(state),
-    continuationDelayMs: () => continuationDelayMs(state),
+    canRun: () => canRun(state, host.clock.now()),
+    continuationDelayMs: () => continuationDelayMs(state, host.clock.now()),
     hasPendingWork: () => state.armed && hasPendingWork(state),
     resetPending: () => resetPending(state),
     resetSkippedListings: () => resetSkippedListings(state),

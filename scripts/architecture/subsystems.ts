@@ -363,6 +363,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/sync/`,
       `${sdk}/stores/local-projection/`,
       `${sdk}/client/deviceFirst.ts`,
+      `${sdk}/client/reconciledDocumentContentPull.ts`,
     ],
   },
   {

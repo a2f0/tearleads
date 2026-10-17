@@ -1,5 +1,6 @@
 import type { IConfiguration } from "dependency-cruiser";
 import { appDependencyRules } from "./scripts/architecture/dependencyCruiserAppRules";
+import { clientSdkDependencyRules } from "./scripts/architecture/dependencyCruiserClientSdkRules";
 import { dependencyCruiserDeploymentRules } from "./scripts/architecture/dependencyCruiserDeploymentRules";
 import { runtimeDependencyRule } from "./scripts/architecture/dependencyCruiserRuntimeRule";
 import {
@@ -43,22 +44,6 @@ const apiLayer = {
   routes: `${sourceRoot.api}routes/`,
   services: `${sourceRoot.api}services/`,
   workflows: `${sourceRoot.api}workflows/`,
-} as const;
-
-const clientSdkLayer = {
-  app: sourceRoot.app,
-  // The Tearleads composition root sits at the package root, beside its barrel.
-  client: `${sourceRoot.clientSdk}(client/|Tearleads\\.ts$)`,
-  data: `${sourceRoot.clientSdk}data/`,
-  dataInternals: [
-    `${sourceRoot.clientSdk}data/persistence/`,
-    `${sourceRoot.clientSdk}data/sqlite/`,
-    `${sourceRoot.clientSdk}data/blobs/`,
-    `${sourceRoot.clientSdk}data/contacts/`,
-    `${sourceRoot.clientSdk}data/sync/`,
-  ] as string[],
-  stores: `${sourceRoot.clientSdk}stores/`,
-  workflows: `${sourceRoot.clientSdk}workflows/`,
 } as const;
 
 // Leaf-level support/test packages that higher layers build on. Everything NOT
@@ -322,65 +307,6 @@ const apiPackageBoundaryRules = [
   },
 ] satisfies ForbiddenRules;
 
-const clientSdkRules = [
-  {
-    name: "client-sdk-does-not-depend-on-app",
-    severity: "error",
-    comment:
-      "The client SDK is the lower-level runtime package and must not import application implementation code.",
-    from: {
-      path: sourceRoot.clientSdk,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: clientSdkLayer.app,
-    },
-  },
-  {
-    name: "client-sdk-data-does-not-depend-on-upper-layers",
-    severity: "error",
-    comment:
-      "SDK data modules are low-level stores, contracts, and layer-neutral helpers; they must not depend on client, store, or workflow modules.",
-    from: {
-      path: clientSdkLayer.data,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: [
-        clientSdkLayer.client,
-        clientSdkLayer.stores,
-        clientSdkLayer.workflows,
-      ],
-    },
-  },
-  {
-    name: "client-sdk-workflows-do-not-depend-on-stores-or-client-facade",
-    severity: "error",
-    comment:
-      "SDK workflows own domain orchestration below stores and the high-level client facade.",
-    from: {
-      path: clientSdkLayer.workflows,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: [clientSdkLayer.client, clientSdkLayer.stores],
-    },
-  },
-  {
-    name: "client-sdk-stores-use-workflow-facades-not-data-internals",
-    severity: "error",
-    comment:
-      "SDK stores should compose public workflow facades instead of importing low-level persistence, SQLite, blob, contact, or sync internals directly.",
-    from: {
-      path: clientSdkLayer.stores,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: clientSdkLayer.dataInternals,
-    },
-  },
-] satisfies ForbiddenRules;
-
 const corePackageRules = [
   {
     name: "validators-stays-leaf",
@@ -587,7 +513,7 @@ const dependencyCruiserConfig = {
     ...standardRules,
     ...apiRules,
     ...apiPackageBoundaryRules,
-    ...clientSdkRules,
+    ...clientSdkDependencyRules,
     ...appDependencyRules,
     ...corePackageRules,
     ...dependencyCruiserDeploymentRules,

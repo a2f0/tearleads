@@ -3,8 +3,8 @@ import {
   isDocumentUpdateCreatedEvent,
 } from "../../data/documents/documentSync";
 import type { DomainScope } from "../../data/domainScope";
+import { consumeOriginatedDocument } from "../../data/sync/originatedDocuments";
 import type { LocalProjectionStore } from "../../stores/local-projection";
-import { consumeOriginatedDocument } from "./originatedDocuments";
 import type { ReconciliationService } from "./serviceTypes";
 
 function enqueueKnownEventContainers(input: {
