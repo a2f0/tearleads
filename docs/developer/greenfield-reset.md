@@ -120,8 +120,11 @@ production reset applies the inspected destroy plan as above. Then, from
 bunx --no-install wrangler delete --env "$TIER" --force
 ```
 
-Confirm the Worker and its Durable Object namespaces are gone before touching
-its database or blob storage.
+After deleting the Worker, Wrangler lists the account's KV namespaces to remove
+legacy Workers Sites storage, so the token needs Workers KV Storage Read; without
+it the delete succeeds but the command exits non-zero. Confirm the Worker and
+its Durable Object namespaces are gone before touching its database or blob
+storage.
 
 ### 2. Remove the application database
 
@@ -170,10 +173,11 @@ terraform/scripts/run-storage-stack.sh "$TIER" apply \
 ```
 
 Production needs the temporary bucket override described above. R2 refuses
-nonempty bucket deletion in either tier; `empty-staging-blobs.sh` handles staging
-after its Worker is removed. Verify removal of the bucket and account token,
-then remove any storage override. `scripts/destroyStaging.sh` also
-destroys the staging Workers and the independently hosted website; use
+nonempty bucket deletion in either tier; `empty-staging-bucket.sh storage`
+handles staging after its Worker is removed. Verify removal of the bucket and
+account token, then remove any storage override. `scripts/destroyStaging.sh`
+also destroys the staging Workers, the desktop downloads bucket (emptied by
+`empty-staging-bucket.sh downloads`), and the independently hosted website; use
 individual stacks for this workflow's database/blob/Worker boundary.
 
 ## Rebuild and resume

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Destroy the staging hostnames, Workers, database, R2 storage, and the
-# independently hosted website.
+# Destroy the staging hostnames, Workers, database, R2 storage, desktop
+# downloads, and the independently hosted website.
 # Usage: scripts/destroyStaging.sh [--auto-approve]
 # Without --auto-approve the script asks once, up front, for the whole
 # teardown. Terraform's own prompts would come after the Workers were deleted
@@ -21,7 +21,7 @@ for argument in "$@"; do
 done
 
 if [ "$AUTO_APPROVE" -eq 0 ]; then
-  echo "This destroys every staging resource: hostnames, Workers, the database and everything in it, R2 storage, and the website." >&2
+  echo "This destroys every staging resource: hostnames, Workers, the database and everything in it, R2 storage, desktop downloads, and the website." >&2
   printf 'Type "staging" to continue: ' >&2
   IFS= read -r answer || answer=""
   if [ "$answer" != "staging" ]; then
@@ -37,6 +37,8 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 # PlanetScale refuses to delete a role that still owns objects.
 "$REPO_ROOT/terraform/scripts/drop-postgres-owned.sh" staging
 "$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" staging destroy --auto-approve
-"$REPO_ROOT/terraform/scripts/empty-staging-blobs.sh"
+"$REPO_ROOT/terraform/scripts/empty-staging-bucket.sh" storage
 "$REPO_ROOT/terraform/scripts/run-storage-stack.sh" staging destroy --auto-approve
+"$REPO_ROOT/terraform/scripts/empty-staging-bucket.sh" downloads
+"$REPO_ROOT/terraform/scripts/run-downloads-stack.sh" staging destroy --auto-approve
 exec "$REPO_ROOT/packages/website/scripts/destroyStagingWebsite.sh" --auto-approve
