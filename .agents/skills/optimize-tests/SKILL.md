@@ -26,7 +26,10 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    it is the longest job, API and SDK savings cannot shorten CI. Mention another
    bottleneck when the evidence identifies one, and state any change of scope
    rather than silently expanding the requested work.
-2. Prefer a recent successful CI run with actual cache misses. Use `gh run list`,
+2. Prefer a recent successful CI run with actual cache misses. Check the
+   scheduled `uncached-tests.yml` workflow first when present: its reusable CI
+   jobs force execution even when recent main-branch runs only replay logs. Use
+   `gh run list --workflow uncached-tests.yml --status success`, `gh run list`,
    `gh run view <run> --json jobs`, and
    `gh run view <run> --job <job> --log` to save timings locally. Distinguish
    checkout/install/build time from test execution, and cached log replay from
@@ -38,8 +41,10 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    current file separately. Report unparsed/missing timings rather than treating
    them as zero. File sums identify leads, not elapsed time: hooks, module
    initialization, parallel execution, and subprocesses can change the total.
-4. Reproduce the top candidates locally before changing them. Build prerequisites
-   with `bun run agent:run --label test-build -- bun run build:packages`.
+4. Reproduce the top candidates locally before changing them. Refresh installed
+   dependencies with `bun run agent:run --label test-install -- bun install --frozen-lockfile`
+   before building; package builds do not refresh stale installed Git dependencies.
+   Build prerequisites with `bun run agent:run --label test-build -- bun run build:packages`.
    For focused measurements, use the root output harness with
    `bun test --cwd packages/api ./src/path/to/file.test.ts` (or the SDK
    directory), retaining the package's normal preload.
@@ -92,6 +97,9 @@ Read the test and its fixture helpers, not only the name or coverage percentage.
   back the commit it is waiting for until the timeout. In the app, use
   `settleAppTestRuntimeInAct`, and assert a wait helper's result rather than
   discarding it.
+  Use async `act` callbacks for asynchronous UI actions and cover timer-backed
+  fixture retries with `act`. Check warnings in a multi-file run: suite setup
+  can mask missing async scopes when a file runs alone.
 - **Explain flakes before changing them.** If a failure will not reproduce
   under repeated or parallel runs, widen its race window in an untracked probe
   (for example, delay the follow-up query) and log the state transitions. The

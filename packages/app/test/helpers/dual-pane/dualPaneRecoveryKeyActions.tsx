@@ -22,10 +22,11 @@ export async function restorePaneRecoveryKey(input: {
   );
   const restoreInput =
     within(identityManager).getByLabelText("Restore passphrase");
-  await act(() => {
+  // Keep the act environment active until asynchronous restore updates flush.
+  await act(async () => {
     fireEvent.change(restoreInput, { target: { value: seedPhrase } });
   });
-  await act(() => {
+  await act(async () => {
     fireEvent.click(
       within(identityManager).getByRole("button", {
         name: "Restore from Passphrase",

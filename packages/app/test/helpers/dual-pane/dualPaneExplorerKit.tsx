@@ -1,5 +1,11 @@
 import { expect } from "bun:test";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import invariant from "invariant";
 import {
   requestPath,
@@ -61,7 +67,7 @@ async function createExplorerNote(pane: HTMLElement) {
     });
     if (created) return;
     if (pickerVisible) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
       continue;
     }
 
@@ -84,7 +90,7 @@ async function createExplorerNote(pane: HTMLElement) {
         fireEvent.click(newDocumentItem);
       }
     });
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 100)));
   }
 
   throw new Error("Explorer did not offer the new Note action.");
