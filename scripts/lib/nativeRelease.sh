@@ -84,8 +84,8 @@ iOS options:
   skip_submission:true        Upload without submitting for review.
 
 iOS builds import Match signing assets into an isolated per-run keychain with a
-random password, then delete it after the archive. iOS releases regenerate icons
-and splash images, so ImageMagick must be installed.
+random password, then delete it after the archive. iOS releases render icons and
+splash images from assets/brand with the pinned agent-tool, which needs Bun.
 
 App Store Connect authentication uses APP_STORE_CONNECT_KEY_ID,
 APP_STORE_CONNECT_ISSUER_ID, and TEAM_ID. The private key defaults to

@@ -31,15 +31,6 @@ rescue Errno::ENOENT, Errno::EACCES, JSON::ParserError => e
   UI.user_error!("Could not load #{config_path}: #{e.message}")
 end
 
-# Regenerate the native app icon and splash images from assets/logo.svg before a
-# release build so the shipped assets match the source art. On iOS the AppIcon is
-# a gitignored artifact the App Store upload requires (CFBundleIconName / the
-# 120x120 icon); on Android it refreshes the launcher and splash raster densities.
-# Shared by the iOS and Android release lanes.
-def generate_capacitor_image_assets!(script_path)
-  sh("sh #{Shellwords.escape(script_path)}")
-end
-
 def google_play_json_key_path
   ENV.fetch('GOOGLE_PLAY_JSON_KEY_FILE', nil) ||
     ENV.fetch('SUPPLY_JSON_KEY', nil) ||

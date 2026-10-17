@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 // runner names to website platforms; this copies canonical captures
 // plus a scanned manifest into the Astro `public/` dir, which Astro serves at
 // the site root in dev and copies into `dist/` on build — the same gitignored,
-// regenerated-on-every-build contract as the favicons (see buildWebImages.sh).
+// regenerated-on-every-build contract as the favicons (the `images` script).
 //
 // A no-op-friendly empty manifest is written when `.screenshots/` is absent, so
 // `astro build` still succeeds in CI without a prior `bun run screenshots`.
