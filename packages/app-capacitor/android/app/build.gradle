@@ -49,6 +49,19 @@ android {
     }
 }
 
+// The launcher icons, adaptive-icon foreground, and splash screens are rendered
+// from assets/brand by the agent-tool `capacitor-android` image target and are
+// gitignored, so every build renders them before resources are merged. The task
+// declares no outputs and always runs; agent-tool rewrites only changed files.
+def brandImagesScript = rootProject.file("../../../scripts/lib/buildBrandImages.sh")
+def generateBrandImages = tasks.register("generateBrandImages", Exec) {
+    description = "Renders the launcher and splash images from assets/brand."
+    commandLine "sh", brandImagesScript.absolutePath, "capacitor-android"
+}
+tasks.named("preBuild") {
+    dependsOn generateBrandImages
+}
+
 // The release keystore comes from the secrets folder of the tier the native
 // release wrappers select with NATIVE_RELEASE_TIER; without one, production.
 def releaseKeystoreFile() {

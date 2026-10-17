@@ -20,7 +20,9 @@ export function ciScopes(paths: readonly string[]) {
       common ||
       paths.some(
         (path) =>
-          /^packages\/app-capacitor\//.test(path) ||
+          /^(packages\/app-capacitor\/|assets\/brand\/)/.test(path) ||
+          path === "agent-tool.json" ||
+          path === "scripts/lib/buildBrandImages.sh" ||
           path === "scripts/checks/testNativePurchaseBridge.sh",
       ),
     terraform:

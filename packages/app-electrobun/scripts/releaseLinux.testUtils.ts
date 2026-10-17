@@ -253,6 +253,7 @@ export async function runLinuxRelease(
 export async function runLinuxNativeBuild(tier: string) {
   const root = await mkdtemp(join(tmpdir(), "tearleads-linux-native-"));
   const log = join(root, "build.log");
+  const icons = join(root, "icons.log");
   async function write(path: string, source: string) {
     const target = join(root, path);
     await mkdir(dirname(target), { recursive: true });
@@ -267,8 +268,12 @@ export async function runLinuxNativeBuild(tier: string) {
       join(scripts, "buildLinuxNative.sh"),
     );
     await write("bin/uname", '#!/bin/sh\necho "Linux x86_64"');
-    for (const tool of ["bunx", "rsvg-convert", "bun"])
+    for (const tool of ["bunx", "bun"])
       await write(`bin/${tool}`, "#!/bin/sh\nexit 0");
+    await write(
+      "scripts/lib/buildBrandImages.sh",
+      `#!/bin/sh\nprintf '%s\\n' "$*" > '${icons}'`,
+    );
     await write(
       "packages/app-electrobun/scripts/buildElectrobun.sh",
       `#!/bin/sh\nprintf '%s|%s|%s\\n' "$ELECTROBUN_RELEASE_TIER" "$TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD" "$*" > '${log}'`,
@@ -286,10 +291,12 @@ export async function runLinuxNativeBuild(tier: string) {
       new Response(child.stderr).text(),
     ]);
     const built = Bun.file(log);
+    const rendered = Bun.file(icons);
     return {
       exitCode,
       stderr,
       build: (await built.exists()) ? (await built.text()).trim() : "",
+      icons: (await rendered.exists()) ? (await rendered.text()).trim() : "",
     };
   } finally {
     await rm(root, { recursive: true, force: true });

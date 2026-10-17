@@ -5,7 +5,6 @@ require_relative '../lib/native_release_target'
 
 ANDROID_DIR = File.expand_path('../../android', __dir__)
 ANDROID_ASSETS_DIR = File.join(ANDROID_DIR, 'app/src/main/assets')
-ANDROID_BUILD_IMAGES_SCRIPT = File.expand_path('../../scripts/buildAndroidImages.sh', __dir__)
 ANDROID_BUILD_VARIANT = NATIVE_RELEASE_TARGET.fetch(:android_build_variant)
 ANDROID_BUILD_VARIANT_TASK = native_release_android_build_variant_task
 ANDROID_RELEASE_KEYSTORE_PATH = File.join(NATIVE_SECRETS_DIR, 'tearleads-release.keystore')
@@ -287,7 +286,6 @@ platform :android do
     sh('bun run build:release android')
     sh("bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} android")
     ensure_release_capacitor_sync!
-    generate_capacitor_image_assets!(ANDROID_BUILD_IMAGES_SCRIPT)
     run_android_gradle(
       "bundle#{ANDROID_BUILD_VARIANT_TASK}",
       "-P#{ANDROID_RELEASE_VERSION_CODE_PROPERTY}=#{release_build.fetch(:build_number)}"

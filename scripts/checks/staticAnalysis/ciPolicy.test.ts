@@ -86,9 +86,15 @@ test("selects native and infrastructure checks without skipping their dependenci
   expect(ciScopes(["packages/app-capacitor/ios/App/App.swift"]).native).toBe(
     true,
   );
-  expect(ciScopes(["scripts/checks/testNativePurchaseBridge.sh"]).native).toBe(
-    true,
-  );
+  for (const path of [
+    "scripts/checks/testNativePurchaseBridge.sh",
+    // The Android build renders its launcher and splash images from these.
+    "assets/brand/logo.svg",
+    "agent-tool.json",
+    "scripts/lib/buildBrandImages.sh",
+  ]) {
+    expect(ciScopes([path]).native).toBe(true);
+  }
   expect(ciScopes(["terraform/main.tf"]).terraform).toBe(true);
   for (const path of [
     "scripts/deployStaging.sh",

@@ -74,7 +74,7 @@ else
 fi
 
 bunx turbo run build --filter='app-electrobun^...'
-bash "$PACKAGE_DIR/scripts/buildMacosIcon.sh"
+sh "$REPO_ROOT/scripts/lib/buildBrandImages.sh" electrobun
 sh "$PACKAGE_DIR/scripts/buildElectrobun.sh" --env="$CHANNEL"
 ARTIFACT_DIR="$PACKAGE_DIR/build/artifacts"
 DMG="$ARTIFACT_DIR/$INSTALLER"
