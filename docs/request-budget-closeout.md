@@ -35,7 +35,7 @@ describe shipped features.
 
 The current behavior is implemented in
 [reconciliation](../packages/client-sdk/src/sync/reconciliation/service.ts),
-[document pull policy](../packages/client-sdk/src/sync/reconciliation/documentContentPull.ts),
+[document pull policy](../packages/client-sdk/src/client/reconciledDocumentContentPull.ts),
 [connection backoff](../packages/app/src/providers/sdk/serverEventsConnectionLoop.ts)
 and [event binding](../packages/app/src/providers/sdk/serverEventsBinding.ts).
 

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
+import { systemReconciliationClock } from "./clock";
 import {
   createInitialDocumentProbe,
   type InitialDocumentProbeBatchInput,
@@ -60,6 +61,7 @@ for (const reset of ["stop", "eligible-set"] as const) {
     const reads: string[] = [];
     const batches: InitialDocumentProbeBatchInput[] = [];
     const probe = createInitialDocumentProbe({
+      clock: systemReconciliationClock,
       listContainerDocumentIds: async (id) => {
         reads.push(id);
         return ["current"];

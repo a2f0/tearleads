@@ -1,4 +1,5 @@
 import { MAX_CONTAINER_DOCUMENT_LANES } from "@tearleads/validators/request";
+import type { ReconciliationClock } from "./clock";
 import {
   acknowledgeContainerForce,
   type IdleBackfillState,
@@ -24,18 +25,18 @@ interface KnownContainerSweepState extends IdleBackfillState {
 
 const pendingRetries = new WeakMap<
   KnownContainerSweepState,
-  Map<string, { due: number; timer: ReturnType<typeof setTimeout> }>
+  Map<string, { cancel: () => void; due: number }>
 >();
 
 export function clearPendingDiscoveryRetries(
   state: KnownContainerSweepState,
 ): void {
-  for (const { timer } of pendingRetries.get(state)?.values() ?? [])
-    clearTimeout(timer);
+  for (const { cancel } of pendingRetries.get(state)?.values() ?? []) cancel();
   pendingRetries.delete(state);
 }
 
 function schedulePendingDiscovery(
+  clock: ReconciliationClock,
   state: KnownContainerSweepState,
   containerId: string,
   delayMs: number,
@@ -43,12 +44,12 @@ function schedulePendingDiscovery(
   if (!state.active) return;
   const retries = pendingRetries.get(state) ?? new Map();
   pendingRetries.set(state, retries);
-  const due = Date.now() + delayMs;
+  const due = clock.now() + delayMs;
   const existing = retries.get(containerId);
   if (existing && existing.due <= due) return;
-  if (existing) clearTimeout(existing.timer);
+  existing?.cancel();
   const generation = state.lifecycleGeneration;
-  const timer = setTimeout(
+  const cancel = clock.schedule(
     () => {
       retries.delete(containerId);
       if (!state.active || state.lifecycleGeneration !== generation) return;
@@ -61,7 +62,7 @@ function schedulePendingDiscovery(
     },
     Math.max(1, delayMs),
   );
-  retries.set(containerId, { due, timer });
+  retries.set(containerId, { cancel, due });
 }
 
 export function isCurrentReconciliationLifecycle(
@@ -96,7 +97,7 @@ export async function reconcileMarkedContainers(
       forceDocumentContentPull,
       onFullListing: state.initialDocumentProbe.captureListing(containerId),
       onPendingDiscovery: (delayMs: number) =>
-        schedulePendingDiscovery(state, containerId, delayMs),
+        schedulePendingDiscovery(host.clock, state, containerId, delayMs),
     })),
   );
   for (const result of results) {

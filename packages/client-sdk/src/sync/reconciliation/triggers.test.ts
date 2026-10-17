@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createDomainScope } from "../../data/domainScope";
+import { markOriginatedDocuments } from "../../data/sync/originatedDocuments";
 import type {
   LocalProjectionReconcileListener,
   LocalProjectionReconcileSignal,
   LocalProjectionStore,
 } from "../../stores/local-projection/localProjectionStore";
-import { markOriginatedDocuments } from "./originatedDocuments";
 import { createReconciliationService } from "./service";
 import { createReconciliationTestHost } from "./service.testFixtures";
 import type { ReconciliationService } from "./serviceTypes";
