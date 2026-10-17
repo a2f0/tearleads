@@ -3,7 +3,12 @@ import { chmod, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
-async function runWebsite(script: string, args: string[] = [], failure = "") {
+async function runWebsite(
+  script: string,
+  args: string[] = [],
+  failure = "",
+  teardownAuthorization = "",
+) {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-website-deploy-"));
   async function executable(path: string, source: string) {
     await mkdir(dirname(path), { recursive: true });
@@ -15,12 +20,23 @@ async function runWebsite(script: string, args: string[] = [], failure = "") {
       "packages/website/scripts/deployWebsite.sh",
       "scripts/deployStagingWebsite.sh",
       "scripts/deployProductionWebsite.sh",
-      "packages/website/scripts/destroyStagingWebsite.sh",
+      "packages/website/scripts/destroyWebsite.sh",
+      "terraform/scripts/destroy-stack.sh",
+      "terraform/scripts/teardownGuard.sh",
       "terraform/scripts/run-website-stack.sh",
       "terraform/scripts/run-continuity-stack.sh",
+      "terraform/stacks/staging/website",
+      "terraform/stacks/prod/website",
     ]) {
       await mkdir(dirname(resolve(root, path)), { recursive: true });
-      await cp(resolve(import.meta.dir, "../../..", path), resolve(root, path));
+      await cp(
+        resolve(import.meta.dir, "../../..", path),
+        resolve(root, path),
+        {
+          recursive: true,
+          filter: (source) => !source.includes("/.terraform"),
+        },
+      );
     }
     await executable(
       resolve(root, "bin/git"),
@@ -62,6 +78,7 @@ async function runWebsite(script: string, args: string[] = [], failure = "") {
         WEBSITE_TEST_ROOT: root,
         WEBSITE_TEST_LOG: log,
         WEBSITE_TEST_FAILURE: failure,
+        TEARLEADS_TEARDOWN_TIER: teardownAuthorization,
         TF_VAR_cloudflare_api_token: "fixture-token",
         TF_VAR_cloudflare_account_id: "fixture-account",
         PUBLIC_ENVIRONMENT: "",
@@ -142,33 +159,59 @@ for (const [label, tier, environment, portal] of [
   });
 }
 
-test("staging website teardown removes its domain before deleting assets", async () => {
-  const result = await runWebsite(
-    "packages/website/scripts/destroyStagingWebsite.sh",
-    ["--auto-approve"],
-  );
-  expect(result.exitCode, result.stderr).toBe(0);
-  expect(result.calls.slice(-2)).toEqual([
-    "terraform|-chdir=ROOT/terraform/stacks/staging/website destroy --auto-approve",
-    "bun|run destroy:assets --env staging --force||https://billing.stripe.com/p/login/live_fixture",
-  ]);
-});
+for (const [tier, authorization] of [
+  ["staging", ""],
+  ["prod", "prod"],
+] as const) {
+  test(`${tier} website teardown applies its saved domain destroy plan before deleting assets`, async () => {
+    const result = await runWebsite(
+      "packages/website/scripts/destroyWebsite.sh",
+      [tier],
+      "",
+      authorization,
+    );
+    expect(result.exitCode, result.stderr).toBe(0);
+    const terraform = result.calls.filter(
+      (call) => call.startsWith("terraform|") && !call.includes(" init "),
+    );
+    const plan = terraform[0]?.match(/-out=(\S+)$/)?.[1];
+    expect(plan).toMatch(/\/destroy\.tfplan$/);
+    expect(terraform).toEqual([
+      `terraform|-chdir=ROOT/terraform/stacks/${tier}/website plan -input=false -destroy -out=${plan}`,
+      `terraform|-chdir=ROOT/terraform/stacks/${tier}/website apply -input=false ${plan}`,
+    ]);
+    expect(result.calls.at(-1)).toBe(
+      `bun|run destroy:assets --env ${tier} --force||https://billing.stripe.com/p/login/live_fixture`,
+    );
+  });
+}
 
 test("failed domain teardown retains staging assets", async () => {
   const result = await runWebsite(
-    "packages/website/scripts/destroyStagingWebsite.sh",
-    [],
+    "packages/website/scripts/destroyWebsite.sh",
+    ["staging"],
     "terraform",
   );
   expect(result.exitCode).toBe(9);
   expect(result.calls.some((call) => call.startsWith("bun|"))).toBe(false);
 });
 
+test("production website teardown refuses to run outside destroyProduction.sh", async () => {
+  const result = await runWebsite(
+    "packages/website/scripts/destroyWebsite.sh",
+    ["prod"],
+  );
+  expect(result.exitCode).toBe(1);
+  expect(result.stderr).toContain("scripts/destroyProduction.sh");
+  expect(result.calls).toEqual([]);
+});
+
 for (const [script, args] of [
   ["packages/website/scripts/deployWebsite.sh", []],
   ["packages/website/scripts/deployWebsite.sh", ["unknown"]],
   ["packages/website/scripts/deployWebsite.sh", ["prod", "--unknown"]],
-  ["packages/website/scripts/destroyStagingWebsite.sh", ["-target=wrong"]],
+  ["packages/website/scripts/destroyWebsite.sh", []],
+  ["packages/website/scripts/destroyWebsite.sh", ["staging", "-target=wrong"]],
   ["terraform/scripts/run-continuity-stack.sh", []],
   ["terraform/scripts/run-continuity-stack.sh", ["destroy"]],
   ["terraform/scripts/run-continuity-stack.sh", ["unknown"]],

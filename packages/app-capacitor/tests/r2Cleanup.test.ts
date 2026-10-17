@@ -1,14 +1,18 @@
 import { expect, test } from "bun:test";
-import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { chmod, cp, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
+const repoRoot = resolve(import.meta.dirname, "../../..");
 const endpoint =
   "https://11111111111111111111111111111111.r2.cloudflarestorage.com";
-// Each stack's Terraform output shape, as the real wrappers print it.
+type Tier = "staging" | "prod";
+const tiers: readonly Tier[] = ["staging", "prod"];
+const otherTier = { staging: "prod", prod: "staging" } as const;
+// Each stack's bucket and Terraform output shape, as the real wrappers print it.
 const stacks = {
   storage: {
-    bucket: "tearleads-blobs-staging",
+    bucket: (tier: Tier) => `tearleads-blobs-${tier}`,
     outputs: (bucket: string) => ({
       api_storage: {
         value: {
@@ -21,7 +25,7 @@ const stacks = {
     }),
   },
   downloads: {
-    bucket: "tearleads-downloads-staging",
+    bucket: (tier: Tier) => `tearleads-downloads-${tier}`,
     outputs: (bucket: string) => ({
       release_storage: {
         value: {
@@ -40,7 +44,10 @@ type Stack = keyof typeof stacks;
 async function cleanupScenario(
   failure: string,
   stack: Stack = "storage",
-  args: string[] = [stack],
+  tier: Tier = "staging",
+  args: string[] = [tier, stack],
+  // destroyProduction.sh authorizes production steps; staging needs nothing.
+  authorization = tier === "prod" ? "prod" : "",
 ) {
   const { PATH: inheritedPath } = process.env;
   const root = await mkdtemp(resolve(tmpdir(), "r2-cleanup-test-"));
@@ -52,17 +59,21 @@ async function cleanupScenario(
   }
   try {
     await write("bin/git", `#!/bin/sh\nprintf '%s\\n' '${root}'\n`);
-    const bucket =
-      failure === "identity"
-        ? stacks[stack].bucket.replace("-staging", "-prod")
-        : stacks[stack].bucket;
+    await mkdir(resolve(root, "terraform/scripts"), { recursive: true });
+    await cp(
+      resolve(repoRoot, "terraform/scripts/teardownGuard.sh"),
+      resolve(root, "terraform/scripts/teardownGuard.sh"),
+    );
+    const bucket = stacks[stack].bucket(
+      failure === "identity" ? otherTier[tier] : tier,
+    );
     for (const name of Object.keys(stacks) as Stack[]) {
       const outputs =
         name === stack ? JSON.stringify(stacks[name].outputs(bucket)) : "{}";
       await write(
         `terraform/scripts/run-${name}-stack.sh`,
         `#!/bin/sh
-[ "$*" = 'staging output -json' ] || exit 8
+[ "$*" = '${tier} output -json' ] || exit 8
 [ "$TEST_FAILURE" != output-read ] || exit 9
 if [ "$TEST_FAILURE" = empty-state ]; then echo '{}'; exit 0; fi
 printf '%s' '${outputs}'
@@ -97,10 +108,7 @@ esac
     const child = Bun.spawn(
       [
         "bash",
-        resolve(
-          import.meta.dirname,
-          "../../../terraform/scripts/empty-staging-bucket.sh",
-        ),
+        resolve(repoRoot, "terraform/scripts/empty-r2-bucket.sh"),
         ...args,
       ],
       {
@@ -109,6 +117,7 @@ esac
           PATH: `${root}/bin:${inheritedPath}`,
           TEST_ROOT: root,
           TEST_FAILURE: failure,
+          TEARLEADS_TEARDOWN_TIER: authorization,
           AWS_PROFILE: "inherited",
           AWS_SESSION_TOKEN: "inherited",
           AWS_REQUEST_CHECKSUM_CALCULATION: "when_supported",
@@ -131,33 +140,62 @@ esac
   }
 }
 
-for (const stack of Object.keys(stacks) as Stack[]) {
-  test(`staging ${stack} cleanup empties its R2 bucket, aborts uploads, and verifies both listings`, async () => {
-    const result = await cleanupScenario("", stack);
-    expect(result.code, result.stderr).toBe(0);
-    expect(result.calls).toHaveLength(5);
-    expect(result.calls[2]).toContain(
-      `abort-multipart-upload --bucket ${stacks[stack].bucket} --key blob/key --upload-id test-upload`,
-    );
-    expect(result.calls[3]).toContain("list-objects-v2");
-    expect(result.calls[4]).toContain("list-multipart-uploads");
-    for (const call of result.calls)
-      expect(call).toContain(".r2.cloudflarestorage.com --region auto");
-  });
+for (const tier of tiers) {
+  for (const stack of Object.keys(stacks) as Stack[]) {
+    test(`${tier} ${stack} cleanup empties its R2 bucket, aborts uploads, and verifies both listings`, async () => {
+      const result = await cleanupScenario("", stack, tier);
+      expect(result.code, result.stderr).toBe(0);
+      expect(result.calls).toHaveLength(5);
+      expect(result.calls[2]).toContain(
+        `abort-multipart-upload --bucket ${stacks[stack].bucket(tier)} --key blob/key --upload-id test-upload`,
+      );
+      expect(result.calls[3]).toContain("list-objects-v2");
+      expect(result.calls[4]).toContain("list-multipart-uploads");
+      for (const call of result.calls)
+        expect(call).toContain(".r2.cloudflarestorage.com --region auto");
+    });
 
-  test(`staging ${stack} cleanup refuses a production bucket before any object access`, async () => {
-    const result = await cleanupScenario("identity", stack);
-    expect(result.code).not.toBe(0);
-    expect(result.stderr).toContain("unexpected staging R2 bucket");
+    test(`${tier} ${stack} cleanup refuses the ${otherTier[tier]} bucket before any object access`, async () => {
+      const result = await cleanupScenario("identity", stack, tier);
+      expect(result.code).not.toBe(0);
+      expect(result.stderr).toContain(`unexpected ${tier} R2 bucket`);
+      expect(result.calls).toEqual([]);
+    });
+  }
+}
+
+for (const authorization of ["", "staging"]) {
+  test(`production cleanup ${authorization ? "authorized for staging" : "without authorization"} refuses before reading Terraform`, async () => {
+    const result = await cleanupScenario(
+      "output-read",
+      "storage",
+      "prod",
+      ["prod", "storage"],
+      authorization,
+    );
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("scripts/destroyProduction.sh");
     expect(result.calls).toEqual([]);
   });
 }
 
-for (const args of [[], ["prod"], ["storage", "downloads"]]) {
-  test(`staging cleanup rejects ${JSON.stringify(args)} before reading Terraform`, async () => {
-    const result = await cleanupScenario("output-read", "storage", args);
+for (const args of [
+  [],
+  ["staging"],
+  ["storage"],
+  ["staging", "storage", "downloads"],
+  ["staging", "continuity"],
+  ["unknown", "storage"],
+]) {
+  test(`cleanup rejects ${JSON.stringify(args)} before reading Terraform`, async () => {
+    const result = await cleanupScenario(
+      "output-read",
+      "storage",
+      "staging",
+      args,
+    );
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("Usage:");
+    expect(result.stderr).toMatch(/Usage:|Unknown teardown tier/);
     expect(result.calls).toEqual([]);
   });
 }

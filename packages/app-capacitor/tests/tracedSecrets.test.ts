@@ -24,6 +24,10 @@ async function tracedRun(scriptPath: string, args: readonly string[]) {
     const script = resolve(root, scriptPath);
     await mkdir(dirname(script), { recursive: true });
     await cp(resolve(import.meta.dir, "../../..", scriptPath), script);
+    await cp(
+      resolve(import.meta.dir, "../../../terraform/scripts/teardownGuard.sh"),
+      resolve(root, "terraform/scripts/teardownGuard.sh"),
+    );
     await mkdir(resolve(root, "packages/api-cli"), { recursive: true });
     await mkdir(resolve(root, "packages/api-shared"), { recursive: true });
     await executable(
