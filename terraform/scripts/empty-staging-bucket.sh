@@ -1,28 +1,42 @@
 #!/usr/bin/env bash
-# Called after the staging Worker is deleted; R2 refuses nonempty bucket deletion.
+# Called after the staging Workers are deleted; R2 refuses nonempty bucket deletion.
 set -euo pipefail
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-if [[ $# -ne 0 ]]; then echo "Usage: $(basename "$0")" >&2; exit 1; fi
+# Each R2 stack names its own bucket and output; map both to one connection shape.
+case "${1:-}:$#" in
+  storage:1)
+    EXPECTED_BUCKET=tearleads-blobs-staging
+    CONNECTION_FILTER='.api_storage.value | {bucket: .blob_s3_bucket,
+      endpoint: .blob_s3_endpoint, access_key_id: .blob_s3_access_key_id,
+      secret_access_key: .blob_s3_secret_access_key}'
+    ;;
+  downloads:1)
+    EXPECTED_BUCKET=tearleads-downloads-staging
+    CONNECTION_FILTER='.release_storage.value'
+    ;;
+  *) echo "Usage: $(basename "$0") <storage|downloads>" >&2; exit 1 ;;
+esac
+STACK="$1"
 # Never trace runtime credentials read from the sensitive Terraform output.
 set +x
 umask 077
 STORAGE_DIR="$(mktemp -d)"
 trap 'rm -rf "$STORAGE_DIR"' EXIT
-"$REPO_ROOT/terraform/scripts/run-storage-stack.sh" staging output -json >"$STORAGE_DIR/outputs.json"
+"$REPO_ROOT/terraform/scripts/run-$STACK-stack.sh" staging output -json >"$STORAGE_DIR/outputs.json"
 if jq -e '. == {}' "$STORAGE_DIR/outputs.json" >/dev/null; then
-  echo "Staging storage has no outputs; there is no configured bucket to empty."
+  echo "Staging $STACK has no outputs; there is no configured bucket to empty."
   exit 0
 fi
-jq -e '.api_storage.value' "$STORAGE_DIR/outputs.json" >"$STORAGE_DIR/storage.json"
-BUCKET="$(jq -er '.blob_s3_bucket' "$STORAGE_DIR/storage.json")"
-ENDPOINT="$(jq -er '.blob_s3_endpoint' "$STORAGE_DIR/storage.json")"
-if [[ "$BUCKET" != tearleads-blobs-staging || ! "$ENDPOINT" =~ ^https://[a-f0-9]{32}\.r2\.cloudflarestorage\.com$ ]]; then
+jq -e "$CONNECTION_FILTER" "$STORAGE_DIR/outputs.json" >"$STORAGE_DIR/storage.json"
+BUCKET="$(jq -er '.bucket' "$STORAGE_DIR/storage.json")"
+ENDPOINT="$(jq -er '.endpoint' "$STORAGE_DIR/storage.json")"
+if [[ "$BUCKET" != "$EXPECTED_BUCKET" || ! "$ENDPOINT" =~ ^https://[a-f0-9]{32}\.r2\.cloudflarestorage\.com$ ]]; then
   echo "ERROR: Refusing to empty an unexpected staging R2 bucket." >&2
   exit 1
 fi
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
-AWS_ACCESS_KEY_ID="$(jq -er '.blob_s3_access_key_id' "$STORAGE_DIR/storage.json")"
-AWS_SECRET_ACCESS_KEY="$(jq -er '.blob_s3_secret_access_key' "$STORAGE_DIR/storage.json")"
+AWS_ACCESS_KEY_ID="$(jq -er '.access_key_id' "$STORAGE_DIR/storage.json")"
+AWS_SECRET_ACCESS_KEY="$(jq -er '.secret_access_key' "$STORAGE_DIR/storage.json")"
 unset AWS_SESSION_TOKEN AWS_SECURITY_TOKEN AWS_PROFILE AWS_DEFAULT_PROFILE
 export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
 export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
@@ -54,4 +68,4 @@ if ! jq -e '(.Uploads // []) | length == 0' "$STORAGE_DIR/list-multipart-uploads
   echo "ERROR: Staging R2 bucket still contains multipart uploads; refusing teardown." >&2
   exit 1
 fi
-echo "Staging R2 blob bucket is empty."
+echo "Staging R2 $STACK bucket is empty."

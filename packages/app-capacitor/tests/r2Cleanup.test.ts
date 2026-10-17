@@ -3,7 +3,45 @@ import { chmod, mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 
-async function cleanupScenario(failure: string) {
+const endpoint =
+  "https://11111111111111111111111111111111.r2.cloudflarestorage.com";
+// Each stack's Terraform output shape, as the real wrappers print it.
+const stacks = {
+  storage: {
+    bucket: "tearleads-blobs-staging",
+    outputs: (bucket: string) => ({
+      api_storage: {
+        value: {
+          blob_s3_bucket: bucket,
+          blob_s3_endpoint: endpoint,
+          blob_s3_access_key_id: "test-key",
+          blob_s3_secret_access_key: "test-secret",
+        },
+      },
+    }),
+  },
+  downloads: {
+    bucket: "tearleads-downloads-staging",
+    outputs: (bucket: string) => ({
+      release_storage: {
+        value: {
+          bucket,
+          endpoint,
+          region: "auto",
+          access_key_id: "test-key",
+          secret_access_key: "test-secret",
+        },
+      },
+    }),
+  },
+};
+type Stack = keyof typeof stacks;
+
+async function cleanupScenario(
+  failure: string,
+  stack: Stack = "storage",
+  args: string[] = [stack],
+) {
   const { PATH: inheritedPath } = process.env;
   const root = await mkdtemp(resolve(tmpdir(), "r2-cleanup-test-"));
   async function write(name: string, text: string) {
@@ -14,15 +52,23 @@ async function cleanupScenario(failure: string) {
   }
   try {
     await write("bin/git", `#!/bin/sh\nprintf '%s\\n' '${root}'\n`);
-    await write(
-      "terraform/scripts/run-storage-stack.sh",
-      `#!/bin/sh
+    const bucket =
+      failure === "identity"
+        ? stacks[stack].bucket.replace("-staging", "-prod")
+        : stacks[stack].bucket;
+    for (const name of Object.keys(stacks) as Stack[]) {
+      const outputs =
+        name === stack ? JSON.stringify(stacks[name].outputs(bucket)) : "{}";
+      await write(
+        `terraform/scripts/run-${name}-stack.sh`,
+        `#!/bin/sh
 [ "$*" = 'staging output -json' ] || exit 8
 [ "$TEST_FAILURE" != output-read ] || exit 9
 if [ "$TEST_FAILURE" = empty-state ]; then echo '{}'; exit 0; fi
-printf '{"api_storage":{"value":{"blob_s3_bucket":"%s","blob_s3_endpoint":"https://11111111111111111111111111111111.r2.cloudflarestorage.com","blob_s3_access_key_id":"test-key","blob_s3_secret_access_key":"test-secret"}}}' "$TEST_BUCKET"
+printf '%s' '${outputs}'
 `,
-    );
+      );
+    }
     await write(
       "bin/aws",
       `#!/bin/sh
@@ -53,18 +99,15 @@ esac
         "bash",
         resolve(
           import.meta.dirname,
-          "../../../terraform/scripts/empty-staging-blobs.sh",
+          "../../../terraform/scripts/empty-staging-bucket.sh",
         ),
+        ...args,
       ],
       {
         env: {
           ...process.env,
           PATH: `${root}/bin:${inheritedPath}`,
           TEST_ROOT: root,
-          TEST_BUCKET:
-            failure === "identity"
-              ? "tearleads-blobs-prod"
-              : "tearleads-blobs-staging",
           TEST_FAILURE: failure,
           AWS_PROFILE: "inherited",
           AWS_SESSION_TOKEN: "inherited",
@@ -88,25 +131,36 @@ esac
   }
 }
 
-test("staging cleanup empties its R2 bucket, aborts uploads, and verifies both listings", async () => {
-  const result = await cleanupScenario("");
-  expect(result.code, result.stderr).toBe(0);
-  expect(result.calls).toHaveLength(5);
-  expect(result.calls[2]).toContain(
-    "abort-multipart-upload --bucket tearleads-blobs-staging --key blob/key --upload-id test-upload",
-  );
-  expect(result.calls[3]).toContain("list-objects-v2");
-  expect(result.calls[4]).toContain("list-multipart-uploads");
-  for (const call of result.calls)
-    expect(call).toContain(".r2.cloudflarestorage.com --region auto");
-});
+for (const stack of Object.keys(stacks) as Stack[]) {
+  test(`staging ${stack} cleanup empties its R2 bucket, aborts uploads, and verifies both listings`, async () => {
+    const result = await cleanupScenario("", stack);
+    expect(result.code, result.stderr).toBe(0);
+    expect(result.calls).toHaveLength(5);
+    expect(result.calls[2]).toContain(
+      `abort-multipart-upload --bucket ${stacks[stack].bucket} --key blob/key --upload-id test-upload`,
+    );
+    expect(result.calls[3]).toContain("list-objects-v2");
+    expect(result.calls[4]).toContain("list-multipart-uploads");
+    for (const call of result.calls)
+      expect(call).toContain(".r2.cloudflarestorage.com --region auto");
+  });
 
-test("staging cleanup refuses a production bucket before any object access", async () => {
-  const result = await cleanupScenario("identity");
-  expect(result.code).not.toBe(0);
-  expect(result.stderr).toContain("unexpected staging R2 bucket");
-  expect(result.calls).toEqual([]);
-});
+  test(`staging ${stack} cleanup refuses a production bucket before any object access`, async () => {
+    const result = await cleanupScenario("identity", stack);
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toContain("unexpected staging R2 bucket");
+    expect(result.calls).toEqual([]);
+  });
+}
+
+for (const args of [[], ["prod"], ["storage", "downloads"]]) {
+  test(`staging cleanup rejects ${JSON.stringify(args)} before reading Terraform`, async () => {
+    const result = await cleanupScenario("output-read", "storage", args);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain("Usage:");
+    expect(result.calls).toEqual([]);
+  });
+}
 
 for (const failure of ["delete", "residual", "residual-upload"]) {
   test(`staging cleanup reports ${failure} failure instead of allowing teardown`, async () => {

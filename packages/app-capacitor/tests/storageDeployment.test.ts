@@ -55,8 +55,12 @@ async function runStorageScript(
       ].join("\n"),
     );
     await executable(
-      resolve(root, "terraform/scripts/empty-staging-blobs.sh"),
-      '#!/bin/sh\nprintf "empty-blobs\\n" >> "$STORAGE_TEST_LOG"\n',
+      resolve(root, "terraform/scripts/empty-staging-bucket.sh"),
+      '#!/bin/sh\nprintf "empty-bucket %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
+    );
+    await executable(
+      resolve(root, "terraform/scripts/run-downloads-stack.sh"),
+      '#!/bin/sh\nprintf "downloads %s\\n" "$*" >> "$STORAGE_TEST_LOG"\n',
     );
     await executable(
       resolve(root, "terraform/scripts/drop-postgres-owned.sh"),
@@ -153,8 +157,10 @@ test("staging teardown detaches hostnames and deletes Workers before emptying st
     "app-web ",
     "drop-owned staging",
     "postgres staging destroy --auto-approve",
-    "empty-blobs",
+    "empty-bucket storage",
     "storage staging destroy --auto-approve",
+    "empty-bucket downloads",
+    "downloads staging destroy --auto-approve",
     "website --auto-approve",
   ]);
 });
@@ -183,8 +189,10 @@ test("staging teardown asks once, up front, and then runs every stack unattended
     "app-web ",
     "drop-owned staging",
     "postgres staging destroy --auto-approve",
-    "empty-blobs",
+    "empty-bucket storage",
     "storage staging destroy --auto-approve",
+    "empty-bucket downloads",
+    "downloads staging destroy --auto-approve",
     "website --auto-approve",
   ]);
 });
