@@ -42,86 +42,128 @@ export function policySnapshot(
   };
 }
 
-export async function createOrganizationHistoryFixture() {
-  const organizationId = crypto.randomUUID();
-  const signerUserId = crypto.randomUUID();
-  const targetUserId = crypto.randomUUID();
-  const signingKeyPair = generateSigningSeedAndKeyPair();
-  const creatorEncapsulationKeyPair = generateKemSeedAndKeyPair();
-  const signingFingerprint = await toFingerprint(
-    signingKeyPair.signingPublicKey,
-  );
-  const signer = { signerUserId, signingFingerprint, signingKeyPair };
-  const signerIdentity = createTestTrustedUserIdentity({
-    userId: signerUserId,
-    signingPublicKey: signingKeyPair.signingPublicKey,
-    signingKeyFingerprint: signingFingerprint,
-    encapsulationPublicKey: creatorEncapsulationKeyPair.publicKey,
+/** The organization creator who signs every policy in one history. */
+interface OrganizationHistorySigner {
+  readonly creatorEncapsulationKeyPair: ReturnType<
+    typeof generateKemSeedAndKeyPair
+  >;
+  readonly organizationId: string;
+  readonly signerUserId: string;
+  readonly signingFingerprint: string;
+  readonly signingKeyPair: ReturnType<typeof generateSigningSeedAndKeyPair>;
+}
+
+function signingFields(signer: OrganizationHistorySigner) {
+  return {
+    signerUserId: signer.signerUserId,
+    signingFingerprint: signer.signingFingerprint,
+    signingKeyPair: signer.signingKeyPair,
+  };
+}
+
+// Built from the signer rather than stored: its brand is a symbol property,
+// which a structured copy of the history would drop.
+function signerIdentityOf(signer: OrganizationHistorySigner) {
+  return createTestTrustedUserIdentity({
+    userId: signer.signerUserId,
+    signingPublicKey: signer.signingKeyPair.signingPublicKey,
+    signingKeyFingerprint: signer.signingFingerprint,
+    encapsulationPublicKey: signer.creatorEncapsulationKeyPair.publicKey,
   });
-  const group = async (
-    name: string,
-    includeSignerAsAdmin = true,
-    authority?: PrincipalPolicyBundleResponse,
-  ): Promise<PrincipalPolicyBundleResponse> =>
-    policyBundleFromInitialRequest(
-      await buildInitialGroupPolicyRequest({
-        ...signer,
-        creatorEncapsulationKeyPair,
-        groupId: crypto.randomUUID(),
-        name,
-        metadataKey: testGroupMetadataKey(organizationId),
-        includeSignerAsAdmin,
-        ...(includeSignerAsAdmin
-          ? {}
-          : {
-              externalAuthority: principalPolicyHead(authority ?? admin) as {
-                principalType: "group";
-              } & ReturnType<typeof principalPolicyHead>,
-            }),
-      }),
-    );
-  const admin = await group("Admins");
-  const members = await group("Members");
-  const created = await group("Private support name", false);
+}
+
+/** A new group; `authority` names an external admin group, null the signer. */
+async function signGroupPolicy(
+  signer: OrganizationHistorySigner,
+  name: string,
+  authority: PrincipalPolicyBundleResponse | null,
+): Promise<PrincipalPolicyBundleResponse> {
+  return policyBundleFromInitialRequest(
+    await buildInitialGroupPolicyRequest({
+      ...signingFields(signer),
+      creatorEncapsulationKeyPair: signer.creatorEncapsulationKeyPair,
+      groupId: crypto.randomUUID(),
+      name,
+      metadataKey: testGroupMetadataKey(signer.organizationId),
+      includeSignerAsAdmin: authority === null,
+      ...(authority === null
+        ? {}
+        : {
+            externalAuthority: principalPolicyHead(authority) as {
+              principalType: "group";
+            } & ReturnType<typeof principalPolicyHead>,
+          }),
+    }),
+  );
+}
+
+/** The next directory version: `next` replaces its head, null drops `created`. */
+async function advanceDirectoryPolicy(input: {
+  readonly admin: PrincipalPolicyBundleResponse;
+  readonly created: PrincipalPolicyBundleResponse;
+  readonly next: PrincipalPolicyBundleResponse | null;
+  readonly previous: PrincipalPolicyBundleResponse;
+  readonly signer: OrganizationHistorySigner;
+}): Promise<PrincipalPolicyBundleResponse> {
+  const descriptor = parseOrganizationAuthorityDescriptor(
+    input.previous.currentPayload.ciphertext,
+  );
+  return policyBundleAfterMutation({
+    previous: input.previous,
+    mutation: await buildOrganizationGroupDirectoryPolicyRequest({
+      ...signingFields(input.signer),
+      adminProjection: input.admin.currentProjection,
+      adminUsers: [signerIdentityOf(input.signer)],
+      currentPolicy: input.previous,
+      descriptor,
+      groupHeads: input.next
+        ? replaceOrganizationGroupHead({
+            descriptor,
+            nextHead: principalPolicyHead(input.next),
+          })
+        : descriptor.groupHeads.filter(
+            (head) =>
+              head.principalId !== input.created.currentState.principalId,
+          ),
+    }),
+  });
+}
+
+/**
+ * Signs one organization: its Admins and Members groups, a group created under
+ * Admins authority, and the directory history that adds, extends, and deletes
+ * that group. The result is plain data, safe to copy with structuredClone.
+ */
+export async function signOrganizationHistory() {
+  const signingKeyPair = generateSigningSeedAndKeyPair();
+  const signer: OrganizationHistorySigner = {
+    creatorEncapsulationKeyPair: generateKemSeedAndKeyPair(),
+    organizationId: crypto.randomUUID(),
+    signerUserId: crypto.randomUUID(),
+    signingFingerprint: await toFingerprint(signingKeyPair.signingPublicKey),
+    signingKeyPair,
+  };
+  const targetUserId = crypto.randomUUID();
+  const admin = await signGroupPolicy(signer, "Admins", null);
+  const members = await signGroupPolicy(signer, "Members", null);
+  const created = await signGroupPolicy(signer, "Private support name", admin);
   const initial = await organizationPolicyBundleFromInitialRequest(
-    organizationId,
+    signer.organizationId,
     await buildInitialOrganizationPolicyRequest({
       adminGroupId: admin.currentState.principalId,
       memberGroupId: members.currentState.principalId,
       groupHeads: [principalPolicyHead(admin), principalPolicyHead(members)],
-      organizationId,
+      organizationId: signer.organizationId,
       signingKeyPair,
-      userId: signerUserId,
-      encapsulationPublicKey: creatorEncapsulationKeyPair.publicKey,
+      userId: signer.signerUserId,
+      encapsulationPublicKey: signer.creatorEncapsulationKeyPair.publicKey,
     }),
   );
-  const advanceDirectory = async (
+  const advance = (
     previous: PrincipalPolicyBundleResponse,
     next: PrincipalPolicyBundleResponse | null,
-  ) => {
-    const descriptor = parseOrganizationAuthorityDescriptor(
-      previous.currentPayload.ciphertext,
-    );
-    return policyBundleAfterMutation({
-      previous,
-      mutation: await buildOrganizationGroupDirectoryPolicyRequest({
-        ...signer,
-        adminProjection: admin.currentProjection,
-        adminUsers: [signerIdentity],
-        currentPolicy: previous,
-        descriptor,
-        groupHeads: next
-          ? replaceOrganizationGroupHead({
-              descriptor,
-              nextHead: principalPolicyHead(next),
-            })
-          : descriptor.groupHeads.filter(
-              (head) => head.principalId !== created.currentState.principalId,
-            ),
-      }),
-    });
-  };
-  const afterCreation = await advanceDirectory(initial, created);
+  ) => advanceDirectoryPolicy({ admin, created, next, previous, signer });
+  const afterCreation = await advance(initial, created);
   const added = await signedPrincipalPolicyBundle({
     memberEnvelopes: [],
     payloadCiphertext: created.currentPayload.ciphertext,
@@ -141,10 +183,61 @@ export async function createOrganizationHistoryFixture() {
     },
     signingPrivateKey: signingKeyPair.signingPrivateKey,
   });
-  const afterAddition = await advanceDirectory(afterCreation, added);
-  const afterDeletion = await advanceDirectory(afterAddition, null);
+  const afterAddition = await advance(afterCreation, added);
+  const afterDeletion = await advance(afterAddition, null);
+  return {
+    added,
+    admin,
+    afterAddition,
+    afterCreation,
+    afterDeletion,
+    created,
+    initial,
+    members,
+    signer,
+    targetUserId,
+  };
+}
+
+export type OrganizationHistory = Awaited<
+  ReturnType<typeof signOrganizationHistory>
+>;
+
+/**
+ * The fixture operations bound to one signed history. Each operation closes
+ * over the history it is given, so binding a copy yields a fixture that never
+ * touches the original's objects.
+ */
+export function organizationHistoryFixtureFrom(history: OrganizationHistory) {
+  const {
+    added,
+    admin,
+    afterAddition,
+    afterCreation,
+    afterDeletion,
+    created,
+    initial,
+    members,
+    signer,
+  } = history;
+  const { signingKeyPair } = signer;
+  const signerIdentity = signerIdentityOf(signer);
+  const createGroup = (
+    name: string,
+    includeSignerAsAdmin = true,
+    authority?: PrincipalPolicyBundleResponse,
+  ) =>
+    signGroupPolicy(
+      signer,
+      name,
+      includeSignerAsAdmin ? null : (authority ?? admin),
+    );
+  const advanceDirectory = (
+    previous: PrincipalPolicyBundleResponse,
+    next: PrincipalPolicyBundleResponse | null,
+  ) => advanceDirectoryPolicy({ admin, created, next, previous, signer });
   const resolveTrustedUserIdentity = async (userId: string) =>
-    userId === signerUserId ? signerIdentity : null;
+    userId === signer.signerUserId ? signerIdentity : null;
   const projectionBundles = [
     initial,
     afterCreation,
@@ -168,7 +261,7 @@ export async function createOrganizationHistoryFixture() {
     groups: [admin, members, added].map(projectionPolicySource),
   });
   const evidence = (deleted = false) => ({
-    organizationId,
+    organizationId: signer.organizationId,
     stateHash: (deleted ? afterDeletion : afterAddition).currentState.stateHash,
     beforeVersion:
       (deleted ? afterDeletion : afterAddition).currentState.version + 1,
@@ -214,14 +307,14 @@ export async function createOrganizationHistoryFixture() {
   return {
     admin,
     memberPolicy: members,
-    creatorEncapsulationKeyPair,
+    creatorEncapsulationKeyPair: signer.creatorEncapsulationKeyPair,
     signingKeyPair,
     advanceGroup,
     advanceDirectory,
-    createGroup: group,
-    organizationId,
-    signerUserId,
-    targetUserId,
+    createGroup,
+    organizationId: signer.organizationId,
+    signerUserId: signer.signerUserId,
+    targetUserId: history.targetUserId,
     created,
     added,
     initial,
@@ -233,4 +326,8 @@ export async function createOrganizationHistoryFixture() {
     projectionEvidence,
     resolveTrustedUserIdentity,
   };
+}
+
+export async function createOrganizationHistoryFixture() {
+  return organizationHistoryFixtureFrom(await signOrganizationHistory());
 }

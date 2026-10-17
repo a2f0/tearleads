@@ -5,7 +5,10 @@ import type {
   PrincipalPolicyPageResponse,
 } from "@tearleads/validators/response";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
-import { createOrganizationHistoryFixture } from "./organizationPolicyHistory";
+import {
+  organizationHistoryFixtureFrom,
+  signOrganizationHistory,
+} from "./organizationPolicyHistory";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
@@ -14,47 +17,77 @@ import {
 // Signing three 66-version histories can exceed Bun's 5s hook default under CI load.
 export const AUTHORITY_RECOVERY_SETUP_TIMEOUT_MS = 30_000;
 
-export async function signedAuthorityRecoveryHistory() {
-  const fixture = await createOrganizationHistoryFixture();
-  const extend = async (
-    initial: PrincipalPolicyBundleResponse,
-    version: number,
-  ) => {
-    let bundle = initial;
-    while (bundle.currentState.version < version) {
-      bundle = await signedPrincipalPolicyBundle({
-        memberEnvelopes: bundle.currentMemberEnvelopes.envelopes,
-        payloadCiphertext: bundle.currentPayload.ciphertext,
-        projection: bundle.currentProjection,
-        previousStates: [
-          ...bundle.previousStates,
-          {
-            state: bundle.currentState,
-            projection: bundle.currentProjection,
-            grants: bundle.currentGrants,
-          },
-        ],
-        signing: {
-          ...bundle.currentState,
+const RECOVERY_HISTORY_VERSION = 66;
+
+/** Sign successive versions of `initial` until it reaches `version`. */
+async function extendPolicyHistory(
+  initial: PrincipalPolicyBundleResponse,
+  version: number,
+  signingPrivateKey: Uint8Array,
+): Promise<PrincipalPolicyBundleResponse> {
+  let bundle = initial;
+  while (bundle.currentState.version < version) {
+    bundle = await signedPrincipalPolicyBundle({
+      memberEnvelopes: bundle.currentMemberEnvelopes.envelopes,
+      payloadCiphertext: bundle.currentPayload.ciphertext,
+      projection: bundle.currentProjection,
+      previousStates: [
+        ...bundle.previousStates,
+        {
+          state: bundle.currentState,
+          projection: bundle.currentProjection,
           grants: bundle.currentGrants,
-          version: bundle.currentState.version + 1,
-          prevStateHash: bundle.currentState.stateHash,
         },
-        signingPrivateKey: fixture.signingKeyPair.signingPrivateKey,
-      });
-    }
-    return bundle;
-  };
-  const admin = await extend(fixture.admin, 66);
-  const group = await extend(fixture.created, 66);
+      ],
+      signing: {
+        ...bundle.currentState,
+        grants: bundle.currentGrants,
+        version: bundle.currentState.version + 1,
+        prevStateHash: bundle.currentState.stateHash,
+      },
+      signingPrivateKey,
+    });
+  }
+  return bundle;
+}
+
+async function signAuthorityRecoveryHistory() {
+  const organization = await signOrganizationHistory();
+  const fixture = organizationHistoryFixtureFrom(organization);
+  const { signingPrivateKey } = organization.signer.signingKeyPair;
+  const extend = (initial: PrincipalPolicyBundleResponse) =>
+    extendPolicyHistory(initial, RECOVERY_HISTORY_VERSION, signingPrivateKey);
+  const admin = await extend(fixture.admin);
+  const group = await extend(fixture.created);
   const directory = await extend(
     await fixture.advanceDirectory(
       await fixture.advanceDirectory(fixture.afterCreation, admin),
       group,
     ),
-    66,
   );
-  return { ...fixture, admin, group, directory, extend };
+  return { admin, directory, group, organization };
+}
+
+// Signatures are the whole cost of this history, about 4s, so a test process
+// signs it once. Each caller binds the fixture to its own structured copy, so
+// no two test files share an object and caches keyed by object identity in the
+// code under test start cold for every caller.
+let sharedHistory: ReturnType<typeof signAuthorityRecoveryHistory> | undefined;
+
+export async function signedAuthorityRecoveryHistory() {
+  sharedHistory ??= signAuthorityRecoveryHistory();
+  const { admin, directory, group, organization } = structuredClone(
+    await sharedHistory,
+  );
+  const { signingPrivateKey } = organization.signer.signingKeyPair;
+  return {
+    ...organizationHistoryFixtureFrom(organization),
+    admin,
+    group,
+    directory,
+    extend: (initial: PrincipalPolicyBundleResponse, version: number) =>
+      extendPolicyHistory(initial, version, signingPrivateKey),
+  };
 }
 
 export async function createAuthorityRecoveryFixture(
