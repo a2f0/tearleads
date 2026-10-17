@@ -311,3 +311,11 @@ The test now waits until neither identity has a request in flight, and takes
 the client totals and the proxied request count in that same snapshot before
 asserting that they reconcile exactly. It passed 80 of 80 runs under the same
 load.
+
+## Fifth pass: API, October 17, 2026
+
+The [API history report](test-optimization-api-history.md) records a small
+fixture optimization: sign a single new principal version in-process instead of
+starting workers. It preserves the longer-history worker path and all existing
+assertions. The report includes paired timings on both backends, a negative
+control, rejected experiments, and remaining ranked leads.
