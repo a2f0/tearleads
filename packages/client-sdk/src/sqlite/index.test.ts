@@ -6,7 +6,7 @@ import {
   defineSqlTableSchema,
   type ExecSql,
   getSQLitePersistenceRuntime,
-} from "./sqlite";
+} from "./index";
 
 type WorkerMessage = {
   id: number;
