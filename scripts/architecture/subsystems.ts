@@ -400,7 +400,7 @@ export const subsystems: readonly Subsystem[] = [
     responsibility:
       "The local SQLite executor, Drizzle schema, transaction serialization, and the @tearleads/client-sdk/sqlite public worker-runtime entry point.",
     seam: "@tearleads/client-sdk/sqlite subpath; data/sqlite",
-    paths: [`${sdk}/data/sqlite/`, `${sdk}/sqlite.ts`],
+    paths: [`${sdk}/data/sqlite/`, `${sdk}/sqlite/`],
   },
   {
     name: "Local Persistence",

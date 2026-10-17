@@ -50,8 +50,8 @@ const clientSdkSupportedPackageExports = {
     types: "./dist/index.d.ts",
   },
   "./sqlite": {
-    default: "./dist/sqlite.js",
-    types: "./dist/sqlite.d.ts",
+    default: "./dist/sqlite/index.js",
+    types: "./dist/sqlite/index.d.ts",
   },
   "./testing": {
     default: "./dist/data/trustedUserIdentity/testFixtures.js",
