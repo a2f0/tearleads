@@ -39,7 +39,7 @@ test("the published manifest is consumable outside the workspace", () => {
   });
   expect(manifest.exports).toEqual({
     ".": { types: "./index.d.ts", default: "./index.js" },
-    "./sqlite": { types: "./sqlite.d.ts", default: "./sqlite.js" },
+    "./sqlite": { types: "./sqlite/index.d.ts", default: "./sqlite/index.js" },
     "./sqlite/worker.js": "./sqlite/worker.js",
     "./sqlite/sqlite3.wasm": "./sqlite/sqlite3.wasm",
     "./sqlite/sqlite3-licenses.md": "./sqlite/sqlite3-licenses.md",

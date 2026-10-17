@@ -147,7 +147,7 @@ const baseConfig = {
       entry: [
         "src/index.ts",
         "src/data/documents/index.ts",
-        "src/sqlite.ts",
+        "src/sqlite/index.ts",
         "src/data/trustedUserIdentity/testFixtures.ts",
         "src/stores/container-contents/index.ts",
         "src/stores/documents/index.ts",
@@ -280,7 +280,7 @@ const productionConfig = {
     "packages/bob-and-alice": { project: productionProject },
     "packages/client-sdk": {
       // The manifest points at dist; these are its runtime source facades.
-      entry: ["src/index.ts!", "src/sqlite.ts!"],
+      entry: ["src/index.ts!", "src/sqlite/index.ts!"],
       project: productionProject,
     },
     "packages/crypto": { project: productionProject },

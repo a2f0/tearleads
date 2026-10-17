@@ -17,8 +17,8 @@
       "default": "./dist/index.js"
     },
     "./sqlite": {
-      "types": "./dist/sqlite.d.ts",
-      "default": "./dist/sqlite.js"
+      "types": "./dist/sqlite/index.d.ts",
+      "default": "./dist/sqlite/index.js"
     },
     "./sqlite/worker.js": "./dist/sqlite/worker.js",
     "./sqlite/sqlite3.wasm": "./dist/sqlite/sqlite3.wasm",

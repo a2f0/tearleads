@@ -29,13 +29,13 @@ export function createSQLiteRuntimeFromWorker(
 
 export { purgeOpfsSqliteDatabase } from "@tearleads/sqlite-worker/purge-opfs-database";
 export type { DatabasePersistenceMode } from "@tearleads/sqlite-worker/types";
-export { clientSQLiteSchema } from "./data/sqlite/schema";
+export { clientSQLiteSchema } from "../data/sqlite/schema";
 export {
   type ClientSQLiteDatabase as SQLiteDatabase,
   type ClientSQLitePersistenceRuntime as SQLitePersistenceRuntime,
   type ClientSQLiteTransactionScope as SQLiteTransaction,
   getClientSQLitePersistenceRuntime as getSQLitePersistenceRuntime,
-} from "./data/sqlite/sqlitePersistenceRuntime";
+} from "../data/sqlite/sqlitePersistenceRuntime";
 export {
   createExecSql,
   defineSqlTableSchema,
@@ -51,7 +51,7 @@ export {
   type SqlRowValue,
   type SqlTableSchema,
   unavailableExecSql,
-} from "./data/sqlite/sqlSchema";
+} from "../data/sqlite/sqlSchema";
 export {
   EPHEMERAL_STORAGE_POLICY,
   isPersistentStorageSupported,
@@ -60,4 +60,4 @@ export {
   requestPersistentStorage,
   resolveStoragePersistencePolicy,
   type StoragePersistencePolicy,
-} from "./data/sqlite/storagePersistence";
+} from "../data/sqlite/storagePersistence";
