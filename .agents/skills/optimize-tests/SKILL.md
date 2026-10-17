@@ -97,6 +97,9 @@ Read the test and its fixture helpers, not only the name or coverage percentage.
   back the commit it is waiting for until the timeout. In the app, use
   `settleAppTestRuntimeInAct`, and assert a wait helper's result rather than
   discarding it.
+  Use async `act` callbacks for asynchronous UI actions and cover timer-backed
+  fixture retries with `act`. Check warnings in a multi-file run: suite setup
+  can mask missing async scopes when a file runs alone.
 - **Explain flakes before changing them.** If a failure will not reproduce
   under repeated or parallel runs, widen its race window in an untracked probe
   (for example, delay the follow-up query) and log the state transitions. The

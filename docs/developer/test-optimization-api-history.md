@@ -91,3 +91,19 @@ dependencies before builds: a stale installed Continuity Git dependency caused
 an unrelated app seed test to fail despite a current lockfile. A frozen-lockfile
 install updated only Continuity's app and app-web links, and the seed test passed
 unchanged. API and SDK dependency links were unaffected.
+
+## App warning follow-up
+
+During shipping, the user also authorized fixing the app's React `act` warnings.
+A private preload traced warnings and Testing Library's act-environment changes
+without suppressing warnings. Explorer's two 100 ms menu-retry waits ran outside
+`act`; wrapping those existing waits removed four warnings from the eight-case
+recovered-note backspace run. Recovery-key actions also awaited synchronous
+`act` callbacks, restoring the environment before asynchronous updates flushed.
+Async callbacks removed four environment warnings from the two recovered-note
+editing cases when run after the backspace file.
+
+All ten cases passed after both changes. The delays, recovery scenarios, update
+counts, assertions, and production behavior are unchanged. Later sidebar updates
+and render-phase logging still produced separate warnings in the probe; this is
+a targeted cleanup, not a claim that the app suite is warning-free or faster.
