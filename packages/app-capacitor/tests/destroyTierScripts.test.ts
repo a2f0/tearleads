@@ -157,7 +157,20 @@ test("production teardown runs every step only after the domain is typed", async
   expect(result.stdout).toContain("--- Timing summary ---");
 });
 
-for (const args of [["--auto-approve"], ["-auto-approve"], ["prod"]]) {
+for (const flag of ["--auto-approve", "-auto-approve"]) {
+  test(`production teardown with ${flag} runs every step without asking`, async () => {
+    const result = await runTeardown(production, [flag]);
+    expect(result.exitCode, result.stderr).toBe(0);
+    expect(result.stderr).not.toContain("Type the production domain");
+    expect(result.calls).toEqual(stepCalls("prod", "prod"));
+    expect(result.stdout).toContain("--- Timing summary ---");
+  });
+}
+
+for (const args of [
+  ["prod"],
+  ["--auto-approve", "-target=module.api_domain"],
+]) {
   test(`production teardown rejects ${args.join(" ")} before reading secrets`, async () => {
     const result = await runTeardown(production, args, `${domain}\n`);
     expect(result.exitCode).toBe(1);
