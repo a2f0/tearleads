@@ -1,12 +1,13 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Destroy the staging hostnames, Workers, database, R2 storage, desktop
 # downloads, and the independently hosted website.
 # Usage: scripts/destroyStaging.sh [--auto-approve]
 # Without --auto-approve the script asks once, up front, for the whole
 # teardown. Terraform's own prompts would come after the Workers were deleted
 # and the database's objects dropped, too late to decline anything.
+# The steps, their order, and their timings are in scripts/lib/destroyTier.sh.
 
-set -eu
+set -euo pipefail
 
 AUTO_APPROVE=0
 for argument in "$@"; do
@@ -20,25 +21,18 @@ for argument in "$@"; do
   esac
 done
 
-if [ "$AUTO_APPROVE" -eq 0 ]; then
+if [[ "$AUTO_APPROVE" -eq 0 ]]; then
   echo "This destroys every staging resource: hostnames, Workers, the database and everything in it, R2 storage, desktop downloads, and the website." >&2
   printf 'Type "staging" to continue: ' >&2
   IFS= read -r answer || answer=""
-  if [ "$answer" != "staging" ]; then
+  if [[ "$answer" != "staging" ]]; then
     echo "Teardown cancelled; nothing was changed." >&2
     exit 1
   fi
 fi
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-"$REPO_ROOT/terraform/scripts/run-edge-stack.sh" staging destroy --auto-approve
-"$REPO_ROOT/packages/api/scripts/destroyStagingApi.sh"
-"$REPO_ROOT/packages/app-web/scripts/destroyStagingAppWeb.sh"
-# PlanetScale refuses to delete a role that still owns objects.
-"$REPO_ROOT/terraform/scripts/drop-postgres-owned.sh" staging
-"$REPO_ROOT/terraform/scripts/run-postgres-stack.sh" staging destroy --auto-approve
-"$REPO_ROOT/terraform/scripts/empty-staging-bucket.sh" storage
-"$REPO_ROOT/terraform/scripts/run-storage-stack.sh" staging destroy --auto-approve
-"$REPO_ROOT/terraform/scripts/empty-staging-bucket.sh" downloads
-"$REPO_ROOT/terraform/scripts/run-downloads-stack.sh" staging destroy --auto-approve
-exec "$REPO_ROOT/packages/website/scripts/destroyStagingWebsite.sh" --auto-approve
+# shellcheck source=scripts/lib/destroyTier.sh
+# shellcheck disable=SC1091
+. "$REPO_ROOT/scripts/lib/destroyTier.sh"
+destroy_tier staging

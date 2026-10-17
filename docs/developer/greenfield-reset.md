@@ -24,6 +24,9 @@ The `tearleads-downloads-prod` and `tearleads-downloads-staging` buckets are rel
 dependencies. Resolve and compare bucket identities from the selected stack
 before any object deletion.
 Never broaden an application reset into account-wide bucket or resource cleanup.
+`scripts/destroyProduction.sh` is a complete production teardown, wider than
+this reset: it also deletes the downloads bucket with every published release,
+and the website. Do not use it for a reset.
 
 Authoritative details:
 [API persistence](api-persistence.md),
@@ -78,6 +81,8 @@ current configuration. The current protected addresses are:
   `planetscale_postgres_branch_role.runtime`, and
   `planetscale_postgres_branch_role.migrations`.
 - Storage: `cloudflare_r2_bucket.blobs`.
+- Downloads: `cloudflare_r2_bucket.downloads`, which a reset retains; only a
+  complete teardown removes it.
 
 Each override restates only the exact resource type/name and
 `lifecycle { prevent_destroy = false }`. Do not change tracked protections,
@@ -91,6 +96,15 @@ deletion protection in the correct dependency order. Let Terraform execute it.
 The storage wrapper rejects `prod destroy`; the authorized full-reset route is
 an inspected `plan -destroy` followed by `apply` of that saved plan with the
 temporary lifecycle override. Keep the wrapper's ordinary protections intact.
+
+`terraform/scripts/destroy-stack.sh <tier> <stack>` implements that route. It
+derives the protected addresses from the stack's configuration, writes the
+override, applies the saved destroy plan, and removes the override however it
+exits; an override already present stops it. It and the other production
+teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`, and the
+Worker deletion scripts) refuse `prod` unless `TEARLEADS_TEARDOWN_TIER=prod` is
+exported, which `scripts/destroyProduction.sh` does after its confirmation. An
+authorized production reset exports it in the reset's own shell.
 
 ## Destroy one environment
 
@@ -136,9 +150,9 @@ Both tiers have an independent PlanetScale database stack:
 2. Run the documented `DROP OWNED BY CURRENT_USER CASCADE` through that migration
    connection. PlanetScale will not delete a role that still owns objects.
    This SQL belongs only to the authorized complete teardown. Check that the
-   old application tables are gone. For staging,
-   `terraform/scripts/drop-postgres-owned.sh staging` runs it from the stack's
-   connection output; `scripts/destroyStaging.sh` includes that step.
+   old application tables are gone.
+   `terraform/scripts/drop-postgres-owned.sh "$TIER"` runs it from the stack's
+   connection output; both tier teardown scripts include that step.
 3. With the temporary overrides in place for production, prepare and inspect
    the database destruction plan, then apply it:
 
@@ -173,12 +187,12 @@ terraform/scripts/run-storage-stack.sh "$TIER" apply \
 ```
 
 Production needs the temporary bucket override described above. R2 refuses
-nonempty bucket deletion in either tier; `empty-staging-bucket.sh storage`
-handles staging after its Worker is removed. Verify removal of the bucket and
-account token, then remove any storage override. `scripts/destroyStaging.sh`
-also destroys the staging Workers, the desktop downloads bucket (emptied by
-`empty-staging-bucket.sh downloads`), and the independently hosted website; use
-individual stacks for this workflow's database/blob/Worker boundary.
+nonempty bucket deletion in either tier; `empty-r2-bucket.sh "$TIER" storage`
+empties the bucket after its Worker is removed. Verify removal of the bucket and
+account token, then remove any storage override. The tier teardown scripts also
+destroy the Workers, the desktop downloads bucket (emptied first by
+`empty-r2-bucket.sh "$TIER" downloads`), and the independently hosted website;
+use individual stacks for this workflow's database/blob/Worker boundary.
 
 ## Rebuild and resume
 

@@ -1,37 +1,44 @@
 #!/usr/bin/env bash
-# Called after the staging Workers are deleted; R2 refuses nonempty bucket deletion.
+# Called after a tier's Workers are deleted; R2 refuses nonempty bucket deletion.
 set -euo pipefail
-REPO_ROOT="$(git rev-parse --show-toplevel)"
+usage() { echo "Usage: $(basename "$0") <staging|prod> <storage|downloads>" >&2; }
+if [[ $# -ne 2 ]]; then usage; exit 1; fi
+TIER="$1"
+STACK="$2"
 # Each R2 stack names its own bucket and output; map both to one connection shape.
-case "${1:-}:$#" in
-  storage:1)
-    EXPECTED_BUCKET=tearleads-blobs-staging
+case "$STACK" in
+  storage)
+    EXPECTED_BUCKET="tearleads-blobs-$TIER"
     CONNECTION_FILTER='.api_storage.value | {bucket: .blob_s3_bucket,
       endpoint: .blob_s3_endpoint, access_key_id: .blob_s3_access_key_id,
       secret_access_key: .blob_s3_secret_access_key}'
     ;;
-  downloads:1)
-    EXPECTED_BUCKET=tearleads-downloads-staging
+  downloads)
+    EXPECTED_BUCKET="tearleads-downloads-$TIER"
     CONNECTION_FILTER='.release_storage.value'
     ;;
-  *) echo "Usage: $(basename "$0") <storage|downloads>" >&2; exit 1 ;;
+  *) usage; exit 1 ;;
 esac
-STACK="$1"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+# shellcheck source=./teardownGuard.sh
+# shellcheck disable=SC1091
+source "$REPO_ROOT/terraform/scripts/teardownGuard.sh"
+require_teardown_authorized "$TIER"
 # Never trace runtime credentials read from the sensitive Terraform output.
 set +x
 umask 077
 STORAGE_DIR="$(mktemp -d)"
 trap 'rm -rf "$STORAGE_DIR"' EXIT
-"$REPO_ROOT/terraform/scripts/run-$STACK-stack.sh" staging output -json >"$STORAGE_DIR/outputs.json"
+"$REPO_ROOT/terraform/scripts/run-$STACK-stack.sh" "$TIER" output -json >"$STORAGE_DIR/outputs.json"
 if jq -e '. == {}' "$STORAGE_DIR/outputs.json" >/dev/null; then
-  echo "Staging $STACK has no outputs; there is no configured bucket to empty."
+  echo "The $TIER $STACK stack has no outputs; there is no configured bucket to empty."
   exit 0
 fi
 jq -e "$CONNECTION_FILTER" "$STORAGE_DIR/outputs.json" >"$STORAGE_DIR/storage.json"
 BUCKET="$(jq -er '.bucket' "$STORAGE_DIR/storage.json")"
 ENDPOINT="$(jq -er '.endpoint' "$STORAGE_DIR/storage.json")"
 if [[ "$BUCKET" != "$EXPECTED_BUCKET" || ! "$ENDPOINT" =~ ^https://[a-f0-9]{32}\.r2\.cloudflarestorage\.com$ ]]; then
-  echo "ERROR: Refusing to empty an unexpected staging R2 bucket." >&2
+  echo "ERROR: Refusing to empty an unexpected $TIER R2 bucket." >&2
   exit 1
 fi
 export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
@@ -61,11 +68,11 @@ done <"$STORAGE_DIR/uploads.ndjson"
 r2_list list-objects-v2
 r2_list list-multipart-uploads
 if ! jq -e '(.Contents // []) | length == 0' "$STORAGE_DIR/list-objects-v2.json" >/dev/null; then
-  echo "ERROR: Staging R2 bucket still contains objects; refusing teardown." >&2
+  echo "ERROR: The $TIER R2 bucket still contains objects; refusing teardown." >&2
   exit 1
 fi
 if ! jq -e '(.Uploads // []) | length == 0' "$STORAGE_DIR/list-multipart-uploads.json" >/dev/null; then
-  echo "ERROR: Staging R2 bucket still contains multipart uploads; refusing teardown." >&2
+  echo "ERROR: The $TIER R2 bucket still contains multipart uploads; refusing teardown." >&2
   exit 1
 fi
-echo "Staging R2 $STACK bucket is empty."
+echo "R2 bucket $BUCKET is empty."

@@ -88,6 +88,8 @@ connects directly on port 5432 for the duration of the deploy only.
 Staging has its own copy of this stack under
 `terraform/stacks/staging/postgres` without `prevent_destroy`;
 `scripts/destroyStaging.sh` empties and destroys it, including Hyperdrive.
+`scripts/destroyProduction.sh` does the same for production, lifting
+`prevent_destroy` for that run with temporary overrides.
 Both tiers are greenfield; recreating a Hyperdrive configuration requires only
 a Worker redeploy to bind its new ID. There is no dual connection path or
 compatibility cutover. See [PlanetScale roles], [connection options], and

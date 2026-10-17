@@ -1,7 +1,7 @@
 // Drops every database object the connected login owns. PlanetScale refuses
 // to delete a role that still owns objects, so a tier teardown runs this with
 // the migration login before destroying the Postgres stack. It belongs only to
-// an authorized complete teardown of a disposable tier.
+// an authorized complete teardown of a tier.
 import pg from "pg";
 
 function requireEnv(name: string): string {
