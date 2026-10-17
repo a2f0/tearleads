@@ -113,7 +113,7 @@ export async function runMacosRelease(
       `#!/bin/sh\necho dependencies >> "$RELEASE_TEST_LOG"\n${tokenLeakProbe}`,
     );
     await write(
-      "packages/app-electrobun/scripts/buildMacosIcon.sh",
+      "scripts/lib/buildBrandImages.sh",
       `#!/bin/sh\necho icons >> "$RELEASE_TEST_LOG"\n${tokenLeakProbe}`,
     );
     await write(

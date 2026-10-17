@@ -86,10 +86,9 @@ test("Fastlane Appfile rejects an unknown release tier", async () => {
 
 const fastlanePathConstantNames = [
   "ANDROID_DIR",
-  "ANDROID_BUILD_IMAGES_SCRIPT",
   "IOS_PACKAGE_DIR",
   "IOS_DIR",
-  "IOS_BUILD_IMAGES_SCRIPT",
+  "BRAND_IMAGES_SCRIPT",
   "NATIVE_SECRETS_DIR",
   "GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH",
   "ANDROID_RELEASE_KEYSTORE_PATH",
@@ -102,7 +101,7 @@ const fastlanePathConstantsScript = [
   'require "fastlane"',
   "Fastlane.load_actions",
   'Fastlane::FastFile.new("fastlane/Fastfile")',
-  "names = %w[ANDROID_DIR ANDROID_BUILD_IMAGES_SCRIPT IOS_PACKAGE_DIR IOS_DIR IOS_BUILD_IMAGES_SCRIPT GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH ANDROID_RELEASE_KEYSTORE_PATH]",
+  "names = %w[ANDROID_DIR IOS_PACKAGE_DIR IOS_DIR BRAND_IMAGES_SCRIPT GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH ANDROID_RELEASE_KEYSTORE_PATH]",
   "constants = names.to_h { |name| [name, Fastlane::FastFile.const_get(name)] }",
   'puts JSON.generate(constants.merge("NATIVE_SECRETS_DIR" => NATIVE_SECRETS_DIR))',
 ].join("; ");
@@ -159,15 +158,11 @@ for (const [tier, secretsTier] of [
     const secretsDir = resolve(packageRoot, "../../.secrets", secretsTier);
     expect(parseFastlanePathConstants(stdout)).toEqual({
       ANDROID_DIR: resolve(packageRoot, "android"),
-      ANDROID_BUILD_IMAGES_SCRIPT: resolve(
-        packageRoot,
-        "scripts/buildAndroidImages.sh",
-      ),
       IOS_PACKAGE_DIR: packageRoot,
       IOS_DIR: resolve(packageRoot, "ios"),
-      IOS_BUILD_IMAGES_SCRIPT: resolve(
+      BRAND_IMAGES_SCRIPT: resolve(
         packageRoot,
-        "scripts/buildIosImages.sh",
+        "../../scripts/lib/buildBrandImages.sh",
       ),
       NATIVE_SECRETS_DIR: secretsDir,
       GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH: resolve(

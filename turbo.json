@@ -47,6 +47,8 @@
       "inputs": [
         "scripts/**",
         "!scripts/localstack/data/**",
+        "assets/brand/**",
+        "agent-tool.json",
         ".github/workflows/native-purchase-bridges.yml",
         ".mise.toml",
         "mise.lock"

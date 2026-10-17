@@ -1,6 +1,6 @@
 {
   "name": "app-web",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -15,7 +15,7 @@
     "prescreenshots": "bun run --cwd ../.. screenshots:seed",
     "screenshots": "env -u NO_COLOR -u FORCE_COLOR playwright test --config=playwright.screenshots.config.ts",
     "prebuild": "bun run build:client-sdk",
-    "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/lib/withBuildInfoEnv.sh bun scripts/buildApp.ts && bun scripts/buildStaticAssets.ts && sh scripts/buildWebImages.sh && bun scripts/buildServiceWorker.ts",
+    "build": "export NODE_ENV=production && rm -rf dist && sh ../../scripts/lib/withBuildInfoEnv.sh bun scripts/buildApp.ts && bun scripts/buildStaticAssets.ts && agent-tool --repo ../.. images build app-web && bun scripts/injectFaviconLinks.ts && bun scripts/buildServiceWorker.ts",
     "prestart": "bun run build:client-sdk",
     "start": "sh ../../scripts/lib/withBuildInfoEnv.sh bun src/servers/devServer.ts",
     "test": "bun test scripts --max-concurrency=1",
