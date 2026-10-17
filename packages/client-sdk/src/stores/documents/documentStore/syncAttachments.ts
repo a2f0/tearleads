@@ -1,6 +1,5 @@
 import type { BlobByteSource } from "../../../data/blobContracts";
 import type { BlobSourceSnapshot } from "../../../data/documents/blob/shared/blobSourceSnapshot";
-import { markOriginatedDocuments } from "../../../sync/reconciliation/originatedDocuments";
 import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import {
   clearDocumentSyncFailure,
@@ -12,6 +11,7 @@ import {
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
+import { markOriginatedDocuments } from "../../../workflows/sync";
 import { requestDocumentStoreSync } from "../registry";
 import {
   dropUnavailablePendingAttachment,

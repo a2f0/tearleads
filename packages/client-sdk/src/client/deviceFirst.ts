@@ -1,6 +1,7 @@
 import type { DomainScope } from "../data/domainScope";
 import {
   disposeDomainSyncCoordinator,
+  getOrCreateDomainSyncCoordinator,
   isDatabaseUnavailableError,
 } from "../data/sync/syncCoordinator";
 import {
@@ -26,8 +27,8 @@ import {
   createReconciliationService,
   type ReconciliationHost,
   type ReconciliationService,
+  systemReconciliationClock,
 } from "../sync/reconciliation";
-import { createReconciledDocumentContentPuller } from "../sync/reconciliation/documentContentPull";
 import { listAllContainerDocumentIdsFromApi } from "../workflows/container-contents/containerDocumentListing";
 import { probeUndiscoveredRemoteDocumentBatch } from "../workflows/container-contents/documentHydrationProbe";
 import {
@@ -37,6 +38,7 @@ import {
 } from "../workflows/container-contents/runtime";
 import type { ContainerContents } from "./containerContents";
 import { discoverContainerDocumentLanesForRuntime } from "./containerDocumentDiscovery";
+import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
 import type { InternalRuntime } from "./workflowRuntime";
 
 export type { LocalProjectionView } from "../stores/local-projection";
@@ -277,7 +279,10 @@ class DeviceFirstService implements DeviceFirst {
         );
     };
     return {
+      clock: systemReconciliationClock,
       domainScope,
+      registerLane: (key, config) =>
+        getOrCreateDomainSyncCoordinator(domainScope).registerLane(key, config),
       canDiscoverContainerDocuments,
       getRuntimeStatus: () => {
         const input = runtimeService.workflowInput();

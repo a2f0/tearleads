@@ -1,7 +1,5 @@
-import {
-  getOrCreateDomainSyncCoordinator,
-  type SyncLane,
-} from "../../data/sync/syncCoordinator";
+import { clearOriginatedDocuments } from "../../data/sync/originatedDocuments";
+import type { SyncLane } from "../../data/sync/syncLaneConfig";
 import {
   acknowledgeContainerForce,
   activateContainer,
@@ -17,7 +15,6 @@ import {
   sweepKnownContainers,
 } from "./knownContainerSweep";
 import { rearmFailedContainer } from "./laneFailure";
-import { clearOriginatedDocuments } from "./originatedDocuments";
 import { createReconcileQueue, type ReconcilePriority } from "./queue";
 import type {
   ReconciliationHost,
@@ -138,13 +135,12 @@ function scheduleProbeContinuation(
     state.probeContinuationCancel = null;
     return;
   }
-  const timeout = setTimeout(() => {
+  state.probeContinuationCancel = host.clock.schedule(() => {
     if (canContinue()) {
       state.probeContinuationCancel = null;
       state.lane?.requestSync();
     }
   }, state.initialDocumentProbe.continuationDelayMs());
-  state.probeContinuationCancel = () => clearTimeout(timeout);
 }
 
 function forgetIneligibleDiscoveredContainers(
@@ -283,27 +279,24 @@ function startReconciliationLane(
   }
   state.lifecycleGeneration += 1;
   state.active = true;
-  state.lane = getOrCreateDomainSyncCoordinator(host.domainScope).registerLane(
-    "reconciliation:documents",
-    {
-      label: "Device-first document reconciliation",
-      // Document discovery runs in the document phase, after structural
-      // container hydration/metadata sync settles for the scope.
-      phase: "document",
-      priority: () => (state.activeContainerId ? -1 : 0),
-      onUnexpectedError: (error) => {
-        console.error("Device-first reconciliation failed:", error);
-      },
-      // Fixed literal: no container or document id may reach a report. The
-      // mapped stack identifies which lane body threw. Returning the host's
-      // result hands a rejection to the lane reporter's wrapper; discarding it
-      // would surface as an unhandled rejection instead.
-      reportUnexpectedError: (error) =>
-        host.logError?.("Reconciliation: sync lane failed", error),
-      run: () => runReconcileLane(host, state),
-      shouldIgnoreError: host.isIgnorableError,
+  state.lane = host.registerLane("reconciliation:documents", {
+    label: "Device-first document reconciliation",
+    // Document discovery runs in the document phase, after structural
+    // container hydration/metadata sync settles for the scope.
+    phase: "document",
+    priority: () => (state.activeContainerId ? -1 : 0),
+    onUnexpectedError: (error) => {
+      console.error("Device-first reconciliation failed:", error);
     },
-  );
+    // Fixed literal: no container or document id may reach a report. The
+    // mapped stack identifies which lane body threw. Returning the host's
+    // result hands a rejection to the lane reporter's wrapper; discarding it
+    // would surface as an unhandled rejection instead.
+    reportUnexpectedError: (error) =>
+      host.logError?.("Reconciliation: sync lane failed", error),
+    run: () => runReconcileLane(host, state),
+    shouldIgnoreError: host.isIgnorableError,
+  });
 }
 
 function createReconciliationState(

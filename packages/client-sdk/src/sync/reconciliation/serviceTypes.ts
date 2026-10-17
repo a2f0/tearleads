@@ -1,5 +1,6 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import type { DomainScope } from "../../data/domainScope";
+import type { SyncLane, SyncLaneConfig } from "../../data/sync/syncLaneConfig";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
 import type { InitialDocumentProbeHost } from "./initialDocumentProbe";
 import type { ReconcilePriority } from "./queue";
@@ -35,10 +36,18 @@ export interface ReconciliationRuntimeStatus {
 /**
  * Host contract injected by the device-first facade. Keeps the reconciler
  * React-free and decoupled from runtime/persistence construction — it only
- * orchestrates *when* these run and routes their results into Layer A.
+ * orchestrates *when* these run and routes their results into Layer A. The
+ * host also supplies the coordinator lane and the clock, so the reconciler
+ * imports no runtime code from the client, store, workflow, or coordinator
+ * layers; `lint:architecture` enforces this.
  */
 export interface ReconciliationHost extends InitialDocumentProbeHost {
   domainScope: DomainScope;
+  /**
+   * Register the reconciler's lane on the scope's sync coordinator. The host
+   * owns the coordinator; the reconciler only schedules work on its lane.
+   */
+  registerLane: (key: string, config: SyncLaneConfig) => SyncLane;
   getRuntimeStatus: () => ReconciliationRuntimeStatus;
   /** True when this container has enough remote state to list documents. */
   canDiscoverContainerDocuments: (containerId: string) => boolean;

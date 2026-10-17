@@ -1,6 +1,6 @@
-import type { ContainerNode } from "../../stores/container-contents";
-import { isSystemContainerNode } from "../../stores/container-contents";
-import type { ReconciliationHost } from "./serviceTypes";
+import type { ContainerNode } from "../stores/container-contents";
+import { isSystemContainerNode } from "../stores/container-contents";
+import type { ReconciliationHost } from "../sync/reconciliation";
 
 interface ReconciledDocumentContentPullHost {
   readonly getContainer: (containerId: string) => ContainerNode | null;

@@ -1,14 +1,19 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
+import type { ReconciliationClock } from "./clock";
 import type {
   InitialDocumentProbeBatchInput,
   InitialDocumentProbeBatchResult,
 } from "./initialDocumentProbe";
 import { createReconciliationService } from "./service";
-import { createReconciliationTestHost } from "./service.testFixtures";
+import {
+  createManualReconciliationClock,
+  createReconciliationTestHost,
+} from "./service.testFixtures";
 import type { ReconciliationHost } from "./serviceTypes";
 
 function createProbeHost(input: {
+  readonly clock?: ReconciliationClock;
   readonly listKnownContainerIds?: () => ReadonlyArray<string>;
   readonly listContainerDocumentIds: (
     containerId: string,
@@ -19,6 +24,7 @@ function createProbeHost(input: {
   readonly reportComplete?: (requestedCount: number) => void;
 }): ReconciliationHost {
   return createReconciliationTestHost({
+    ...(input.clock ? { clock: input.clock } : {}),
     listKnownContainerIds:
       input.listKnownContainerIds ?? (() => ["c-1", "c-2"]),
     listAutomaticRootCatchupContainerIds: () => ["c-1", "c-2"],
@@ -78,13 +84,15 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
   const listingAttempts = new Map<string, number>();
   const secondListingAttemptTimes: number[] = [];
   let secondListingAvailable = false;
+  const clock = createManualReconciliationClock();
   const service = createReconciliationService(
     createProbeHost({
+      clock,
       listContainerDocumentIds: async (containerId) => {
         const attempt = (listingAttempts.get(containerId) ?? 0) + 1;
         listingAttempts.set(containerId, attempt);
         if (containerId === "c-2" && !secondListingAvailable) {
-          secondListingAttemptTimes.push(Date.now());
+          secondListingAttemptTimes.push(clock.now());
           if (attempt === 1) {
             throw new Error("transient listing failure");
           }
@@ -101,21 +109,21 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
   service.start();
   service.enqueueIdleBackfill();
 
-  await waitFor(
-    () => listingAttempts.get("c-2") === 1,
-    "Expected first failed listing",
-  );
+  // A manual clock holds even zero-delay continuations until it advances.
+  await waitFor(() => {
+    clock.advance(0);
+    return listingAttempts.get("c-2") === 1;
+  }, "Expected first failed listing");
   for (let index = 0; index < 10; index += 1) {
     service.enqueueIdleBackfill();
   }
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 20));
   expect(listingAttempts.get("c-2")).toBe(1);
 
-  await waitFor(
-    () => probes.length === 1,
-    "Expected bounded listing retries",
-    4_000,
-  );
+  await waitFor(() => {
+    clock.advance(100);
+    return probes.length === 1;
+  }, "Expected bounded listing retries");
   expect(listingAttempts).toEqual(
     new Map([
       ["c-1", 1],
@@ -124,25 +132,26 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
   );
   expect(
     (secondListingAttemptTimes[1] ?? 0) - (secondListingAttemptTimes[0] ?? 0),
-  ).toBeGreaterThanOrEqual(900);
+  ).toBeGreaterThanOrEqual(1_000);
   expect(
     (secondListingAttemptTimes[2] ?? 0) - (secondListingAttemptTimes[1] ?? 0),
-  ).toBeGreaterThanOrEqual(1_800);
+  ).toBeGreaterThanOrEqual(2_000);
   expect([...(probes[0]?.listedContainerIds ?? [])]).toEqual(["c-1"]);
   expect([...(probes[0]?.listedDocumentIds ?? [])]).toEqual(["listed-c-1"]);
 
   secondListingAvailable = true;
   service.enqueueIdleBackfill();
+  clock.advance(0);
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(listingAttempts.get("c-2")).toBe(3);
   expect(probes).toHaveLength(1);
 
   service.resetDiscovered();
   service.enqueueIdleBackfill();
-  await waitFor(
-    () => probes.length === 2,
-    "Expected reconnect to retry the exhausted listing",
-  );
+  await waitFor(() => {
+    clock.advance(0);
+    return probes.length === 2;
+  }, "Expected reconnect to retry the exhausted listing");
   expect(listingAttempts.get("c-2")).toBe(4);
   expect([...(probes[1]?.listedContainerIds ?? [])]).toEqual(["c-2"]);
   expect([...(probes[1]?.listedDocumentIds ?? [])].sort()).toEqual([
@@ -153,8 +162,10 @@ test("initial probe skips an exhausted listing and completes healthy lanes", asy
 
 test("stop cancels a pending listing retry timer", async () => {
   let listingAttempts = 0;
+  const clock = createManualReconciliationClock();
   const service = createReconciliationService(
     createProbeHost({
+      clock,
       listKnownContainerIds: () => ["c-1"],
       listContainerDocumentIds: async () => {
         listingAttempts += 1;
@@ -169,10 +180,14 @@ test("stop cancels a pending listing retry timer", async () => {
   );
   service.start();
   service.enqueueIdleBackfill();
-  await waitFor(() => listingAttempts === 1, "Expected first listing attempt");
+  await waitFor(() => {
+    clock.advance(0);
+    return listingAttempts === 1;
+  }, "Expected first listing attempt");
 
   service.stop();
-  await new Promise((resolve) => setTimeout(resolve, 1_100));
+  clock.advance(1_100);
+  await new Promise((resolve) => setTimeout(resolve, 20));
 
   expect(listingAttempts).toBe(1);
 });
