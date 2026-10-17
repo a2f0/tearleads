@@ -64,6 +64,10 @@ verification in `readCurrentPrincipalPolicy.ts`. The retained pinned-page test
 failed at its corruption assertion with HTTP 200 instead of 409. Restoring the
 guard restored the pass. The production guard is unchanged on this branch.
 
+Full API verification in pre-push executed both backends without cache replay:
+PGlite passed 1,994 tests with 93 existing skips; SQLite passed 1,997 with 90
+existing skips. Both ran 2,087 tests across 530 files, with zero failures.
+
 ## Rejected experiments and remaining leads
 
 - One transaction for all 4,098 document-history setup writes increased the
@@ -82,4 +86,8 @@ guard restored the pass. The production guard is unchanged on this branch.
   change their fixtures or coverage.
 
 The skill now checks the scheduled uncached workflow before walking recent
-main-branch runs that may only replay logs.
+main-branch runs that may only replay logs. It also refreshes installed
+dependencies before builds: a stale installed Continuity Git dependency caused
+an unrelated app seed test to fail despite a current lockfile. A frozen-lockfile
+install updated only Continuity's app and app-web links, and the seed test passed
+unchanged. API and SDK dependency links were unaffected.

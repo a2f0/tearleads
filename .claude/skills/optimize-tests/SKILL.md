@@ -41,8 +41,10 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    current file separately. Report unparsed/missing timings rather than treating
    them as zero. File sums identify leads, not elapsed time: hooks, module
    initialization, parallel execution, and subprocesses can change the total.
-4. Reproduce the top candidates locally before changing them. Build prerequisites
-   with `bun run agent:run --label test-build -- bun run build:packages`.
+4. Reproduce the top candidates locally before changing them. Refresh installed
+   dependencies with `bun run agent:run --label test-install -- bun install --frozen-lockfile`
+   before building; package builds do not refresh stale installed Git dependencies.
+   Build prerequisites with `bun run agent:run --label test-build -- bun run build:packages`.
    For focused measurements, use the root output harness with
    `bun test --cwd packages/api ./src/path/to/file.test.ts` (or the SDK
    directory), retaining the package's normal preload.
