@@ -10,6 +10,7 @@ import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
   type SignedPrincipalState,
+  signPrincipalState,
   type UnsignedPrincipalState,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
@@ -62,7 +63,12 @@ export async function seedLongPrincipalHistory(input: {
   let previous = policy.currentState;
   const workers = Array.from(
     {
-      length: Math.min(4, Math.max(1, Math.floor(availableParallelism() / 2))),
+      // One successor has no parallel signing work. Reuse the already loaded
+      // signer instead of starting workers (including ones with empty batches).
+      length:
+        input.throughVersion - previous.version <= 1
+          ? 0
+          : Math.min(4, Math.max(1, Math.floor(availableParallelism() / 2))),
     },
     () => new Worker(new URL("./principalHistorySigner.ts", import.meta.url)),
   );
@@ -91,18 +97,27 @@ export async function seedLongPrincipalHistory(input: {
         stateHashes.set(version, previousHash);
         unsigned.push(state);
       }
-      const chunkSize = Math.ceil(unsigned.length / workers.length);
-      const signed = (
-        await Promise.all(
-          workers.map((worker, index) =>
-            signBatch(
-              worker,
-              unsigned.slice(index * chunkSize, (index + 1) * chunkSize),
-              actor.signing.signingPrivateKey,
-            ),
-          ),
-        )
-      ).flat();
+      const chunkSize = Math.ceil(
+        unsigned.length / Math.max(1, workers.length),
+      );
+      const signed =
+        workers.length === 0
+          ? await Promise.all(
+              unsigned.map((state) =>
+                signPrincipalState(state, actor.signing.signingPrivateKey),
+              ),
+            )
+          : (
+              await Promise.all(
+                workers.map((worker, index) =>
+                  signBatch(
+                    worker,
+                    unsigned.slice(index * chunkSize, (index + 1) * chunkSize),
+                    actor.signing.signingPrivateKey,
+                  ),
+                ),
+              )
+            ).flat();
       for (let offset = 0; offset < signed.length; offset += 100) {
         const states: (typeof principalStates.$inferInsert)[] = [];
         const payloads: (typeof principalStatePayloads.$inferInsert)[] = [];

@@ -26,7 +26,10 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    it is the longest job, API and SDK savings cannot shorten CI. Mention another
    bottleneck when the evidence identifies one, and state any change of scope
    rather than silently expanding the requested work.
-2. Prefer a recent successful CI run with actual cache misses. Use `gh run list`,
+2. Prefer a recent successful CI run with actual cache misses. Check the
+   scheduled `uncached-tests.yml` workflow first when present: its reusable CI
+   jobs force execution even when recent main-branch runs only replay logs. Use
+   `gh run list --workflow uncached-tests.yml --status success`, `gh run list`,
    `gh run view <run> --json jobs`, and
    `gh run view <run> --job <job> --log` to save timings locally. Distinguish
    checkout/install/build time from test execution, and cached log replay from
