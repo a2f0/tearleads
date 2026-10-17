@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiRequestMetrics } from "@tearleads/api-client";
 import { quietLogger } from "../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
-import { Tearleads } from "./Tearleads";
+import { Tearleads } from "../Tearleads";
 
 test("request counts survive identity switches and SDK recreation with a shared store", async () => {
   const previousFetch = globalThis.fetch;

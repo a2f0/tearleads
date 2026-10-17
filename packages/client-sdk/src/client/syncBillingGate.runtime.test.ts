@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Tearleads } from "./Tearleads";
+import { Tearleads } from "../Tearleads";
 
 test("a payment block in one organization does not stop another organization", () => {
   const sdk = new Tearleads({ online: true });

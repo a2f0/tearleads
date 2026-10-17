@@ -47,7 +47,8 @@ const apiLayer = {
 
 const clientSdkLayer = {
   app: sourceRoot.app,
-  client: `${sourceRoot.clientSdk}client/`,
+  // The Tearleads composition root sits at the package root, beside its barrel.
+  client: `${sourceRoot.clientSdk}(client/|Tearleads\\.ts$)`,
   data: `${sourceRoot.clientSdk}data/`,
   dataInternals: [
     `${sourceRoot.clientSdk}data/persistence/`,

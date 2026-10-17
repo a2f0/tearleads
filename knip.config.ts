@@ -146,7 +146,7 @@ const baseConfig = {
       // build and public API contract explicitly.
       entry: [
         "src/index.ts",
-        "src/documents.ts",
+        "src/data/documents/index.ts",
         "src/sqlite.ts",
         "src/data/trustedUserIdentity/testFixtures.ts",
         "src/stores/container-contents/index.ts",

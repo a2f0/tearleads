@@ -5,8 +5,8 @@ import { quietLogger } from "../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { didContainerWriteRuntimeChange } from "../stores/container-contents/writeGeneration";
+import { Tearleads } from "../Tearleads";
 import { createContainerContentsStoreWorkflowRuntime } from "../workflows/container-contents/runtime";
-import { Tearleads } from "./Tearleads";
 import { createRuntime } from "./workflowRuntime";
 
 test("signed-out runtime reads and network notifications preserve local write custody", async () => {
