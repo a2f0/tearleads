@@ -82,9 +82,9 @@ document sync cursor HMAC key is generated once per tier into
 `.secrets/<tier>/worker.env`.
 `scripts/destroyStaging.sh` and `scripts/destroyProduction.sh` remove every
 resource of their tier through `scripts/lib/destroyTier.sh`, timing each step.
-The production script has no `--auto-approve`: it always asks for the domain,
-and the production teardown steps refuse to run without it. The stack wrappers
-still refuse a production `destroy`; the teardown applies saved destroy plans.
+The production script asks for the domain unless given `--auto-approve`; the
+production teardown steps refuse to run outside it. The stack wrappers still
+refuse a production `destroy`; the teardown applies saved destroy plans.
 
 The deployed API allows browser requests from every origin (`API_CORS_ORIGINS=*`)
 for SDK hosts, with explicit bearer-token and protocol headers and no cookie

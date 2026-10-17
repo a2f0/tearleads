@@ -103,7 +103,7 @@ override, applies the saved destroy plan, and removes the override however it
 exits; an override already present stops it. It and the other production
 teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`, and the
 Worker deletion scripts) refuse `prod` unless `TEARLEADS_TEARDOWN_TIER=prod` is
-exported, which `scripts/destroyProduction.sh` does after its confirmation. An
+exported, which `scripts/destroyProduction.sh` does once confirmed. An
 authorized production reset exports it in the reset's own shell.
 
 ## Destroy one environment
