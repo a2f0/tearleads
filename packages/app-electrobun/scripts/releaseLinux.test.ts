@@ -234,5 +234,6 @@ for (const { tier, channel } of [
     const result = await runLinuxNativeBuild(tier);
     expect(result.exitCode, result.stderr).toBe(0);
     expect(result.build).toBe(`${tier}|deferred|--env=${channel}`);
+    expect(result.icons).toBe("electrobun");
   });
 }

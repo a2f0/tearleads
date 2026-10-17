@@ -31,5 +31,151 @@
     "bundles": ["packages/client-sdk"],
     "validate": [["bun", "run", "lint:source-shape", "--", "--staged"]]
   },
-  "pr": { "rejectClaudeBranding": true }
+  "pr": { "rejectClaudeBranding": true },
+  "images": {
+    "targets": {
+      "website": {
+        "dir": "packages/website/public",
+        "outputs": [
+          { "path": "favicon.svg", "layers": [{ "source": "logo" }] },
+          {
+            "path": "favicon.ico",
+            "sizes": [16, 32, 48],
+            "layers": [{ "source": "logo" }]
+          },
+          {
+            "path": "apple-touch-icon.png",
+            "size": 180,
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.8 }
+            ]
+          }
+        ]
+      },
+      "app-web": {
+        "dir": "packages/app-web/dist",
+        "outputs": [
+          { "path": "favicon.svg", "layers": [{ "source": "logo" }] },
+          {
+            "path": "favicon.ico",
+            "sizes": [16, 32, 48],
+            "layers": [{ "source": "logo" }]
+          },
+          {
+            "path": "apple-touch-icon.png",
+            "size": 180,
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.8 }
+            ]
+          },
+          {
+            "path": "tearleads-menu-icon-44.png",
+            "size": 44,
+            "layers": [{ "source": "logo", "size": 28 }]
+          }
+        ]
+      },
+      "capacitor-android": {
+        "dir": "packages/app-capacitor/android/app/src/main/res",
+        "outputs": [
+          {
+            "path": "mipmap-{variant}/ic_launcher.png",
+            "size": 48,
+            "variants": "android",
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.7 }
+            ]
+          },
+          {
+            "path": "mipmap-{variant}/ic_launcher_round.png",
+            "size": 48,
+            "variants": "android",
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.5 }
+            ]
+          },
+          {
+            "path": "mipmap-{variant}/ic_launcher_foreground.png",
+            "size": 108,
+            "variants": "android",
+            "layers": [{ "source": "logo", "size": 50 }]
+          },
+          {
+            "path": "drawable-{variant}/splash.png",
+            "variants": {
+              "land-mdpi": [480, 320],
+              "land-hdpi": [800, 480],
+              "land-xhdpi": [1280, 720],
+              "land-xxhdpi": [1600, 960],
+              "land-xxxhdpi": [1920, 1280],
+              "port-mdpi": [320, 480],
+              "port-hdpi": [480, 800],
+              "port-xhdpi": [720, 1280],
+              "port-xxhdpi": [960, 1600],
+              "port-xxxhdpi": [1280, 1920]
+            },
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.2625 }
+            ]
+          }
+        ]
+      },
+      "capacitor-ios": {
+        "dir": "packages/app-capacitor/ios/App/App/Assets.xcassets",
+        "outputs": [
+          {
+            "path": "AppIcon.appiconset/AppIcon-512@2x.png",
+            "size": 1024,
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.7 }
+            ]
+          },
+          {
+            "path": "Splash.imageset/splash{variant}.png",
+            "size": 2732,
+            "variants": { "": 1, "@2x": 1, "@3x": 1 },
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.2625 }
+            ]
+          }
+        ]
+      },
+      "electrobun": {
+        "dir": "packages/app-electrobun/build/release-icons",
+        "outputs": [
+          {
+            "path": "icon.iconset/icon_{variant}.png",
+            "variants": {
+              "16x16": [16, 16],
+              "16x16@2x": [32, 32],
+              "32x32": [32, 32],
+              "32x32@2x": [64, 64],
+              "128x128": [128, 128],
+              "128x128@2x": [256, 256],
+              "256x256": [256, 256],
+              "256x256@2x": [512, 512],
+              "512x512": [512, 512],
+              "512x512@2x": [1024, 1024]
+            },
+            "layers": [{ "source": "logo", "scale": 0.75 }]
+          },
+          { "path": "icon.png", "size": 512, "layers": [{ "source": "logo" }] }
+        ]
+      }
+    }
+  }
 }

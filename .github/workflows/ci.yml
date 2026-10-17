@@ -190,10 +190,7 @@ jobs:
           --filter='!@tearleads/api' --filter='!app' --filter='!@tearleads/client-sdk'
 
       - name: Build web application
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick
-          bun run --cwd packages/app-web build
+        run: bun run --cwd packages/app-web build
 
   # One runner per long suite: sharing two Turbo slots serialized them into a
   # 40-55 minute job. A suite whose inputs match an earlier run on this branch

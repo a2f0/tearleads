@@ -17,7 +17,7 @@ IOS_OUTPUT_DIR = File.join(IOS_APP_DIR, NATIVE_RELEASE_TARGET.fetch(:ios_output_
 IOS_IPA_NAME = NATIVE_RELEASE_TARGET.fetch(:ios_ipa_name)
 IOS_ARCHIVE_PATH = File.join(IOS_APP_DIR, native_release_ios_archive_relative_path)
 IOS_CAPACITOR_CONFIG_PATH = File.join(IOS_APP_DIR, 'App/capacitor.config.json')
-IOS_BUILD_IMAGES_SCRIPT = File.join(IOS_PACKAGE_DIR, 'scripts/buildIosImages.sh')
+BRAND_IMAGES_SCRIPT = File.expand_path('../../../../scripts/lib/buildBrandImages.sh', __dir__)
 IOS_SIGNING_KEYCHAIN_OPTIONS = {
   add_to_search_list: true,
   # Xcode 26 still resolves nested-framework signing through the default
@@ -31,6 +31,14 @@ IOS_SIGNING_KEYCHAIN_OPTIONS = {
   timeout: 0,
   unlock: true
 }.freeze
+# Render the app icon and splash images from assets/brand before a release build
+# so the shipped assets match the source art. The AppIcon is a gitignored artifact
+# the App Store upload requires (CFBundleIconName / the 120x120 icon). Android
+# builds render their images in the Gradle preBuild task instead.
+def generate_ios_image_assets!
+  sh("sh #{Shellwords.escape(BRAND_IMAGES_SCRIPT)} capacitor-ios")
+end
+
 def load_ios_release_secrets_env
   load_native_release_secrets_env
 end
@@ -334,7 +342,7 @@ platform :ios do
       sh("bun run #{NATIVE_CAPACITOR_SYNC_SCRIPT} ios")
     end
     ensure_release_ios_capacitor_sync!
-    generate_capacitor_image_assets!(IOS_BUILD_IMAGES_SCRIPT)
+    generate_ios_image_assets!
     ipa_path = SwiftPackagePins.verify_around(IOS_PACKAGE_RESOLVED_PATH) do
       with_ios_signing_keychain do
         profile_name = install_ios_appstore_signing_assets!

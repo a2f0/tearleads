@@ -1,9 +1,9 @@
 import type { SVGProps } from "react";
 
 /**
- * The Tearleads mark: a "T" over an "L:" glyph. Mirrors assets/logo.svg but is
- * an inline React component so it can be dropped into JSX (headers, etc.)
- * without any SVG bundler/loader configuration.
+ * The Tearleads mark: a "T" over an "L:" glyph. Mirrors the repository's
+ * assets/brand/logo.svg but is an inline React component so it can be dropped
+ * into JSX (headers, etc.) without any SVG bundler/loader configuration.
  *
  * The two glyph tones are driven by --tearleads-logo-primary (the "L:") and
  * --tearleads-logo-secondary (the "T"), falling back to the brand greys. The

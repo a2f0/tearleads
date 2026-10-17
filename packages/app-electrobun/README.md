@@ -54,10 +54,9 @@ same origin after a restart.
 
 ## macOS releases
 
-Build locally on an Apple silicon Mac with Xcode, ImageMagick, Bun, and the AWS
-CLI installed. These scripts load the selected tier's
-`.secrets/<tier>/shared.env` and `app.env` and select its API, WebSocket,
-Sentry, and download bucket.
+Build locally on an Apple silicon Mac with Xcode, Bun, and the AWS CLI
+installed. These scripts load the selected tier's `.secrets/<tier>/shared.env`
+and `app.env` and select its API, WebSocket, Sentry, and download bucket.
 
 ```sh
 scripts/buildMacosStagingRelease.sh

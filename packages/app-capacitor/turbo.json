@@ -7,9 +7,10 @@
         "FASTLANE_OPT_OUT_USAGE",
         "FASTLANE_SKIP_UPDATE_CHECK"
       ],
-      "description": "Release and deploy suites read repository scripts, Terraform, Wrangler configurations, and other packages' deploy scripts by path. Explicit globs bypass .gitignore, so the negations keep local state and secrets out of the hash.",
+      "description": "Release and deploy suites read repository scripts, Terraform, Wrangler configurations, the agent-tool image targets, and other packages' deploy scripts by path. Explicit globs bypass .gitignore, so the negations keep local state and secrets out of the hash.",
       "inputs": [
         "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/agent-tool.json",
         "$TURBO_ROOT$/scripts/**",
         "!$TURBO_ROOT$/scripts/localstack/data/**",
         "$TURBO_ROOT$/terraform/scripts/**",

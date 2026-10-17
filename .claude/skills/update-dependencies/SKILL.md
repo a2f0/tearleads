@@ -6,8 +6,9 @@ description: Update a repository's dependency manifests, lockfiles, runtimes, to
 # Update Dependencies
 
 Use the repository's package managers and installed `agent-tool`. Read `AGENTS.md`,
-README, linked setup/release documents, and repository-owned upgrade skills before
-editing. Follow their hooks, version policy, checks, and requested stopping point.
+README, existing dependency-maintenance notes, linked setup/release documents,
+and repository-owned upgrade skills before editing. Follow their hooks, version
+policy, checks, and requested stopping point.
 Update applicable dependencies throughout the repository, including workspaces
 and examples. This skill does not authorize deploying, merging, publishing, or
 changing global tools; use existing user authorization and `ship-pr` when shipping
@@ -139,7 +140,8 @@ Source: [Ansible check mode limits](https://docs.ansible.com/projects/ansible/la
 ## Inventory and choose compatible targets
 
 Record each dependency source, current resolved version, latest stable candidate,
-selected target, compatibility constraints, upstream migration links, and checks.
+selected target, compatibility constraints, upstream migration links, and checks
+in the run ledger described under Report.
 Query authoritative registries, official releases, support matrices, and migration
 guides at execution time; do not treat remembered versions or prereleases as
 latest stable. Inspect runtime requirements, peer dependencies, ABI/API changes,
@@ -246,11 +248,33 @@ changed HEAD. Check deployment safety again before its push/open/merge operation
 
 ## Report
 
-Keep a compact ledger of old/selected versions, completed migrations, validation
-and warning results, preview environment/commit/tool versions and safe action
-summary, and every skipped/constrained dependency with the reason. Include baseline
-and final audit results, security overrides with their rationale and removal
-condition, unresolved advisories, and audit coverage limits. For shipping,
-include branch, reviewed commit/verdict, PR, merge, publish/deploy result, and final
-checkout state. For a repository sweep, keep one entry per repository, including
-unready or unchanged checkouts. Do not publish credentials, state, or plan contents.
+Keep run-specific evidence in the upgrade PR body or a linked PR comment: the
+inventory and old/selected versions, completed migrations, validation and warnings,
+baseline/final audits and coverage limits, preview environment/commit/tool versions
+and safe action summary, and skipped/constrained dependencies with reasons. Include
+security overrides, their rationale and removal condition, and unresolved advisories.
+If no PR is requested, provide this ledger in the task report; reporting does not
+authorize opening a PR or issue. For a sweep, keep one entry per repository,
+including unready and unchanged checkouts, and use an existing tracking issue only
+when explicitly requested. Never create an issue merely to store upgrade evidence.
+
+Keep durable repository guidance focused on what the next upgrade needs: current
+compatibility constraints, intentional pins/overrides, unresolved advisories, and
+reusable repository-specific procedures. Prefer the existing maintenance document;
+otherwise create `docs/dependency-upgrades.md` (or the repository's equivalent)
+only when there is substantive guidance to preserve. For each constraint, record
+its rationale, upstream advisory/migration/issue link or originating PR, and the
+condition and check for removing or revisiting it. Do not copy version inventories,
+audit output, validation/preview receipts, or dated run journals into that document.
+
+On every upgrade, reconcile the existing maintenance document against the final
+dependency graph and checks: update constraints in place, remove resolved entries,
+and link the PR for historical evidence. Keep the root README focused on purpose,
+setup, supported requirements, and normal usage, with a concise maintenance link
+when needed. Keep dependency-maintenance guidance in `AGENTS.md` to a short
+routing rule and link; do not accumulate upgrade reports in either entrypoint
+or duplicate the maintenance document.
+
+For shipping, report the branch, reviewed commit/verdict, PR, merge, publish/deploy
+result, and final checkout state. Keep full logs private; never publish credentials,
+state, or plan contents in any of these locations.

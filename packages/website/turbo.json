@@ -3,7 +3,12 @@
   "extends": ["//"],
   "tasks": {
     "build": {
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.screenshots/**"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.screenshots/**",
+        "$TURBO_ROOT$/assets/brand/**",
+        "$TURBO_ROOT$/agent-tool.json"
+      ]
     }
   }
 }
