@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { Tearleads } from "../../client/Tearleads";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
+import { Tearleads } from "../../Tearleads";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { ContainerStateMap } from "./containerStateMap";
 import {

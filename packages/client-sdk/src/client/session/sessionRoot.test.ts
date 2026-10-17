@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
-import { Tearleads } from "../Tearleads";
+import { Tearleads } from "../../Tearleads";
 
 const ROOT_FINGERPRINT = "1".repeat(64);
 

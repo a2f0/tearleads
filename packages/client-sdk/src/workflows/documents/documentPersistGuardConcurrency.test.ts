@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
+import { createDocumentProjectorRegistry } from "../../data/documents";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
 import { createClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../data/sqlite/sqlSchema";
-import { createDocumentProjectorRegistry } from "../../documents";
 import { refuseDeletedDocumentPersist } from "./documentPersistGuards";
 
 async function openDocumentRaceConnections() {

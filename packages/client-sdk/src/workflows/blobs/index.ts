@@ -1,6 +1,7 @@
 export type {
   BlobByteSource,
   BlobByteSourceInput,
+  BlobBytes,
   BlobStore,
 } from "../../data/blobContracts";
 export {

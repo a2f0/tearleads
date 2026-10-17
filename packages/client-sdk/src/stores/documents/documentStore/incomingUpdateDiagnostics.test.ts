@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { Tearleads } from "../../../client/Tearleads";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentSyncFailurePersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
+import { Tearleads } from "../../../Tearleads";
 import type { DocumentState, DocumentStoreState } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { documentIncomingUpdateIsolationFailureHandler } from "./syncShared";

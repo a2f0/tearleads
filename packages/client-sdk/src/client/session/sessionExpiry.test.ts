@@ -6,7 +6,7 @@ import {
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
-import { Tearleads } from "../Tearleads";
+import { Tearleads } from "../../Tearleads";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {

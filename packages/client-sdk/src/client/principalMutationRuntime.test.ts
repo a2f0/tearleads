@@ -7,9 +7,9 @@ import { principalMutationJournalFixture } from "../../test/helpers/principalMut
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { UnreadablePrincipalMutationError } from "../data/principals/principalMutationJournalRecord";
+import { Tearleads } from "../Tearleads";
 import { loadGroupPolicyMutationContext } from "../workflows/organizations/groupPolicyMutationContext";
 import { createOrganizations } from "./organizations";
-import { Tearleads } from "./Tearleads";
 import { createRuntime } from "./workflowRuntime";
 
 test("runtime resolves an uncertain authored mutation before reading for the next mutation", async () => {

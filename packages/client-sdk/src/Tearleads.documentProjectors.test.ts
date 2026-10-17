@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { Tearleads } from "../client";
+import { Tearleads } from "./Tearleads";
 
 test("org profile titles without a host projector", () => {
   // Every save re-projects through the client's one resolved registry: the

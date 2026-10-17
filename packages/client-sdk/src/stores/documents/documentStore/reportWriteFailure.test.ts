@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { Tearleads } from "../../../client/Tearleads";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { Tearleads } from "../../../Tearleads";
 import type {
   DocumentsPersistence,
   ExecSql,

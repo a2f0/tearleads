@@ -5,8 +5,8 @@ import {
 } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createAuthor } from "../../../test/helpers/documentFixtures";
-import { Tearleads } from "../../client/Tearleads";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
+import { Tearleads } from "../../Tearleads";
 import { relinkRemoteContainerDocument } from "./documentLinks";
 
 type DocumentLinkFailure = { message: string; status: number | null };

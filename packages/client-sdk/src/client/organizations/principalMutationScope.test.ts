@@ -4,7 +4,7 @@ import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntim
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
-import { Tearleads } from "../Tearleads";
+import { Tearleads } from "../../Tearleads";
 import { createRuntime } from "../workflowRuntime";
 import { currentOrganizationMutation } from "./principalMutationScope";
 

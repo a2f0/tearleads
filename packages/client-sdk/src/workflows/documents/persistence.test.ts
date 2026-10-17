@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
+import { createDocumentProjectorRegistry } from "../../data/documents";
 import type {
   StoredDocumentRecord as DocumentRecord,
   DocumentsPersistence,
@@ -7,7 +8,6 @@ import type {
 } from "../../data/persistence/documents/types";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { runSerializedSqlMutation } from "../../data/sqlite/sqlSchema";
-import { createDocumentProjectorRegistry } from "../../documents";
 import {
   deletePersistedDocument,
   loadPersistedDocumentStoreState,

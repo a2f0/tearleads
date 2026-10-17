@@ -7,7 +7,7 @@ import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { claimPrincipalMutationJournal } from "../data/persistence/principalMutationJournalPersistence";
 import { sealPrincipalMutation } from "../data/principals/principalMutationJournal";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
-import { Tearleads } from "./Tearleads";
+import { Tearleads } from "../Tearleads";
 
 async function client(
   origin: string,

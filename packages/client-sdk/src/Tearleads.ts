@@ -1,50 +1,56 @@
 import { ApiClient, ApiRequestMetrics } from "@tearleads/api-client";
-import type { BlobStore } from "../data/blobContracts";
-import {
-  type DocumentProjectorRegistry,
-  type DocumentProjectorRegistryInput,
-  resolveDocumentProjectorRegistry,
-} from "../data/documents/documentKinds";
-import { createDomainScope, type DomainScope } from "../data/domainScope";
-import { createVerifiedManifestCitations } from "../data/persistence/verifiedManifestBundlePersistence";
-import type { SecurityIncidentReporter } from "../data/securityIncidents";
-import { disposeDomainSyncCoordinator } from "../data/sync/syncCoordinator";
-import { resolveIdentityTrustDomain } from "../data/trustedUserIdentity";
-import type { ProvisionedSystemContainerSpec } from "../workflows/registration";
-import { ApiVersion } from "./apiVersion";
-import { type BlobStoreFactory, Blobs } from "./blobs";
+import { ApiVersion } from "./client/apiVersion";
+import { type BlobStoreFactory, Blobs } from "./client/blobs";
 import {
   type ContainerContents,
   createContainerContents,
-} from "./containerContents";
-import { Database, type DatabaseOptions } from "./database";
-import { createDeviceFirst, type DeviceFirst } from "./deviceFirst";
-import { createDocuments, type Documents } from "./documents";
-import { Events } from "./events";
+} from "./client/containerContents";
+import { Database, type DatabaseOptions } from "./client/database";
+import { createDeviceFirst, type DeviceFirst } from "./client/deviceFirst";
+import { createDocuments, type Documents } from "./client/documents";
+import { Events } from "./client/events";
 import {
   createIdentity,
   type Identity,
   type IdentityOptions,
-} from "./identity";
-import { type Logger, logErrorToConsole } from "./logger";
-import { Network } from "./network";
-import { createOrganizations, type Organizations } from "./organizations";
-import type { PrincipalHistoryKeyProvider } from "./principalHistoryProtection";
-import { createRoot, type Root, rootRuntimeOf } from "./root";
+} from "./client/identity";
+import { type Logger, logErrorToConsole } from "./client/logger";
+import { Network } from "./client/network";
+import {
+  createOrganizations,
+  type Organizations,
+} from "./client/organizations";
+import type { PrincipalHistoryKeyProvider } from "./client/principalHistoryProtection";
+import { createRoot, type Root, rootRuntimeOf } from "./client/root";
 import {
   createSecurityIncidentService,
   type SecurityIncidentListener,
   type SecurityIncidents,
-} from "./securityIncidents";
-import { createSession } from "./session";
-import type { Session } from "./session/sessionTypes";
-import { SyncBillingGate } from "./syncBillingGate";
-import { createUserIdentities, type UserIdentities } from "./userIdentities";
+} from "./client/securityIncidents";
+import { createSession } from "./client/session";
+import type { Session } from "./client/session/sessionTypes";
+import { SyncBillingGate } from "./client/syncBillingGate";
+import {
+  createUserIdentities,
+  type UserIdentities,
+} from "./client/userIdentities";
 import {
   createRuntime,
   type InternalRuntime,
   type Runtime,
-} from "./workflowRuntime";
+} from "./client/workflowRuntime";
+import type { BlobStore } from "./data/blobContracts";
+import {
+  type DocumentProjectorRegistry,
+  type DocumentProjectorRegistryInput,
+  resolveDocumentProjectorRegistry,
+} from "./data/documents/documentKinds";
+import { createDomainScope, type DomainScope } from "./data/domainScope";
+import { createVerifiedManifestCitations } from "./data/persistence/verifiedManifestBundlePersistence";
+import type { SecurityIncidentReporter } from "./data/securityIncidents";
+import { disposeDomainSyncCoordinator } from "./data/sync/syncCoordinator";
+import { resolveIdentityTrustDomain } from "./data/trustedUserIdentity";
+import type { ProvisionedSystemContainerSpec } from "./workflows/registration";
 
 function createClientSecurityIncidentService(input: {
   readonly apiBaseUrl: string;

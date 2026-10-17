@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { quietLogger } from "../../test/helpers/clientTestSupport";
+import { quietLogger } from "../test/helpers/clientTestSupport";
 import { Tearleads } from "./Tearleads";
 
 test("Tearleads wires workflow security incidents to durable host callbacks", async () => {
@@ -46,7 +46,7 @@ test("Tearleads wires workflow security incidents to durable host callbacks", as
 
 test("identity links report server pin conflicts but not mismatched supplied links", async () => {
   const { identityLinkFixture, LINK_TRUST_DOMAIN } = await import(
-    "../data/trustedUserIdentity/identityLink.testFixtures"
+    "./data/trustedUserIdentity/identityLink.testFixtures"
   );
   const { close, execSql } = await createTestExecSql("identity-link-incidents");
   const bob = await identityLinkFixture(1);

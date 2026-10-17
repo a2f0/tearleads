@@ -2,10 +2,10 @@ import { expect, test } from "bun:test";
 import {
   quietLogger,
   setGeneratedIdentity,
-} from "../../test/helpers/clientTestSupport";
-import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
-import { getOrCreateDomainSyncCoordinator } from "../data/sync/syncCoordinator";
-import { Tearleads } from ".";
+} from "../test/helpers/clientTestSupport";
+import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
+import { getOrCreateDomainSyncCoordinator } from "./data/sync/syncCoordinator";
+import { Tearleads } from "./Tearleads";
 
 test("dispose() force-stops the active scope's coordinator and drops it", async () => {
   const sdk = new Tearleads({ logger: quietLogger, online: false });

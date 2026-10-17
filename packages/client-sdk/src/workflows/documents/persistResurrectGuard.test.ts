@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createDocumentProjectorRegistry } from "../../data/documents";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
@@ -8,7 +9,6 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
-import { createDocumentProjectorRegistry } from "../../documents";
 import { saveDocumentRecord } from "../../stores/documents/documentStore/persistence";
 import { createDocumentStoreState } from "../../stores/documents/documentStore/state";
 import type { DocumentsRuntime } from "../../stores/documents/types";
