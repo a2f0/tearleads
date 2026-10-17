@@ -9,13 +9,13 @@ import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { isProjectionVerificationCancelledError } from "../data/keyingProjectionVerification/types";
 import { readPrincipalHistoryProtection } from "../data/principals/principalHistoryRuntime";
+import { Tearleads } from "../Tearleads";
 import {
   createContainerContentsDocumentsRuntime,
   createContainerContentsStoreWorkflowRuntime,
 } from "../workflows/container-contents/runtime";
 import { createDocumentsWorkflowRuntime } from "../workflows/documents/runtime";
 import { createContainerContents } from "./containerContents";
-import { Tearleads } from "./Tearleads";
 import { createRuntime, type InternalRuntime } from "./workflowRuntime";
 
 type Adapter =

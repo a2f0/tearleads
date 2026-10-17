@@ -92,7 +92,7 @@ dependencies are the packages that output imports, at the versions the
 workspace pins, as caret ranges. Source maps carry their sources inline and
 name them by file name alone.
 
-`src/publishedPackage.test.ts` builds the package and checks its manifest, that
+`scripts/publishedPackage.test.ts` builds the package and checks its manifest, that
 every module imports only its own files or a declared dependency, and that no
 build path or test module ships. The smoke script imports every entry point
 under Bun and Node, resolves and parses the SQLite worker files, and bundles

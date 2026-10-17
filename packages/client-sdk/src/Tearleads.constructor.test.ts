@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { quietLogger } from "../../test/helpers/clientTestSupport";
-import { loadContainers } from "../data/persistence/containers/containerPersistence";
+import { quietLogger } from "../test/helpers/clientTestSupport";
+import { loadContainers } from "./data/persistence/containers/containerPersistence";
 import { Tearleads } from "./Tearleads";
 
 async function waitForProvisionedIdentity(sdk: Tearleads): Promise<void> {

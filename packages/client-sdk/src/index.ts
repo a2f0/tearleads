@@ -19,7 +19,6 @@ export type {
   BlobInfoSortDirection,
   BlobInfoSortKey,
   BrowserLocalKeyringOptions,
-  ClientDatabaseOptions,
   ContainerContents,
   ContainerContentsContextValue,
   ContainerContentsStore,
@@ -172,7 +171,6 @@ export type {
 export {
   type BlobStoreFactory,
   Blobs,
-  type ClientOptions,
   createBrowserLocalKeyring,
   createBrowserLocalKeyringManifestStore,
   createBrowserNetworkStatusSource,
@@ -229,14 +227,9 @@ export {
   type SyncPurchaseResult,
   type SyncSubscriptionOption,
   serializeLocalKeyringManifest,
-  Tearleads,
   WRAPPED_LOCAL_SECRET_FORMAT,
 } from "./client";
 export type {
-  BlobByteSource,
-  BlobByteSourceInput,
-  BlobBytes,
-  BlobStore,
   DiscoveredDocumentInput,
   DocumentAttachment,
   DocumentClientProjectionDefinition,
@@ -257,11 +250,9 @@ export type {
   StructuredDocumentShape,
   StructuredDocumentText,
   ValidatedDocumentFields,
-} from "./documents";
+} from "./data/documents";
 export {
   addDocumentAttachments,
-  blobByteSourceInputLength,
-  createBlobByteSource,
   createDocumentProjectorRegistry,
   createDocumentSignerDeviceId,
   DEFAULT_DOCUMENT_ACCESS_EPOCH,
@@ -275,7 +266,6 @@ export {
   getUntitledDocumentTitle,
   initializeStoredDocumentKind,
   projectStoredDocumentState,
-  readBlobByteSource,
   readStoredDocumentState,
   readStringDocumentField,
   resolveOpIdAttribution,
@@ -283,7 +273,7 @@ export {
   summarizeDocumentContributors,
   writerByPeerId,
   writeStoredDocumentFields,
-} from "./documents";
+} from "./data/documents";
 export type {
   ContainerContentsSnapshot,
   ContainerContentsStoreRuntime,
@@ -320,13 +310,24 @@ export {
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,
 } from "./stores/documents";
+export {
+  type ClientDatabaseOptions,
+  type ClientOptions,
+  Tearleads,
+} from "./Tearleads";
 export type {
+  BlobByteSource,
+  BlobByteSourceInput,
+  BlobBytes,
+  BlobStore,
   EncryptedBlobStoreCipher,
   EncryptedBlobStoreKey,
   EncryptedBlobStoreOptions,
   WrapEncryptedBlobStoreOptions,
 } from "./workflows/blobs";
 export {
+  blobByteSourceInputLength,
+  createBlobByteSource,
   createBlobStore,
   createEncryptedBlobStore,
   createLazyEncryptedBlobStore,
@@ -334,6 +335,7 @@ export {
   decryptDocumentAttachmentBlob,
   hydrateDocumentAttachmentBlobs,
   purgeOpfsBlobStore,
+  readBlobByteSource,
   uploadDocumentAttachment,
   wrapEncryptedBlobStore,
 } from "./workflows/blobs";

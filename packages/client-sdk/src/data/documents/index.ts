@@ -1,6 +1,5 @@
-export * from "./data/blobContracts";
-export * from "./data/documents/documentConstants";
-export * from "./data/documents/documentContent";
+export * from "./documentConstants";
+export * from "./documentContent";
 export {
   createDocumentProjectorRegistry,
   type DocumentClientProjectionDefinition,
@@ -28,14 +27,14 @@ export {
   type StructuredDocumentText,
   type ValidatedDocumentFields,
   writeStoredDocumentFields,
-} from "./data/documents/documentKinds";
+} from "./documentKinds";
 export type {
   DocumentRow,
   DocumentRowSummary,
-} from "./data/documents/documentRowList";
-export * from "./data/documents/documentSummary";
+} from "./documentRowList";
+export * from "./documentSummary";
 export {
   resolveOpIdAttribution,
   summarizeDocumentContributors,
   writerByPeerId,
-} from "./data/documents/editAttribution";
+} from "./editAttribution";

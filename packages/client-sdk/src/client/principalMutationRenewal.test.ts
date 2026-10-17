@@ -9,7 +9,7 @@ import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../data/documents/documentKinds";
 import { loadPrincipalMutationJournal } from "../data/persistence/principalMutationJournalPersistence";
 import { principalMutationJournalScopeId } from "../data/principals/principalMutationJournal";
-import { Tearleads } from "./Tearleads";
+import { Tearleads } from "../Tearleads";
 import { createRuntime } from "./workflowRuntime";
 
 test.each([

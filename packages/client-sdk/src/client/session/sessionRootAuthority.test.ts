@@ -6,7 +6,7 @@ import {
 import { setGeneratedIdentity } from "../../../test/helpers/clientTestSupport";
 import { waitFor } from "../../../test/helpers/waitFor";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
-import { Tearleads } from "../Tearleads";
+import { Tearleads } from "../../Tearleads";
 import { createApi, createSessionHarness } from "./session.testFixtures";
 import {
   acknowledgedSessionRoot,

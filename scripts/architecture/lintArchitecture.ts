@@ -50,9 +50,10 @@ const clientSdkClientFacadeIndexPath = `${sdkSrc}/client/index.ts`;
 const clientSdkRootIndexPath = `${sdkSrc}/index.ts`;
 const clientSdkRootAllowedReExports = new Set([
   "./client",
-  "./documents",
+  "./data/documents",
   "./stores/container-contents",
   "./stores/documents",
+  "./Tearleads",
   ...clientSdkRootWorkflowFacadeReExports,
 ]);
 const directSyncExternalStorePattern = /\buseSyncExternalStore\b/;
@@ -363,7 +364,7 @@ const architectureChecks: ArchitectureCheck[] = [
     listFiles: listExactSourceFile,
     matches: isUnsupportedClientSdkRootReExport,
     message:
-      "Client SDK root exports should only aggregate documented client, document, workflow, and store facades.",
+      "Client SDK root exports should only aggregate the Tearleads composition root and documented client, document, workflow, and store facades.",
     name: "client-sdk-root-exports-only-documented-facades",
   }),
   createSourceTextCheck({

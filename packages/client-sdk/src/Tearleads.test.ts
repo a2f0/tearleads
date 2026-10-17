@@ -9,10 +9,11 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   quietLogger,
   setGeneratedIdentity,
-} from "../../test/helpers/clientTestSupport";
-import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
-import { loadContainers } from "../data/persistence/containers/containerPersistence";
-import type { DocumentProjectorDefinition } from "../documents";
+} from "../test/helpers/clientTestSupport";
+import { Database, type SessionSnapshot, Tearleads } from ".";
+import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
+import type { DocumentProjectorDefinition } from "./data/documents";
+import { loadContainers } from "./data/persistence/containers/containerPersistence";
 import type {
   ExecSql,
   ExecSqlClientLike,
@@ -20,12 +21,11 @@ import type {
   SqlBind,
   SqlRow,
   SqlRowMode,
-} from "../sqlite";
+} from "./sqlite";
 import {
   defaultDocumentsPersistence,
   resolveDocumentCreateAuthor,
-} from "../workflows/documents";
-import { Database, type SessionSnapshot, Tearleads } from ".";
+} from "./workflows/documents";
 
 const EMPTY_IDENTITY_SNAPSHOT = {
   encapsulationKeyPair: null,

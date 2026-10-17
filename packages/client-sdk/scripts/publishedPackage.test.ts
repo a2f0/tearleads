@@ -2,12 +2,8 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { buildPackage } from "../scripts/buildPackage";
-import {
-  listFiles,
-  moduleSpecifiers,
-  packageName,
-} from "../scripts/packageOutput";
+import { buildPackage } from "./buildPackage";
+import { listFiles, moduleSpecifiers, packageName } from "./packageOutput";
 
 // The package npm receives is built once into a temporary directory, so these
 // checks never depend on (or disturb) the workspace's dist/.

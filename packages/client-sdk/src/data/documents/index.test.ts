@@ -7,7 +7,7 @@ import {
   getDocumentClientProjectionTables,
   getStoredDocumentTypeLabel,
   readStringDocumentField,
-} from "./documents";
+} from "./index";
 
 test("documents facade exports document projector helpers", () => {
   const registry = createDocumentProjectorRegistry([

@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
+import { createDocumentProjectorRegistry } from "../../data/documents";
 import type {
   DocumentsPersistence,
   StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createDocumentProjectorRegistry } from "../../documents";
 import { persistDocumentState } from "./persistence";
 
 test("document mutation conflict exhaustion fails instead of dropping the edit", async () => {

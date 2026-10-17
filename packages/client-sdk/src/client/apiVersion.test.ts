@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { apiVersionHeaderName } from "@tearleads/validators/operation";
 import { quietLogger } from "../../test/helpers/clientTestSupport";
+import { Tearleads } from "../Tearleads";
 import { ApiVersion } from "./apiVersion";
-import { Tearleads } from "./Tearleads";
 
 test("tracks the latest API build and notifies only on change", () => {
   const apiVersion = new ApiVersion();
