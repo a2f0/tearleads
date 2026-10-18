@@ -13,6 +13,7 @@ import type {
   ReferencedPrincipalStateResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
+import type { CurrentPrincipalPolicyReader } from "../../src/workflows/principals/currentPrincipalPolicyReader";
 import {
   type CacheReferencedPrincipalPoliciesOptions,
   cacheReferencedPrincipalPolicies,
@@ -28,9 +29,12 @@ import { createMockApiTrustedUserIdentityResolver } from "./trustedUserIdentity"
 
 type CacheReferencedPoliciesOptions = Omit<
   CacheReferencedPrincipalPoliciesOptions,
-  "reportSecurityIncident" | "resolveTrustedUserIdentity"
+  | "currentPolicyReader"
+  | "reportSecurityIncident"
+  | "resolveTrustedUserIdentity"
 > & {
   readonly directory?: PolicyDirectoryFixture;
+  readonly getCurrentPrincipalPolicy: CurrentPrincipalPolicyReader["getCurrentPrincipalPolicy"];
   readonly getUserIdentity: (
     userId: string,
   ) => Promise<UserIdentityResponse | null>;
@@ -44,18 +48,21 @@ export function cacheReferencedPolicies(
 ): Promise<void> {
   const {
     directory,
+    getCurrentPrincipalPolicy,
     getUserIdentity,
     reportSecurityIncident,
     ...cacheOptions
   } = options;
   return cacheReferencedPrincipalPolicies({
     ...cacheOptions,
-    getCurrentPrincipalPolicy: (kind, id) =>
-      directory &&
-      kind === "organization" &&
-      id === directory.bundle.currentState.principalId
-        ? Promise.resolve(directory.bundle)
-        : cacheOptions.getCurrentPrincipalPolicy(kind, id),
+    currentPolicyReader: {
+      getCurrentPrincipalPolicy: (kind, id) =>
+        directory &&
+        kind === "organization" &&
+        id === directory.bundle.currentState.principalId
+          ? Promise.resolve(directory.bundle)
+          : getCurrentPrincipalPolicy(kind, id),
+    },
     reportSecurityIncident: reportSecurityIncident ?? (async () => undefined),
     resolveTrustedUserIdentity: createMockApiTrustedUserIdentityResolver(
       (userId) =>

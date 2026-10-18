@@ -18,8 +18,10 @@ test("offline runtime verification requires protected evidence even with a held 
     await cachePrincipalPolicyBundles({
       execSql: f.options.execSql,
       bundles: [history.directory, history.admin, history.group],
-      getCurrentPrincipalPolicy: async (_kind, id) =>
-        f.policies.get(id) ?? null,
+      currentPolicyReader: {
+        getCurrentPrincipalPolicy: async (_kind, id) =>
+          f.policies.get(id) ?? null,
+      },
       organizationId: history.organizationId,
       resolveTrustedUserIdentity: f.options.resolveTrustedUserIdentity,
       reportSecurityIncident: async () => undefined,

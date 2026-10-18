@@ -36,12 +36,14 @@ for (const scenario of [
         bundles: [supplied],
         execSql,
         organizationId: scenario === "foreign-organization" ? "org-2" : "org-1",
-        getCurrentPrincipalPolicy: async (kind, id) =>
-          scenario === "matching-directory" &&
-          kind === "organization" &&
-          id === "org-1"
-            ? directory.bundle
-            : null,
+        currentPolicyReader: {
+          getCurrentPrincipalPolicy: async (kind, id) =>
+            scenario === "matching-directory" &&
+            kind === "organization" &&
+            id === "org-1"
+              ? directory.bundle
+              : null,
+        },
         reportSecurityIncident: async (error) => {
           throw error;
         },

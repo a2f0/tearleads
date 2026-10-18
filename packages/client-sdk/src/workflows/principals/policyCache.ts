@@ -17,6 +17,7 @@ import { principalPolicyReferenceFromBundle } from "../../data/principals/princi
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { CurrentPrincipalPolicyReader } from "./currentPrincipalPolicyReader";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
@@ -36,11 +37,8 @@ import {
 } from "./principalPolicyOrganizationScope";
 
 export interface CacheReferencedPrincipalPoliciesOptions {
+  currentPolicyReader: CurrentPrincipalPolicyReader;
   execSql: ExecSql;
-  getCurrentPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
   log?: (message: string) => void;
   organizationId: string;
   reportSecurityIncident: SecurityIncidentReporter;
@@ -85,7 +83,7 @@ function dedupePrincipalPolicyBundles(
 
 async function cacheReferencedPrincipalPolicy(
   execSql: ExecSql,
-  getCurrentPrincipalPolicy: CacheReferencedPrincipalPoliciesOptions["getCurrentPrincipalPolicy"],
+  reader: CurrentPrincipalPolicyReader,
   reference: ReferencedPrincipalStateResponse,
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
   log: ((message: string) => void) | undefined,
@@ -111,7 +109,7 @@ async function cacheReferencedPrincipalPolicy(
       );
   let bundle =
     cachedBundle ??
-    (await getCurrentPrincipalPolicy(
+    (await reader.getCurrentPrincipalPolicy(
       reference.principalType,
       reference.principalId,
     ));
@@ -145,7 +143,7 @@ async function cacheReferencedPrincipalPolicy(
     loadDirectory,
     organizationId,
     reloadBundle: cachedBundle
-      ? () => getCurrentPrincipalPolicy("group", reference.principalId)
+      ? () => reader.getCurrentPrincipalPolicy("group", reference.principalId)
       : null,
   });
   if (!scoped) {
@@ -257,9 +255,9 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
     loadDirectory: PolicyDirectoryLoader,
     fresh: boolean,
   ) => Promise<readonly Result[]>;
+  readonly currentPolicyReader: CurrentPrincipalPolicyReader;
   readonly dedupe: (items: ReadonlyArray<Item>) => Item[];
   readonly execSql: ExecSql;
-  readonly getCurrentPrincipalPolicy: CacheReferencedPrincipalPoliciesOptions["getCurrentPrincipalPolicy"];
   readonly itemKey: (item: Item) => string;
   readonly items: ReadonlyArray<Item> | undefined;
   readonly log: ((message: string) => void) | undefined;
@@ -280,8 +278,8 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
       null;
     const loadExternalAdminPolicy = () => {
       externalAdminPolicy ??= loadOrganizationExternalAdminPolicy({
+        currentPolicyReader: input.currentPolicyReader,
         execSql: input.execSql,
-        getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
         organizationId: input.organizationId,
 
         resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
@@ -343,8 +341,8 @@ async function runPrincipalPolicyCache<Item, Result>(input: {
 }
 
 async function loadReferencedPrincipalPolicies({
+  currentPolicyReader,
   execSql,
-  getCurrentPrincipalPolicy,
   log,
   organizationId,
   reportSecurityIncident,
@@ -358,7 +356,7 @@ async function loadReferencedPrincipalPolicies({
     cacheItem: (reference, loadExternalAdminPolicy, loadDirectory, fresh) =>
       cacheReferencedPrincipalPolicy(
         execSql,
-        getCurrentPrincipalPolicy,
+        currentPolicyReader,
         reference,
         resolveTrustedUserIdentity,
         log,
@@ -368,9 +366,9 @@ async function loadReferencedPrincipalPolicies({
         loadDirectory,
         fresh,
       ),
+    currentPolicyReader,
     dedupe: dedupeReferencedPrincipalStates,
     execSql,
-    getCurrentPrincipalPolicy,
     itemKey: getReferencedPrincipalKey,
     items: references,
     log,
@@ -390,8 +388,8 @@ export async function cacheReferencedPrincipalPolicies(
 
 export async function cachePrincipalPolicyBundles({
   bundles,
+  currentPolicyReader,
   execSql,
-  getCurrentPrincipalPolicy,
   log,
   organizationId,
   reportSecurityIncident,
@@ -410,9 +408,9 @@ export async function cachePrincipalPolicyBundles({
         resolveTrustedUserIdentity,
         stillCurrent,
       }),
+    currentPolicyReader,
     dedupe: dedupePrincipalPolicyBundles,
     execSql,
-    getCurrentPrincipalPolicy,
     itemKey: getBundlePrincipalKey,
     items: bundles,
     log,

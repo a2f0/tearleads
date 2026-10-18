@@ -19,6 +19,7 @@ import {
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { CurrentPrincipalPolicyReader } from "../principals/currentPrincipalPolicyReader";
 import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
 import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { assertGroupMetadataBinding } from "./groupMetadataBinding";
@@ -30,12 +31,7 @@ import {
 
 export interface DirectoryGroupWalkInput {
   readonly readEncryptedName?: GroupPolicyNameReader | undefined;
-  readonly apiClient: {
-    getCurrentPrincipalPolicy: (
-      principalType: "group" | "organization",
-      principalId: string,
-    ) => Promise<PrincipalPolicyBundleResponse | null>;
-  };
+  readonly apiClient: CurrentPrincipalPolicyReader;
   readonly descriptor: OrganizationAuthorityDescriptor;
   readonly execSql: ExecSql;
   readonly externalAuthority: PrincipalPolicyExternalAuthority;

@@ -22,6 +22,7 @@ import {
 } from "../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { CurrentPrincipalPolicyReader } from "./currentPrincipalPolicyReader";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
@@ -151,16 +152,13 @@ async function loadVerifiedAdminsPolicy(input: {
   readonly expectedHead: ReturnType<typeof requireOrganizationGroupHead>;
   readonly mayRefetchDirectory: boolean;
   readonly execSql: ExecSql;
-  readonly getCurrentPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
+  readonly currentPolicyReader: CurrentPrincipalPolicyReader;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): Promise<{
   readonly bundle: PrincipalPolicyBundleResponse;
   readonly policy: VerifiedPrincipalPolicy;
 } | null> {
-  const bundle = await input.getCurrentPrincipalPolicy(
+  const bundle = await input.currentPolicyReader.getCurrentPrincipalPolicy(
     "group",
     input.adminGroupId,
   );
@@ -219,11 +217,8 @@ async function loadVerifiedAdminsPolicy(input: {
 }
 
 interface ExternalAdminPolicyInput {
+  readonly currentPolicyReader: CurrentPrincipalPolicyReader;
   readonly execSql: ExecSql;
-  readonly getCurrentPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
   readonly organizationId: string | null | undefined;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
   readonly stillCurrent?: (() => boolean) | undefined;
@@ -234,7 +229,7 @@ async function loadExternalAdminPolicyOnce(
   organizationId: string,
   mayRefetchDirectory: boolean,
 ): Promise<VerifiedExternalAdminPolicy | null> {
-  const bundle = await input.getCurrentPrincipalPolicy(
+  const bundle = await input.currentPolicyReader.getCurrentPrincipalPolicy(
     "organization",
     organizationId,
   );
@@ -259,7 +254,7 @@ async function loadExternalAdminPolicyOnce(
       descriptor.adminGroupId,
     ),
     execSql: input.execSql,
-    getCurrentPrincipalPolicy: input.getCurrentPrincipalPolicy,
+    currentPolicyReader: input.currentPolicyReader,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });
   if (!admin) {

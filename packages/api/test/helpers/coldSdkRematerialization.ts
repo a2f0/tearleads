@@ -215,7 +215,7 @@ export async function createEncryptedColdDocument(input: {
     }) =>
       cacheReferencedPrincipalPolicies({
         execSql,
-        getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+        currentPolicyReader: apiClient,
         organizationId: request.organizationId,
         references: request.references,
         reportSecurityIncident: async () => undefined,
@@ -301,7 +301,7 @@ export async function syncDocumentWithInlineRootRekey(input: {
     }) =>
       cacheReferencedPrincipalPolicies({
         execSql,
-        getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+        currentPolicyReader: apiClient,
         organizationId: request.organizationId,
         references: request.references,
         reportSecurityIncident: async () => undefined,
@@ -419,11 +419,16 @@ export async function coldRematerializeEncryptedDocument(input: {
     >[0]["references"];
   }) =>
     cacheReferencedPrincipalPolicies({
-      execSql,
-      getCurrentPrincipalPolicy: async (principalType, principalId) => {
-        policyFetchCount += 1;
-        return apiClient.getCurrentPrincipalPolicy(principalType, principalId);
+      currentPolicyReader: {
+        getCurrentPrincipalPolicy: async (principalType, principalId) => {
+          policyFetchCount += 1;
+          return apiClient.getCurrentPrincipalPolicy(
+            principalType,
+            principalId,
+          );
+        },
       },
+      execSql,
       organizationId: request.organizationId,
       references: request.references,
       reportSecurityIncident: async () => undefined,

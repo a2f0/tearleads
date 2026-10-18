@@ -27,7 +27,6 @@ import type {
   ContainerMutationResponse,
   ContainerRotationResponse,
   ContainerWriterProjectionResponse,
-  PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
@@ -141,10 +140,6 @@ export interface ContainerCreateApi {
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
-  getCurrentPrincipalPolicy(
-    principalType: "group" | "organization",
-    principalId: string,
-  ): Promise<PrincipalPolicyBundleResponse | null>;
 }
 
 export interface ContainerShareApi extends ContainerReciteApi {

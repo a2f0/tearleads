@@ -72,13 +72,15 @@ test.each([false, true])(
         execSql,
         organizationId: "org-1",
         references: [referencedPrincipalStateFromBundle(group.bundle)],
-        getCurrentPrincipalPolicy: async (kind) => {
-          if (kind === "group") {
-            groupReads += 1;
-            return group.bundle;
-          }
-          directoryReads += 1;
-          return replay ? previous : current;
+        currentPolicyReader: {
+          getCurrentPrincipalPolicy: async (kind) => {
+            if (kind === "group") {
+              groupReads += 1;
+              return group.bundle;
+            }
+            directoryReads += 1;
+            return replay ? previous : current;
+          },
         },
         reportSecurityIncident: async (error) => {
           incidents.push(error);
@@ -92,7 +94,9 @@ test.each([false, true])(
               bundles: [current],
               execSql,
               organizationId: "org-1",
-              getCurrentPrincipalPolicy: async () => current,
+              currentPolicyReader: {
+                getCurrentPrincipalPolicy: async () => current,
+              },
               reportSecurityIncident: async (error) => {
                 throw error;
               },

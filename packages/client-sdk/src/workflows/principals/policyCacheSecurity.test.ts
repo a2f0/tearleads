@@ -144,7 +144,7 @@ test("API-supplied policy bundles hard-fail when signed permissions are tampered
         bundles: [tamperedBundle],
         execSql,
         organizationId: "org-1",
-        getCurrentPrincipalPolicy: async () => null,
+        currentPolicyReader: { getCurrentPrincipalPolicy: async () => null },
         reportSecurityIncident: async () => undefined,
         resolveTrustedUserIdentity: async () =>
           trustedUserIdentityFromResponse(signerKeyResponse),
