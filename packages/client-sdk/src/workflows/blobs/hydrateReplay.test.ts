@@ -9,7 +9,7 @@ import {
   createBlobAttachmentBindResponse,
   createMultipartBlobStageFixture,
 } from "../../../test/helpers/blobUploadFixtures";
-import type { BlobBytes } from "../../data/blobContracts";
+import type { BlobBytes } from "../../data/blobs/blobContracts";
 import { attachmentContentSha256 } from "../../data/documents/attachmentContentIdentity";
 import { decryptDocumentAttachmentBlob } from "./decrypt";
 import { hydrateDocumentAttachmentBlobs } from "./hydrate";

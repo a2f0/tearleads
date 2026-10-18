@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import {
   createDocumentStoreFacade,
   discardRegisteredDocumentLocalState,

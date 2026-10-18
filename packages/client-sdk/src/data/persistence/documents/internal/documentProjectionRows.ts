@@ -1,5 +1,4 @@
 import { and, eq } from "drizzle-orm";
-import { normalizeEffectiveAccessLevel } from "../../../accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import {
   deriveStoredDocumentTitle,
@@ -7,6 +6,7 @@ import {
   type StoredDocumentKind,
 } from "../../../documents/documentKinds";
 import type { DocumentSummary } from "../../../documents/documentSummary";
+import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
 import { documentProjection, documents } from "../../../sqlite/schema";
 import type { StoredDocumentRecord } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";

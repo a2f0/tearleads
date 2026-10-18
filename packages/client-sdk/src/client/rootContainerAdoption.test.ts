@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { createDomainScope, type DomainScope } from "../data/domainScope";
+import {
+  createDomainScope,
+  type DomainScope,
+} from "../data/shared/domainScope";
 import type { ContainerContentsRootAdoptionInput } from "../workflows/container-contents/runtime";
 import { adoptSessionRootContainer } from "./rootContainerAdoption";
 

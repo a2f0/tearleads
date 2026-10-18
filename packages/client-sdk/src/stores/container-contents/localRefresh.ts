@@ -1,5 +1,5 @@
 import { encodeVersionVector } from "@tearleads/loro";
-import { errorMessage } from "../../data/errorMessage";
+import { errorMessage } from "../../data/shared/errorMessage";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import { installContainerMetadataRecord } from "../../workflows/container-contents/metadata";

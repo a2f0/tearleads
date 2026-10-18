@@ -3,11 +3,11 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
 import { verifiedPrincipalPolicyMeetsCheckpoint } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
-import { principalStateMatchesReference } from "../principalPolicyStates";
 import {
   type PrincipalPolicyCurrentEvidence,
   principalPolicyEvidenceEntries,
 } from "../principals/principalPolicyEvidence";
+import { principalStateMatchesReference } from "../principals/principalPolicyStates";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 /**

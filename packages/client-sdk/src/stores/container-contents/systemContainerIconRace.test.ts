@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
-import type { BlobStore } from "../../data/blobContracts";
+import type { BlobStore } from "../../data/blobs/blobContracts";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";

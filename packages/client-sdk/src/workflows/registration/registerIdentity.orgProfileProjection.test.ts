@@ -8,7 +8,6 @@ import { createDocument, importSnapshot } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
-import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   createDocumentProjectorRegistry,
   type DocumentClientProjectionSaveInput,
@@ -19,6 +18,7 @@ import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
+import { getScopedPeerSeed } from "../../data/sync/crdtPeerSeed";
 import { persistDocumentState } from "../documents";
 import {
   getOrganizationProfileDocumentLocalId,

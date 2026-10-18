@@ -5,8 +5,8 @@ import {
   createWorkflowInputFixture,
 } from "../../test/helpers/internalRuntimeFixtures";
 import { waitFor } from "../../test/helpers/waitFor";
-import type { BlobStore } from "../data/blobContracts";
-import { createDomainScope } from "../data/domainScope";
+import type { BlobStore } from "../data/blobs/blobContracts";
+import { createDomainScope } from "../data/shared/domainScope";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 import {
   createContainerParentSyncLane,

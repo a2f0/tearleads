@@ -4,7 +4,7 @@ import {
   type BlobStore,
   createBlobByteSource,
   readBlobByteSource,
-} from "../blobContracts";
+} from "./blobContracts";
 
 class MemoryBlobStore implements BlobStore {
   private readonly bytesByKey = new Map<string, BlobBytes>();

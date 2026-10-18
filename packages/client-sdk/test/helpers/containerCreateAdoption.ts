@@ -2,7 +2,7 @@ import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
-import { createDomainScope } from "../../src/data/domainScope";
+import { createDomainScope } from "../../src/data/shared/domainScope";
 import { createTestContainerState } from "../../src/workflows/container-contents/container-state/containerState.testFixtures";
 import { syncPendingContainerCreateIntents } from "../../src/workflows/container-contents/container-state/createIntentSync";
 import type { ContainerCreateIntentSyncState } from "../../src/workflows/container-contents/container-state/types";

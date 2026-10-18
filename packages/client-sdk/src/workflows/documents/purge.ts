@@ -27,7 +27,7 @@ import type {
 import {
   readCanonicalJson,
   readCanonicalRecord,
-} from "../../data/keyingCanonicalJson";
+} from "../../data/keying/canonicalJson";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,

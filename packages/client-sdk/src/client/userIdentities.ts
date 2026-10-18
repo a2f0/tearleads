@@ -1,7 +1,7 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { ProjectionDependencyUnavailableError } from "../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
-import type { SecurityIncidentReporter } from "../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../data/shared/securityIncidents";
 import {
   parseIdentityLink,
   requireTrustedUserIdentityResolver,

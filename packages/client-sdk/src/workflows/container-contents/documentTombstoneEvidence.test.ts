@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
-import type { SecurityIncidentContext } from "../../data/securityIncidents";
+import type { SecurityIncidentContext } from "../../data/shared/securityIncidents";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,

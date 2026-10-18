@@ -1,7 +1,7 @@
 import { computePrincipalStateHash } from "@tearleads/crypto";
 import type { CommitOrganizationGroupPolicyRequest } from "@tearleads/validators/request";
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
-import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../../data/keying/canonicalJson";
 import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
 
 /** A past commit acknowledgement is not evidence for advancing current pins. */

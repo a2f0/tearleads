@@ -1,4 +1,4 @@
-import type { BlobBytes } from "../../../blobContracts";
+import type { BlobBytes } from "../../../blobs/blobContracts";
 
 /** Repartition the envelope without changing its encryption or buffering the file. */
 export function createEncryptedUploadParts(input: {

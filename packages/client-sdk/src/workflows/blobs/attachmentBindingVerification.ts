@@ -6,7 +6,7 @@ import type { DecryptDocumentAttachmentBlobInput } from "../../data/documents/bl
 import {
   readCanonicalJson,
   readCanonicalRecord,
-} from "../../data/keyingCanonicalJson";
+} from "../../data/keying/canonicalJson";
 import {
   type DocumentWriterProjectionAuthorization,
   type ProjectionUserKeyResolver,

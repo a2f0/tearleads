@@ -10,7 +10,7 @@ import type {
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import { waitFor } from "../../../test/helpers/waitFor";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import {
   type ContainerContentsPersistence,
   createContainerParentSyncLane,

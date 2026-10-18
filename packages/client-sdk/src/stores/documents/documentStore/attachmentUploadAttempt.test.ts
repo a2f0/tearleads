@@ -4,8 +4,8 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createMultipartBlobStageFixture } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { initiatedStage } from "../../../../test/helpers/multipartUpload";
-import type { BlobBytes } from "../../../data/blobContracts";
-import type { SecurityIncidentContext } from "../../../data/securityIncidents";
+import type { BlobBytes } from "../../../data/blobs/blobContracts";
+import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import { uploadAttachmentWithWriterProjectionRetry } from "./attachmentUploadAttempt";
 import type { DocumentStoreState } from "./state";
 

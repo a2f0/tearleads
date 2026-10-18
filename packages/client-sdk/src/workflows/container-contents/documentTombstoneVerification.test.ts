@@ -4,7 +4,7 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import type { SecurityIncidentContext } from "../../data/securityIncidents";
+import type { SecurityIncidentContext } from "../../data/shared/securityIncidents";
 import { discoverContainerDocuments } from "./documentDiscovery";
 import {
   laneLister,

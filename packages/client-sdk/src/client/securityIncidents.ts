@@ -13,7 +13,7 @@ import type {
   SecurityIncidentContext,
   SecurityIncidentObjectKind,
   SecurityIncidentReporter,
-} from "../data/securityIncidents";
+} from "../data/shared/securityIncidents";
 import type { Database } from "./database";
 import { createListenerSet } from "./listenerSet";
 

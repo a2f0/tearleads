@@ -10,7 +10,7 @@ import {
   dataUsage,
   organizationId,
 } from "../../../test/helpers/organizationReadModelFixtures";
-import { createDomainScope } from "../../data/domainScope";
+import { createDomainScope } from "../../data/shared/domainScope";
 import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
 import {
   createOrganizationDataUsageCoordinator,

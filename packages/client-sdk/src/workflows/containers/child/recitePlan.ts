@@ -15,7 +15,7 @@ import type { ContainerMutationAuthor } from "../../../data/containers/shared/ty
 import {
   canonicalKeyingJsonString,
   readCanonicalRecord,
-} from "../../../data/keyingCanonicalJson";
+} from "../../../data/keying/canonicalJson";
 import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
 
 export function referencedRecitationPolicies(

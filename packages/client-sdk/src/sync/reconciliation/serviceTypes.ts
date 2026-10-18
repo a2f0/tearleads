@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import type { SyncLane, SyncLaneConfig } from "../../data/sync/syncLaneConfig";
 import type { LocalProjectionReconciledDelta } from "../../stores/local-projection";
 import type { InitialDocumentProbeHost } from "./initialDocumentProbe";

@@ -17,7 +17,7 @@ import type {
   MaterializedContainerRekeyPlan,
 } from "../../../data/containers/shared/types";
 import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
-import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type CarriedRekeyPlanningInput,

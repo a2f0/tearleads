@@ -5,7 +5,7 @@ import {
   createMultipartBlobStageFixture,
 } from "../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../test/helpers/documentFixtures";
-import type { BlobBytes } from "../../data/blobContracts";
+import type { BlobBytes } from "../../data/blobs/blobContracts";
 import { parseBlobEncryptedBytes } from "../../data/documents/blob/shared/readers";
 import type { MultipartUploadProgress } from "../../data/documents/blob/shared/types";
 import { uploadDocumentAttachment } from "./upload";

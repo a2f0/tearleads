@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import type { SecurityIncidentContext } from "../../data/securityIncidents";
+import type { SecurityIncidentContext } from "../../data/shared/securityIncidents";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { collectHydrationResults } from "./hydrationResults";
 

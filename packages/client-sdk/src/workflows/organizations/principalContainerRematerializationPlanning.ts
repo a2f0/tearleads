@@ -12,7 +12,7 @@ import type { ResolvedPrincipalPolicyEvidence } from "../../data/keyingProjectio
 import type { createProjectionUserKeyResolver } from "../../data/keyingProjectionVerification/userKeyResolver";
 import type { CurrentPolicyReferenceResolver } from "../../data/principals/currentPolicyReferenceResolver";
 import type { PrincipalPolicyCurrentEvidence } from "../../data/principals/principalPolicyEvidence";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import {

@@ -1,9 +1,5 @@
 import type { createDocument } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import {
-  canWriteEffectiveAccessLevel,
-  normalizeEffectiveAccessLevel,
-} from "../../../data/accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
   type DocumentAttachment,
@@ -23,7 +19,11 @@ import {
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/syncPagination";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/types";
-import type { DomainScope } from "../../../data/domainScope";
+import {
+  canWriteEffectiveAccessLevel,
+  normalizeEffectiveAccessLevel,
+} from "../../../data/keying/accessLevel";
+import type { DomainScope } from "../../../data/shared/domainScope";
 import {
   type AttachmentRemovalRows,
   type AttachmentStagingRows,

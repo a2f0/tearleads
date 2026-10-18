@@ -313,7 +313,6 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/blobs/`,
       `${sdk}/data/blobs/`,
-      `${sdk}/data/blobContracts.ts`,
       `${sdk}/client/blobs.ts`,
     ],
   },
@@ -358,8 +357,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/sync/`,
       `${sdk}/data/sync/`,
-      `${sdk}/data/crdtPeerSeed.ts`,
-      `${sdk}/data/domainScope.ts`,
+      `${sdk}/data/shared/domainScope.ts`,
       `${sdk}/sync/`,
       `${sdk}/stores/local-projection/`,
       `${sdk}/client/deviceFirst.ts`,
@@ -417,14 +415,7 @@ export const subsystems: readonly Subsystem[] = [
     responsibility:
       "Client-side cryptographic verification of server writer/access-manifest/link-set projections, canonical-record decode, access-level helpers, and stable resource-id derivation.",
     seam: "data/keyingProjectionVerification facade",
-    paths: [
-      `${sdk}/data/keyingProjectionVerification/`,
-      `${sdk}/data/keyingProjectionVerification.ts`,
-      `${sdk}/data/principalPolicyStates.ts`,
-      `${sdk}/data/keyingCanonicalJson.ts`,
-      `${sdk}/data/accessLevel.ts`,
-      `${sdk}/data/stableUuid.ts`,
-    ],
+    paths: [`${sdk}/data/keyingProjectionVerification/`, `${sdk}/data/keying/`],
   },
   {
     name: "Security Incident Detection",
@@ -434,7 +425,7 @@ export const subsystems: readonly Subsystem[] = [
     seam: "tearleads.securityIncidents facade; onSecurityIncident callback",
     paths: [
       `${sdk}/client/securityIncidents.ts`,
-      `${sdk}/data/securityIncidents.ts`,
+      `${sdk}/data/shared/securityIncidents.ts`,
     ],
   },
   {
@@ -460,8 +451,8 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/syncBillingGate.ts`,
       `${sdk}/client/listenerSet.ts`,
       `${sdk}/client/logger.ts`,
-      `${sdk}/data/errorMessage.ts`,
-      `${sdk}/data/recordReaders.ts`,
+      `${sdk}/data/shared/errorMessage.ts`,
+      `${sdk}/data/shared/recordReaders.ts`,
       `${sdk}/index.ts`,
       `${sdk}/workflows/runtimeInput.ts`,
     ],

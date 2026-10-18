@@ -90,6 +90,20 @@ ls:
   packages/app/src/mini-apps/system-monitor/*/*:
     .dir: exists:0
 
+  # Client SDK data modules live in a folder named for their subsystem or role
+  # (docs/developer/client-sdk-seams.md), so the layer root holds no files.
+  packages/client-sdk/src/data:
+    .*: regex:README | exists:0-1
+    .*.*: exists:0
+    .*.*.*: exists:0
+
+  # Below the root, data folders keep the default naming rules.
+  packages/client-sdk/src/data/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
 # A `**/` ignore makes ls-lint walk generated trees before it can prune them.
 # Bound hidden-file matches to the depths used in this repo, and ignore generated
 # directories by name rather than using a trailing `/**`.

@@ -1,4 +1,4 @@
-import { createBlobByteSource } from "../../../data/blobContracts";
+import { createBlobByteSource } from "../../../workflows/blobs";
 import {
   type AttachmentStagingRows,
   type LocalAttachmentRecord,

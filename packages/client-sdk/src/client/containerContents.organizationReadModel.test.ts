@@ -11,7 +11,7 @@ import {
   organizationReadModelSnapshot,
   organizationReadModelUserId,
 } from "../../test/helpers/organizationReadModelProjectionFixtures";
-import { createDomainScope } from "../data/domainScope";
+import { createDomainScope } from "../data/shared/domainScope";
 import { createContainerContents } from "./containerContents";
 import { createOrganizations } from "./organizations";
 import type { InternalWorkflowRuntimeInput } from "./workflowRuntime";

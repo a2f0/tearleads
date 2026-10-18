@@ -5,7 +5,7 @@ import {
   type BlobStore,
   createBlobByteSource,
   readBlobByteSource,
-} from "../blobContracts";
+} from "./blobContracts";
 import { ENCRYPTED_BLOB_CHUNK_SIZE } from "./encryptedBlobEnvelope";
 import {
   createEncryptedBlobStore,

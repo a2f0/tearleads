@@ -3,7 +3,7 @@ import {
   type BlobByteSource,
   type BlobBytes,
   readExactBlobBytes,
-} from "../blobContracts";
+} from "./blobContracts";
 import {
   AES_GCM_TAG_BYTES,
   chunkAdditionalData,

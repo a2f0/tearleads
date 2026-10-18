@@ -11,7 +11,7 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
-import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 

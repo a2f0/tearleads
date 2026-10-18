@@ -14,7 +14,7 @@ import type { DocumentWriterProjectionResponse } from "@tearleads/validators/res
 import {
   readCanonicalJson,
   readCanonicalRecord,
-} from "../../keyingCanonicalJson";
+} from "../../keying/canonicalJson";
 import {
   authorizingContainerPathRefsForLinkSet,
   containerPathRefs,

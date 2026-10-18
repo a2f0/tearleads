@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { createDomainScope } from "../../data/domainScope";
+import { createDomainScope } from "../../data/shared/domainScope";
 import { createTestContainerState } from "../../workflows/container-contents/container-state/containerState.testFixtures";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { handleContainerContentsRemoteEvents } from "./remoteEventSync";

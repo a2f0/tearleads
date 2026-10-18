@@ -11,10 +11,10 @@ import {
   createDocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,
 } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
 import { loadDocumentPurgeCheckpoint } from "../../../data/persistence/documentPurgeCheckpointPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   type ClientSQLitePersistenceRuntime,
   createClientSQLitePersistenceRuntime,

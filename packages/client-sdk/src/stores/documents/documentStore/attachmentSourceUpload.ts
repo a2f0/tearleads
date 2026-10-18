@@ -1,10 +1,10 @@
-import type { BlobByteSource } from "../../../data/blobContracts";
 import {
   type BlobSourceSnapshot,
   inspectBlobSource,
 } from "../../../data/documents/blob/shared/blobSourceSnapshot";
 import { DEFAULT_BLOB_CHUNK_SIZE_BYTES } from "../../../data/documents/blob/shared/crypto";
 import { getDocumentAttachments } from "../../../data/documents/documentContent";
+import type { BlobByteSource } from "../../../workflows/blobs";
 import type { PendingAttachmentRecord } from "../../../workflows/documents";
 import { deletePendingAttachment } from "./attachmentPersistence";
 import {

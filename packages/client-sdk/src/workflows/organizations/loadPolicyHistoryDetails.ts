@@ -1,10 +1,10 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import type { DomainScope } from "../../data/domainScope";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
 import type { ReferencedPrincipalPolicyWarmer } from "../../data/keyingProjectionVerification/types";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { DomainScope } from "../../data/shared/domainScope";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { RecoveredPrincipalHistoryPage } from "../principals/loadRecoveredPrincipalHistoryPage";
 import { loadLocalOrganizationPolicyReference } from "./localReadModelDetails";

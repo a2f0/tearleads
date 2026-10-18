@@ -1,4 +1,3 @@
-import { errorMessage } from "../../data/errorMessage";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { rethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
@@ -6,6 +5,7 @@ import {
   isProjectionVerificationCancelledError,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
+import { errorMessage } from "../../data/shared/errorMessage";
 import {
   createRuntimePrincipalPolicyResolver,
   type PrincipalPolicyRecoveryRuntime,

@@ -24,7 +24,7 @@ import type {
   DocumentSyncPlan,
   DocumentSyncPreparedUpdate,
 } from "../../data/documents/shared/types";
-import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../data/keying/canonicalJson";
 
 function contentKeyBundleForSyncRequest(
   input: DocumentCreateResponse["contentKeyBundle"],

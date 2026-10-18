@@ -4,7 +4,7 @@ import type { MaterializedContainerCreatePlan } from "../../../data/containers/s
 import {
   readCanonicalRecord,
   readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+} from "../../../data/keying/canonicalJson";
 
 export function childContainerWriterProjectionFromCreatePlan(input: {
   materializedPlan: MaterializedContainerCreatePlan;

@@ -8,11 +8,11 @@ import {
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { insertQueuedUpdateRows } from "../../../test/helpers/queuedUpdateRows";
 import { waitFor } from "../../../test/helpers/waitFor";
-import { createDomainScope } from "../../data/domainScope";
 import {
   listDormantMetadataSweepRequests,
   requestDormantMetadataRestorationSweeps,
 } from "../../data/persistence/container-contents/dormantMetadataSweep";
+import { createDomainScope } from "../../data/shared/domainScope";
 import {
   disposeDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,

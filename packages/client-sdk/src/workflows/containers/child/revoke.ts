@@ -38,7 +38,7 @@ import type {
   ContainerRevokePlan,
   MaterializedContainerRevokePlan,
 } from "../../../data/containers/shared/types";
-import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import {
   type PrincipalPolicyCache,
   type ProjectionUserKeyResolver,
@@ -46,7 +46,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
-import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildContainerRotationArtifacts } from "./moveRotation";
 import {

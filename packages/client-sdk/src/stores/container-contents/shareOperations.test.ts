@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { runGroupShareScenario } from "../../../test/helpers/groupShareScenario";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { DatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";

@@ -5,7 +5,7 @@ import {
   blobByteSourceInputLength,
   createBlobByteSource,
   readBlobByteSource,
-} from "../blobContracts";
+} from "./blobContracts";
 
 interface StorageDirectoryProvider {
   getDirectory: () => Promise<FileSystemDirectoryHandle>;

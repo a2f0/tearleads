@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import { createDomainScope, type DomainScope } from "../../data/domainScope";
+import {
+  createDomainScope,
+  type DomainScope,
+} from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { requireTrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";

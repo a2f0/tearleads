@@ -5,10 +5,10 @@ import {
   readLinkedContainerIdsFromDocumentManifest,
 } from "../../data/documents/shared/projection";
 import { persistedDocumentCreateStateFromWriterProjection } from "../../data/documents/shared/responses";
-import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import { errorMessage } from "../../data/shared/errorMessage";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { isDatabaseUnavailableError } from "../../data/sync/databaseUnavailable";
 import {

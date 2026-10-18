@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../data/documents/documentSummary";
-import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import { createDomainScope } from "../../data/shared/domainScope";
 import { defaultDocumentsPersistence } from "../documents";
 import {
   type DocumentStructuralMutationHost,

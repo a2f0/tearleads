@@ -1,4 +1,4 @@
-import type { DomainScope } from "../domainScope";
+import type { DomainScope } from "../shared/domainScope";
 import {
   requestAllPumpDrivenLanes,
   requestLaneSync,

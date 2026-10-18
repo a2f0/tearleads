@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,

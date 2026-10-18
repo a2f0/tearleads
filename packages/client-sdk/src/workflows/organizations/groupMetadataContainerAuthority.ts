@@ -6,7 +6,7 @@ import {
   requireOrganizationGroupHead,
 } from "../../data/principals/organizationAuthorityDescriptor";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import { assertMetadataRootBinding } from "./groupMetadataRootBinding";
 import { verifyDirectoryGroup } from "./groupNameUniqueness";
 import { loadGroupNameDirectoryAuthority } from "./organizationGroupNamePolicies";

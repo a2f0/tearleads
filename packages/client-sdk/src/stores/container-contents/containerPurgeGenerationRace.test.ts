@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { createContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createTestContainerState } from "../../workflows/container-contents/container-state/containerState.testFixtures";
 import {

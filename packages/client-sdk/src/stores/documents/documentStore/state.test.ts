@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import type { BlobStore } from "../../../data/blobContracts";
+import type { BlobStore } from "../../../data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   createDocumentsWorkflowRuntime,

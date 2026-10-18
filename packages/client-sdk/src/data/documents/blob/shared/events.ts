@@ -12,7 +12,7 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import type { ContainerManifestRef } from "@tearleads/validators/request";
-import { readCanonicalJson } from "../../../keyingCanonicalJson";
+import { readCanonicalJson } from "../../../keying/canonicalJson";
 import { uniqueSortedStrings } from "../../shared/readers";
 import type { DocumentCreateAuthor } from "../../shared/types";
 import type { BlobEncryptionPlan, DocumentManifestIdentity } from "./types";

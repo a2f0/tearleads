@@ -1,4 +1,4 @@
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import {
   type ContainerContentsStoreOptions,
   getOrCreateContainerContentsStore,

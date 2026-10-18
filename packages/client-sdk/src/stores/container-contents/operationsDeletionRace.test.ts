@@ -8,7 +8,7 @@ import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
 } from "../../data/containers/containerMetadataDocument";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,

@@ -15,7 +15,7 @@ import {
   heldContainerSnapshot,
   rememberVerifiedContainerHeads,
 } from "../../../data/containers/shared/heldContainerHeads";
-import { readCanonicalJson } from "../../../data/keyingCanonicalJson";
+import { readCanonicalJson } from "../../../data/keying/canonicalJson";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import { recoverPrincipalPolicyHistory } from "../../principals/recoverPrincipalPolicyHistory";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";

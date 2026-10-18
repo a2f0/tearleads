@@ -1,7 +1,7 @@
 import { ContainerPathTooDeepError } from "../../../data/containers/shared/containerPathLimits";
-import { errorMessage } from "../../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { ContainerCreateIntentSupersededError } from "../../../data/persistence/container-contents/containerIntentPersistence";
+import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,

@@ -1,7 +1,7 @@
 import { expect, mock, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { QUEUED_UPDATES_SQL } from "../../../test/helpers/queuedUpdateRows";
-import { createDomainScope } from "../../data/domainScope";
+import { createDomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createContainerParentSyncLane,

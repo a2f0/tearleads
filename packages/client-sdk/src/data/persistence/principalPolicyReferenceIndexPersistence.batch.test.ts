@@ -4,7 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, asc, eq } from "drizzle-orm";
 import { createSuccessorPrincipalPolicyBundle } from "../../../test/helpers/policyCacheFixtures";
-import { principalPolicyBundleStates } from "../principalPolicyStates";
+import { principalPolicyBundleStates } from "../principals/principalPolicyStates";
 import { principalPolicyBundleReferences } from "../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,

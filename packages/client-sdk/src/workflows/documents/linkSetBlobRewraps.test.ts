@@ -25,7 +25,7 @@ import { deriveDocumentTargetFromProjection } from "../../data/documents/shared/
 import {
   readCanonicalJson,
   readCanonicalRecord,
-} from "../../data/keyingCanonicalJson";
+} from "../../data/keying/canonicalJson";
 import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";
 import { decryptDocumentAttachmentBlob } from "../blobs/decrypt";
 import { buildMaterializedContainerRekeyPlan } from "../containers/child/rekey";

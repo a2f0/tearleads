@@ -1,4 +1,4 @@
-import { createDomainScope } from "../../../data/domainScope";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { ContainerMoveIntentRecord } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";

@@ -1,9 +1,9 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { errorMessage } from "../errorMessage";
+import { errorMessage } from "../shared/errorMessage";
 import type {
   SecurityIncidentContext,
   SecurityIncidentReporter,
-} from "../securityIncidents";
+} from "../shared/securityIncidents";
 import { isDatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import { rethrowProjectionVerificationCancelled } from "./types";

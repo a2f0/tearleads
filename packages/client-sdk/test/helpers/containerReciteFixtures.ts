@@ -15,7 +15,7 @@ import {
 import {
   readCanonicalJson,
   readCanonicalRecord,
-} from "../../src/data/keyingCanonicalJson";
+} from "../../src/data/keying/canonicalJson";
 import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification";
 import {
   readAccessEvent,

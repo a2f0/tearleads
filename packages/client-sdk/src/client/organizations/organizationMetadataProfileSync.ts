@@ -1,4 +1,4 @@
-import { errorMessage } from "../../data/errorMessage";
+import { errorMessage } from "../../data/shared/errorMessage";
 import { getOrganizationProfileDocumentLocalId } from "../../workflows/organizations/organizationProfile";
 import { deriveOrganizationMetadataContainerSystemSlot } from "../../workflows/organizations/rosterProfileContainer";
 import type { ContainerContents } from "../containerContents";

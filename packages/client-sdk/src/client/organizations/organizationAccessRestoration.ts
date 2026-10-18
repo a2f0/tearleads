@@ -1,6 +1,6 @@
-import type { DomainScope } from "../../data/domainScope";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { requestDormantMetadataRestorationSweeps } from "../../data/persistence/container-contents/dormantMetadataSweep";
+import type { DomainScope } from "../../data/shared/domainScope";
 import { hasRecordedTerminalSyncFailures } from "../../data/sqlite/documentPersistence";
 import {
   requestAllDomainSyncLanes,

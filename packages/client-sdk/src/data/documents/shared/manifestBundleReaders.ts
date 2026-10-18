@@ -9,7 +9,7 @@ import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   canonicalKeyingJsonString,
   readCanonicalRecord,
-} from "../../keyingCanonicalJson";
+} from "../../keying/canonicalJson";
 import {
   readAccessEvent,
   readAccessManifest,
@@ -21,7 +21,7 @@ import {
   readRecordString,
   readRecordValue,
   readStringArray,
-} from "../../recordReaders";
+} from "../../shared/recordReaders";
 
 function readDocumentLinkSetManifestState(
   value: unknown,

@@ -7,7 +7,7 @@ import {
   withReadyStore,
 } from "../../../test/helpers/deviceFirstSystemContainer";
 import { waitFor } from "../../../test/helpers/waitFor";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";
 import { seedLocalRootContainer } from "./runtime.testFixtures";

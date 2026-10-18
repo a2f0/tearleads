@@ -1,11 +1,8 @@
-import type {
-  ProjectionUserKey,
-  ProjectionUserKeyResolver,
-} from "../keyingProjectionVerification";
 import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../trustedUserIdentity";
+import type { ProjectionUserKey, ProjectionUserKeyResolver } from "./types";
 
 interface ProjectionUserKeyRuntime {
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;

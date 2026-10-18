@@ -1,9 +1,9 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
-import type { DomainScope } from "../data/domainScope";
 import { runWithSecurityIncidentReporting } from "../data/keyingProjectionVerification/error";
 import type { PrincipalHistoryProtectionLease } from "../data/principals/principalHistoryProtection";
-import type { SecurityIncidentReporter } from "../data/securityIncidents";
+import type { DomainScope } from "../data/shared/domainScope";
+import type { SecurityIncidentReporter } from "../data/shared/securityIncidents";
 import { type ExecSql, unavailableExecSql } from "../data/sqlite/sqlSchema";
 import {
   createApiUserIdentitySource,

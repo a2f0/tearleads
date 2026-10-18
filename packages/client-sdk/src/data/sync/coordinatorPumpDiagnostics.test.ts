@@ -22,8 +22,8 @@ import {
 } from "../../workflows/container-contents/containerPersistence";
 import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../../workflows/container-contents/syncLane";
 import { registerDocumentSyncLane } from "../../workflows/documents/syncLane";
-import type { DomainScope } from "../domainScope";
-import { createDomainScope } from "../domainScope";
+import type { DomainScope } from "../shared/domainScope";
+import { createDomainScope } from "../shared/domainScope";
 import { DatabaseUnavailableError } from "./databaseUnavailable";
 import {
   disposeDomainSyncCoordinator,

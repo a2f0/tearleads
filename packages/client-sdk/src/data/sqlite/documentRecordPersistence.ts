@@ -1,6 +1,6 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { normalizeEffectiveAccessLevel } from "../accessLevel";
 import { deserializeDocumentSyncPullContinuation } from "../documents/shared/pullContinuation";
+import { normalizeEffectiveAccessLevel } from "../keying/accessLevel";
 import type {
   DocumentRecord,
   DocumentScope,

@@ -21,7 +21,7 @@ import {
   createMaterializedSyncFixture,
   createResponse,
 } from "../../../test/helpers/documentFixtures";
-import type { BlobBytes } from "../../data/blobContracts";
+import type { BlobBytes } from "../../data/blobs/blobContracts";
 import { readContainerState } from "../../data/containers/shared/projection";
 import { parseBlobEncryptedBytes } from "../../data/documents/blob/shared/readers";
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";

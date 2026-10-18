@@ -6,7 +6,7 @@ import type {
   DetachDocumentAttachmentResult,
 } from "../../data/documents/blob/shared/types";
 import { authorizingContainerPathRefs } from "../../data/documents/shared/projection";
-import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { resolveBlobMutationWriterProjection } from "./writerProjection";

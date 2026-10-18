@@ -20,7 +20,7 @@ import type {
   PrincipalPolicyMutationResponse,
   PrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../../data/keying/canonicalJson";
 import {
   type CurrentPolicyMutationInput,
   verifyCurrentPolicyMutation,

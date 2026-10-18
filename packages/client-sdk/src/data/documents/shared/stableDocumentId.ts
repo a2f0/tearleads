@@ -1,4 +1,4 @@
-import { deriveStableUuidV4Shaped } from "../../stableUuid";
+import { deriveStableUuidV4Shaped } from "../../keying/stableUuid";
 
 // A namespace distinct from every other stable-id namespace (e.g. the system
 // container namespace) so a document id derived from a local id never collides

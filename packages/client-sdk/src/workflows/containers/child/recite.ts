@@ -16,7 +16,7 @@ import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   locallyAuthoredAccessManifestHead,
 } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
-import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import {
   type ExecSql,
   resolveCanonicalExecSql,

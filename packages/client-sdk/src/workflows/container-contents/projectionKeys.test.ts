@@ -6,7 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createDomainScope } from "../../data/domainScope";
+import { createDomainScope } from "../../data/shared/domainScope";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import {
   type ContainerContentsProjectionKeyRuntime,

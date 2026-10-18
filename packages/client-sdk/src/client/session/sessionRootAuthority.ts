@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { reportKeyingVerificationErrorInCauseChain } from "../../data/keyingProjectionVerification/error";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { Session, SessionContext, SessionSnapshot } from "./sessionTypes";
 
 type RootAcknowledgments = SessionSnapshot["rootAcknowledgments"];

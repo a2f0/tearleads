@@ -3,12 +3,12 @@ export type {
   BlobByteSourceInput,
   BlobBytes,
   BlobStore,
-} from "../../data/blobContracts";
+} from "../../data/blobs/blobContracts";
 export {
   blobByteSourceInputLength,
   createBlobByteSource,
   readBlobByteSource,
-} from "../../data/blobContracts";
+} from "../../data/blobs/blobContracts";
 export { createBlobStore } from "../../data/blobs/createBlobStore";
 export type {
   EncryptedBlobStoreCipher,

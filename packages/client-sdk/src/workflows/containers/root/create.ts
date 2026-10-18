@@ -39,7 +39,7 @@ import {
   readCanonicalJson,
   readCanonicalRecord,
   readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+} from "../../../data/keying/canonicalJson";
 
 import {
   principalHeadFromInitialGroupPolicy,

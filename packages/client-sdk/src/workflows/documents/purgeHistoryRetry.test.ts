@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPurgeChainFixture } from "../../../test/helpers/documentPurgeChain";
-import { createDomainScope } from "../../data/domainScope";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
+import { createDomainScope } from "../../data/shared/domainScope";
 import {
   disposeDomainSyncCoordinator,
   getDomainSyncCoordinatorSnapshot,

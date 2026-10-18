@@ -4,8 +4,8 @@ import { signedAuthorityRecoveryHistory } from "../../../test/helpers/principalA
 import { createPublicProjectionHistoryFixture } from "../../../test/helpers/publicProjectionHistory";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createDomainScope } from "../../data/domainScope";
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";
+import { createDomainScope } from "../../data/shared/domainScope";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import {
   createContainerContentsDocumentsRuntime,

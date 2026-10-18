@@ -1,12 +1,12 @@
 import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
-import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import {
   type DocumentProjectorRegistry,
   projectStoredDocumentState,
 } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import { errorMessage } from "../../../data/errorMessage";
+import { normalizeEffectiveAccessLevel } from "../../../data/keying/accessLevel";
+import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   type DocumentRecord,
   type ExecSql,

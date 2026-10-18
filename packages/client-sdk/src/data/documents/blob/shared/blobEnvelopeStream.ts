@@ -4,7 +4,7 @@ import {
   parseBlobEnvelopeV2Header,
   readBlobEnvelopeHeaderByteLength,
 } from "@tearleads/crypto";
-import type { BlobBytes } from "../../../blobContracts";
+import type { BlobBytes } from "../../../blobs/blobContracts";
 
 /** Reads exactly one bounded envelope part without retaining previous parts. */
 export function createBlobEnvelopeStream(stream: ReadableStream<Uint8Array>) {

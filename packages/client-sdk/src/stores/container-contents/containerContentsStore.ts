@@ -1,4 +1,4 @@
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import { getCachedContainerWriterProjection } from "../../workflows/container-contents/container-state/projectionCache";
 import {
   type ContainerContentsPersistence,

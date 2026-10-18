@@ -1,12 +1,12 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { createDocument, importUpdates } from "@tearleads/loro";
-import type { BlobStore } from "../../../data/blobContracts";
 import { getDocumentAttachments } from "../../../data/documents/documentContent";
 import {
   defaultDocumentProjectorRegistry,
   readStoredDocumentState,
 } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
+import { createDomainScope } from "../../../data/shared/domainScope";
+import type { BlobStore } from "../../../workflows/blobs";
 import { defaultContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
 import {
   type DocumentsPersistence,

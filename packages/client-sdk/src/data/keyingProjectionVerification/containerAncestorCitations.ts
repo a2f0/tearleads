@@ -4,7 +4,7 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { readCanonicalRecord } from "../keyingCanonicalJson";
+import { readCanonicalRecord } from "../keying/canonicalJson";
 import { readKeyingVerificationShape } from "./error";
 import { readRecordNullableString } from "./readers";
 

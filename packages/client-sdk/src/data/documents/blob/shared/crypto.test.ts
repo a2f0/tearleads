@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { bytesToHex, createAesGcmIv } from "@tearleads/crypto";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
-import { type BlobBytes, createBlobByteSource } from "../../../blobContracts";
+import {
+  type BlobBytes,
+  createBlobByteSource,
+} from "../../../blobs/blobContracts";
 import { deriveBlobBaseIv } from "./blobRecordCrypto";
 import { DEFAULT_BLOB_CHUNK_SIZE_BYTES, prepareBlobEncryption } from "./crypto";
 import { parseBlobEncryptedBytes } from "./readers";

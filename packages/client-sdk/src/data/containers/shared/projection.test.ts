@@ -41,7 +41,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import { buildMaterializedDocumentCreatePlan } from "../../../workflows/documents/create";
-import type { BlobBytes } from "../../blobContracts";
+import type { BlobBytes } from "../../blobs/blobContracts";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
 import { unwrapDocumentContentKeyTarget } from "../../documents/shared/projectionContentKeys";
 

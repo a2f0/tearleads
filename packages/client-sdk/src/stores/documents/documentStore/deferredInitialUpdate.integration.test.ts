@@ -23,7 +23,7 @@ import {
   createStoredDocumentWriterProjection,
 } from "../../../../test/helpers/onlineDocumentStoreFixtures";
 import { waitFor } from "../../../../test/helpers/waitFor";
-import type { BlobStore } from "../../../data/blobContracts";
+import type { BlobStore } from "../../../data/blobs/blobContracts";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentsPersistence } from "../../../workflows/documents";
 import { createDocumentStore } from "../documentStore";

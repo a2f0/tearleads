@@ -1,4 +1,4 @@
-import { errorMessage } from "../../data/errorMessage";
+import { errorMessage } from "../../data/shared/errorMessage";
 import {
   createRemoteContainerIngestor,
   type RemoteContainer,

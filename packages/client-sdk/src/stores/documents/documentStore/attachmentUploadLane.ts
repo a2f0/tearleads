@@ -1,4 +1,4 @@
-import type { DomainScope } from "../../../data/domainScope";
+import type { DomainScope } from "../../../data/shared/domainScope";
 import type { MultipartUploadProgressListener } from "../../../workflows/blobs";
 import type { PendingAttachmentRecord } from "../../../workflows/documents";
 import {

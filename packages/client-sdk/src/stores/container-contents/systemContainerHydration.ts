@@ -1,6 +1,6 @@
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { errorMessage } from "../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
+import { errorMessage } from "../../data/shared/errorMessage";
 import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 import type {
   ContainerContentsStoreSyncAgent,

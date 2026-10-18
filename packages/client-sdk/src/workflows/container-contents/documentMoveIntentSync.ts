@@ -1,10 +1,10 @@
-import { errorMessage } from "../../data/errorMessage";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import {
   DOCUMENT_LINK_INTENT_TYPE,
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
 } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { errorMessage } from "../../data/shared/errorMessage";
 import {
   type DocumentLinkSetFailureHandler,
   type DocumentRecord,

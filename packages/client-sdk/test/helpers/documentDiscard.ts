@@ -1,7 +1,7 @@
 import { createTestExecSql } from "@tearleads/test-utils";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
-import { createDomainScope } from "../../src/data/domainScope";
 import { sqlDocumentsPersistence } from "../../src/data/persistence/documents/documentsPersistence";
+import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { noopDocumentStorePersistenceEffects } from "../../src/stores/documents/documentStore/documentStore.testFixtures";
 import { createDocumentStoreState } from "../../src/stores/documents/documentStore/state";

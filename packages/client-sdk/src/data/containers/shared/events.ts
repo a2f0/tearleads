@@ -20,7 +20,7 @@ import type {
   ContainerKekResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../../keyingCanonicalJson";
+import { readCanonicalJson } from "../../keying/canonicalJson";
 import { uniqueSortedManifestHashes } from "./projection";
 import type {
   ContainerCreatePlan,

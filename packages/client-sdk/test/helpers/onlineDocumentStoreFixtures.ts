@@ -9,7 +9,7 @@ import type {
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { readWriteHeader } from "../../src/data/documents/shared/readers";
-import { createDomainScope } from "../../src/data/domainScope";
+import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { DocumentsRuntime } from "../../src/stores/documents/types";
 import { createDocumentsWorkflowRuntime } from "../../src/workflows/documents";
 import type { createMaterializedSyncFixture } from "./documentFixtures";

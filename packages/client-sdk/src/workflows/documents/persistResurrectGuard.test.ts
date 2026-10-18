@@ -3,8 +3,8 @@ import { createDocument } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentProjectorRegistry } from "../../data/documents";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { createDomainScope } from "../../data/shared/domainScope";
 import {
   ensureSqlTables,
   runSerializedSqlMutation,

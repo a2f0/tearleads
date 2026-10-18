@@ -15,7 +15,7 @@ import type { BlobAttachmentBindResponse } from "@tearleads/validators/response"
 import {
   type BlobByteSource,
   createBlobByteSource,
-} from "../../data/blobContracts";
+} from "../../data/blobs/blobContracts";
 import type { BlobSourceSnapshot } from "../../data/documents/blob/shared/blobSourceSnapshot";
 import { prepareBlobEncryption } from "../../data/documents/blob/shared/crypto";
 import {
@@ -42,7 +42,7 @@ import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
 } from "../../data/documents/shared/types";
-import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { shouldRetryWithFreshProjection } from "../documents/syncFailureClassification";

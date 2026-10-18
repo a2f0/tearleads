@@ -1,6 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ProvisionedPrincipalHistoryPrimer } from "../../workflows/registration/provisionedPrincipalHistory";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";

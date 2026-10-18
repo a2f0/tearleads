@@ -22,7 +22,7 @@ import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUser
 import { shareRemoteContainer } from "../../workflows/containers/child/share";
 import { buildMaterializedDocumentCreatePlan } from "../../workflows/documents/create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "../../workflows/documents/linkSet";
-import { verifyDocumentWriterProjection } from "../keyingProjectionVerification";
+import { verifyDocumentWriterProjection } from "./documentProjectionVerification";
 
 // Dependency container paths authorize document link events, and a compromised
 // API controls their order. Access along a path is the union of every element's

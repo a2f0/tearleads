@@ -9,8 +9,8 @@ import {
 import { createResponseFromRequest } from "../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import { createContainerContentsWorkflowRuntime } from "../runtime";
 import {
   CONTAINER_ALREADY_COMMITTED,

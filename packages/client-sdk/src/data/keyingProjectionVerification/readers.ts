@@ -4,7 +4,7 @@ export {
   readRecordNullableString,
   readRecordString,
   readRequiredRecordValue,
-} from "../recordReaders";
+} from "../shared/recordReaders";
 
 import type {
   AccessEvent,
@@ -15,14 +15,17 @@ import type {
   DocumentLinkAccessEventBody,
   DocumentUnlinkAccessEventBody,
 } from "@tearleads/crypto";
-import { readCanonicalJson, readCanonicalRecord } from "../keyingCanonicalJson";
+import {
+  readCanonicalJson,
+  readCanonicalRecord,
+} from "../keying/canonicalJson";
 import {
   readRecordNullableString,
   readRecordPositiveInteger,
   readRecordString,
   readRequiredRecordValue,
   readStringArray,
-} from "../recordReaders";
+} from "../shared/recordReaders";
 import { readKeyingVerificationShape } from "./error";
 
 function isAccessEventType(value: unknown): value is AccessEvent["eventType"] {

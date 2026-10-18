@@ -5,7 +5,7 @@ import {
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { canonicalKeyingJsonString } from "../keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../keying/canonicalJson";
 import { assertCurrentMatchesVerifiedPolicy } from "./verifiedPrincipalPolicyCurrent";
 
 export async function assertBundleMatchesVerifiedPolicy(input: {

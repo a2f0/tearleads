@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { createDomainScope } from "../../data/domainScope";
+import { createDomainScope } from "../../data/shared/domainScope";
 import { createTestContainerState } from "../../workflows/container-contents/container-state/containerState.testFixtures";
 import {
   getCachedContainerWriterProjection,

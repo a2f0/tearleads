@@ -2,7 +2,7 @@ import {
   isDocumentMutationCreatedEvent,
   isDocumentUpdateCreatedEvent,
 } from "../../data/documents/documentSync";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import { consumeOriginatedDocument } from "../../data/sync/originatedDocuments";
 import type { LocalProjectionStore } from "../../stores/local-projection";
 import type { ReconciliationService } from "./serviceTypes";

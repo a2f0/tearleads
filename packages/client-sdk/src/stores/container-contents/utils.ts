@@ -1,4 +1,4 @@
-import { normalizeEffectiveAccessLevel } from "../../data/accessLevel";
+import { normalizeEffectiveAccessLevel } from "../../data/keying/accessLevel";
 import type { ContainerRecord } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
