@@ -37,7 +37,7 @@ test("an interrupted stage cannot masquerade as completed offline evidence", asy
     await expect(
       recoverPrincipalPolicyHistory({
         ...fixture.options,
-        apiClient: {
+        historyReader: {
           async *getPrincipalPolicyPages(...args) {
             for await (const page of client.getPrincipalPolicyPages(...args)) {
               yield page;

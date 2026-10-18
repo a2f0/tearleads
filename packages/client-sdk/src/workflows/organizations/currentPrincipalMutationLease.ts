@@ -5,6 +5,10 @@ import { readPrincipalHistoryProtection } from "../../data/principals/principalH
 import { directoryHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
 import {
+  apiPrincipalPolicyPageReader,
+  type PrincipalPolicyPageReader,
+} from "../principals/principalPolicyHistoryReader";
+import {
   createRuntimePrincipalPolicyCurrentResolver,
   type PrincipalPolicyRecoveryRuntime,
 } from "../principals/runtimePolicyRecovery";
@@ -16,9 +20,7 @@ interface CurrentPrincipalMutationLeaseContext {
   readonly resolveCurrentPolicy: NonNullable<
     ReturnType<typeof createRuntimePrincipalPolicyCurrentResolver>
   >;
-  readonly readPages: NonNullable<
-    PrincipalPolicyRecoveryRuntime["apiClient"]["getPrincipalPolicyPages"]
-  >;
+  readonly historyReader: PrincipalPolicyPageReader;
   readonly directoryRecovery: (
     current: PrincipalPolicyPageCurrent,
   ) => AcknowledgedPrincipalCurrentInput["recovery"];
@@ -36,10 +38,8 @@ export function createCurrentPrincipalMutationLease(
   const lease = readPrincipalHistoryProtection(runtime);
   const resolveCurrentPolicy =
     createRuntimePrincipalPolicyCurrentResolver(runtime);
-  const readPages = runtime.apiClient.getPrincipalPolicyPages?.bind(
-    runtime.apiClient,
-  );
-  if (!lease || !resolveCurrentPolicy || !readPages) return undefined;
+  const historyReader = apiPrincipalPolicyPageReader(runtime.apiClient);
+  if (!lease || !resolveCurrentPolicy || !historyReader) return undefined;
   return async <T>(
     callerCurrent: () => boolean,
     work: (context: CurrentPrincipalMutationLeaseContext) => Promise<T>,
@@ -53,9 +53,9 @@ export function createCurrentPrincipalMutationLease(
           protection,
           stillCurrent,
           resolveCurrentPolicy,
-          readPages,
+          historyReader,
           directoryRecovery: (current) => ({
-            apiClient: { getPrincipalPolicyPages: readPages },
+            historyReader,
             expectedHead: principalPolicyReferenceFromBundle(current),
             protection: directoryHistoryProtection(protection),
             resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,

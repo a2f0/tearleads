@@ -31,11 +31,11 @@ async function fixture(custody = true) {
     recovered: false,
     pendingFailure: false,
   };
-  f.options.apiClient.getCurrentPrincipalPolicy = async (_kind, id) => {
+  f.apiClient.getCurrentPrincipalPolicy = async (_kind, id) => {
     state.fullReads += 1;
     return f.policies.get(id) ?? null;
   };
-  f.options.apiClient.deleteOrganizationGroup = async (
+  f.apiClient.deleteOrganizationGroup = async (
     organizationId,
     groupId,
     request,
@@ -60,7 +60,7 @@ async function fixture(custody = true) {
     };
   };
   const base = createWorkflowInputFixture({
-    apiClient: f.options.apiClient,
+    apiClient: f.apiClient,
     execSql: f.options.execSql,
     resolveTrustedUserIdentity: history.resolveTrustedUserIdentity,
     auth: {

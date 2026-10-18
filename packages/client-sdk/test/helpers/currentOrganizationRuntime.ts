@@ -63,20 +63,20 @@ export async function createCurrentOrganizationRuntimeFixture(
       organizationPayloads: [projectionDirectoryPayload(directory)],
     };
   }
-  f.options.apiClient.getProjectionPolicyHistoryPages = projectionHistoryPages([
+  f.apiClient.getProjectionPolicyHistoryPages = projectionHistoryPages([
     directory,
     signed.admin,
     members,
   ]).getProjectionPolicyHistoryPages;
   let fullReads = 0;
-  f.options.apiClient.getCurrentPrincipalPolicy = async (_, id) => {
+  f.apiClient.getCurrentPrincipalPolicy = async (_, id) => {
     fullReads += 1;
     if (!options.allowFullReads) throw new Error("Unexpected full-policy read");
     return f.policies.get(id) ?? null;
   };
-  f.options.apiClient.getContainerWriterProjection = async () => projection;
+  f.apiClient.getContainerWriterProjection = async () => projection;
   const input = createWorkflowInputFixture({
-    apiClient: f.options.apiClient,
+    apiClient: f.apiClient,
     auth: { organizationId, userId: "founder" },
     execSql: f.options.execSql,
     resolveTrustedUserIdentity: signed.resolveTrustedUserIdentity,

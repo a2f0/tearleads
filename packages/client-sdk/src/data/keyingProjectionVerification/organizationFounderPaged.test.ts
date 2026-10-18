@@ -52,7 +52,7 @@ test("paged organization evidence pins the genuine root's founder", async () => 
       resolveUserKey: data.input.runtime.resolveTrustedUserIdentity,
     });
     const recovered = await recoverPrincipalPolicyHistory({
-      apiClient: {
+      historyReader: {
         async *getPrincipalPolicyPages() {
           yield {
             ok: true as const,

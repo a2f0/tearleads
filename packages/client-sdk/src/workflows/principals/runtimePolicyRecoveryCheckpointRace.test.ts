@@ -28,7 +28,7 @@ async function fixture(kind: "target" | "dependency", updateServer = true) {
   const incidents: unknown[] = [];
   let resolutions = 0;
   const resolve = createRuntimePrincipalPolicyResolver({
-    apiClient: f.options.apiClient,
+    apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     withPrincipalHistoryProtection: (operation) =>
       operation({

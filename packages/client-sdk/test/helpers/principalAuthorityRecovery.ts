@@ -153,13 +153,15 @@ export async function createAuthorityRecoveryFixture(
       return Response.json(page);
     },
   });
+  const apiClient = new ApiClient(server.url.origin);
   return {
+    apiClient,
     policies,
     requests,
     controls,
     db: getClientSQLitePersistenceRuntime(sqlite.execSql).db,
     options: {
-      apiClient: new ApiClient(server.url.origin),
+      historyReader: apiClient,
       execSql: sqlite.execSql,
       organizationId: history.organizationId,
       reference: principalPolicyHead(history.group),

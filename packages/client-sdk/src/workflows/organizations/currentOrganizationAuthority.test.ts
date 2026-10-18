@@ -18,7 +18,7 @@ async function fixture() {
   const f = await createAuthorityRecoveryFixture(history);
   const state = { current: true, online: true };
   const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
-    apiClient: f.options.apiClient,
+    apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     resolveTrustedUserIdentity: f.options.resolveTrustedUserIdentity,
     state,

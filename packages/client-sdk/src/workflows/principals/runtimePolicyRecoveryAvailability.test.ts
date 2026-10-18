@@ -62,9 +62,7 @@ async function fixture() {
   );
   const state = { online: true, fullReads: 0 };
   const incidents: unknown[] = [];
-  const pages = source.options.apiClient.getPrincipalPolicyPages.bind(
-    source.options.apiClient,
-  );
+  const pages = source.apiClient.getPrincipalPolicyPages.bind(source.apiClient);
   const transport: Pick<ApiClient, "getPrincipalPolicyPages"> = {
     getPrincipalPolicyPages: pages,
   };

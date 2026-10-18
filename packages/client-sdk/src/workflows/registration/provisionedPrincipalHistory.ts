@@ -1,4 +1,3 @@
-import type { ApiClient } from "@tearleads/api-client";
 import type { PrincipalPolicyHistoryProgressOptions } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
@@ -10,6 +9,7 @@ import type {
   TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
 import { createPrincipalCurrentRecoveryBatch } from "../principals/principalCurrentRecoveryBatch";
+import type { PrincipalPolicyPageReader } from "../principals/principalPolicyHistoryReader";
 import { queuePrincipalRecovery } from "../principals/principalRecoveryQueue";
 
 /** The version-1 policies a provisioning request signed and its response acknowledged. */
@@ -42,7 +42,7 @@ export type ProvisionedPrincipalHistoryPrimer = (input: {
  */
 function provisionedPolicyPages(
   policies: ProvisionedPrincipalPolicies,
-): Pick<ApiClient, "getPrincipalPolicyPages"> {
+): PrincipalPolicyPageReader {
   const bundles = [
     policies.organization,
     policies.adminGroup,
@@ -86,7 +86,7 @@ async function primeProvisionedPrincipalHistory(input: {
 }): Promise<void> {
   const { recover } = createPrincipalCurrentRecoveryBatch();
   const options = {
-    apiClient: provisionedPolicyPages(input.policies),
+    historyReader: provisionedPolicyPages(input.policies),
     execSql: input.execSql,
     offline: false,
     organizationId: input.organizationId,

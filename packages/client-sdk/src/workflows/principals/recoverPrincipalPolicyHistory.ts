@@ -277,7 +277,7 @@ async function readRecoveryPages(
   }
   if (completedStageMatchesHead(stage, input.expectedHead)) return true;
   let receivedFinalPage = false;
-  for await (const result of input.apiClient.getPrincipalPolicyPages(
+  for await (const result of input.historyReader.getPrincipalPolicyPages(
     input.expectedHead.principalType,
     input.expectedHead.principalId,
     {

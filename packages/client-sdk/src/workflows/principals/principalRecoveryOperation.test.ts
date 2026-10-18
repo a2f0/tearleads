@@ -43,10 +43,9 @@ async function fixture() {
   const operation = () =>
     createRuntimePrincipalPolicyWarmer({
       apiClient: createMockApiClient({
-        getPrincipalPolicyPages:
-          source.options.apiClient.getPrincipalPolicyPages.bind(
-            source.options.apiClient,
-          ),
+        getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
+          source.apiClient,
+        ),
       }),
       infra: { execSql: source.options.execSql },
       state: { online: true },

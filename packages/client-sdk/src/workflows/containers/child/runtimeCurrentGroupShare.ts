@@ -5,6 +5,10 @@ import {
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
 import { inheritPrincipalHistoryProtection } from "../../../data/principals/principalHistoryRuntime";
 import { createRuntimeCurrentGroupMutation } from "../../organizations/runtimeCurrentGroupMutation";
+import {
+  apiPrincipalPolicyPageReader,
+  apiProjectionPolicyHistoryReader,
+} from "../../principals/principalPolicyHistoryReader";
 import { commitCurrentShareGrant } from "./currentShareGrantMutation";
 import { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
 import {
@@ -21,19 +25,14 @@ export function createRuntimeCurrentGroupShare(
 ): typeof shareRemoteContainerWithGroup | undefined {
   const readCurrent = createRuntimeCurrentSharePrincipalPolicy(runtime);
   const api = runtime.apiClient;
-  const readPages = api.getPrincipalPolicyPages;
-  if (!readCurrent || !readPages) return undefined;
+  const historyReader = apiPrincipalPolicyPageReader(api);
+  if (!readCurrent || !historyReader) return undefined;
   const mutate = createRuntimeCurrentGroupMutation(
     inheritPrincipalHistoryProtection(runtime, {
       ...runtime,
       apiClient: {
-        getPrincipalPolicyPages: readPages.bind(api),
-        ...(api.getProjectionPolicyHistoryPages
-          ? {
-              getProjectionPolicyHistoryPages:
-                api.getProjectionPolicyHistoryPages.bind(api),
-            }
-          : {}),
+        ...historyReader,
+        ...apiProjectionPolicyHistoryReader(api),
         recoverPendingPrincipalMutation: async (organizationId: string) => {
           // Built-in clients supply journal recovery; standalone hosts retain
           // responsibility for transport and exact-outcome recovery.

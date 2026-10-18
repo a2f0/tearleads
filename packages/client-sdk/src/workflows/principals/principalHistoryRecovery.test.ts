@@ -31,7 +31,7 @@ test("a fresh SDK operation resumes checked pages after an HTTP interruption", a
     fixture.controls.failAfterVersion = null;
     const result = await recoverPrincipalPolicyHistory({
       ...fixture.options,
-      apiClient: fixture.client(),
+      historyReader: fixture.client(),
     });
     expect(fixture.requests).toEqual([0, 32, 32, 64]);
     expect(result.policy.stateHash).toBe(history.expectedHead.stateHash);
@@ -58,7 +58,7 @@ test("a completed stage of the exact pinned head needs no confirmation read", as
     fixture.controls.failAfterVersion = 65;
     const result = await recoverPrincipalPolicyHistory({
       ...fixture.options,
-      apiClient: fixture.client(),
+      historyReader: fixture.client(),
     });
     expect(result.policy.stateHash).toBe(history.expectedHead.stateHash);
     expect(fixture.requests).toEqual([0, 32, 64]);
@@ -112,7 +112,7 @@ test("rejected stored current artifacts replay signed history once online", asyn
     fixture.requests.length = 0;
     const result = await recoverPrincipalPolicyHistory({
       ...fixture.options,
-      apiClient: fixture.client(),
+      historyReader: fixture.client(),
     });
     expect(result.policy.stateHash).toBe(history.expectedHead.stateHash);
     expect(fixture.requests).toEqual([0, 32, 64]);
@@ -159,7 +159,7 @@ for (const tampering of ["cursor", "artifacts", "ciphertext", "key"] as const) {
                 localKey: new Uint8Array(32).fill(9),
               }
             : fixture.options.protection,
-        apiClient: fixture.client(),
+        historyReader: fixture.client(),
       });
       expect(fixture.requests).toEqual([0, 32, 0, 32, 64]);
     } finally {
@@ -246,7 +246,7 @@ test("concurrent recoveries cannot replace another operation's accepted progress
       [1, 2].map(() =>
         recoverPrincipalPolicyHistory({
           ...fixture.options,
-          apiClient: fixture.client(),
+          historyReader: fixture.client(),
           resolveTrustedUserIdentity: resolver,
         }),
       ),
@@ -295,7 +295,7 @@ test("resumes checked progress that has not yet reached the local checkpoint", a
     fixture.controls.failAfterVersion = null;
     const recovered = await recoverPrincipalPolicyHistory({
       ...fixture.options,
-      apiClient: fixture.client(),
+      historyReader: fixture.client(),
     });
     expect(recovered.policy.version).toBe(66);
     expect(fixture.requests).toEqual([0, 32, 32, 64]);
@@ -311,7 +311,7 @@ test("a checkpoint change while consuming the final page prevents publication", 
     await expect(
       recoverPrincipalPolicyHistory({
         ...fixture.options,
-        apiClient: {
+        historyReader: {
           async *getPrincipalPolicyPages(...args) {
             yield* client.getPrincipalPolicyPages(...args);
             await fixture.db
@@ -418,7 +418,7 @@ test("recoveries of different pinned heads do not replace each other's saved wor
         recoverPrincipalPolicyHistory({
           ...fixture.options,
           expectedHead,
-          apiClient: fixture.client(),
+          historyReader: fixture.client(),
           resolveTrustedUserIdentity: resolver,
         }),
       ),

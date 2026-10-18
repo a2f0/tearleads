@@ -33,10 +33,9 @@ async function fixture() {
   };
   const resolve = createRuntimePrincipalPolicyCurrentResolver({
     apiClient: {
-      getPrincipalPolicyPages:
-        source.options.apiClient.getPrincipalPolicyPages.bind(
-          source.options.apiClient,
-        ),
+      getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
+        source.apiClient,
+      ),
     },
     infra: { execSql: source.options.execSql },
     state,

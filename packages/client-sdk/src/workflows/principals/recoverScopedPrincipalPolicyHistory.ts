@@ -184,7 +184,7 @@ async function recoverScopedPrincipalPolicyHistoryInBatch(
       "Principal recovery requires an organization scope",
     );
   const input = {
-    apiClient: options.apiClient,
+    historyReader: options.historyReader,
     execSql: options.execSql,
     organizationId: options.organizationId,
     offline: options.offline,

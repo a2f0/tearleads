@@ -32,8 +32,8 @@ test("standalone runtime inputs carry private history custody through every publ
   };
   const api = new ApiClient("https://standalone.example.test");
   api.getProjectionPolicyHistoryPages =
-    f.options.apiClient.getProjectionPolicyHistoryPages.bind(
-      f.options.apiClient,
+    f.options.historyReader.getProjectionPolicyHistoryPages.bind(
+      f.options.historyReader,
     );
   api.getCurrentPrincipalPolicy = async () => {
     fullReads += 1;

@@ -91,9 +91,9 @@ test.each(["cold", "warm", "interrupted"] as const)(
         await expect(
           recoverScopedPrincipalPolicyHistory({
             ...f.options,
-            apiClient: {
+            historyReader: {
               async *getPrincipalPolicyPages(...args) {
-                for await (const result of f.options.apiClient.getPrincipalPolicyPages(
+                for await (const result of f.apiClient.getPrincipalPolicyPages(
                   ...args,
                 )) {
                   if (

@@ -41,7 +41,7 @@ test("public recovery extends durable prefixes and selects older heads without r
     f.requests.length = 0;
     const recovered = await recoverPublicPrincipalHistory({
       ...f.options,
-      apiClient: f.client(),
+      historyReader: f.client(),
     });
     expect(f.requests).toEqual([66]);
     expect(recovered.history.retainedEntries).toHaveLength(1);
@@ -96,7 +96,7 @@ test("interrupted public recovery resumes verified progress with a new transport
     f.requests.length = 0;
     await recoverPublicPrincipalHistory({
       ...f.options,
-      apiClient: f.client(),
+      historyReader: f.client(),
     });
     expect(f.requests).toEqual([32, 64]);
     expect(await f.db.select().from(principalHistoryStages)).toEqual([]);

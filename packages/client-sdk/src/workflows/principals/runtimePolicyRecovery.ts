@@ -1,7 +1,4 @@
-import type {
-  ApiClient,
-  PrincipalPolicyPageCurrent,
-} from "@tearleads/api-client";
+import type { PrincipalPolicyPageCurrent } from "@tearleads/api-client";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
@@ -22,17 +19,16 @@ import {
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
 } from "./principalHistoryRecoveryTypes";
+import {
+  apiPrincipalPolicyPageReader,
+  type PrincipalPolicyHistoryReader,
+} from "./principalPolicyHistoryReader";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import type { ScopedPrincipalPolicyRecovery } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
-  readonly apiClient: Partial<
-    Pick<
-      ApiClient,
-      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
-    >
-  >;
+  readonly apiClient: Partial<PrincipalPolicyHistoryReader>;
   readonly infra: { readonly execSql: ExecSql };
   readonly state?: { readonly online: boolean } | undefined;
   readonly util: { readonly reportSecurityIncident: SecurityIncidentReporter };
@@ -78,10 +74,8 @@ export function createRuntimePrincipalPolicyCurrentResolver(
     ) => Promise<ResolvedPrincipalPolicyCurrent>)
   | undefined {
   const lease = readPrincipalHistoryProtection(runtime);
-  const readPages = runtime.apiClient.getPrincipalPolicyPages?.bind(
-    runtime.apiClient,
-  );
-  if (!lease || !readPages) return undefined;
+  const historyReader = apiPrincipalPolicyPageReader(runtime.apiClient);
+  if (!lease || !historyReader) return undefined;
   const batches = new WeakMap<
     object,
     ReturnType<typeof createPrincipalCurrentRecoveryBatch>
@@ -114,7 +108,7 @@ export function createRuntimePrincipalPolicyCurrentResolver(
             const offline = runtime.state?.online === false;
             try {
               const options = {
-                apiClient: { getPrincipalPolicyPages: readPages },
+                historyReader,
                 execSql: runtime.infra.execSql,
                 offline,
                 organizationId: input.organizationId,

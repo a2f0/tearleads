@@ -70,7 +70,7 @@ async function readPublicPages(
   // Completed progress already verified every signed entry through the cited
   // head; a read pinned to that head could only repeat it or refuse.
   if (!input.offline && !progress.completedHead) {
-    for await (const result of input.apiClient.getProjectionPolicyHistoryPages(
+    for await (const result of input.historyReader.getProjectionPolicyHistoryPages(
       input.source,
       { afterVersion: progress.afterVersion, signal: input.signal },
     )) {

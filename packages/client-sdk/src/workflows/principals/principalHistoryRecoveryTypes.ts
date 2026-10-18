@@ -1,5 +1,4 @@
 import type {
-  ApiClient,
   PrincipalPolicyPageCurrent,
   RequestFailure,
 } from "@tearleads/api-client";
@@ -12,6 +11,7 @@ import {
 } from "@tearleads/crypto";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { PrincipalPolicyPageReader } from "./principalPolicyHistoryReader";
 
 /** A locally observed race, distinct from a rejected signed predecessor. */
 export class PrincipalHistoryRecoveryRaceError extends KeyingVerificationError {
@@ -21,7 +21,7 @@ export class PrincipalHistoryRecoveryRaceError extends KeyingVerificationError {
 }
 
 export interface RecoverPrincipalPolicyHistoryOptions {
-  readonly apiClient: Pick<ApiClient, "getPrincipalPolicyPages">;
+  readonly historyReader: PrincipalPolicyPageReader;
   readonly execSql: ExecSql;
   readonly organizationId: string;
   readonly expectedHead: ReferencedPrincipalHead;

@@ -34,14 +34,11 @@ async function fixture(fallback = false) {
     writes: 0,
     groupId: "",
   };
-  f.options.apiClient.getCurrentPrincipalPolicy = async (_, principalId) => {
+  f.apiClient.getCurrentPrincipalPolicy = async (_, principalId) => {
     if (fallback) return f.policies.get(principalId) ?? null;
     throw new Error("Unexpected full-bundle read");
   };
-  f.options.apiClient.createOrganizationGroup = async (
-    organizationId,
-    request,
-  ) => {
+  f.apiClient.createOrganizationGroup = async (organizationId, request) => {
     state.writes += 1;
     state.groupId = request.groupId;
     const created = await policyBundleFromInitialRequest(request);
@@ -68,7 +65,7 @@ async function fixture(fallback = false) {
     };
   };
   const mutate = createRuntimeCurrentOrganizationMutation({
-    apiClient: Object.assign(f.options.apiClient, {
+    apiClient: Object.assign(f.apiClient, {
       recoverPendingPrincipalMutation: async () => {},
     }),
     infra: { execSql: f.options.execSql },
@@ -87,7 +84,7 @@ async function fixture(fallback = false) {
   const metadata = testGroupMetadataAccess(history.organizationId);
   const create = (name: string) => {
     const input = {
-      apiClient: f.options.apiClient,
+      apiClient: f.apiClient,
       creatorEncapsulationKeyPair: history.creatorEncapsulationKeyPair,
       execSql: f.options.execSql,
       metadataAccess: {

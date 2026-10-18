@@ -35,13 +35,13 @@ test.each([
       resolveTrustedUserIdentity: signed.resolveTrustedUserIdentity,
     });
     let fullReads = 0;
-    f.options.apiClient.getCurrentPrincipalPolicy = async () => {
+    f.apiClient.getCurrentPrincipalPolicy = async () => {
       fullReads += 1;
       throw new Error("Full policy reads are forbidden");
     };
     const state = { online: true, current: true };
     const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
-      apiClient: f.options.apiClient,
+      apiClient: f.apiClient,
       infra: { execSql: f.options.execSql },
       resolveTrustedUserIdentity: f.options.resolveTrustedUserIdentity,
       state,

@@ -80,8 +80,8 @@ export async function createNewerPolicyPurgeFixture() {
   const incidents: unknown[] = [];
   const warmer = createRuntimePrincipalPolicyWarmer({
     apiClient: createMockApiClient({
-      getPrincipalPolicyPages: f.options.apiClient.getPrincipalPolicyPages.bind(
-        f.options.apiClient,
+      getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
+        f.apiClient,
       ),
       ...projectionHistoryPages(fixture.bundles),
       getCurrentPrincipalPolicy: async () => {

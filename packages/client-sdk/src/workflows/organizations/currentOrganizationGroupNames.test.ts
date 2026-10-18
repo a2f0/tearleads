@@ -31,13 +31,13 @@ test("current group names hydrate without a full-policy read or fabricated bundl
     signed.memberPolicy,
   );
   let fullReads = 0;
-  f.options.apiClient.getCurrentPrincipalPolicy = async () => {
+  f.apiClient.getCurrentPrincipalPolicy = async () => {
     fullReads += 1;
     throw new Error("Full policy reads are forbidden");
   };
   let current = true;
   const resolveCurrentPolicy = createRuntimePrincipalPolicyCurrentResolver({
-    apiClient: f.options.apiClient,
+    apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     resolveTrustedUserIdentity: f.options.resolveTrustedUserIdentity,
     util: { reportSecurityIncident: async () => {} },
@@ -46,7 +46,7 @@ test("current group names hydrate without a full-policy read or fabricated bundl
   });
   if (!resolveCurrentPolicy) throw new Error("Missing current resolver");
   const input = {
-    apiClient: f.options.apiClient,
+    apiClient: f.apiClient,
     directory: {
       directory: {
         organizationId,

@@ -35,8 +35,9 @@ test("offline runtime verification requires protected evidence even with a held 
     let fullReads = 0;
     const warmer = createRuntimePrincipalPolicyWarmer({
       apiClient: createMockApiClient({
-        getPrincipalPolicyPages:
-          f.options.apiClient.getPrincipalPolicyPages.bind(f.options.apiClient),
+        getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
+          f.apiClient,
+        ),
         getCurrentPrincipalPolicy: async () => {
           fullReads += 1;
           throw new Error("Offline full fetch");

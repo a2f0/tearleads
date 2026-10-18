@@ -28,10 +28,9 @@ async function fixture(protectedRecovery = true) {
   const state = { current: true, online: true };
   const warmer = createRuntimePrincipalPolicyWarmer({
     apiClient: createMockApiClient({
-      getPrincipalPolicyPages:
-        source.options.apiClient.getPrincipalPolicyPages.bind(
-          source.options.apiClient,
-        ),
+      getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
+        source.apiClient,
+      ),
       getCurrentPrincipalPolicy: async () => {
         fullReads += 1;
         return history.group;

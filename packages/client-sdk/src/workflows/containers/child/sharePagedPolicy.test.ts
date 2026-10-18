@@ -51,7 +51,7 @@ test("a paged policy survives held-head cloning and signs a verifiable share pla
         fixture.input.warmReferencedPrincipalPolicies,
     });
     const recovered = await recoverPrincipalPolicyHistory({
-      apiClient: new ApiClient(server.url.origin),
+      historyReader: new ApiClient(server.url.origin),
       execSql: fixture.database.execSql,
       organizationId: fixture.input.author.organizationId,
       expectedHead: principalPolicyHead(fixture.nextBundle),

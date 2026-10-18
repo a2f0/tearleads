@@ -10,8 +10,8 @@ type SyncInput = Parameters<typeof syncRemoteDocument>[0];
 export function createPagedColdPolicyWarmer(input: {
   apiClient: Parameters<
     typeof recoverScopedPrincipalPolicyHistory
-  >[0]["apiClient"] &
-    Parameters<typeof recoverProjectionPolicyHistory>[0]["apiClient"];
+  >[0]["historyReader"] &
+    Parameters<typeof recoverProjectionPolicyHistory>[0]["historyReader"];
   execSql: SyncInput["execSql"];
   resolveTrustedUserIdentity: Parameters<
     typeof recoverScopedPrincipalPolicyHistory
@@ -46,7 +46,7 @@ export function createPagedColdPolicyWarmer(input: {
             const stillCurrent = () => request.stillCurrent?.() !== false;
             const policies = await recoverProjectionPolicyHistory({
               ...request,
-              apiClient: input.apiClient,
+              historyReader: input.apiClient,
               execSql: input.execSql,
               resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
               protection,
@@ -73,7 +73,7 @@ export function createPagedColdPolicyWarmer(input: {
             input.onResolve();
             const stillCurrent = () => request.stillCurrent?.() !== false;
             const result = await recoverScopedPrincipalPolicyHistory({
-              apiClient: input.apiClient,
+              historyReader: input.apiClient,
               execSql: input.execSql,
               resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
               protection,
