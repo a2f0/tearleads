@@ -89,7 +89,7 @@ test.each([1, 8])(
       )?.head;
       if (!reference) throw new Error("Deleted group source is missing");
       const recovered = await recoverProjectionPolicyHistory({
-        apiClient: client,
+        historyReader: client,
         execSql: sqlite.execSql,
         organizationId,
         evidence: result.data.evidence,

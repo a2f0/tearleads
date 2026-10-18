@@ -11,7 +11,7 @@ type Warmer = NonNullable<
 export function withProjectionHistoryRecovery(input: {
   readonly apiClient: Parameters<
     typeof recoverProjectionPolicyHistory
-  >[0]["apiClient"];
+  >[0]["historyReader"];
   readonly execSql: Parameters<
     typeof recoverProjectionPolicyHistory
   >[0]["execSql"];
@@ -31,7 +31,7 @@ export function withProjectionHistoryRecovery(input: {
       const stillCurrent = () => request.stillCurrent?.() !== false;
       const policies = await recoverProjectionPolicyHistory({
         ...request,
-        apiClient: input.apiClient,
+        historyReader: input.apiClient,
         execSql: input.execSql,
         resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
         protection,
