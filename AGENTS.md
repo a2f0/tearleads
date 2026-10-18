@@ -191,6 +191,10 @@ deleted as soon as the default branch contains the new contract.
 - App presentation goes through stores/providers instead of importing
   persistence, SQLite, blob, contact, sync, or workflow internals directly.
 - Client SDK data modules stay below client, store, and workflow facades.
+- Client SDK components meet at named ports wired by the composition root and
+  keep per-database or per-scope state in one `getOrCreate*` scoped singleton.
+  Follow [client SDK seams](docs/developer/client-sdk-seams.md) and the
+  `isolate-sdk-component` skill.
 - `@tearleads/validators`, `@tearleads/encoding`, and
   `@tearleads/sqlite-instance` are leaf-level support packages.
 - `@tearleads/sqlite-worker` may depend on `@tearleads/sqlite-instance`, but not
