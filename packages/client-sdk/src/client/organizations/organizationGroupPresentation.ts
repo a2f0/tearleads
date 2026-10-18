@@ -1,5 +1,5 @@
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
-import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
 
 export async function loadOrganizationGroupPresentationDetails(input: {

@@ -15,8 +15,8 @@ reference it follows.
 - **Host interface**: the set of ports one component receives from its caller,
   such as `ReconciliationHost`.
 - **Composition root**: where production adapters are wired to ports:
-  `src/Tearleads.ts`, `src/client/deviceFirst.ts`, and the workflow runtime
-  in `src/client/workflowRuntime.ts`.
+  `src/Tearleads.ts`, `src/client/deviceFirst/`, and the workflow runtime
+  in `src/client/runtime/workflowRuntime.ts`.
 - **Scoped singleton**: one object per database or per domain scope, returned
   by a `getOrCreate…(scope)` function backed by a module-private `WeakMap`.
 
@@ -33,8 +33,8 @@ reference it follows.
 
 ## Where code goes
 
-Each layer folder holds folders, not loose modules, and each folder maps to a
-subsystem in `scripts/architecture/subsystems.ts` or names one shared role.
+`data/` and `client/` hold folders, not loose modules, and each folder maps to
+a subsystem in `scripts/architecture/subsystems.ts` or names one shared role.
 
 In `data/`, the root holds only its README; `bun run lint:files` rejects any
 other file there.
@@ -51,6 +51,22 @@ other file there.
 - `blobs/`, `contacts/`, `persistence/`, `sqlite/`, and `sync/` are internal
   to stores. A store reaches a module there through the matching workflow
   facade, such as `workflows/blobs` or `workflows/sync`.
+
+In `client/`, the root holds only the `index.ts` facade barrel; `bun run
+lint:files` rejects any other file there.
+
+- Each `tearleads.*` facade with its own subsystem has a folder whose
+  `index.ts` is the facade: `blobs/`, `containerContents/`, `deviceFirst/`,
+  `documents/`, `identity/`, `organizations/`, `root/`, `securityIncidents/`,
+  and `session/`. Helpers that only one facade uses sit beside it.
+- `runtime/` holds live client state (`Database`, `Events`, `Network`,
+  `ApiVersion`, `SyncBillingGate`) and the workflow runtime with the adapters
+  the composition root builds for it, such as principal history custody and
+  principal mutation dispatch.
+- `host/` holds contracts the embedding app implements, such as `Logger` and
+  `FileSaver`, when no single facade owns them. Its README lists them.
+- `billing/` and `localKeyring/` hold the purchase and local keyring
+  adapters.
 
 ## Ports and adapters
 

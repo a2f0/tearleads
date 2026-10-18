@@ -11,7 +11,7 @@ import {
   organizationId,
 } from "../../../test/helpers/organizationReadModelFixtures";
 import { createDomainScope } from "../../data/shared/domainScope";
-import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import {
   createOrganizationDataUsageCoordinator,
   type OrganizationDataUsageCoordinator,

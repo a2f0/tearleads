@@ -4,8 +4,8 @@ import type { SecurityIncidentReporter } from "../../data/shared/securityInciden
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ProvisionedPrincipalHistoryPrimer } from "../../workflows/registration/provisionedPrincipalHistory";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
-import type { Database } from "../database";
 import type { Identity } from "../identity";
+import type { Database } from "../runtime/database";
 import type {
   BoundUserIdLookup,
   SessionRegistrationRefusal,

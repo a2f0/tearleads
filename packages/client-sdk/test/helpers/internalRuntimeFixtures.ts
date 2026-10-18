@@ -2,7 +2,7 @@ import type { ApiClient } from "@tearleads/api-client";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
-} from "../../src/client/workflowRuntime";
+} from "../../src/client/runtime/workflowRuntime";
 import type { BlobStore } from "../../src/data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../src/data/shared/domainScope";

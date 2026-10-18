@@ -7,8 +7,8 @@ import {
 } from "../../../test/helpers/clientTestSupport";
 import { loadTrustedUserIdentityPin } from "../../data/persistence/trustedUserIdentityPinPersistence";
 import { createTrustedUserIdentityService } from "../../data/trustedUserIdentity/service";
-import { Database } from "../database";
 import { createIdentity } from "../identity";
+import { Database } from "../runtime/database";
 import { createSession } from "./index";
 
 test("a fresh session refuses login rebinding a durably pinned signing fingerprint", async () => {

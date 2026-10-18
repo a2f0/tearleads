@@ -17,7 +17,7 @@ import {
   projectionUserIds,
   resolveRequiredUserIdentities,
 } from "../../workflows/organizations/trustedOrganizationUsers";
-import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { preparePrincipalContainerMutations } from "./principalContainerMutations";
 
 type CurrentGroupMutation =

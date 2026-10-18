@@ -1,9 +1,9 @@
 import type { ApiClient } from "@tearleads/api-client";
 import { quietLogger } from "../../../test/helpers/clientTestSupport";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
-import { Database } from "../database";
+import type { Logger } from "../host/logger";
 import { createIdentity, type Identity } from "../identity";
-import type { Logger } from "../logger";
+import { Database } from "../runtime/database";
 import { createSession } from "./index";
 import type { SessionDependencies } from "./sessionTypes";
 

@@ -1,27 +1,37 @@
 import { ApiClient, ApiRequestMetrics } from "@tearleads/api-client";
-import { ApiVersion } from "./client/apiVersion";
 import { type BlobStoreFactory, Blobs } from "./client/blobs";
 import {
   type ContainerContents,
   createContainerContents,
 } from "./client/containerContents";
-import { Database, type DatabaseOptions } from "./client/database";
 import { createDeviceFirst, type DeviceFirst } from "./client/deviceFirst";
 import { createDocuments, type Documents } from "./client/documents";
-import { Events } from "./client/events";
+import { type Logger, logErrorToConsole } from "./client/host/logger";
 import {
   createIdentity,
   type Identity,
   type IdentityOptions,
 } from "./client/identity";
-import { type Logger, logErrorToConsole } from "./client/logger";
-import { Network } from "./client/network";
+import {
+  createUserIdentities,
+  type UserIdentities,
+} from "./client/identity/userIdentities";
 import {
   createOrganizations,
   type Organizations,
 } from "./client/organizations";
-import type { PrincipalHistoryKeyProvider } from "./client/principalHistoryProtection";
 import { createRoot, type Root, rootRuntimeOf } from "./client/root";
+import { ApiVersion } from "./client/runtime/apiVersion";
+import { Database, type DatabaseOptions } from "./client/runtime/database";
+import { Events } from "./client/runtime/events";
+import { Network } from "./client/runtime/network";
+import type { PrincipalHistoryKeyProvider } from "./client/runtime/principalHistoryProtection";
+import { SyncBillingGate } from "./client/runtime/syncBillingGate";
+import {
+  createRuntime,
+  type InternalRuntime,
+  type Runtime,
+} from "./client/runtime/workflowRuntime";
 import {
   createSecurityIncidentService,
   type SecurityIncidentListener,
@@ -29,16 +39,6 @@ import {
 } from "./client/securityIncidents";
 import { createSession } from "./client/session";
 import type { Session } from "./client/session/sessionTypes";
-import { SyncBillingGate } from "./client/syncBillingGate";
-import {
-  createUserIdentities,
-  type UserIdentities,
-} from "./client/userIdentities";
-import {
-  createRuntime,
-  type InternalRuntime,
-  type Runtime,
-} from "./client/workflowRuntime";
 import type { BlobStore } from "./data/blobs/blobContracts";
 import {
   type DocumentProjectorRegistry,

@@ -17,7 +17,7 @@ import {
   updateOrganizationRosterEntry,
 } from "../../workflows/organizations";
 import type { ContainerContents } from "../containerContents";
-import type { InternalRuntime } from "../workflowRuntime";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
 import {
   createOrganizationDataUsageCoordinator,
   type OrganizationDataUsageCoordinator,

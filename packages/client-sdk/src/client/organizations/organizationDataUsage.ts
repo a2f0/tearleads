@@ -5,7 +5,7 @@ import {
   reconcileOrganizationDataUsage,
 } from "../../workflows/organizations";
 import { organizationAccessScopeKey } from "../../workflows/organizations/organizationPresentationAccessState";
-import type { InternalRuntime } from "../workflowRuntime";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
 import {
   type ActiveOrganizationDataRuntime,
   activeOrganizationDataRuntime,

@@ -4,7 +4,7 @@ import {
   registerIdentity as registerIdentityWorkflow,
 } from "../../workflows/registration";
 import type { ClearRemoteSyncStateResult } from "../../workflows/sync";
-import { createListenerSet } from "../listenerSet";
+import { createListenerSet } from "../runtime/listenerSet";
 import {
   emptySessionSnapshot,
   mergeSessionContext,

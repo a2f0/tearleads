@@ -2,7 +2,7 @@ import type { DomainScope } from "../../data/shared/domainScope";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
-} from "../workflowRuntime";
+} from "../runtime/workflowRuntime";
 
 type OrganizationWorkflow<T> = (input: {
   readonly apiClient: InternalWorkflowRuntimeInput["apiClient"];

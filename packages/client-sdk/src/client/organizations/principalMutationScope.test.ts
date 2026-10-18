@@ -5,7 +5,7 @@ import { defaultDocumentProjectorRegistry } from "../../data/documents/documentK
 import { createDomainScope } from "../../data/shared/domainScope";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
 import { Tearleads } from "../../Tearleads";
-import { createRuntime } from "../workflowRuntime";
+import { createRuntime } from "../runtime/workflowRuntime";
 import { currentOrganizationMutation } from "./principalMutationScope";
 
 test("organization mutations cannot outlive their session, identity, or database scope", () => {

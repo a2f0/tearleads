@@ -279,7 +279,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/workflows/documents/`,
       `${sdk}/data/documents/`,
       `${sdk}/stores/documents/`,
-      `${sdk}/client/documents.ts`,
+      `${sdk}/client/documents/`,
     ],
   },
   {
@@ -291,9 +291,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/container-contents/`,
       `${sdk}/stores/container-contents/`,
-      `${sdk}/client/containerContents.ts`,
-      `${sdk}/client/containerContentsTypes.ts`,
-      `${sdk}/client/containerDocumentDiscovery.ts`,
+      `${sdk}/client/containerContents/`,
     ],
   },
   {
@@ -313,7 +311,7 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/workflows/blobs/`,
       `${sdk}/data/blobs/`,
-      `${sdk}/client/blobs.ts`,
+      `${sdk}/client/blobs/`,
     ],
   },
   {
@@ -360,8 +358,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/data/shared/domainScope.ts`,
       `${sdk}/sync/`,
       `${sdk}/stores/local-projection/`,
-      `${sdk}/client/deviceFirst.ts`,
-      `${sdk}/client/reconciledDocumentContentPull.ts`,
+      `${sdk}/client/deviceFirst/`,
     ],
   },
   {
@@ -370,10 +367,8 @@ export const subsystems: readonly Subsystem[] = [
     responsibility: "Identity keys, sessions, and TOFU-pinned user identities.",
     seam: "identity/session/userIdentities; TOFU gateway",
     paths: [
-      `${sdk}/client/identity.ts`,
-      `${sdk}/client/identityKeyPackage.ts`,
+      `${sdk}/client/identity/`,
       `${sdk}/client/session/`,
-      `${sdk}/client/userIdentities.ts`,
       `${sdk}/data/trustedUserIdentity/`,
     ],
   },
@@ -424,7 +419,7 @@ export const subsystems: readonly Subsystem[] = [
       "Durable, redacted detection records and host notifications for terminal client trust-boundary verification failures.",
     seam: "tearleads.securityIncidents facade; onSecurityIncident callback",
     paths: [
-      `${sdk}/client/securityIncidents.ts`,
+      `${sdk}/client/securityIncidents/`,
       `${sdk}/data/shared/securityIncidents.ts`,
     ],
   },
@@ -437,20 +432,8 @@ export const subsystems: readonly Subsystem[] = [
     paths: [
       `${sdk}/Tearleads.ts`,
       `${sdk}/client/index.ts`,
-      `${sdk}/client/rootContainerAdoption.ts`,
-      `${sdk}/client/workflowRuntime.ts`,
-      `${sdk}/client/principalHistoryProtection.ts`,
-      `${sdk}/client/principalMutationApi.ts`,
-      `${sdk}/client/principalMutationDispatch.ts`,
-      `${sdk}/client/principalMutationDeadline.ts`,
-      `${sdk}/client/database.ts`,
-      `${sdk}/client/events.ts`,
-      `${sdk}/client/network.ts`,
-      `${sdk}/client/apiVersion.ts`,
-      `${sdk}/client/fileSaver.ts`,
-      `${sdk}/client/syncBillingGate.ts`,
-      `${sdk}/client/listenerSet.ts`,
-      `${sdk}/client/logger.ts`,
+      `${sdk}/client/runtime/`,
+      `${sdk}/client/host/`,
       `${sdk}/data/shared/errorMessage.ts`,
       `${sdk}/data/shared/recordReaders.ts`,
       `${sdk}/index.ts`,

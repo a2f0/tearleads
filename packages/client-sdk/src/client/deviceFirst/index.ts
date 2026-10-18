@@ -1,0 +1,344 @@
+import type { DomainScope } from "../../data/shared/domainScope";
+import {
+  disposeDomainSyncCoordinator,
+  getOrCreateDomainSyncCoordinator,
+  isDatabaseUnavailableError,
+} from "../../data/sync/syncCoordinator";
+import {
+  type ContainerContentsStore,
+  type ContainerContentsStoreOptions,
+  isAutomaticRootCatchupContainerNode,
+  isReconcilableContainerNode,
+  isRemoteBackedContainerNode,
+} from "../../stores/container-contents";
+import { openDocumentStore } from "../../stores/documents";
+import {
+  requestRegisteredDocumentRemoteSync,
+  subscribeToPersistedDocumentDeletions,
+  subscribeToPersistedDocuments,
+} from "../../stores/documents/registry";
+import {
+  getOrCreateLocalProjectionStore,
+  type LocalProjectionStore,
+  type LocalProjectionView,
+} from "../../stores/local-projection";
+import {
+  connectReconciliationTriggers,
+  createReconciliationService,
+  type ReconciliationHost,
+  type ReconciliationService,
+  systemReconciliationClock,
+} from "../../sync/reconciliation";
+import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/containerDocumentListing";
+import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentHydrationProbe";
+import {
+  type ContainerContentsStoreWorkflowRuntime,
+  createContainerContentsDocumentsRuntime,
+  createContainerContentsStoreWorkflowRuntime,
+} from "../../workflows/container-contents/runtime";
+import type { ContainerContents } from "../containerContents";
+import { discoverContainerDocumentLanesForRuntime } from "../containerContents/documentDiscovery";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
+import { createReconciledDocumentContentPuller } from "./reconciledDocumentContentPull";
+
+export type { LocalProjectionView } from "../../stores/local-projection";
+
+/** One domain scope's local read, local-write, and reconciliation handles. */
+export interface DeviceFirstContainerContents {
+  /**
+   * Locally durable container tree and mutation store. Ordinary tree writes
+   * update this store after local persistence and queue remote convergence in
+   * the background; security-sensitive remote operations keep their explicit
+   * online requirements.
+   */
+  readonly containerStore: ContainerContentsStore;
+  /** Background remote reconciliation; never awaited for first paint. */
+  readonly reconciler: ReconciliationService;
+  /** Synchronously readable container/document projection. */
+  readonly view: LocalProjectionView;
+}
+
+/**
+ * Device-first facade. Opens a shared scope that pairs immediate local reads
+ * and locally durable writes with background remote convergence.
+ */
+export interface DeviceFirst {
+  /** Open all device-first handles for the current domain scope. */
+  open(
+    options?: ContainerContentsStoreOptions | undefined,
+  ): DeviceFirstContainerContents;
+  /** Stop the current scope's reconciler (if one was created) on teardown. */
+  dispose(): void;
+}
+
+export function createDeviceFirst(
+  runtimeService: InternalRuntime,
+  containerContents: ContainerContents,
+): DeviceFirst {
+  return new DeviceFirstService(runtimeService, containerContents);
+}
+
+interface DeviceFirstScopeEntry {
+  contents: DeviceFirstContainerContents;
+  disconnectReconciliationTriggers: () => void;
+  unsubscribePersistedDocumentDeletions: () => void;
+  unsubscribePersistedDocuments: () => void;
+}
+
+function createInitialDocumentProbeHost(
+  runtimeService: InternalRuntime,
+  domainScope: ReconciliationHost["domainScope"],
+): Pick<
+  ReconciliationHost,
+  | "listContainerDocumentIds"
+  | "probeUndiscoveredDocumentsBatch"
+  | "reportInitialDocumentProbeComplete"
+> {
+  return {
+    listContainerDocumentIds: (containerId) => {
+      const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
+      return listAllContainerDocumentIdsFromApi({
+        apiClient: runtime.apiClient,
+        containerId,
+        reportErrors: false,
+      });
+    },
+    probeUndiscoveredDocumentsBatch: async (input) => {
+      const runtime = createDeviceFirstWorkflowRuntime(runtimeService);
+      return probeUndiscoveredRemoteDocumentBatch({
+        ...input,
+        host: {
+          documentWorkflowRuntime: (containerId) =>
+            createContainerContentsDocumentsRuntime(runtime, containerId),
+          openDocumentStore: (target) =>
+            openDocumentStore(
+              domainScope,
+              target.localId,
+              target.runtime,
+              target.documentId,
+            ),
+        },
+        runtime,
+      });
+    },
+    reportInitialDocumentProbeComplete: (requestedCount) => {
+      runtimeService
+        .workflowInput()
+        .util.log(
+          `Initial document hydration probe requested ${requestedCount} syncs`,
+        );
+    },
+  };
+}
+
+class DeviceFirstService implements DeviceFirst {
+  // A real Map (not WeakMap) so dispose() can iterate every scope seen this
+  // session. A running reconciler holds event subscriptions that keep an idle,
+  // stale-scope service (and its scope) reachable anyway, so WeakMap bought no
+  // GC here; the entries are released explicitly on dispose().
+  private readonly entriesByScope = new Map<
+    DomainScope,
+    DeviceFirstScopeEntry
+  >();
+
+  constructor(
+    private readonly runtimeService: InternalRuntime,
+    private readonly containerContents: ContainerContents,
+  ) {}
+
+  open(
+    options?: ContainerContentsStoreOptions | undefined,
+  ): DeviceFirstContainerContents {
+    return this.getOrCreateEntry(options).contents;
+  }
+
+  dispose(): void {
+    // Stop every reconciler created this session — not just the current
+    // scope's. A scope change (e.g. anonymous -> authenticated) leaves the old
+    // scope's reconciler subscribed and its coordinator pump live; tear them
+    // all down. Force-stop each scope's coordinator (which runs the reconciler
+    // lane) alongside stopping the service.
+    for (const [domainScope, entry] of this.entriesByScope) {
+      entry.contents.reconciler.stop();
+      entry.disconnectReconciliationTriggers();
+      entry.unsubscribePersistedDocumentDeletions();
+      entry.unsubscribePersistedDocuments();
+      disposeDomainSyncCoordinator(domainScope);
+    }
+    this.entriesByScope.clear();
+  }
+
+  private workflowRuntime(): ContainerContentsStoreWorkflowRuntime {
+    return createDeviceFirstWorkflowRuntime(this.runtimeService);
+  }
+
+  private getOrCreateEntry(
+    options?: ContainerContentsStoreOptions | undefined,
+  ): DeviceFirstScopeEntry {
+    const runtime = this.workflowRuntime();
+    const domainScope = runtime.state.domainScope;
+    const existing = this.entriesByScope.get(domainScope);
+    if (existing) {
+      // Do not call updateRuntime here: facade selectors run during React
+      // render, and updateRuntime emits synchronously. Hosts drive runtime
+      // updates through view.updateRuntime() from an effect instead.
+      return existing;
+    }
+
+    const store = getOrCreateLocalProjectionStore({
+      domainScope,
+      runtime,
+      options,
+    });
+    const service = createReconciliationService(
+      this.createReconciliationHost(store, domainScope),
+    );
+    const disconnectReconciliationTriggers = connectReconciliationTriggers({
+      service,
+      store,
+    });
+    const unsubscribePersistedDocumentDeletions =
+      subscribeToPersistedDocumentDeletions(domainScope, (localId) => {
+        store.removePersistedDocument(localId);
+      });
+    const unsubscribePersistedDocuments = subscribeToPersistedDocuments(
+      domainScope,
+      (document, change) =>
+        store.refreshPersistedDocument(document, change.placementChanged),
+    );
+    service.start();
+
+    const view: LocalProjectionView = {
+      getSnapshot: () => store.getSnapshot(),
+      subscribe: (listener) => store.subscribe(listener),
+      setActiveContainer: (containerId) =>
+        store.setActiveContainer(containerId),
+      updateRuntime: (nextRuntime) => store.updateRuntime(nextRuntime),
+    };
+
+    const entry: DeviceFirstScopeEntry = {
+      contents: {
+        containerStore: store.getContainerStore(),
+        reconciler: service,
+        view,
+      },
+      disconnectReconciliationTriggers,
+      unsubscribePersistedDocumentDeletions,
+      unsubscribePersistedDocuments,
+    };
+    this.entriesByScope.set(domainScope, entry);
+    return entry;
+  }
+
+  private createReconciliationHost(
+    store: LocalProjectionStore,
+    domainScope: ReconciliationHost["domainScope"],
+  ): ReconciliationHost {
+    const runtimeService = this.runtimeService;
+    const containerContents = this.containerContents;
+    const requestDocumentContentPull = createReconciledDocumentContentPuller({
+      getContainer: (containerId) =>
+        store
+          .getSnapshot()
+          .containers.find((container) => container.id === containerId) ?? null,
+      pullDocumentContent: (input) =>
+        containerContents.pullDocumentContent(input),
+      requestRegisteredDocumentRemoteSync: (localId, documentId) =>
+        requestRegisteredDocumentRemoteSync(domainScope, localId, documentId),
+    });
+    const canDiscoverContainerDocuments = (containerId: string) => {
+      const container = store
+        .getSnapshot()
+        .containers.find((node) => node.id === containerId);
+      return container ? isRemoteBackedContainerNode(container) : false;
+    };
+    const listKnownContainerIds = () => {
+      // A local-first id is not listable yet and may still be racing its create
+      // request. Once remote-backed, it participates normally; system contents
+      // are especially important during rematerialization because this device
+      // may not have authored them.
+      const homeOrganizationId =
+        runtimeService.workflowInput().auth.organizationId;
+      return store
+        .getSnapshot()
+        .containers.flatMap((node) =>
+          isReconcilableContainerNode(node, homeOrganizationId)
+            ? [node.id]
+            : [],
+        );
+    };
+    const listAutomaticRootCatchupContainerIds = () => {
+      const homeOrganizationId =
+        runtimeService.workflowInput().auth.organizationId;
+      return store
+        .getSnapshot()
+        .containers.flatMap((node) =>
+          isAutomaticRootCatchupContainerNode(node, homeOrganizationId)
+            ? [node.id]
+            : [],
+        );
+    };
+    return {
+      clock: systemReconciliationClock,
+      domainScope,
+      registerLane: (key, config) =>
+        getOrCreateDomainSyncCoordinator(domainScope).registerLane(key, config),
+      canDiscoverContainerDocuments,
+      getRuntimeStatus: () => {
+        const input = runtimeService.workflowInput();
+        return {
+          dbStatus: input.infra.dbStatus,
+          isAuthenticated: input.auth.isAuthenticated,
+          online: input.state.online,
+        };
+      },
+      listKnownContainerIds,
+      // Root discovery can surface directly granted non-root containers, so
+      // retain every regular container. Exclude only this identity's own system
+      // children; cold/auth backfill and explicit full Refresh cover those.
+      listAutomaticRootCatchupContainerIds,
+      discoverContainerDocuments: (requests, onOutcome) =>
+        discoverContainerDocumentLanesForRuntime({
+          onOutcome,
+          requests,
+          runtimeService,
+        }),
+      loadContainerDelta: (containerId) =>
+        store.loadContainerDelta(containerId),
+      applyReconciled: (delta) => store.applyReconciled(delta),
+      requestDocumentContentPull,
+      ...createInitialDocumentProbeHost(runtimeService, domainScope),
+      refreshTree: async () => {
+        await store.getContainerStore().refresh();
+      },
+      refreshRootTree: async () => {
+        await store.getContainerStore().refreshRootLane();
+      },
+      isIgnorableError: isDatabaseUnavailableError,
+      // Resolve the runtime per call: it is rebuilt as the active identity
+      // changes, and a reference captured here would report into a dead host.
+      logError: (message, error) =>
+        logReconciliationFailure(this.workflowRuntime(), message, error),
+    };
+  }
+}
+
+// Returns the host's result: both callbacks are declared `=> void` but may be
+// async, and the lane reporter only catches a rejection it is handed.
+function logReconciliationFailure(
+  runtime: ContainerContentsStoreWorkflowRuntime,
+  message: string,
+  error: unknown,
+): unknown {
+  const { log, logError } = runtime.util;
+  return logError ? logError(message, error) : log(message);
+}
+
+export function createDeviceFirstWorkflowRuntime(
+  runtimeService: InternalRuntime,
+): ContainerContentsStoreWorkflowRuntime {
+  return createContainerContentsStoreWorkflowRuntime(
+    runtimeService.workflowInput(),
+    runtimeService.adoptRootContainer,
+  );
+}

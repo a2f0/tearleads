@@ -14,7 +14,7 @@ import {
   buildOrganizationGroupPolicyHistory,
   type OrganizationGroupPolicyHistory,
 } from "../../workflows/organizations";
-import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
 

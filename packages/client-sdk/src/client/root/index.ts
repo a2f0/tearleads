@@ -27,8 +27,8 @@ import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
 } from "../../workflows/runtimeInput";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
 import type { Session } from "../session/sessionTypes";
-import type { InternalRuntime } from "../workflowRuntime";
 
 /**
  * Platform-operator lookups. Every call is refused locally unless the session

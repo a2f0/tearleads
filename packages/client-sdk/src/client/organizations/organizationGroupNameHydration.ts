@@ -5,7 +5,7 @@ import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/
 import { hydrateOrganizationGroupNames } from "../../workflows/organizations/organizationGroupNames";
 import type { OrganizationDirectoryAndGroups } from "../../workflows/organizations/readModel";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
-import type { InternalRuntime } from "../workflowRuntime";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
 import {
   type ActiveOrganizationDataRuntime,
   isOrganizationDataRuntimeCurrent,

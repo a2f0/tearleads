@@ -34,7 +34,7 @@ import { denyOrganizationPresentationAccess } from "../../workflows/organization
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
-} from "../workflowRuntime";
+} from "../runtime/workflowRuntime";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
 function createRuntime(

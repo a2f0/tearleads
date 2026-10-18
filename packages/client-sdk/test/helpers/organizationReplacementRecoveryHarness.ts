@@ -6,8 +6,8 @@ import type {
   CreateOrganizationResponse,
   OrganizationBillingResponse,
 } from "@tearleads/validators/response";
-import { Database } from "../../src/client/database";
 import { createIdentity } from "../../src/client/identity";
+import { Database } from "../../src/client/runtime/database";
 import { createSession } from "../../src/client/session";
 import {
   accessManifestCheckpoints,

@@ -84,13 +84,6 @@ export type {
   UnlinkDocumentFromContainerInput,
 } from "./containerContents";
 export { createContainerDocumentObjectSyncState } from "./containerContents";
-export {
-  Database,
-  type DatabaseListener,
-  type DatabaseOptions,
-  type DatabaseSnapshot,
-  type DatabaseStatus,
-} from "./database";
 export type {
   DeviceFirst,
   DeviceFirstContainerContents,
@@ -114,12 +107,8 @@ export type {
   PersistedDocumentListener,
 } from "./documents";
 export { DEFAULT_DOCUMENT_ID } from "./documents";
-export {
-  Events,
-  type EventsListener,
-  type EventsSnapshot,
-} from "./events";
-export type { FileSaver, SaveFileRequest } from "./fileSaver";
+export type { FileSaver, SaveFileRequest } from "./host/fileSaver";
+export type { Logger } from "./host/logger";
 export type {
   Identity,
   IdentityGenerationResult,
@@ -130,7 +119,11 @@ export type {
 export {
   IDENTITY_KEY_PACKAGE_FORMAT,
   type IdentityKeyPackage,
-} from "./identityKeyPackage";
+} from "./identity/keyPackage";
+export type {
+  ResolvedUserIdentity,
+  UserIdentities,
+} from "./identity/userIdentities";
 export type {
   BrowserLocalKeyringOptions,
   IndexedDbLocalKeyringManifestStoreOptions,
@@ -184,14 +177,6 @@ export {
   createPinCodeWrappingKeyKeystore,
   isPinCodeWrappedLocalSecretEnvelope,
 } from "./localKeyring/localKeyringPinCode";
-export type { Logger } from "./logger";
-export {
-  createBrowserNetworkStatusSource,
-  Network,
-  type NetworkListener,
-  type NetworkMode,
-  type NetworkStatusSource,
-} from "./network";
 export type {
   AbandonOrganizationPolicyMutationInput,
   AddOrganizationGroupUserInput,
@@ -227,10 +212,33 @@ export type {
   OrganizationUserDetail,
   RemoveOrganizationGroupUserInput,
 } from "./organizations";
+export {
+  Database,
+  type DatabaseListener,
+  type DatabaseOptions,
+  type DatabaseSnapshot,
+  type DatabaseStatus,
+} from "./runtime/database";
+export {
+  Events,
+  type EventsListener,
+  type EventsSnapshot,
+} from "./runtime/events";
+export {
+  createBrowserNetworkStatusSource,
+  Network,
+  type NetworkListener,
+  type NetworkMode,
+  type NetworkStatusSource,
+} from "./runtime/network";
 export type {
   PrincipalHistoryKeyProvider,
   PrincipalHistoryKeyScope,
-} from "./principalHistoryProtection";
+} from "./runtime/principalHistoryProtection";
+export {
+  SyncBillingGate,
+  type SyncBillingGateListener,
+} from "./runtime/syncBillingGate";
 export type {
   SecurityIncident,
   SecurityIncidentListener,
@@ -250,11 +258,3 @@ export type {
   SessionSnapshot,
   UserSession,
 } from "./session/sessionTypes";
-export {
-  SyncBillingGate,
-  type SyncBillingGateListener,
-} from "./syncBillingGate";
-export type {
-  ResolvedUserIdentity,
-  UserIdentities,
-} from "./userIdentities";
