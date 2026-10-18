@@ -64,7 +64,7 @@ implementation runs through this model. Two scenario tests drive the real
 seams with fault injection and record each run as a sequence of the model's
 actions:
 
-- `packages/client-sdk/src/stores/documents/documentStore/restartProbeProjection.test.ts`
+- `packages/client-sdk/src/stores/documents/documentStore/sync/restartProbeProjection.test.ts`
   drives the probe-signal kernels (`handleDocumentRemoteEvents`,
   `clearConsumedRemoteUpdateSignal`, the arming helpers) through delivered and
   echoed hints, a mid-flight hint, a restart, and the post-ack revalidation,

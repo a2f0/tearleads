@@ -39,7 +39,7 @@ import { resolveTlcTools, runTlc, type TlcTools } from "./tlcTools";
 // generated native trees, while the app package's test preload requires built
 // SDK declarations. This check must work without either native or SDK builds.
 const SCENARIO_TESTS: readonly string[] = [
-  "../packages/client-sdk/src/stores/documents/documentStore/restartProbeProjection.test.ts",
+  "../packages/client-sdk/src/stores/documents/documentStore/sync/restartProbeProjection.test.ts",
   "../packages/app/src/providers/sdk/restartProbeProjection.test.ts",
 ];
 const EXPECTED_TRACES = ["interest-barrier-seams", "probe-signal-kernels"];

@@ -176,7 +176,7 @@ ls:
 
   packages/client-sdk/src/data/keyingProjectionVerification:
     .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-8
-    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-4
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-0
 
   packages/client-sdk/src/data/keyingProjectionVerification/*:

@@ -13,13 +13,13 @@ import {
 import {
   manifestBundle,
   successor,
-} from "../../../../test/helpers/ancestorCitationScenario";
-import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
-import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
-import { verifyContainerManifestPath } from "../container/containerPathVerification";
-import { verifyProjectionPolicyEvidence } from "../principalPolicy/projectionPolicyEvidence";
-import { createProjectionCheckpointContext } from "./checkpointContext";
+} from "../../../test/helpers/ancestorCitationScenario";
+import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
+import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
+import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
+import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
+import { verifyContainerManifestPath } from "./container/containerPathVerification";
+import { verifyProjectionPolicyEvidence } from "./principalPolicy/projectionPolicyEvidence";
 
 test("fresh devices receive verifiable authority after its citation becomes historical and the group is deleted", async () => {
   const data = await createOrganizationHistoryFixture();

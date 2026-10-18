@@ -8,12 +8,12 @@ import {
 import {
   grantBy,
   manifestBundle,
-} from "../../../../test/helpers/ancestorCitationScenario";
-import { createGroupHistoricalSignerScenario } from "../../../../test/helpers/groupHistoricalSignerScenario";
-import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpointAdvancePersistence";
-import { verifyContainerManifestPath } from "../container/containerPathVerification";
-import { principalPolicyCacheForVerifiedPolicies } from "../principalPolicy/principalPolicyCache";
-import { createProjectionCheckpointContext } from "./checkpointContext";
+} from "../../../test/helpers/ancestorCitationScenario";
+import { createGroupHistoricalSignerScenario } from "../../../test/helpers/groupHistoricalSignerScenario";
+import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpointAdvancePersistence";
+import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
+import { verifyContainerManifestPath } from "./container/containerPathVerification";
+import { principalPolicyCacheForVerifiedPolicies } from "./principalPolicy/principalPolicyCache";
 
 test("a cold device accepts a child signed by a since-removed group admin", async () => {
   const scenario = await createGroupHistoricalSignerScenario();
