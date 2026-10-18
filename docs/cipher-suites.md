@@ -36,7 +36,7 @@ conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 | Wrap container KEK to a parent derived public key | `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek` — `packages/crypto/src/keying/containerKekWrapping.ts`, `.../containers/shared/projection.ts` |
 | Wrap container KEK to a user or managed principal | `packages/client-sdk/src/data/containers/shared/projection.ts` |
 | Wrap principal (group/org) secret keys to members | `packages/client-sdk/src/workflows/organizations/{principalPolicy*,groupPolicy*}.ts` |
-| Identity key-package probe envelope | `packages/client-sdk/src/client/identityKeyPackage.ts` |
+| Identity key-package probe envelope | `packages/client-sdk/src/client/identity/keyPackage.ts` |
 | Identity keypair generation | `packages/crypto/src/encapsulation/generateKeyPair.ts` |
 
 Container-KEK-to-principal wrap suite: `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm`.

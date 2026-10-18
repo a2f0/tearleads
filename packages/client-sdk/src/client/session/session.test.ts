@@ -8,7 +8,7 @@ import {
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
-import { Database } from "../database";
+import { Database } from "../runtime/database";
 import { createApi, createSessionHarness } from "./session.testFixtures";
 
 describe("session", () => {

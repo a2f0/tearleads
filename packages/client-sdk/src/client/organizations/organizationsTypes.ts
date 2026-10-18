@@ -18,7 +18,7 @@ import type {
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
 } from "../../workflows/organizations";
-import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import type { OrganizationDataUsageCoordinator } from "./organizationDataUsage";
 import type { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";

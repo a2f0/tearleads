@@ -18,7 +18,7 @@ import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
 } from "../../workflows/organizations/organizationPresentationAccessState";
-import type { InternalRuntime } from "../workflowRuntime";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { recoverOrganizationAccess } from "./organizationAccessRestoration";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";

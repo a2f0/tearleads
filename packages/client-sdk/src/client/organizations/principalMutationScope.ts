@@ -1,4 +1,4 @@
-import type { InternalRuntime } from "../workflowRuntime";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
 
 /** Capture a mutation's identity/database lifetime without freezing live status. */
 export function currentOrganizationMutation(

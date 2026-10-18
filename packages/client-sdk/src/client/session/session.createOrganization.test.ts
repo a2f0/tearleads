@@ -13,8 +13,8 @@ import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import type { ExecSql } from "../../sqlite";
-import { Database } from "../database";
 import { createIdentity } from "../identity";
+import { Database } from "../runtime/database";
 import { createSession } from "./index";
 import { PurgedOrganizationRecoveryBillingRequiredError } from "./sessionRecoveryErrors";
 

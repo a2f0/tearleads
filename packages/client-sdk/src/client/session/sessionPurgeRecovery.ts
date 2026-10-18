@@ -6,8 +6,8 @@ import {
 } from "../../workflows/organizations/organizationProvisioningAttempt";
 import { verifyOrganizationReplacementResponse } from "../../workflows/organizations/organizationReplacementVerification";
 import { clearRemoteSyncState } from "../../workflows/sync";
-import type { Database } from "../database";
 import type { Identity } from "../identity";
+import type { Database } from "../runtime/database";
 import { PurgedOrganizationRecoveryBillingRequiredError } from "./sessionRecoveryErrors";
 import type {
   CreateOrganizationOptions,

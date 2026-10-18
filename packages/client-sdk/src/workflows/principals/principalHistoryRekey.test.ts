@@ -3,7 +3,7 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../test/helpers/principalHistoryRecovery";
-import { createPrincipalHistoryProtectionCustody } from "../../client/principalHistoryProtection";
+import { createPrincipalHistoryProtectionCustody } from "../../client/runtime/principalHistoryProtection";
 import {
   principalHistoryEntries,
   principalHistoryNodes,

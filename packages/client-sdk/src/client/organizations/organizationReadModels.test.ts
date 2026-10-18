@@ -14,7 +14,7 @@ import {
   organizationReadModelUserId,
 } from "../../../test/helpers/organizationReadModelProjectionFixtures";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
-import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
 test("concurrent read-model reconciliation is single-flight", async () => {

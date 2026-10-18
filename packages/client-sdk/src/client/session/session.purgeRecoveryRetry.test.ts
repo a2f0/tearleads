@@ -15,8 +15,8 @@ import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
-import { Database } from "../database";
 import { createIdentity } from "../identity";
+import { Database } from "../runtime/database";
 import { createSession } from "./index";
 
 class ResetFailingDatabase extends Database {

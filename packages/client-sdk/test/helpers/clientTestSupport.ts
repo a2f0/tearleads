@@ -2,8 +2,8 @@ import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
+import type { Logger } from "../../src/client/host/logger";
 import type { Identity } from "../../src/client/identity";
-import type { Logger } from "../../src/client/logger";
 import type { ExecSql, ExecSqlClientLike } from "../../src/sqlite";
 
 export const quietLogger: {

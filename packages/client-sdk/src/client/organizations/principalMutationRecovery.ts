@@ -1,7 +1,7 @@
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
 import type { PrincipalMutationRecoveryApi } from "../../workflows/organizations/principalMutationJournalManagement";
-import type { InternalRuntime } from "../workflowRuntime";
+import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { currentOrganizationMutation } from "./principalMutationScope";
 
 export interface AbandonOrganizationPolicyMutationInput {

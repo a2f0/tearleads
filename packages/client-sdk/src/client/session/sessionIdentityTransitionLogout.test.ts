@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import type { ApiClient } from "@tearleads/api-client";
 import { setGeneratedIdentity } from "../../../test/helpers/clientTestSupport";
-import { Database } from "../database";
 import { createIdentity } from "../identity";
+import { Database } from "../runtime/database";
 import { createSession } from "./index";
 
 test("remote logout does not clear a session for a changed identity", async () => {

@@ -3,8 +3,8 @@ import type { DocumentProjectorRegistryInput } from "../../data/documents/docume
 import { createOrganization as createOrganizationWorkflow } from "../../workflows/organizations/createOrganization";
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ProvisionedPrincipalHistoryPrimer } from "../../workflows/registration/provisionedPrincipalHistory";
-import type { Database } from "../database";
 import type { Identity } from "../identity";
+import type { Database } from "../runtime/database";
 import type {
   CreateOrganizationOptions,
   SessionCreateOrganizationResult,

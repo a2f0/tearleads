@@ -9,7 +9,7 @@ import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/
 import { createRuntimeCurrentOrganizationMutation } from "../../workflows/organizations/runtimeCurrentOrganizationMutation";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { ContainerContents } from "../containerContents";
-import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
 import { syncOrganizationMetadataProfile } from "./organizationMetadataProfileSync";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";

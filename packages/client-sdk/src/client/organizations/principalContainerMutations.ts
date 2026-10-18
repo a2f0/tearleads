@@ -8,7 +8,7 @@ import {
 } from "../../workflows/organizations/principalContainerRematerialization";
 import type { PrincipalRematerializationPredecessor } from "../../workflows/organizations/principalContainerRematerializationPlanning";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
-import type { InternalWorkflowRuntimeInput } from "../workflowRuntime";
+import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 
 export async function preparePrincipalContainerMutations(input: {
   readonly preceding?: PrincipalRematerializationPredecessor | undefined;

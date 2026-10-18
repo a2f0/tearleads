@@ -1,0 +1,492 @@
+import type { ApiClient } from "@tearleads/api-client";
+import type { DocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import { runWithSecurityIncidentReporting } from "../../data/keyingProjectionVerification/error";
+import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
+import type { DomainScope } from "../../data/shared/domainScope";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
+import { type ExecSql, unavailableExecSql } from "../../data/sqlite/sqlSchema";
+import {
+  createApiUserIdentitySource,
+  createTrustedUserIdentityService,
+  type LocalUserIdentityCandidate,
+  loadPinnedUserIdentity,
+  type TrustedUserIdentityResolver,
+  type TrustedUserIdentityService,
+} from "../../data/trustedUserIdentity";
+import type { ContainerContentsRootAdopter } from "../../workflows/container-contents/runtime";
+import {
+  createProvisionedPrincipalHistoryPrimer,
+  type ProvisionedPrincipalHistoryPrimer,
+} from "../../workflows/registration/provisionedPrincipalHistory";
+import type {
+  WorkflowRuntimeAuthInput,
+  WorkflowRuntimeCryptoInput,
+  WorkflowRuntimeGroups,
+  WorkflowRuntimeInfraInput,
+  WorkflowRuntimeStateInput,
+  WorkflowRuntimeUtilInput,
+} from "../../workflows/runtimeInput";
+import type { Blobs } from "../blobs";
+import type { Identity } from "../identity";
+import { acknowledgedSessionRoot } from "../session/sessionRootAuthority";
+import type { Session, SessionSnapshot } from "../session/sessionTypes";
+import type { Database } from "./database";
+import type { Events } from "./events";
+import { createListenerSet } from "./listenerSet";
+import type { Network } from "./network";
+import {
+  createPrincipalHistoryProtectionCustody,
+  type PrincipalHistoryKeyProvider,
+} from "./principalHistoryProtection";
+import {
+  createPrincipalMutationApiCustody,
+  type PrincipalMutationApi,
+} from "./principalMutationApi";
+import { adoptSessionRootContainer } from "./rootContainerAdoption";
+import type { SyncBillingGate } from "./syncBillingGate";
+
+type HostWorkflowRuntimeUtilInput = Omit<
+  WorkflowRuntimeUtilInput,
+  "reportSecurityIncident"
+>;
+
+export interface WorkflowRuntimeInput
+  extends Omit<WorkflowRuntimeGroups, "util"> {
+  readonly util: HostWorkflowRuntimeUtilInput;
+}
+
+export type RuntimeListener = () => void;
+
+export interface Runtime {
+  readonly version: number;
+  input(containerId?: string | null | undefined): WorkflowRuntimeInput;
+  subscribe(listener: RuntimeListener): () => void;
+}
+
+export interface InternalWorkflowRuntimeInput extends WorkflowRuntimeGroups {
+  readonly apiClient: PrincipalMutationApi;
+  readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
+  readonly withPrincipalHistoryProtection?:
+    | PrincipalHistoryProtectionLease
+    | undefined;
+}
+
+export interface InternalRuntime {
+  identityLinks: Pick<
+    TrustedUserIdentityService,
+    "createLink" | "verifyLink" | "resolvePinned"
+  >;
+  retirePrincipalHistoryProtection(): void;
+  readonly sessionGeneration: number;
+  readonly adoptRootContainer: ContainerContentsRootAdopter;
+  readonly publicRuntime: Runtime;
+  boundUserId(signingKeyFingerprint: string): Promise<string | null>;
+  pinLocalUserIdentity(
+    userId: string,
+    candidate: LocalUserIdentityCandidate,
+  ): Promise<void>;
+  readonly primeProvisionedPrincipalHistory: ProvisionedPrincipalHistoryPrimer;
+  workflowInput(
+    containerId?: string | null | undefined,
+  ): InternalWorkflowRuntimeInput;
+}
+
+interface WorkflowRuntimeDependencies {
+  api: ApiClient;
+  blobs: Blobs;
+  database: Database;
+  documentProjectors: DocumentProjectorRegistry;
+  events: Events;
+  getDomainScope: () => DomainScope;
+  identity: Identity;
+  identityTrustDomain: string | null;
+  log: (message: string) => void;
+  logError: (message: string | Error, cause?: unknown) => void;
+  network: Network;
+  peerScope?: string | null;
+  principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
+  principalMutationTimeoutMs?: number | undefined;
+  reportSecurityIncident: SecurityIncidentReporter;
+  session: Session;
+  syncBillingGate?: SyncBillingGate | undefined;
+}
+
+function createRuntimeMutationApi(
+  dependencies: WorkflowRuntimeDependencies,
+  readGeneration: () => number,
+) {
+  return createPrincipalMutationApiCustody({
+    api: dependencies.api,
+    principalMutationTimeoutMs: dependencies.principalMutationTimeoutMs,
+    readScope: () => {
+      const { signingKeyPair, signingFingerprint } = dependencies.identity;
+      const { userId, isAuthenticated } = dependencies.session;
+      const identityTrustDomain = dependencies.identityTrustDomain;
+      if (
+        !isAuthenticated ||
+        !userId ||
+        !signingKeyPair ||
+        !signingFingerprint ||
+        !identityTrustDomain ||
+        dependencies.database.status !== "ready"
+      )
+        return null;
+      return {
+        database: dependencies.getDomainScope(),
+        execSql: dependencies.database.requireExecSql("principal mutation"),
+        generation: readGeneration(),
+        identityTrustDomain,
+        signingFingerprint,
+        signingKeyPair,
+        userId,
+      };
+    },
+  });
+}
+
+function localIdentityCandidate(
+  identity: Identity,
+): LocalUserIdentityCandidate | null {
+  const { encapsulationKeyPair, signingKeyPair } = identity;
+  if (!encapsulationKeyPair || !signingKeyPair) return null;
+  return {
+    encapsulationPublicKey: encapsulationKeyPair.publicKey,
+    signingKeyFingerprint: identity.signingFingerprint,
+    signingPublicKey: signingKeyPair.signingPublicKey,
+  };
+}
+
+/** Priming reads the runtime's database, identity and trust pins; it pins nothing. */
+function createRuntimeProvisioningPrimer(
+  dependencies: WorkflowRuntimeDependencies,
+  bindLease: () => PrincipalHistoryProtectionLease | undefined,
+  readyExecSql: () => ExecSql | null,
+): ProvisionedPrincipalHistoryPrimer {
+  return createProvisionedPrincipalHistoryPrimer({
+    bindLease,
+    execSqlFor: (database) =>
+      dependencies.database.client === database ? readyExecSql() : null,
+    loadPinnedIdentity: async (execSql, userId) =>
+      dependencies.identityTrustDomain
+        ? loadPinnedUserIdentity({
+            execSql,
+            identityTrustDomain: dependencies.identityTrustDomain,
+            userId,
+          })
+        : null,
+    logError: dependencies.logError,
+    signingFingerprint: () => dependencies.identity.signingFingerprint,
+  });
+}
+
+export function createRuntime(
+  dependencies: WorkflowRuntimeDependencies,
+): InternalRuntime {
+  const readyExecSql = () =>
+    dependencies.database.status === "ready"
+      ? dependencies.database.requireExecSql("trusted user identity")
+      : null;
+  const trustedUserIdentityService = createTrustedUserIdentityService({
+    getExecSql: readyExecSql,
+    getLocalIdentity: () => localIdentityCandidate(dependencies.identity),
+    getLocalUserId: () => dependencies.session.userId,
+    identityTrustDomain: dependencies.identityTrustDomain,
+    remoteSource: createApiUserIdentitySource(dependencies.api),
+  });
+  const resolveTrustedUserIdentity: TrustedUserIdentityResolver = (userId) =>
+    runWithSecurityIncidentReporting(
+      dependencies.reportSecurityIncident,
+      {
+        objectId: userId,
+        objectKind: "user",
+        operation: "user.identity.resolve",
+        organizationId: dependencies.session.organizationId,
+      },
+      () => trustedUserIdentityService.resolve(userId),
+    );
+  const runtimeSubscription = createRuntimeSubscription(dependencies);
+  const historyProtection = createPrincipalHistoryProtectionCustody({
+    keyProvider: dependencies.principalHistoryKeyProvider,
+    readScope: () => {
+      const signingFingerprint = dependencies.identity.signingFingerprint;
+      const identityTrustDomain = dependencies.identityTrustDomain;
+      if (
+        !signingFingerprint ||
+        !identityTrustDomain ||
+        dependencies.database.status !== "ready"
+      )
+        return null;
+      return {
+        signingFingerprint,
+        identityTrustDomain,
+        database: dependencies.getDomainScope(),
+        generation: runtimeSubscription.recoveryGeneration,
+      };
+    },
+  });
+  const runtimeInput = createRuntimeInputFactory(
+    dependencies,
+    resolveTrustedUserIdentity,
+    historyProtection.bind,
+    createRuntimeMutationApi(
+      dependencies,
+      () => runtimeSubscription.mutationGeneration,
+    ).bind,
+  );
+
+  return {
+    identityLinks: trustedUserIdentityService,
+    retirePrincipalHistoryProtection: historyProtection.retire,
+    get sessionGeneration() {
+      return runtimeSubscription.sessionGeneration;
+    },
+    adoptRootContainer: (input) =>
+      adoptSessionRootContainer(dependencies, input),
+    boundUserId: (signingKeyFingerprint) =>
+      trustedUserIdentityService.boundUserId(signingKeyFingerprint),
+    async pinLocalUserIdentity(userId, candidate) {
+      await runWithSecurityIncidentReporting(
+        dependencies.reportSecurityIncident,
+        {
+          objectId: userId,
+          objectKind: "user",
+          operation: "user.identity.pin_local",
+          organizationId: dependencies.session.organizationId,
+        },
+        () => trustedUserIdentityService.pinLocal(userId, candidate),
+      );
+    },
+    primeProvisionedPrincipalHistory: createRuntimeProvisioningPrimer(
+      dependencies,
+      historyProtection.bind,
+      readyExecSql,
+    ),
+    publicRuntime: {
+      get version() {
+        return runtimeSubscription.version;
+      },
+      input: runtimeInput.hostInput,
+      subscribe: runtimeSubscription.subscribe,
+    },
+    workflowInput: runtimeInput.workflowInput,
+  };
+}
+
+function createRuntimeSubscription(dependencies: WorkflowRuntimeDependencies) {
+  const listeners = createListenerSet();
+  let version = 0;
+  let sessionGeneration = 0;
+  let recoveryGeneration = 0;
+  let mutationGeneration = 0;
+  let sessionSnapshot = dependencies.session.snapshot;
+  const notifyListeners = () => {
+    version += 1;
+    listeners.notify();
+  };
+
+  const notifyAuthority = () => {
+    recoveryGeneration += 1;
+    mutationGeneration += 1;
+    notifyListeners();
+  };
+  dependencies.database.subscribe(notifyAuthority);
+  dependencies.events.subscribe(notifyListeners);
+  dependencies.identity.subscribe(notifyAuthority);
+  dependencies.network.subscribe(() => notifyListeners());
+  dependencies.session.subscribe(() => {
+    const next = dependencies.session.snapshot;
+    if (sessionAuthorityChanged(sessionSnapshot, next)) {
+      sessionGeneration += 1;
+      recoveryGeneration += 1;
+    }
+    if (sessionScopeChanged(sessionSnapshot, next)) mutationGeneration += 1;
+    sessionSnapshot = next;
+    notifyListeners();
+  });
+  dependencies.syncBillingGate?.subscribe(notifyListeners);
+
+  return {
+    get mutationGeneration() {
+      return mutationGeneration;
+    },
+    get recoveryGeneration() {
+      return recoveryGeneration;
+    },
+    get sessionGeneration() {
+      return sessionGeneration;
+    },
+    get version() {
+      return version;
+    },
+    subscribe(listener: RuntimeListener): () => void {
+      return listeners.subscribe(listener);
+    },
+  };
+}
+
+interface RuntimeInputFactory {
+  hostInput(containerId?: string | null | undefined): WorkflowRuntimeInput;
+  workflowInput(
+    containerId?: string | null | undefined,
+  ): InternalWorkflowRuntimeInput;
+}
+
+function sessionAuthInput({
+  session,
+  identity,
+}: WorkflowRuntimeDependencies): WorkflowRuntimeAuthInput {
+  const signingFingerprint = identity.snapshot.signingFingerprint;
+  return {
+    defaultOrganizationId: session.defaultOrganizationId,
+    rootContainerId: acknowledgedSessionRoot(session, signingFingerprint),
+    isAuthenticated: session.isAuthenticated,
+    isRoot: session.isRoot,
+    organizationId: session.organizationId,
+    userId: session.userId,
+  };
+}
+
+/** Fields whose change invalidates work keyed on the session's authority. */
+function sessionAuthorityChanged(
+  previous: SessionSnapshot,
+  next: SessionSnapshot,
+): boolean {
+  return (
+    next.authToken !== previous.authToken || sessionScopeChanged(previous, next)
+  );
+}
+
+// A transport token renewal cannot turn a definite write refusal into saved work.
+// Journal custody still expires on every change to its identity or storage scope.
+function sessionScopeChanged(
+  previous: SessionSnapshot,
+  next: SessionSnapshot,
+): boolean {
+  return (
+    next.isAuthenticated !== previous.isAuthenticated ||
+    next.isRoot !== previous.isRoot ||
+    next.organizationId !== previous.organizationId ||
+    next.userId !== previous.userId
+  );
+}
+
+function createRuntimeInputFactory(
+  dependencies: WorkflowRuntimeDependencies,
+  resolveTrustedUserIdentity: TrustedUserIdentityResolver,
+  bindHistoryProtection: () => PrincipalHistoryProtectionLease | undefined,
+  bindMutationApi: () => PrincipalMutationApi,
+): RuntimeInputFactory {
+  let auth: WorkflowRuntimeAuthInput | undefined;
+  let crypto: WorkflowRuntimeCryptoInput | undefined;
+  let infra: WorkflowRuntimeInfraInput | undefined;
+  let state: WorkflowRuntimeStateInput | undefined;
+  let util: WorkflowRuntimeUtilInput | undefined;
+  let hostUtil: HostWorkflowRuntimeUtilInput | undefined;
+
+  const workflowInput = (
+    containerId?: string | null | undefined,
+  ): InternalWorkflowRuntimeInput => {
+    const dbStatus = dependencies.database.status;
+    const execSql =
+      dbStatus === "ready"
+        ? dependencies.database.requireExecSql("tearleads.runtime.input")
+        : unavailableExecSql;
+    const nextContainerId =
+      (containerId === undefined
+        ? dependencies.session.containerId
+        : containerId) ?? null;
+
+    auth = reuseIfShallowEqual(auth, sessionAuthInput(dependencies));
+    crypto = reuseIfShallowEqual(crypto, {
+      encapsulationKeyPair: dependencies.identity.encapsulationKeyPair,
+      signingFingerprint: dependencies.identity.signingFingerprint,
+      signingKeyPair: dependencies.identity.signingKeyPair,
+    });
+    infra = reuseIfShallowEqual(infra, {
+      blobStore: dependencies.blobs.store,
+      dbStatus,
+      documentProjectors: dependencies.documentProjectors,
+      // Runtime consumers branch on dbStatus before touching SQLite. The
+      // fallback preserves the runtime shape and catches lifecycle bugs.
+      execSql,
+    });
+    state = reuseIfShallowEqual(state, {
+      containerId: nextContainerId,
+      domainScope: dependencies.getDomainScope(),
+      events: dependencies.events.events,
+      // Resolved sync-online: workflows treat local-only mode exactly like being
+      // offline (no server I/O), while `tearleads.network` stays the truthful
+      // connectivity signal for host/UI. See Session.syncEnabled.
+      online: dependencies.network.online && dependencies.session.syncEnabled,
+      peerScope: dependencies.peerScope ?? null,
+      serverEventsConnectionGeneration:
+        dependencies.events.connectionGeneration,
+    });
+    if (
+      !util ||
+      util.log !== dependencies.log ||
+      util.logError !== dependencies.logError ||
+      util.reportSecurityIncident !== dependencies.reportSecurityIncident
+    ) {
+      util = {
+        isRemoteSyncBlocked: (organizationId) =>
+          dependencies.syncBillingGate?.isBlockedForOrganization(
+            organizationId,
+          ) ?? false,
+        log: dependencies.log,
+        logError: dependencies.logError,
+        reportSecurityIncident: dependencies.reportSecurityIncident,
+      };
+    }
+
+    return {
+      apiClient: bindMutationApi(),
+      auth,
+      crypto,
+      infra,
+      state,
+      util,
+      resolveTrustedUserIdentity,
+      withPrincipalHistoryProtection: bindHistoryProtection(),
+    };
+  };
+
+  return {
+    hostInput(containerId) {
+      const {
+        apiClient: _apiClient,
+        resolveTrustedUserIdentity: _resolveTrustedUserIdentity,
+        withPrincipalHistoryProtection: _withPrincipalHistoryProtection,
+        util: workflowUtil,
+        ...input
+      } = workflowInput(containerId);
+      hostUtil = reuseIfShallowEqual(hostUtil, {
+        isRemoteSyncBlocked: workflowUtil.isRemoteSyncBlocked,
+        log: workflowUtil.log,
+        logError: workflowUtil.logError,
+      });
+      return { ...input, util: hostUtil };
+    },
+    workflowInput,
+  };
+}
+
+/**
+ * Reuses the current runtime-input group when every field of the freshly
+ * constructed `next` literal is reference-equal, so unchanged groups keep a
+ * stable identity across runtime reads.
+ */
+function reuseIfShallowEqual<T extends object>(
+  current: T | undefined,
+  next: T,
+): T {
+  if (!current) {
+    return next;
+  }
+  for (const key of Object.keys(next)) {
+    if (Reflect.get(current, key) !== Reflect.get(next, key)) {
+      return next;
+    }
+  }
+  return current;
+}

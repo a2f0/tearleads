@@ -7,8 +7,8 @@ import {
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
-import { Database } from "../database";
 import { createIdentity } from "../identity";
+import { Database } from "../runtime/database";
 import { createSession } from "./index";
 
 const USER_ID = "11111111-1111-4111-8111-111111111111";
