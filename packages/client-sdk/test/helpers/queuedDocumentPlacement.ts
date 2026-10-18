@@ -7,7 +7,7 @@ import {
   type DocumentStructuralMutationRelinkInput,
   type DocumentStructuralMutationRuntime,
   removeDocumentLink,
-} from "../../src/workflows/container-contents/documentStructure";
+} from "../../src/workflows/container-contents/documentQueries/documentStructure";
 import { defaultDocumentsPersistence } from "../../src/workflows/documents";
 
 export async function persistQueuedDocumentPlacement(input: {

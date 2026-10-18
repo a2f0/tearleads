@@ -5,7 +5,7 @@ import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePoli
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
-} from "../metadataStateIsolation";
+} from "../metadata/metadataStateIsolation";
 import type { ContainerState, RemoteContainer } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { moveRemoteContainer } from "./remote";

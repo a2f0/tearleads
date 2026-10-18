@@ -116,6 +116,20 @@ ls:
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
 
+  # Large SDK folders keep features in subfolders; these budgets pin each
+  # folder's root so new modules land in a feature folder or bump the budget
+  # on purpose (docs/developer/client-sdk-seams.md).
+  packages/client-sdk/src/workflows/container-contents:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-12
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-5
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0
+
+  packages/client-sdk/src/workflows/container-contents/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
   # The client root holds only its facade barrel; facades, runtime state, and
   # host contracts each live in a folder.
   packages/client-sdk/src/client:

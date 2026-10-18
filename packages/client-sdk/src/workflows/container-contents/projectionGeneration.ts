@@ -1,4 +1,4 @@
-import type { ContainerMetadataState } from "./metadataTypes";
+import type { ContainerMetadataState } from "./metadata/metadataTypes";
 
 /**
  * The shared writer-projection generation of a container state (container and

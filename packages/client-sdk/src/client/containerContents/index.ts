@@ -9,27 +9,10 @@ import {
 import { openDocumentStore } from "../../stores/documents";
 import { relinkDocumentStoreWithCommitSideEffect } from "../../stores/documents/documentStore/internalRelink";
 import {
-  type BlobInfoInput,
-  type BlobInfoList,
-  listBlobInfo,
-} from "../../workflows/container-contents/blobInfo";
-import {
-  type ContainerInfo,
-  loadContainerInfo,
-} from "../../workflows/container-contents/containerInfo";
-import {
   type DocumentAttributionRangesInput,
   type DocumentAttributionRangesPage,
   loadDocumentAttributionRanges,
-} from "../../workflows/container-contents/documentAttributionRanges";
-import {
-  type DocumentInfo,
-  loadDocumentInfo,
-} from "../../workflows/container-contents/documentInfo";
-import {
-  purgeLocalContainerDocument,
-  purgeRemoteContainerDocument,
-} from "../../workflows/container-contents/documentPurge";
+} from "../../workflows/container-contents/attribution/documentAttributionRanges";
 import {
   type ContainerDocumentQueries,
   createContainerDocumentQueriesFromRuntime,
@@ -42,7 +25,20 @@ import {
   type DocumentStructuralMutationHost,
   moveDocumentLink,
   removeDocumentLink,
-} from "../../workflows/container-contents/documentStructure";
+} from "../../workflows/container-contents/documentQueries/documentStructure";
+import {
+  type BlobInfoInput,
+  type BlobInfoList,
+  listBlobInfo,
+} from "../../workflows/container-contents/info/blobInfo";
+import {
+  type ContainerInfo,
+  loadContainerInfo,
+} from "../../workflows/container-contents/info/containerInfo";
+import {
+  type DocumentInfo,
+  loadDocumentInfo,
+} from "../../workflows/container-contents/info/documentInfo";
 import { createContainerContentsDocumentProjectionUserKeyResolver } from "../../workflows/container-contents/projectionKeys";
 import {
   type ContainerContentsStoreWorkflowRuntime,
@@ -50,6 +46,10 @@ import {
   createContainerContentsStoreWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
 import { createContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
+import {
+  purgeLocalContainerDocument,
+  purgeRemoteContainerDocument,
+} from "../../workflows/container-contents/tombstones/documentPurge";
 import type { DocumentsWorkflowRuntime } from "../../workflows/documents";
 import {
   createOrganizationReadModelCoordinator,
@@ -77,24 +77,9 @@ export type {
   ContainerNode,
 } from "../../stores/container-contents";
 export type {
-  BlobInfo,
-  BlobInfoAttachmentKind,
-  BlobInfoDocumentReference,
-  BlobInfoInput,
-  BlobInfoList,
-  BlobInfoSort,
-  BlobInfoSortDirection,
-  BlobInfoSortKey,
-} from "../../workflows/container-contents/blobInfo";
-export type {
-  ContainerInfo,
-  ContainerShareAccessLevel,
-} from "../../workflows/container-contents/containerInfo";
-export type {
   DocumentAttributionRangesInput,
   DocumentAttributionRangesPage,
-} from "../../workflows/container-contents/documentAttributionRanges";
-export type { DocumentInfo } from "../../workflows/container-contents/documentInfo";
+} from "../../workflows/container-contents/attribution/documentAttributionRanges";
 export type {
   ContainerDocumentQueries,
   ContainerDocumentSidebarRow,
@@ -103,7 +88,22 @@ export type {
   ContainerItemSortDirection,
   ContainerItemSortKey,
 } from "../../workflows/container-contents/documentQueries";
-export type { SetLinkedContainerIdsForDocument } from "../../workflows/container-contents/documentStructure";
+export type { SetLinkedContainerIdsForDocument } from "../../workflows/container-contents/documentQueries/documentStructure";
+export type {
+  BlobInfo,
+  BlobInfoAttachmentKind,
+  BlobInfoDocumentReference,
+  BlobInfoInput,
+  BlobInfoList,
+  BlobInfoSort,
+  BlobInfoSortDirection,
+  BlobInfoSortKey,
+} from "../../workflows/container-contents/info/blobInfo";
+export type {
+  ContainerInfo,
+  ContainerShareAccessLevel,
+} from "../../workflows/container-contents/info/containerInfo";
+export type { DocumentInfo } from "../../workflows/container-contents/info/documentInfo";
 export type {
   PendingWriteQueueItem,
   PendingWriteQueueItemStatus,

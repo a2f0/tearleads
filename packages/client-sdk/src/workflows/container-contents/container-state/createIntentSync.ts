@@ -5,7 +5,7 @@ import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
-} from "../metadataStateIsolation";
+} from "../metadata/metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
 import { syncListedContainerCreate } from "./createAdoption";

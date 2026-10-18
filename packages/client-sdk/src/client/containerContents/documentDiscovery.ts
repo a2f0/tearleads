@@ -8,27 +8,27 @@ import {
   refuteContainerDocumentTombstoneHolds,
 } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/containerDocumentListing";
-import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscoveryEvidence";
+import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
+import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryEvidence";
 import {
   type ContainerDocumentDiscoveryLane,
   type ContainerDocumentDiscoveryOutcome,
   type ContainerDocumentDiscoveryOutcomeHandler,
   discoverContainerDocumentLanes,
-} from "../../workflows/container-contents/documentDiscoveryLanes";
+} from "../../workflows/container-contents/documentDiscovery/documentDiscoveryLanes";
 import { createContainerDocumentQueriesFromRuntime } from "../../workflows/container-contents/documentQueries";
-import {
-  createContainerDocumentTombstoneVerifier,
-  createDocumentHeadLinkSetLoader,
-} from "../../workflows/container-contents/documentTombstoneEvidence";
 import {
   type ContainerContentsWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
+import {
+  createContainerDocumentTombstoneVerifier,
+  createDocumentHeadLinkSetLoader,
+} from "../../workflows/container-contents/tombstones/documentTombstoneEvidence";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 
-export type { ContainerDocumentDiscoveryOutcome } from "../../workflows/container-contents/documentDiscoveryLanes";
+export type { ContainerDocumentDiscoveryOutcome } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryLanes";
 
 /** One container to discover, with the reconciler's per-lane callbacks. */
 export interface ContainerDocumentDiscoveryRequest {

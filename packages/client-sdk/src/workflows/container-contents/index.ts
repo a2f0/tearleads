@@ -10,26 +10,10 @@ export {
   isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
 export {
-  type BlobInfo,
-  type BlobInfoAttachmentKind,
-  type BlobInfoDocumentReference,
-  type BlobInfoInput,
-  type BlobInfoList,
-  type BlobInfoSort,
-  type BlobInfoSortDirection,
-  type BlobInfoSortKey,
-  listBlobInfo,
-} from "./blobInfo";
-export {
-  type ContainerInfo,
-  type ContainerInfoGrant,
-  type ContainerInfoGrantRow,
-  type ContainerInfoPathEntry,
-  type ContainerInfoRemoteMode,
-  type ContainerInfoSecurityDetails,
-  type ContainerShareAccessLevel,
-  loadContainerInfo,
-} from "./containerInfo";
+  type DocumentAttributionRangesInput,
+  type DocumentAttributionRangesPage,
+  loadDocumentAttributionRanges,
+} from "./attribution/documentAttributionRanges";
 export {
   type ContainerSyncWatermarkLane,
   createContainerContentsSyncLane,
@@ -39,35 +23,16 @@ export {
   saveContainerSyncWatermark,
 } from "./containerPersistence";
 export {
-  type DocumentAttributionRangesInput,
-  type DocumentAttributionRangesPage,
-  loadDocumentAttributionRanges,
-} from "./documentAttributionRanges";
-export {
   discoverContainerDocumentsFromApi,
   hasUndiscoveredDocumentUpdateEvent,
   type RefreshAllContainerDocumentsFromApiOptions,
   refreshAllContainerDocumentsFromApi,
 } from "./documentDiscovery";
 export {
-  type DocumentInfo,
-  type DocumentInfoAttachment,
-  type DocumentInfoAuthorizingContainerPath,
-  type DocumentInfoLocalDetails,
-  type DocumentInfoRemoteAttachmentBinding,
-  type DocumentInfoRemoteDetails,
-  type DocumentInfoRemoteMode,
-  loadDocumentInfo,
-} from "./documentInfo";
-export {
   initializeDocumentLinksSchema,
   listDocumentLinkedContainerIds,
   replaceDocumentLinks,
 } from "./documentLinks";
-export {
-  purgeLocalContainerDocument,
-  purgeRemoteContainerDocument,
-} from "./documentPurge";
 export {
   type ContainerDocumentLinkInput,
   type ContainerDocumentQueries,
@@ -90,8 +55,39 @@ export {
   moveLocalDocumentLink,
   removeDocumentLink,
   type SetLinkedContainerIdsForDocument,
-} from "./documentStructure";
-export type { RecoveryFolder } from "./folderRecovery";
+} from "./documentQueries/documentStructure";
+export type { PendingDownloadQueueItem } from "./documentQueries/pendingDownloads";
+export {
+  type BlobInfo,
+  type BlobInfoAttachmentKind,
+  type BlobInfoDocumentReference,
+  type BlobInfoInput,
+  type BlobInfoList,
+  type BlobInfoSort,
+  type BlobInfoSortDirection,
+  type BlobInfoSortKey,
+  listBlobInfo,
+} from "./info/blobInfo";
+export {
+  type ContainerInfo,
+  type ContainerInfoGrant,
+  type ContainerInfoGrantRow,
+  type ContainerInfoPathEntry,
+  type ContainerInfoRemoteMode,
+  type ContainerInfoSecurityDetails,
+  type ContainerShareAccessLevel,
+  loadContainerInfo,
+} from "./info/containerInfo";
+export {
+  type DocumentInfo,
+  type DocumentInfoAttachment,
+  type DocumentInfoAuthorizingContainerPath,
+  type DocumentInfoLocalDetails,
+  type DocumentInfoRemoteAttachmentBinding,
+  type DocumentInfoRemoteDetails,
+  type DocumentInfoRemoteMode,
+  loadDocumentInfo,
+} from "./info/documentInfo";
 export {
   type ContainerMetadataPatch,
   hasContainerMetadataDocumentUpdateEvent,
@@ -99,7 +95,6 @@ export {
   renameContainerMetadataStateFromRuntime,
   syncContainerMetadataState,
 } from "./metadata";
-export type { PendingDownloadQueueItem } from "./pendingDownloads";
 export {
   listPendingWrites,
   type PendingWriteQueueItem,
@@ -115,6 +110,7 @@ export {
   createContainerContentsProjectionUserKeyResolver,
   didContainerContentsProjectionKeyRuntimeChange,
 } from "./projectionKeys";
+export type { RecoveryFolder } from "./recovery/folderRecovery";
 export {
   type ContainerContentsRootAdopter,
   type ContainerContentsRootAdoptionInput,
@@ -144,3 +140,7 @@ export {
   type ContainerSystemSlotDefinition,
   deriveContainerSystemSlot,
 } from "./systemSlot";
+export {
+  purgeLocalContainerDocument,
+  purgeRemoteContainerDocument,
+} from "./tombstones/documentPurge";

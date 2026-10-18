@@ -1,4 +1,4 @@
-import type { StaleRootRecoveryStatus } from "../../workflows/container-contents/staleRootRecovery";
+import type { StaleRootRecoveryStatus } from "../../workflows/container-contents/recovery/staleRootRecovery";
 
 interface ContainerDocumentWorkInput {
   readonly isCurrent: () => boolean;

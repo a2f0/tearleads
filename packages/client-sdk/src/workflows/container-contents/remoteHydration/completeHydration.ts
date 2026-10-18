@@ -1,4 +1,4 @@
-import { describeRemoteContainerHydration } from "../remoteHydrationLog";
+import { describeRemoteContainerHydration } from "./remoteHydrationLog";
 import type {
   RemoteContainerHydrationHost,
   RemoteContainerHydrationState,

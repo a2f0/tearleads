@@ -10,7 +10,7 @@ import {
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
-} from "../metadataStateIsolation";
+} from "../metadata/metadataStateIsolation";
 import type { ContainerState } from "../remoteHydration";
 import { installContainerWriterProjection } from "./projectionCache";
 import type {

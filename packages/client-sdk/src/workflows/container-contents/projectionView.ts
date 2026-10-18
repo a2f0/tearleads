@@ -1,8 +1,8 @@
+import { listContainerContentsDocumentsForContainers } from "./documentQueries/documentSubtreeQueries";
 import type {
   ContainerContentsSharedDocumentSummaries,
   ContainerDocumentQueriesRuntime,
 } from "./documentQueries/types";
-import { listContainerContentsDocumentsForContainers } from "./documentSubtreeQueries";
 
 /**
  * Device-first projection reads for the local-projection store (Layer A).

@@ -6,7 +6,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
-import { createDetachedContainerMetadataState } from "../../workflows/container-contents/metadataStateIsolation";
+import { createDetachedContainerMetadataState } from "../../workflows/container-contents/metadata/metadataStateIsolation";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { persistContainerState } from "./containerStatePersistence";
 import { createContainerContentsTestRuntime } from "./runtime.testFixtures";

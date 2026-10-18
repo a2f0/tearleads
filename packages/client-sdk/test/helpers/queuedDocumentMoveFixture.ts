@@ -17,8 +17,8 @@ import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/con
 import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/containers/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMoveIntentSync";
-import type { DocumentStructuralMutationRelinkInput } from "../../src/workflows/container-contents/documentStructure";
+import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMove/documentMoveIntentSync";
+import type { DocumentStructuralMutationRelinkInput } from "../../src/workflows/container-contents/documentQueries/documentStructure";
 import type { ContainerContentsWorkflowRuntime } from "../../src/workflows/container-contents/runtime";
 import {
   defaultDocumentsPersistence,

@@ -20,7 +20,7 @@ import {
   createContainerContentsPersistence,
   createContainerRecord,
   type SaveContainerCall,
-} from "./metadata.testFixtures";
+} from "./metadata/metadata.testFixtures";
 import { syncedContainerDocumentObjectSyncState } from "./syncState";
 
 const execSql: ExecSql = async () => [];

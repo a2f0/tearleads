@@ -11,9 +11,9 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "../../sync/remoteReset";
 import { defaultContainerContentsPersistence as persistence } from "../containerPersistence";
-import { renameContainerMetadataStateFromRuntime } from "../metadataPersistence";
-import { upsertRemoteContainerState } from "../remoteContainerState";
+import { renameContainerMetadataStateFromRuntime } from "../metadata/metadataPersistence";
 import { cachedDestinationRole } from "./destinationRoleCache";
+import { upsertRemoteContainerState } from "./remoteContainerState";
 import type { ContainerState, RemoteContainerHydrationState } from "./types";
 
 /** Pins for the held folder and for the foreign organization's claim to it. */

@@ -73,6 +73,20 @@ lint:files` rejects any other file there.
 - `billing/` and `localKeyring/` hold the purchase and local keyring
   adapters.
 
+Inside a large folder, each feature gets a subfolder:
+
+- A facade file beside a folder of the same name becomes that folder's
+  `index.ts`, so import paths keep working.
+- About four or more production files built around one behavior become a
+  subfolder named for it, and a file named like that subfolder becomes its
+  `index.ts`. Tests and fixtures move with their subjects.
+- Other file names stay as they are, so searches keep finding them and no
+  folder grows a set of ambiguous `types.ts` files.
+- The folder root keeps its facade, its runtime, and the helpers several
+  features share. An ls-lint budget pins the root's file count, so a new
+  module goes into a feature folder or raises the budget on purpose. Aim for
+  about 40 files directly in any folder.
+
 ## Ports and adapters
 
 Name the port for the capability and the field for the role:

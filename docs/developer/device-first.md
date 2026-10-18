@@ -29,7 +29,7 @@ already-visible list is patched with fresh data rather than blanked and
 re-fetched.
 
 Local reads are network-free. See the [hardening audit](../device-first-audit.md).
-`workflows/container-contents/documentQueries.ts`
+`workflows/container-contents/documentQueries/`
 (`listContainerItemWindow`, `loadDocumentSummary`,
 `listContainerDocumentSidebarWindow`) reads purely from SQLite, and the
 projection it reads is authoritative for first paint.

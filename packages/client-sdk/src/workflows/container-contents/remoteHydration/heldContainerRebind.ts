@@ -2,7 +2,7 @@ import {
   type HeldContainerBinding,
   rebindsHeldContainer,
 } from "../../../data/containers/containerBinding";
-import { installContainerMetadataRecord } from "../metadataStateInstallation";
+import { installContainerMetadataRecord } from "../metadata/metadataStateInstallation";
 import type {
   ContainerState,
   RemoteContainer,

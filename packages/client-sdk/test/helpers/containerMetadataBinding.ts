@@ -6,8 +6,8 @@ import {
 import { createContainerWriterProjectionFixture } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence } from "../../src/data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { persistContainerMetadataStateFromRuntime } from "../../src/workflows/container-contents/metadataPersistence";
-import { upsertRemoteContainerState } from "../../src/workflows/container-contents/remoteContainerState";
+import { persistContainerMetadataStateFromRuntime } from "../../src/workflows/container-contents/metadata/metadataPersistence";
+import { upsertRemoteContainerState } from "../../src/workflows/container-contents/remoteHydration/remoteContainerState";
 import type {
   RemoteContainer,
   RemoteContainerHydrationState,

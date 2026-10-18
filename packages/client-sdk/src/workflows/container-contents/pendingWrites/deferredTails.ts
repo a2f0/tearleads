@@ -4,8 +4,8 @@ import {
   getContainerDisplayNameSql,
   getContainerOrganizationAttributionSql,
 } from "../documentQueries/sql";
-import type { PendingWriteQueueObjectKind } from "../pendingWritesTypes";
 import type { PendingWriteCandidate } from "./aggregation";
+import type { PendingWriteQueueObjectKind } from "./pendingWritesTypes";
 import { readString } from "./rowReaders";
 
 // Deliberately never loads document content: the diagnostic listing runs

@@ -6,7 +6,7 @@ import {
 import { createMetadataBindingFixture } from "../../../../test/helpers/containerMetadataBinding";
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { defaultContainerContentsPersistence as persistence } from "../containerPersistence";
-import { renameContainerMetadataStateFromRuntime } from "../metadataPersistence";
+import { renameContainerMetadataStateFromRuntime } from "../metadata/metadataPersistence";
 import { rememberDestinationRole } from "./destinationRoleCache";
 
 test("a restarted member store preserves queued metadata through a proven shared rehome", async () => {

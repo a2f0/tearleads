@@ -16,7 +16,7 @@ import {
 import {
   saveTestDocument,
   saveTestSyncedContainer,
-} from "../../workflows/container-contents/documentQueries.testFixtures";
+} from "../../workflows/container-contents/documentQueries/documentQueries.testFixtures";
 import {
   hasStartupContainerSyncWork,
   scheduleStaleStartupRemoteHydration,

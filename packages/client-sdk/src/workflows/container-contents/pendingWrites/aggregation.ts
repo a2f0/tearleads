@@ -5,7 +5,7 @@ import type {
   PendingWriteQueueOperation,
   PendingWriteQueueOperationKind,
   PendingWriteQueueOperationStatus,
-} from "../pendingWritesTypes";
+} from "./pendingWritesTypes";
 
 export type PendingWriteCandidateInclusion =
   | "always"

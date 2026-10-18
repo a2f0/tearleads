@@ -1,0 +1,58 @@
+import type { DocumentSummary } from "../../../data/documents/documentSummary";
+import type {
+  DocumentStructuralMutationHost,
+  DocumentStructuralMutationLocalStore,
+  DocumentStructuralMutationRelinkInput,
+  DocumentStructuralMutationRuntime,
+} from "../documentQueries/documentStructureTypes";
+import type { RemoteDocumentPersistedState } from "./index";
+
+export async function relinkContainerDocumentLocally<TRuntime>(params: {
+  accessEpoch: number;
+  commitSideEffect?: DocumentStructuralMutationRelinkInput["commitSideEffect"];
+  accessStateHash?: string | null | undefined;
+  currentDocumentStore: DocumentStructuralMutationLocalStore<TRuntime>;
+  host: DocumentStructuralMutationHost<TRuntime>;
+  note: DocumentSummary;
+  remoteState?: RemoteDocumentPersistedState | undefined;
+  requestSync: boolean;
+  runtime: DocumentStructuralMutationRuntime;
+  targetContainerId: string;
+}) {
+  const {
+    accessEpoch,
+    accessStateHash,
+    currentDocumentStore,
+    host,
+    note,
+    remoteState,
+    requestSync,
+    runtime,
+    targetContainerId,
+  } = params;
+
+  const relinkedNote = await currentDocumentStore.relink({
+    accessEpoch,
+    ...(accessStateHash === undefined ? {} : { accessStateHash }),
+    containerId: targetContainerId,
+    commitSideEffect: params.commitSideEffect,
+    ...remoteState,
+    documentId: note.documentId,
+    localId: note.id,
+  });
+  if (!relinkedNote) {
+    runtime.util.log(
+      `Container contents: note ${note.id} could not be relinked after a structural mutation`,
+    );
+    return null;
+  }
+
+  host.mergeDocumentSummary(relinkedNote);
+  currentDocumentStore.updateRuntime(
+    host.documentWorkflowRuntime(targetContainerId),
+  );
+  if (requestSync) {
+    currentDocumentStore.requestSync();
+  }
+  return relinkedNote;
+}

@@ -10,7 +10,7 @@ import {
 } from "../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { renameContainerMetadataStateFromRuntime } from "../metadataPersistence";
+import { renameContainerMetadataStateFromRuntime } from "../metadata/metadataPersistence";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 
 test("ordinary child hydration derives its metadata target from the signed folder", async () => {
