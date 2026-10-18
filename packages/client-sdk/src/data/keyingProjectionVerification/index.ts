@@ -10,7 +10,6 @@ export {
 
 export type {
   PrincipalPolicyCache,
-  ProjectionUserKey,
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "./types";
