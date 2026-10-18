@@ -1,8 +1,8 @@
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
-import { buildOrganizationGroupPolicyHistoryPage } from "../../workflows/organizations/groupPolicyHistoryPage";
-import { loadPolicyHistoryDetails } from "../../workflows/organizations/loadPolicyHistoryDetails";
+import { buildOrganizationGroupPolicyHistoryPage } from "../../workflows/organizations/policyHistory/groupPolicyHistoryPage";
+import { loadPolicyHistoryDetails } from "../../workflows/organizations/policyHistory/loadPolicyHistoryDetails";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
 import { createRuntimeProjectionPolicyResolver } from "../../workflows/principals/runtimeProjectionPolicyRecovery";
 import type { ActiveOrganizationDataRuntime } from "./organizationWorkflowRuntime";

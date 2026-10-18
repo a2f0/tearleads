@@ -16,7 +16,7 @@ import {
   reportKeyingVerificationErrorInCauseChain,
   runWithSecurityIncidentReporting,
 } from "../../../data/keyingProjectionVerification/error";
-import { verifyRuntimeGroupMetadataAuthority } from "../../organizations/runtimeGroupMetadataAuthority";
+import { verifyRuntimeGroupMetadataAuthority } from "../../organizations/groupMetadata/runtimeGroupMetadataAuthority";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { PrefetchedDestinationProjection } from "./destinationPrefetch";
 import {

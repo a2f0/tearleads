@@ -3,8 +3,8 @@ import { resolveOrganizationBillingView } from "../../workflows/organizations/bi
 import {
   loadOrganizationReplacementFinalizationRequest,
   removeOrganizationProvisioningAttempt,
-} from "../../workflows/organizations/organizationProvisioningAttempt";
-import { verifyOrganizationReplacementResponse } from "../../workflows/organizations/organizationReplacementVerification";
+} from "../../workflows/organizations/provisioning/organizationProvisioningAttempt";
+import { verifyOrganizationReplacementResponse } from "../../workflows/organizations/provisioning/organizationReplacementVerification";
 import { clearRemoteSyncState } from "../../workflows/sync";
 import type { Identity } from "../identity";
 import type { Database } from "../runtime/database";

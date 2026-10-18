@@ -4,7 +4,7 @@ import {
 } from "../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicyCache";
 import { inheritPrincipalHistoryProtection } from "../../../data/principals/principalHistoryRuntime";
-import { createRuntimeCurrentGroupMutation } from "../../organizations/runtimeCurrentGroupMutation";
+import { createRuntimeCurrentGroupMutation } from "../../organizations/principalMutations/runtimeCurrentGroupMutation";
 import {
   apiPrincipalPolicyPageReader,
   apiProjectionPolicyHistoryReader,

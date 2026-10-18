@@ -3,7 +3,7 @@ import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
-} from "../../src/workflows/organizations/organizationGroupDirectory";
+} from "../../src/workflows/organizations/groups/organizationGroupDirectory";
 import type { createCurrentShareMetadataFixture } from "./currentShareMetadata";
 import {
   policyBundleAfterMutation,

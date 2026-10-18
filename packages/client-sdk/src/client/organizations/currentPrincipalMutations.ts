@@ -1,18 +1,18 @@
 import type { SigningKeyPair } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import { commitCurrentGroupPolicyMutation } from "../../workflows/organizations/commitCurrentGroupPolicyMutation";
-import { assertGroupMembershipName } from "../../workflows/organizations/groupMembershipName";
-import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadataRuntime";
+import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadata/groupMetadataRuntime";
+import { assertGroupMembershipName } from "../../workflows/organizations/groupNames/groupMembershipName";
+import { commitCurrentGroupPolicyMutation } from "../../workflows/organizations/groupPolicy/commitCurrentGroupPolicyMutation";
 import {
   buildAddGroupUserPolicyRequest,
   buildGroupAccessSetShrinkPolicyRequest,
   buildRemoveGroupUserPolicyRequest,
-} from "../../workflows/organizations/groupPolicyRequests";
+} from "../../workflows/organizations/groupPolicy/groupPolicyRequests";
 import {
   createRuntimeCurrentGroupMutation,
   type RuntimeCurrentGroupMutationContext,
-} from "../../workflows/organizations/runtimeCurrentGroupMutation";
+} from "../../workflows/organizations/principalMutations/runtimeCurrentGroupMutation";
 import {
   projectionUserIds,
   resolveRequiredUserIdentities,

@@ -30,7 +30,7 @@ import {
   waitForDomainSyncCoordinatorToSettle,
 } from "../../data/sync/syncCoordinator";
 import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../../workflows/container-contents/syncLane";
-import { denyOrganizationPresentationAccess } from "../../workflows/organizations/organizationPresentationAccessState";
+import { denyOrganizationPresentationAccess } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,

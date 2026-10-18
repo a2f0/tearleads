@@ -23,7 +23,7 @@ import {
   DocumentRawHistoryUnavailableError,
   isDocumentSyncUpdateIsolationError,
 } from "../../../workflows/documents";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import {
   createRemoteHistoryFixture,
   noopDocumentStorePersistenceEffects,

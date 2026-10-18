@@ -14,7 +14,7 @@ import type {
 } from "../../data/persistence/documents/documentsPersistence";
 import type { PendingUpdateFields } from "../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createInitialDocumentRows } from "./documentCreationPersistence";
+import { createInitialDocumentRows } from "./create/documentCreationPersistence";
 import {
   documentSyncSecurityContextMatches,
   type PrepareDocumentMutationInput,

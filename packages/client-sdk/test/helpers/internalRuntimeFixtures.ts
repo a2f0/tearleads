@@ -6,7 +6,7 @@ import type {
 import type { BlobStore } from "../../src/data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { createDomainScope } from "../../src/data/shared/domainScope";
-import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutationJournalManagement";
+import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutations/principalMutationJournalManagement";
 import { principalMutationApiFixture } from "./principalMutationApiFixture";
 
 interface WorkflowInputFixtureOptions {

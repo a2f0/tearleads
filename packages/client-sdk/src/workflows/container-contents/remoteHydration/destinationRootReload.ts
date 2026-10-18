@@ -1,4 +1,4 @@
-import { withMetadataRootReload } from "../../organizations/groupMetadataErrors";
+import { withMetadataRootReload } from "../../organizations/groupMetadata/groupMetadataErrors";
 
 /**
  * Reads a destination again once when its metadata root was behind the

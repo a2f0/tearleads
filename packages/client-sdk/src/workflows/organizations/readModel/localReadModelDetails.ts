@@ -1,0 +1,372 @@
+import type {
+  OrganizationContainerGrantResponse,
+  PrincipalPolicyBundleResponse,
+  ReferencedPrincipalStateResponse,
+} from "@tearleads/validators/response";
+import { loadContainerDisplayNamesByIds } from "../../../data/persistence/containers/containerPersistence";
+import { loadOrganizationGroupDisplayNames } from "../../../data/persistence/organizations/organizationGroupNamePersistence";
+import { loadOrganizationReadModelProjection } from "../../../data/persistence/organizations/organizationReadModelPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadVerifiedOrganizationGroupRoles } from "../../../data/principals/organizationGroupRoles";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  buildOrganizationGroupPolicyHistory,
+  buildOrganizationPolicyHistory,
+} from "../policyHistory/policyHistoryReadModel";
+import type {
+  OrganizationContainerGrant,
+  OrganizationContainerGrants,
+  OrganizationGroupContainer,
+  OrganizationGroupContainers,
+  OrganizationGroupPolicyHistory,
+  OrganizationPolicyHistory,
+  OrganizationUserDetail,
+} from "./index";
+import { runOrganizationPresentationRead } from "./organizationPresentationAccessState";
+
+interface LocalReadModelInput {
+  readonly currentUserId: string;
+  readonly execSql: ExecSql;
+  readonly organizationId: string;
+}
+
+type PolicyPrincipalType = ReferencedPrincipalStateResponse["principalType"];
+
+const DISPLAY_NAME_BATCH_SIZE = 400;
+
+function uniqueContainerIds(
+  grants: readonly OrganizationContainerGrantResponse[],
+): string[] {
+  return [...new Set(grants.map((grant) => grant.containerId))];
+}
+
+async function enrichGrants(
+  execSql: ExecSql,
+  grants: readonly OrganizationContainerGrantResponse[],
+  organizationId: string,
+): Promise<OrganizationContainerGrant[]> {
+  const containerIds = uniqueContainerIds(grants);
+  const groupNames = await loadOrganizationGroupDisplayNames(
+    execSql,
+    organizationId,
+  );
+  const groupRoles = await loadVerifiedOrganizationGroupRoles(
+    execSql,
+    organizationId,
+  );
+  const displayNames = new Map<string, string>();
+  for (
+    let index = 0;
+    index < containerIds.length;
+    index += DISPLAY_NAME_BATCH_SIZE
+  ) {
+    const batch = await loadContainerDisplayNamesByIds(
+      execSql,
+      containerIds.slice(index, index + DISPLAY_NAME_BATCH_SIZE),
+    );
+    for (const [containerId, displayName] of batch) {
+      displayNames.set(containerId, displayName);
+    }
+  }
+  return grants.map((grant) => ({
+    ...grant,
+    containerDisplayName: displayNames.get(grant.containerId) ?? null,
+    groupName:
+      grant.subjectType === "group"
+        ? (groupRoles.get(grant.subjectId) ??
+          groupNames.get(grant.subjectId) ??
+          null)
+        : null,
+  }));
+}
+
+function toGroupContainer(
+  grant: OrganizationContainerGrant,
+): OrganizationGroupContainer {
+  return {
+    accessLevel: grant.accessLevel,
+    containerId: grant.containerId,
+    containerDisplayName: grant.containerDisplayName,
+    createdAt: grant.createdAt,
+    depth: grant.depth,
+    isBuiltin: grant.isBuiltin,
+    metadataAccessEpoch: grant.metadataAccessEpoch,
+    metadataAccessStateHash: grant.metadataAccessStateHash,
+    metadataDocumentId: grant.metadataDocumentId,
+    parentId: grant.parentId,
+    updatedAt: grant.updatedAt,
+  };
+}
+
+/**
+ * The groups a user belongs to is exactly the set naming them as a member.
+ *
+ * This used to be a breadth-first walk over group-in-group edges. Groups
+ * contain only users now, so the walk had no second level to visit.
+ */
+function reachableGroupIds(input: {
+  readonly edges: ReadonlyArray<{
+    readonly groupId: string;
+    readonly userId: string;
+  }>;
+  readonly userId: string;
+}): Set<string> {
+  return new Set(
+    input.edges
+      .filter((edge) => edge.userId === input.userId)
+      .map((edge) => edge.groupId),
+  );
+}
+
+export async function loadLocalOrganizationContainerGrants(
+  input: LocalReadModelInput,
+): Promise<OrganizationContainerGrants | null> {
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    "readModel",
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
+      return {
+        organizationId: input.organizationId,
+        grants: await enrichGrants(
+          input.execSql,
+          projection.grants.grants,
+          input.organizationId,
+        ),
+      };
+    },
+  );
+}
+
+export async function loadLocalOrganizationGroupContainers(
+  input: LocalReadModelInput & { readonly groupId: string },
+): Promise<OrganizationGroupContainers | null> {
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    "readModel",
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
+      const groupIsInOrganization =
+        input.groupId === projection.groups.memberGroupId ||
+        projection.groups.groups.some(
+          (group) => group.groupId === input.groupId,
+        );
+      if (!groupIsInOrganization) {
+        return null;
+      }
+      const grants = projection.grants.grants.filter(
+        (grant) =>
+          grant.subjectType === "group" && grant.subjectId === input.groupId,
+      );
+      return {
+        organizationId: input.organizationId,
+        groupId: input.groupId,
+        containers: (
+          await enrichGrants(input.execSql, grants, input.organizationId)
+        ).map(toGroupContainer),
+      };
+    },
+  );
+}
+
+export async function loadLocalOrganizationGroupPolicyHistory(
+  input: LocalReadModelInput & { readonly groupId: string },
+): Promise<OrganizationGroupPolicyHistory | null> {
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    "readModel",
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
+
+      const projectedHead = projection.policyHeads.find(
+        (head) =>
+          head.principalType === "group" && head.principalId === input.groupId,
+      );
+      if (!projectedHead) {
+        return null;
+      }
+
+      const bundle = await loadPrincipalPolicyBundle(
+        input.execSql,
+        "group",
+        input.groupId,
+      );
+      return policyBundleMatchesProjectedHead(bundle, projectedHead)
+        ? buildOrganizationGroupPolicyHistory(bundle, input.organizationId)
+        : null;
+    },
+  );
+}
+
+function policyBundleMatchesProjectedHead(
+  bundle: PrincipalPolicyBundleResponse | null,
+  projectedHead: {
+    readonly keyEpoch: number;
+    readonly keyFingerprint: string;
+    readonly memberCount: number;
+    readonly principalId: string;
+    readonly principalType: PolicyPrincipalType;
+    readonly stateHash: string;
+    readonly version: number;
+  },
+): bundle is PrincipalPolicyBundleResponse {
+  const storedHead = bundle?.currentState;
+  return Boolean(
+    storedHead &&
+      storedHead.principalType === projectedHead.principalType &&
+      storedHead.principalId === projectedHead.principalId &&
+      storedHead.stateHash === projectedHead.stateHash &&
+      storedHead.version === projectedHead.version &&
+      storedHead.keyEpoch === projectedHead.keyEpoch &&
+      storedHead.keyFingerprint === projectedHead.keyFingerprint &&
+      storedHead.memberCount === projectedHead.memberCount,
+  );
+}
+
+export async function loadLocalOrganizationPolicyHistory(
+  input: LocalReadModelInput,
+): Promise<OrganizationPolicyHistory | null> {
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    "readModel",
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
+      const projectedHead = projection.policyHeads.find(
+        (head) =>
+          head.principalType === "organization" &&
+          head.principalId === input.organizationId,
+      );
+      if (!projectedHead) {
+        return null;
+      }
+      const bundle = await loadPrincipalPolicyBundle(
+        input.execSql,
+        "organization",
+        input.organizationId,
+      );
+      return policyBundleMatchesProjectedHead(bundle, projectedHead)
+        ? buildOrganizationPolicyHistory(bundle)
+        : null;
+    },
+  );
+}
+
+export async function loadLocalOrganizationPolicyReference(
+  input: LocalReadModelInput & {
+    readonly principalId: string;
+    readonly principalType: PolicyPrincipalType;
+  },
+): Promise<ReferencedPrincipalStateResponse | null> {
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    "readModel",
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      if (!projection?.requester) {
+        return null;
+      }
+      const head = projection.policyHeads.find(
+        (candidate) =>
+          candidate.principalType === input.principalType &&
+          candidate.principalId === input.principalId,
+      );
+      return head
+        ? {
+            principalType: head.principalType,
+            principalId: head.principalId,
+            stateHash: head.stateHash,
+            version: head.version,
+            keyEpoch: head.keyEpoch,
+            keyFingerprint: head.keyFingerprint,
+          }
+        : null;
+    },
+  );
+}
+
+export async function loadLocalOrganizationUserDetail(
+  input: LocalReadModelInput & { readonly userId: string },
+): Promise<OrganizationUserDetail | null> {
+  return runOrganizationPresentationRead(
+    { ...input, requesterUserId: input.currentUserId },
+    "readModel",
+    async () => {
+      const projection = await loadOrganizationReadModelProjection(
+        input.execSql,
+        input.organizationId,
+        input.currentUserId,
+      );
+      const user = projection?.directory.users.find(
+        (candidate) => candidate.userId === input.userId,
+      );
+      if (!projection?.requester || !user) {
+        return null;
+      }
+
+      const reachable = reachableGroupIds({
+        edges: projection.membershipEdges,
+        userId: input.userId,
+      });
+      const groups = projection.groups.groups
+        .filter((group) => reachable.has(group.groupId))
+        .map((group) => ({ ...group, nameUnreadable: false }));
+      const relevantGrants = projection.grants.grants.filter(
+        (grant) =>
+          (grant.subjectType === "user" && grant.subjectId === input.userId) ||
+          (grant.subjectType === "group" && reachable.has(grant.subjectId)),
+      );
+      const grants = await enrichGrants(
+        input.execSql,
+        relevantGrants,
+        input.organizationId,
+      );
+      return {
+        organizationId: input.organizationId,
+        user,
+        groups,
+        grants: {
+          directGrants: grants.filter(
+            (grant) =>
+              grant.subjectType === "user" && grant.subjectId === input.userId,
+          ),
+          groupGrants: grants.filter(
+            (grant) =>
+              grant.subjectType === "group" && reachable.has(grant.subjectId),
+          ),
+        },
+      };
+    },
+  );
+}

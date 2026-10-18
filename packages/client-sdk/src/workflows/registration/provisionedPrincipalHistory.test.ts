@@ -10,7 +10,7 @@ import {
   recoverFoundingGroups,
   runtimeDatabase,
 } from "../../../test/helpers/provisionedPrincipalHistoryFixtures";
-import { createOrganization } from "../organizations/createOrganization";
+import { createOrganization } from "../organizations/provisioning/createOrganization";
 
 test("primed founding heads need only the directory discovery read", async () => {
   const { close, execSql } = await createTestExecSql(

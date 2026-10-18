@@ -9,8 +9,8 @@ import type {
   TrustedUserIdentity,
   TrustedUserIdentityResolver,
 } from "../../data/trustedUserIdentity";
-import { createPrincipalCurrentRecoveryBatch } from "../principals/principalCurrentRecoveryBatch";
 import type { PrincipalPolicyPageReader } from "../principals/principalPolicyHistoryReader";
+import { createPrincipalCurrentRecoveryBatch } from "../principals/recoveryOperation/principalCurrentRecoveryBatch";
 
 /** The version-1 policies a provisioning request signed and its response acknowledged. */
 interface ProvisionedPrincipalPolicies {

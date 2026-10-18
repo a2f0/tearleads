@@ -27,11 +27,11 @@ import {
 } from "../../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
-import { assertGroupMetadataBinding } from "../../organizations/groupMetadataBinding";
+import { assertGroupMetadataBinding } from "../../organizations/groupMetadata/groupMetadataBinding";
 import {
   type GroupPolicyNameReader,
   groupPolicyNameMismatch,
-} from "../../organizations/principalPolicyRequest";
+} from "../../organizations/principalPolicy/principalPolicyRequest";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import {
   externalAdminPolicyPersistenceEntries,

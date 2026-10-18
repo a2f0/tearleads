@@ -7,13 +7,13 @@ import {
 } from "../../data/keyingProjectionVerification/types";
 import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
-import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
+import { PrincipalPolicyHistoryReadError } from "./historyRecovery/principalHistoryRecoveryTypes";
 import { apiProjectionPolicyHistoryReader } from "./principalPolicyHistoryReader";
-import { isPrincipalRecoveryOutage } from "./principalRecoveryOutage";
 import {
   type ProjectionPolicyHistoryRecoveryOptions,
   recoverProjectionPolicyHistory,
-} from "./recoverProjectionPolicyHistory";
+} from "./publicHistory/recoverProjectionPolicyHistory";
+import { isPrincipalRecoveryOutage } from "./recoveryOperation/principalRecoveryOutage";
 import type { PrincipalPolicyRecoveryRuntime } from "./runtimePolicyRecovery";
 
 async function recoverWithOutageFallback(

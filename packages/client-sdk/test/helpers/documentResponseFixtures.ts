@@ -23,7 +23,7 @@ import { deriveDocumentCreateTargets } from "../../src/data/documents/shared/pro
 import { targetEnvelopeReference } from "../../src/data/documents/shared/readers";
 import type { DocumentCreatePlan } from "../../src/data/documents/shared/types";
 import { buildMaterializedDocumentCreatePlan } from "../../src/workflows/documents/create";
-import type { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlanIdentity";
+import type { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlan/syncPlanIdentity";
 import {
   createAuthor,
   createProjection,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { MetadataRootBehindDirectoryError } from "../../organizations/groupMetadataErrors";
+import { MetadataRootBehindDirectoryError } from "../../organizations/groupMetadata/groupMetadataErrors";
 import { resolveWithMetadataRootReload } from "./destinationRootReload";
 
 interface ResolveInput {

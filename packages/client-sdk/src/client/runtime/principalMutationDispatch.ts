@@ -13,8 +13,8 @@ import type { AuthoredPrincipalMutation } from "../../data/principals/principalM
 import {
   type PrincipalMutationJournalContext,
   submitJournaledPrincipalMutation,
-} from "../../workflows/organizations/principalMutationJournalSession";
-import type { PrincipalMutationResponse } from "../../workflows/organizations/principalOperationReceipt";
+} from "../../workflows/organizations/principalMutations/principalMutationJournalSession";
+import type { PrincipalMutationResponse } from "../../workflows/organizations/principalMutations/principalOperationReceipt";
 
 import type { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
 

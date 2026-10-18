@@ -1,6 +1,6 @@
 import { createMockApiClient } from "@tearleads/test-utils";
 import { buildMaterializedContainerRekeyPlan } from "../../src/workflows/containers/child/rekey";
-import { buildRemoteDocumentSyncPlan } from "../../src/workflows/documents/syncContainerRekeys";
+import { buildRemoteDocumentSyncPlan } from "../../src/workflows/documents/syncRekeys/syncContainerRekeys";
 import { writerKeyResolver } from "./documentFixtures";
 import { createPendingUpdateRecord } from "./documentResponseFixtures";
 import { documentWithStaleAncestors } from "./staleAncestorDocument";

@@ -5,7 +5,7 @@ import {
   ContainerKekRepairInaccessibleError,
   ContainerKekRepairRequiredError,
 } from "../../data/documents/shared/containerKekCurrency";
-import { shouldRetryWithFreshProjection } from "../documents/syncFailureClassification";
+import { shouldRetryWithFreshProjection } from "../documents/syncFailures/syncFailureClassification";
 import { classifyContainerWriteRefusal } from "./writeRefusal";
 
 test("a host can tell a retryable repair from one it cannot perform", () => {

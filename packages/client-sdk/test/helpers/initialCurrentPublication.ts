@@ -8,9 +8,9 @@ import { principalPolicyReferenceFromBundle } from "../../src/data/principals/pr
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
-} from "../../src/workflows/organizations/organizationGroupDirectory";
-import type { AcknowledgedPrincipalCurrentInput } from "../../src/workflows/organizations/retainAcknowledgedPrincipalCurrents";
-import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/principals/acknowledgedPrincipalPredecessor";
+} from "../../src/workflows/organizations/groups/organizationGroupDirectory";
+import type { AcknowledgedPrincipalCurrentInput } from "../../src/workflows/organizations/principalMutations/retainAcknowledgedPrincipalCurrents";
+import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import { currentPolicyPublicationFixture } from "./currentPolicyPublication";
 import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 import {

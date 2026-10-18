@@ -2,7 +2,18 @@ export type { PrincipalHistoryProtectionLease } from "../../data/principals/prin
 export {
   type AcknowledgedPrincipalPredecessor,
   captureAcknowledgedPrincipalPredecessor,
-} from "./acknowledgedPrincipalPredecessor";
+} from "./acknowledgements/acknowledgedPrincipalPredecessor";
+export {
+  PrincipalPolicyHistoryReadError,
+  type RecoveredPrincipalPolicyHistory,
+  type RecoverPrincipalPolicyHistoryOptions,
+} from "./historyRecovery/principalHistoryRecoveryTypes";
+export { recoverPrincipalPolicyHistory } from "./historyRecovery/recoverPrincipalPolicyHistory";
+export {
+  type RecoveredScopedPrincipalPolicyHistory,
+  type RecoverScopedPrincipalPolicyHistoryOptions,
+  recoverScopedPrincipalPolicyHistory,
+} from "./historyRecovery/recoverScopedPrincipalPolicyHistory";
 export {
   type CachePrincipalPolicyBundlesOptions,
   type CacheReferencedPrincipalPoliciesOptions,
@@ -10,17 +21,6 @@ export {
   cacheReferencedPrincipalPolicies,
 } from "./policyCache";
 export {
-  PrincipalPolicyHistoryReadError,
-  type RecoveredPrincipalPolicyHistory,
-  type RecoverPrincipalPolicyHistoryOptions,
-} from "./principalHistoryRecoveryTypes";
-export { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
-export {
   type ProjectionPolicyHistoryRecoveryOptions,
   recoverProjectionPolicyHistory,
-} from "./recoverProjectionPolicyHistory";
-export {
-  type RecoveredScopedPrincipalPolicyHistory,
-  type RecoverScopedPrincipalPolicyHistoryOptions,
-  recoverScopedPrincipalPolicyHistory,
-} from "./recoverScopedPrincipalPolicyHistory";
+} from "./publicHistory/recoverProjectionPolicyHistory";

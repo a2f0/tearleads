@@ -4,7 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
 import { loadPrincipalMutationJournal } from "../../data/persistence/principalMutationJournalPersistence";
 import { principalMutationJournalScopeId } from "../../data/principals/principalMutationJournal";
-import type { PrincipalPolicyReadApi } from "../../workflows/organizations/groupPolicyMutationContext";
+import type { PrincipalPolicyReadApi } from "../../workflows/organizations/groupPolicy/groupPolicyMutationContext";
 import { clearRemoteSyncState } from "../../workflows/sync/remoteReset";
 import {
   createPrincipalMutationApiCustody,

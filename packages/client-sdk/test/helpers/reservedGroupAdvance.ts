@@ -6,11 +6,11 @@ import {
 import type { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
-import { createGroupMetadataContainerVerifier } from "../../src/workflows/organizations/groupMetadataContainerAuthority";
+import { createGroupMetadataContainerVerifier } from "../../src/workflows/organizations/groupMetadata/groupMetadataContainerAuthority";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
-} from "../../src/workflows/organizations/organizationGroupDirectory";
+} from "../../src/workflows/organizations/groups/organizationGroupDirectory";
 import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/registerIdentity";
 import {
   organizationPolicyBundleFromInitialRequest,

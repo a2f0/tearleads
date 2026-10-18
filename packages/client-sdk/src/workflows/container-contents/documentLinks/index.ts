@@ -17,7 +17,7 @@ import {
   relinkRemoteDocument,
   resolveDocumentCreateAuthor,
 } from "../../documents";
-import type { SubtreePurgeRoot } from "../../documents/subtreePurgeScope";
+import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { resolveContainerDocumentMoveUnlinkIds } from "../documentMove/documentMoveUnlinkIds";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";

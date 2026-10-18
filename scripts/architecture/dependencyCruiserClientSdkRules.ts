@@ -30,17 +30,17 @@ const clientSdkLayer = {
 // index is the public package facade, so the internal surface is listed by
 // module rather than re-exported through an index.
 const principalsSurface = [
-  "acknowledgedPrincipalCurrents",
-  "acknowledgedPrincipalPredecessor",
+  "acknowledgements/acknowledgedPrincipalCurrents",
+  "acknowledgements/acknowledgedPrincipalPredecessor",
+  "acknowledgements/principalAcknowledgementChecks",
   "currentPrincipalPolicyReader",
   "externalAdminPolicy",
   "index",
-  "loadRecoveredPrincipalHistoryPage",
+  "historyRecovery/loadRecoveredPrincipalHistoryPage",
   "policyRepair",
   "policyRepairBudget",
   "policyVerification",
-  "principalAcknowledgementChecks",
-  "principalCurrentRecoveryBatch",
+  "recoveryOperation/principalCurrentRecoveryBatch",
   "principalPolicyHistoryReader",
   "runtimePolicyRecovery",
   "runtimePolicyWarmer",

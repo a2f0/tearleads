@@ -2,7 +2,7 @@ import {
   isContainerProjectionInvalidationHint,
   isDocumentUpdateCreatedEvent,
 } from "../../../data/documents/documentSync";
-import { sequenceUnchanged } from "../../../workflows/documents/syncLane";
+import { sequenceUnchanged } from "../../../workflows/documents/sync/syncLane";
 import { resumeAfterAncestorRepairHint } from "./ancestorRepairPark";
 import type { DocumentStoreState } from "./state";
 import {

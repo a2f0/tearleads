@@ -76,7 +76,7 @@ Core helpers: `packages/crypto/src/symmetric.ts` (32-byte key, 12-byte IV,
 Note: the principal policy payload carries a `cipherSuite: "aes-256-gcm"` label
 (`packages/crypto/src/principalStateTypes.ts`), but the current
 `payloadCiphertextForProjection` in
-`packages/client-sdk/src/workflows/organizations/principalPolicyRequest.ts`
+`packages/client-sdk/src/workflows/organizations/principalPolicy/principalPolicyRequest.ts`
 base64-encodes the projection JSON rather than encrypting it — the projection is
 server-visible today, so treat that suite label as reserved, not yet applied.
 

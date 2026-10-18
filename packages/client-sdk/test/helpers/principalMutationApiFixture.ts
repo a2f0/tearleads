@@ -1,5 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutationJournalManagement";
+import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutations/principalMutationJournalManagement";
 
 const bindings = new WeakMap<
   ApiClient,

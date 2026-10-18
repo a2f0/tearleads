@@ -4,7 +4,7 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { rotatingCompletedHistory } from "../../../test/helpers/principalCompletedHistory";
 import { createRecoveryFixture } from "../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { recoverPrincipalPolicyHistory } from "../../workflows/principals/recoverPrincipalPolicyHistory";
+import { recoverPrincipalPolicyHistory } from "../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import {
   principalHistoryEntries,
   principalHistoryNodes,

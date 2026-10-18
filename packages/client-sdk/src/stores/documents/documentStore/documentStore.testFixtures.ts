@@ -12,7 +12,7 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import type { DocumentStorePersistenceEffects } from "./state";
 
 /** Shared no-op persistence effects for tests that ignore registry fan-out. */

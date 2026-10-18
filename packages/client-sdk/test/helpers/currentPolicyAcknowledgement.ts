@@ -1,9 +1,9 @@
 import { toFingerprint } from "@tearleads/crypto";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
-import { groupPolicyMutationHead } from "../../src/workflows/organizations/groupPolicyMutationHead";
-import { buildSetGroupContainerGrantPolicyRequest } from "../../src/workflows/organizations/groupPolicyRequests";
-import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/organizationGroupDirectory";
-import { recoverScopedPrincipalPolicyHistory } from "../../src/workflows/principals/recoverScopedPrincipalPolicyHistory";
+import { groupPolicyMutationHead } from "../../src/workflows/organizations/groupPolicy/groupPolicyMutationHead";
+import { buildSetGroupContainerGrantPolicyRequest } from "../../src/workflows/organizations/groupPolicy/groupPolicyRequests";
+import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
+import { recoverScopedPrincipalPolicyHistory } from "../../src/workflows/principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
 import {
   createAuthorityRecoveryFixture,
   type signedAuthorityRecoveryHistory,

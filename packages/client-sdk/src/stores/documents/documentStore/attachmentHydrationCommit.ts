@@ -4,7 +4,7 @@ import {
   type LocalAttachmentRecord,
   runSerializedDocumentBlobMutation,
 } from "../../../workflows/documents";
-import { saveHydratedDocumentAttachment } from "../../../workflows/documents/attachmentPersistence";
+import { saveHydratedDocumentAttachment } from "../../../workflows/documents/attachments/attachmentPersistence";
 import {
   installLocalAttachmentRecords,
   removeLocalAttachmentSlot,

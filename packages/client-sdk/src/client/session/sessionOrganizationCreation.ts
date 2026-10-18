@@ -1,6 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
-import { createOrganization as createOrganizationWorkflow } from "../../workflows/organizations/createOrganization";
+import { createOrganization as createOrganizationWorkflow } from "../../workflows/organizations/provisioning/createOrganization";
 import type { ProvisionedSystemContainerSpec } from "../../workflows/registration";
 import type { ProvisionedPrincipalHistoryPrimer } from "../../workflows/registration/provisionedPrincipalHistory";
 import type { Identity } from "../identity";

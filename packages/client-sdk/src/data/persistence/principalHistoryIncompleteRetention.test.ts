@@ -7,7 +7,7 @@ import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,
 } from "../../../test/helpers/principalPolicyFixtures";
-import { recoverPrincipalPolicyHistory } from "../../workflows/principals/recoverPrincipalPolicyHistory";
+import { recoverPrincipalPolicyHistory } from "../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 
 async function interruptedTargets() {

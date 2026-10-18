@@ -1,0 +1,182 @@
+import { expect, test } from "bun:test";
+import { KeyingVerificationError } from "@tearleads/crypto";
+import { createTestExecSql } from "@tearleads/test-utils";
+import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
+import { createGroupNameDirectory } from "../../../../test/helpers/groupNameDirectory";
+import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
+import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
+import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
+import type { GroupPolicyNameReader } from "../principalPolicy/principalPolicyRequest";
+import { assertGroupNameUniqueInDirectory } from "./groupNameUniqueness";
+
+// Signed group names are unique per organization by construction: before an
+// admin signs a new group, every group committed in the signed directory is
+// verified and its committed name compared by canonical key.
+
+async function createUniquenessCheck(
+  testLabel: string,
+  readEncryptedName: GroupPolicyNameReader = readTestGroupName,
+) {
+  const { close, execSql } = await createTestExecSql(testLabel);
+  const directory = await createGroupNameDirectory();
+  const incidents: { error: unknown; context: SecurityIncidentContext }[] = [];
+  const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
+    execSql,
+    currentPolicyReader: directory.apiClient,
+    organizationId: directory.author.organizationId,
+    resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
+  });
+  if (!externalAdminPolicy) {
+    throw new Error("Expected the organization admin authority to verify");
+  }
+  const assertUnique = (name: string) =>
+    assertGroupNameUniqueInDirectory({
+      readEncryptedName,
+      apiClient: directory.apiClient,
+      descriptor: externalAdminPolicy.descriptor,
+      execSql,
+      externalAuthority: externalAdminPolicy.externalAuthority,
+      name,
+      organizationId: directory.author.organizationId,
+      reportSecurityIncident: async (error, context) => {
+        incidents.push({ context, error });
+      },
+      resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
+    });
+  return { assertUnique, close, directory, incidents };
+}
+
+const TAKEN = "Another signed group in this organization already carries";
+
+test("a new group name must not collide with any signed group by canonical key", async () => {
+  const { assertUnique, close } = await createUniquenessCheck(
+    "group-name-uniqueness",
+  );
+  try {
+    await expect(assertUnique("Finance")).resolves.toBeUndefined();
+    // Case, spacing, and an embedded zero-width space do not make a new name.
+    // A taken name is a plain error, not a KeyingVerificationError: creation
+    // runs under security-incident reporting and a retyped name is no incident.
+    await expect(assertUnique(" OPERATORS ")).rejects.toThrow(TAKEN);
+    await expect(assertUnique(" OPERATORS ")).rejects.not.toBeInstanceOf(
+      KeyingVerificationError,
+    );
+    await expect(
+      assertUnique(`Oper${String.fromCodePoint(0x200b)}ators`),
+    ).rejects.toThrow(TAKEN);
+    // The reserved groups are ordinary directory entries for this purpose.
+    await expect(assertUnique("admins")).rejects.toThrow(TAKEN);
+    await expect(assertUnique("Members")).rejects.toThrow(TAKEN);
+  } finally {
+    close();
+  }
+});
+
+test("a verified directory walk is served locally until a head moves", async () => {
+  const { assertUnique, close, directory } = await createUniquenessCheck(
+    "group-name-uniqueness-cache",
+  );
+  try {
+    await expect(assertUnique("Finance")).resolves.toBeUndefined();
+    // The groups load in parallel, so only the set of fetches is fixed.
+    expect(
+      directory.fetched.filter((call) => call.startsWith("group:")).sort(),
+    ).toEqual(["group:admins-group", "group:group-1", "group:members-group"]);
+    // Every group was verified and retained at its directory head, so the
+    // next creation finds them locally.
+    directory.fetched.length = 0;
+    await expect(assertUnique("Legal")).resolves.toBeUndefined();
+    expect(directory.fetched).toEqual([]);
+  } finally {
+    close();
+  }
+});
+
+test("a directory group served at another head fails closed", async () => {
+  const { assertUnique, close, directory } = await createUniquenessCheck(
+    "group-name-uniqueness-head",
+  );
+  try {
+    directory.servedGroups["group-1"] = directory.memberPolicy;
+    // Head drift can come from a concurrent admin, so it is a plain error to
+    // retry on rather than a security incident.
+    await expect(assertUnique("Finance")).rejects.toThrow(
+      "does not match the signed organization directory",
+    );
+    await expect(assertUnique("Finance")).rejects.not.toBeInstanceOf(
+      KeyingVerificationError,
+    );
+  } finally {
+    close();
+  }
+});
+
+test("a directory group that fails verification fails closed", async () => {
+  const { assertUnique, close, directory } = await createUniquenessCheck(
+    "group-name-uniqueness-verify",
+  );
+  try {
+    // Same head, tampered projection: the signed projection root no longer
+    // matches, so the group cannot vouch for any name.
+    directory.servedGroups["group-1"] = {
+      ...directory.operatorsPolicy,
+      currentProjection: [
+        ...directory.operatorsPolicy.currentProjection,
+        { role: "member", userId: "intruder" },
+      ],
+    };
+    await expect(assertUnique("Finance")).rejects.toBeInstanceOf(
+      KeyingVerificationError,
+    );
+    await expect(assertUnique("Finance")).rejects.toThrow(
+      "projection root does not match projection",
+    );
+  } finally {
+    close();
+  }
+});
+
+test("a group whose name does not decrypt is skipped, while other failures block", async () => {
+  const failOperators =
+    (error: Error): GroupPolicyNameReader =>
+    (bundle) =>
+      bundle.currentState.principalId === "group-1"
+        ? Promise.reject(error)
+        : readTestGroupName(bundle);
+  const unreadable = await createUniquenessCheck(
+    "group-name-uniqueness-unreadable",
+    failOperators(
+      new GroupMetadataUnreadableError("group-1", new Error("AEAD")),
+    ),
+  );
+  try {
+    // No member can open the poisoned name, so it neither blocks creation nor
+    // hides the names every other group still carries. Only a dishonest admin
+    // signs such a name, so the walk records it rather than dropping it.
+    await expect(unreadable.assertUnique("Operators")).resolves.toBeUndefined();
+    expect(unreadable.incidents).toEqual([
+      {
+        context: expect.objectContaining({
+          objectId: "group-1",
+          objectKind: "principal",
+          operation: "organization.groupName",
+        }),
+        error: expect.objectContaining({ code: "invalid_shape" }),
+      },
+    ]);
+    await expect(unreadable.assertUnique("Members")).rejects.toThrow(TAKEN);
+  } finally {
+    unreadable.close();
+  }
+  const unavailable = await createUniquenessCheck(
+    "group-name-uniqueness-unavailable",
+    failOperators(new Error("Group metadata container is unavailable")),
+  );
+  try {
+    await expect(unavailable.assertUnique("Finance")).rejects.toThrow(
+      "Group metadata container is unavailable",
+    );
+  } finally {
+    unavailable.close();
+  }
+});

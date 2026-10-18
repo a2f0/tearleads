@@ -5,16 +5,16 @@ import {
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
-import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../organizations/currentGroupMetadataAuthority";
 import { loadCurrentOrganizationAuthority } from "../../organizations/currentOrganizationAuthority";
-import { createCurrentPrincipalMutationLease } from "../../organizations/currentPrincipalMutationLease";
-import { assertGroupMetadataBinding } from "../../organizations/groupMetadataBinding";
-import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadataRuntime";
-import type { PrincipalMutationRecoveryApi } from "../../organizations/principalMutationJournalManagement";
+import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../organizations/groupMetadata/currentGroupMetadataAuthority";
+import { assertGroupMetadataBinding } from "../../organizations/groupMetadata/groupMetadataBinding";
+import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataRuntime";
+import { createCurrentPrincipalMutationLease } from "../../organizations/principalMutations/currentPrincipalMutationLease";
+import type { PrincipalMutationRecoveryApi } from "../../organizations/principalMutations/principalMutationJournalManagement";
 import {
   type GroupPolicyNameReader,
   groupPolicyNameMismatch,
-} from "../../organizations/principalPolicyRequest";
+} from "../../organizations/principalPolicy/principalPolicyRequest";
 import { GroupShareNameMismatchError } from "./sharePrincipalPolicy";
 
 type CurrentShareRuntime = Parameters<

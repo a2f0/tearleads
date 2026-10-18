@@ -1,8 +1,8 @@
 import type { DomainScope } from "../../data/shared/domainScope";
 import { loadLocalOrganizationPolicyReference } from "../../workflows/organizations";
-import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workflows/organizations/currentGroupMetadataAuthority";
-import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadataRuntime";
-import { hydrateOrganizationGroupNames } from "../../workflows/organizations/organizationGroupNames";
+import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../workflows/organizations/groupMetadata/currentGroupMetadataAuthority";
+import { createRuntimeGroupMetadataAccess } from "../../workflows/organizations/groupMetadata/groupMetadataRuntime";
+import { hydrateOrganizationGroupNames } from "../../workflows/organizations/groupNames/organizationGroupNames";
 import type { OrganizationDirectoryAndGroups } from "../../workflows/organizations/readModel";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../workflows/principals/runtimePolicyRecovery";
 import type { InternalRuntime } from "../runtime/workflowRuntime";

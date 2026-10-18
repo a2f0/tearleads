@@ -24,7 +24,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
 } from "../../../workflows/documents";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import type { DocumentsRuntime } from "../types";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { chainIdentityWrite } from "./identityWriteChain";

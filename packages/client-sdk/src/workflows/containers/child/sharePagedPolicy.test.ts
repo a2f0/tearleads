@@ -17,7 +17,7 @@ import {
 } from "../../../data/containers/shared/heldContainerHeads";
 import { readCanonicalJson } from "../../../data/keying/canonicalJson";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
-import { recoverPrincipalPolicyHistory } from "../../principals/recoverPrincipalPolicyHistory";
+import { recoverPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
 
 test("a paged policy survives held-head cloning and signs a verifiable share plan", async () => {

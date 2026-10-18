@@ -8,7 +8,7 @@ import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
 import { UnreadablePrincipalMutationError } from "../../data/principals/principalMutationJournalRecord";
 import { Tearleads } from "../../Tearleads";
-import { loadGroupPolicyMutationContext } from "../../workflows/organizations/groupPolicyMutationContext";
+import { loadGroupPolicyMutationContext } from "../../workflows/organizations/groupPolicy/groupPolicyMutationContext";
 import { createOrganizations } from "../organizations";
 import { createRuntime } from "./workflowRuntime";
 

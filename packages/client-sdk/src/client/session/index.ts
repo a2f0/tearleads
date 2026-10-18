@@ -1,4 +1,4 @@
-import { removeNativeSubscriptionRestoreProvisioningAttempt } from "../../workflows/organizations/createOrganization";
+import { removeNativeSubscriptionRestoreProvisioningAttempt } from "../../workflows/organizations/provisioning/createOrganization";
 import {
   bootstrapRootContainer,
   registerIdentity as registerIdentityWorkflow,

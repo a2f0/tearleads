@@ -4,7 +4,7 @@ import {
   buildInitialGroupPolicyRequest as buildGroup,
   groupPolicyNameMismatch as mismatch,
   readGroupPolicyPayloadName as readName,
-} from "../../src/workflows/organizations/principalPolicyRequest";
+} from "../../src/workflows/organizations/principalPolicy/principalPolicyRequest";
 
 export function testGroupMetadataKey(organizationId = "organization-1") {
   return {

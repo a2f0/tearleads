@@ -23,7 +23,7 @@ import type { ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type { LocalUserIdentityCandidate } from "../../data/trustedUserIdentity";
 import { validateUserIdentityKeys } from "../../data/trustedUserIdentity";
 import { resolveDocumentCreateAuthor } from "../documents/author";
-import { groupPolicyMutationHead } from "../organizations/groupPolicyMutationHead";
+import { groupPolicyMutationHead } from "../organizations/groupPolicy/groupPolicyMutationHead";
 import {
   buildInitialGroupPolicyRequest,
   buildInitialMemberGroupPolicyRequest,

@@ -21,7 +21,7 @@ import {
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
 import { CONTAINER_CONTENTS_SYNC_LANE_KEY } from "../../workflows/container-contents/syncLane";
-import { registerDocumentSyncLane } from "../../workflows/documents/syncLane";
+import { registerDocumentSyncLane } from "../../workflows/documents/sync/syncLane";
 import type { DomainScope } from "../shared/domainScope";
 import { createDomainScope } from "../shared/domainScope";
 import { DatabaseUnavailableError } from "./databaseUnavailable";

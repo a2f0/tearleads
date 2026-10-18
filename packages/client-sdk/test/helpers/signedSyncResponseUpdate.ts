@@ -6,7 +6,7 @@ import {
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { targetEnvelopeReference } from "../../src/data/documents/shared/readers";
 import type { DocumentCreateAuthor } from "../../src/data/documents/shared/types";
-import type { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlanIdentity";
+import type { buildDocumentSyncPlan } from "../../src/workflows/documents/syncPlan/syncPlanIdentity";
 import { createDocumentEncryptedUpdateFixture } from "./documentEncryptedUpdateFixture";
 import { fixtureHash } from "./documentFixturePrimitives";
 

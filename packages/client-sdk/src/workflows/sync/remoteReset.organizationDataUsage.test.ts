@@ -11,7 +11,7 @@ import { organizationDataUsageSnapshots } from "../../data/sqlite/organizationDa
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
-import { reconcileOrganizationDataUsage } from "../organizations/dataUsageReadModel";
+import { reconcileOrganizationDataUsage } from "../organizations/readModel/dataUsageReadModel";
 import { clearRemoteSyncState } from "./remoteReset";
 
 const REQUESTER_USER_ID = "user-1";
