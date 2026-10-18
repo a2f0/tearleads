@@ -1,5 +1,5 @@
 import type { ReferencedPrincipalPolicyWarmer } from "../../../data/keyingProjectionVerification";
-import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicyCache";
+import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import type { RemoteContainer } from "./types";
 
 type RemoteContainerPrincipalReferences = Pick<

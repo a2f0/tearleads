@@ -1,7 +1,7 @@
 export type {
   PurgeOptions,
   PurgeProgress,
-} from "../../workflows/container-contents/container-state/purgeProgress";
+} from "../../workflows/container-contents/container-state/purge/purgeProgress";
 export * from "./containerContentsStore";
 export {
   isAutomaticRootCatchupContainerNode,
@@ -9,7 +9,7 @@ export {
   isReconcilableContainerNode,
   isRemoteBackedContainerNode,
   isSystemContainerNode,
-} from "./reconcilableContainer";
+} from "./containerState/reconcilableContainer";
 export * from "./state";
 export * from "./syncAgent";
 export * from "./types";

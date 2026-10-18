@@ -10,6 +10,7 @@ import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import type { ContainerContentsPersistence } from "../containerPersistence";
+import { verifyRemoteContainerDestination } from "./destination/verifiedDestination";
 import { localOnlyRootState } from "./localRootState.testFixtures";
 import { reconcileLocalOnlyRootContainers } from "./reconciliation";
 import type {
@@ -17,7 +18,6 @@ import type {
   RemoteContainer,
   RemoteContainerHydrationState,
 } from "./types";
-import { verifyRemoteContainerDestination } from "./verifiedDestination";
 
 test("a persisted shared root created by another user never absorbs local content on reconciliation", async () => {
   // This device once hydrated another user's root as an ordinary shared

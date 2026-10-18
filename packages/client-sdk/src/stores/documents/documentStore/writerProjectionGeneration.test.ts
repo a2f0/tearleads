@@ -11,12 +11,12 @@ import { ensureDocumentStoreReady } from "./initialization";
 import {
   createRotationRecoveryRuntime,
   persistFullHistoryDocument,
-} from "./rotationRecoveryHelpers.test";
+} from "./rotation/rotationRecoveryHelpers.test";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
-import { settleUploadedAttachment } from "./syncAttachmentSettlement";
-import { finalizeDocumentSync } from "./syncFinalize";
-import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
-import { requestRemoteDocumentSync } from "./syncRequest";
+import { settleUploadedAttachment } from "./sync/syncAttachmentSettlement";
+import { finalizeDocumentSync } from "./sync/syncFinalize";
+import { captureDocumentStoreSyncGeneration } from "./sync/syncGeneration";
+import { requestRemoteDocumentSync } from "./sync/syncRequest";
 import { invalidateDocumentWriterProjection } from "./writerProjectionGeneration";
 
 test("a sync whose request straddles a hint does not reinstall its pre-hint projection", async () => {

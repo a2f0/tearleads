@@ -11,7 +11,7 @@ import { defaultDocumentProjectorRegistry } from "../../src/data/documents/docum
 import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpointPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { shareContainerStateWithGroup } from "../../src/workflows/container-contents/container-state/share";
-import { withDirectGroupGrant } from "../../src/workflows/container-contents/container-state/share.testFixtures";
+import { withDirectGroupGrant } from "../../src/workflows/container-contents/container-state/share/share.testFixtures";
 import { defaultContainerContentsPersistence } from "../../src/workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../src/workflows/container-contents/remoteHydration";
 import {

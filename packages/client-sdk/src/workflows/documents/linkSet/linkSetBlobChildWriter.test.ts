@@ -23,7 +23,7 @@ import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../containers/child/create";
-import { buildMaterializedContainerSharePlan } from "../../containers/child/shareMaterialization";
+import { buildMaterializedContainerSharePlan } from "../../containers/child/share/shareMaterialization";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 import { relinkRemoteDocument } from "./linkSetRemote";
 

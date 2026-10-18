@@ -9,9 +9,9 @@ import type {
   MaterializedContainerSharePlan,
 } from "../../../data/containers/shared/types";
 import type { PrincipalPolicyCache } from "../../../data/keyingProjectionVerification";
-import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicyCache";
+import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
-import type { SpeculativePath } from "../../containers/child/carriedDescendantRekeys";
+import type { SpeculativePath } from "../../containers/child/rekey/carriedDescendantRekeys";
 
 export type MaterializedPrincipalContainerMutationPlan =
   | MaterializedContainerRekeyPlan

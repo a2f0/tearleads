@@ -19,7 +19,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
 import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
-import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/accessManifestCheckpointEnforcement";
+import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
 import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
 
 test("hidden future history cannot bypass a persisted projection head", async () => {

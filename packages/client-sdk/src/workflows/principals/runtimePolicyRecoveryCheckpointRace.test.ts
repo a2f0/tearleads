@@ -8,8 +8,8 @@ import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtur
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
-} from "../../data/keyingProjectionVerification/checkpointContext";
-import { resolveReferencedPrincipalPolicy } from "../../data/keyingProjectionVerification/resolvedPrincipalPolicy";
+} from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
+import { resolveReferencedPrincipalPolicy } from "../../data/keyingProjectionVerification/principalPolicy/resolvedPrincipalPolicy";
 import type { PrincipalPolicyResolveRequest } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";

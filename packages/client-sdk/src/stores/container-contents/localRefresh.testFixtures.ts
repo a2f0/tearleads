@@ -2,7 +2,7 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
-import { ContainerStateMap } from "./containerStateMap";
+import { ContainerStateMap } from "./containerState/containerStateMap";
 import type { LocalContainerRefreshState } from "./localRefresh";
 
 export function createRefreshState(input: {

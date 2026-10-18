@@ -1,6 +1,6 @@
 import { persistDocument } from "./persistence";
 import type { DocumentState, DocumentStoreState } from "./state";
-import type { DocumentStoreSyncGeneration } from "./syncGeneration";
+import type { DocumentStoreSyncGeneration } from "./sync/syncGeneration";
 
 export async function revalidateDocumentMutationIdentity(input: {
   currentDoc: DocumentState;

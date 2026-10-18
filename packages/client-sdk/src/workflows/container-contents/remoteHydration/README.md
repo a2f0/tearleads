@@ -1,15 +1,17 @@
 # Remote Hydration Internals
 
-These modules support `../remoteHydration.ts`, the workflow facade that syncs
+These modules support `index.ts`, the workflow facade that syncs
 remote container tree state into the local `container-contents` query facade.
 
 - `types.ts` owns shared hydration DTOs, runtime contracts, and host types.
-- `childIndex.ts` maintains the in-memory parent/child index used during a
-  hydration pass.
+- `lanes/` holds the in-memory parent/child index (`childIndex.ts`) and the
+  parent-lane fetch queue used during a hydration pass.
+- `destination/` verifies and caches destination-folder proofs, and
+  `remoteContainers/` applies listed containers and their timestamps.
 - `reconciliation.ts` reconciles local-only root and system containers with
   their remote counterparts.
 
-Keep API pagination and watermark orchestration in `../remoteHydration.ts`.
+Keep API pagination and watermark orchestration in `index.ts`.
 Keep React-free store scheduling in `packages/client-sdk/src/stores`.
 
 Every listed container must prove its immutable metadata document ID before

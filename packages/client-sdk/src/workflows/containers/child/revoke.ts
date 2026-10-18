@@ -48,7 +48,7 @@ import {
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { buildContainerRotationArtifacts } from "./moveRotation";
+import { buildContainerRotationArtifacts } from "./move/moveRotation";
 import {
   containerMutationRequestCore,
   previousPathRequestFields,
@@ -58,14 +58,14 @@ import {
   submitAcknowledgedContainerMutation,
   submitContainerRotation,
 } from "./mutationSubmit";
-import { containerWriterProjectionFromRotationPlan } from "./rekeyProjection";
+import { containerWriterProjectionFromRotationPlan } from "./rekey/rekeyProjection";
 import {
   type ContainerRevokeSubject,
   deriveContainerRevokeManifest,
 } from "./revokeManifest";
-import { resolveRotationContext } from "./rotationContext";
-import { collectContainerRevokePrincipalPolicies } from "./rotationPrincipalPolicies";
-import { buildContainerRotationWraps } from "./rotationWraps";
+import { resolveRotationContext } from "./rotation/rotationContext";
+import { collectContainerRevokePrincipalPolicies } from "./rotation/rotationPrincipalPolicies";
+import { buildContainerRotationWraps } from "./rotation/rotationWraps";
 
 function buildContainerRevokeRequest(input: {
   body: ContainerRevokeAccessEventBody;

@@ -11,7 +11,7 @@ import { heldContainerSnapshot } from "../../../data/containers/shared/heldConta
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
 import { buildMaterializedContainerCreatePlan } from "../../containers/child/create";
-import { childContainerWriterProjectionFromCreatePlan } from "../../containers/child/createProjection";
+import { childContainerWriterProjectionFromCreatePlan } from "../../containers/child/create/createProjection";
 import {
   buildPrincipalContainerRematerializationBatch,
   preparePrincipalContainerRematerializationBatch,

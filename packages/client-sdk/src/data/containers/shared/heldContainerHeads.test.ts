@@ -7,7 +7,7 @@ import {
 import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,
-} from "../../keyingProjectionVerification/checkpointContext";
+} from "../../keyingProjectionVerification/checkpoints/checkpointContext";
 import {
   createExecSql,
   runSerializedSqlMutation,

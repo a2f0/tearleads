@@ -6,7 +6,7 @@ import {
   childContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/child/create";
 import { buildMaterializedContainerRekeyPlan } from "../../src/workflows/containers/child/rekey";
-import { buildMaterializedContainerSharePlan } from "../../src/workflows/containers/child/shareMaterialization";
+import { buildMaterializedContainerSharePlan } from "../../src/workflows/containers/child/share/shareMaterialization";
 import {
   createAuthor,
   createMutationResponseFromRequest,

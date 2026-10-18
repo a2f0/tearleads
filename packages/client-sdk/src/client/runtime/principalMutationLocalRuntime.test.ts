@@ -4,7 +4,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { quietLogger } from "../../../test/helpers/clientTestSupport";
 import { createMemoryBlobStore } from "../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { didContainerWriteRuntimeChange } from "../../stores/container-contents/writeGeneration";
+import { didContainerWriteRuntimeChange } from "../../stores/container-contents/remoteWrites/writeGeneration";
 import { Tearleads } from "../../Tearleads";
 import { createContainerContentsStoreWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import { createRuntime } from "./workflowRuntime";

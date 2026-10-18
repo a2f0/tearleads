@@ -3,8 +3,8 @@ import type {
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { isCanonicalSignedAt } from "@tearleads/validators/util";
-import { removeIndexedContainerChild } from "./childIndex";
-import { containerStateMatchesFingerprint } from "./containerStateFingerprint";
+import { removeIndexedContainerChild } from "./lanes/childIndex";
+import { containerStateMatchesFingerprint } from "./remoteContainers/containerStateFingerprint";
 import { collectRemovedContainers } from "./tombstoneReasons";
 import type {
   ContainerChildIndex,

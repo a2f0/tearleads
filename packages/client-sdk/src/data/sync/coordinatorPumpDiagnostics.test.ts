@@ -9,7 +9,7 @@ import { createContainerContentsStoreSyncAgent } from "../../stores/container-co
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
-} from "../../stores/container-contents/syncAgentTypes";
+} from "../../stores/container-contents/syncAgent/syncAgentTypes";
 import type { ContainerContentsStoreState } from "../../stores/container-contents/types";
 import { createReconciliationService } from "../../sync/reconciliation/service";
 import {

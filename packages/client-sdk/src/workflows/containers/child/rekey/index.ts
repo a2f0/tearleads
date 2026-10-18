@@ -1,0 +1,400 @@
+import type {
+  ContainerGrantPrincipalHead,
+  ContainerKekKeyring,
+  ContainerKekKeyringEntry,
+  ContainerRekeyAccessEventBody,
+} from "@tearleads/crypto";
+import {
+  computeAccessManifestHash,
+  computeContainerKekKeyringHash,
+  computeContainerKekPredecessorBridgeHash,
+  createContainerKekPredecessorBridge,
+  deriveContainerAccessManifest,
+  deriveContainerKekWrappingPublicKey,
+  sealContainerKekKeyring,
+} from "@tearleads/crypto";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { assertContainerAuthorAccess } from "../../../../data/containers/shared/authorAccess";
+import {
+  buildContainerCreateKeyEpoch,
+  resolveContainerKekEpochId,
+  signContainerMutationEvent,
+} from "../../../../data/containers/shared/events";
+import {
+  asContainerManifestBundle,
+  type getParentKekForTarget,
+  type getTargetContainerContext,
+  type readContainerState,
+  uniqueSortedManifestHashes,
+} from "../../../../data/containers/shared/projection";
+import type {
+  ContainerMutationAuthor,
+  ContainerRekeyPlan,
+  MaterializedContainerRekeyPlan,
+} from "../../../../data/containers/shared/types";
+import { readCanonicalRecord } from "../../../../data/keying/canonicalJson";
+import {
+  type PrincipalPolicyCache,
+  type ProjectionUserKeyResolver,
+  type ReferencedPrincipalPolicyWarmer,
+  requireProjectionUserKeyResolver,
+} from "../../../../data/keyingProjectionVerification";
+import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
+import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import {
+  sealRotationKeyring,
+  verifyKeyringEntriesForSeal,
+} from "../move/moveRotation";
+import {
+  containerMutationRequestCore,
+  previousPathRequestFields,
+  readCanonicalRecordOrNull,
+} from "../mutationRequestCore";
+import {
+  resolveRotationContext,
+  type SignedRotationTarget,
+} from "../rotation/rotationContext";
+import { collectContainerRevokePrincipalPolicies } from "../rotation/rotationPrincipalPolicies";
+import { buildContainerRotationWraps } from "../rotation/rotationWraps";
+import {
+  refreshedPrincipalPolicies,
+  refreshedPrincipalReferences,
+} from "../share/sharePlanCore";
+import { assertOverrideMatchesSignedLineage } from "./keyringOverrideLineage";
+import {
+  containerWriterProjectionFromRekeyPlan,
+  isSpeculativeContainerWriterProjection,
+} from "./rekeyProjection";
+
+async function buildRekeyRotationArtifacts(input: {
+  containerKey: Uint8Array;
+  keyringEntriesOverride: readonly ContainerKekKeyringEntry[] | undefined;
+  nextContainerKeyEpoch: number;
+  predecessorContainerKey: Uint8Array;
+  previousContainerId: string;
+  target: SignedRotationTarget;
+}): Promise<{
+  containerKeyEpochId: string;
+  keyring: ContainerKekKeyring;
+  predecessorBridge: Awaited<
+    ReturnType<typeof createContainerKekPredecessorBridge>
+  >;
+}> {
+  const containerKeyEpochId = await resolveContainerKekEpochId({
+    containerId: input.previousContainerId,
+    keyEpoch: input.nextContainerKeyEpoch,
+    keyMaterial: input.containerKey,
+  });
+  const predecessorBridge = await createContainerKekPredecessorBridge({
+    containerId: input.previousContainerId,
+    predecessorContainerKey: input.predecessorContainerKey,
+    predecessorContainerKeyEpochId: input.target.kek.containerKeyEpochId,
+    successorContainerKey: input.containerKey,
+    successorContainerKeyEpochId: containerKeyEpochId,
+  });
+  if (input.keyringEntriesOverride) {
+    // A rebuilt override still has to agree with the epochs the projection's
+    // signed history commits to; otherwise a repair could seal a forgery.
+    // Exact match first, for distinct errors; the seal check below then adds
+    // only the per-entry material check for an override.
+    assertOverrideMatchesSignedLineage(
+      input.keyringEntriesOverride,
+      input.target.signedEpochIds,
+    );
+    await verifyKeyringEntriesForSeal(
+      input.previousContainerId,
+      input.keyringEntriesOverride,
+      input.target.signedEpochIds,
+    );
+  }
+  const keyring: ContainerKekKeyring = input.keyringEntriesOverride
+    ? await sealContainerKekKeyring({
+        containerId: input.previousContainerId,
+        entries: [
+          ...input.keyringEntriesOverride,
+          {
+            containerKeyEpochId: input.target.kek.containerKeyEpochId,
+            keyMaterial: input.predecessorContainerKey,
+          },
+        ],
+        keyEpoch: input.nextContainerKeyEpoch,
+        successorContainerKey: input.containerKey,
+        successorContainerKeyEpochId: containerKeyEpochId,
+      })
+    : await sealRotationKeyring({
+        containerId: input.previousContainerId,
+        currentKek: input.target.kek,
+        currentKeyMaterial: input.predecessorContainerKey,
+        keyEpoch: input.nextContainerKeyEpoch,
+        signedEpochIds: input.target.signedEpochIds,
+        successorContainerKey: input.containerKey,
+        successorContainerKeyEpochId: containerKeyEpochId,
+      });
+  return { containerKeyEpochId, keyring, predecessorBridge };
+}
+
+async function deriveRekeyManifestArtifacts(input: {
+  containerKey: Uint8Array;
+  author: ContainerMutationAuthor;
+  containerKeyEpochId: string;
+  eventId: string | undefined;
+  keyring: ContainerKekKeyring;
+  parentKek: ReturnType<typeof getParentKekForTarget>;
+  predecessorBridge: Awaited<
+    ReturnType<typeof createContainerKekPredecessorBridge>
+  >;
+  previousProjection: ContainerWriterProjectionResponse;
+  previousState: ReturnType<typeof readContainerState>;
+  referencedPrincipalHeads: readonly ContainerGrantPrincipalHead[];
+  signedAt: string | undefined;
+  target: ReturnType<typeof getTargetContainerContext>;
+}) {
+  const body: ContainerRekeyAccessEventBody = {
+    eventType: "container.rekey",
+    parentManifestHash:
+      input.previousProjection.path.at(-2)?.manifestHash ?? null,
+    containerKeyPublicKey: await deriveContainerKekWrappingPublicKey({
+      containerId: input.previousState.containerId,
+      keyMaterial: input.containerKey,
+    }),
+    containerKeyEpochId: input.containerKeyEpochId,
+    keyringHash: await computeContainerKekKeyringHash(input.keyring),
+    predecessorBridgeHash: await computeContainerKekPredecessorBridgeHash(
+      input.predecessorBridge,
+    ),
+    referencedPrincipalHeads: [...input.referencedPrincipalHeads],
+  };
+  const { event, eventHash } = await signContainerMutationEvent({
+    author: input.author,
+    body,
+    containerId: input.previousState.containerId,
+    dependencyManifestHashes: uniqueSortedManifestHashes(
+      input.previousProjection.path,
+    ),
+    eventId: input.eventId ?? crypto.randomUUID(),
+    previousManifestHash: input.target.manifest.manifestHash,
+    signedAt: input.signedAt ?? new Date().toISOString(),
+  });
+  const state = {
+    ...input.previousState,
+    parentManifestHash: body.parentManifestHash,
+    containerKeyPublicKey: body.containerKeyPublicKey,
+    epoch: input.previousState.epoch + 1,
+    previousManifestHash: input.target.manifest.manifestHash,
+    eventHash,
+    containerKeyEpochId: input.containerKeyEpochId,
+    referencedPrincipalHeads: [...input.referencedPrincipalHeads],
+  };
+  const manifest = await deriveContainerAccessManifest(state);
+  const manifestHash = await computeAccessManifestHash(manifest);
+  const keyEpoch = buildContainerCreateKeyEpoch({
+    containerId: input.previousState.containerId,
+    containerKeyEpochId: input.containerKeyEpochId,
+    eventHash,
+    keyEpoch: input.target.kek.containerKeyEpoch + 1,
+    manifestHash,
+    parentContainerKeyEpochId: input.parentKek?.containerKeyEpochId ?? null,
+  });
+  return { body, event, eventHash, keyEpoch, manifest, manifestHash, state };
+}
+
+/**
+ * An explicit container KEK rotation with no membership change. Doubles as
+ * the repair operation: passing `keyringEntriesOverride` seals a keyring
+ * rebuilt from the bridge log instead of re-opening the served one, so a
+ * poisoned snapshot is replaced by ground truth.
+ */
+interface RekeyPlanInput {
+  author: ContainerMutationAuthor;
+  eventId?: string | undefined;
+  execSql: ExecSql;
+  keyringEntriesOverride?: readonly ContainerKekKeyringEntry[] | undefined;
+  /** Keys a batch minted above this container and has yet to commit. */
+  knownContainerKeks?: ReadonlyMap<string, Uint8Array> | undefined;
+  persistVerificationCheckpoints?: boolean | undefined;
+  previousProjection: ContainerWriterProjectionResponse;
+  /** Verified policies the path may cite before they are stored locally. */
+  principalPolicyCache?: PrincipalPolicyCache | undefined;
+  replacementPrincipalPolicy?: PrincipalPolicyCurrentEvidence | undefined;
+  resolveProjectionUserKey: ProjectionUserKeyResolver;
+  signedAt?: string | undefined;
+  stillCurrent?: (() => boolean) | undefined;
+  targetSecretKey: Uint8Array;
+  warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}
+
+function speculativeSafeRekeyInput(input: RekeyPlanInput): RekeyPlanInput {
+  return isSpeculativeContainerWriterProjection(input.previousProjection)
+    ? { ...input, persistVerificationCheckpoints: false }
+    : input;
+}
+
+async function collectRekeyPrincipalPolicies(
+  input: RekeyPlanInput,
+  resolveUserKey: ProjectionUserKeyResolver,
+): Promise<PrincipalPolicyCurrentEvidence[]> {
+  const previousPolicies = await collectContainerRevokePrincipalPolicies({
+    execSql: input.execSql,
+    persistVerificationCheckpoints: input.persistVerificationCheckpoints,
+    previousProjection: input.previousProjection,
+    principalPolicyCache: input.principalPolicyCache,
+    resolveUserKey,
+    stillCurrent: input.stillCurrent,
+    warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  });
+  const principalPolicies = refreshedPrincipalPolicies({
+    previousPolicies,
+    replacementPrincipalPolicy: input.replacementPrincipalPolicy,
+  });
+  assertContainerAuthorAccess({
+    author: input.author,
+    projection: input.previousProjection,
+    principalPolicies,
+    minimumAccess: "write",
+  });
+  return principalPolicies;
+}
+
+export async function buildMaterializedContainerRekeyPlan(
+  input: RekeyPlanInput,
+): Promise<MaterializedContainerRekeyPlan> {
+  const resolveProjectionUserKey = requireProjectionUserKeyResolver(
+    input.resolveProjectionUserKey,
+    "Remote container rekey",
+  );
+  const planningInput = speculativeSafeRekeyInput(input);
+  const containerKey = crypto.getRandomValues(new Uint8Array(32));
+  const {
+    parentKek,
+    parentPublicKey,
+    predecessorContainerKey,
+    previousState,
+    target,
+  } = await resolveRotationContext(planningInput, "rekey");
+  const { containerKeyEpochId, keyring, predecessorBridge } =
+    await buildRekeyRotationArtifacts({
+      containerKey,
+      keyringEntriesOverride: input.keyringEntriesOverride,
+      nextContainerKeyEpoch: target.kek.containerKeyEpoch + 1,
+      predecessorContainerKey,
+      previousContainerId: previousState.containerId,
+      target,
+    });
+  const principalPolicies = await collectRekeyPrincipalPolicies(
+    planningInput,
+    resolveProjectionUserKey,
+  );
+
+  const referencedPrincipalHeads = refreshedPrincipalReferences({
+    previousState,
+    replacementPrincipalPolicy: input.replacementPrincipalPolicy,
+  });
+  const { body, event, eventHash, keyEpoch, manifest, manifestHash, state } =
+    await deriveRekeyManifestArtifacts({
+      containerKey,
+      author: input.author,
+      containerKeyEpochId,
+      eventId: input.eventId,
+      keyring,
+      parentKek,
+      predecessorBridge,
+      previousProjection: input.previousProjection,
+      previousState,
+      referencedPrincipalHeads,
+      signedAt: input.signedAt,
+      target,
+    });
+  const { userRecipientKeys, wraps } = await buildContainerRotationWraps({
+    containerKey,
+    containerKeyEpochId,
+    manifestHash,
+    operationLabel: "Container rekey",
+    parentKek,
+    parentPublicKey,
+    principalPolicies,
+    resolveUserKey: resolveProjectionUserKey,
+    state,
+  });
+
+  const plan = buildContainerRekeyPlan({
+    body,
+    containerId: previousState.containerId,
+    containerKeyEpochId,
+    event,
+    eventHash,
+    keyEpoch,
+    keyring,
+    manifest,
+    manifestHash,
+    parentKek,
+    predecessorBridge,
+    previousManifest: asContainerManifestBundle(target.manifest),
+    previousProjection: input.previousProjection,
+    principalPolicies,
+    state,
+    userRecipientKeys,
+    wraps,
+  });
+  const materializedPlan = { containerKey, plan };
+  return {
+    ...materializedPlan,
+    writerProjection: await containerWriterProjectionFromRekeyPlan({
+      materializedPlan,
+      previousProjection: input.previousProjection,
+    }),
+  };
+}
+
+function buildContainerRekeyPlan(input: {
+  body: ContainerRekeyAccessEventBody;
+  containerId: string;
+  containerKeyEpochId: string;
+  event: ContainerRekeyPlan["event"];
+  eventHash: string;
+  keyEpoch: ContainerRekeyPlan["keyEpoch"];
+  keyring: ContainerKekKeyring;
+  manifest: ContainerRekeyPlan["manifest"];
+  manifestHash: string;
+  parentKek: ReturnType<typeof getParentKekForTarget>;
+  predecessorBridge: Awaited<
+    ReturnType<typeof createContainerKekPredecessorBridge>
+  >;
+  previousManifest: ContainerRekeyPlan["previousManifest"];
+  previousProjection: ContainerWriterProjectionResponse;
+  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
+  state: ContainerRekeyPlan["state"];
+  userRecipientKeys: ContainerRekeyPlan["userRecipientKeys"];
+  wraps: ContainerRekeyPlan["wraps"];
+}): ContainerRekeyPlan {
+  return {
+    body: input.body,
+    containerId: input.containerId,
+    containerKeyEpochId: input.containerKeyEpochId,
+    event: input.event,
+    eventHash: input.eventHash,
+    keyEpoch: input.keyEpoch,
+    keyring: input.keyring,
+    manifest: input.manifest,
+    manifestHash: input.manifestHash,
+    previousManifest: input.previousManifest,
+    request: {
+      ...containerMutationRequestCore("rekey", input),
+      ...previousPathRequestFields(
+        input.previousManifest,
+        input.previousProjection,
+      ),
+      predecessorBridge: readCanonicalRecord(
+        input.predecessorBridge,
+        "Container rekey predecessor bridge",
+      ),
+      keyring: readCanonicalRecord(input.keyring, "Container rekey keyring"),
+      parentKekState: readCanonicalRecordOrNull(
+        input.parentKek,
+        "Container rekey parent KEK state",
+      ),
+    },
+    state: input.state,
+    userRecipientKeys: input.userRecipientKeys,
+    wraps: input.wraps,
+  };
+}

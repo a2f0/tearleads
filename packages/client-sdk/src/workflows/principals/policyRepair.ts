@@ -1,7 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { ReferencedPrincipalStateResponse } from "@tearleads/validators/response";
 import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "@tearleads/validators/util";
-import { verifiedPrincipalPolicyContainsReference } from "../../data/keyingProjectionVerification/principalPolicyCache";
+import { verifiedPrincipalPolicyContainsReference } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import {
   assertProjectionVerificationCurrent,
   type ReferencedPrincipalPolicyWarmer,

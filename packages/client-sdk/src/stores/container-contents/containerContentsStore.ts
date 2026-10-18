@@ -4,12 +4,7 @@ import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../workflows/container-contents/containerPersistence";
-import { persistContainerState } from "./containerStatePersistence";
-import { emptyTrash } from "./emptyTrashOperation";
-import {
-  prepareContainerGroupRewrap,
-  verifyContainerGroupRewrapCurrent,
-} from "./groupRewrapOperation";
+import { persistContainerState } from "./containerState/containerStatePersistence";
 import {
   createChildContainer,
   deleteContainer,
@@ -17,14 +12,20 @@ import {
   moveContainer,
   renameContainer,
 } from "./operations";
-import { purgeContainer } from "./purgeContainerOperation";
-import { invalidateRemoteContainerWrites } from "./remoteWriteGuards";
-import { chainRemoteContainerTask } from "./remoteWriteQueue";
-import { setContainerIcon } from "./setContainerIconOperation";
+import { emptyTrash } from "./operations/emptyTrashOperation";
+import {
+  prepareContainerGroupRewrap,
+  verifyContainerGroupRewrapCurrent,
+} from "./operations/groupRewrapOperation";
+import { purgeContainer } from "./operations/purgeContainerOperation";
+import { setContainerIcon } from "./operations/setContainerIconOperation";
 import {
   shareContainerWithGroup,
   shareContainerWithUser,
-} from "./shareOperations";
+} from "./operations/shareOperations";
+import { invalidateRemoteContainerWrites } from "./remoteWrites/remoteWriteGuards";
+import { chainRemoteContainerTask } from "./remoteWrites/remoteWriteQueue";
+import { captureContainerWriteGeneration } from "./remoteWrites/writeGeneration";
 import {
   createContainerContentsStoreState,
   subscribeToContainerContentsStore,
@@ -37,13 +38,12 @@ import {
   type ContainerContentsStoreSyncAgent,
   createContainerContentsStoreSyncAgent,
 } from "./syncAgent";
-import { findRootContainerState } from "./systemContainerLookup";
+import { findRootContainerState } from "./systemContainers/systemContainerLookup";
 import type {
   ContainerContentsStore,
   ContainerContentsStoreOptions,
   ContainerContentsStoreState,
 } from "./types";
-import { captureContainerWriteGeneration } from "./writeGeneration";
 
 const containerContentsStoresByScope = new WeakMap<
   DomainScope,

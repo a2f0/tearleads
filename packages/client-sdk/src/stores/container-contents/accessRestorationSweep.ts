@@ -1,9 +1,9 @@
-import { getContainerContentsStoreLogLabel } from "./logLabel";
 import {
   type RemoteHydrationRequester,
   refreshAllRemoteHydration,
-} from "./remoteHydrationRefresh";
-import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
+} from "./hydration/remoteHydrationRefresh";
+import { getContainerContentsStoreLogLabel } from "./logLabel";
+import type { ContainerContentsStoreSyncState } from "./syncAgent/syncAgentTypes";
 
 type DormantMetadataSweep = Awaited<
   ReturnType<

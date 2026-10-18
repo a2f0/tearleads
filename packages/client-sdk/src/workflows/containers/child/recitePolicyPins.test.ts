@@ -24,7 +24,7 @@ import {
   loadPrincipalPolicyCheckpoint,
 } from "../../../data/persistence/keyingCheckpointPersistence";
 import { buildMaterializedContainerCreatePlan } from "./create";
-import { childContainerWriterProjectionFromCreatePlan } from "./createProjection";
+import { childContainerWriterProjectionFromCreatePlan } from "./create/createProjection";
 import { reciteHeldDescendants } from "./recite";
 
 test.each(["before-pass", "in-flight"] as const)(

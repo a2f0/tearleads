@@ -16,7 +16,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import type { PrincipalPolicyCache } from "../../keyingProjectionVerification";
-import { documentContainerProjections } from "../../keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../keyingProjectionVerification/document/documentContainerProjections";
 import { throwKeyingVerificationErrorWithContext } from "../../keyingProjectionVerification/error";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {

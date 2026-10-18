@@ -3,7 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
-import { PrincipalPolicyNotCachedError } from "../../../data/keyingProjectionVerification/principalPolicyVerification";
+import { PrincipalPolicyNotCachedError } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { syncContainerMetadataState } from "./index";
 import {
   createContainerContentsPersistence,

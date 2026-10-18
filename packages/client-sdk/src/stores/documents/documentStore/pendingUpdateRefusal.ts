@@ -1,6 +1,6 @@
-import { reloadDocumentFromDurableHistory } from "./durableDocumentReload";
+import { reloadDocumentFromDurableHistory } from "./history/durableDocumentReload";
 import type { DocumentStoreState } from "./state";
-import type { DocumentStoreSyncGeneration } from "./syncGeneration";
+import type { DocumentStoreSyncGeneration } from "./sync/syncGeneration";
 
 /**
  * An enqueue identity CAS can lose before the following record persist gets a

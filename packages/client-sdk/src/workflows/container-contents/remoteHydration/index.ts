@@ -1,17 +1,17 @@
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
-import { createContainerChildIndex } from "./childIndex";
 import { finishRemoteHydration } from "./completeHydration";
-import { createContainerParentHydrationQueue } from "./parentLaneQueue";
+import { createContainerChildIndex } from "./lanes/childIndex";
+import { createContainerParentHydrationQueue } from "./lanes/parentLaneQueue";
 import { cacheRemoteContainerPrincipalPolicies } from "./principalPolicyCache";
 import {
   canHydrateRemoteContainers,
   hydrateContainerParentLanes,
-} from "./remoteContainerPageHydration";
+} from "./remoteContainers/remoteContainerPageHydration";
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,
   listRemoteContainerIdsWithPendingStructuralIntents,
   upsertIsolatedRemoteContainerState,
-} from "./remoteContainerState";
+} from "./remoteContainers/remoteContainerState";
 import type {
   QueueContainerParentLane,
   RemoteContainer,

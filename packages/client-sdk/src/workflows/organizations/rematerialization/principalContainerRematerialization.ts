@@ -20,17 +20,17 @@ import {
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
-import { rebaseOnDeepestAncestor } from "../../containers/child/carriedDescendantRekeys";
 import { scheduleHeldDescendantRecitations } from "../../containers/child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
+import { rebaseOnDeepestAncestor } from "../../containers/child/rekey/carriedDescendantRekeys";
 import {
   containerWriterProjectionFromRotationPlan,
   containerWriterProjectionFromSharePlan,
   isSpeculativeContainerWriterProjection,
-} from "../../containers/child/rekeyProjection";
-import { selectReplacementPrincipalPolicyReferences } from "../../containers/child/replacementPrincipalPolicyReferences";
+} from "../../containers/child/rekey/rekeyProjection";
 import { buildMaterializedContainerRevokePlan } from "../../containers/child/revoke";
-import { buildMaterializedContainerSharePlan } from "../../containers/child/shareMaterialization";
+import { selectReplacementPrincipalPolicyReferences } from "../../containers/child/rotation/replacementPrincipalPolicyReferences";
+import { buildMaterializedContainerSharePlan } from "../../containers/child/share/shareMaterialization";
 import { withPrecedingRematerialization } from "./precedingPrincipalRematerialization";
 import {
   addPlan,

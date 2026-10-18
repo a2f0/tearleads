@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { rememberDestinationRole } from "../../workflows/container-contents/remoteHydration/destinationRoleCache";
+import { rememberDestinationRole } from "../../workflows/container-contents/remoteHydration/destination/destinationRoleCache";
 import { refreshLocalContainerStates } from "./localRefresh";
 import {
   createRefreshState,

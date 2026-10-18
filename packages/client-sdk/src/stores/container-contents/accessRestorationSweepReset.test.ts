@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createRestoredAccessReconciler } from "./accessRestorationSweep";
-import type { RemoteHydrationRefreshOptions } from "./remoteHydrationRefresh";
-import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
+import type { RemoteHydrationRefreshOptions } from "./hydration/remoteHydrationRefresh";
+import type { ContainerContentsStoreSyncState } from "./syncAgent/syncAgentTypes";
 
 const ORGANIZATION_ID = "restored-organization";
 

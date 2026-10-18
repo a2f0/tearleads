@@ -30,7 +30,7 @@ import {
   setDocumentSnapshot,
   setReadySnapshot,
 } from "./state";
-import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+import { captureDocumentStoreSyncGeneration } from "./sync/syncGeneration";
 
 // Fixed literals: a reported message must never carry document text or ids.
 const TEXT_FAILURE_MESSAGE = "Documents: local text persist failed";

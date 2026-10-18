@@ -9,8 +9,8 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
-} from "../../../data/keyingProjectionVerification/checkpointContext";
-import { collectReferencedPrincipalPolicies } from "../../../data/keyingProjectionVerification/principalPolicyVerification";
+} from "../../../data/keyingProjectionVerification/checkpoints/checkpointContext";
+import { collectReferencedPrincipalPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import {
   isProjectionVerificationCancelledError,
   type PrincipalPolicyCache,

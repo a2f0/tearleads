@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { CONTAINER_NOT_FOUND_ERROR_CODE } from "@tearleads/validators/response";
 import { createRestoredAccessReconciler } from "./accessRestorationSweep";
-import type { RemoteHydrationRefreshOptions } from "./remoteHydrationRefresh";
-import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
+import type { RemoteHydrationRefreshOptions } from "./hydration/remoteHydrationRefresh";
+import type { ContainerContentsStoreSyncState } from "./syncAgent/syncAgentTypes";
 
 const sweep = {
   attemptCount: 0,

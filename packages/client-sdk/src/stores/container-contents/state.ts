@@ -4,18 +4,18 @@ import {
   didContainerContentsProjectionKeyRuntimeChange,
 } from "../../workflows/container-contents/projectionKeys";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
-import { ContainerStateMap } from "./containerStateMap";
+import { ContainerStateMap } from "./containerState/containerStateMap";
+import { didContainerWriteRuntimeChange } from "./remoteWrites/writeGeneration";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncAgent,
-} from "./syncAgentTypes";
+} from "./syncAgent/syncAgentTypes";
 import type {
   ContainerContentsSnapshot,
   ContainerContentsStoreState,
   ContainerNode,
 } from "./types";
 import { getSnapshotNodes } from "./utils";
-import { didContainerWriteRuntimeChange } from "./writeGeneration";
 
 function areSyncStatesEqual(
   left: ContainerNode["syncState"],

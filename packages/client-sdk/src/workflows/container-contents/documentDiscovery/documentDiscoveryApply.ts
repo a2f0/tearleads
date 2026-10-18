@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicyCache";
+import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { withoutDeferredDocumentLinks } from "../documentLinks/deferredDocumentLinks";
 import { settleContainerDocumentTombstones } from "../tombstones/documentTombstoneGate";
 import { getApplicableDocumentTombstones } from "./documentDiscoveryInputs";

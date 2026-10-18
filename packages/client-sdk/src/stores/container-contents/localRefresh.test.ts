@@ -2,7 +2,7 @@ import { expect, mock, test } from "bun:test";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
-import { rememberDestinationRole } from "../../workflows/container-contents/remoteHydration/destinationRoleCache";
+import { rememberDestinationRole } from "../../workflows/container-contents/remoteHydration/destination/destinationRoleCache";
 import { refreshLocalContainerStates } from "./localRefresh";
 import {
   createRefreshState,

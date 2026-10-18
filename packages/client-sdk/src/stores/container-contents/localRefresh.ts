@@ -11,8 +11,8 @@ import { isDatabaseUnavailableError } from "../../workflows/container-contents/s
 import {
   captureContainerStateMutationGenerations,
   containerStateMutatedAfter,
-} from "./containerStateMap";
-import { isRemoteBackedContainerState } from "./remoteBackedContainerState";
+} from "./containerState/containerStateMap";
+import { isRemoteBackedContainerState } from "./remoteEvents/remoteBackedContainerState";
 
 interface LocalContainerRefreshHost {
   updateSnapshot: () => void;

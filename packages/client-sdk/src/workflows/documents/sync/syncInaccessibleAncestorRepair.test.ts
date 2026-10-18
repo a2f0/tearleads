@@ -11,7 +11,7 @@ import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/stal
 import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
 import { normalizeContainerKeyWrap } from "../../../data/documents/shared/readers";
-import { documentContainerProjections } from "../../../data/keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import {
   buildMaterializedDocumentCreatePlan,

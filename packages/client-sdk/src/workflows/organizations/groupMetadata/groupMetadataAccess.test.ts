@@ -14,7 +14,7 @@ import {
   saveContainer,
 } from "../../../data/persistence/containers/containerPersistence";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
-import { containerWriterProjectionFromRekeyPlan } from "../../containers/child/rekeyProjection";
+import { containerWriterProjectionFromRekeyPlan } from "../../containers/child/rekey/rekeyProjection";
 import { buildInitialGroupPolicyRequest } from "../principalPolicy/principalPolicyRequest";
 import {
   createGroupMetadataAccess,

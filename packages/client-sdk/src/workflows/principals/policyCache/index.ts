@@ -8,7 +8,7 @@ import {
   reportAndRethrowKeyingVerificationError,
   rethrowKeyingVerificationError,
 } from "../../../data/keyingProjectionVerification/error";
-import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicyCache";
+import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";

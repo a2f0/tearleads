@@ -26,7 +26,7 @@ import { projectionVerificationOptions } from "../../../data/documents/shared/ty
 import { readCanonicalJson } from "../../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { documentContainerProjections } from "../../../data/keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createAttachmentProofReader } from "../../blobs/verification/attachmentDecryptor";
