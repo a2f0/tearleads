@@ -33,8 +33,9 @@ reference it follows.
 
 ## Where code goes
 
-`data/` and `client/` hold folders, not loose modules, and each folder maps to
-a subsystem in `scripts/architecture/subsystems.ts` or names one shared role.
+`data/`, `workflows/`, and `client/` hold folders, not loose modules, and each
+folder maps to a subsystem in `scripts/architecture/subsystems.ts` or names one
+shared role.
 
 In `data/`, the root holds only its README; `bun run lint:files` rejects any
 other file there.
@@ -51,6 +52,10 @@ other file there.
 - `blobs/`, `contacts/`, `persistence/`, `sqlite/`, and `sync/` are internal
   to stores. A store reaches a module there through the matching workflow
   facade, such as `workflows/blobs` or `workflows/sync`.
+
+In `workflows/`, the root holds only its README. Each folder is a workflow
+facade except `shared/`, which holds the runtime input contract that the
+per-domain workflow runtimes build on.
 
 In `client/`, the root holds only the `index.ts` facade barrel; `bun run
 lint:files` rejects any other file there.

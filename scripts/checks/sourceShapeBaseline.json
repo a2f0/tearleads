@@ -240,7 +240,7 @@
     },
     "packages/client-sdk/src/index.ts": {
       "lines": 590,
-      "bytes": 17388
+      "bytes": 17424
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 559,

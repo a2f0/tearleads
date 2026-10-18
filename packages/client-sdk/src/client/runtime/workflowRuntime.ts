@@ -25,7 +25,7 @@ import type {
   WorkflowRuntimeInfraInput,
   WorkflowRuntimeStateInput,
   WorkflowRuntimeUtilInput,
-} from "../../workflows/runtimeInput";
+} from "../../workflows/shared/runtimeInput";
 import type { Blobs } from "../blobs";
 import type { Identity } from "../identity";
 import { acknowledgedSessionRoot } from "../session/sessionRootAuthority";

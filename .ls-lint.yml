@@ -104,6 +104,18 @@ ls:
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
 
+  # Workflow facades and the shared runtime contract each live in a folder.
+  packages/client-sdk/src/workflows:
+    .*: regex:README | exists:0-1
+    .*.*: exists:0
+    .*.*.*: exists:0
+
+  packages/client-sdk/src/workflows/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
   # The client root holds only its facade barrel; facades, runtime state, and
   # host contracts each live in a folder.
   packages/client-sdk/src/client:

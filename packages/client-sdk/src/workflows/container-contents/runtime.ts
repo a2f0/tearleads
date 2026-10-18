@@ -20,7 +20,7 @@ import type {
   WorkflowRuntimeInfraInput,
   WorkflowRuntimeStateInput,
   WorkflowRuntimeUtilInput,
-} from "../runtimeInput";
+} from "../shared/runtimeInput";
 
 type DocumentsWorkflowRuntimeInput = Parameters<
   typeof createDocumentsWorkflowRuntime

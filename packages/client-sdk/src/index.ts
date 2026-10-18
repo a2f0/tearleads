@@ -310,11 +310,11 @@ export {
   requestDomainDocumentSync,
   subscribeToPersistedDocuments,
 } from "./stores/documents";
-export {
-  type ClientDatabaseOptions,
-  type ClientOptions,
-  Tearleads,
-} from "./Tearleads";
+export { Tearleads } from "./Tearleads";
+export type {
+  TearleadsDatabaseOptions,
+  TearleadsOptions,
+} from "./TearleadsOptions";
 export type {
   BlobByteSource,
   BlobByteSourceInput,
