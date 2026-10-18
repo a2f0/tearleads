@@ -1,9 +1,7 @@
-import type { ApiClient } from "@tearleads/api-client";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type {
   ContainerDeleteResponse,
   ContainerWriterProjectionResponse,
-  PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
@@ -16,6 +14,8 @@ import type {
   shareRemoteContainerWithGroup,
 } from "../../containers";
 import type { createRemoteDocument } from "../../documents";
+import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
+import type { PrincipalPolicyHistoryReader } from "../../principals/principalPolicyHistoryReader";
 import type {
   ContainerContentsPersistence,
   ContainerCreateIntentRecord,
@@ -35,12 +35,8 @@ export type ContainerWorkflowApi = Parameters<
   Parameters<typeof shareRemoteContainerWithGroup>[0]["apiClient"] &
   Parameters<typeof moveRemoteContainer>[0]["apiClient"] &
   Parameters<typeof createRemoteDocument>[0]["apiClient"] &
-  Partial<
-    Pick<
-      ApiClient,
-      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
-    >
-  > & {
+  Partial<PrincipalPolicyHistoryReader> &
+  CurrentPrincipalPolicyReader & {
     deleteContainerResult(
       containerId: string,
       options?: {
@@ -60,10 +56,6 @@ export type ContainerWorkflowApi = Parameters<
       containerId: string,
       projection: ContainerWriterProjectionResponse,
     ): void;
-    getCurrentPrincipalPolicy(
-      principalType: "group" | "organization",
-      principalId: string,
-    ): Promise<PrincipalPolicyBundleResponse | null>;
   };
 
 export interface ContainerWorkflowRuntime

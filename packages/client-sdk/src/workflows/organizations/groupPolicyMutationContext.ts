@@ -133,9 +133,8 @@ export async function loadGroupPolicyMutationContext(input: {
 }): Promise<LoadedGroupPolicyMutationContext> {
   await input.apiClient.recoverPendingPrincipalMutation?.(input.organizationId);
   const adminPolicy = await loadOrganizationExternalAdminPolicy({
+    currentPolicyReader: input.apiClient,
     execSql: input.execSql,
-    getCurrentPrincipalPolicy: (principalType, principalId) =>
-      input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
   });

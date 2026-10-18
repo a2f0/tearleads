@@ -43,9 +43,8 @@ export async function deleteOrganizationGroup(input: {
   await input.apiClient.recoverPendingPrincipalMutation?.(input.organizationId);
   assertProjectionVerificationCurrent(stillCurrent);
   const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
+    currentPolicyReader: input.apiClient,
     execSql: input.execSql,
-    getCurrentPrincipalPolicy: (principalType, principalId) =>
-      input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     stillCurrent,

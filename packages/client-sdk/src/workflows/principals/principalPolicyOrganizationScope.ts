@@ -15,6 +15,7 @@ import {
 import { verifyOrganizationAdminPolicy } from "../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { CurrentPrincipalPolicyReader } from "./currentPrincipalPolicyReader";
 import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
 
 export interface VerifiedPolicyDirectory {
@@ -50,10 +51,7 @@ export function directoryBindsGroupReference(
 export function createPolicyDirectoryLoader(input: {
   readonly execSql: ExecSql;
   readonly organizationId: string;
-  readonly getCurrentPrincipalPolicy: (
-    kind: "group" | "organization",
-    id: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
+  readonly currentPolicyReader: CurrentPrincipalPolicyReader;
   readonly resolveTrustedUserIdentity: TrustedUserIdentityResolver;
 }): PolicyDirectoryLoader {
   const memo = new Map<boolean, Promise<VerifiedPolicyDirectory | null>>();
@@ -77,7 +75,7 @@ export function createPolicyDirectoryLoader(input: {
       !principalPolicyHeadMeetsCheckpoint(bundle.currentState, checkpoint)
     )
       bundle = null;
-    bundle ??= await input.getCurrentPrincipalPolicy(
+    bundle ??= await input.currentPolicyReader.getCurrentPrincipalPolicy(
       "organization",
       input.organizationId,
     );

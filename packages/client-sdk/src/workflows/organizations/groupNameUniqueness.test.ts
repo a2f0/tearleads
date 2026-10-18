@@ -22,7 +22,7 @@ async function createUniquenessCheck(
   const incidents: { error: unknown; context: SecurityIncidentContext }[] = [];
   const externalAdminPolicy = await loadOrganizationExternalAdminPolicy({
     execSql,
-    getCurrentPrincipalPolicy: directory.apiClient.getCurrentPrincipalPolicy,
+    currentPolicyReader: directory.apiClient,
     organizationId: directory.author.organizationId,
     resolveTrustedUserIdentity: directory.resolveTrustedUserIdentity,
   });

@@ -6,18 +6,14 @@ import type {
 import type {
   CommitOrganizationGroupPolicyResponse,
   CreateOrganizationGroupResponse,
-  PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
+import type { CurrentPrincipalPolicyReader } from "../principals/currentPrincipalPolicyReader";
 
-export interface PrincipalPolicyReadApi {
+export interface PrincipalPolicyReadApi extends CurrentPrincipalPolicyReader {
   /** Resolve authored work before reading the state for a new mutation. */
   readonly recoverPendingPrincipalMutation?:
     | ((organizationId: string) => Promise<void>)
     | undefined;
-  getCurrentPrincipalPolicy: (
-    principalType: "group" | "organization",
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
 }
 
 export interface PrincipalPolicyReadWriteApi extends PrincipalPolicyReadApi {

@@ -96,7 +96,7 @@ test("SDK decrypts a historical binding after ancestor head changes and document
       cacheReferencedPrincipalPolicies({
         ...input,
         execSql,
-        getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+        currentPolicyReader: apiClient,
         reportSecurityIncident: async () => undefined,
         resolveTrustedUserIdentity: resolveProjectionUserKey,
       }),

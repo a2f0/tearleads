@@ -125,8 +125,7 @@ test("historical proofs scale across 64 groups and 128 directory successors", as
             cacheReferencedPrincipalPolicies({
               ...request,
               execSql: cold.execSql,
-              getCurrentPrincipalPolicy:
-                cold.common.apiClient.getCurrentPrincipalPolicy,
+              currentPolicyReader: cold.common.apiClient,
               resolveTrustedUserIdentity: cold.resolveTrustedUserIdentity,
               reportSecurityIncident: async () => undefined,
               log: (message) => {

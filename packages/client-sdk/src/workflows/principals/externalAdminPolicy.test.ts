@@ -112,10 +112,12 @@ test("an invalid organization policy cannot trigger Admins identity trust", asyn
     await expect(
       loadOrganizationExternalAdminPolicy({
         execSql,
-        getCurrentPrincipalPolicy: async (principalType) =>
-          principalType === "organization"
-            ? tamperedOrganizationPolicy
-            : fixture.adminPolicy,
+        currentPolicyReader: {
+          getCurrentPrincipalPolicy: async (principalType) =>
+            principalType === "organization"
+              ? tamperedOrganizationPolicy
+              : fixture.adminPolicy,
+        },
         organizationId: fixture.organizationId,
         resolveTrustedUserIdentity: async (userId) => {
           resolvedUserIds.push(userId);
@@ -149,12 +151,14 @@ test("a mismatched Admins head is rejected before signer identity trust", async 
     await expect(
       loadOrganizationExternalAdminPolicy({
         execSql,
-        getCurrentPrincipalPolicy: async (principalType, principalId) => {
-          if (principalType === "organization") {
-            return fixture.organizationPolicy;
-          }
-          expect(principalId).toBe(fixture.adminGroupId);
-          return mismatchedAdminPolicy;
+        currentPolicyReader: {
+          getCurrentPrincipalPolicy: async (principalType, principalId) => {
+            if (principalType === "organization") {
+              return fixture.organizationPolicy;
+            }
+            expect(principalId).toBe(fixture.adminGroupId);
+            return mismatchedAdminPolicy;
+          },
         },
         organizationId: fixture.organizationId,
         resolveTrustedUserIdentity: async (userId) => {
@@ -196,10 +200,12 @@ test.each(["organization", "Admins"] as const)(
       await expect(
         loadOrganizationExternalAdminPolicy({
           execSql,
-          getCurrentPrincipalPolicy: async (principalType) =>
-            principalType === "organization"
-              ? fixture.organizationPolicy
-              : fixture.adminPolicy,
+          currentPolicyReader: {
+            getCurrentPrincipalPolicy: async (principalType) =>
+              principalType === "organization"
+                ? fixture.organizationPolicy
+                : fixture.adminPolicy,
+          },
           organizationId: fixture.organizationId,
           resolveTrustedUserIdentity: async (userId) =>
             fixture.identities.get(userId) ?? null,
@@ -220,10 +226,12 @@ test("an unresolvable signer is still a cache miss", async () => {
     expect(
       await loadOrganizationExternalAdminPolicy({
         execSql,
-        getCurrentPrincipalPolicy: async (principalType) =>
-          principalType === "organization"
-            ? fixture.organizationPolicy
-            : fixture.adminPolicy,
+        currentPolicyReader: {
+          getCurrentPrincipalPolicy: async (principalType) =>
+            principalType === "organization"
+              ? fixture.organizationPolicy
+              : fixture.adminPolicy,
+        },
         organizationId: fixture.organizationId,
         resolveTrustedUserIdentity: async () => null,
       }),

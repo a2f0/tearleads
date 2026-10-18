@@ -153,7 +153,7 @@ export async function createAncestorSdkContext(
       }) =>
         cacheReferencedPrincipalPolicies({
           execSql: database.execSql,
-          getCurrentPrincipalPolicy: apiClient.getCurrentPrincipalPolicy,
+          currentPolicyReader: apiClient,
           organizationId: request.organizationId,
           references: request.references,
           reportSecurityIncident: async () => undefined,

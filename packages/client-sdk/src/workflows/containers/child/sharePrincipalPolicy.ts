@@ -1,7 +1,6 @@
 import type { ApiClient } from "@tearleads/api-client";
 import {
   KeyingVerificationError,
-  type ManagedPrincipalKind,
   type PrincipalPolicyCheckpoint,
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicy,
@@ -33,6 +32,7 @@ import {
   type GroupPolicyNameReader,
   groupPolicyNameMismatch,
 } from "../../organizations/principalPolicyRequest";
+import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
@@ -45,6 +45,7 @@ import {
 
 export interface ContainerManagedPrincipalShareApi
   extends ContainerShareApi,
+    CurrentPrincipalPolicyReader,
     Pick<
       ApiClient,
       "evictContainerWriterProjection" | "getContainerWriterProjectionResult"
@@ -57,10 +58,6 @@ export interface ContainerManagedPrincipalShareApi
     groupId: string,
     input: CommitOrganizationGroupPolicyRequest,
   ) => Promise<CommitOrganizationGroupPolicyResponse | null>;
-  getCurrentPrincipalPolicy: (
-    principalType: ManagedPrincipalKind,
-    principalId: string,
-  ) => Promise<PrincipalPolicyBundleResponse | null>;
 }
 
 export interface VerifiedSharePrincipalPolicy {
@@ -275,9 +272,8 @@ export async function loadVerifiedGroupSharePrincipalPolicy(input: {
   stillCurrent?: (() => boolean) | undefined;
 }): Promise<VerifiedSharePrincipalPolicy> {
   const organizationAdminPolicy = await loadOrganizationExternalAdminPolicy({
+    currentPolicyReader: input.apiClient,
     execSql: input.execSql,
-    getCurrentPrincipalPolicy: (principalType, principalId) =>
-      input.apiClient.getCurrentPrincipalPolicy(principalType, principalId),
     organizationId: input.organizationId,
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,
     stillCurrent: input.stillCurrent,

@@ -53,10 +53,12 @@ async function loadWith(
   try {
     return await loadOrganizationExternalAdminPolicy({
       execSql,
-      getCurrentPrincipalPolicy: async (principalType) =>
-        principalType === "organization"
-          ? serve.organization()
-          : serve.admins(),
+      currentPolicyReader: {
+        getCurrentPrincipalPolicy: async (principalType) =>
+          principalType === "organization"
+            ? serve.organization()
+            : serve.admins(),
+      },
       organizationId: fixture.organizationId,
       resolveTrustedUserIdentity: fixture.resolveTrustedUserIdentity,
     });

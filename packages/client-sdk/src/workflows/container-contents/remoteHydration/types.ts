@@ -1,4 +1,4 @@
-import type { ApiClient, RequestResult } from "@tearleads/api-client";
+import type { RequestResult } from "@tearleads/api-client";
 import type { ContainerReplacementAuthorizationsResponse } from "@tearleads/validators/operation";
 import type { ListContainerParentLanesRequest } from "@tearleads/validators/request";
 import type {
@@ -7,10 +7,11 @@ import type {
   DocumentWriterProjectionResponse,
   ListContainerParentLanesResponse,
   ListContainersResponse,
-  PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import type { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
+import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
+import type { PrincipalPolicyHistoryReader } from "../../principals/principalPolicyHistoryReader";
 import type {
   ContainerContentsPersistence,
   ContainerDocumentRecord,
@@ -75,12 +76,8 @@ export interface ContainerState {
 }
 
 interface RemoteContainerHydrationApi
-  extends Partial<
-    Pick<
-      ApiClient,
-      "getPrincipalPolicyPages" | "getProjectionPolicyHistoryPages"
-    >
-  > {
+  extends Partial<PrincipalPolicyHistoryReader>,
+    CurrentPrincipalPolicyReader {
   getContainerReplacementAuthorizationsResult(
     containerId: string,
     replacesOrganizationId: string,
@@ -89,10 +86,6 @@ interface RemoteContainerHydrationApi
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;
-  getCurrentPrincipalPolicy(
-    principalType: "group" | "organization",
-    principalId: string,
-  ): Promise<PrincipalPolicyBundleResponse | null>;
   listContainerParentLanes(
     input: ListContainerParentLanesRequest,
   ): Promise<ListContainerParentLanesResponse | null>;
