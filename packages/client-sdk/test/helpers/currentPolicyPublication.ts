@@ -1,11 +1,11 @@
 import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
 import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpointAdvancePersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
-import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/organizations/acknowledgedPrincipalPredecessor";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
 } from "../../src/workflows/organizations/organizationGroupDirectory";
+import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/principals/acknowledgedPrincipalPredecessor";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../../src/workflows/principals/principalHistoryRecoveryTypes";
 import { recoverScopedPrincipalPolicyHistory } from "../../src/workflows/principals/recoverScopedPrincipalPolicyHistory";
 import { currentPolicyAcknowledgementFixture } from "./currentPolicyAcknowledgement";

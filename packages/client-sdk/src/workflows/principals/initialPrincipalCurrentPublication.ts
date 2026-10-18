@@ -10,16 +10,15 @@ import type { AcknowledgedPrincipalCurrentPublication } from "../../data/persist
 import { preparePrincipalHistoryEvidencePage } from "../../data/persistence/principalHistoryEvidencePersistence";
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
 import { principalHistoryEvidenceScopeId } from "../../data/principals/principalHistoryPrefixProtection";
-import { collectPrincipalPolicySignerPublicKeys } from "../principals/policyVerification";
-import type { RecoverPrincipalPolicyHistoryOptions } from "../principals/principalHistoryRecoveryTypes";
+import type { AcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
+import { collectPrincipalPolicySignerPublicKeys } from "./policyVerification";
+import type { PrincipalAcknowledgementChecks } from "./principalAcknowledgementChecks";
+import { sealPrincipalCurrentPublication } from "./principalCurrentPublicationSeal";
+import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 import {
   assertPrincipalHistoryVerificationMode,
   principalHistoryVerificationContext,
-} from "../principals/principalHistoryRecoveryVerification";
-import type { AcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
-import { groupPolicyMutationHead } from "./groupPolicyMutationHead";
-import { sealPrincipalCurrentPublication } from "./principalCurrentPublicationSeal";
-import { assertPrincipalPolicyReceiptArtifacts } from "./principalPolicyReceiptArtifacts";
+} from "./principalHistoryRecoveryVerification";
 
 /** Verify a newly authored group from genesis before its atomic directory publication. */
 export async function prepareInitialGroupCurrentPublication(
@@ -27,10 +26,11 @@ export async function prepareInitialGroupCurrentPublication(
   request: PutPrincipalPolicyRequest,
   response: PrincipalPolicyMutationResponse,
   predecessor: AcknowledgedPrincipalPredecessor | null,
+  checks: PrincipalAcknowledgementChecks,
 ): Promise<AcknowledgedPrincipalCurrentPublication> {
   const current = () => !input.signal?.aborted && input.stillCurrent();
   assertProjectionVerificationCurrent(current);
-  const expectedHead = await groupPolicyMutationHead(request);
+  const expectedHead = await checks.authoredHead(request);
   if (
     predecessor !== null ||
     request.state.principalType !== "group" ||
@@ -42,7 +42,7 @@ export async function prepareInitialGroupCurrentPublication(
       "object_mismatch",
       "Initial group publication must begin at its exact genesis",
     );
-  assertPrincipalPolicyReceiptArtifacts({ expectedHead, request, response });
+  checks.assertReceipt({ expectedHead, request, response });
   const keys = await collectPrincipalPolicySignerPublicKeys({
     bundle: { currentState: response.currentState, previousStates: [] },
     resolveTrustedUserIdentity: input.resolveTrustedUserIdentity,

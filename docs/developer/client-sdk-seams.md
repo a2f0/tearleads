@@ -28,6 +28,7 @@ reference it follows.
 | Principal policy history | `PrincipalPolicyHistoryReader` (`historyReader`) | The API client, via `apiPrincipalPolicyPageReader` | Registration's provisioned bundles; directory discovery's page replay |
 | Current principal policy | `CurrentPrincipalPolicyReader` (`currentPolicyReader`) | The API client, as is | `directoryPinnedPolicyReader` for the group-name authority check |
 | Principal policy process state | `getOrCreatePrincipalPolicyCoordinator(execSql)` | One coordinator per database | None |
+| Acknowledged principal currents | `PrincipalAcknowledgementChecks`, the host for `recordAcknowledgedPrincipalCurrents` | The organization mutation checks bound by `retainAcknowledgedPrincipalCurrents` | None |
 | Domain sync lanes | `getOrCreateDomainSyncCoordinator(domainScope)` | One coordinator per domain scope | None |
 
 ## Ports and adapters
@@ -80,6 +81,12 @@ clock) through its host interface. It never imports the module that provides
 them. The composition root constructs the real ones; tests pass fakes such as a
 manual clock that steps timers deterministically.
 
+A host interface also keeps dependencies pointing down when a lower component
+needs a decision only an upper one can make. Recovery records acknowledged
+principal currents, but only the organization workflows that authored a
+mutation can check its receipt, so they pass those checks in as
+`PrincipalAcknowledgementChecks` rather than recovery importing them.
+
 State that a lower layer also writes moves to a neutral lower module, reached
 by upper layers through a `workflows/*` facade. The originated-documents
 registry moved to `data/sync/` for this reason.
@@ -129,8 +136,10 @@ Client SDK dependency rules live in
 `scripts/architecture/dependencyCruiserClientSdkRules.ts`. An extracted
 component gets:
 
-- an index-only entry: other code imports the component's `index.ts`, not its
-  internals;
+- a declared entry: other code imports the component's `index.ts`, not its
+  internals. When that index is a public workflow facade, list the modules the
+  rest of the SDK may import instead, as `principalsSurface` does for
+  `workflows/principals`, rather than adding internal exports to the facade;
 - no runtime imports of upper layers, with type-only imports allowed through
   `dependencyTypesNot: ["type-only"]`;
 - its place in the tier order data → workflows → stores → sync → client.

@@ -91,9 +91,13 @@ dependency must be published too.
    call.
 2. Add rules to `scripts/architecture/dependencyCruiserClientSdkRules.ts`:
    index-only entry, no runtime imports of upper layers, type-only imports
-   allowed. Probe each rule with a temporary violating import, then remove the
-   import.
-3. Register new paths in the subsystem manifest if `lint:architecture` asks.
+   allowed. When the component's index is a public workflow facade, list its
+   surface modules instead of exporting internals from the facade. Probe each
+   rule with a temporary violating import, then remove the import.
+3. Move code that writes the component's internal state into the component.
+   When it also needs checks only an upper layer can make, pass those in
+   through a host interface rather than importing upward.
+4. Register new paths in the subsystem manifest if `lint:architecture` asks.
 
 ## Hold back
 

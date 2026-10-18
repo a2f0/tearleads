@@ -18,12 +18,34 @@ const clientSdkLayer = {
     `${sdkSourceRoot}data/contacts/`,
     `${sdkSourceRoot}data/sync/`,
   ],
+  principals: `${sdkSourceRoot}workflows/principals/`,
   reconciliation: `${sdkSourceRoot}sync/reconciliation/`,
   stores: `${sdkSourceRoot}stores/`,
   sync: `${sdkSourceRoot}sync/`,
   syncCoordinator: `${sdkSourceRoot}data/sync/(syncC|c)oordinator`,
   workflows: `${sdkSourceRoot}workflows/`,
 };
+
+// The modules of workflows/principals the rest of the SDK may import. Its
+// index is the public package facade, so the internal surface is listed by
+// module rather than re-exported through an index.
+const principalsSurface = [
+  "acknowledgedPrincipalCurrents",
+  "acknowledgedPrincipalPredecessor",
+  "currentPrincipalPolicyReader",
+  "externalAdminPolicy",
+  "index",
+  "loadRecoveredPrincipalHistoryPage",
+  "policyRepair",
+  "policyRepairBudget",
+  "policyVerification",
+  "principalAcknowledgementChecks",
+  "principalCurrentRecoveryBatch",
+  "principalPolicyHistoryReader",
+  "runtimePolicyRecovery",
+  "runtimePolicyWarmer",
+  "runtimeProjectionPolicyRecovery",
+];
 
 export const clientSdkDependencyRules = [
   {
@@ -108,6 +130,20 @@ export const clientSdkDependencyRules = [
     to: {
       path: clientSdkLayer.reconciliation,
       pathNot: `${clientSdkLayer.reconciliation}index\\.ts$`,
+    },
+  },
+  {
+    name: "client-sdk-principals-is-used-through-its-surface",
+    severity: "error",
+    comment:
+      "Code outside workflows/principals imports only the modules in principalsSurface, so recovery's verification context, history selection, and stored stage and prefix formats stay private to it.",
+    from: {
+      path: sdkSourceRoot,
+      pathNot: [...testSupportFiles, clientSdkLayer.principals],
+    },
+    to: {
+      path: clientSdkLayer.principals,
+      pathNot: `${clientSdkLayer.principals}(${principalsSurface.join("|")})\\.ts$`,
     },
   },
   {

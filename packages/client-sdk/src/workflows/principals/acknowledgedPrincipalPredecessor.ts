@@ -16,8 +16,8 @@ import {
 import { ownPrincipalHistoryProtection } from "../../data/principals/principalHistoryProtection";
 import { parsePrincipalHistoryStageCurrent } from "../../data/principals/principalHistoryStageProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
-import type { RecoverPrincipalPolicyHistoryOptions } from "../principals/principalHistoryRecoveryTypes";
-import { principalHistoryVerificationContext } from "../principals/principalHistoryRecoveryVerification";
+import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
+import { principalHistoryVerificationContext } from "./principalHistoryRecoveryVerification";
 
 /** Sealed predecessor evidence, owned by a mutation before its request is sent. */
 export type AcknowledgedPrincipalPredecessor = Readonly<PrincipalHistoryPrefix>;

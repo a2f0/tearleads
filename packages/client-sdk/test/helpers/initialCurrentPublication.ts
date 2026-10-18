@@ -5,12 +5,12 @@ import {
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
 import { principalPolicyReferenceFromBundle } from "../../src/data/principals/principalPolicyAdminSigners";
-import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/organizations/acknowledgedPrincipalPredecessor";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
 } from "../../src/workflows/organizations/organizationGroupDirectory";
 import type { AcknowledgedPrincipalCurrentInput } from "../../src/workflows/organizations/retainAcknowledgedPrincipalCurrents";
+import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/principals/acknowledgedPrincipalPredecessor";
 import { currentPolicyPublicationFixture } from "./currentPolicyPublication";
 import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 import {

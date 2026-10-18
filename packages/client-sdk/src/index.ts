@@ -446,7 +446,6 @@ export {
 export type {
   AcknowledgedPrincipalCurrentInput,
   AcknowledgedPrincipalCurrentRetirement,
-  AcknowledgedPrincipalPredecessor,
   AuthoredPrincipalMutation,
   OrganizationGroupPolicyHistoryEntry,
   OrganizationNativePurchaseEligibility,
@@ -467,7 +466,6 @@ export {
   buildOrganizationGroupPolicyHistory,
   buildOrganizationProfileDocumentPatch,
   buildRosterProfileDocumentPatch,
-  captureAcknowledgedPrincipalPredecessor,
   checkNativePurchaseEligibility,
   createInitializedRosterProfileDocument,
   createOrganizationGroup,
@@ -507,6 +505,7 @@ export {
   updateOrganizationRosterEntry,
 } from "./workflows/organizations";
 export type {
+  AcknowledgedPrincipalPredecessor,
   CacheReferencedPrincipalPoliciesOptions,
   PrincipalHistoryProtectionLease,
   ProjectionPolicyHistoryRecoveryOptions,
@@ -517,6 +516,7 @@ export type {
 } from "./workflows/principals";
 export {
   cacheReferencedPrincipalPolicies,
+  captureAcknowledgedPrincipalPredecessor,
   PrincipalPolicyHistoryReadError,
   recoverPrincipalPolicyHistory,
   recoverProjectionPolicyHistory,
