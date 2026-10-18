@@ -8,7 +8,8 @@ Private leases stay hidden; authority loaders take exact heads. See
 ## Current Host Contract
 
 Hosts implement the current interfaces directly; the SDK does not adapt older
-hosts or wire responses. `deviceFirst.open()` is the sole unified tree handle.
+hosts or wire responses. `new Tearleads(options)` takes `TearleadsOptions`.
+`deviceFirst.open()` is the sole unified tree handle.
 Container creation always commits the container and its metadata document in
 one compound API request. Create, document link/unlink, writer-projection, and
 sync adapters provide their required structured `Result` methods, including
