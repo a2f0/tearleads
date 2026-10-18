@@ -9,7 +9,7 @@ import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
 import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createDiscoveredDocumentVerifier } from "../container-contents/documentDiscoveryEvidence";
+import { createDiscoveredDocumentVerifier } from "../container-contents/documentDiscovery/documentDiscoveryEvidence";
 import { createOrganization } from "../organizations/createOrganization";
 
 type SeededDocument = NonNullable<

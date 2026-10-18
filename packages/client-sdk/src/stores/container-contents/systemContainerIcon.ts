@@ -7,7 +7,7 @@ import {
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
-} from "../../workflows/container-contents/metadataStateIsolation";
+} from "../../workflows/container-contents/metadata/metadataStateIsolation";
 import type { PersistContainerStateResult } from "../../workflows/container-contents/remoteHydration";
 import { removeMissingContainerState } from "./missingContainerState";
 import { updateContainerContentsSnapshot } from "./state";

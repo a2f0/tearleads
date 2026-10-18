@@ -3,7 +3,7 @@ import { errorMessage } from "../../data/shared/errorMessage";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { loadLocalContainerStates } from "../../workflows/container-contents/localState";
 import { installContainerMetadataRecord } from "../../workflows/container-contents/metadata";
-import { currentMetadataPullContinuation } from "../../workflows/container-contents/metadataPersistence";
+import { currentMetadataPullContinuation } from "../../workflows/container-contents/metadata/metadataPersistence";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import { reconcileLocalOnlyRootContainers } from "../../workflows/container-contents/remoteHydration/reconciliation";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";

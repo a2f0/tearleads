@@ -18,8 +18,8 @@ import {
 } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";
-import { laneApi } from "../../workflows/container-contents/documentDiscovery.testUtils";
-import * as tombstoneEvidence from "../../workflows/container-contents/documentTombstoneEvidence";
+import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";
+import * as tombstoneEvidence from "../../workflows/container-contents/tombstones/documentTombstoneEvidence";
 import {
   type ContainerDocumentDiscoveryOutcome,
   discoverContainerDocumentLanesForRuntime,

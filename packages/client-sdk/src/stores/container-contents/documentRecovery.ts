@@ -7,13 +7,13 @@ import type {
   ContainerDocumentPrimeHost,
   ContainerDocumentPrimeStore,
 } from "../../workflows/container-contents/documentQueries/types";
+import type { StaleRootRecoveryStatus } from "../../workflows/container-contents/recovery/staleRootRecovery";
+import { recoverStaleSessionRoot } from "../../workflows/container-contents/recovery/staleRootRecovery";
 import type { ContainerState } from "../../workflows/container-contents/remoteHydration";
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
 } from "../../workflows/container-contents/runtime";
-import type { StaleRootRecoveryStatus } from "../../workflows/container-contents/staleRootRecovery";
-import { recoverStaleSessionRoot } from "../../workflows/container-contents/staleRootRecovery";
 import { isDatabaseUnavailableError } from "../../workflows/container-contents/syncLane";
 import { openDocumentStore } from "../documents";
 import { getContainerContentsStoreLogLabel } from "./logLabel";

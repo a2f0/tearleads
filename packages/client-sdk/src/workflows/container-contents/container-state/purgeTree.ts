@@ -6,12 +6,12 @@ import { listDocumentsByContainerIdsOrDocumentIds } from "../../../data/persiste
 import type { SubtreePurgeRoot } from "../../documents/subtreePurgeScope";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import { unlinkRemoteContainerDocument } from "../documentLinks";
+import type { ContainerState } from "../remoteHydration";
+import type { ContainerContentsWorkflowRuntime } from "../runtime";
 import {
   purgeLocalContainerDocument,
   purgeRemoteContainerDocument,
-} from "../documentPurge";
-import type { ContainerState } from "../remoteHydration";
-import type { ContainerContentsWorkflowRuntime } from "../runtime";
+} from "../tombstones/documentPurge";
 import type { PurgeProgress } from "./purgeProgress";
 import {
   collectSubtreeLeafFirst,

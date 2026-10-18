@@ -9,7 +9,7 @@ import { createContainerContentsTestRuntime } from "../../../stores/container-co
 import { createContainerContentsStoreState } from "../../../stores/container-contents/state";
 import { findRootContainerState } from "../../../stores/container-contents/systemContainerLookup";
 import { createTestContainerState } from "../container-state/containerState.testFixtures";
-import { upsertRemoteContainerState } from "../remoteContainerState";
+import { upsertRemoteContainerState } from "./remoteContainerState";
 import type { RemoteContainer } from "./types";
 
 for (const forgeOrganization of [false, true]) {

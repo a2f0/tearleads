@@ -1,6 +1,6 @@
 import { LOCAL_INTENT_LANES } from "../../../data/sqlite/schema";
-import { getOrphanedDocumentWhereSql } from "../orphanedDocumentSql";
 import { hydratedProjectionSql } from "./hydrationSql";
+import { getOrphanedDocumentWhereSql } from "./orphanedDocumentSql";
 import type { ContainerItemSort } from "./types";
 
 // Keep each IN clause below SQLite's historical 999 bind-parameter limit.

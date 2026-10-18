@@ -5,7 +5,7 @@ import {
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
-} from "../../workflows/container-contents/metadataStateIsolation";
+} from "../../workflows/container-contents/metadata/metadataStateIsolation";
 import { getContainerContentsStoreLogLabel } from "./logLabel";
 import { removeMissingContainerState } from "./missingContainerState";
 import { updateContainerContentsSnapshot } from "./state";

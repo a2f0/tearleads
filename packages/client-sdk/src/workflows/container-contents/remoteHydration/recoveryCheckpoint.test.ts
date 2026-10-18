@@ -14,7 +14,7 @@ import {
 import { moveRemoteContainer } from "../../containers/child/move";
 import { containerWriterProjectionFromRotationPlan } from "../../containers/child/rekeyProjection";
 import { defaultContainerContentsPersistence as persistence } from "../containerPersistence";
-import { upsertRemoteContainerState } from "../remoteContainerState";
+import { upsertRemoteContainerState } from "./remoteContainerState";
 import type { RemoteContainer, RemoteContainerHydrationState } from "./types";
 
 test.each(["before verification", "before insertion"])(

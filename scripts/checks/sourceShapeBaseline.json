@@ -254,21 +254,21 @@
       "lines": 572,
       "bytes": 21042
     },
-    "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
+    "packages/client-sdk/src/workflows/container-contents/documentDiscovery/documentDiscovery.test.ts": {
       "lines": 946,
-      "bytes": 28750
+      "bytes": 28741
     },
-    "packages/client-sdk/src/workflows/container-contents/documentInfo.test.ts": {
-      "lines": 512,
-      "bytes": 15786
-    },
-    "packages/client-sdk/src/workflows/container-contents/documentQueries.test.ts": {
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/documentQueries.test.ts": {
       "lines": 521,
-      "bytes": 15667
+      "bytes": 15665
     },
-    "packages/client-sdk/src/workflows/container-contents/documentQueriesSidebar.test.ts": {
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/documentQueriesSidebar.test.ts": {
       "lines": 613,
-      "bytes": 18364
+      "bytes": 18360
+    },
+    "packages/client-sdk/src/workflows/container-contents/info/documentInfo.test.ts": {
+      "lines": 512,
+      "bytes": 15792
     },
     "packages/client-sdk/src/workflows/documents/sync.test.ts": {
       "lines": 1712,

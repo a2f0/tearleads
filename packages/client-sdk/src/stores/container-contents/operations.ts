@@ -12,7 +12,7 @@ import {
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
-} from "../../workflows/container-contents/metadataStateIsolation";
+} from "../../workflows/container-contents/metadata/metadataStateIsolation";
 import { persistContainerState } from "./containerStatePersistence";
 import { updateExistingSystemContainer } from "./existingSystemContainer";
 import { getContainerContentsStoreLogLabel } from "./logLabel";

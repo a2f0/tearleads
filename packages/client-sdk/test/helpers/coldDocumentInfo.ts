@@ -13,7 +13,7 @@ import type {
 } from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../src/data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { loadDocumentInfo } from "../../src/workflows/container-contents/documentInfo";
+import { loadDocumentInfo } from "../../src/workflows/container-contents/info/documentInfo";
 
 function documentInfoProjection(input: {
   document: DocumentSyncResponse;

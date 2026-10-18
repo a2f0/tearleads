@@ -8,23 +8,23 @@ import type {
 } from "../../stores/container-contents";
 import type { DocumentStore } from "../../stores/documents";
 import type {
+  DocumentAttributionRangesInput,
+  DocumentAttributionRangesPage,
+} from "../../workflows/container-contents/attribution/documentAttributionRanges";
+import type { ContainerDocumentQueries } from "../../workflows/container-contents/documentQueries";
+import type { SetLinkedContainerIdsForDocument } from "../../workflows/container-contents/documentQueries/documentStructure";
+import type {
   BlobInfoInput,
   BlobInfoList,
-} from "../../workflows/container-contents/blobInfo";
+} from "../../workflows/container-contents/info/blobInfo";
 import type {
   ContainerInfo,
   ContainerInfoRemoteMode,
-} from "../../workflows/container-contents/containerInfo";
-import type {
-  DocumentAttributionRangesInput,
-  DocumentAttributionRangesPage,
-} from "../../workflows/container-contents/documentAttributionRanges";
+} from "../../workflows/container-contents/info/containerInfo";
 import type {
   DocumentInfo,
   DocumentInfoRemoteMode,
-} from "../../workflows/container-contents/documentInfo";
-import type { ContainerDocumentQueries } from "../../workflows/container-contents/documentQueries";
-import type { SetLinkedContainerIdsForDocument } from "../../workflows/container-contents/documentStructure";
+} from "../../workflows/container-contents/info/documentInfo";
 import type { ContainerContentsProjectionUserKeyResolver } from "../../workflows/container-contents/projectionKeys";
 import type { ContainerContentsWorkflowRuntime } from "../../workflows/container-contents/runtime";
 import type { DocumentsWorkflowRuntime } from "../../workflows/documents";

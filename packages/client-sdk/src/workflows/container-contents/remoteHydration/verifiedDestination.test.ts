@@ -17,8 +17,8 @@ import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../containers/child/create";
-import { upsertRemoteContainerState } from "../remoteContainerState";
 import { localOnlyRootState } from "./localRootState.testFixtures";
+import { upsertRemoteContainerState } from "./remoteContainerState";
 import type { RemoteContainer, RemoteContainerHydrationState } from "./types";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 

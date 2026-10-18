@@ -29,8 +29,8 @@ import {
   type ReconciliationService,
   systemReconciliationClock,
 } from "../../sync/reconciliation";
-import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/containerDocumentListing";
-import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentHydrationProbe";
+import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
+import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,

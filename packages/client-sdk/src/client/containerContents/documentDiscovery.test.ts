@@ -8,7 +8,7 @@ import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persiste
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { createExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
-import { laneApi } from "../../workflows/container-contents/documentDiscovery.testUtils";
+import { laneApi } from "../../workflows/container-contents/documentDiscovery/documentDiscovery.testUtils";
 import {
   discoverContainerDocumentLanesForRuntime,
   discoverContainerDocumentsForRuntime,

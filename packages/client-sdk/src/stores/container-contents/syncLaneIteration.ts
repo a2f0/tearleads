@@ -3,7 +3,7 @@ import { syncPendingContainerMoveIntents } from "../../workflows/container-conte
 import {
   type DocumentMoveIntentSyncHost,
   syncPendingDocumentMoveIntents,
-} from "../../workflows/container-contents/documentMoveIntentSync";
+} from "../../workflows/container-contents/documentMove/documentMoveIntentSync";
 import { syncContainerMetadataState } from "../../workflows/container-contents/metadata";
 import type {
   ContainerState,

@@ -1,0 +1,485 @@
+import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
+import {
+  DOCUMENT_LINK_INTENT_TYPE,
+  type DocumentMoveIntentRecord,
+  sqlDocumentMoveIntentPersistence,
+} from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
+import { errorMessage } from "../../../data/shared/errorMessage";
+import {
+  type DocumentLinkSetFailureHandler,
+  type DocumentRecord,
+  defaultDocumentsPersistence,
+} from "../../documents";
+import { moveRemoteContainerDocument } from "../documentLinks";
+import { availableDocumentLinkIntent } from "../documentLinks/availableDocumentLinkIntent";
+import type {
+  DocumentStructuralMutationLocalStore,
+  DocumentStructuralMutationRelinkInput,
+} from "../documentQueries/documentStructureTypes";
+import type { ContainerContentsProjectionUserKeyResolver } from "../projectionKeys";
+import type { ContainerState } from "../remoteHydration";
+import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
+import type { ContainerContentsWorkflowRuntime } from "../runtime";
+import {
+  deniedReplayMatchesGeneration,
+  markDeniedReplayGeneration,
+} from "./documentMoveDeniedReplay";
+import {
+  type DocumentMoveFailureState,
+  describeRejectedDocumentMove,
+} from "./documentMoveFailure";
+import { recordPendingDocumentMoveIntentError } from "./documentMoveIntentErrors";
+import { settleDocumentMoveIntent } from "./documentMoveIntentSettlement";
+import { moveWithVanishedContainerRefresh } from "./documentMoveVanishedRefresh";
+
+type DocumentMoveIntentReplayResult =
+  | "abandoned"
+  | "moved"
+  | "partial"
+  | "blocked"
+  | "failed";
+
+export interface DocumentMoveIntentSyncHost<TRuntime> {
+  documentWorkflowRuntime: (containerId: string) => TRuntime;
+  openDocumentStore: (input: {
+    containerId: string;
+    documentId: string | null;
+    localId: string;
+  }) => DocumentStructuralMutationLocalStore<TRuntime>;
+}
+
+interface DocumentMoveIntentSyncState {
+  containersById: ReadonlyMap<string, ContainerState>;
+  lifecycleGeneration?: number | undefined;
+  resolveProjectionUserKey: ContainerContentsProjectionUserKeyResolver;
+  runtime: ContainerContentsWorkflowRuntime;
+}
+
+async function relinkMovedDocumentStore<TRuntime>(input: {
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCurrent: () => boolean;
+  intent: DocumentMoveIntentRecord;
+  relinkInput: DocumentStructuralMutationRelinkInput;
+  targetContainerId: string;
+}): Promise<boolean> {
+  if (!input.isCurrent()) return false;
+  const documentStore = input.host.openDocumentStore({
+    containerId: input.targetContainerId,
+    documentId: input.intent.documentId,
+    localId: input.intent.localId,
+  });
+  if (!(await documentStore.ensureInitialized()) || !input.isCurrent()) {
+    return false;
+  }
+
+  const relinked = await documentStore.relink({
+    ...input.relinkInput,
+    stillCurrent: input.isCurrent,
+  });
+  if (!relinked || !input.isCurrent()) {
+    return false;
+  }
+
+  documentStore.updateRuntime(
+    input.host.documentWorkflowRuntime(input.targetContainerId),
+  );
+  return input.isCurrent();
+}
+
+async function persistMovedDocumentReplay<TRuntime>(input: {
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  intent: DocumentMoveIntentRecord;
+  isCurrent: () => boolean;
+  moved: NonNullable<Awaited<ReturnType<typeof moveRemoteContainerDocument>>>;
+  state: DocumentMoveIntentSyncState;
+}): Promise<boolean> {
+  const { host, intent, moved, state } = input;
+  const existingDocument = await defaultDocumentsPersistence.loadDocument(
+    state.runtime.infra.execSql,
+    intent.localId,
+  );
+  if (!input.isCurrent() || !existingDocument) {
+    return false;
+  }
+
+  const targetContainerId =
+    intent.intentType === DOCUMENT_LINK_INTENT_TYPE &&
+    existingDocument.containerId &&
+    moved.linkedContainerIds.includes(existingDocument.containerId)
+      ? existingDocument.containerId
+      : moved.nextContainerId;
+
+  const relinkInput: DocumentStructuralMutationRelinkInput = {
+    accessEpoch: moved.accessEpoch ?? existingDocument.accessEpoch,
+    ...(moved.accessStateHash === null
+      ? {}
+      : { accessStateHash: moved.accessStateHash }),
+    containerId: targetContainerId,
+    documentId: intent.documentId,
+    localId: intent.localId,
+    ...(moved.remoteState ?? {}),
+    commitSideEffect: (transactionExecSql) =>
+      settleDocumentMoveIntent({
+        execSql: transactionExecSql,
+        intent,
+        isCurrent: input.isCurrent,
+        linkedContainerIds: moved.linkedContainerIds,
+        partial: moved.status === "partial",
+      }),
+  };
+
+  return relinkMovedDocumentStore({
+    host,
+    isCurrent: input.isCurrent,
+    intent,
+    relinkInput,
+    targetContainerId,
+  });
+}
+
+async function assertMoveIntentRotationPreflight<TRuntime>(input: {
+  existingContainerId: string | null | undefined;
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCurrent: () => boolean;
+  intent: DocumentMoveIntentRecord;
+}): Promise<Uint8Array | null> {
+  if (!input.isCurrent()) return null;
+  const preflightStore = input.host.openDocumentStore({
+    // The optimistic move already changed local placement. Use that scope so
+    // opening the destination view cannot invalidate this shared store's proof.
+    // Remote link-set authorization still uses the intent's source below.
+    containerId: input.existingContainerId ?? input.intent.targetContainerId,
+    documentId: input.intent.documentId,
+    localId: input.intent.localId,
+  });
+  if (!(await preflightStore.ensureInitialized())) {
+    throw new Error("Document rotation preflight could not load the document");
+  }
+  if (!input.isCurrent()) return null;
+  const rotationSnapshot = await preflightStore.assertCanRotateContentKey();
+  return input.isCurrent() ? rotationSnapshot : null;
+}
+
+async function movePendingDocumentIntent<TRuntime>(input: {
+  existingContainerId: string | null | undefined;
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCurrent: () => boolean;
+  intent: DocumentMoveIntentRecord;
+  onFailure: DocumentLinkSetFailureHandler;
+  state: DocumentMoveIntentSyncState;
+}) {
+  // Adding links keeps the content key and needs no full-history rotation proof.
+  const linkOnly = input.intent.intentType === DOCUMENT_LINK_INTENT_TYPE;
+  const rotationSnapshot =
+    linkOnly && !input.intent.removedLinkContainerIds?.length
+      ? new Uint8Array()
+      : await assertMoveIntentRotationPreflight(input);
+  if (!rotationSnapshot || !input.isCurrent()) return "abandoned" as const;
+  return moveRemoteContainerDocument({
+    linkOnly,
+    additionalLinkContainerIds: input.intent.additionalLinkContainerIds,
+    removedLinkContainerIds: input.intent.removedLinkContainerIds,
+    currentContainerId:
+      input.intent.sourceContainerId ??
+      input.existingContainerId ??
+      input.intent.targetContainerId,
+    documentId: input.intent.documentId,
+    isCurrent: input.isCurrent,
+    noteId: input.intent.localId,
+    onFailure: input.onFailure,
+    replaceLinkedContainers: input.intent.replaceLinkedContainers,
+    resolveProjectionUserKey: input.state.resolveProjectionUserKey,
+    rotationSnapshot,
+    runtime: input.state.runtime,
+    targetContainerId: input.intent.targetContainerId,
+  });
+}
+
+async function resolveMoveIntentPreflight(input: {
+  isCreatePending: (containerId: string) => boolean;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
+  isCurrent: () => boolean;
+  intent: DocumentMoveIntentRecord;
+  state: DocumentMoveIntentSyncState;
+}): Promise<
+  | { existingDocument: DocumentRecord; result?: undefined }
+  | { existingDocument?: undefined; result: DocumentMoveIntentReplayResult }
+> {
+  const { intent, state } = input;
+  const execSql = state.runtime.infra.execSql;
+  const existingDocument = await defaultDocumentsPersistence.loadDocument(
+    execSql,
+    intent.localId,
+  );
+  if (!input.isCurrent()) return { result: "abandoned" };
+  if (!existingDocument || existingDocument.documentId !== intent.documentId) {
+    await recordPendingDocumentMoveIntentError({
+      blocked: true,
+      documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
+      message: "Document move intent references a missing local document",
+      state,
+    });
+    return { result: "blocked" };
+  }
+
+  for (const targetId of new Set([
+    intent.targetContainerId,
+    ...(intent.additionalLinkContainerIds ?? []),
+  ])) {
+    const targetState = state.containersById.get(targetId);
+    if (!targetState) {
+      await recordPendingDocumentMoveIntentError({
+        blocked: true,
+        documentId: intent.documentId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+        isCurrent: input.isCurrent,
+        message:
+          "Document move intent references a missing destination container",
+        state,
+      });
+      return { result: "blocked" };
+    }
+    if (input.isRemoteSyncBlocked(targetState.container.organizationId)) {
+      return { result: "blocked" };
+    }
+    if (
+      !hasRemoteContainerMetadataState(targetState) ||
+      input.isCreatePending(targetId)
+    ) {
+      await recordPendingDocumentMoveIntentError({
+        documentId: intent.documentId,
+        expectedIntentId: intent.id,
+        expectedUpdatedAt: intent.updatedAt,
+        isCurrent: input.isCurrent,
+        message: "Document move destination container is not synced yet",
+        state,
+      });
+      return { result: "failed" };
+    }
+  }
+  return { existingDocument };
+}
+
+async function recordRejectedDocumentMove(input: {
+  failure: DocumentMoveFailureState;
+  intent: DocumentMoveIntentRecord;
+  isCurrent: () => boolean;
+  state: DocumentMoveIntentSyncState;
+  unavailable: boolean;
+}): Promise<void> {
+  await recordPendingDocumentMoveIntentError({
+    // A permission denial parks the intent for the access-restored signal
+    // instead of replaying on every structural pass (row 7).
+    denied: input.failure.sawPermissionDenial,
+    documentId: input.intent.documentId,
+    expectedIntentId: input.intent.id,
+    expectedUpdatedAt: input.intent.updatedAt,
+    isCurrent: input.isCurrent,
+    message: describeRejectedDocumentMove(input.failure),
+    state: input.state,
+    // Terminal only after the vanished-container refresh proved the
+    // destination itself gone: the intent can never commit as written and
+    // nothing on this device can heal it, so it leaves the replay set instead
+    // of re-issuing doomed requests every pass. The tombstone cascade
+    // retargets it once hydration tears the deleted container down locally.
+    // Every other vanished verdict stays pending for the next pass.
+    unavailable: input.unavailable,
+  });
+}
+
+function logSyncedDocumentMove(
+  intent: DocumentMoveIntentRecord,
+  state: DocumentMoveIntentSyncState,
+): void {
+  state.runtime.util.log(
+    `Container contents: synced queued document move ${intent.documentId}`,
+  );
+}
+
+async function settleMovedDocumentIntent<TRuntime>(input: {
+  failure: DocumentMoveFailureState;
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  intent: DocumentMoveIntentRecord;
+  isCurrent: () => boolean;
+  moved: NonNullable<Awaited<ReturnType<typeof moveRemoteContainerDocument>>>;
+  state: DocumentMoveIntentSyncState;
+  unavailable: boolean;
+}): Promise<DocumentMoveIntentReplayResult> {
+  const { intent, moved, state } = input;
+  if (
+    !(await persistMovedDocumentReplay({
+      host: input.host,
+      intent,
+      isCurrent: input.isCurrent,
+      moved,
+      state,
+    }))
+  ) {
+    if (!input.isCurrent()) return "abandoned";
+    await recordPendingDocumentMoveIntentError({
+      documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
+      message: "Document move replay could not relink the local document",
+      state,
+    });
+    return "failed";
+  }
+  if (moved.status === "partial") {
+    await recordPendingDocumentMoveIntentError({
+      // An unlink refused for permissions parks like any other denied
+      // move (row 7); other partials keep row 15's replay.
+      denied: input.failure.sawPermissionDenial,
+      documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
+      message: "Remote document move partially applied; retry required",
+      state,
+      // Terminal only when the refresh proved the destination itself gone
+      // after the link had already landed; a vanished unlink alone stays
+      // pending with its live link for the next pass to revoke.
+      unavailable: input.unavailable,
+    });
+    return "partial";
+  }
+
+  logSyncedDocumentMove(intent, state);
+  return "moved";
+}
+
+async function trySyncPendingDocumentMoveIntent<TRuntime>(input: {
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  isCreatePending: (containerId: string) => boolean;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
+  isCurrent: () => boolean;
+  intent: DocumentMoveIntentRecord;
+  state: DocumentMoveIntentSyncState;
+}): Promise<DocumentMoveIntentReplayResult> {
+  const { host, intent, state } = input;
+  const available = availableDocumentLinkIntent(intent, (id) =>
+    state.containersById.has(id),
+  );
+  const preflight = await resolveMoveIntentPreflight({
+    ...input,
+    intent: available.intent,
+  });
+  if (preflight.result !== undefined) {
+    return preflight.result;
+  }
+  const { existingDocument } = preflight;
+
+  try {
+    const outcome = await moveWithVanishedContainerRefresh({
+      apiClient: state.runtime.apiClient,
+      attempt: (onFailure) =>
+        movePendingDocumentIntent({
+          existingContainerId: existingDocument.containerId,
+          host,
+          isCurrent: input.isCurrent,
+          intent: available.intent,
+          onFailure,
+          state,
+        }),
+      execSql: state.runtime.infra.execSql,
+      existingContainerId: existingDocument.containerId,
+      intent: available.intent,
+      isCurrent: input.isCurrent,
+    });
+    if (outcome === "abandoned" || !input.isCurrent()) return "abandoned";
+    if (!outcome.moved) {
+      await recordRejectedDocumentMove({
+        failure: outcome.failure,
+        intent,
+        isCurrent: input.isCurrent,
+        state,
+        unavailable: outcome.unavailable,
+      });
+      return "failed";
+    }
+    return await settleMovedDocumentIntent({
+      failure: outcome.failure,
+      host,
+      intent,
+      isCurrent: input.isCurrent,
+      moved: available.deferred
+        ? { ...outcome.moved, status: "partial" }
+        : outcome.moved,
+      state,
+      unavailable: outcome.unavailable,
+    });
+  } catch (error: unknown) {
+    if (!input.isCurrent()) return "abandoned";
+    await reportAndRethrowKeyingVerificationError(
+      error,
+      state.runtime.util.reportSecurityIncident,
+      {
+        objectId: intent.documentId,
+        objectKind: "document",
+        operation: "document.move.replay",
+      },
+    );
+    if (!input.isCurrent()) return "abandoned";
+    const message = errorMessage(error);
+    await recordPendingDocumentMoveIntentError({
+      documentId: intent.documentId,
+      expectedIntentId: intent.id,
+      expectedUpdatedAt: intent.updatedAt,
+      isCurrent: input.isCurrent,
+      message: `Failed to sync document move: ${message}`,
+      state,
+    });
+    return "failed";
+  }
+}
+
+export async function syncPendingDocumentMoveIntents<TRuntime>(input: {
+  host: DocumentMoveIntentSyncHost<TRuntime>;
+  /** A destination whose create has not settled takes no document yet. */
+  isCreatePending: (containerId: string) => boolean;
+  isCurrent: () => boolean;
+  isRemoteSyncBlocked: (organizationId: string) => boolean;
+  state: DocumentMoveIntentSyncState;
+}): Promise<number> {
+  if (!input.isCurrent()) return 0;
+  const lifecycleState = input.state;
+  const state = { ...lifecycleState };
+  const execSql = state.runtime.infra.execSql;
+  if (!deniedReplayMatchesGeneration(lifecycleState, execSql)) {
+    await sqlDocumentMoveIntentPersistence.resetDeniedMoveIntents(execSql);
+    if (!input.isCurrent()) return 0;
+    markDeniedReplayGeneration(lifecycleState, execSql);
+  }
+  const pendingIntents =
+    await sqlDocumentMoveIntentPersistence.listPendingMoveIntents(execSql);
+  if (!input.isCurrent()) return 0;
+  let movedCount = 0;
+
+  for (const intent of pendingIntents) {
+    if (!input.isCurrent()) return movedCount;
+    const result = await trySyncPendingDocumentMoveIntent({
+      host: input.host,
+      isCreatePending: input.isCreatePending,
+      isCurrent: input.isCurrent,
+      isRemoteSyncBlocked: input.isRemoteSyncBlocked,
+      intent,
+      state,
+    });
+    if (result === "abandoned") return movedCount;
+    // A "partial" result (link applied, unlink still pending) must not count:
+    // the caller re-arms this same structural lane whenever the count is
+    // positive, so a deterministically failing unlink hot-looped the pump
+    // (issue #1744). The intent row stays pending; event-driven, manual, and
+    // startup lane requests retry it.
+    if (result === "moved") {
+      movedCount += 1;
+    }
+  }
+
+  return movedCount;
+}

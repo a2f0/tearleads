@@ -5,9 +5,9 @@ import { createContainerMetadataDocument } from "../../../data/containers/contai
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
-import { purgeLocalContainerDocument } from "../documentPurge";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
+import { purgeLocalContainerDocument } from "../tombstones/documentPurge";
 import { purgeContainerTree } from "./purgeTree";
 import { createSubtreePurgeScope } from "./purgeTreeScope";
 

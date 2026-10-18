@@ -8,7 +8,7 @@ import {
 import {
   createContainerRecord,
   createDocumentRecord,
-} from "../metadata.testFixtures";
+} from "../metadata/metadata.testFixtures";
 import { createChildContainerState } from "./createChild";
 import type { ContainerWorkflowRuntime } from "./types";
 
