@@ -68,7 +68,7 @@ export async function createPublicHistoryFixture(
     grant: bundle.currentState.stateHash,
   });
   const options: PublicPrincipalHistoryOptions = {
-    apiClient: client(),
+    historyReader: client(),
     source: source(),
     organizationId: "public-history-test-org",
     execSql: sqlite.execSql,

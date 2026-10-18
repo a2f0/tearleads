@@ -19,8 +19,9 @@ test.each(["member group", "directory head"] as const)(
     const submit = mock(async () => null);
     const mutate = createRuntimeCurrentGroupMutation({
       apiClient: {
-        getPrincipalPolicyPages:
-          f.options.apiClient.getPrincipalPolicyPages.bind(f.options.apiClient),
+        getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
+          f.apiClient,
+        ),
         recoverPendingPrincipalMutation: async () => {},
       },
       infra: { execSql: f.options.execSql },

@@ -1,4 +1,3 @@
-import type { ApiClient } from "@tearleads/api-client";
 import type { PrincipalPolicyHistoryProgressOptions } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { CommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
@@ -6,6 +5,7 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import type { CurrentPolicyReferenceResolver } from "../../data/principals/currentPolicyReferenceResolver";
 import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import type { PrincipalPolicyPageReader } from "../principals/principalPolicyHistoryReader";
 import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
 import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import { resolveCurrentGroupMutationReferences } from "./currentGroupMutationReferences";
@@ -74,7 +74,7 @@ export function createRuntimeCurrentGroupMutation(runtime: MutationRuntime) {
         protection,
         stillCurrent,
         resolveCurrentPolicy,
-        readPages,
+        historyReader,
         directoryRecovery,
       }) => {
         const loadGroup = async (
@@ -94,7 +94,7 @@ export function createRuntimeCurrentGroupMutation(runtime: MutationRuntime) {
             { ...input, groupId },
             context,
             protection,
-            readPages,
+            historyReader,
             directoryRecovery(context.organizationCurrent.current),
           );
           return {
@@ -125,11 +125,11 @@ async function createCurrentMutationRetention(
   input: MutationInput,
   context: CurrentMutationContext,
   protection: PrincipalPolicyHistoryProgressOptions,
-  readPages: ApiClient["getPrincipalPolicyPages"],
+  historyReader: PrincipalPolicyPageReader,
   directoryRecovery: AcknowledgedPrincipalCurrentInput["recovery"],
 ) {
   const common = {
-    apiClient: { getPrincipalPolicyPages: readPages },
+    historyReader,
     resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
   };
   const groupRecovery: AcknowledgedPrincipalCurrentInput["recovery"] = {

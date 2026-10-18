@@ -166,7 +166,7 @@ export async function createRecoveryFixture(
   const sqlite = await createTestExecSql("principal-history-recovery");
   const http = serveRecoveryHistory(history.bundle, retained);
   const options: RecoverPrincipalPolicyHistoryOptions = {
-    apiClient: http.client(),
+    historyReader: http.client(),
     execSql: sqlite.execSql,
     organizationId: "org-1",
     expectedHead: history.expectedHead,

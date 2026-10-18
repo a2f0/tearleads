@@ -201,7 +201,7 @@ export async function recoverFoundingGroups(input: {
   const { recover } = createPrincipalCurrentRecoveryBatch();
   for (const group of server.bundles.slice(1))
     await recover({
-      apiClient: server.apiClient,
+      historyReader: server.apiClient,
       execSql: input.execSql,
       offline: false,
       organizationId: input.request.organizationId,

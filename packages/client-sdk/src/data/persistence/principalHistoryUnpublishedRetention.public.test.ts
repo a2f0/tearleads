@@ -34,7 +34,7 @@ test("public attempts interrupted after completed acceptance stay bounded withou
       await expect(
         recoverPublicPrincipalHistory({
           ...f.options,
-          apiClient,
+          historyReader: apiClient,
           source: f.source(bundle),
         }),
       ).rejects.toThrow("transport failed after its final accepted page");

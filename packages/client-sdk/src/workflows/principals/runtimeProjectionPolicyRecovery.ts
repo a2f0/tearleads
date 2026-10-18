@@ -7,6 +7,7 @@ import {
 } from "../../data/keyingProjectionVerification/types";
 import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
+import { apiProjectionPolicyHistoryReader } from "./principalPolicyHistoryReader";
 import { isPrincipalRecoveryOutage } from "./principalRecoveryOutage";
 import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import {
@@ -31,10 +32,8 @@ export function createRuntimeProjectionPolicyResolver(
   runtime: PrincipalPolicyRecoveryRuntime,
 ): ReferencedPrincipalPolicyWarmer["resolveProjectionHistory"] {
   const lease = readPrincipalHistoryProtection(runtime);
-  const readPages = runtime.apiClient.getProjectionPolicyHistoryPages?.bind(
-    runtime.apiClient,
-  );
-  if (!lease || !readPages) return undefined;
+  const historyReader = apiProjectionPolicyHistoryReader(runtime.apiClient);
+  if (!lease || !historyReader) return undefined;
   return (input) =>
     queuePrincipalRecovery(runtime.infra.execSql, input.organizationId, () =>
       runWithSecurityIncidentReporting(
@@ -53,7 +52,7 @@ export function createRuntimeProjectionPolicyResolver(
             try {
               const policies = await recoverWithOutageFallback({
                 ...input,
-                apiClient: { getProjectionPolicyHistoryPages: readPages },
+                historyReader,
                 execSql: runtime.infra.execSql,
                 protection,
                 stillCurrent,

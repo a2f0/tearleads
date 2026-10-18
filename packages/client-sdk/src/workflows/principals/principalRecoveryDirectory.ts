@@ -50,7 +50,7 @@ function exactHead(state: ReferencedPrincipalHead): ReferencedPrincipalHead {
 async function discoverDirectoryHead(input: PrincipalRecoveryContext): Promise<{
   head: ReferencedPrincipalHead;
   genesis: ReferencedPrincipalHead;
-  apiClient: PrincipalRecoveryContext["apiClient"];
+  historyReader: PrincipalRecoveryContext["historyReader"];
 }> {
   assertProjectionVerificationCurrent(
     () => !input.signal?.aborted && input.stillCurrent(),
@@ -91,10 +91,10 @@ async function discoverDirectoryHead(input: PrincipalRecoveryContext): Promise<{
     return {
       head: prefix.head,
       genesis: genesis.reference,
-      apiClient: input.apiClient,
+      historyReader: input.historyReader,
     };
   }
-  for await (const result of input.apiClient.getPrincipalPolicyPages(
+  for await (const result of input.historyReader.getPrincipalPolicyPages(
     "organization",
     input.organizationId,
     { signal: input.signal },
@@ -115,7 +115,7 @@ async function discoverDirectoryHead(input: PrincipalRecoveryContext): Promise<{
         "Organization directory discovery requires genesis",
       );
     return {
-      apiClient: reusePrincipalDiscoveryPage(input.apiClient, result),
+      historyReader: reusePrincipalDiscoveryPage(input.historyReader, result),
       genesis: {
         principalType: first.principalType,
         principalId: first.principalId,
@@ -152,12 +152,12 @@ export async function recoverPolicyDirectory(
   const {
     head: expectedHead,
     genesis,
-    apiClient,
+    historyReader,
   } = selected
     ? {
         head: exactHead(selected.policy.state),
         genesis: selected.policy.retainedHistory[0]?.state,
-        apiClient: input.apiClient,
+        historyReader: input.historyReader,
       }
     : await discoverDirectoryHead(scoped);
   if (genesis?.version !== 1)
@@ -169,7 +169,7 @@ export async function recoverPolicyDirectory(
     throw new PrincipalRecoveryDirectoryAdvanced();
   const recovered = await recoverPrincipalPolicyHistory({
     ...scoped,
-    apiClient,
+    historyReader,
     expectedHead,
     retainedReferences: references.some((reference) => reference.version === 1)
       ? references

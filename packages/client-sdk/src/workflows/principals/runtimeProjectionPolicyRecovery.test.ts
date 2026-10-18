@@ -21,8 +21,8 @@ async function fixture() {
   const warmer = createRuntimePrincipalPolicyWarmer({
     apiClient: createMockApiClient({
       getProjectionPolicyHistoryPages:
-        f.options.apiClient.getProjectionPolicyHistoryPages.bind(
-          f.options.apiClient,
+        f.options.historyReader.getProjectionPolicyHistoryPages.bind(
+          f.options.historyReader,
         ),
       getCurrentPrincipalPolicy: async () => {
         state.fullReads += 1;

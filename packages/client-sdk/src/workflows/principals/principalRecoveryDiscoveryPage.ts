@@ -1,11 +1,12 @@
-import type { ApiClient, RequestSuccess } from "@tearleads/api-client";
+import type { RequestSuccess } from "@tearleads/api-client";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
+import type { PrincipalPolicyPageReader } from "./principalPolicyHistoryReader";
 
 /** Reuse the discovery bytes as untrusted input to the ordinary verifier. */
 export function reusePrincipalDiscoveryPage(
-  apiClient: Pick<ApiClient, "getPrincipalPolicyPages">,
+  reader: PrincipalPolicyPageReader,
   discovery: RequestSuccess<PrincipalPolicyPageResponse>,
-): Pick<ApiClient, "getPrincipalPolicyPages"> {
+): PrincipalPolicyPageReader {
   const first = structuredClone(discovery);
   const page = first.data;
   const current = {
@@ -24,7 +25,7 @@ export function reusePrincipalDiscoveryPage(
         principalType !== current.currentState.principalType ||
         principalId !== current.currentState.principalId
       ) {
-        yield* apiClient.getPrincipalPolicyPages(
+        yield* reader.getPrincipalPolicyPages(
           principalType,
           principalId,
           options,
@@ -35,8 +36,8 @@ export function reusePrincipalDiscoveryPage(
       const next = page.historyPage.nextAfterVersion;
       if (next === null) return;
       // Resume binds every later page to these exact artifacts, including bytes
-      // outside the signed head. The API client's cursor/shape checks still run.
-      yield* apiClient.getPrincipalPolicyPages(principalType, principalId, {
+      // outside the signed head. The wrapped reader's cursor/shape checks still run.
+      yield* reader.getPrincipalPolicyPages(principalType, principalId, {
         ...options,
         afterVersion: undefined,
         resume: { current, afterVersion: next },

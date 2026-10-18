@@ -50,7 +50,7 @@ async function fixture() {
     writes: 0,
     fullReads: 0,
   };
-  const apiClient = f.options.apiClient;
+  const apiClient = f.apiClient;
   const advance = async (mutation: PutPrincipalPolicyRequest) => {
     const principalId = mutation.state.principalId;
     const previous = f.policies.get(principalId);
@@ -229,7 +229,7 @@ test("current grant revocation rotates an externally administered group and reta
       history.organizationId,
       await history.advanceDirectory(history.directory, group),
     );
-    f.options.apiClient.getContainerWriterProjectionResult = async () => ({
+    f.apiClient.getContainerWriterProjectionResult = async () => ({
       ok: false,
       kind: "http",
       status: 404,

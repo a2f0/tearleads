@@ -36,7 +36,7 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
       owned.stillCurrent,
       async ({
         protection,
-        readPages,
+        historyReader,
         stillCurrent,
         resolveCurrentPolicy,
         directoryRecovery,
@@ -65,7 +65,7 @@ export function createRuntimeCurrentOrganizationMutation(runtime: Runtime) {
             runtime,
             authority,
             protection,
-            readPages,
+            historyReader,
             organizationId: owned.organizationId,
             directoryRecovery: directoryRecovery(authority.directory.current),
             stillCurrent: current,

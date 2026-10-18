@@ -108,7 +108,7 @@ test("organization history enriches online and preserves verified local entries 
   });
   const sql = { execSql: f.options.execSql, close: f.close };
   let requests = 0;
-  const apiClient = f.options.apiClient;
+  const apiClient = f.apiClient;
   apiClient.getOrganizationPolicyHistoryResult = async (
     organizationId,
     stateHash,

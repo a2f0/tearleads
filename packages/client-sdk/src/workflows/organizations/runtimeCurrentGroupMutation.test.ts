@@ -32,8 +32,9 @@ test("runtime mutation custody retains exact receipts and expires escaped acknow
   try {
     const mutate = createRuntimeCurrentGroupMutation({
       apiClient: {
-        getPrincipalPolicyPages:
-          f.options.apiClient.getPrincipalPolicyPages.bind(f.options.apiClient),
+        getPrincipalPolicyPages: f.apiClient.getPrincipalPolicyPages.bind(
+          f.apiClient,
+        ),
         recoverPendingPrincipalMutation: async () => {
           recoveries += 1;
         },

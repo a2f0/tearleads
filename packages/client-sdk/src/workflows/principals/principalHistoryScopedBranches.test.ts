@@ -65,11 +65,11 @@ test("scoped recovery ignores caller-supplied verification controls", async () =
 test("directory discovery cannot change the requested principal identity", async () => {
   const fixture = await createAuthorityRecoveryFixture(history);
   try {
-    const client = fixture.options.apiClient;
+    const client = fixture.apiClient;
     const recovered = await recoverScopedPrincipalPolicyHistory({
       ...fixture.options,
       reference: principalPolicyHead(history.directory),
-      apiClient: {
+      historyReader: {
         async *getPrincipalPolicyPages(...args) {
           for await (const result of client.getPrincipalPolicyPages(...args)) {
             if (result.ok && !args[2]?.stateHash) {

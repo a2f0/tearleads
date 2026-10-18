@@ -1,4 +1,3 @@
-import type { ApiClient } from "@tearleads/api-client";
 import type {
   PrincipalPolicyExternalAuthority,
   PrincipalPolicyHistoryProgressOptions,
@@ -11,9 +10,10 @@ import type { PrincipalHistoryPrefix } from "../../data/persistence/principalHis
 import type { PrincipalHistoryStage } from "../../data/persistence/principalHistoryStagePersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
+import type { ProjectionPolicyHistoryReader } from "./principalPolicyHistoryReader";
 
 export interface PublicPrincipalHistoryOptions {
-  readonly apiClient: Pick<ApiClient, "getProjectionPolicyHistoryPages">;
+  readonly historyReader: ProjectionPolicyHistoryReader;
   /** Terminal proof verification defers durable currency until all artifacts authenticate. */
   readonly historicalProof?: boolean | undefined;
   readonly source: PrincipalPolicyHistorySourceResponse;

@@ -1,10 +1,10 @@
-import type { ApiClient } from "@tearleads/api-client";
 import type { PrincipalPolicyHistoryProgressOptions } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import type { PrincipalPolicyPageReader } from "../principals/principalPolicyHistoryReader";
 import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
 import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import type { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
@@ -20,7 +20,7 @@ export async function createCurrentOrganizationMutationRetention(input: {
     ReturnType<typeof loadCurrentOrganizationAuthority>
   >;
   readonly protection: PrincipalPolicyHistoryProgressOptions;
-  readonly readPages: ApiClient["getPrincipalPolicyPages"];
+  readonly historyReader: PrincipalPolicyPageReader;
   readonly organizationId: string;
   readonly directoryRecovery: AcknowledgedPrincipalCurrentInput["recovery"];
   readonly stillCurrent: () => boolean;
@@ -67,7 +67,7 @@ export async function createCurrentOrganizationMutationRetention(input: {
           request: receipt.request,
           response: receipt.response,
           recovery: {
-            apiClient: { getPrincipalPolicyPages: input.readPages },
+            historyReader: input.historyReader,
             expectedHead: principalPolicyReferenceFromBundle(receipt.response),
             protection: scopedGroupHistoryProtection(
               input.protection,

@@ -44,7 +44,7 @@ test("a new transport client extends a durably verified prior head", async () =>
     fixture.requests.length = 0;
     const recovered = await recoverPrincipalPolicyHistory({
       ...fixture.options,
-      apiClient: fixture.client(),
+      historyReader: fixture.client(),
     });
     expect(recovered.policy.checkpoint.stateHash).toBe(
       history.expectedHead.stateHash,
@@ -78,7 +78,7 @@ test("new citations and a later local checkpoint reuse a completed prefix", asyn
     fixture.requests.length = 0;
     const recovered = await recoverPrincipalPolicyHistory({
       ...fixture.options,
-      apiClient: fixture.client(),
+      historyReader: fixture.client(),
       retainedReferences: [principalPolicyHead(earlierBundle(16))],
     });
     expect(

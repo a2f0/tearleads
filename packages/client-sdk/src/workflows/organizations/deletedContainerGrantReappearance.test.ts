@@ -109,7 +109,7 @@ test("a container skipped as deleted during rotation cannot reappear under its o
     // Authenticate the newer prefix so the independent pin-availability guard
     // cannot mask the retirement check this test is exercising.
     await recoverPublicPrincipalHistory({
-      apiClient: projectionHistoryPages([fixture.nextBundle]),
+      historyReader: projectionHistoryPages([fixture.nextBundle]),
       source: projectionPolicySource(fixture.nextBundle),
       organizationId: ORGANIZATION_ID,
       authorityGroupId: fixture.projectionBundles[1]?.currentState.principalId,

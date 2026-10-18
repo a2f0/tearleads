@@ -19,7 +19,7 @@ async function fixture() {
   const state = { online: true, current: true };
   const keys: Uint8Array[] = [];
   const resolve = createRuntimePrincipalPolicyCurrentResolver({
-    apiClient: f.options.apiClient,
+    apiClient: f.apiClient,
     infra: { execSql: f.options.execSql },
     state,
     resolveTrustedUserIdentity: f.options.resolveTrustedUserIdentity,

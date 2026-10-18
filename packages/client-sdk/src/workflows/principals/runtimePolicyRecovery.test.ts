@@ -57,10 +57,9 @@ async function fixture() {
   const createWarmer = () =>
     createRuntimePrincipalPolicyWarmer({
       apiClient: createMockApiClient({
-        getPrincipalPolicyPages:
-          source.options.apiClient.getPrincipalPolicyPages.bind(
-            source.options.apiClient,
-          ),
+        getPrincipalPolicyPages: source.apiClient.getPrincipalPolicyPages.bind(
+          source.apiClient,
+        ),
         getCurrentPrincipalPolicy: async () => {
           state.fullReads += 1;
           throw new Error("Full history is unavailable");

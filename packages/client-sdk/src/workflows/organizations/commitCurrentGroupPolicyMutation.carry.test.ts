@@ -31,7 +31,7 @@ test("current commit retains the carried batch and its post-carry retirements be
   const carried = ["carried-upper", "carried-lower"];
   let retirements = [beforeCarry];
   let acknowledged = false;
-  const apiClient = f.options.apiClient;
+  const apiClient = f.apiClient;
   apiClient.commitOrganizationGroupPolicyResult = async (
     _org,
     _group,

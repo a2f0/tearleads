@@ -83,7 +83,7 @@ export function projectionPolicyWarmer(input: {
       const stillCurrent = () => request.stillCurrent?.() !== false;
       const policies = await recoverProjectionPolicyHistory({
         ...request,
-        apiClient: projectionHistoryPages(input.bundles),
+        historyReader: projectionHistoryPages(input.bundles),
         execSql: input.execSql,
         resolveTrustedUserIdentity: input.resolveUserKey,
         protection: {
