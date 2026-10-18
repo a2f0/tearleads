@@ -5,7 +5,7 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { invalidatePrincipalRecovery } from "../../data/principals/principalRecoveryEpoch";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createPrincipalRecoveryReader,
@@ -32,7 +32,9 @@ async function fixture() {
       if (hint.remaining > 0 && sql.includes(CHECKPOINT_READ)) {
         hint.remaining -= 1;
         if (hint.remaining === 0)
-          invalidatePrincipalRecovery(execSql, history.organizationId);
+          getOrCreatePrincipalPolicyCoordinator(execSql).invalidateRecovery(
+            history.organizationId,
+          );
       }
       return { rows };
     },
