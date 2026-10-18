@@ -5,7 +5,7 @@ import {
   type SigningKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { errorMessage } from "../data/errorMessage";
+import { errorMessage } from "../data/shared/errorMessage";
 import {
   createIdentityKeyPackage,
   type IdentityKeyPackage,

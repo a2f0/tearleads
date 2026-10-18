@@ -1,5 +1,5 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../../data/keying/canonicalJson";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import {
   clearPrincipalMutationJournal,

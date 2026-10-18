@@ -1,8 +1,8 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
-import type { BlobStore } from "../data/blobContracts";
+import type { BlobStore } from "../data/blobs/blobContracts";
 import type { DocumentProjectorRegistry } from "../data/documents/documentKinds";
-import type { DomainScope } from "../data/domainScope";
-import type { SecurityIncidentReporter } from "../data/securityIncidents";
+import type { DomainScope } from "../data/shared/domainScope";
+import type { SecurityIncidentReporter } from "../data/shared/securityIncidents";
 import type { ExecSql } from "../data/sqlite/sqlSchema";
 
 export type WorkflowRuntimeDatabaseStatus =

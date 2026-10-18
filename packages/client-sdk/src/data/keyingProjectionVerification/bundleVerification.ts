@@ -8,7 +8,7 @@ import {
   canonicalKeyingJsonString,
   readCanonicalJson,
   readCanonicalRecord,
-} from "../keyingCanonicalJson";
+} from "../keying/canonicalJson";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import { readKeyingVerificationShape } from "./error";
 import {

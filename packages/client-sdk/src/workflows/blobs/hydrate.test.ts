@@ -19,7 +19,7 @@ import {
   createMultipartBlobStageFixture,
 } from "../../../test/helpers/blobUploadFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import type { BlobBytes } from "../../data/blobContracts";
+import type { BlobBytes } from "../../data/blobs/blobContracts";
 import { attachmentContentSha256 } from "../../data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
 import { readWriteHeader } from "../../data/documents/shared/readers";

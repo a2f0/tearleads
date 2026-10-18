@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import { waitFor } from "../../../test/helpers/waitFor";
-import type { DomainScope } from "../../data/domainScope";
 import { sqlDocumentContainerProjectionPersistence } from "../../data/persistence/containers/documentContainerProjectionPersistence";
 import { upsertDiscoveredDocuments } from "../../data/persistence/documents/documentsPersistence";
+import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   createContainerParentSyncLane,

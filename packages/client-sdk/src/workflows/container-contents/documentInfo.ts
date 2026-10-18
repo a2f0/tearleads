@@ -18,7 +18,7 @@ import {
 } from "../../data/documents/editAttribution";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,

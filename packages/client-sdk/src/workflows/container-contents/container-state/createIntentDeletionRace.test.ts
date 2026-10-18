@@ -9,8 +9,8 @@ import { createResponseFromRequest } from "../../../../test/helpers/documentFixt
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
 import { ContainerCreateIntentSupersededError } from "../../../data/persistence/container-contents/containerIntentPersistence";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,

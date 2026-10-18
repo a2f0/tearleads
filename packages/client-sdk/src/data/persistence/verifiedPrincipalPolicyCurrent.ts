@@ -9,7 +9,7 @@ import {
   type VerifiedPrincipalPolicy,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
-import { canonicalKeyingJsonString } from "../keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../keying/canonicalJson";
 
 type VerifiedCurrentPolicy =
   | VerifiedPrincipalPolicy

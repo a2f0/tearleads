@@ -4,7 +4,7 @@ import {
   reportKeyingVerificationErrorInCauseChain,
 } from "../../data/keyingProjectionVerification/error";
 import { isPrincipalPolicyNotCachedError } from "../../data/keyingProjectionVerification/principalPolicyVerification";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {
   // Signed-state verification failures are terminal integrity incidents, even

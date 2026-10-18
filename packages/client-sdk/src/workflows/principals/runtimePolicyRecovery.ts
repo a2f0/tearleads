@@ -11,7 +11,7 @@ import {
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import type { RecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";

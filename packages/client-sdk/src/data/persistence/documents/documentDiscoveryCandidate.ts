@@ -1,6 +1,6 @@
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { DiscoveredDocumentInput } from "../../documents/documentSummary";
-import { readRecordValue } from "../../recordReaders";
+import { readRecordValue } from "../../shared/recordReaders";
 
 export interface DiscoveredDocumentCandidate extends DiscoveredDocumentInput {
   readonly listedContainerIds: readonly string[];

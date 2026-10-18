@@ -220,7 +220,7 @@
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 709,
-      "bytes": 26461
+      "bytes": 26467
     },
     "packages/client-sdk/src/data/documents/editAttribution.test.ts": {
       "lines": 570,
@@ -236,7 +236,7 @@
     },
     "packages/client-sdk/src/data/sync/syncCoordinator.test.ts": {
       "lines": 577,
-      "bytes": 16810
+      "bytes": 16817
     },
     "packages/client-sdk/src/index.ts": {
       "lines": 590,
@@ -244,7 +244,7 @@
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 559,
-      "bytes": 19603
+      "bytes": 19610
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 437,
@@ -252,7 +252,7 @@
     },
     "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
       "lines": 572,
-      "bytes": 21036
+      "bytes": 21042
     },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery.test.ts": {
       "lines": 946,

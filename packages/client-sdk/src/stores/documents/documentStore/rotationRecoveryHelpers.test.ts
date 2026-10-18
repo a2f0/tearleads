@@ -10,8 +10,8 @@ import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { DocumentsRuntime } from "../types";
 import type { createRemoteHistoryFixture } from "./documentStore.testFixtures";
 

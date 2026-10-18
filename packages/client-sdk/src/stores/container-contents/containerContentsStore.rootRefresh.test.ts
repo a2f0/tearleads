@@ -7,7 +7,7 @@ import {
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../test/helpers/signedContainerDirectory";
 import { waitFor } from "../../../test/helpers/waitFor";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import { createContainerContentsStore } from "./containerContentsStore";

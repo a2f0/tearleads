@@ -4,7 +4,7 @@ import type {
 } from "@tearleads/crypto";
 import { computePrincipalStateHash } from "@tearleads/crypto";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
-import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 
 type InitialManagedPrincipalPolicy =
   CreateOrganizationGroupRequest["initialGroupPolicy"];

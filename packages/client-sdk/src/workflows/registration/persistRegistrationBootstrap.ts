@@ -5,7 +5,6 @@ import {
 } from "@tearleads/loro";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import type { DocumentProjectorRegistryInput } from "../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import {
@@ -34,6 +33,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
+import { getScopedPeerSeed } from "../../data/sync/crdtPeerSeed";
 import { persistDocumentState } from "../documents/persistence";
 import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../organizations/organizationProfile";
 import {

@@ -46,7 +46,7 @@ import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
 } from "../../../data/documents/shared/types";
-import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,

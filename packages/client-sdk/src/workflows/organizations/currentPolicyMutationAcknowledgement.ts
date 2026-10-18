@@ -9,7 +9,7 @@ import {
 } from "@tearleads/crypto";
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalStateResponse } from "@tearleads/validators/response";
-import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../../data/keying/canonicalJson";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { assertPrincipalPolicyCurrentStateMatchesHead } from "./groupPolicyMutationHead";
 

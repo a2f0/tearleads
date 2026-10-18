@@ -1,6 +1,6 @@
 import { DEFAULT_DOCUMENT_KIND } from "../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
-import type { DomainScope } from "../../data/domainScope";
+import type { DomainScope } from "../../data/shared/domainScope";
 import {
   createDocumentProjectionUserKeyResolver,
   type DocumentsPersistence,

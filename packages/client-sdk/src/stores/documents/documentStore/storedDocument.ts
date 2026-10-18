@@ -1,8 +1,8 @@
 import { createDocument } from "@tearleads/loro";
-import { getRuntimePeerSeed } from "../../../data/crdtPeerSeed";
 import { ensureDocumentAttachmentStructure } from "../../../data/documents/documentContent";
 import { ensureDocumentRowsStructure } from "../../../data/documents/documentRowList";
 import { DOCUMENTS_APP_KIND } from "../../../workflows/documents";
+import { getRuntimePeerSeed } from "../../../workflows/sync";
 import type { DocumentState, DocumentStoreState } from "./state";
 
 async function createStoredDocumentWithSeed(

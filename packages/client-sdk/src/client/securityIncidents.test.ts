@@ -5,7 +5,7 @@ import {
   reportAndRethrowKeyingVerificationError,
   throwKeyingVerificationErrorWithContext,
 } from "../data/keyingProjectionVerification/error";
-import type { SecurityIncidentContext } from "../data/securityIncidents";
+import type { SecurityIncidentContext } from "../data/shared/securityIncidents";
 import type {
   ExecSql,
   SqlArrayRow,

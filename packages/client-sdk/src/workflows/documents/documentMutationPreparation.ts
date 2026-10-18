@@ -1,9 +1,9 @@
 import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
-import { canWriteEffectiveAccessLevel } from "../../data/accessLevel";
 import {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
 } from "../../data/documents/shared/syncPagination";
+import { canWriteEffectiveAccessLevel } from "../../data/keying/accessLevel";
 import type {
   DocumentsPersistence,
   StoredDocumentRecord,

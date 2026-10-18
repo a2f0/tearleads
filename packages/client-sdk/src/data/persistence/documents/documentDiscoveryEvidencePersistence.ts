@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, lte, min, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
-import { readStringArray } from "../../recordReaders";
+import { readStringArray } from "../../shared/recordReaders";
 import {
   documentDiscoveryHeads,
   documentDiscoverySequence,

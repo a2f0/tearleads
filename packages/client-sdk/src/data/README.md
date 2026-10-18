@@ -27,9 +27,9 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
 - Blob storage internals under `blobs/` own the OPFS/memory byte stores.
   Host adapters and stores should consume the blob workflow facade instead of
   importing these stores directly.
-- Blob byte/store contracts live in `blobContracts.ts` so presentation and
-  workflows can share typed attachment payloads without importing workflow
-  barrels or storage internals.
+- Blob byte/store contracts live in `blobs/blobContracts.ts`. Workflows and
+  other data modules import them directly; stores reach them through the blob
+  workflow facade, like the rest of `blobs/`.
 - Sync coordination helpers under `sync/` own shared lane scheduling and
   prerequisite checks. Workflows compose them; presentation should stay behind
   stores/providers. Runtime-idle helpers that need to observe sync activity
@@ -38,10 +38,21 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
   presentation,
   stores, workflows, and persistence can share document read-model shapes
   without importing document shared-helper internals.
+- Key and projection verification lives under `keyingProjectionVerification/`,
+  entered through its `index.ts` facade. The keying primitives it shares with
+  persistence and workflows (canonical JSON, effective access levels, stable
+  id derivation) live under `keying/`.
+- `shared/` holds the few layer-neutral contracts and helpers every layer uses:
+  the `DomainScope` token that keys per-scope singletons, the
+  `SecurityIncidentReporter` port, `errorMessage`, and untrusted-record
+  readers. Code that belongs to one subsystem goes in that subsystem's folder
+  instead.
 - Shared helpers and domain read-model contracts hold pure or mostly pure
   projection, crypto, event, request, response validation, and view-facing data
   shapes that workflows and stores can reuse without importing provider or UI
   layers.
+- Every module lives in a folder. The layer root holds only this README, which
+  `bun run lint:files` enforces.
 
 ## Import Surface
 

@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { BlobBytes, BlobStore } from "../../data/blobContracts";
+import type { BlobBytes, BlobStore } from "../../data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createDomainScope } from "../../data/domainScope";
 import { sqlDocumentsPersistence } from "../../data/persistence/documents/documentsPersistence";
+import { createDomainScope } from "../../data/shared/domainScope";
 import { runSerializedDocumentBlobMutation } from "./blobMutationLock";
 import { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
 import type { DocumentsWorkflowRuntimeGroups } from "./runtime";

@@ -6,7 +6,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { isPrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { canonicalKeyingJsonString } from "../keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../keying/canonicalJson";
 import {
   type StoredPrincipalPolicyBundleJson,
   storedPrincipalPolicyBundleFromJson,

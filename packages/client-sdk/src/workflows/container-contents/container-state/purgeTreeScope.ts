@@ -1,12 +1,12 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import { errorMessage } from "../../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification/containerProjectionVerification";
 import { runWithSecurityIncidentReporting } from "../../../data/keyingProjectionVerification/error";
 import { rethrowProjectionVerificationCancelled } from "../../../data/keyingProjectionVerification/types";
 import { hasUnsettledDocumentPlacement } from "../../../data/persistence/container-contents/documentPurgePlacement";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { errorMessage } from "../../../data/shared/errorMessage";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsPersistence } from "../containerPersistence";

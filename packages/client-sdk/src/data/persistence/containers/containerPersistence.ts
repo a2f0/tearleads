@@ -7,7 +7,7 @@ import { asc, eq, inArray, sql } from "drizzle-orm";
 import {
   DEFAULT_EFFECTIVE_ACCESS_LEVEL,
   normalizeEffectiveAccessLevel,
-} from "../../accessLevel";
+} from "../../keying/accessLevel";
 import { containers, containerTables } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,

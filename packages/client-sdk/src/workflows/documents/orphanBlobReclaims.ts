@@ -1,5 +1,5 @@
-import { errorMessage } from "../../data/errorMessage";
 import type { DocumentsPersistence } from "../../data/persistence/documents/types";
+import { errorMessage } from "../../data/shared/errorMessage";
 import {
   type ExecSql,
   resolveCanonicalExecSql,

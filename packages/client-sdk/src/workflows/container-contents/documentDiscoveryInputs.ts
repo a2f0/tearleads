@@ -1,8 +1,8 @@
+import { uniqueSortedStrings } from "../../data/documents/shared/readers";
 import {
   maxEffectiveAccessLevel,
   normalizeEffectiveAccessLevel,
-} from "../../data/accessLevel";
-import { uniqueSortedStrings } from "../../data/documents/shared/readers";
+} from "../../data/keying/accessLevel";
 import type { DiscoveredDocumentCandidate } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import type {
   ContainerDocumentTombstone,

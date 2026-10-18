@@ -3,13 +3,13 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { errorMessage } from "../../../data/errorMessage";
 import { verifiedContainerCreateManifest } from "../../../data/keyingProjectionVerification/containerCreateManifest";
 import { verifyContainerDestinationProjection } from "../../../data/keyingProjectionVerification/containerDestinationVerification";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../../data/keyingProjectionVerification/error";
+import { errorMessage } from "../../../data/shared/errorMessage";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerState } from "../remoteHydration";
 import { settleContainerCreateIntent } from "./createIntentSettlement";

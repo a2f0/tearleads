@@ -6,7 +6,7 @@ import { desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import type {
   SecurityIncident,
   SecurityIncidentObjectKind,
-} from "../securityIncidents";
+} from "../shared/securityIncidents";
 import {
   securityIncidents,
   securityIncidentTable,

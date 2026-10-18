@@ -1,15 +1,15 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import {
-  type BlobByteSource,
-  type BlobBytes,
-  readExactBlobBytes,
-} from "../blobContracts";
-import {
   readRecordSafeByteLength,
   readRecordSafePositiveInteger,
   readRecordString,
-} from "../recordReaders";
+} from "../shared/recordReaders";
+import {
+  type BlobByteSource,
+  type BlobBytes,
+  readExactBlobBytes,
+} from "./blobContracts";
 
 export type EncryptedBlobStoreCipher = "aes-256-gcm";
 

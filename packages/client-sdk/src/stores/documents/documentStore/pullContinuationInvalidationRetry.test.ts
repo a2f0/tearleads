@@ -14,7 +14,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { DocumentRecord } from "../../../workflows/documents";
 import {
   createDocumentsWorkflowRuntime,

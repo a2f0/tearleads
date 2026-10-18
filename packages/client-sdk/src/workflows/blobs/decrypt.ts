@@ -9,7 +9,7 @@ import {
   verifyWriteHeader,
 } from "@tearleads/crypto";
 import type { BlobKekTargetsResponse } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../data/blobContracts";
+import type { BlobBytes } from "../../data/blobs/blobContracts";
 import { deriveBlobContentRecordKey } from "../../data/documents/blob/shared/crypto";
 import { unwrapBlobContentKey } from "../../data/documents/blob/shared/projection";
 import {
@@ -31,7 +31,7 @@ import {
   uniqueSortedStrings,
 } from "../../data/documents/shared/readers";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
-import { readCanonicalRecord } from "../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../data/keying/canonicalJson";
 import type { DocumentWriterProjectionAuthorization } from "../../data/keyingProjectionVerification";
 import {
   readRecordString,

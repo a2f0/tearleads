@@ -3,7 +3,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
   type ResolvedPrincipalPolicyEvidence,
 } from "../../data/keyingProjectionVerification/types";
-import { principalStateMatchesReference } from "../../data/principalPolicyStates";
+import { principalStateMatchesReference } from "../../data/principals/principalPolicyStates";
 
 /** Only exact, locally authored successors may resolve before their transaction commits. */
 export function withAuthoredPrincipalPolicies(

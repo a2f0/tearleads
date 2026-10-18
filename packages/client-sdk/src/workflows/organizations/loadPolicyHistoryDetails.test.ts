@@ -6,7 +6,6 @@ import {
   organizationHistoryPage,
 } from "../../../test/helpers/organizationHistoryPage";
 import { organizationReadModelSnapshot } from "../../../test/helpers/organizationReadModelProjectionFixtures";
-import { createDomainScope } from "../../data/domainScope";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
   applyOrganizationReadModelResponse,
@@ -16,6 +15,7 @@ import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
 } from "../../data/persistence/principalPolicyPersistence";
+import { createDomainScope } from "../../data/shared/domainScope";
 import { loadPolicyHistoryDetails } from "./loadPolicyHistoryDetails";
 import { loadLocalOrganizationPolicyHistory } from "./localReadModelDetails";
 import {

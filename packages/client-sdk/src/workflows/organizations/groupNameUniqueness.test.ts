@@ -3,7 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { readTestGroupName } from "../../../test/helpers/groupMetadata";
 import { createGroupNameDirectory } from "../../../test/helpers/groupNameDirectory";
-import type { SecurityIncidentContext } from "../../data/securityIncidents";
+import type { SecurityIncidentContext } from "../../data/shared/securityIncidents";
 import { loadOrganizationExternalAdminPolicy } from "../principals/externalAdminPolicy";
 import { GroupMetadataUnreadableError } from "./groupMetadataAccess";
 import { assertGroupNameUniqueInDirectory } from "./groupNameUniqueness";

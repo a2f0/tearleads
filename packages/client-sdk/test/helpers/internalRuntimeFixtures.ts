@@ -3,9 +3,9 @@ import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
 } from "../../src/client/workflowRuntime";
-import type { BlobStore } from "../../src/data/blobContracts";
+import type { BlobStore } from "../../src/data/blobs/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
-import { createDomainScope } from "../../src/data/domainScope";
+import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { PrincipalMutationRecoveryApi } from "../../src/workflows/organizations/principalMutationJournalManagement";
 import { principalMutationApiFixture } from "./principalMutationApiFixture";
 

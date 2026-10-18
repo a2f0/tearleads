@@ -3,7 +3,6 @@ import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { errorMessage } from "../../data/errorMessage";
 import { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification";
 import {
   reportAndRethrowKeyingVerificationError,
@@ -14,7 +13,8 @@ import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingChec
 import { ensurePrincipalPolicyTables } from "../../data/persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import { errorMessage } from "../../data/shared/errorMessage";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
 import type { CurrentPrincipalPolicyReader } from "./currentPrincipalPolicyReader";

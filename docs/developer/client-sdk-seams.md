@@ -31,6 +31,27 @@ reference it follows.
 | Acknowledged principal currents | `PrincipalAcknowledgementChecks`, the host for `recordAcknowledgedPrincipalCurrents` | The organization mutation checks bound by `retainAcknowledgedPrincipalCurrents` | None |
 | Domain sync lanes | `getOrCreateDomainSyncCoordinator(domainScope)` | One coordinator per domain scope | None |
 
+## Where code goes
+
+Each layer folder holds folders, not loose modules, and each folder maps to a
+subsystem in `scripts/architecture/subsystems.ts` or names one shared role.
+
+In `data/`, the root holds only its README; `bun run lint:files` rejects any
+other file there.
+
+- Domain folders (`blobs/`, `containers/`, `documents/`, `principals/`,
+  `sync/`, `trustedUserIdentity/`) hold that domain's contracts and helpers.
+- `keyingProjectionVerification/` is entered through its `index.ts` facade;
+  `keying/` holds the keying primitives it shares with persistence and
+  workflows.
+- `shared/` holds only contracts and helpers every layer uses with no
+  subsystem of their own: `DomainScope`, the `SecurityIncidentReporter` port,
+  `errorMessage`, and record readers. A helper one subsystem uses goes in that
+  subsystem's folder instead.
+- `blobs/`, `contacts/`, `persistence/`, `sqlite/`, and `sync/` are internal
+  to stores. A store reaches a module there through the matching workflow
+  facade, such as `workflows/blobs` or `workflows/sync`.
+
 ## Ports and adapters
 
 Name the port for the capability and the field for the role:

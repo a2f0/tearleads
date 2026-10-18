@@ -12,7 +12,7 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import {
   readCanonicalJson,
   readCanonicalRecord,
-} from "../../keyingCanonicalJson";
+} from "../../keying/canonicalJson";
 import { readContainerKeyEpoch } from "../../keyingProjectionVerification/readers";
 import { verifyContainerKekEntries } from "./containerKekEntryVerification";
 import { readManifestContainerId } from "./readers";

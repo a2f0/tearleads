@@ -4,13 +4,13 @@ import type {
 } from "@tearleads/crypto";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { errorMessage } from "../../errorMessage";
 import {
   type DocumentWriterProjectionAuthorization,
   type PrincipalPolicyCache,
   verifyDocumentWriterProjectionAuthorization,
 } from "../../keyingProjectionVerification";
 import { throwKeyingVerificationShapeFailure } from "../../keyingProjectionVerification/error";
+import { errorMessage } from "../../shared/errorMessage";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import {
   currentDocumentTargets,

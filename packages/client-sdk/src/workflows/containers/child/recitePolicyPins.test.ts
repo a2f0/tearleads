@@ -12,7 +12,7 @@ import {
   USER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
-import { readCanonicalJson } from "../../../data/keyingCanonicalJson";
+import { readCanonicalJson } from "../../../data/keying/canonicalJson";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import {
   readAccessEvent,

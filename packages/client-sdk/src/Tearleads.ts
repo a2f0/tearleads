@@ -39,15 +39,15 @@ import {
   type InternalRuntime,
   type Runtime,
 } from "./client/workflowRuntime";
-import type { BlobStore } from "./data/blobContracts";
+import type { BlobStore } from "./data/blobs/blobContracts";
 import {
   type DocumentProjectorRegistry,
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "./data/documents/documentKinds";
-import { createDomainScope, type DomainScope } from "./data/domainScope";
 import { createVerifiedManifestCitations } from "./data/persistence/verifiedManifestBundlePersistence";
-import type { SecurityIncidentReporter } from "./data/securityIncidents";
+import { createDomainScope, type DomainScope } from "./data/shared/domainScope";
+import type { SecurityIncidentReporter } from "./data/shared/securityIncidents";
 import { disposeDomainSyncCoordinator } from "./data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "./data/trustedUserIdentity";
 import type { ProvisionedSystemContainerSpec } from "./workflows/registration";

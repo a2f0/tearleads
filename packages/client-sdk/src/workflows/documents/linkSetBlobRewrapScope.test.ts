@@ -17,7 +17,7 @@ import {
   deriveDocumentTargetFromProjection,
   unwrapContainerKekPath,
 } from "../../data/documents/shared/projection";
-import { readCanonicalJson } from "../../data/keyingCanonicalJson";
+import { readCanonicalJson } from "../../data/keying/canonicalJson";
 import { relinkRemoteDocument } from "./linkSetRemote";
 
 for (const steer of [false, true]) {

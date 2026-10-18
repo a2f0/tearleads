@@ -1,5 +1,5 @@
 import { createMockApiClient } from "@tearleads/test-utils";
-import { createDomainScope } from "../../src/data/domainScope";
+import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { createContainerContentsTestRuntime } from "../../src/stores/container-contents/runtime.testFixtures";
 import { rememberDestinationRole } from "../../src/workflows/container-contents/remoteHydration/destinationRoleCache";

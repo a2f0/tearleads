@@ -7,7 +7,7 @@ import type {
   ContainerKeyWrap,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
-import { readCanonicalRecord } from "../../keyingCanonicalJson";
+import { readCanonicalRecord } from "../../keying/canonicalJson";
 import {
   readContainerKekRecipientTarget,
   readContainerKeyWrap,
@@ -17,7 +17,7 @@ import {
   readRecordPositiveInteger,
   readRecordString,
   readRecordValue,
-} from "../../recordReaders";
+} from "../../shared/recordReaders";
 
 function readRecordVersion(
   record: Record<string, unknown>,

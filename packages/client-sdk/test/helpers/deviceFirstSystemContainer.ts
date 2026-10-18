@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import type { DomainScope } from "../../src/data/domainScope";
+import type { DomainScope } from "../../src/data/shared/domainScope";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { createContainerContentsStore } from "../../src/stores/container-contents/containerContentsStore";
 import {

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createWorkflowInputFixture } from "../../../test/helpers/internalRuntimeFixtures";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
-import { createDomainScope } from "../../data/domainScope";
+import { createDomainScope } from "../../data/shared/domainScope";
 import { createExecSql } from "../../data/sqlite/sqlSchema";
 import { Tearleads } from "../../Tearleads";
 import { createRuntime } from "../workflowRuntime";

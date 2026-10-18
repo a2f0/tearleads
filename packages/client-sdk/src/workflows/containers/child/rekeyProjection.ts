@@ -12,7 +12,7 @@ import {
   canonicalKeyingJsonString,
   readCanonicalRecord,
   readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+} from "../../../data/keying/canonicalJson";
 import { mergeProjectionPolicyEvidence } from "../../../data/keyingProjectionVerification/mergeProjectionPolicyEvidence";
 
 const speculativeProjections = new WeakSet<ContainerWriterProjectionResponse>();

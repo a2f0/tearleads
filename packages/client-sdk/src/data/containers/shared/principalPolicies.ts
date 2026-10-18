@@ -1,5 +1,5 @@
 import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
-import { readCanonicalRecord } from "../../keyingCanonicalJson";
+import { readCanonicalRecord } from "../../keying/canonicalJson";
 import type {
   PrincipalPolicyCheckpointEvidence,
   PrincipalPolicyCurrentEvidence,

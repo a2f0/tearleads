@@ -6,7 +6,7 @@ import {
 } from "../../../test/helpers/blobUploadFixtures";
 import { createPendingUpdateRecord } from "../../../test/helpers/documentResponseFixtures";
 import { repairedAncestorDocument } from "../../../test/helpers/repairedAncestorDocument";
-import type { BlobBytes } from "../../data/blobContracts";
+import type { BlobBytes } from "../../data/blobs/blobContracts";
 import { ContainerKekRepairRequiredError } from "../../data/documents/shared/containerKekCurrency";
 import { uploadDocumentAttachment } from "../blobs/upload";
 import { retrySyncPlan } from "./syncFailures";

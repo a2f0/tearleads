@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createDomainScope } from "../domainScope";
+import { createDomainScope } from "../shared/domainScope";
 import {
   getOrCreateDomainSyncCoordinator,
   requestAllDomainSyncLanes,

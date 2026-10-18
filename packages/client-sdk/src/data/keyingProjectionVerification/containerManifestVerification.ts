@@ -6,7 +6,10 @@ import {
   verifyContainerAccessManifest,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { readCanonicalJson, readCanonicalRecord } from "../keyingCanonicalJson";
+import {
+  readCanonicalJson,
+  readCanonicalRecord,
+} from "../keying/canonicalJson";
 import {
   assertCanonicalEqual,
   verifyAccessEventBundle,

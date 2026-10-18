@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createDocument } from "@tearleads/loro";
-import { createDomainScope } from "../../../data/domainScope";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentStoreState } from "./state";
 import {

@@ -12,7 +12,7 @@ import {
   computeContainerKeyEpochHash,
 } from "@tearleads/crypto";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
-import { canonicalKeyingJsonString } from "../../keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../../keying/canonicalJson";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   type LocallyAcknowledgedAccessManifestHead,

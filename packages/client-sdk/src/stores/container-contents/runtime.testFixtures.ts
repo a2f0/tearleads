@@ -1,6 +1,6 @@
 import type { ListContainersResponse } from "@tearleads/validators/response";
-import type { BlobStore } from "../../data/blobContracts";
 import { defaultDocumentProjectorRegistry } from "../../data/documents/documentKinds";
+import type { BlobStore } from "../../workflows/blobs";
 import { defaultContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import {
   type ContainerContentsWorkflowRuntimeInput,

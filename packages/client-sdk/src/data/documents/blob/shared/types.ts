@@ -24,7 +24,10 @@ import type {
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
-import type { BlobByteSourceInput, BlobBytes } from "../../../blobContracts";
+import type {
+  BlobByteSourceInput,
+  BlobBytes,
+} from "../../../blobs/blobContracts";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,

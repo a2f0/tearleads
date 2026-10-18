@@ -2,7 +2,7 @@ import { bytesToHex, createIncrementalSha256 } from "@tearleads/crypto";
 import {
   type BlobByteSourceInput,
   createBlobByteSource,
-} from "../blobContracts";
+} from "../blobs/blobContracts";
 
 /** Kept inside encrypted document content; independent of upload encryption/retries. */
 export async function attachmentContentSha256(

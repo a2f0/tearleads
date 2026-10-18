@@ -1,4 +1,4 @@
-import type { BlobStore } from "../data/blobContracts";
+import type { BlobStore } from "../data/blobs/blobContracts";
 import { createBlobStore } from "../data/blobs/createBlobStore";
 import { createMemoryBlobStore } from "../data/blobs/memoryBlobStore";
 

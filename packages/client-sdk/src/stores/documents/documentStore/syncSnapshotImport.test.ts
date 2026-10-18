@@ -9,7 +9,7 @@ import {
   importUpdates,
   versionVectorsEqual,
 } from "@tearleads/loro";
-import { createDomainScope } from "../../../data/domainScope";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentRecord } from "../../../workflows/documents";
 import type { DocumentStoreState, DocumentSyncAttempt } from "./state";

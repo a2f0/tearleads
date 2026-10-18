@@ -15,7 +15,7 @@ import { containerManifestRef } from "../../../data/containers/shared/projection
 import {
   readCanonicalRecord,
   readCanonicalRecords,
-} from "../../../data/keyingCanonicalJson";
+} from "../../../data/keying/canonicalJson";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
 
 export function readCanonicalRecordOrNull(

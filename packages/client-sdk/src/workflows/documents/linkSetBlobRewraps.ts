@@ -23,7 +23,7 @@ import type {
   ProjectionVerificationOptions,
 } from "../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../data/documents/shared/types";
-import { readCanonicalJson } from "../../data/keyingCanonicalJson";
+import { readCanonicalJson } from "../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../data/keyingProjectionVerification/documentContainerProjections";

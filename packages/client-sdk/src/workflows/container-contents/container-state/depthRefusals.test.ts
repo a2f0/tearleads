@@ -13,7 +13,7 @@ import {
   CONTAINER_PATH_TOO_DEEP_MESSAGE,
   ContainerPathTooDeepError,
 } from "../../../data/containers/shared/containerPathLimits";
-import { createDomainScope } from "../../../data/domainScope";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerCreateIntentRecord,

@@ -10,7 +10,7 @@ import type {
   CurrentPrincipalMemberEnvelopesResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import { canonicalKeyingJsonString } from "../../data/keyingCanonicalJson";
+import { canonicalKeyingJsonString } from "../../data/keying/canonicalJson";
 
 function sortedCanonicalValues<T>(values: readonly T[], label: string): T[] {
   return [...values].sort((left, right) =>

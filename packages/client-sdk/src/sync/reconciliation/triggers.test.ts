@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
-import { createDomainScope } from "../../data/domainScope";
+import { createDomainScope } from "../../data/shared/domainScope";
 import { markOriginatedDocuments } from "../../data/sync/originatedDocuments";
 import type {
   LocalProjectionReconcileListener,

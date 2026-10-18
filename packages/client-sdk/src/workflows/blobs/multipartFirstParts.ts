@@ -6,7 +6,7 @@ import {
   type MultipartBlobPartDescriptor,
   type MultipartBlobPartUploadSource,
 } from "@tearleads/validators/util";
-import type { BlobBytes } from "../../data/blobContracts";
+import type { BlobBytes } from "../../data/blobs/blobContracts";
 import {
   acquireBlobTransferPermit,
   type BlobTransferPermit,

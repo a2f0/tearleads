@@ -7,7 +7,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import { createContainerContentsWorkflowRuntime } from "../runtime";
 import { createRemoteContainerWithMetadataDocument } from "./createWithMetadata";
 

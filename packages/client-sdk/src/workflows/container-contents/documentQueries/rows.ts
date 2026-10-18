@@ -1,7 +1,7 @@
-import { normalizeEffectiveAccessLevel } from "../../../data/accessLevel";
 import { DEFAULT_DOCUMENT_KIND } from "../../../data/documents/documentConstants";
 import type { StoredDocumentKind } from "../../../data/documents/documentKinds";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
+import { normalizeEffectiveAccessLevel } from "../../../data/keying/accessLevel";
 import {
   type ContainerDocumentObjectSyncState,
   createContainerDocumentObjectSyncState,

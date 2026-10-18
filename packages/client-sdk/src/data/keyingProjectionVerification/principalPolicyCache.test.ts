@@ -19,7 +19,7 @@ import {
   savePrincipalPolicyBundle,
 } from "../persistence/principalPolicyPersistence";
 import { retainVerifiedPrincipalPolicyBundle } from "../persistence/verifiedPrincipalPolicyRetentionPersistence";
-import { principalPolicyBundleContainsReference } from "../principalPolicyStates";
+import { principalPolicyBundleContainsReference } from "../principals/principalPolicyStates";
 import {
   filterUncachedPrincipalPolicyReferences,
   referencedPrincipalPolicyKey,

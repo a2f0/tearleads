@@ -8,16 +8,16 @@ import type {
   DocumentWriterProjectionResponse,
   ListDocumentAttachmentsResponse,
 } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../data/blobContracts";
+import type { BlobBytes } from "../../data/blobs/blobContracts";
 import { runBlobTransfer } from "../../data/blobs/transferPool";
 import { attachmentContentSha256 } from "../../data/documents/attachmentContentIdentity";
 import type { DocumentAttachment } from "../../data/documents/documentContent";
-import { errorMessage } from "../../data/errorMessage";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import { errorMessage } from "../../data/shared/errorMessage";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createAttachmentDecryptor } from "./attachmentDecryptor";
 import { collectHydrationResults } from "./hydrationResults";

@@ -1,9 +1,9 @@
 import type { DocumentPurgeResponse } from "@tearleads/validators/response";
 import type { StoredDocumentKind } from "../../data/documents/documentKinds";
-import { errorMessage } from "../../data/errorMessage";
 import type { ProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../data/keyingProjectionVerification/error";
 import { rethrowProjectionVerificationCancelled } from "../../data/keyingProjectionVerification/types";
+import { errorMessage } from "../../data/shared/errorMessage";
 import {
   type DocumentsPersistence,
   defaultDocumentsPersistence,

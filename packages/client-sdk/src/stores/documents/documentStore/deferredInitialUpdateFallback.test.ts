@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { BlobStore } from "../../../data/blobContracts";
+import type { BlobStore } from "../../../data/blobs/blobContracts";
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { getDocumentAttachments } from "../../../data/documents/documentContent";
 import { hasDeferredTailScopeWork } from "../../../workflows/container-contents/pendingWrites/deferredTails";

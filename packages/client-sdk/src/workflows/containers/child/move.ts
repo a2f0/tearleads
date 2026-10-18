@@ -37,7 +37,7 @@ import type {
 } from "../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
-import { readCanonicalRecord } from "../../../data/keyingCanonicalJson";
+import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
 import {
   nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
@@ -45,7 +45,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
-import type { SecurityIncidentReporter } from "../../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   buildMoveRotationWithBody,

@@ -13,7 +13,7 @@ import type {
   PutPrincipalPolicyRequest,
 } from "@tearleads/validators/request";
 import { principalSecretKeyMatchesState } from "../../data/principals/principalKeyValidation";
-import type { SecurityIncidentReporter } from "../../data/securityIncidents";
+import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 import { isDirectGroupAdmin } from "./groupMutationAuthorization";
 import {

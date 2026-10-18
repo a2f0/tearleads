@@ -10,8 +10,8 @@ import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { attachmentContentSha256 } from "../../../data/documents/attachmentContentIdentity";
 import { addDocumentAttachments } from "../../../data/documents/documentContent";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { createDomainScope } from "../../../data/domainScope";
 import { applyStoredAttachmentRemoval } from "../../../data/persistence/documents/internal/attachmentStagingPersistence";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   clientSqlTables,
   documentAttachmentBlobProjection,

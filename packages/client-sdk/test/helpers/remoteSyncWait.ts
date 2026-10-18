@@ -2,7 +2,7 @@ import { createMockApiClient } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
-import { createDomainScope } from "../../src/data/domainScope";
+import { createDomainScope } from "../../src/data/shared/domainScope";
 import { getDomainSyncCoordinatorSnapshot } from "../../src/data/sync/syncCoordinator";
 import {
   createDocumentsWorkflowRuntime,

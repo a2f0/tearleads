@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { createDomainScope } from "../domainScope";
+import { createDomainScope } from "../shared/domainScope";
 import { getOrCreateDomainSyncCoordinator } from "./syncCoordinator";
 
 for (const phase of ["document", "structural"] as const) {

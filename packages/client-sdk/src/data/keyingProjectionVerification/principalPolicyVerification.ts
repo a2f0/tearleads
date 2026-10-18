@@ -14,7 +14,6 @@ import {
 } from "../persistence/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../persistence/principalPolicyReferencePersistence";
-import { principalPolicyBundleStates } from "../principalPolicyStates";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,
@@ -27,6 +26,7 @@ import {
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
 } from "../principals/principalPolicyAdminSigners";
 import type { PrincipalPolicyCurrentEvidence } from "../principals/principalPolicyEvidence";
+import { principalPolicyBundleStates } from "../principals/principalPolicyStates";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,

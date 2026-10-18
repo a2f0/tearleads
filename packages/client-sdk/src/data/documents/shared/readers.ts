@@ -2,7 +2,7 @@ export {
   readRecordNullableString,
   readRecordPositiveInteger,
   readRecordString,
-} from "../../recordReaders";
+} from "../../shared/recordReaders";
 
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
@@ -17,14 +17,14 @@ import type {
   DocumentCreateResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalRecord } from "../../keyingCanonicalJson";
+import { readCanonicalRecord } from "../../keying/canonicalJson";
 import {
   readRecordInteger,
   readRecordPositiveInteger,
   readRecordString,
   readRecordValue,
   readStringArray,
-} from "../../recordReaders";
+} from "../../shared/recordReaders";
 
 export {
   assertDocumentManifestBundleConsistent,

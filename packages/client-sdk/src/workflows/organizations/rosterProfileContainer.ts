@@ -6,12 +6,12 @@ export {
   deriveOrganizationRosterProfileContainerSystemSlot,
 } from "@tearleads/validators/containerSystemSlot";
 
-import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   initializeStoredDocumentKind,
   writeStoredDocumentFields,
 } from "../../data/documents/documentKinds";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
+import { getScopedPeerSeed } from "../../data/sync/crdtPeerSeed";
 
 export const ORGANIZATION_ROSTER_PROFILE_CONTAINER_NAME = "Roster Profiles";
 export const ROSTER_PROFILE_DOCUMENT_KIND = "contact";

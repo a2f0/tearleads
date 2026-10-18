@@ -5,12 +5,12 @@ import {
   importSnapshot,
   importUpdates,
 } from "@tearleads/loro";
-import { getScopedPeerSeed } from "../../data/crdtPeerSeed";
 import {
   DOCUMENTS_APP_KIND,
   type DocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { getScopedPeerSeed } from "../../data/sync/crdtPeerSeed";
 
 /**
  * Import durable-history tail rows into a document. Rotation baselines travel

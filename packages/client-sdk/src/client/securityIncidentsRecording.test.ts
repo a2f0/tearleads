@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import type { SecurityIncidentContext } from "../data/securityIncidents";
+import type { SecurityIncidentContext } from "../data/shared/securityIncidents";
 import type {
   ExecSql,
   SqlArrayRow,

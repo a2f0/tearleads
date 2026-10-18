@@ -1,7 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { and, eq, inArray, or } from "drizzle-orm";
-import { principalPolicyBundleStates } from "../principalPolicyStates";
+import { principalPolicyBundleStates } from "../principals/principalPolicyStates";
 import { principalPolicyBundleReferences } from "../sqlite/schema";
 import {
   sqliteInsertBatchSize,

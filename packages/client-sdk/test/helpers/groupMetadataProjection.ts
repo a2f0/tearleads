@@ -16,7 +16,7 @@ import {
   readCanonicalJson,
   readCanonicalRecord,
   readCanonicalRecords,
-} from "../../src/data/keyingCanonicalJson";
+} from "../../src/data/keying/canonicalJson";
 import type { createParentProjection } from "./containerFixtures";
 
 /** Independently signed root; copying recipient envelopes does not copy ancestry. */

@@ -1,23 +1,23 @@
-import type { ProjectionUserKeyResolver } from "./keyingProjectionVerification/types";
-import { requireTrustedUserIdentityResolver } from "./trustedUserIdentity/requiredResolver";
+import { requireTrustedUserIdentityResolver } from "../trustedUserIdentity/requiredResolver";
+import type { ProjectionUserKeyResolver } from "./types";
 
-export { resolveEventContainerPaths } from "./keyingProjectionVerification/documentDependencyPaths";
+export { resolveEventContainerPaths } from "./documentDependencyPaths";
 export {
   readAccessEvent,
   readRecordString,
   readRequiredRecordValue,
-} from "./keyingProjectionVerification/readers";
+} from "./readers";
 
 export type {
   PrincipalPolicyCache,
   ProjectionUserKey,
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
-} from "./keyingProjectionVerification/types";
+} from "./types";
 export {
   isProjectionVerificationCancelledError,
   nullOnProjectionVerificationCancellation,
-} from "./keyingProjectionVerification/types";
+} from "./types";
 
 export function requireProjectionUserKeyResolver(
   resolveProjectionUserKey: ProjectionUserKeyResolver | null | undefined,
@@ -35,13 +35,13 @@ export function requireProjectionUserKeyResolver(
 export {
   collectContainerWriterProjectionPrincipalPolicies,
   verifyContainerWriterProjection,
-} from "./keyingProjectionVerification/containerProjectionVerification";
+} from "./containerProjectionVerification";
 export {
   type DocumentWriterProjectionAuthorization,
   verifyDocumentWriterProjection,
   verifyDocumentWriterProjectionAuthorization,
-} from "./keyingProjectionVerification/documentProjectionVerification";
+} from "./documentProjectionVerification";
 export {
   verifyDocumentPurgeProof,
   verifyDocumentPurgeProofBaseline,
-} from "./keyingProjectionVerification/documentPurgeProofVerification";
+} from "./documentPurgeProofVerification";

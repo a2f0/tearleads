@@ -11,7 +11,7 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../keyingCanonicalJson";
+import { readCanonicalJson } from "../keying/canonicalJson";
 import {
   addBundleByHash,
   assertCanonicalEqual,

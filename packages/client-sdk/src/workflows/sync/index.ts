@@ -1,7 +1,8 @@
 export {
   createDomainScope,
   type DomainScope,
-} from "../../data/domainScope";
+} from "../../data/shared/domainScope";
+export { getRuntimePeerSeed } from "../../data/sync/crdtPeerSeed";
 export { markOriginatedDocuments } from "../../data/sync/originatedDocuments";
 export type {
   DomainSyncCoordinator,

@@ -16,9 +16,9 @@ import { createResponseFromRequest } from "../../../../test/helpers/documentFixt
 import { createMemoryBlobStore } from "../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
 import { unwrapDocumentContentKeyTarget } from "../../../data/documents/shared/projection";
-import { createDomainScope } from "../../../data/domainScope";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
 import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import { createContainerContentsWorkflowRuntime } from "../runtime";
 import {
   CONTAINER_ALREADY_COMMITTED,

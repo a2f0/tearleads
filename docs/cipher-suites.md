@@ -100,7 +100,7 @@ PIN-code wrap suite: `pin-code-pbkdf2-sha256-aes-256-gcm`.
 | SHA-256 | Public-key fingerprints, canonical keying hashes | `packages/crypto/src/{fingerprint,keying/canonical}.ts` |
 | SHA-256 | Streamed blob ciphertext integrity | `packages/crypto/src/incrementalSha256.ts`, `packages/api/src/utils/sha256.ts` |
 | SHA-256 + `timingSafeEqual` | RevenueCat webhook shared-secret compare (constant-time, not HMAC) | `packages/api/src/routes/billing/revenuecatWebhook.ts` |
-| SHA-1 | Deterministic v5-style document / child-container ids (non-security) | `packages/client-sdk/src/data/stableUuid.ts` |
+| SHA-1 | Deterministic v5-style document / child-container ids (non-security) | `packages/client-sdk/src/data/keying/stableUuid.ts` |
 | HMAC-SHA-256 | Deterministic container system-slot ids | `packages/client-sdk/src/workflows/container-contents/systemSlot.ts` |
 | HMAC-SHA-256 | Stripe webhook signature verification | `packages/api/src/billing/stripeWebhook.ts` |
 

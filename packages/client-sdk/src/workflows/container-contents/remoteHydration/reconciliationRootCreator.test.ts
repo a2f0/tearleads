@@ -8,7 +8,7 @@ import { createParentProjection } from "../../../../test/helpers/containerFixtur
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import type { SecurityIncidentContext } from "../../../data/securityIncidents";
+import type { SecurityIncidentContext } from "../../../data/shared/securityIncidents";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import { localOnlyRootState } from "./localRootState.testFixtures";
 import { reconcileLocalOnlyRootContainers } from "./reconciliation";

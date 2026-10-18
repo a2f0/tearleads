@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { waitFor } from "../../../test/helpers/waitFor";
-import { createDomainScope } from "../domainScope";
+import { createDomainScope } from "../shared/domainScope";
 import {
   getOrCreateDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
