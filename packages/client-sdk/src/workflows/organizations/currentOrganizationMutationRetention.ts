@@ -4,9 +4,9 @@ import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/resp
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import { captureAcknowledgedPrincipalPredecessor } from "../principals/acknowledgedPrincipalPredecessor";
 import type { PrincipalPolicyPageReader } from "../principals/principalPolicyHistoryReader";
 import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
-import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import type { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
 import {
   type AcknowledgedPrincipalCurrentInput,

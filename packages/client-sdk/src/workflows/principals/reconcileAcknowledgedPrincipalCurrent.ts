@@ -10,13 +10,13 @@ import type {
 } from "../../data/persistence/principalCurrentAcknowledgementPersistence";
 import { loadPrincipalHistoryPrefix } from "../../data/persistence/principalHistoryPrefixPersistence";
 import { principalHeadMatchesReference } from "../../data/principals/organizationAuthorityDescriptor";
+import { restoreAcknowledgedPrincipalPrefix } from "./acknowledgedPrincipalPredecessor";
 import {
   PrincipalHistoryEvidenceUnavailableError,
   selectRecoveredPrincipalHistory,
-} from "../principals/principalHistoryRecoveryReferences";
-import type { RecoverPrincipalPolicyHistoryOptions } from "../principals/principalHistoryRecoveryTypes";
-import { principalHistoryVerificationContext } from "../principals/principalHistoryRecoveryVerification";
-import { restoreAcknowledgedPrincipalPrefix } from "./acknowledgedPrincipalPredecessor";
+} from "./principalHistoryRecoveryReferences";
+import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
+import { principalHistoryVerificationContext } from "./principalHistoryRecoveryVerification";
 
 /** Only the receipt is proven; a newer local pin needs scoped history covering it. */
 function reconcileReceiptOnly(

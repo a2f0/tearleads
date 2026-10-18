@@ -5,9 +5,9 @@ import { assertProjectionVerificationCurrent } from "../../data/keyingProjection
 import type { CurrentPolicyReferenceResolver } from "../../data/principals/currentPolicyReferenceResolver";
 import { scopedGroupHistoryProtection } from "../../data/principals/principalHistoryScopeProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import { captureAcknowledgedPrincipalPredecessor } from "../principals/acknowledgedPrincipalPredecessor";
 import type { PrincipalPolicyPageReader } from "../principals/principalPolicyHistoryReader";
 import type { PrincipalPolicyRecoveryRuntime } from "../principals/runtimePolicyRecovery";
-import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import { resolveCurrentGroupMutationReferences } from "./currentGroupMutationReferences";
 import { loadCurrentGroupPolicyMutationContext } from "./currentGroupPolicyMutationContext";
 import { createCurrentPrincipalMutationLease } from "./currentPrincipalMutationLease";

@@ -9,7 +9,7 @@ import {
   principalHistoryStageId,
   principalHistoryStageProtection,
 } from "../../data/principals/principalHistoryStageProtection";
-import type { RecoverPrincipalPolicyHistoryOptions } from "../principals/principalHistoryRecoveryTypes";
+import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";
 
 function exactHead(head: ReferencedPrincipalHead): ReferencedPrincipalHead {
   return {

@@ -11,9 +11,9 @@ import { parseOrganizationAuthorityDescriptor } from "../../data/principals/orga
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../data/principals/principalPolicyCrypto";
 import { principalKeyEnvelopeArchive } from "../../data/sqlite/principalHistoryRetentionSchema";
 import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
+import { captureAcknowledgedPrincipalPredecessor } from "../principals/acknowledgedPrincipalPredecessor";
 import { restorePrincipalHistoryRecoveryStage } from "../principals/principalHistoryRecoveryStage";
 import { recoverPrincipalPolicyHistory } from "../principals/recoverPrincipalPolicyHistory";
-import { captureAcknowledgedPrincipalPredecessor } from "./acknowledgedPrincipalPredecessor";
 import { buildOrganizationGroupDirectoryPolicyRequest } from "./organizationGroupDirectory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 

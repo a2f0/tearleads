@@ -1,5 +1,9 @@
 export type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 export {
+  type AcknowledgedPrincipalPredecessor,
+  captureAcknowledgedPrincipalPredecessor,
+} from "./acknowledgedPrincipalPredecessor";
+export {
   type CachePrincipalPolicyBundlesOptions,
   type CacheReferencedPrincipalPoliciesOptions,
   cachePrincipalPolicyBundles,
