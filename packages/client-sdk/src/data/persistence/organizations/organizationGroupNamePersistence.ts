@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import { organizationReadModelGroups } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
+import { organizationReadModelGroups } from "../../sqlite/schema/organizationReadModelSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 

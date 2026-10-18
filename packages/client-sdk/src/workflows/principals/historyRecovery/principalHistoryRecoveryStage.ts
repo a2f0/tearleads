@@ -9,7 +9,7 @@ import {
   discardPrincipalHistoryStage,
   loadPrincipalHistoryStage,
   type PrincipalHistoryStage,
-} from "../../../data/persistence/principalHistoryStagePersistence";
+} from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
 import {
   parsePrincipalHistoryStageCurrent,

@@ -14,8 +14,8 @@ import {
   repairProtectionLease,
 } from "../../../../test/helpers/principalPolicyRepair";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,

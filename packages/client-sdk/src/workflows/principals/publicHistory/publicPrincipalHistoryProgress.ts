@@ -7,17 +7,17 @@ import {
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistoryEvidencePersistence";
+import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import {
   discardPrincipalHistoryPrefix,
   loadPrincipalHistoryPrefix,
   type PrincipalHistoryPrefix,
   savePrincipalHistoryPrefix,
-} from "../../../data/persistence/principalHistoryPrefixPersistence";
+} from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import {
   discardPrincipalHistoryStage,
   loadPrincipalHistoryStage,
-} from "../../../data/persistence/principalHistoryStagePersistence";
+} from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import {
   principalHistoryEvidenceScopeId,

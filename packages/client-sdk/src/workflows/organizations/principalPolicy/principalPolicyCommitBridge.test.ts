@@ -20,12 +20,12 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   loadAllPrincipalPolicyBundles,
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { buildAddGroupUserPolicyRequest } from "../groupPolicy/groupPolicyRequests";
 import { addOrganizationGroupUser, removeOrganizationGroupUser } from "./index";

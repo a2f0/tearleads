@@ -7,8 +7,8 @@ import { createPublicProjectionHistoryFixture } from "../../../../test/helpers/p
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,
-} from "../../../data/sqlite/principalHistoryEvidenceSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+} from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverProjectionPolicyHistory } from "./recoverProjectionPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

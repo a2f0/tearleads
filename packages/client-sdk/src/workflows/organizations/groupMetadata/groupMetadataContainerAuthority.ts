@@ -1,6 +1,6 @@
 import type { ContainerAccessManifestState } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,

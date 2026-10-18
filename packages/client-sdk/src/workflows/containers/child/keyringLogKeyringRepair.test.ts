@@ -5,7 +5,7 @@ import {
   makeEpochKeys,
   makeLogEpoch,
 } from "../../../../test/helpers/keyringRotationFixtures";
-import { rebuildKeyringEntriesFromLog } from "../../../data/documents/shared/keyringRebuild";
+import { rebuildKeyringEntriesFromLog } from "../../../data/documents/shared/containerKek/keyringRebuild";
 
 test("a served keyring recovers across two severed bridges at once", async () => {
   const containerId = crypto.randomUUID();

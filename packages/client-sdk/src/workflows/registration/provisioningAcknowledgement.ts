@@ -9,7 +9,7 @@ import type { AuthoredDiscoveryHead } from "../../data/persistence/documents/doc
 import {
   type LocallyAcknowledgedAccessManifestHead,
   locallyAuthoredAccessManifestHead,
-} from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+} from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 
 type ContainerPlan = Parameters<
   typeof locallyAcknowledgedContainerMutationHead

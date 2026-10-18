@@ -16,7 +16,7 @@ import { canonicalKeyingJsonString } from "../../keying/canonicalJson";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   type LocallyAcknowledgedAccessManifestHead,
-} from "../../persistence/locallyAcknowledgedCheckpointPersistence";
+} from "../../persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export interface AuthoredContainerMutationHead {

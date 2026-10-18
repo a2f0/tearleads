@@ -6,8 +6,8 @@ import {
   createSignedSyncResponseUpdate,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
-import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
+import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   DocumentRawHistoryUnavailableError,
   unwrapDocumentSyncResponseContentKeys,

@@ -10,12 +10,12 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyPageResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistoryEvidencePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import {
   discardPrincipalHistoryStage,
   savePrincipalHistoryStage,
-} from "../../../data/persistence/principalHistoryStagePersistence";
+} from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
 import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";

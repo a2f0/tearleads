@@ -1,20 +1,20 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import { containers } from "../sqlite/containerSchema";
-import {
-  documentDiscoveryHeads,
-  pendingDocumentDiscoveries,
-} from "../sqlite/documentDiscoveryEvidenceSchema";
 import {
   containerTables,
   documentContainerProjection,
   documentContainerProjectionTables,
 } from "../sqlite/schema";
+import { containers } from "../sqlite/schema/containerSchema";
+import {
+  documentDiscoveryHeads,
+  pendingDocumentDiscoveries,
+} from "../sqlite/schema/documentDiscoveryEvidenceSchema";
+import { verifiedAccessManifestBundles } from "../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
-import { verifiedAccessManifestBundles } from "../sqlite/verifiedManifestBundleSchema";
-import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "./keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import {
   createVerifiedManifestCitations,
   loadVerifiedManifestCitations,

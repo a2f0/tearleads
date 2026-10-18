@@ -8,19 +8,19 @@ import {
   isDocumentContentKeyBundleResponse,
   isDocumentKekTargetsResponse,
 } from "@tearleads/validators/response";
-import type {
-  DocumentSyncUpdateIsolationError,
-  IncomingDocumentSyncUpdateValidator,
-} from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   isRetryableDocumentSyncConflict,
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "../../../data/documents/shared/responses";
+import type {
+  DocumentSyncUpdateIsolationError,
+  IncomingDocumentSyncUpdateValidator,
+} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
-} from "../../../data/documents/shared/syncPagination";
+} from "../../../data/documents/shared/sync/syncPagination";
 import type {
   DocumentCreateAuthor,
   DocumentSyncApi,

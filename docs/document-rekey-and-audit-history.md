@@ -250,7 +250,7 @@ Every accepted document update stores the writer's signed write header in
 The API verifies the header before it accepts an update. Every client verifies
 it again on every synced update: it recomputes the ciphertext hash and the
 metadata hash from the served record and checks the writer's signature
-(`packages/client-sdk/src/data/documents/shared/syncResponses.ts`). A tampered
+(`packages/client-sdk/src/data/documents/shared/sync/syncResponses.ts`). A tampered
 ciphertext, version vector, plaintext HMAC, or baseline frontier therefore
 fails closed on the client, and a tampered baseline cannot redirect a reader
 to partial state.

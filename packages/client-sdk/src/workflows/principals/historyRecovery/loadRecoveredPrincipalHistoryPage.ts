@@ -10,8 +10,8 @@ import {
   type PrincipalPolicyStateChainEntryResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistoryEvidencePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { principalHistoryEvidenceScopeId } from "../../../data/principals/principalHistoryPrefixProtection";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { loadVerifiedPrincipalHistoryPrefix } from "./principalHistoryRecoveryPrefix";

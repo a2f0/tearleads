@@ -5,16 +5,16 @@ import {
   updateMatchesDocumentHistory,
 } from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
-import { documentSyncPullContinuationsEqual } from "../../../documents/shared/pullContinuation";
+import { documentSyncPullContinuationsEqual } from "../../../documents/shared/sync/pullContinuation";
 import {
   appendDocumentHistoryUpdates,
   replaceDocumentHistoryCheckpoint,
-} from "../../../sqlite/documentHistoryPersistence";
+} from "../../../sqlite/documentPersistence/documentHistoryPersistence";
 import {
   insertDocumentPendingUpdateWithHistoryInTransaction,
   settleQueuedDocumentUpdatesInTransaction,
-} from "../../../sqlite/documentPendingUpdatePersistence";
-import { clearDocumentSyncFailureInTransaction } from "../../../sqlite/documentSyncFailurePersistence";
+} from "../../../sqlite/documentPersistence/documentPendingUpdatePersistence";
+import { clearDocumentSyncFailureInTransaction } from "../../../sqlite/documentPersistence/documentSyncFailurePersistence";
 import { documentHistoryUpdates } from "../../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,

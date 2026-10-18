@@ -1,6 +1,6 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import type { HeldContainerBinding } from "../../containers/containerBinding";
-import type { DocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
+import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import type {
   DocumentRecord,
   PendingUpdateFields,

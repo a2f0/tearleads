@@ -5,7 +5,7 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { enforceAccessManifestCheckpoints } from "./accessManifestCheckpointEnforcement";
 

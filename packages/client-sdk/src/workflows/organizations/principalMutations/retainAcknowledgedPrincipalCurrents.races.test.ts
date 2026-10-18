@@ -4,15 +4,15 @@ import { eq } from "drizzle-orm";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import { principalGrantRetirements } from "../../../data/sqlite/principalGrantRetirementSchema";
+import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import {
   principalHistoryEntries,
   principalHistoryNodes,
   principalHistoryPrefixes,
-} from "../../../data/sqlite/principalHistoryEvidenceSchema";
-import { principalKeyEnvelopeArchive } from "../../../data/sqlite/principalHistoryRetentionSchema";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+} from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import { principalKeyEnvelopeArchive } from "../../../data/sqlite/schema/principalHistoryRetentionSchema";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { PrincipalHistoryEvidenceUnavailableError } from "../../principals/historyRecovery/principalHistoryRecoveryReferences";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";

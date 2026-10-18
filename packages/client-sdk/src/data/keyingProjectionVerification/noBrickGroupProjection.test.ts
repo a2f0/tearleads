@@ -10,7 +10,7 @@ import {
   manifestBundle,
 } from "../../../test/helpers/ancestorCitationScenario";
 import { createGroupHistoricalSignerScenario } from "../../../test/helpers/groupHistoricalSignerScenario";
-import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "./container/containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "./principalPolicy/principalPolicyCache";

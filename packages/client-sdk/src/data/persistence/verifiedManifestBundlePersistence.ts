@@ -12,26 +12,26 @@ import {
   MAX_CONTAINER_PATH_LENGTH,
 } from "@tearleads/validators/util";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
-import { containers } from "../sqlite/containerSchema";
-import {
-  documentDiscoveryHeads,
-  pendingDocumentDiscoveries,
-} from "../sqlite/documentDiscoveryEvidenceSchema";
 import {
   containerTables,
   documentContainerProjection,
   documentContainerProjectionTables,
 } from "../sqlite/schema";
+import { containers } from "../sqlite/schema/containerSchema";
+import {
+  documentDiscoveryHeads,
+  pendingDocumentDiscoveries,
+} from "../sqlite/schema/documentDiscoveryEvidenceSchema";
+import {
+  verifiedAccessManifestBundles as bundles,
+  verifiedManifestBundleTables,
+} from "../sqlite/schema/verifiedManifestBundleSchema";
 import {
   type ClientSQLiteDatabase,
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
-import {
-  verifiedAccessManifestBundles as bundles,
-  verifiedManifestBundleTables,
-} from "../sqlite/verifiedManifestBundleSchema";
 
 /**
  * Bounds local bytes (a bundle is ~10–20 KB). Evicting the least recently

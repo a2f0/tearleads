@@ -1,22 +1,22 @@
 import { and, eq, or } from "drizzle-orm";
 import {
-  principalHistoryEntries,
-  principalHistoryNodes,
-  principalHistoryPrefixes,
-} from "../../data/sqlite/principalHistoryEvidenceSchema";
-import {
-  principalHistoryNodeReferences,
-  principalHistoryRootOwners,
-} from "../../data/sqlite/principalHistoryNodeRetentionSchema";
-import { principalKeyEnvelopeArchive } from "../../data/sqlite/principalHistoryRetentionSchema";
-import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
-import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
   principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
+import {
+  principalHistoryEntries,
+  principalHistoryNodes,
+  principalHistoryPrefixes,
+} from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import {
+  principalHistoryNodeReferences,
+  principalHistoryRootOwners,
+} from "../../data/sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalKeyEnvelopeArchive } from "../../data/sqlite/schema/principalHistoryRetentionSchema";
+import { principalHistoryStages } from "../../data/sqlite/schema/principalHistoryStageSchema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { remoteResetBatches } from "./remoteResetBatches";
 

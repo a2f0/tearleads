@@ -7,7 +7,7 @@ import {
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { policyBundleAfterMutation } from "../../../test/helpers/principalPolicyFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import { deleteGroupForOrganization } from "./principalMutations";
 

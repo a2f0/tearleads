@@ -4,7 +4,7 @@ import { ContainerAuthorAccessError } from "../../data/containers/shared/authorA
 import {
   ContainerKekRepairInaccessibleError,
   ContainerKekRepairRequiredError,
-} from "../../data/documents/shared/containerKekCurrency";
+} from "../../data/documents/shared/containerKek/containerKekCurrency";
 import { shouldRetryWithFreshProjection } from "../documents/syncFailures/syncFailureClassification";
 import { classifyContainerWriteRefusal } from "./writeRefusal";
 

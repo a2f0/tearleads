@@ -26,8 +26,8 @@ import {
   importContentKeyMaterial,
 } from "./contentRecordKeys";
 import { decryptDocumentSyncUpdates } from "./crypto";
-import { isDocumentSyncUpdateIsolationError } from "./documentSyncUpdateIsolation";
 import { assertDocumentUpdatePlaintextHash } from "./plaintextHash";
+import { isDocumentSyncUpdateIsolationError } from "./sync/documentSyncUpdateIsolation";
 import {
   DOCUMENT_CONTENT_RECORD_AAD_DOMAIN,
   DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,

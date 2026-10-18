@@ -7,7 +7,7 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
-import { documentOrphanBlobReclaims } from "../../data/sqlite/documentOrphanBlobReclaims";
+import { documentOrphanBlobReclaims } from "../../data/sqlite/documentPersistence/documentOrphanBlobReclaims";
 import {
   clientSqlTables,
   documentAttachmentBlobProjection,

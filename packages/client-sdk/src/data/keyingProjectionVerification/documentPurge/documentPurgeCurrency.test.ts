@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createPurgeCurrencyFixture } from "../../../../test/helpers/documentPurgeCurrency";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/documentPurgeCheckpointPersistence";
 import { sqlDocumentsPersistence } from "../../persistence/documents/documentsPersistence";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { runWithSecurityIncidentReporting } from "../error";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 

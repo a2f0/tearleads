@@ -10,8 +10,8 @@ import {
   readContainerState,
 } from "../../../../data/containers/shared/projection";
 import type { ContainerMutationAuthor } from "../../../../data/containers/shared/types";
-import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKekCurrency";
-import { signedHistoryEpochIds } from "../../../../data/documents/shared/containerKekPathHistory";
+import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
+import { signedHistoryEpochIds } from "../../../../data/documents/shared/containerKek/containerKekPathHistory";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../../data/documents/shared/types";
 import type {

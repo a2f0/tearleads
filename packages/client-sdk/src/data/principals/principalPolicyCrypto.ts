@@ -5,7 +5,7 @@ import type { SerializedKeyEnvelope } from "@tearleads/validators/util";
 import {
   loadPrincipalKeyEnvelopeCandidates,
   type PrincipalKeyEnvelopeCandidate,
-} from "../persistence/principalKeyEnvelopeCandidates";
+} from "../persistence/principalKeys/principalKeyEnvelopeCandidates";
 import type { ExecSql } from "../sqlite/sqlSchema";
 
 interface PrincipalPolicyResolutionContext {

@@ -8,11 +8,11 @@ import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { clearRemoteSyncState } from "../../../workflows/sync/remoteReset";
-import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { accessManifestCheckpoints } from "../../sqlite/schema";
+import { verifiedAccessManifestBundles } from "../../sqlite/schema/verifiedManifestBundleSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { verifiedAccessManifestBundles } from "../../sqlite/verifiedManifestBundleSchema";
 import {
   verifyDocumentWriterProjection,
   verifyDocumentWriterProjectionAuthorization,

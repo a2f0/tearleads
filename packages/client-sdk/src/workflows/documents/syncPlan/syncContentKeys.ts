@@ -4,12 +4,6 @@ import type {
 } from "@tearleads/validators/response";
 import { importContentKeyMaterial } from "../../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../../data/documents/shared/crypto";
-import { assertDocumentSyncUpdateEncryptedRecord } from "../../../data/documents/shared/documentSyncUpdateDecryption";
-import {
-  isDocumentSyncUpdateIsolationError,
-  isolateDocumentSyncBatchError,
-  isolateDocumentSyncUpdateError,
-} from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import {
   ContainerKekHistoryUnavailableError,
   collectContainerKeksForDocumentSync,
@@ -18,6 +12,12 @@ import {
   unwrapDocumentContentKeyFromBundle,
 } from "../../../data/documents/shared/projection";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
+import { assertDocumentSyncUpdateEncryptedRecord } from "../../../data/documents/shared/sync/documentSyncUpdateDecryption";
+import {
+  isDocumentSyncUpdateIsolationError,
+  isolateDocumentSyncBatchError,
+  isolateDocumentSyncUpdateError,
+} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import type {
   DocumentSyncPreparedUpdate,
   ProjectionVerificationOptions,

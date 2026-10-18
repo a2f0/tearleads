@@ -1,0 +1,106 @@
+import {
+  computeDocumentContentKeyTargetHash,
+  type DocumentContentKeyTarget,
+  makeVerifiedDocumentKekTargets,
+} from "@tearleads/crypto";
+import type { DocumentSyncResponse } from "@tearleads/validators/response";
+import { resolveEventContainerPaths } from "../../../keyingProjectionVerification/document/documentDependencyPaths";
+import { sortDocumentTargets } from "../readers";
+import type { DocumentSyncPlan } from "../types";
+
+export async function documentWriteAuthorizationForHeader(input: {
+  readonly allowMissingAuthorization: boolean;
+  readonly dependencyManifestHashes: readonly string[];
+  readonly authorizationTargets: readonly DocumentContentKeyTarget[];
+  readonly contentKeyBundle: DocumentSyncResponse["contentKeyBundle"];
+  readonly manifestHash: string;
+  readonly plan: Pick<
+    DocumentSyncPlan,
+    "documentId" | "organizationId" | "documentWriterAuthorization"
+  >;
+  readonly targetHash: string;
+}) {
+  const source = input.plan.documentWriterAuthorization;
+  if (!source) {
+    if (input.allowMissingAuthorization) {
+      return null;
+    }
+    throw new Error(
+      "Document sync response lacks verified writer-authorization material",
+    );
+  }
+  const documentManifest = source.documentManifestByHash.get(
+    input.manifestHash,
+  );
+  if (!documentManifest) {
+    throw new Error(
+      "Document sync response write manifest is not in verified history",
+    );
+  }
+  if (input.contentKeyBundle.documentId !== input.plan.documentId) {
+    throw new Error(
+      "Document sync response content-key bundle belongs to another document",
+    );
+  }
+
+  const targets = sortDocumentTargets(input.authorizationTargets);
+  if (
+    (await computeDocumentContentKeyTargetHash(targets)) !== input.targetHash
+  ) {
+    throw new Error("Document sync response write targets are not canonical");
+  }
+  const linkedContainerIds = new Set(documentManifest.state.linkedContainerIds);
+  if (
+    targets.length !== linkedContainerIds.size ||
+    targets.some((target) => !linkedContainerIds.has(target.containerId))
+  ) {
+    throw new Error(
+      "Document sync response write targets do not match the signed link set",
+    );
+  }
+
+  const { dependencyContainerPaths } = resolveEventContainerPaths({
+    containerPathByManifestHash: source.containerPathByManifestHash,
+    dependencyManifestHashes: input.dependencyManifestHashes,
+  });
+  // A writer needs one committed target, and can be unable to read another
+  // linked container. Validate the targets that are cited without inventing
+  // paths for uncited targets or dropping signed ancestor evidence.
+  for (const target of targets) {
+    const path = dependencyContainerPaths.find(
+      (candidate) =>
+        candidate.at(-1)?.manifestHash === target.containerManifestHash,
+    );
+    if (!path) continue;
+    const leaf = path.at(-1);
+    if (
+      !leaf ||
+      leaf.state.containerId !== target.containerId ||
+      leaf.state.organizationId !== input.plan.organizationId ||
+      leaf.state.containerKeyEpochId !== target.containerKeyEpochId
+    ) {
+      throw new Error(
+        "Document sync response write target lacks a verified container path",
+      );
+    }
+  }
+  const authorizingContainerPaths = dependencyContainerPaths;
+  const documentKekTargets = makeVerifiedDocumentKekTargets({
+    documentId: input.contentKeyBundle.documentId,
+    documentKeyTargetHash: input.targetHash,
+    linkedContainerKeyEpochIds: targets.map(
+      (target) => target.containerKeyEpochId,
+    ),
+    linkedContainerManifestHashes: targets.map(
+      (target) => target.containerManifestHash,
+    ),
+    linkSetManifestHash: input.manifestHash,
+    targets,
+  });
+  return {
+    authorizingContainerPaths,
+    documentKekTargets,
+    documentManifest,
+    principalPolicies: source.principalPolicies,
+  };
+}

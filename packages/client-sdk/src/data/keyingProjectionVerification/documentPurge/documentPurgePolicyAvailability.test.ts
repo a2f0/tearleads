@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { runWithSecurityIncidentReporting } from "../error";
 import {
   verifyDocumentPurgeProof,

@@ -1,18 +1,18 @@
 import { and, eq, isNull } from "drizzle-orm";
 import {
-  appendDocumentHistoryUpdates,
-  listDocumentHistoryTailEntries,
-  loadDocumentHistoryRestoreState,
-  readDocumentHistoryTailSize,
-  replaceDocumentHistoryCheckpoint,
-} from "../../../sqlite/documentHistoryPersistence";
-import {
   enqueueDocumentPendingUpdateWithHistory,
   listDocumentPendingUpdates,
   rekeyDocumentPendingUpdate,
   settleDocumentPendingUpdate,
   unqueueDocumentPendingUpdates,
 } from "../../../sqlite/documentPersistence";
+import {
+  appendDocumentHistoryUpdates,
+  listDocumentHistoryTailEntries,
+  loadDocumentHistoryRestoreState,
+  readDocumentHistoryTailSize,
+  replaceDocumentHistoryCheckpoint,
+} from "../../../sqlite/documentPersistence/documentHistoryPersistence";
 import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,

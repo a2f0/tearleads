@@ -8,7 +8,7 @@ import {
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
-} from "../../sqlite/organizationReadModelSchema";
+} from "../../sqlite/schema/organizationReadModelSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";

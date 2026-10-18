@@ -4,9 +4,9 @@ import {
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { principalPolicyHeadMeetsCheckpoint } from "../../../data/persistence/principalPolicyCheckpointSelection";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { principalPolicyHeadMeetsCheckpoint } from "../../../data/persistence/principalPolicy/principalPolicyCheckpointSelection";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

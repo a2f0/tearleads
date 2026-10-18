@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
-import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   documentContainerProjection,
   documentContainerProjectionTables,
@@ -10,6 +9,7 @@ import {
   LOCAL_INTENT_SUBJECT,
   localIntents,
 } from "../../sqlite/schema";
+import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,

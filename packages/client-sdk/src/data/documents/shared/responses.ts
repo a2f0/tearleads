@@ -21,7 +21,7 @@ export {
   isUpstreamDeletedDocumentSyncFailure,
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
-} from "./syncResponses";
+} from "./sync/syncResponses";
 
 type DocumentMutationPlan = Pick<
   DocumentCreatePlan,

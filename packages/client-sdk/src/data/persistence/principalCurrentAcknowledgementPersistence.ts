@@ -6,12 +6,12 @@ import {
 } from "@tearleads/crypto";
 import { eq } from "drizzle-orm";
 import { assertProjectionVerificationCurrent } from "../keyingProjectionVerification/types";
-import { principalHistoryPrefixes } from "../sqlite/principalHistoryEvidenceSchema";
-import { principalHistoryStages } from "../sqlite/principalHistoryStageSchema";
 import {
   keyingCheckpointTables,
   principalPolicyTables,
 } from "../sqlite/schema";
+import { principalHistoryPrefixes } from "../sqlite/schema/principalHistoryEvidenceSchema";
+import { principalHistoryStages } from "../sqlite/schema/principalHistoryStageSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -21,21 +21,21 @@ import {
   loadStoredPrincipalPolicyCheckpoint,
   principalPolicyKey,
   upsertPrincipalPolicyCheckpointInTransaction,
-} from "./keyingCheckpointPersistence";
-import { storePrincipalGrantRetirements } from "./principalGrantRetirementPersistence";
+} from "./keyingCheckpoints/keyingCheckpointPersistence";
 import {
   type PrincipalHistoryEvidencePage,
   writePrincipalHistoryEvidencePage,
-} from "./principalHistoryEvidencePersistence";
-import { reclaimPrincipalHistoryNodes } from "./principalHistoryNodeRetention";
-import type { PrincipalHistoryPrefix } from "./principalHistoryPrefixPersistence";
-import { retainPrincipalHistoryRoot } from "./principalHistoryRootOwnership";
-import type { PrincipalHistoryStage } from "./principalHistoryStagePersistence";
+} from "./principalHistory/principalHistoryEvidencePersistence";
+import { reclaimPrincipalHistoryNodes } from "./principalHistory/principalHistoryNodeRetention";
+import type { PrincipalHistoryPrefix } from "./principalHistory/principalHistoryPrefixPersistence";
+import { retainPrincipalHistoryRoot } from "./principalHistory/principalHistoryRootOwnership";
+import type { PrincipalHistoryStage } from "./principalHistory/principalHistoryStagePersistence";
 import {
   reclaimCompletedPrincipalHistoryStages,
   touchPrincipalHistoryStage,
-} from "./principalHistoryStageRetention";
-import { archivePrincipalHistoryKeyEnvelopes } from "./principalKeyEnvelopeArchivePersistence";
+} from "./principalHistory/principalHistoryStageRetention";
+import { storePrincipalGrantRetirements } from "./principalKeys/principalGrantRetirementPersistence";
+import { archivePrincipalHistoryKeyEnvelopes } from "./principalKeys/principalKeyEnvelopeArchivePersistence";
 
 /** Owned output of authenticated prefix extension and exact receipt verification. */
 export interface AcknowledgedPrincipalCurrentPublication {

@@ -4,8 +4,8 @@ import type {
   DocumentLinkSetMutationResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { acknowledgeDocumentMutation } from "../../../data/documents/shared/mutationAcknowledgement";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../../data/documents/shared/responses";
+import { acknowledgeDocumentMutation } from "../../../data/documents/shared/sync/mutationAcknowledgement";
 import type {
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,

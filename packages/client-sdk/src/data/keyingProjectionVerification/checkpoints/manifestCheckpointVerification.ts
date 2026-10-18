@@ -4,7 +4,7 @@ import {
   type VerifiedAccessManifestCheckpointEvidence,
   verifyAccessManifestLocalCheckpoint,
 } from "@tearleads/crypto";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 /**

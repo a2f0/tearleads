@@ -12,7 +12,7 @@ import {
   saveContainer,
 } from "../../../data/persistence/containers/containerPersistence";
 import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationGroupContainers,

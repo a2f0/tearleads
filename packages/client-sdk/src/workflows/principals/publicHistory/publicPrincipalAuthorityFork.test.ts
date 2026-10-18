@@ -5,8 +5,8 @@ import {
   signedPrincipalPolicyBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverProjectionPolicyHistory } from "./recoverProjectionPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

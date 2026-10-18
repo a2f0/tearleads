@@ -9,7 +9,7 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../../data/principals/principalPolicyAdminSigners";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";

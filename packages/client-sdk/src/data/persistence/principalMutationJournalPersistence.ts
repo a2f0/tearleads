@@ -3,7 +3,7 @@ import { assertProjectionVerificationCurrent } from "../keyingProjectionVerifica
 import {
   principalMutationJournal,
   principalMutationJournalTables,
-} from "../sqlite/principalMutationJournalSchema";
+} from "../sqlite/schema/principalMutationJournalSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 

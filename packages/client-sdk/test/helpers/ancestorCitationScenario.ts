@@ -21,7 +21,7 @@ import type { AccessManifestBundleWireResponse } from "@tearleads/validators/res
 import { createProjectionCheckpointContext } from "../../src/data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { verifyContainerManifestPath } from "../../src/data/keyingProjectionVerification/container/containerPathVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 
 // A child manifest pins the parent it was created under, and successors

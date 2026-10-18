@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { createMockApiClient } from "@tearleads/test-utils";
 import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
-import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
+import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { PrincipalPolicyNotCachedError } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { syncContainerMetadataState } from "./index";
 import {

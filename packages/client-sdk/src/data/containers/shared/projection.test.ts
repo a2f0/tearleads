@@ -42,8 +42,8 @@ import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedU
 import { uploadDocumentAttachment } from "../../../workflows/blobs/upload";
 import { buildMaterializedDocumentCreatePlan } from "../../../workflows/documents/create";
 import type { BlobBytes } from "../../blobs/blobContracts";
-import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
-import { unwrapDocumentContentKeyTarget } from "../../documents/shared/projectionContentKeys";
+import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
+import { unwrapDocumentContentKeyTarget } from "../../documents/shared/projection/projectionContentKeys";
 
 async function withProjectionDatabase<T>(
   name: string,

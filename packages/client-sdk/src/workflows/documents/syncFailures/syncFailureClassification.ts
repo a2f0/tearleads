@@ -3,7 +3,7 @@ import {
   DOCUMENT_MUTATION_ERROR_CODES,
   DOCUMENT_SYNC_ERROR_CODES,
 } from "@tearleads/validators/response";
-import { ContainerKekRepairRequiredError } from "../../../data/documents/shared/containerKekCurrency";
+import { ContainerKekRepairRequiredError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import {
   isRetryableDocumentSyncConflict,
   isUpstreamDeletedDocumentSyncFailure,

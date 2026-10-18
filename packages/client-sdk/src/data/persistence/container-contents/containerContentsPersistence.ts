@@ -1,13 +1,13 @@
 import { eq } from "drizzle-orm";
 import {
-  hasQueuedDocumentUpdates,
-  settleQueuedDocumentUpdatesInTransaction,
-} from "../../sqlite/documentPendingUpdatePersistence";
-import {
   enqueueDocumentPendingUpdate,
   ensureDocumentProjectionTables,
   ensureDocumentTables,
 } from "../../sqlite/documentPersistence";
+import {
+  hasQueuedDocumentUpdates,
+  settleQueuedDocumentUpdatesInTransaction,
+} from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
 import {
   containerHydrationTombstones,
   containers,

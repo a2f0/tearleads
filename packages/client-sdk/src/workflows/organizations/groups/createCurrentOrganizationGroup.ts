@@ -1,6 +1,6 @@
 import type { EncapsulationKeyPair, SigningKeyPair } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

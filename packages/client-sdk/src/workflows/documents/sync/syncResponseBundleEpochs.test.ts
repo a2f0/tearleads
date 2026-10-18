@@ -7,8 +7,8 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
-import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import { persistedDocumentSyncStateFromResponse } from "../../../data/documents/shared/responses";
+import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { unwrapDocumentSyncResponseContentKeys } from "../syncPlan/syncContentKeys";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 

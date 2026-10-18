@@ -3,7 +3,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createReservedGroupAdvance } from "../../../../test/helpers/reservedGroupAdvance";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import {

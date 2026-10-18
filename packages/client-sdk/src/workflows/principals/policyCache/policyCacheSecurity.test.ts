@@ -7,7 +7,7 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { cachePrincipalPolicyBundles } from "./index";
 
 test("principal policy cache preserves trusted identity integrity failures", async () => {

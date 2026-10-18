@@ -7,13 +7,13 @@ import {
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   principalPolicyHeadMeetsCheckpoint,
   verifiedPrincipalPolicyMeetsCheckpoint,
-} from "../../persistence/principalPolicyCheckpointSelection";
-import { loadPrincipalPolicyBundle } from "../../persistence/principalPolicyPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicyReferencePersistence";
+} from "../../persistence/principalPolicy/principalPolicyCheckpointSelection";
+import { loadPrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicy/principalPolicyReferencePersistence";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,

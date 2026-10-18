@@ -4,7 +4,7 @@ import {
   serializeKeyingCanonicalJson,
   toFingerprint,
 } from "@tearleads/crypto";
-import type { PrincipalHistoryPrefix } from "../persistence/principalHistoryPrefixPersistence";
+import type { PrincipalHistoryPrefix } from "../persistence/principalHistory/principalHistoryPrefixPersistence";
 
 // Signed entries and index nodes are content-addressed public evidence. Keep
 // their storage namespace stable across local-key replacement; authenticating a

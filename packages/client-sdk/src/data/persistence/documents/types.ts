@@ -6,7 +6,7 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../documents/documentSummary";
-import type { DocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
+import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,

@@ -10,7 +10,7 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import { scheduleHeldDescendantRecitations } from "./recite";
 import { shareRemoteContainer } from "./share";

@@ -2,21 +2,21 @@ import { and, asc, eq, inArray, lte, min, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
 import { readStringArray } from "../../shared/recordReaders";
 import {
-  documentDiscoveryHeads,
-  documentDiscoverySequence,
-  pendingDocumentDiscoveries,
-} from "../../sqlite/documentDiscoveryEvidenceSchema";
-import {
   accessManifestCheckpoints,
   documentContainerProjectionTables,
 } from "../../sqlite/schema";
+import {
+  documentDiscoveryHeads,
+  documentDiscoverySequence,
+  pendingDocumentDiscoveries,
+} from "../../sqlite/schema/documentDiscoveryEvidenceSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import { loadDocumentPurgeCheckpoint } from "../documentPurgeCheckpointPersistence";
+import { loadDocumentPurgeCheckpoint } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { heldTombstoneRetryDelayMs } from "./containerDocumentTombstoneHoldsPersistence";
 
 import {

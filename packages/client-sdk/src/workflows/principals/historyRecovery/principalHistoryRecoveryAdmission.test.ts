@@ -4,10 +4,10 @@ import {
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../../data/persistence/principalPolicyCheckpointSelection";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../../data/persistence/principalPolicy/principalPolicyCheckpointSelection";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;

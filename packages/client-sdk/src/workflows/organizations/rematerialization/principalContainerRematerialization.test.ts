@@ -9,7 +9,7 @@ import {
 } from "../../../../test/helpers/principalReciteFixtures";
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { buildMaterializedContainerCreatePlan } from "../../containers/child/create";
 import { childContainerWriterProjectionFromCreatePlan } from "../../containers/child/create/createProjection";
 import {

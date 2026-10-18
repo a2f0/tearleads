@@ -7,7 +7,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { createRemoteContainer } from "./index";
 
 const STALE_PARENT_FAILURE =

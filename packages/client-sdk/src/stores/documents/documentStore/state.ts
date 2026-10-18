@@ -17,7 +17,7 @@ import {
   sameDocumentRows,
 } from "../../../data/documents/documentRowList";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/syncPagination";
+import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/sync/syncPagination";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/types";
 import {
   canWriteEffectiveAccessLevel,

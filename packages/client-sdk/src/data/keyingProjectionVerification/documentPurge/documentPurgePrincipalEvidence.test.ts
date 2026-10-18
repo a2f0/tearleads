@@ -4,7 +4,7 @@ import { createMaterializedSyncFixture } from "../../../../test/helpers/document
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { projectionPolicySource } from "../../../../test/helpers/projectionPolicyHistory";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 
 test("purge rejects unrelated policy evidence before consulting its checkpoint", async () => {

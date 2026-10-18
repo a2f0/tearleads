@@ -4,15 +4,15 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { decryptDocumentSyncUpdatesByEpoch } from "../../../data/documents/shared/crypto";
-import {
-  type IncomingDocumentSyncUpdateValidator,
-  isolateDocumentSyncBatchError,
-} from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import {
   DocumentSyncResponseUpdateContentKeyError,
   persistedDocumentSyncStateFromResponse,
 } from "../../../data/documents/shared/responses";
+import {
+  type IncomingDocumentSyncUpdateValidator,
+  isolateDocumentSyncBatchError,
+} from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import type {
   DocumentWriterPublicKeyResolver,
   MaterializedDocumentSyncPlan,

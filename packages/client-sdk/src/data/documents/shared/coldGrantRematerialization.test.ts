@@ -31,7 +31,7 @@ import { collectReferencedPrincipalPolicies } from "../../keyingProjectionVerifi
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
-} from "../../persistence/principalPolicyPersistence";
+} from "../../persistence/principalPolicy/principalPolicyPersistence";
 import { decryptDocumentSyncUpdatesByEpoch } from "./crypto";
 
 async function managedGrantFixture(input: {

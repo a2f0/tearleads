@@ -3,8 +3,8 @@ import { ContainerMutationRequestSchema } from "@tearleads/validators/request";
 import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
 import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
 import { policyBundleAfterMutation } from "../../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
-import { principalPolicies } from "../../../../data/sqlite/principalPolicySchema";
+import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { principalPolicies } from "../../../../data/sqlite/schema/principalPolicySchema";
 import { shareRemoteContainerWithGroup } from "../remote";
 
 async function fixture() {

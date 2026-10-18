@@ -14,11 +14,11 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
-} from "../persistence/principalPolicyPersistence";
+} from "../persistence/principalPolicy/principalPolicyPersistence";
 import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
-} from "../sqlite/principalHistoryEvidenceSchema";
+} from "../sqlite/schema/principalHistoryEvidenceSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../sqlite/sqlSchema";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "./principalPolicyCrypto";

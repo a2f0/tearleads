@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createHistoricalPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeHistoricalPolicy";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/documentPurgeCheckpointPersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";

@@ -5,8 +5,8 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { principalHistoryEntries } from "../../data/sqlite/principalHistoryEvidenceSchema";
-import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { principalHistoryEntries } from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "./runtimePolicyRecovery";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

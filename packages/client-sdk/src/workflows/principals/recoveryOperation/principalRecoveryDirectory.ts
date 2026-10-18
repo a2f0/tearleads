@@ -4,7 +4,7 @@ import {
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistoryEvidencePersistence";
+import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

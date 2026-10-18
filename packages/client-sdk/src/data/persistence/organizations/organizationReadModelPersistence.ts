@@ -6,14 +6,14 @@ import type {
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../principals/principalPolicyCoordinator";
-import { organizationDataUsageTables } from "../../sqlite/organizationDataUsageSchema";
+import { organizationReadModelTables } from "../../sqlite/schema";
+import { organizationDataUsageTables } from "../../sqlite/schema/organizationDataUsageSchema";
 import {
   organizationReadModelDirectoryUsers,
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
-} from "../../sqlite/organizationReadModelSchema";
-import { organizationReadModelTables } from "../../sqlite/schema";
+} from "../../sqlite/schema/organizationReadModelSchema";
 import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
 import {
   type ClientSQLiteTransactionScope,

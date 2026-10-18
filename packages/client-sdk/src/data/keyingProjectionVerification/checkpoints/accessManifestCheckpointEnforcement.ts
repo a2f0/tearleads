@@ -3,12 +3,12 @@ import {
   type VerifiedAccessManifestCheckpointEvidence,
   type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import type { DocumentPurgeCheckpoint } from "../../persistence/documentPurgeCheckpointPersistence";
+import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import {
   type AccessManifestCheckpointAdvance,
   advanceKeyingCheckpointsAtomically,
   validateKeyingCheckpointsAtomically,
-} from "../../persistence/keyingCheckpointAdvancePersistence";
+} from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import type { VerifiedManifestBundle } from "../../persistence/verifiedManifestBundlePersistence";
 import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
 import type { ExecSql } from "../../sqlite/sqlSchema";

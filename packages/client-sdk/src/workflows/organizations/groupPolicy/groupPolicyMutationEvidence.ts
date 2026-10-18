@@ -11,7 +11,7 @@ import {
 import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { assertCurrentMatchesVerifiedPolicy } from "../../../data/persistence/verifiedPrincipalPolicyCurrent";
+import { assertCurrentMatchesVerifiedPolicy } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import { requireSignerCanManageGroup } from "./groupMutationAuthorization";
 import { verifyGroupPolicy } from "./groupPolicyVerification";
 

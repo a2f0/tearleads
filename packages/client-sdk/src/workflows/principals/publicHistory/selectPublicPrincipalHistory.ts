@@ -10,7 +10,7 @@ import {
   verifyPrincipalPolicyHistoryReferences,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistoryEvidencePersistence";
+import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";

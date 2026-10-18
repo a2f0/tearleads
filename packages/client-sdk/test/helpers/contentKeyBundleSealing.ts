@@ -7,7 +7,7 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentContentKeyBundleResponse,
 } from "@tearleads/validators/response";
-import { unwrapContainerKekPath } from "../../src/data/documents/shared/containerKekPath";
+import { unwrapContainerKekPath } from "../../src/data/documents/shared/containerKek/containerKekPath";
 
 /**
  * A document content-key bundle sealed for another content-key epoch or key.

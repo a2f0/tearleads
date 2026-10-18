@@ -21,8 +21,8 @@ import type {
   AddOrganizationGroupUserInput,
   RemoveOrganizationGroupUserInput,
 } from "../../../client/organizations";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import { addOrganizationGroupUser, removeOrganizationGroupUser } from "./index";
 

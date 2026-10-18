@@ -23,12 +23,12 @@ import {
   projectionPolicyWarmer,
 } from "../../../../../test/helpers/projectionPolicyHistory";
 import { heldContainerSnapshot } from "../../../../data/containers/shared/heldContainerHeads";
-import { unwrapContainerKekPath } from "../../../../data/documents/shared/containerKekPath";
+import { unwrapContainerKekPath } from "../../../../data/documents/shared/containerKek/containerKekPath";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "../../../../data/persistence/principalPolicyPersistence";
+} from "../../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { containerStateHasCurrentGroupGrant } from "../../../container-contents/container-state/share/groupGrantVerification";
 import type { ContainerWorkflowRuntime } from "../../../container-contents/container-state/types";
 import type { ContainerState } from "../../../container-contents/remoteHydration";

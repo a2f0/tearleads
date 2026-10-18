@@ -8,19 +8,8 @@ import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persiste
 import {
   queuedUpdateRow,
   unqueueDocumentScopesInTransaction,
-} from "../../data/sqlite/documentPendingUpdatePersistence";
-import { documentIntentLinkTargets } from "../../data/sqlite/documentPlacementIntentSchema";
-import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../../data/sqlite/documentSyncFailurePersistence";
-import { organizationDataUsageSnapshots } from "../../data/sqlite/organizationDataUsageSchema";
-import {
-  organizationPresentationDenials,
-  organizationReadModelContainerGrants,
-  organizationReadModelDirectoryUsers,
-  organizationReadModelGroupMembers,
-  organizationReadModelGroups,
-  organizationReadModelRequesters,
-  organizationReadModelState,
-} from "../../data/sqlite/organizationReadModelSchema";
+} from "../../data/sqlite/documentPersistence/documentPendingUpdatePersistence";
+import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../../data/sqlite/documentPersistence/documentSyncFailurePersistence";
 import {
   clientSqlTables,
   containerHydrationTombstones,
@@ -37,13 +26,24 @@ import {
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../data/sqlite/schema";
+import { documentIntentLinkTargets } from "../../data/sqlite/schema/documentPlacementIntentSchema";
+import { organizationDataUsageSnapshots } from "../../data/sqlite/schema/organizationDataUsageSchema";
+import {
+  organizationPresentationDenials,
+  organizationReadModelContainerGrants,
+  organizationReadModelDirectoryUsers,
+  organizationReadModelGroupMembers,
+  organizationReadModelGroups,
+  organizationReadModelRequesters,
+  organizationReadModelState,
+} from "../../data/sqlite/schema/organizationReadModelSchema";
+import { verifiedAccessManifestBundles } from "../../data/sqlite/schema/verifiedManifestBundleSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
-import { verifiedAccessManifestBundles } from "../../data/sqlite/verifiedManifestBundleSchema";
 import { runOrganizationPresentationReset } from "../organizations/readModel/organizationPresentationAccessState";
 import { clearResetPendingAttachments } from "./remoteResetAttachments";
 import { remoteResetBatches } from "./remoteResetBatches";

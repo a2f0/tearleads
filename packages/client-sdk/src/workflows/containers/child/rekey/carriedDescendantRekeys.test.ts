@@ -2,9 +2,9 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
-import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKekCurrency";
+import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 
 // #2340 finding 1. A rotation commits with the rekeys of every descendant above

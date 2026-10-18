@@ -2,15 +2,15 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {
-  documentDiscoveryHeads,
-  documentDiscoverySequence,
-} from "../../data/sqlite/documentDiscoveryEvidenceSchema";
-import {
   clientSqlTables,
   containerDocumentTombstoneHolds,
   containers,
   documentContainerProjection,
 } from "../../data/sqlite/schema";
+import {
+  documentDiscoveryHeads,
+  documentDiscoverySequence,
+} from "../../data/sqlite/schema/documentDiscoveryEvidenceSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

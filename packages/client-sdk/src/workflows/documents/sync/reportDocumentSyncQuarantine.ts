@@ -1,4 +1,4 @@
-import type { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
+import type { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 
 const lastQuarantineByScope = new WeakMap<object, string>();

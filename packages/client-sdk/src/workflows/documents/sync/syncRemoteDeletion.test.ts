@@ -17,7 +17,7 @@ import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument 
 import type { DocumentSyncApi } from "../../../data/documents/shared/types";
 import { verifyDocumentWriterProjection } from "../../../data/keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 
 test("syncRemoteDocument notifies when submit returns coded document 404", async () => {
   const { author, resolveProjectionUserKey, secretKey, writerProjection } =

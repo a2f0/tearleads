@@ -8,11 +8,11 @@ import {
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 
 test("principal policy sync hard-fails rollback after the mutable bundle cache is cleared", async () => {
   const { close, execSql } = await createTestExecSql(

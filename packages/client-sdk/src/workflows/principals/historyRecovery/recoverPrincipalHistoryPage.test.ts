@@ -3,8 +3,8 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
-import { principalHistoryEntries } from "../../../data/sqlite/principalHistoryEvidenceSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+import { principalHistoryEntries } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverPrincipalHistoryPage } from "./recoverPrincipalHistoryPage";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";

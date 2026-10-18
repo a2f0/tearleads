@@ -4,8 +4,8 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
 import { recoverPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/recoverPublicPrincipalHistory";
 import { selectPublicPrincipalHistory } from "../../../workflows/principals/publicHistory/selectPublicPrincipalHistory";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
-import { ensurePrincipalPolicyTables } from "../../persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { ensurePrincipalPolicyTables } from "../../persistence/principalPolicy/principalPolicyPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { admitDocumentPurgePolicyCheckpoints } from "./documentPurgePolicyCheckpoints";
 

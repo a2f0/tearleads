@@ -11,7 +11,7 @@ import {
   getTargetContainerContext,
   readContainerState,
 } from "../../../data/containers/shared/projection";
-import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
+import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,

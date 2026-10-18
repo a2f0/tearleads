@@ -3,7 +3,7 @@ import {
   encodeVersionVector,
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
-import { readPullContinuation } from "../../../../data/documents/shared/syncPagination";
+import { readPullContinuation } from "../../../../data/documents/shared/sync/syncPagination";
 import type {
   DocumentSyncPullContinuation,
   syncRemoteDocument,

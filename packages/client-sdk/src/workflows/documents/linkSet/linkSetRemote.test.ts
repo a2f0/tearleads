@@ -16,7 +16,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { persistedDocumentLinkSetMutationStateFromResponse } from "../../../data/documents/shared/responses";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";

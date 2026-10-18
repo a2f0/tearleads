@@ -8,8 +8,8 @@ import {
 } from "../../../../test/helpers/documentResponseFixtures";
 import { createInaccessibleStaleIntermediateFixture } from "../../../../test/helpers/inaccessibleStaleIntermediate";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
-import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKekCurrency";
-import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
+import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
+import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { normalizeContainerKeyWrap } from "../../../data/documents/shared/readers";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";

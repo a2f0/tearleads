@@ -1,5 +1,5 @@
 import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
-import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,

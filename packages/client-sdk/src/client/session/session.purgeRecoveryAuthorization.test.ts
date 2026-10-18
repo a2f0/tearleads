@@ -6,11 +6,11 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createOrganizationReplacementRecoveryHarness } from "../../../test/helpers/organizationReplacementRecoveryHarness";
-import { organizationProvisioningAttempts } from "../../data/sqlite/organizationProvisioningAttemptSchema";
 import {
   accessManifestCheckpoints,
   principalPolicyCheckpoints,
 } from "../../data/sqlite/schema";
+import { organizationProvisioningAttempts } from "../../data/sqlite/schema/organizationProvisioningAttemptSchema";
 
 for (const attack of [
   "missing authorization",

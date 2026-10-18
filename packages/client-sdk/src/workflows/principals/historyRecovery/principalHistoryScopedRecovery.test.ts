@@ -5,8 +5,8 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

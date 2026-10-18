@@ -1,4 +1,4 @@
-import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
+import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,

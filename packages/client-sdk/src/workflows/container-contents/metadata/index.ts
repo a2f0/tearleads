@@ -3,7 +3,7 @@ import {
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { readPullContinuation } from "../../../data/documents/shared/syncPagination";
+import { readPullContinuation } from "../../../data/documents/shared/sync/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";

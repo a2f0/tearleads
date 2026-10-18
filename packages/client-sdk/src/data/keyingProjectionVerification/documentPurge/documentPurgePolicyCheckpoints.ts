@@ -7,7 +7,7 @@ import {
 import {
   loadStoredPrincipalPolicyCheckpoint,
   upsertPrincipalPolicyCheckpointInTransaction,
-} from "../../persistence/keyingCheckpointPersistence";
+} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 /** After complete terminal-proof currency validation, admit only its bound sources. */

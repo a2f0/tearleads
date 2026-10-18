@@ -1,15 +1,15 @@
 import { expect, test } from "bun:test";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import {
-  organizationReadModelDirectoryUsers,
-  organizationReadModelState,
-} from "../../data/sqlite/organizationReadModelSchema";
-import {
   clientSqlTables,
   containers,
   documentProjection,
   documents,
 } from "../../data/sqlite/schema";
+import {
+  organizationReadModelDirectoryUsers,
+  organizationReadModelState,
+} from "../../data/sqlite/schema/organizationReadModelSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { ORGANIZATION_PROFILE_DOCUMENT_KIND } from "../organizations/organizationProfile";

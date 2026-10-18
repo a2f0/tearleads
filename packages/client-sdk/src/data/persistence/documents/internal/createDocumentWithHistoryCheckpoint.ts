@@ -1,4 +1,4 @@
-import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../../../sqlite/documentPendingUpdatePersistence";
+import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../../../sqlite/documentPersistence/documentPendingUpdatePersistence";
 import { documentHistoryCheckpoints } from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";

@@ -6,7 +6,7 @@ import {
   createParentProjectionUserKeyResolver,
   tamperFirstProjectionEventSignature,
 } from "../../../../../test/helpers/containerFixtures";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { moveRemoteContainer } from "./index";
 

@@ -10,8 +10,8 @@ import {
   type PrincipalPolicySnapshotPageResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistoryEvidencePersistence";
-import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistoryPrefixPersistence";
+import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import { PrincipalPolicyHistoryReadError } from "../historyRecovery/principalHistoryRecoveryTypes";

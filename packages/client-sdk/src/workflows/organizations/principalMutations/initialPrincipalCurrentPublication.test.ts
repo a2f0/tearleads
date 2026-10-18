@@ -1,12 +1,12 @@
 import { beforeAll, expect, test } from "bun:test";
 import { initialCurrentPublicationFixture } from "../../../../test/helpers/initialCurrentPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,
-} from "../../../data/sqlite/principalHistoryEvidenceSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+} from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 

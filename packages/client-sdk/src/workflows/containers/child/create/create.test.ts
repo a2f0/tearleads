@@ -25,7 +25,7 @@ import {
   SIGNED_AT,
   tamperFirstProjectionEventSignature,
 } from "../../../../../test/helpers/containerFixtures";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   buildContainerCreatePlan,
   buildMaterializedContainerCreatePlan,

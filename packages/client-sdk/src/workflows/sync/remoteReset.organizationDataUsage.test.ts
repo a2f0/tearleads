@@ -7,8 +7,8 @@ import {
   organizationId,
 } from "../../../test/helpers/organizationReadModelFixtures";
 import { loadOrganizationDataUsageProjection } from "../../data/persistence/organizations/organizationDataUsagePersistence";
-import { organizationDataUsageSnapshots } from "../../data/sqlite/organizationDataUsageSchema";
 import { clientSqlTables } from "../../data/sqlite/schema";
+import { organizationDataUsageSnapshots } from "../../data/sqlite/schema/organizationDataUsageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { reconcileOrganizationDataUsage } from "../organizations/readModel/dataUsageReadModel";

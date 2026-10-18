@@ -19,8 +19,8 @@ import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trust
 import {
   loadAccessManifestCheckpoint,
   loadPrincipalPolicyCheckpoint,
-} from "../../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundle } from "../../../../data/persistence/principalPolicyPersistence";
+} from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundle } from "../../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 
 import { buildInitialOrganizationPolicyRequest } from "../../../registration/registerIdentity";

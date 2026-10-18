@@ -5,7 +5,7 @@ import {
 } from "@tearleads/crypto";
 import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
-import { principalHistoryPrefixes } from "../../../data/sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;

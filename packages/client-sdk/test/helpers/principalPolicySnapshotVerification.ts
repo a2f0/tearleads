@@ -13,8 +13,8 @@ import {
 import type { PrincipalPolicySnapshotResponse } from "@tearleads/validators/response";
 import { ProjectionDependencyUnavailableError } from "../../src/data/keyingProjectionVerification/dependencyUnavailable";
 import type { ProjectionUserKeyResolver } from "../../src/data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../src/data/persistence/principalPolicyReferencePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../src/data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { verifyReceivedPolicySnapshot } from "./principalSnapshotVerificationCache";
 

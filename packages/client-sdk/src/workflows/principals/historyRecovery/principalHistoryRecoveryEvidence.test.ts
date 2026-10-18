@@ -7,7 +7,7 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import {
   principalHistoryEntries,
   principalHistoryNodes,
-} from "../../../data/sqlite/principalHistoryEvidenceSchema";
+} from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 

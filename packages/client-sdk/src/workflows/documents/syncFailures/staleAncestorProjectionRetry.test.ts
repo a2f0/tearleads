@@ -7,7 +7,7 @@ import {
 import { createPendingUpdateRecord } from "../../../../test/helpers/documentResponseFixtures";
 import { repairedAncestorDocument } from "../../../../test/helpers/repairedAncestorDocument";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { ContainerKekRepairRequiredError } from "../../../data/documents/shared/containerKekCurrency";
+import { ContainerKekRepairRequiredError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { uploadDocumentAttachment } from "../../blobs/upload";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { retrySyncPlan } from "./index";

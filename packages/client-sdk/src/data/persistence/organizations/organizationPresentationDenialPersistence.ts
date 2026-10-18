@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import { organizationPresentationDenials } from "../../sqlite/organizationReadModelSchema";
-import { organizationReadModelTables } from "../../sqlite/organizationReadModelTableRegistry";
+import { organizationPresentationDenials } from "../../sqlite/schema/organizationReadModelSchema";
+import { organizationReadModelTables } from "../../sqlite/schema/organizationReadModelTableRegistry";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

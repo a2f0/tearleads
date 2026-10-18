@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import {
   organizationDataUsageSnapshots,
   organizationDataUsageTables,
-} from "../../sqlite/organizationDataUsageSchema";
+} from "../../sqlite/schema/organizationDataUsageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";
 import {

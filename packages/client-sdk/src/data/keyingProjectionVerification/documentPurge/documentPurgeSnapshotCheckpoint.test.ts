@@ -8,7 +8,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createDocumentPurgeProof } from "../../../../test/helpers/documentPurge";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { verifyDocumentWriterProjection } from "../document/documentProjectionVerification";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 

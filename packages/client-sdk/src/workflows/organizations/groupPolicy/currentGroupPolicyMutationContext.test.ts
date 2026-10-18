@@ -3,8 +3,8 @@ import {
   createAuthorityRecoveryFixture,
   signedAuthorityRecoveryHistory,
 } from "../../../../test/helpers/principalAuthorityRecovery";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
 import { loadCurrentGroupPolicyMutationContext } from "./currentGroupPolicyMutationContext";

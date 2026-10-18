@@ -9,14 +9,6 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
 import {
-  organizationReadModelContainerGrants,
-  organizationReadModelDirectoryUsers,
-  organizationReadModelGroupMembers,
-  organizationReadModelGroups,
-  organizationReadModelRequesters,
-  organizationReadModelState,
-} from "../../data/sqlite/organizationReadModelSchema";
-import {
   clientSqlTables,
   containerSyncWatermarks,
   containers,
@@ -33,6 +25,14 @@ import {
   securityIncidents,
   trustedUserIdentityPins,
 } from "../../data/sqlite/schema";
+import {
+  organizationReadModelContainerGrants,
+  organizationReadModelDirectoryUsers,
+  organizationReadModelGroupMembers,
+  organizationReadModelGroups,
+  organizationReadModelRequesters,
+  organizationReadModelState,
+} from "../../data/sqlite/schema/organizationReadModelSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

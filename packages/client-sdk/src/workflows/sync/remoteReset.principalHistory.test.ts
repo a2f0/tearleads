@@ -1,17 +1,17 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { clientSqlTables } from "../../data/sqlite/schema";
 import {
   principalHistoryEntries,
   principalHistoryNodes,
   principalHistoryPrefixes,
-} from "../../data/sqlite/principalHistoryEvidenceSchema";
+} from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import {
   principalHistoryNodeReferences,
   principalHistoryRootOwners,
-} from "../../data/sqlite/principalHistoryNodeRetentionSchema";
-import { principalKeyEnvelopeArchive } from "../../data/sqlite/principalHistoryRetentionSchema";
-import { principalHistoryStages } from "../../data/sqlite/principalHistoryStageSchema";
-import { clientSqlTables } from "../../data/sqlite/schema";
+} from "../../data/sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalKeyEnvelopeArchive } from "../../data/sqlite/schema/principalHistoryRetentionSchema";
+import { principalHistoryStages } from "../../data/sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

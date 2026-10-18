@@ -9,9 +9,9 @@ import {
   rethrowKeyingVerificationError,
 } from "../../../data/keyingProjectionVerification/error";
 import { dedupeReferencedPrincipalStates } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicyPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";

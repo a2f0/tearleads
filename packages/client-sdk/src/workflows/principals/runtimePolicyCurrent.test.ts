@@ -4,9 +4,9 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/verifiedPrincipalPolicyCurrent";
+import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
-import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "./runtimePolicyRecovery";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

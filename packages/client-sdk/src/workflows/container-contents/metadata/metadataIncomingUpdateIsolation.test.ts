@@ -6,7 +6,7 @@ import {
   getUpdateVersionVectors,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
+import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   ensureDocumentTables,
   hasRecordedTerminalSyncFailures,

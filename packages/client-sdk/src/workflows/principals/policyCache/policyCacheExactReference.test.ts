@@ -12,7 +12,7 @@ import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDir
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 
 test("referenced policy warming re-verifies an exact local bundle without a policy GET", async () => {
   const { close, execSql } = await createTestExecSql(

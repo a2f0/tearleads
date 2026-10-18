@@ -6,7 +6,7 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
-import { principalGrantRetirements } from "../../../data/sqlite/principalGrantRetirementSchema";
+import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { captureAcknowledgedPrincipalPredecessor } from "../../principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import { groupPolicyMutationHead } from "../groupPolicy/groupPolicyMutationHead";
 import { buildGroupAccessSetShrinkPolicyRequest } from "../groupPolicy/groupPolicyRequests";

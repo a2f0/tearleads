@@ -3,7 +3,7 @@ import { importUpdates } from "@tearleads/loro";
 import {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
-} from "../../../data/documents/shared/syncPagination";
+} from "../../../data/documents/shared/sync/syncPagination";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import type { ContainerContentsWorkflowSqlRuntime } from "../runtime";

@@ -11,11 +11,11 @@ import type { ContainerMutationAuthor } from "../../../data/containers/shared/ty
 import {
   loadAccessManifestCheckpoint,
   loadPrincipalPolicyCheckpoint,
-} from "../../../data/persistence/keyingCheckpointPersistence";
+} from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   locallyAuthoredAccessManifestHead,
-} from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+} from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import {
   type ExecSql,

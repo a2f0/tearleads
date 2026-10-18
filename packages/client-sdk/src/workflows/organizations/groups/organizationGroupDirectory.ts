@@ -17,7 +17,7 @@ import type {
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,
   normalizeOrganizationGroupHeads,

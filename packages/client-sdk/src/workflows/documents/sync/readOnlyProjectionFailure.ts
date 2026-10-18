@@ -1,5 +1,5 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
+import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { rethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
 import { projectionIntegrityErrorCode } from "../syncFailures/syncFailureClassification";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";

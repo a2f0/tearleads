@@ -11,7 +11,7 @@ import {
   type DocumentSyncCommitLsnMode,
   type DocumentSyncPullContinuation,
   InvalidDocumentSyncPullContinuationError,
-} from "../../../data/documents/shared/syncPagination";
+} from "../../../data/documents/shared/sync/syncPagination";
 import type {
   DocumentSyncApi,
   DocumentSyncPlan,

@@ -8,7 +8,7 @@ import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolic
 import {
   loadAccessManifestCheckpoint,
   loadPrincipalPolicyCheckpoint,
-} from "../../persistence/keyingCheckpointPersistence";
+} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   createProjectionCheckpointContext,
   finalizeProjectionCheckpoints,

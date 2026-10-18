@@ -5,7 +5,7 @@ import {
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
-import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../principals/runtimePolicyRecovery";
 import { loadCurrentOrganizationAuthority } from "./currentOrganizationAuthority";
 

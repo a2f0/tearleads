@@ -11,8 +11,8 @@ import {
 } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { resolveReferencedPrincipalPolicy } from "../../data/keyingProjectionVerification/principalPolicy/resolvedPrincipalPolicy";
 import type { PrincipalPolicyResolveRequest } from "../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
-import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyResolver } from "./runtimePolicyRecovery";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

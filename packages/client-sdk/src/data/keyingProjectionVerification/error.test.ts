@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { DocumentSyncUpdateIsolationError } from "../documents/shared/documentSyncUpdateIsolation";
+import { DocumentSyncUpdateIsolationError } from "../documents/shared/sync/documentSyncUpdateIsolation";
 import { DatabaseUnavailableError } from "../sync/databaseUnavailable";
 import { ProjectionDependencyUnavailableError } from "./dependencyUnavailable";
 import {

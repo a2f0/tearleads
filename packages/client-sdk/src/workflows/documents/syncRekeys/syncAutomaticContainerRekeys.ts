@@ -6,8 +6,8 @@ import type {
 import { MAX_INLINE_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import { ContainerAuthorAccessError } from "../../../data/containers/shared/authorAccess";
 import type { MaterializedContainerRekeyPlan } from "../../../data/containers/shared/types";
-import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKekCurrency";
-import { ContainerKekTargetUnreachableError } from "../../../data/documents/shared/containerKekPath";
+import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
+import { ContainerKekTargetUnreachableError } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";

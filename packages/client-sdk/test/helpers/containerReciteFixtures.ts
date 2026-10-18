@@ -24,7 +24,7 @@ import {
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   locallyAuthoredAccessManifestHead,
-} from "../../src/data/persistence/locallyAcknowledgedCheckpointPersistence";
+} from "../../src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { buildContainerRecitePlan } from "../../src/workflows/containers/child/recitePlan";
 import {
   createParentProjection,

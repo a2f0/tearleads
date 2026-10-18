@@ -16,8 +16,8 @@ import { createResponseFromRequest } from "../../../../../test/helpers/documentF
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { unwrapDocumentContentKeyTarget } from "../../../../data/documents/shared/projection";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
-import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically } from "../../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { advanceLocallyAcknowledgedAccessManifestHeadsAtomically } from "../../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import {

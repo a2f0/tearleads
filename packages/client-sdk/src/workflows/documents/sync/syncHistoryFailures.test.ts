@@ -16,7 +16,7 @@ import {
   createUserContainerWrap,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
-import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
+import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import {
   ContainerKekHistoryUnavailableError,
   DocumentHistoryUnavailableError,

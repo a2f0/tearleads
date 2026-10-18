@@ -8,7 +8,7 @@ import {
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 
 test("principal policy sync hard-fails without fetching or repairing an invalid exact match", async () => {
   const { close, execSql } = await createTestExecSql(

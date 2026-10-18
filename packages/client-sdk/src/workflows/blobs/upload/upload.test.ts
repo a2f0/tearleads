@@ -24,7 +24,7 @@ import {
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { readContainerState } from "../../../data/containers/shared/projection";
 import { parseBlobEncryptedBytes } from "../../../data/documents/blob/shared/readers";
-import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicyPersistence";
+import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
 import { uploadDocumentAttachment } from "./index";
 

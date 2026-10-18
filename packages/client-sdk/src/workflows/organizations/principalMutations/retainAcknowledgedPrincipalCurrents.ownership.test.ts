@@ -2,9 +2,9 @@ import { beforeAll, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { retainPrincipalHistoryRoot } from "../../../data/persistence/principalHistoryRootOwnership";
-import { principalHistoryRootOwners } from "../../../data/sqlite/principalHistoryNodeRetentionSchema";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
+import { retainPrincipalHistoryRoot } from "../../../data/persistence/principalHistory/principalHistoryRootOwnership";
+import { principalHistoryRootOwners } from "../../../data/sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 

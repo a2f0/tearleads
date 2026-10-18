@@ -1,5 +1,4 @@
 import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
-import { listLocalIdsWithQueuedUpdates } from "../../sqlite/documentPendingUpdatePersistence";
 import {
   enqueueDocumentPendingUpdate,
   listDocumentPendingUpdates,
@@ -7,6 +6,7 @@ import {
   settleDocumentPendingUpdate,
   unqueueDocumentPendingUpdates,
 } from "../../sqlite/documentPersistence";
+import { listLocalIdsWithQueuedUpdates } from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
 import { documents } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";

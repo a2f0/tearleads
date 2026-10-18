@@ -2,9 +2,9 @@ import type {
   ContainerWriterProjectionResponse,
   DocumentCreateResponse,
 } from "@tearleads/validators/response";
-import { acknowledgeDocumentMutation } from "../../../data/documents/shared/mutationAcknowledgement";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import { persistedDocumentCreateStateFromResponse } from "../../../data/documents/shared/responses";
+import { acknowledgeDocumentMutation } from "../../../data/documents/shared/sync/mutationAcknowledgement";
 import type {
   CreateRemoteDocumentResult,
   DocumentCreateApi,

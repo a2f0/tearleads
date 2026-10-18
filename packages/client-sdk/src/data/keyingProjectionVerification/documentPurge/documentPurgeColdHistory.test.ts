@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createPurgeChainFixture } from "../../../../test/helpers/documentPurgeChain";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   verifyDocumentPurgeProof,
   verifyDocumentPurgeProofBaseline,

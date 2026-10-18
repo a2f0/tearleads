@@ -11,7 +11,7 @@ import type {
   OrganizationReadModelSnapshotResponse,
 } from "@tearleads/validators/response";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { loadPrincipalPolicyCheckpoint } from "../keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import { loadOrganizationReadModelGroupMembers } from "./organizationReadModelMemberLoad";
 import {
   applyOrganizationReadModelResponse,

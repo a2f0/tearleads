@@ -9,7 +9,7 @@ import {
 } from "../../../../test/helpers/groupRemovalCarryFixture";
 import { createAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityRecovery";
 import { policyBundleAfterMutation } from "../../../../test/helpers/principalPolicyFixtures";
-import { principalGrantRetirements } from "../../../data/sqlite/principalGrantRetirementSchema";
+import { principalGrantRetirements } from "../../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentGroupPolicyMutation } from "./commitCurrentGroupPolicyMutation";
 import { buildRemoveGroupUserPolicyRequest } from "./groupPolicyRequests";

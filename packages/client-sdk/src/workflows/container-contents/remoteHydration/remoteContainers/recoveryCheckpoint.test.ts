@@ -6,7 +6,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,

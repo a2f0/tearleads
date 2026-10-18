@@ -1,11 +1,10 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
-import { deleteDocumentHistory } from "../../../sqlite/documentHistoryPersistence";
 import {
   clearDocumentSyncFailure,
   deleteDocumentRecord,
   loadDocumentRecord,
 } from "../../../sqlite/documentPersistence";
-import { documentIntentLinkTargets } from "../../../sqlite/documentPlacementIntentSchema";
+import { deleteDocumentHistory } from "../../../sqlite/documentPersistence/documentHistoryPersistence";
 import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
@@ -18,6 +17,7 @@ import {
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../../sqlite/schema";
+import { documentIntentLinkTargets } from "../../../sqlite/schema/documentPlacementIntentSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

@@ -1,5 +1,5 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../../data/principals/principalPolicyCoordinator";
 import type { RecoveredPrincipalPolicyHistory } from "../historyRecovery/principalHistoryRecoveryTypes";
 import type {

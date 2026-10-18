@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import {
   organizationProvisioningAttempts,
   organizationProvisioningAttemptTables,
-} from "../../sqlite/organizationProvisioningAttemptSchema";
+} from "../../sqlite/schema/organizationProvisioningAttemptSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

@@ -11,13 +11,13 @@ import type {
 } from "@tearleads/validators/response";
 import { documentContainerProjections } from "../../../keyingProjectionVerification/document/documentContainerProjections";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
-import { assertDocumentKekPathsCurrent } from "../../shared/containerKekCurrency";
+import { assertDocumentKekPathsCurrent } from "../../shared/containerKek/containerKekCurrency";
 import {
   readLinkedContainerIdsFromDocumentManifest,
   unwrapContainerKekPath,
   verifiedDocumentWrapTargets,
 } from "../../shared/projection";
-import { unwrapContentKeyTargetForKind } from "../../shared/projectionContentKeys";
+import { unwrapContentKeyTargetForKind } from "../../shared/projection/projectionContentKeys";
 import {
   assertEqualBytes,
   normalizeDocumentKekTargetResponse,

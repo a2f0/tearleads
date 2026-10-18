@@ -14,7 +14,7 @@ import {
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
-} from "../../sqlite/organizationReadModelSchema";
+} from "../../sqlite/schema/organizationReadModelSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { loadOrganizationReadModelGrantsInTransaction } from "./organizationReadModelGrantPersistence";
 import {

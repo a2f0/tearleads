@@ -7,7 +7,7 @@ import {
 } from "../../../test/helpers/clientTestSupport";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { Database } from "../runtime/database";
 import { createApi, createSessionHarness } from "./session.testFixtures";
 

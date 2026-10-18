@@ -18,11 +18,11 @@ import {
   readAccessEvent,
   readAccessManifest,
 } from "../../../data/keyingProjectionVerification/readers";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import {
   loadAccessManifestCheckpoint,
   loadPrincipalPolicyCheckpoint,
-} from "../../../data/persistence/keyingCheckpointPersistence";
+} from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { buildMaterializedContainerCreatePlan } from "./create";
 import { childContainerWriterProjectionFromCreatePlan } from "./create/createProjection";
 import { reciteHeldDescendants } from "./recite";

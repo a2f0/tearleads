@@ -7,8 +7,8 @@ import {
   type HeldContainerBinding,
 } from "../../../../data/containers/containerBinding";
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { persistOrganizationReplacementCheckpoints } from "../../../../data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence";
 import { loadOrganizationFounder } from "../../../../data/persistence/organizationFounderPersistence";
-import { persistOrganizationReplacementCheckpoints } from "../../../../data/persistence/organizationReplacementCheckpointPersistence";
 import type { RemoteContainer, RemoteContainerHydrationState } from "../types";
 import type { DestinationRole } from "./destinationRoleCache";
 

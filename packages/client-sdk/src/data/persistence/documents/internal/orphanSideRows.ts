@@ -9,7 +9,7 @@ import {
   or,
   type SQL,
 } from "drizzle-orm";
-import { documentOrphanBlobReclaims } from "../../../sqlite/documentOrphanBlobReclaims";
+import { documentOrphanBlobReclaims } from "../../../sqlite/documentPersistence/documentOrphanBlobReclaims";
 import {
   documentAttachmentBlobProjection,
   documentHistoryCheckpoints,

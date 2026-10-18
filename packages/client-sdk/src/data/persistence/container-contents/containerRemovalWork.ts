@@ -1,11 +1,11 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { listLocalIdsWithQueuedUpdates } from "../../sqlite/documentPendingUpdatePersistence";
-import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
+import { listLocalIdsWithQueuedUpdates } from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
 import {
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
+import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 /** Only local work makes removed metadata a recovery item; clean cache is disposable. */

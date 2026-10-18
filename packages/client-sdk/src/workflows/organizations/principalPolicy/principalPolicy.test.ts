@@ -20,8 +20,8 @@ import {
   principalPolicyHead,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
 import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import {

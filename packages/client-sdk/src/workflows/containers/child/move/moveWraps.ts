@@ -5,7 +5,7 @@ import type {
 } from "@tearleads/validators/response";
 import { uniquePrincipalPolicies } from "../../../../data/containers/shared/principalPolicies";
 import { readContainerState } from "../../../../data/containers/shared/projection";
-import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKekCurrency";
+import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
 import {
   collectContainerWriterProjectionPrincipalPolicies,
   type ProjectionUserKeyResolver,

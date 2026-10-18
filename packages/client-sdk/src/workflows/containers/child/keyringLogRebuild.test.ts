@@ -12,7 +12,7 @@ import {
 import {
   fetchContainerKekLog,
   rebuildKeyringEntriesFromLog,
-} from "../../../data/documents/shared/keyringRebuild";
+} from "../../../data/documents/shared/containerKek/keyringRebuild";
 
 test("a severed middle bridge rebuilds both segments around the gap", async () => {
   const containerId = crypto.randomUUID();

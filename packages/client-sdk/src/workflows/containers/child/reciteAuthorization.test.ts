@@ -4,7 +4,7 @@ import { createParentProjectionUserKeyResolver } from "../../../../test/helpers/
 import { createContainerReciteScenario } from "../../../../test/helpers/containerReciteFixtures";
 import { rememberAcknowledgedContainerHead } from "../../../data/containers/shared/heldContainerHeads";
 import { acknowledgeContainerMutation } from "../../../data/containers/shared/mutationAcknowledgement";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { reciteHeldDescendants } from "./recite";
 import { buildMaterializedContainerRevokePlan } from "./revoke";
 

@@ -15,7 +15,7 @@ import { execSqlClientFromExecSql } from "../../../../test/helpers/execSqlClient
 import { respondToOrganizationProvisioning } from "../../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   createExecSql,
   runSerializedSqlMutation,

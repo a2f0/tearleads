@@ -5,9 +5,9 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
-import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/verifiedPrincipalPolicyRetentionPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
+import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
 import {
   type OrganizationAuthorityDescriptor,
   principalHeadMatchesReference,

@@ -9,7 +9,7 @@ import type {
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 async function principalPolicyBundleFromInitialRequest(
