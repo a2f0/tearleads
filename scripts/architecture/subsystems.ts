@@ -431,13 +431,14 @@ export const subsystems: readonly Subsystem[] = [
     seam: "new Tearleads(options); the package root index",
     paths: [
       `${sdk}/Tearleads.ts`,
+      `${sdk}/TearleadsOptions.ts`,
       `${sdk}/client/index.ts`,
       `${sdk}/client/runtime/`,
       `${sdk}/client/host/`,
       `${sdk}/data/shared/errorMessage.ts`,
       `${sdk}/data/shared/recordReaders.ts`,
       `${sdk}/index.ts`,
-      `${sdk}/workflows/runtimeInput.ts`,
+      `${sdk}/workflows/shared/`,
     ],
   },
   {

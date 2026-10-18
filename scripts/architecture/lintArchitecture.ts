@@ -54,6 +54,7 @@ const clientSdkRootAllowedReExports = new Set([
   "./stores/container-contents",
   "./stores/documents",
   "./Tearleads",
+  "./TearleadsOptions",
   ...clientSdkRootWorkflowFacadeReExports,
 ]);
 const directSyncExternalStorePattern = /\buseSyncExternalStore\b/;

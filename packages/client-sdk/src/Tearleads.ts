@@ -1,17 +1,13 @@
 import { ApiClient, ApiRequestMetrics } from "@tearleads/api-client";
-import { type BlobStoreFactory, Blobs } from "./client/blobs";
+import { Blobs } from "./client/blobs";
 import {
   type ContainerContents,
   createContainerContents,
 } from "./client/containerContents";
 import { createDeviceFirst, type DeviceFirst } from "./client/deviceFirst";
 import { createDocuments, type Documents } from "./client/documents";
-import { type Logger, logErrorToConsole } from "./client/host/logger";
-import {
-  createIdentity,
-  type Identity,
-  type IdentityOptions,
-} from "./client/identity";
+import { logErrorToConsole } from "./client/host/logger";
+import { createIdentity, type Identity } from "./client/identity";
 import {
   createUserIdentities,
   type UserIdentities,
@@ -22,10 +18,9 @@ import {
 } from "./client/organizations";
 import { createRoot, type Root, rootRuntimeOf } from "./client/root";
 import { ApiVersion } from "./client/runtime/apiVersion";
-import { Database, type DatabaseOptions } from "./client/runtime/database";
+import { Database } from "./client/runtime/database";
 import { Events } from "./client/runtime/events";
 import { Network } from "./client/runtime/network";
-import type { PrincipalHistoryKeyProvider } from "./client/runtime/principalHistoryProtection";
 import { SyncBillingGate } from "./client/runtime/syncBillingGate";
 import {
   createRuntime,
@@ -34,15 +29,12 @@ import {
 } from "./client/runtime/workflowRuntime";
 import {
   createSecurityIncidentService,
-  type SecurityIncidentListener,
   type SecurityIncidents,
 } from "./client/securityIncidents";
 import { createSession } from "./client/session";
 import type { Session } from "./client/session/sessionTypes";
-import type { BlobStore } from "./data/blobs/blobContracts";
 import {
   type DocumentProjectorRegistry,
-  type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "./data/documents/documentKinds";
 import { createVerifiedManifestCitations } from "./data/persistence/verifiedManifestBundlePersistence";
@@ -50,70 +42,7 @@ import { createDomainScope, type DomainScope } from "./data/shared/domainScope";
 import type { SecurityIncidentReporter } from "./data/shared/securityIncidents";
 import { disposeDomainSyncCoordinator } from "./data/sync/syncCoordinator";
 import { resolveIdentityTrustDomain } from "./data/trustedUserIdentity";
-import type { ProvisionedSystemContainerSpec } from "./workflows/registration";
-
-function createClientSecurityIncidentService(input: {
-  readonly apiBaseUrl: string;
-  readonly database: Database;
-  readonly logError: (message: string | Error, cause?: unknown) => void;
-  readonly options: ClientOptions;
-}) {
-  const identityTrustDomain = resolveIdentityTrustDomain({
-    apiBaseUrl: input.apiBaseUrl,
-    identityTrustDomain: input.options.identityTrustDomain,
-  });
-  return {
-    identityTrustDomain,
-    service: createSecurityIncidentService({
-      database: input.database,
-      logError: input.logError,
-      onIncident: input.options.onSecurityIncident,
-      trustDomain: identityTrustDomain,
-    }),
-  };
-}
-
-export type ClientDatabaseOptions = Omit<DatabaseOptions, "status">;
-
-export interface ClientOptions {
-  apiBaseUrl?: string | undefined;
-  /** Reuse a memory-only request counter across client lifetimes. */
-  apiRequestMetrics?: ApiRequestMetrics | undefined;
-  blobStore?: BlobStore | undefined;
-  blobStoreFactory?: BlobStoreFactory | undefined;
-  database?: ClientDatabaseOptions | undefined;
-  documentProjectors?: DocumentProjectorRegistryInput | undefined;
-  events?: ReadonlyArray<unknown> | undefined;
-  identity?: IdentityOptions | undefined;
-  /**
-   * Absolute, host-controlled API namespace for durable user-identity pins.
-   * Required only when apiBaseUrl is relative and no browser origin exists.
-   */
-  identityTrustDomain?: string | undefined;
-  identityProvisioning?: "auto" | "manual" | undefined;
-  logger?: Logger | undefined;
-  online?: boolean | undefined;
-  /** Called after a trust-boundary verification failure is durably recorded. */
-  onSecurityIncident?: SecurityIncidentListener | undefined;
-  /**
-   * Per-pane discriminator so documents in distinct panes derive distinct Loro
-   * peer ids (e.g. the pane's local identity namespace). Omit for single-pane.
-   */
-  peerScope?: string | undefined;
-  /** Private host key for durable history progress; omitted uses disposable session keys. */
-  principalHistoryKeyProvider?: PrincipalHistoryKeyProvider | undefined;
-  /** Compound policy dispatch/recovery deadline in milliseconds; defaults to 60 seconds. */
-  principalMutationTimeoutMs?: number | undefined;
-  /**
-   * App-owned system containers born with every new organization (both
-   * registration and additional-org creation provision them atomically in the
-   * same server call), e.g. a trash bin. The app owns these because their slot
-   * namespaces are app concepts the SDK stays agnostic to.
-   */
-  provisionedSystemContainers?:
-    | ReadonlyArray<ProvisionedSystemContainerSpec>
-    | undefined;
-}
+import type { TearleadsOptions } from "./TearleadsOptions";
 
 export class Tearleads {
   readonly apiVersion = new ApiVersion();
@@ -161,7 +90,7 @@ export class Tearleads {
     throw new Error("Trusted user identity runtime is not initialized");
   };
 
-  constructor(options: ClientOptions = {}) {
+  constructor(options: TearleadsOptions = {}) {
     const apiBaseUrl = options.apiBaseUrl ?? "";
     this.apiRequests = options.apiRequestMetrics ?? new ApiRequestMetrics();
     this.apiClient = this.createApiClient(apiBaseUrl);
@@ -175,14 +104,13 @@ export class Tearleads {
     );
     this.logHandler = options.logger?.log ?? (() => undefined);
     this.logErrorHandler = options.logger?.logError ?? logErrorToConsole;
-    const security = createClientSecurityIncidentService({
+    const identityTrustDomain = resolveIdentityTrustDomain({
       apiBaseUrl,
-      database: this.database,
-      logError: this.logError,
-      options,
+      identityTrustDomain: options.identityTrustDomain,
     });
-    this.securityIncidents = security.service.incidents;
-    this.disposeSecurityIncidents = security.service.dispose;
+    const security = this.createSecurityIncidents(identityTrustDomain, options);
+    this.securityIncidents = security.incidents;
+    this.disposeSecurityIncidents = security.dispose;
     this.network = new Network(options.online);
     this.syncBillingGate = new SyncBillingGate();
     let session: Session | null = null;
@@ -209,12 +137,12 @@ export class Tearleads {
         getUserId: () => session?.userId ?? null,
       },
     );
-    session = this.createClientSession(options, security.service.report);
+    session = this.createClientSession(options, security.report);
     this.session = session;
     const runtime = this.createWorkflowRuntime(
-      security.identityTrustDomain,
+      identityTrustDomain,
       options,
-      security.service.report,
+      security.report,
     );
     this.bindTrustedIdentityRuntime(runtime);
     this.runtime = runtime.publicRuntime;
@@ -228,7 +156,7 @@ export class Tearleads {
     this.root = createRoot(rootRuntimeOf(runtime, this.session));
     this.userIdentities = createUserIdentities({
       getOrganizationId: () => this.session.organizationId,
-      reportSecurityIncident: security.service.report,
+      reportSecurityIncident: security.report,
       identityLinks: runtime.identityLinks,
       log: this.log,
       resolveTrustedUserIdentity: (userId) =>
@@ -242,9 +170,22 @@ export class Tearleads {
     }
   }
 
+  /** Durable incident records in this database, reported to the host's listener. */
+  private createSecurityIncidents(
+    trustDomain: string | null,
+    options: TearleadsOptions,
+  ) {
+    return createSecurityIncidentService({
+      database: this.database,
+      logError: this.logError,
+      onIncident: options.onSecurityIncident,
+      trustDomain,
+    });
+  }
+
   /** Trust callbacks reach the workflow runtime, which is created later. */
   private createClientSession(
-    options: ClientOptions,
+    options: TearleadsOptions,
     reportSecurityIncident: SecurityIncidentReporter,
   ): Session {
     return createSession({
@@ -310,7 +251,7 @@ export class Tearleads {
 
   private createWorkflowRuntime(
     identityTrustDomain: string | null,
-    options: ClientOptions,
+    options: TearleadsOptions,
     reportSecurityIncident: SecurityIncidentReporter,
   ): InternalRuntime {
     return createRuntime({

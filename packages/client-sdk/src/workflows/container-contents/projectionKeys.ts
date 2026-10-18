@@ -4,7 +4,7 @@ import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
   WorkflowRuntimeStateInput,
-} from "../runtimeInput";
+} from "../shared/runtimeInput";
 
 export type ContainerContentsProjectionUserKeyResolver =
   ProjectionUserKeyResolver;

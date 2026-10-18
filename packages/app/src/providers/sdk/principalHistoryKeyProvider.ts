@@ -1,4 +1,4 @@
-import type { ClientOptions } from "@tearleads/client-sdk";
+import type { TearleadsOptions } from "@tearleads/client-sdk";
 import type { LocalKeyringFactory } from "../local-keyring/localKeyringLockSupport";
 import { LOCAL_SQLITE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScopes";
 
@@ -6,7 +6,7 @@ import { LOCAL_SQLITE_SCOPE_NAMESPACE } from "../local-keyring/localKeyringScope
 export function createPrincipalHistoryKeyProvider(
   createLocalKeyring: LocalKeyringFactory,
   timeoutMs = 15_000,
-): NonNullable<ClientOptions["principalHistoryKeyProvider"]> {
+): NonNullable<TearleadsOptions["principalHistoryKeyProvider"]> {
   let queue: Promise<void> = Promise.resolve();
   return (scope) => {
     const operation = queue.then(async () => {

@@ -11,7 +11,7 @@ import {
   runSerializedSqlMutation,
 } from "../../data/sqlite/sqlSchema";
 import { reportDocumentSyncQuarantine } from "../documents/reportDocumentSyncQuarantine";
-import type { WorkflowRuntimeUtilInput } from "../runtimeInput";
+import type { WorkflowRuntimeUtilInput } from "../shared/runtimeInput";
 import type { ContainerMetadataState } from "./metadataTypes";
 
 export async function recordCurrentMetadataSyncFailure(input: {

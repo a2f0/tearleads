@@ -309,7 +309,8 @@ purge requires one link and verifies its signed proof. See
 
 ## Constructor Options
 
-`new Tearleads(options)` accepts host adapters and initial runtime state:
+`new Tearleads(options)` accepts a `TearleadsOptions` object of host adapters
+and initial runtime state; its `database` field is `TearleadsDatabaseOptions`:
 
 ```ts
 const tearleads = new Tearleads({

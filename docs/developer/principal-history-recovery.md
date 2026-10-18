@@ -12,14 +12,14 @@ policy revision consistently across restarts. Never obtain either trust decision
 from server-issued continuation data. Rotate the key or context when retiring
 prior verification decisions.
 
-`ClientOptions.principalHistoryKeyProvider` supplies an owned 32-byte key for a
-`PrincipalHistoryKeyScope` (signing fingerprint and API identity trust domain).
-The SDK clears each returned key after use, and never exposes its private lease
-through `runtime.input()`. Leases check database, identity, session and disposal
-lifetimes before and after asynchronous work. Without a provider, a private
-ephemeral key permits same-runtime reuse; a restart safely requires replay.
-Refreshing a session token expires outstanding leases while retaining that key
-for the same database, signing identity and API trust domain.
+`TearleadsOptions.principalHistoryKeyProvider` supplies an owned 32-byte key for
+a `PrincipalHistoryKeyScope` (signing fingerprint and API identity trust
+domain). The SDK clears each returned key after use, and never exposes its
+private lease through `runtime.input()`. Leases check database, identity,
+session and disposal lifetimes before and after asynchronous work. Without a
+provider, a private ephemeral key permits same-runtime reuse; a restart safely
+requires replay. Refreshing a session token expires outstanding leases while
+retaining that key for the same database, signing identity and API trust domain.
 Provider failures propagate instead of silently changing keys. Container and
 document workflow adapters retain the same lease in a private weak registry;
 their public runtime views do not expose custody callbacks.

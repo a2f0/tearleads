@@ -15,7 +15,7 @@ import type {
   WorkflowRuntimeInfraInput,
   WorkflowRuntimeStateInput,
   WorkflowRuntimeUtilInput,
-} from "../runtimeInput";
+} from "../shared/runtimeInput";
 
 interface DocumentsWorkflowRuntimeUtilInput
   extends Omit<WorkflowRuntimeUtilInput, "logError"> {

@@ -26,7 +26,7 @@ import {
 import type {
   WorkflowRuntimeAuthInput,
   WorkflowRuntimeCryptoInput,
-} from "../../workflows/runtimeInput";
+} from "../../workflows/shared/runtimeInput";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import type { Session } from "../session/sessionTypes";
 
