@@ -17,7 +17,7 @@ import {
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
-import { invalidatePrincipalRecovery } from "../../data/principals/principalRecoveryEpoch";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import {
   createPrincipalRecoveryReader,
@@ -159,7 +159,9 @@ test("an organization hint evicts the operation's directory", async () => {
     f.policies.set(admin.currentState.principalId, admin);
     f.policies.set(history.organizationId, directory);
     const discovered = f.discoveries();
-    invalidatePrincipalRecovery(f.options.execSql, history.organizationId);
+    getOrCreatePrincipalPolicyCoordinator(f.options.execSql).invalidateRecovery(
+      history.organizationId,
+    );
     expect(f.directoryHash(await f.collect(warmer))).toBe(
       directory.currentState.stateHash,
     );
@@ -198,7 +200,9 @@ test("a hint evicts the operation's view behind a shared policy cache", async ()
     await f.collect(warmer, cache);
     expect(f.discoveries()).toBe(discovered);
     const successor = await advanceAdmins(f);
-    invalidatePrincipalRecovery(f.options.execSql, history.organizationId);
+    getOrCreatePrincipalPolicyCoordinator(f.options.execSql).invalidateRecovery(
+      history.organizationId,
+    );
     expect(f.directoryHash(await f.collect(warmer, cache))).toBe(successor);
     expect(f.discoveries()).toBe(discovered + 1);
     expect(f.incidents).toEqual([]);

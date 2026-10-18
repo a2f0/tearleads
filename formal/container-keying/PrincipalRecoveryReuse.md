@@ -22,7 +22,7 @@ recovery still discovers and only skips the confirmation read.
 | Model action or predicate | Production seam |
 | --- | --- |
 | `ServerAdvance` | `commitOrganizationGroupPolicy` commits a group successor with its directory successor |
-| `Hint` | `applyOrganizationReadModelResponse` applies a hinted read-model change and calls `invalidatePrincipalRecovery` |
+| `Hint` | `applyOrganizationReadModelResponse` applies a hinted read-model change and calls its database's `PrincipalPolicyCoordinator.invalidateRecovery` |
 | `AdmitPin` | `advanceKeyingCheckpointsAtomically` admits a verified head as the durable pin |
 | `ProvisionPin` | `persistRegistrationBootstrapFromExecSql` pins the acknowledged founding heads, checking identity currency inside its transaction |
 | `SwitchScope` | the host replaces the identity or database (`isIdentityCurrent`, `Database.client`, signing fingerprint) |
@@ -39,7 +39,7 @@ recovery still discovers and only skips the confirmation read.
 | `FinishCollect` | `readRecoveryPages` skips the read for a completed stage of the pinned head; `StoredPrincipalCurrentRejectedError` discards the stage and replays online; the entry is stored with the observed epoch |
 | `AbortCollect` | `PrincipalHistoryRecoveryRaceError` when the durable pin changes during recovery |
 | `FreshPerOperation` | the bare discovery read in `discoverDirectoryHead` runs once per operation |
-| `NoStaleAfterHint` | `principalRecoveryEpoch` changes after a hint, so a collection that begins later rediscovers |
+| `NoStaleAfterHint` | `PrincipalPolicyCoordinator.recoveryEpoch` changes after a hint, so a collection that begins later rediscovers |
 | `NoRollback` | the checkpoint reload in `finishRecovery` and admission's pin checks in `commitProjectionCheckpoints` |
 | `ReuseCoversPin` | `directoryMemoValidity` reloads every named head's durable pin through `loadPrincipalPolicyCheckpoint` |
 | `NoUseAfterProducerExpiry` | `createPrincipalRecoveryReader` collects every handed-out lifetime into the scoped recovery's `stillCurrent` |

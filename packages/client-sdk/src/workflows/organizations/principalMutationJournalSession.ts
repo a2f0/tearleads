@@ -14,8 +14,8 @@ import {
   principalMutationJournalScopeId,
   sealPrincipalMutation,
 } from "../../data/principals/principalMutationJournal";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { runPrincipalMutationJournalOperation } from "./principalMutationJournalLane";
 import {
   assertAuthoredPrincipalOperationReceipt,
   type PrincipalMutationResponse,
@@ -98,20 +98,18 @@ export async function submitJournaledPrincipalMutation(
     readonly mutation: AuthoredPrincipalMutation;
   },
 ): Promise<MutationResult> {
-  return runPrincipalMutationJournalOperation(
+  return getOrCreatePrincipalPolicyCoordinator(
     input.execSql,
-    input.scope,
-    async () => {
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      const row = await sealPrincipalMutation(input);
-      await claimPrincipalMutationJournal({
-        execSql: input.execSql,
-        row,
-        stillCurrent: input.stillCurrent,
-      });
-      return (await submitSavedMutation(input, row, false)).result;
-    },
-  );
+  ).runJournalOperation(input.scope, async () => {
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    const row = await sealPrincipalMutation(input);
+    await claimPrincipalMutationJournal({
+      execSql: input.execSql,
+      row,
+      stillCurrent: input.stillCurrent,
+    });
+    return (await submitSavedMutation(input, row, false)).result;
+  });
 }
 
 /** Retry only authenticated saved bytes, never an application mutation callback. */
@@ -121,20 +119,18 @@ export async function recoverJournaledPrincipalMutation(
   readonly mutation: AuthoredPrincipalMutation;
   readonly response: PrincipalMutationResponse;
 } | null> {
-  return runPrincipalMutationJournalOperation(
+  return getOrCreatePrincipalPolicyCoordinator(
     input.execSql,
-    input.scope,
-    async () => {
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      const row = await loadPrincipalMutationJournal(
-        input.execSql,
-        await principalMutationJournalScopeId(input.scope),
-      );
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      if (!row) return null;
-      const { mutation, result } = await submitSavedMutation(input, row, true);
-      if (!result.ok) throw new PrincipalMutationOutcomeUnknownError();
-      return { mutation, response: result.data };
-    },
-  );
+  ).runJournalOperation(input.scope, async () => {
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    const row = await loadPrincipalMutationJournal(
+      input.execSql,
+      await principalMutationJournalScopeId(input.scope),
+    );
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    if (!row) return null;
+    const { mutation, result } = await submitSavedMutation(input, row, true);
+    if (!result.ok) throw new PrincipalMutationOutcomeUnknownError();
+    return { mutation, response: result.data };
+  });
 }

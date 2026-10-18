@@ -1,6 +1,6 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
-import { principalRecoveryEpoch } from "../../data/principals/principalRecoveryEpoch";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import type { RecoveredPrincipalPolicyHistory } from "./principalHistoryRecoveryTypes";
 import type {
   PrincipalRecoveryContext,
@@ -37,7 +37,10 @@ async function pinCovers(
 }
 
 function organizationEpoch(input: PrincipalRecoveryContext) {
-  return () => principalRecoveryEpoch(input.execSql, input.organizationId);
+  return () =>
+    getOrCreatePrincipalPolicyCoordinator(input.execSql).recoveryEpoch(
+      input.organizationId,
+    );
 }
 
 /** A directory names every group head; a newer pin on any of them evicts it. */

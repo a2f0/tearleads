@@ -1,5 +1,5 @@
 import { and, eq } from "drizzle-orm";
-import { invalidatePrincipalRecovery } from "../../principals/principalRecoveryEpoch";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../principals/principalPolicyCoordinator";
 import { organizationDataUsageTables } from "../../sqlite/organizationDataUsageSchema";
 import { organizationReadModelRequesters } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
@@ -66,5 +66,7 @@ export async function purgeOrganizationAccessProjection(input: {
   );
   // A denial is a realtime-hinted access change: in-flight operations recover
   // the organization's directory again instead of reusing their memo.
-  invalidatePrincipalRecovery(input.execSql, input.organizationId);
+  getOrCreatePrincipalPolicyCoordinator(input.execSql).invalidateRecovery(
+    input.organizationId,
+  );
 }

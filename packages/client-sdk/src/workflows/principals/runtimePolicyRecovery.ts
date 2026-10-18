@@ -10,6 +10,7 @@ import {
 } from "../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import type { SecurityIncidentReporter } from "../../data/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
@@ -24,7 +25,6 @@ import {
   type PrincipalPolicyHistoryReader,
 } from "./principalPolicyHistoryReader";
 import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
-import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import type { ScopedPrincipalPolicyRecovery } from "./recoverScopedPrincipalPolicyHistory";
 
 export interface PrincipalPolicyRecoveryRuntime {
@@ -90,71 +90,74 @@ export function createRuntimePrincipalPolicyCurrentResolver(
     return recover;
   };
   return (input) =>
-    queuePrincipalRecovery(runtime.infra.execSql, input.organizationId, () =>
-      runWithSecurityIncidentReporting(
-        runtime.util.reportSecurityIncident,
-        {
-          objectId: input.reference?.principalId ?? input.organizationId,
-          objectKind: "principal",
-          operation: "principal.policy.recover",
-          organizationId: input.organizationId,
-        },
-        () =>
-          lease(async ({ protection, stillCurrent: leaseCurrent }) => {
-            const stillCurrent = () =>
-              leaseCurrent() && input.stillCurrent?.() !== false;
-            assertProjectionVerificationCurrent(stillCurrent);
-            assertHistoryPageRequest(input);
-            const offline = runtime.state?.online === false;
-            try {
-              const options = {
-                historyReader,
-                execSql: runtime.infra.execSql,
-                offline,
-                organizationId: input.organizationId,
-                protection,
-                resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-                stillCurrent,
-              };
-              const batch = recoverFor(input.recoveryBatch);
-              const result: ScopedPrincipalPolicyRecovery = input.reference
-                ? await recoverWithPrincipalLocalPreference(
-                    batch.recover,
-                    {
-                      ...options,
-                      reference: input.reference,
-                      historyPage: input.historyPage,
-                    },
-                    input.preferLocalCurrent === true ||
-                      input.preferLocalHistory === true,
-                    input.preferLocalHistory === true,
-                  )
-                : await batch.discover(options);
-              // Reused evidence stays bound to every producer lifetime.
-              const resultCurrent = () =>
-                stillCurrent() && result.stillCurrent();
-              assertProjectionVerificationCurrent(resultCurrent);
-              return {
-                current: result.current,
-                organizationId: input.organizationId,
-                policy: result.policy,
-                dependencies: result.dependencies,
-                historyPage: result.historyPage,
-                stillCurrent: resultCurrent,
-              };
-            } catch (error) {
+    getOrCreatePrincipalPolicyCoordinator(runtime.infra.execSql).queueRecovery(
+      input.organizationId,
+      () =>
+        runWithSecurityIncidentReporting(
+          runtime.util.reportSecurityIncident,
+          {
+            objectId: input.reference?.principalId ?? input.organizationId,
+            objectKind: "principal",
+            operation: "principal.policy.recover",
+            organizationId: input.organizationId,
+          },
+          () =>
+            lease(async ({ protection, stillCurrent: leaseCurrent }) => {
+              const stillCurrent = () =>
+                leaseCurrent() && input.stillCurrent?.() !== false;
               assertProjectionVerificationCurrent(stillCurrent);
-              if (
-                error instanceof PrincipalPolicyHistoryReadError ||
-                error instanceof PrincipalHistoryRecoveryRaceError ||
-                (error instanceof KeyingVerificationError &&
-                  error.code === "missing_dependency")
-              )
-                throw new ProjectionDependencyUnavailableError(error.message);
-              throw error;
-            }
-          }),
-      ),
+              assertHistoryPageRequest(input);
+              const offline = runtime.state?.online === false;
+              try {
+                const options = {
+                  historyReader,
+                  execSql: runtime.infra.execSql,
+                  offline,
+                  organizationId: input.organizationId,
+                  protection,
+                  resolveTrustedUserIdentity:
+                    runtime.resolveTrustedUserIdentity,
+                  stillCurrent,
+                };
+                const batch = recoverFor(input.recoveryBatch);
+                const result: ScopedPrincipalPolicyRecovery = input.reference
+                  ? await recoverWithPrincipalLocalPreference(
+                      batch.recover,
+                      {
+                        ...options,
+                        reference: input.reference,
+                        historyPage: input.historyPage,
+                      },
+                      input.preferLocalCurrent === true ||
+                        input.preferLocalHistory === true,
+                      input.preferLocalHistory === true,
+                    )
+                  : await batch.discover(options);
+                // Reused evidence stays bound to every producer lifetime.
+                const resultCurrent = () =>
+                  stillCurrent() && result.stillCurrent();
+                assertProjectionVerificationCurrent(resultCurrent);
+                return {
+                  current: result.current,
+                  organizationId: input.organizationId,
+                  policy: result.policy,
+                  dependencies: result.dependencies,
+                  historyPage: result.historyPage,
+                  stillCurrent: resultCurrent,
+                };
+              } catch (error) {
+                assertProjectionVerificationCurrent(stillCurrent);
+                if (
+                  error instanceof PrincipalPolicyHistoryReadError ||
+                  error instanceof PrincipalHistoryRecoveryRaceError ||
+                  (error instanceof KeyingVerificationError &&
+                    error.code === "missing_dependency")
+                )
+                  throw new ProjectionDependencyUnavailableError(error.message);
+                throw error;
+              }
+            }),
+        ),
     );
 }
 

@@ -3,6 +3,7 @@ import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/respon
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
 import { principalPolicyReferenceFromBundle } from "../../data/principals/principalPolicyAdminSigners";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import type {
   TrustedUserIdentity,
@@ -10,7 +11,6 @@ import type {
 } from "../../data/trustedUserIdentity";
 import { createPrincipalCurrentRecoveryBatch } from "../principals/principalCurrentRecoveryBatch";
 import type { PrincipalPolicyPageReader } from "../principals/principalPolicyHistoryReader";
-import { queuePrincipalRecovery } from "../principals/principalRecoveryQueue";
 
 /** The version-1 policies a provisioning request signed and its response acknowledged. */
 interface ProvisionedPrincipalPolicies {
@@ -166,17 +166,19 @@ async function primeInProvisioningScope(
       ? identity
       : null;
   };
-  await queuePrincipalRecovery(execSql, input.organizationId, () =>
-    lease(({ protection, stillCurrent }) =>
-      primeProvisionedPrincipalHistory({
-        execSql,
-        organizationId: input.organizationId,
-        policies: input.policies,
-        protection,
-        resolveTrustedUserIdentity,
-        // Progress writes check this inside their transactions.
-        stillCurrent: () => stillCurrent() && scopeCurrent(),
-      }),
-    ),
+  await getOrCreatePrincipalPolicyCoordinator(execSql).queueRecovery(
+    input.organizationId,
+    () =>
+      lease(({ protection, stillCurrent }) =>
+        primeProvisionedPrincipalHistory({
+          execSql,
+          organizationId: input.organizationId,
+          policies: input.policies,
+          protection,
+          resolveTrustedUserIdentity,
+          // Progress writes check this inside their transactions.
+          stillCurrent: () => stillCurrent() && scopeCurrent(),
+        }),
+      ),
   );
 }

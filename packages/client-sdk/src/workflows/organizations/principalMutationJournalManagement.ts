@@ -14,7 +14,7 @@ import {
   principalMutationJournalRecordId,
   UnreadablePrincipalMutationError,
 } from "../../data/principals/principalMutationJournalRecord";
-import { runPrincipalMutationJournalOperation } from "./principalMutationJournalLane";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import type { PrincipalMutationJournalContext } from "./principalMutationJournalSession";
 
 export interface PrincipalMutationRecoveryApi {
@@ -82,49 +82,47 @@ export async function discardUnreadableJournaledPrincipalMutation(
       "Discarding unreadable work requires acknowledging its unknown outcome",
     );
   const expected = input.recordId;
-  return runPrincipalMutationJournalOperation(
+  return getOrCreatePrincipalPolicyCoordinator(
     input.execSql,
-    input.scope,
-    async () => {
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      const row = await loadPrincipalMutationJournal(
-        input.execSql,
-        await principalMutationJournalScopeId(input.scope),
+  ).runJournalOperation(input.scope, async () => {
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    const row = await loadPrincipalMutationJournal(
+      input.execSql,
+      await principalMutationJournalScopeId(input.scope),
+    );
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    if (!row) return false;
+    if ((await principalMutationJournalRecordId(row)) !== expected)
+      throw new Error(
+        "The unreadable principal mutation changed after inspection",
       );
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      if (!row) return false;
-      if ((await principalMutationJournalRecordId(row)) !== expected)
-        throw new Error(
-          "The unreadable principal mutation changed after inspection",
-        );
-      let unreadable = false;
-      try {
-        await openPrincipalMutation({
-          scope: input.scope,
-          row,
-          signingPublicKey: input.signingKeyPair.signingPublicKey,
-        });
-      } catch (error) {
-        if (!(error instanceof KeyingVerificationError)) throw error;
-        unreadable = true;
-      }
-      if (!unreadable)
-        throw new Error(
-          "Readable principal mutations require ordinary abandonment",
-        );
-      const removed = await clearPrincipalMutationJournal({
-        execSql: input.execSql,
+    let unreadable = false;
+    try {
+      await openPrincipalMutation({
+        scope: input.scope,
         row,
-        stillCurrent: input.stillCurrent,
+        signingPublicKey: input.signingKeyPair.signingPublicKey,
       });
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      if (!removed)
-        throw new Error(
-          "The unreadable principal mutation changed during discard",
-        );
-      return true;
-    },
-  );
+    } catch (error) {
+      if (!(error instanceof KeyingVerificationError)) throw error;
+      unreadable = true;
+    }
+    if (!unreadable)
+      throw new Error(
+        "Readable principal mutations require ordinary abandonment",
+      );
+    const removed = await clearPrincipalMutationJournal({
+      execSql: input.execSql,
+      row,
+      stillCurrent: input.stillCurrent,
+    });
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    if (!removed)
+      throw new Error(
+        "The unreadable principal mutation changed during discard",
+      );
+    return true;
+  });
 }
 
 /** Inspect authenticated authored work without retrying it or changing checkpoints. */
@@ -154,30 +152,28 @@ export async function abandonJournaledPrincipalMutation(
     JSON.parse(JSON.stringify(input.mutation)),
     "inspected authored mutation",
   );
-  return runPrincipalMutationJournalOperation(
+  return getOrCreatePrincipalPolicyCoordinator(
     input.execSql,
-    input.scope,
-    async () => {
-      const saved = await loadAuthenticatedMutation(input);
-      if (!saved) return false;
-      if (
-        canonicalKeyingJsonString(saved.mutation, "saved authored mutation") !==
-        expected
-      )
-        throw new Error(
-          "The pending principal mutation changed after inspection",
-        );
-      const removed = await clearPrincipalMutationJournal({
-        execSql: input.execSql,
-        row: saved.row,
-        stillCurrent: input.stillCurrent,
-      });
-      assertProjectionVerificationCurrent(input.stillCurrent);
-      if (!removed)
-        throw new Error(
-          "The pending principal mutation changed during abandonment",
-        );
-      return true;
-    },
-  );
+  ).runJournalOperation(input.scope, async () => {
+    const saved = await loadAuthenticatedMutation(input);
+    if (!saved) return false;
+    if (
+      canonicalKeyingJsonString(saved.mutation, "saved authored mutation") !==
+      expected
+    )
+      throw new Error(
+        "The pending principal mutation changed after inspection",
+      );
+    const removed = await clearPrincipalMutationJournal({
+      execSql: input.execSql,
+      row: saved.row,
+      stillCurrent: input.stillCurrent,
+    });
+    assertProjectionVerificationCurrent(input.stillCurrent);
+    if (!removed)
+      throw new Error(
+        "The pending principal mutation changed during abandonment",
+      );
+    return true;
+  });
 }

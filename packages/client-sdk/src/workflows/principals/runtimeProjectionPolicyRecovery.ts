@@ -6,10 +6,10 @@ import {
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
 import { readPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/principalPolicyCoordinator";
 import { PrincipalPolicyHistoryReadError } from "./principalHistoryRecoveryTypes";
 import { apiProjectionPolicyHistoryReader } from "./principalPolicyHistoryReader";
 import { isPrincipalRecoveryOutage } from "./principalRecoveryOutage";
-import { queuePrincipalRecovery } from "./principalRecoveryQueue";
 import {
   type ProjectionPolicyHistoryRecoveryOptions,
   recoverProjectionPolicyHistory,
@@ -35,42 +35,45 @@ export function createRuntimeProjectionPolicyResolver(
   const historyReader = apiProjectionPolicyHistoryReader(runtime.apiClient);
   if (!lease || !historyReader) return undefined;
   return (input) =>
-    queuePrincipalRecovery(runtime.infra.execSql, input.organizationId, () =>
-      runWithSecurityIncidentReporting(
-        runtime.util.reportSecurityIncident,
-        {
-          objectId: input.organizationId,
-          objectKind: "principal",
-          operation: "principal.projection.recover",
-          organizationId: input.organizationId,
-        },
-        () =>
-          lease(async ({ protection, stillCurrent: leaseCurrent }) => {
-            const stillCurrent = () =>
-              leaseCurrent() && input.stillCurrent?.() !== false;
-            assertProjectionVerificationCurrent(stillCurrent);
-            try {
-              const policies = await recoverWithOutageFallback({
-                ...input,
-                historyReader,
-                execSql: runtime.infra.execSql,
-                protection,
-                stillCurrent,
-                offline: runtime.state?.online === false,
-                resolveTrustedUserIdentity: runtime.resolveTrustedUserIdentity,
-              });
-              return { policies, stillCurrent };
-            } catch (error) {
+    getOrCreatePrincipalPolicyCoordinator(runtime.infra.execSql).queueRecovery(
+      input.organizationId,
+      () =>
+        runWithSecurityIncidentReporting(
+          runtime.util.reportSecurityIncident,
+          {
+            objectId: input.organizationId,
+            objectKind: "principal",
+            operation: "principal.projection.recover",
+            organizationId: input.organizationId,
+          },
+          () =>
+            lease(async ({ protection, stillCurrent: leaseCurrent }) => {
+              const stillCurrent = () =>
+                leaseCurrent() && input.stillCurrent?.() !== false;
               assertProjectionVerificationCurrent(stillCurrent);
-              if (
-                error instanceof PrincipalPolicyHistoryReadError ||
-                (error instanceof KeyingVerificationError &&
-                  error.code === "missing_dependency")
-              )
-                throw new ProjectionDependencyUnavailableError(error.message);
-              throw error;
-            }
-          }),
-      ),
+              try {
+                const policies = await recoverWithOutageFallback({
+                  ...input,
+                  historyReader,
+                  execSql: runtime.infra.execSql,
+                  protection,
+                  stillCurrent,
+                  offline: runtime.state?.online === false,
+                  resolveTrustedUserIdentity:
+                    runtime.resolveTrustedUserIdentity,
+                });
+                return { policies, stillCurrent };
+              } catch (error) {
+                assertProjectionVerificationCurrent(stillCurrent);
+                if (
+                  error instanceof PrincipalPolicyHistoryReadError ||
+                  (error instanceof KeyingVerificationError &&
+                    error.code === "missing_dependency")
+                )
+                  throw new ProjectionDependencyUnavailableError(error.message);
+                throw error;
+              }
+            }),
+        ),
     );
 }

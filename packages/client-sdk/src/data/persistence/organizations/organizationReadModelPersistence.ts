@@ -5,7 +5,7 @@ import type {
   OrganizationReadModelResponse,
 } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
-import { invalidatePrincipalRecovery } from "../../principals/principalRecoveryEpoch";
+import { getOrCreatePrincipalPolicyCoordinator } from "../../principals/principalPolicyCoordinator";
 import { organizationDataUsageTables } from "../../sqlite/organizationDataUsageSchema";
 import {
   organizationReadModelDirectoryUsers,
@@ -449,7 +449,9 @@ export async function applyOrganizationReadModelResponse(input: {
   // An applied change follows an organization hint or mutation; in-flight
   // operations recover the directory again instead of reusing their memo.
   if (disposition === "applied")
-    invalidatePrincipalRecovery(input.execSql, input.response.organizationId);
+    getOrCreatePrincipalPolicyCoordinator(input.execSql).invalidateRecovery(
+      input.response.organizationId,
+    );
   return disposition;
 }
 
