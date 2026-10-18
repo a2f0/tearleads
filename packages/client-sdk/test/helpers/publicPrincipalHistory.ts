@@ -6,7 +6,7 @@ import type {
 } from "@tearleads/validators/response";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import type { TrustedUserIdentityResolver } from "../../src/data/trustedUserIdentity";
-import type { PublicPrincipalHistoryOptions } from "../../src/workflows/principals/publicPrincipalHistoryTypes";
+import type { PublicPrincipalHistoryOptions } from "../../src/workflows/principals/publicHistory/publicPrincipalHistoryTypes";
 import { principalPolicyHead } from "./principalPolicyFixtures";
 
 export async function createPublicHistoryFixture(

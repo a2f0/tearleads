@@ -42,9 +42,10 @@ export {
   markLocalDocumentAttachmentDetached,
   saveLocalDocumentAttachments,
   savePendingDocumentAttachment,
-} from "./attachmentPersistence";
+} from "./attachments/attachmentPersistence";
+export { runSerializedDocumentBlobMutation } from "./attachments/blobMutationLock";
+export { reclaimDocumentOrphanBlobs } from "./attachments/orphanBlobReclaims";
 export { resolveDocumentCreateAuthor } from "./author";
-export { runSerializedDocumentBlobMutation } from "./blobMutationLock";
 export {
   buildMaterializedDocumentCreatePlan,
   createRemoteDocument,
@@ -56,17 +57,11 @@ export {
   mergePersistedDocumentHistory,
 } from "./historyContent";
 export { buildMaterializedDocumentLinkSetMutationPlan } from "./linkSet";
-export { relinkRemoteDocument } from "./linkSetRemote";
-export { reclaimDocumentOrphanBlobs } from "./orphanBlobReclaims";
+export { relinkRemoteDocument } from "./linkSet/linkSetRemote";
 export {
   enqueuePendingDocumentUpdate,
   listPendingDocumentUpdates,
 } from "./pendingUpdatePersistence";
-export {
-  type DiscardedDocumentShellResult,
-  deletePersistedDocument,
-  discardPersistedDocumentToShell,
-} from "./persistedDocumentRemoval";
 export {
   type AttachmentRemovalRows,
   type AttachmentStagingRows,
@@ -94,7 +89,11 @@ export {
   buildDocumentPurgeRequest,
   purgeRemoteDocument,
 } from "./purge";
-export type { SyncRemoteDocumentInput } from "./readOnlySync";
+export {
+  type DiscardedDocumentShellResult,
+  deletePersistedDocument,
+  discardPersistedDocumentToShell,
+} from "./purge/persistedDocumentRemoval";
 export {
   createDocumentsWorkflowRuntime,
   type DocumentsWorkflowRuntime,
@@ -107,22 +106,23 @@ export {
   hasDocumentUpdateEvent,
   syncRemoteDocument,
 } from "./sync";
-export type { DocumentSyncContainerRekeyBuilder } from "./syncAttemptState";
-export { DocumentRawHistoryUnavailableError } from "./syncContentKeys";
-export {
-  describeDocumentRevalidationFailure,
-  describeDocumentSyncSubmitFailure,
-  type TerminalSubmitFailureHandler,
-} from "./syncFailureClassification";
-export { shouldClearDocumentSyncFailureAfterPass } from "./syncFailureClearance";
+export type { SyncRemoteDocumentInput } from "./sync/readOnlySync";
+export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {
   type DocumentSyncLane,
   registerDocumentSyncLane,
   requestDocumentSyncLaneAndWait,
-} from "./syncLane";
-export type { RekeyPendingUpdate } from "./syncRecoveryRekey";
+} from "./sync/syncLane";
 export {
   DOCUMENT_SYNC_TRACE_FRAGMENT,
   DOCUMENT_SYNC_TRACE_PATTERN,
-} from "./syncTrace";
+} from "./sync/syncTrace";
+export {
+  describeDocumentRevalidationFailure,
+  describeDocumentSyncSubmitFailure,
+  type TerminalSubmitFailureHandler,
+} from "./syncFailures/syncFailureClassification";
+export { shouldClearDocumentSyncFailureAfterPass } from "./syncFailures/syncFailureClearance";
+export { DocumentRawHistoryUnavailableError } from "./syncPlan/syncContentKeys";
+export type { RekeyPendingUpdate } from "./syncRekeys/syncRecoveryRekey";
 export { createDocumentWriterPublicKeyResolver } from "./writerKeys";

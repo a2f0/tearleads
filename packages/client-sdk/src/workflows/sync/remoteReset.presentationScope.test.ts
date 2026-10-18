@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { clientSqlTables } from "../../data/sqlite/schema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
-import { runOrganizationPresentationRead } from "../organizations/organizationPresentationAccessState";
+import { runOrganizationPresentationRead } from "../organizations/readModel/organizationPresentationAccessState";
 import { clearRemoteSyncState } from "./remoteReset";
 
 test("remote reset denies only the purged organization's presentation scope", async () => {

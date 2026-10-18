@@ -29,11 +29,11 @@ import {
   requireTrustedUserIdentityResolver,
   type TrustedUserIdentityResolver,
 } from "../../../data/trustedUserIdentity";
-import { createGroupMetadataAccess } from "../../organizations/groupMetadataAccess";
-import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadataContainerAuthority";
-import { preparePrincipalContainerRematerializationBatch } from "../../organizations/principalContainerRematerialization";
+import { createGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataAccess";
+import { createGroupMetadataContainerVerifier } from "../../organizations/groupMetadata/groupMetadataContainerAuthority";
 import { setOrganizationGroupContainerGrant } from "../../organizations/principalPolicy";
-import type { GroupPolicyNameReader } from "../../organizations/principalPolicyRequest";
+import type { GroupPolicyNameReader } from "../../organizations/principalPolicy/principalPolicyRequest";
+import { preparePrincipalContainerRematerializationBatch } from "../../organizations/rematerialization/principalContainerRematerialization";
 import {
   submitAcknowledgedContainerMutation,
   submitPlainContainerMutation,

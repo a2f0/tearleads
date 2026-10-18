@@ -19,7 +19,7 @@ import {
 } from "../../data/persistence/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
-import { createOrganization } from "../organizations/createOrganization";
+import { createOrganization } from "../organizations/provisioning/createOrganization";
 
 const SYSTEM_CONTAINER = {
   icon: "trash",

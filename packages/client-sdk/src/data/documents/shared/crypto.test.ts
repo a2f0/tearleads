@@ -19,7 +19,7 @@ import {
   createPendingUpdateRecord,
   createSyncResponse,
 } from "../../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import {
   deriveDocumentContentRecordKey,
   documentContentRecordDerivationPayload,

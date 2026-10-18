@@ -14,7 +14,7 @@ import type {
 } from "@tearleads/validators/response";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import { createTestTrustedUserIdentityResolver } from "../../src/data/trustedUserIdentity/testFixtures";
-import type { RecoverPrincipalPolicyHistoryOptions } from "../../src/workflows/principals/principalHistoryRecoveryTypes";
+import type { RecoverPrincipalPolicyHistoryOptions } from "../../src/workflows/principals/historyRecovery/principalHistoryRecoveryTypes";
 import {
   principalPolicyHead,
   signedPrincipalPolicyBundle,

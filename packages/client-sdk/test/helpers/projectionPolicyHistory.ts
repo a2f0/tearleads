@@ -9,7 +9,7 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../src/data/keyingProjectionVerification/types";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { recoverProjectionPolicyHistory } from "../../src/workflows/principals/recoverProjectionPolicyHistory";
+import { recoverProjectionPolicyHistory } from "../../src/workflows/principals/publicHistory/recoverProjectionPolicyHistory";
 import { principalPolicyHead } from "./principalPolicyFixtures";
 
 export function projectionPolicySource(

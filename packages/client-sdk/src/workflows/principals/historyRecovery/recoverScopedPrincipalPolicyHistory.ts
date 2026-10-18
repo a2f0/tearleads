@@ -1,0 +1,260 @@
+import {
+  createPrincipalPolicyHistoryVerifier,
+  KeyingVerificationError,
+  type PrincipalPolicyExternalAuthority,
+  type ReferencedPrincipalHead,
+  type VerifiedPrincipalPolicyCurrent,
+} from "@tearleads/crypto";
+import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
+import {
+  directoryHistoryProtection,
+  scopedGroupHistoryProtection,
+} from "../../../data/principals/principalHistoryScopeProtection";
+import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
+import {
+  type PrincipalRecoveryContext,
+  PrincipalRecoveryDirectoryAdvanced,
+  type RecoveredPolicyDirectory,
+} from "../recoveryOperation/principalRecoveryDirectory";
+import {
+  createPrincipalRecoveryReader,
+  type PrincipalRecoveryMemo,
+} from "../recoveryOperation/principalRecoveryMemo";
+import type { RecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";
+import {
+  PrincipalHistoryRecoveryRaceError,
+  type RecoveredPrincipalPolicyHistory,
+  type RecoverPrincipalPolicyHistoryOptions,
+} from "./principalHistoryRecoveryTypes";
+import { recoverPrincipalHistoryPage } from "./recoverPrincipalHistoryPage";
+import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
+
+export interface RecoverScopedPrincipalPolicyHistoryOptions
+  extends PrincipalRecoveryContext {
+  readonly reference: ReferencedPrincipalHead;
+  /** Optional bounded display history ending before this exclusive version. */
+  readonly historyPage?: { readonly beforeVersion?: number } | undefined;
+}
+
+export interface RecoveredScopedPrincipalPolicyHistory
+  extends RecoveredPrincipalPolicyHistory {
+  /** Submit these with policy when atomically admitting its organization scope. */
+  readonly dependencies: readonly VerifiedPrincipalPolicyCurrent[];
+  readonly historyPage?: RecoveredPrincipalHistoryPage | undefined;
+}
+
+/** Internal result: valid only while every evidence producer behind it is. */
+export interface ScopedPrincipalPolicyRecovery
+  extends RecoveredScopedPrincipalPolicyHistory {
+  readonly stillCurrent: () => boolean;
+}
+
+export type ScopedPrincipalPolicyRecoveryBatch = (
+  options: RecoverScopedPrincipalPolicyHistoryOptions,
+) => Promise<ScopedPrincipalPolicyRecovery>;
+
+function groupHead(directory: RecoveredPolicyDirectory, principalId: string) {
+  const head = directory.descriptor.groupHeads.find(
+    (entry) => entry.principalId === principalId,
+  );
+  if (!head)
+    throw new KeyingVerificationError(
+      "missing_dependency",
+      "Group is absent from the signed organization directory",
+    );
+  return head;
+}
+
+function authorityHead(state: ReferencedPrincipalHead) {
+  return {
+    principalType: "group" as const,
+    principalId: state.principalId,
+    version: state.version,
+    stateHash: state.stateHash,
+    keyEpoch: state.keyEpoch,
+    keyFingerprint: state.keyFingerprint,
+  };
+}
+
+async function recoverScopedPolicy(
+  input: RecoverScopedPrincipalPolicyHistoryOptions,
+  memo?: PrincipalRecoveryMemo,
+): Promise<ScopedPrincipalPolicyRecovery> {
+  if (
+    input.reference.principalType === "organization" &&
+    input.reference.principalId !== input.organizationId
+  )
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Requested organization policy is outside its scope",
+    );
+  const read = createPrincipalRecoveryReader(input, memo);
+  // Reused or derived evidence keeps its producers' lifetimes to its use.
+  const stillCurrent = () =>
+    !input.signal?.aborted && input.stillCurrent() && read.stillCurrent();
+  const directory = await read.directory(
+    input.reference.principalType === "organization" ? [input.reference] : [],
+  );
+  if (input.reference.principalType === "organization")
+    return {
+      current: directory.current,
+      policy: directory.policy,
+      dependencies: [],
+      stillCurrent,
+      ...(await selectDisplayHistory(input, {
+        ...input,
+        expectedHead: principalPolicyReferenceFromBundle(directory.current),
+        protection: directoryHistoryProtection(input.protection),
+      })),
+    };
+  const expectedHead = groupHead(directory, input.reference.principalId);
+  if (input.reference.version > expectedHead.version)
+    throw new PrincipalRecoveryDirectoryAdvanced();
+  const adminHead = groupHead(directory, directory.descriptor.adminGroupId);
+  const isAdmins = expectedHead.principalId === adminHead.principalId;
+  let admins: VerifiedPrincipalPolicyCurrent | null = null;
+  if (!isAdmins) {
+    admins = (await read.admins(adminHead)).policy;
+  }
+  const loadExternalAuthority = async (
+    citations: readonly ReferencedPrincipalHead[],
+  ): Promise<PrincipalPolicyExternalAuthority | undefined> => {
+    const references = new Map<string, ReferencedPrincipalHead>();
+    for (const citation of citations) {
+      if (citation.principalId !== adminHead.principalId)
+        throw new KeyingVerificationError(
+          "object_mismatch",
+          "Group cites another organization's Admins authority",
+        );
+      if (citation.version > adminHead.version)
+        throw new PrincipalRecoveryDirectoryAdvanced();
+      references.set(`${citation.version}:${citation.stateHash}`, citation);
+    }
+    if (!references.size) return undefined;
+    const recovered = await read.admins(adminHead, [...references.values()]);
+    return {
+      currentHead: adminHead,
+      states: recovered.policy.retainedHistory.map(({ state, projection }) => ({
+        head: authorityHead(state),
+        projection,
+      })),
+    };
+  };
+  const recoveryOptions: RecoverPrincipalPolicyHistoryOptions = {
+    ...input,
+    expectedHead,
+    retainedReferences: [input.reference],
+    historyVerification: isAdmins ? "direct-admins" : "standard",
+    ...(isAdmins
+      ? {}
+      : {
+          protection: scopedGroupHistoryProtection(
+            input.protection,
+            input.organizationId,
+            adminHead.principalId,
+          ),
+        }),
+    ...(isAdmins ? {} : { loadExternalAuthority }),
+  };
+  const recovered = isAdmins
+    ? await read.admins(expectedHead, [input.reference])
+    : await recoverPrincipalPolicyHistory(recoveryOptions);
+  return {
+    ...recovered,
+    dependencies: admins ? [directory.policy, admins] : [directory.policy],
+    stillCurrent,
+    ...(await selectDisplayHistory(input, recoveryOptions)),
+  };
+}
+
+/** Recover signed directory and strict Admins dependencies without full histories. */
+async function recoverScopedPrincipalPolicyHistoryInBatch(
+  options: RecoverScopedPrincipalPolicyHistoryOptions,
+  memo?: PrincipalRecoveryMemo,
+): Promise<ScopedPrincipalPolicyRecovery> {
+  if (options.offline !== undefined && typeof options.offline !== "boolean")
+    throw new KeyingVerificationError(
+      "invalid_shape",
+      "Invalid principal history transport mode",
+    );
+  if (!options.organizationId)
+    throw new KeyingVerificationError(
+      "object_mismatch",
+      "Principal recovery requires an organization scope",
+    );
+  const input = {
+    historyReader: options.historyReader,
+    execSql: options.execSql,
+    organizationId: options.organizationId,
+    offline: options.offline,
+    resolveTrustedUserIdentity: options.resolveTrustedUserIdentity,
+    signal: options.signal,
+    stillCurrent: options.stillCurrent,
+    reference: structuredClone(options.reference),
+    historyPage: options.historyPage ? { ...options.historyPage } : undefined,
+    protection: ownPrincipalHistoryProtection(options.protection),
+  };
+  try {
+    // Reject malformed exact citations before any discovery or disposable writes.
+    createPrincipalPolicyHistoryVerifier({
+      principalId: input.reference.principalId,
+      principalType: input.reference.principalType,
+      retainedReferences: [input.reference],
+    });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const recovered = await recoverScopedPolicy(input, memo);
+        assertProjectionVerificationCurrent(recovered.stillCurrent);
+        return recovered;
+      } catch (error) {
+        if (!(error instanceof PrincipalRecoveryDirectoryAdvanced)) throw error;
+        memo?.directories.clear();
+        memo?.admins.clear();
+        if (input.offline)
+          throw new KeyingVerificationError(
+            "missing_dependency",
+            "Requested principal evidence is newer than the offline directory",
+          );
+      }
+    }
+    throw new PrincipalHistoryRecoveryRaceError(
+      "Organization directory remains behind the requested policy evidence",
+    );
+  } finally {
+    input.protection.localKey.fill(0);
+  }
+}
+
+export function recoverScopedPrincipalPolicyHistory(
+  options: RecoverScopedPrincipalPolicyHistoryOptions,
+): Promise<RecoveredScopedPrincipalPolicyHistory> {
+  return recoverScopedPrincipalPolicyHistoryInBatch(options);
+}
+
+/** Internal unbatched recovery that keeps its result's lifetime. */
+export const recoverLeasedScopedPrincipalPolicyHistory: ScopedPrincipalPolicyRecoveryBatch =
+  (options) => recoverScopedPrincipalPolicyHistoryInBatch(options);
+
+async function selectDisplayHistory(
+  input: RecoverScopedPrincipalPolicyHistoryOptions,
+  options: RecoverPrincipalPolicyHistoryOptions,
+) {
+  if (!input.historyPage) return {};
+  return {
+    historyPage: await recoverPrincipalHistoryPage(
+      options,
+      input.historyPage.beforeVersion ?? input.reference.version + 1,
+    ),
+  };
+}
+
+/** Internal runtime batch: shared results never outlive its operation or caller. */
+export function createScopedPrincipalPolicyHistoryBatch(
+  memo: PrincipalRecoveryMemo = {
+    directories: new Map(),
+    admins: new Map(),
+  },
+): ScopedPrincipalPolicyRecoveryBatch {
+  return (options) => recoverScopedPrincipalPolicyHistoryInBatch(options, memo);
+}

@@ -15,7 +15,7 @@ import type {
   DocumentLinkSetMutationOperation,
   MaterializedDocumentLinkSetMutationPlan,
 } from "../../data/documents/shared/types";
-import { signDocumentOutgoingUpdate } from "./syncPlanIdentity";
+import { signDocumentOutgoingUpdate } from "./syncPlan/syncPlanIdentity";
 
 // A zero-span snapshot (empty document) yields no baseline; the unlink is
 // sent without one and the server verifies the committed frontier is empty.

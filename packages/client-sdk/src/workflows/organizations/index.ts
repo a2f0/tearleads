@@ -30,31 +30,8 @@ export {
   startOrganizationTrial,
 } from "./billing";
 export { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
-export {
-  type CreateOrganizationApi,
-  type CreateOrganizationInput,
-  createOrganization,
-} from "./createOrganization";
-export {
-  loadLocalOrganizationDataUsage,
-  type OrganizationDataUsage,
-  type ReconcileOrganizationDataUsageInput,
-  reconcileOrganizationDataUsage,
-} from "./dataUsageReadModel";
-export { deleteOrganizationGroup } from "./deleteOrganizationGroup";
-export { GroupMembershipNameMismatchError } from "./groupMembershipName";
-export {
-  type LocalOrganizationSummary,
-  listLocalOrganizations,
-} from "./listLocalOrganizations";
-export {
-  loadLocalOrganizationContainerGrants,
-  loadLocalOrganizationGroupContainers,
-  loadLocalOrganizationGroupPolicyHistory,
-  loadLocalOrganizationPolicyHistory,
-  loadLocalOrganizationPolicyReference,
-  loadLocalOrganizationUserDetail,
-} from "./localReadModelDetails";
+export { GroupMembershipNameMismatchError } from "./groupNames/groupMembershipName";
+export { deleteOrganizationGroup } from "./groups/deleteOrganizationGroup";
 export {
   buildOrganizationProfileDocumentPatch,
   createInitializedOrganizationProfileDocument,
@@ -71,14 +48,19 @@ export {
   abandonJournaledPrincipalMutation,
   discardUnreadableJournaledPrincipalMutation,
   readJournaledPrincipalMutation,
-} from "./principalMutationJournalManagement";
+} from "./principalMutations/principalMutationJournalManagement";
 export {
   type PrincipalMutationJournalContext,
   PrincipalMutationOutcomeUnknownError,
   recoverJournaledPrincipalMutation,
   submitJournaledPrincipalMutation,
-} from "./principalMutationJournalSession";
-export type { PrincipalMutationResponse } from "./principalOperationReceipt";
+} from "./principalMutations/principalMutationJournalSession";
+export type { PrincipalMutationResponse } from "./principalMutations/principalOperationReceipt";
+export {
+  type AcknowledgedPrincipalCurrentInput,
+  type AcknowledgedPrincipalCurrentRetirement,
+  retainAcknowledgedPrincipalCurrents,
+} from "./principalMutations/retainAcknowledgedPrincipalCurrents";
 export {
   addOrganizationGroupUser,
   buildInitialGroupPolicyRequest,
@@ -87,6 +69,11 @@ export {
   removeOrganizationGroupUser,
   rotateOrganizationGroupForAccessSetShrink,
 } from "./principalPolicy";
+export {
+  type CreateOrganizationApi,
+  type CreateOrganizationInput,
+  createOrganization,
+} from "./provisioning/createOrganization";
 export {
   buildOrganizationGroupPolicyHistory,
   type OrganizationContainerGrant,
@@ -116,16 +103,29 @@ export {
   updateOrganizationRosterEntry,
 } from "./readModel";
 export {
+  loadLocalOrganizationDataUsage,
+  type OrganizationDataUsage,
+  type ReconcileOrganizationDataUsageInput,
+  reconcileOrganizationDataUsage,
+} from "./readModel/dataUsageReadModel";
+export {
+  type LocalOrganizationSummary,
+  listLocalOrganizations,
+} from "./readModel/listLocalOrganizations";
+export {
+  loadLocalOrganizationContainerGrants,
+  loadLocalOrganizationGroupContainers,
+  loadLocalOrganizationGroupPolicyHistory,
+  loadLocalOrganizationPolicyHistory,
+  loadLocalOrganizationPolicyReference,
+  loadLocalOrganizationUserDetail,
+} from "./readModel/localReadModelDetails";
+export {
   loadLocalOrganizationDirectoryAndGroups,
   loadLocalOrganizationGroupMembers,
   type ReconcileOrganizationDirectoryAndGroupsInput,
   reconcileOrganizationDirectoryAndGroups,
-} from "./readModelProjection";
-export {
-  type AcknowledgedPrincipalCurrentInput,
-  type AcknowledgedPrincipalCurrentRetirement,
-  retainAcknowledgedPrincipalCurrents,
-} from "./retainAcknowledgedPrincipalCurrents";
+} from "./readModel/readModelProjection";
 export {
   buildRosterProfileDocumentPatch,
   createInitializedRosterProfileDocument,

@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { principalMutationJournalFixture } from "../../../test/helpers/principalMutationJournalFixture";
-import { PrincipalMutationOutcomeUnknownError } from "../../workflows/organizations/principalMutationJournalSession";
+import { PrincipalMutationOutcomeUnknownError } from "../../workflows/organizations/principalMutations/principalMutationJournalSession";
 import { createPrincipalMutationApiCustody } from "./principalMutationApi";
 
 test.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2_147_483_648])(

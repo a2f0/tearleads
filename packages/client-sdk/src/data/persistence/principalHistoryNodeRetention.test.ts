@@ -5,9 +5,9 @@ import {
 } from "../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createPublicHistoryFixture } from "../../../test/helpers/publicPrincipalHistory";
-import { loadRecoveredPrincipalHistoryPage } from "../../workflows/principals/loadRecoveredPrincipalHistoryPage";
-import { recoverPrincipalPolicyHistory } from "../../workflows/principals/recoverPrincipalPolicyHistory";
-import { recoverPublicPrincipalHistory } from "../../workflows/principals/recoverPublicPrincipalHistory";
+import { loadRecoveredPrincipalHistoryPage } from "../../workflows/principals/historyRecovery/loadRecoveredPrincipalHistoryPage";
+import { recoverPrincipalPolicyHistory } from "../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
+import { recoverPublicPrincipalHistory } from "../../workflows/principals/publicHistory/recoverPublicPrincipalHistory";
 import {
   principalHistoryEntries,
   principalHistoryNodes,

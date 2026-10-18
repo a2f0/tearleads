@@ -28,6 +28,6 @@ export type {
   MultipartUploadProgress,
   MultipartUploadProgressListener,
 } from "../../data/documents/blob/shared/types";
-export { decryptDocumentAttachmentBlob } from "./decrypt";
-export { hydrateDocumentAttachmentBlobs } from "./hydrate";
+export { decryptDocumentAttachmentBlob } from "./hydration/decrypt";
+export { hydrateDocumentAttachmentBlobs } from "./hydration/hydrate";
 export { uploadDocumentAttachment } from "./upload";

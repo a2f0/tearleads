@@ -44,7 +44,7 @@ import {
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { verifiedAccessManifestBundles } from "../../data/sqlite/verifiedManifestBundleSchema";
-import { runOrganizationPresentationReset } from "../organizations/organizationPresentationAccessState";
+import { runOrganizationPresentationReset } from "../organizations/readModel/organizationPresentationAccessState";
 import { clearResetPendingAttachments } from "./remoteResetAttachments";
 import { remoteResetBatches } from "./remoteResetBatches";
 import { clearRemoteResetSyncCursors } from "./remoteResetCursorScope";

@@ -17,7 +17,7 @@ import {
 } from "../containers/root/create";
 import type { resolveDocumentCreateAuthor } from "../documents/author";
 import { buildMaterializedDocumentCreatePlan } from "../documents/create";
-import { buildInitialDocumentSyncRequest } from "../documents/initialSync";
+import { buildInitialDocumentSyncRequest } from "../documents/sync/initialSync";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import {
   deriveOrganizationMetadataContainerSystemSlot,

@@ -13,7 +13,7 @@ import {
   resolveDocumentCreateAuthor,
 } from "../../documents";
 import { ensureDocumentClientProjectionTables } from "../../documents/persistence";
-import type { SubtreePurgeRoot } from "../../documents/subtreePurgeScope";
+import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 

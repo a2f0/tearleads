@@ -10,7 +10,7 @@ import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
-import { reportDocumentSyncQuarantine } from "../../documents/reportDocumentSyncQuarantine";
+import { reportDocumentSyncQuarantine } from "../../documents/sync/reportDocumentSyncQuarantine";
 import type { WorkflowRuntimeUtilInput } from "../../shared/runtimeInput";
 import type { ContainerMetadataState } from "./metadataTypes";
 

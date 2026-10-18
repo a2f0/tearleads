@@ -31,7 +31,7 @@ import {
 import {
   denyOrganizationPresentationAccess,
   wasOrganizationPresentationAccessDeniedByServer,
-} from "../../workflows/organizations/organizationPresentationAccessState";
+} from "../../workflows/organizations/readModel/organizationPresentationAccessState";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";
 
 async function signedReadModelFixture() {

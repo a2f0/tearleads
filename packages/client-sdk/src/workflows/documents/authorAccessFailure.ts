@@ -1,5 +1,5 @@
 import { ContainerAuthorAccessError } from "../../data/containers/shared/authorAccess";
-import type { DocumentCreateTerminalFailureHandler } from "./createProjectionFetch";
+import type { DocumentCreateTerminalFailureHandler } from "./create/createProjectionFetch";
 
 /** A verified read-only path is a local permission refusal, not tampered proof. */
 export async function recordDocumentAuthorAccessFailure<T>(

@@ -17,7 +17,7 @@ import {
 import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
-} from "../../workflows/organizations/organizationPresentationAccessState";
+} from "../../workflows/organizations/readModel/organizationPresentationAccessState";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
 import { recoverOrganizationAccess } from "./organizationAccessRestoration";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";

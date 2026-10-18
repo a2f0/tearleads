@@ -14,18 +14,18 @@ import { getOrCreatePrincipalPolicyCoordinator } from "../../data/principals/pri
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../data/trustedUserIdentity";
-import type { RecoveredPrincipalHistoryPage } from "./loadRecoveredPrincipalHistoryPage";
-import { createPrincipalCurrentRecoveryBatch } from "./principalCurrentRecoveryBatch";
+import type { RecoveredPrincipalHistoryPage } from "./historyRecovery/loadRecoveredPrincipalHistoryPage";
 import {
   PrincipalHistoryRecoveryRaceError,
   PrincipalPolicyHistoryReadError,
-} from "./principalHistoryRecoveryTypes";
+} from "./historyRecovery/principalHistoryRecoveryTypes";
+import type { ScopedPrincipalPolicyRecovery } from "./historyRecovery/recoverScopedPrincipalPolicyHistory";
 import {
   apiPrincipalPolicyPageReader,
   type PrincipalPolicyHistoryReader,
 } from "./principalPolicyHistoryReader";
-import { recoverWithPrincipalLocalPreference } from "./principalRecoveryLocalPreference";
-import type { ScopedPrincipalPolicyRecovery } from "./recoverScopedPrincipalPolicyHistory";
+import { createPrincipalCurrentRecoveryBatch } from "./recoveryOperation/principalCurrentRecoveryBatch";
+import { recoverWithPrincipalLocalPreference } from "./recoveryOperation/principalRecoveryLocalPreference";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<PrincipalPolicyHistoryReader>;

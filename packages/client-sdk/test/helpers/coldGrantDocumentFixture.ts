@@ -15,8 +15,8 @@ import type {
   DocumentContentKeyBundleResponse,
   DocumentSyncResponse,
 } from "@tearleads/validators/response";
-import { prepareDocumentOutgoingUpdates } from "../../src/workflows/documents/syncContentKeys";
-import { signDocumentOutgoingUpdate } from "../../src/workflows/documents/syncPlanIdentity";
+import { prepareDocumentOutgoingUpdates } from "../../src/workflows/documents/syncPlan/syncContentKeys";
+import { signDocumentOutgoingUpdate } from "../../src/workflows/documents/syncPlan/syncPlanIdentity";
 import {
   type createAuthor,
   createPendingUpdateRecord,

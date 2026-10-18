@@ -9,7 +9,7 @@ import { authorizingContainerPathRefs } from "../../data/documents/shared/projec
 import { readCanonicalRecord } from "../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import { resolveBlobMutationWriterProjection } from "./writerProjection";
+import { resolveBlobMutationWriterProjection } from "./verification/writerProjection";
 
 export async function detachDocumentAttachment({
   apiClient,

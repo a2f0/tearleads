@@ -10,7 +10,7 @@ import { createShareTestRuntime } from "../../../../test/helpers/groupShareScena
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { inheritPrincipalHistoryProtection } from "../../../data/principals/principalHistoryRuntime";
 import { commitCurrentShareGrant } from "../../containers/child/currentShareGrantMutation";
-import { createRuntimeCurrentGroupMutation } from "../../organizations/runtimeCurrentGroupMutation";
+import { createRuntimeCurrentGroupMutation } from "../../organizations/principalMutations/runtimeCurrentGroupMutation";
 import { shareRemoteContainerWithGroup } from "./remote";
 
 test("a container admin outside group authority can rewrap a grant but cannot mint a broader one", async () => {

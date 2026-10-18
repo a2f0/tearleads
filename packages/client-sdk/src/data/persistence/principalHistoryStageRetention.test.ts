@@ -7,7 +7,7 @@ import {
   signedRecoveryHistory,
 } from "../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { recoverPrincipalPolicyHistory } from "../../workflows/principals/recoverPrincipalPolicyHistory";
+import { recoverPrincipalPolicyHistory } from "../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import {
   principalHistoryRetentionTables,
   principalKeyEnvelopeArchive,

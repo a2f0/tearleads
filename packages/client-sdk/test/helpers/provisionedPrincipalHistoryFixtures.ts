@@ -16,8 +16,8 @@ import {
   createTrustedUserIdentityService,
   loadPinnedUserIdentity,
 } from "../../src/data/trustedUserIdentity";
-import { createOrganization } from "../../src/workflows/organizations/createOrganization";
-import { createPrincipalCurrentRecoveryBatch } from "../../src/workflows/principals/principalCurrentRecoveryBatch";
+import { createOrganization } from "../../src/workflows/organizations/provisioning/createOrganization";
+import { createPrincipalCurrentRecoveryBatch } from "../../src/workflows/principals/recoveryOperation/principalCurrentRecoveryBatch";
 import {
   createProvisionedPrincipalHistoryPrimer,
   type ProvisionedPrincipalHistoryPrimer,

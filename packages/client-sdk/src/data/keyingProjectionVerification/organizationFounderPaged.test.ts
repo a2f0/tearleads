@@ -12,7 +12,7 @@ import {
 } from "../../../test/helpers/projectionPolicyHistory";
 import { sharedReplacementBindingFixture } from "../../../test/helpers/sharedReplacementBinding";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../workflows/containers/root/create";
-import { recoverPrincipalPolicyHistory } from "../../workflows/principals/recoverPrincipalPolicyHistory";
+import { recoverPrincipalPolicyHistory } from "../../workflows/principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { loadOrganizationFounder } from "../persistence/organizationFounderPersistence";
 import { verifyContainerDestinationProjection } from "./containerDestinationVerification";
 import { rememberRootBoundOrganizationFounder } from "./organizationFounderBinding";

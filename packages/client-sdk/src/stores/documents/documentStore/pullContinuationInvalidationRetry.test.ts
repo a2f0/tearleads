@@ -20,7 +20,7 @@ import {
   createDocumentsWorkflowRuntime,
   defaultDocumentsPersistence,
 } from "../../../workflows/documents";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { createDocumentStoreState, setReadySnapshot } from "./state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";

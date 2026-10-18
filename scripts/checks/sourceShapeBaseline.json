@@ -250,9 +250,9 @@
       "lines": 437,
       "bytes": 32520
     },
-    "packages/client-sdk/src/workflows/blobs/hydrate.test.ts": {
+    "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,
-      "bytes": 21042
+      "bytes": 21064
     },
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery/documentDiscovery.test.ts": {
       "lines": 946,
@@ -270,13 +270,13 @@
       "lines": 512,
       "bytes": 15792
     },
-    "packages/client-sdk/src/workflows/documents/sync.test.ts": {
+    "packages/client-sdk/src/workflows/documents/sync/sync.test.ts": {
       "lines": 1712,
-      "bytes": 61216
+      "bytes": 61267
     },
-    "packages/client-sdk/src/workflows/documents/syncPersistedProjectionIntegrity.test.ts": {
+    "packages/client-sdk/src/workflows/documents/sync/syncPersistedProjectionIntegrity.test.ts": {
       "lines": 508,
-      "bytes": 16825
+      "bytes": 16861
     },
     "packages/crypto/src/keying/containerAccess.test.ts": {
       "lines": 926,

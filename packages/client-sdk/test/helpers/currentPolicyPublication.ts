@@ -4,10 +4,10 @@ import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
-} from "../../src/workflows/organizations/organizationGroupDirectory";
-import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/principals/acknowledgedPrincipalPredecessor";
-import type { RecoverPrincipalPolicyHistoryOptions } from "../../src/workflows/principals/principalHistoryRecoveryTypes";
-import { recoverScopedPrincipalPolicyHistory } from "../../src/workflows/principals/recoverScopedPrincipalPolicyHistory";
+} from "../../src/workflows/organizations/groups/organizationGroupDirectory";
+import { captureAcknowledgedPrincipalPredecessor } from "../../src/workflows/principals/acknowledgements/acknowledgedPrincipalPredecessor";
+import type { RecoverPrincipalPolicyHistoryOptions } from "../../src/workflows/principals/historyRecovery/principalHistoryRecoveryTypes";
+import { recoverScopedPrincipalPolicyHistory } from "../../src/workflows/principals/historyRecovery/recoverScopedPrincipalPolicyHistory";
 import { currentPolicyAcknowledgementFixture } from "./currentPolicyAcknowledgement";
 import type { signedAuthorityRecoveryHistory } from "./principalAuthorityRecovery";
 import {

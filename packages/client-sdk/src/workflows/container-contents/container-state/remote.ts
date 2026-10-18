@@ -14,7 +14,7 @@ import {
 } from "../../containers";
 import { createRuntimeCurrentGroupShare } from "../../containers/child/runtimeCurrentGroupShare";
 import { resolveDocumentCreateAuthor } from "../../documents";
-import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadataRuntime";
+import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataRuntime";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
   type ContainerAlreadyCommitted,

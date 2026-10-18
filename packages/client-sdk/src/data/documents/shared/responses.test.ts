@@ -12,7 +12,7 @@ import {
   getOnlyTarget,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
-import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlanMaterial";
+import { buildMaterializedDocumentSyncPlan } from "../../../workflows/documents/syncPlan/syncPlanMaterial";
 import { DatabaseUnavailableError } from "../../sync/databaseUnavailable";
 import { buildDocumentCreatePlan } from "./events";
 import {

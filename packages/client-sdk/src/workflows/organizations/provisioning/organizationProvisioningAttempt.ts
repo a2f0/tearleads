@@ -1,0 +1,313 @@
+import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { isPlainObject } from "@tearleads/validators/isPlainObject";
+import {
+  type CreateOrganizationRequest,
+  isCreateOrganizationRequest,
+} from "@tearleads/validators/request";
+import { isOrganizationReplacementAuthorization } from "@tearleads/validators/util";
+import { sqlOrganizationProvisioningAttemptPersistence } from "../../../data/persistence/organizations/organizationProvisioningAttemptPersistence";
+import type {
+  ExecSql,
+  ExecSqlClientLike,
+} from "../../../data/sqlite/sqlSchema";
+import { createExecSql } from "../../../data/sqlite/sqlSchema";
+import type { OrganizationProvisioningArtifacts } from "../../registration/registerIdentity";
+
+const BYTE_MARKER = "__tearleadsProvisioningBytes";
+
+interface DurableOrganizationProvisioningAttempt {
+  readonly artifacts: OrganizationProvisioningArtifacts;
+  readonly request: CreateOrganizationRequest;
+  readonly rootContainerId: string;
+}
+
+function buildCreateOrganizationRequest(input: {
+  artifacts: OrganizationProvisioningArtifacts;
+  finalizeReplacement?: boolean | undefined;
+  nativeSubscriptionRestore?: boolean | undefined;
+  replacesOrganizationId?: string | undefined;
+  rootContainerId: string;
+  userId: string;
+}): CreateOrganizationRequest {
+  const { artifacts } = input;
+  return {
+    userId: input.userId,
+    ...(artifacts.replacementAuthorization
+      ? { replacementAuthorization: artifacts.replacementAuthorization }
+      : {}),
+    organizationId: artifacts.organizationId,
+    rootContainerId: input.rootContainerId,
+    initialAdminGroup: artifacts.initialAdminGroup,
+    initialMemberGroup: artifacts.initialMemberGroup,
+    initialOrganizationPolicy: artifacts.initialOrganizationPolicy,
+    initialRootContainer: artifacts.initialRootContainer,
+    initialRootMetadataDocument: artifacts.rootMetadataDocumentRequest,
+    initialRosterProfileContainer:
+      artifacts.rosterProfileBootstrap.containerRequest,
+    initialRosterProfileDocument:
+      artifacts.rosterProfileBootstrap.profileDocumentRequest,
+    initialOrganizationMetadataContainer:
+      artifacts.organizationMetadataBootstrap.containerRequest,
+    initialOrganizationProfileDocument:
+      artifacts.organizationMetadataBootstrap
+        .organizationProfileDocumentRequest,
+    initialSystemContainers: artifacts.systemContainerBootstraps.map(
+      (systemContainer) => systemContainer.containerRequest,
+    ),
+    ...(input.finalizeReplacement ? { finalizeReplacement: true } : {}),
+    ...(input.nativeSubscriptionRestore
+      ? { nativeSubscriptionRestore: true as const }
+      : {}),
+    ...(input.replacesOrganizationId
+      ? { replacesOrganizationId: input.replacesOrganizationId }
+      : {}),
+  };
+}
+
+export async function loadOrganizationReplacementFinalizationRequest(input: {
+  execSql: ExecSql;
+  replacedOrganizationId: string;
+  userId: string;
+}): Promise<CreateOrganizationRequest> {
+  const stored = await sqlOrganizationProvisioningAttemptPersistence.load(
+    input.execSql,
+    input.replacedOrganizationId,
+  );
+  if (!stored) {
+    throw new Error("Organization replacement attempt is unavailable");
+  }
+  if (stored.userId !== input.userId) {
+    throw new Error(
+      "Stored organization provisioning attempt belongs to another user",
+    );
+  }
+  const artifacts = deserializeArtifacts(stored.serializedArtifacts);
+  const request = buildCreateOrganizationRequest({
+    artifacts,
+    finalizeReplacement: true,
+    replacesOrganizationId: input.replacedOrganizationId,
+    rootContainerId: stored.rootContainerId,
+    userId: stored.userId,
+  });
+  if (
+    artifacts.organizationId !== stored.organizationId ||
+    request.organizationId !== stored.organizationId ||
+    request.rootContainerId !== stored.rootContainerId ||
+    !isCreateOrganizationRequest(request)
+  ) {
+    throw new Error("Stored organization provisioning attempt is inconsistent");
+  }
+  return request;
+}
+
+function serializeArtifacts(artifacts: OrganizationProvisioningArtifacts) {
+  return JSON.stringify(artifacts, (_key, value: unknown) => {
+    if (value instanceof Uint8Array) {
+      return { [BYTE_MARKER]: bytesToBase64(value) };
+    }
+    return value;
+  });
+}
+
+function hasRecord(value: Record<string, unknown>, key: string): boolean {
+  return isPlainObject(Reflect.get(value, key));
+}
+
+function hasBytes(value: Record<string, unknown>, key: string): boolean {
+  return Reflect.get(value, key) instanceof Uint8Array;
+}
+
+function isMaterializedDocument(value: unknown): boolean {
+  return (
+    isPlainObject(value) &&
+    hasBytes(value, "contentKey") &&
+    hasRecord(value, "plan")
+  );
+}
+
+function isMaterializedContainer(value: unknown): boolean {
+  return (
+    isPlainObject(value) &&
+    hasBytes(value, "containerKey") &&
+    hasRecord(value, "plan")
+  );
+}
+
+function hasContainerBootstrapCore(value: Record<string, unknown>): boolean {
+  return (
+    typeof Reflect.get(value, "containerId") === "string" &&
+    isMaterializedDocument(Reflect.get(value, "containerMetadataDocument")) &&
+    hasBytes(value, "containerMetadataInitialUpdate") &&
+    isMaterializedContainer(Reflect.get(value, "containerPlan")) &&
+    hasRecord(value, "containerRequest") &&
+    Reflect.get(value, "systemSlot") !== undefined
+  );
+}
+
+function isOrganizationProvisioningArtifacts(
+  value: unknown,
+): value is OrganizationProvisioningArtifacts {
+  if (!isPlainObject(value)) return false;
+  const bootstrap = Reflect.get(value, "bootstrap");
+  const roster = Reflect.get(value, "rosterProfileBootstrap");
+  const metadata = Reflect.get(value, "organizationMetadataBootstrap");
+  const systemContainers = Reflect.get(value, "systemContainerBootstraps");
+  return (
+    (Reflect.get(value, "replacementAuthorization") === null ||
+      isOrganizationReplacementAuthorization(
+        Reflect.get(value, "replacementAuthorization"),
+      )) &&
+    typeof Reflect.get(value, "organizationId") === "string" &&
+    isPlainObject(bootstrap) &&
+    hasBytes(bootstrap, "initialUpdate") &&
+    typeof Reflect.get(bootstrap, "metadataDocumentId") === "string" &&
+    hasRecord(value, "initialAdminGroup") &&
+    hasRecord(value, "initialMemberGroup") &&
+    hasRecord(value, "initialOrganizationPolicy") &&
+    hasRecord(value, "initialRootContainer") &&
+    isMaterializedContainer(Reflect.get(value, "rootContainer")) &&
+    isMaterializedDocument(Reflect.get(value, "rootMetadataDocument")) &&
+    hasRecord(value, "rootMetadataDocumentRequest") &&
+    isPlainObject(roster) &&
+    hasContainerBootstrapCore(roster) &&
+    isMaterializedDocument(Reflect.get(roster, "profileDocument")) &&
+    hasBytes(roster, "profileDocumentInitialUpdate") &&
+    hasRecord(roster, "profileDocumentRequest") &&
+    isPlainObject(metadata) &&
+    hasContainerBootstrapCore(metadata) &&
+    isMaterializedDocument(
+      Reflect.get(metadata, "organizationProfileDocument"),
+    ) &&
+    hasRecord(metadata, "organizationProfileDocumentRequest") &&
+    typeof Reflect.get(metadata, "organizationProfileSnapshot") === "string" &&
+    Array.isArray(systemContainers) &&
+    systemContainers.every(
+      (container) =>
+        isPlainObject(container) && hasContainerBootstrapCore(container),
+    )
+  );
+}
+
+function deserializeArtifacts(
+  value: string,
+): OrganizationProvisioningArtifacts {
+  const parsed: unknown = JSON.parse(value, (_key, candidate: unknown) => {
+    if (
+      typeof candidate === "object" &&
+      candidate !== null &&
+      Object.keys(candidate).length === 1 &&
+      BYTE_MARKER in candidate
+    ) {
+      const encoded = Reflect.get(candidate, BYTE_MARKER);
+      if (typeof encoded === "string") {
+        return base64ToBytes(encoded);
+      }
+    }
+    return candidate;
+  });
+  if (!isOrganizationProvisioningArtifacts(parsed)) {
+    throw new Error("Stored organization provisioning attempt is invalid");
+  }
+  return parsed;
+}
+
+export async function makeOrganizationProvisioningAttemptDurable(input: {
+  artifacts: OrganizationProvisioningArtifacts;
+  canStartDurableMutation?: (() => boolean) | undefined;
+  dbClient: ExecSqlClientLike;
+  nativeSubscriptionRestore?: boolean | undefined;
+  replacesOrganizationId?: string | undefined;
+  rootContainerId: string;
+  userId: string;
+}): Promise<DurableOrganizationProvisioningAttempt | null> {
+  const attemptKey =
+    input.replacesOrganizationId ??
+    (input.nativeSubscriptionRestore
+      ? `native-subscription-restore:${input.userId}`
+      : null);
+  if (!attemptKey) {
+    return {
+      artifacts: input.artifacts,
+      request: buildCreateOrganizationRequest(input),
+      rootContainerId: input.rootContainerId,
+    };
+  }
+  const stored = await sqlOrganizationProvisioningAttemptPersistence.loadOrSave(
+    createExecSql(input.dbClient),
+    {
+      replacedOrganizationId: attemptKey,
+      userId: input.userId,
+      organizationId: input.artifacts.organizationId,
+      rootContainerId: input.rootContainerId,
+      serializedArtifacts: serializeArtifacts(input.artifacts),
+    },
+    input.canStartDurableMutation,
+  );
+  if (!stored) return null;
+  if (stored.userId !== input.userId) {
+    throw new Error(
+      "Stored organization provisioning attempt belongs to another user",
+    );
+  }
+  const artifacts = deserializeArtifacts(stored.serializedArtifacts);
+  const request = buildCreateOrganizationRequest({
+    artifacts,
+    nativeSubscriptionRestore: input.nativeSubscriptionRestore,
+    replacesOrganizationId: input.replacesOrganizationId,
+    rootContainerId: stored.rootContainerId,
+    userId: stored.userId,
+  });
+  if (
+    artifacts.organizationId !== stored.organizationId ||
+    request.organizationId !== stored.organizationId ||
+    request.rootContainerId !== stored.rootContainerId ||
+    !isCreateOrganizationRequest(request)
+  ) {
+    throw new Error("Stored organization provisioning attempt is inconsistent");
+  }
+  return { artifacts, request, rootContainerId: stored.rootContainerId };
+}
+
+export async function removeNativeSubscriptionRestoreProvisioningAttempt(input: {
+  canCommit?: (() => boolean) | undefined;
+  dbClient: ExecSqlClientLike;
+  organizationId: string;
+  userId: string;
+}): Promise<boolean> {
+  const attemptKey = `native-subscription-restore:${input.userId}`;
+  const execSql = createExecSql(input.dbClient);
+  const stored = await sqlOrganizationProvisioningAttemptPersistence.load(
+    execSql,
+    attemptKey,
+  );
+  if (!stored) return true;
+  if (
+    stored.userId !== input.userId ||
+    stored.organizationId !== input.organizationId
+  ) {
+    throw new Error(
+      "Stored native restore organization provisioning attempt is inconsistent",
+    );
+  }
+  return removeOrganizationProvisioningAttempt({
+    canCommit: input.canCommit,
+    execSql,
+    organizationId: input.organizationId,
+    replacedOrganizationId: attemptKey,
+    userId: input.userId,
+  });
+}
+
+export async function removeOrganizationProvisioningAttempt(input: {
+  canCommit?: (() => boolean) | undefined;
+  execSql: ExecSql;
+  organizationId?: string | undefined;
+  replacedOrganizationId: string;
+  userId: string;
+}): Promise<boolean> {
+  return sqlOrganizationProvisioningAttemptPersistence.remove(
+    input.execSql,
+    input,
+    input.canCommit,
+  );
+}

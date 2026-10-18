@@ -1,6 +1,6 @@
 import type { IncomingDocumentSyncUpdateValidator } from "../../src/data/documents/shared/documentSyncUpdateIsolation";
-import type { SyncRemoteDocumentInput } from "../../src/workflows/documents/readOnlySync";
 import { syncRemoteDocument } from "../../src/workflows/documents/sync";
+import type { SyncRemoteDocumentInput } from "../../src/workflows/documents/sync/readOnlySync";
 
 type TestSyncRemoteDocumentInput = Omit<
   SyncRemoteDocumentInput,

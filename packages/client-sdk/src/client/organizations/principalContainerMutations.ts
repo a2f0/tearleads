@@ -5,8 +5,8 @@ import { resolveDocumentCreateAuthor } from "../../workflows/documents";
 import {
   type PreparedPrincipalContainerRematerializationBatch,
   preparePrincipalContainerRematerializationBatch,
-} from "../../workflows/organizations/principalContainerRematerialization";
-import type { PrincipalRematerializationPredecessor } from "../../workflows/organizations/principalContainerRematerializationPlanning";
+} from "../../workflows/organizations/rematerialization/principalContainerRematerialization";
+import type { PrincipalRematerializationPredecessor } from "../../workflows/organizations/rematerialization/principalContainerRematerializationPlanning";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 

@@ -8,7 +8,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import {
   buildAddGroupUserPolicyRequest,
   buildSetGroupContainerGrantPolicyRequest,
-} from "../../src/workflows/organizations/groupPolicyRequests";
+} from "../../src/workflows/organizations/groupPolicy/groupPolicyRequests";
 import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
 import {
   buildInitialGroupPolicyRequest,

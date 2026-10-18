@@ -11,7 +11,7 @@ import {
   resolveDocumentCreateAuthor,
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
-import { reportDocumentSyncQuarantine } from "../../../workflows/documents/reportDocumentSyncQuarantine";
+import { reportDocumentSyncQuarantine } from "../../../workflows/documents/sync/reportDocumentSyncQuarantine";
 import { createRuntimePrincipalPolicyWarmer } from "../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "./identityWriteChain";
 import { persistDocument } from "./persistence";

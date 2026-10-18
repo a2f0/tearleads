@@ -5,7 +5,7 @@ import type {
   DocumentCreateAuthor,
   MaterializedDocumentCreatePlan,
 } from "../../data/documents/shared/types";
-import { buildInitialDocumentSyncRequest } from "../documents/initialSync";
+import { buildInitialDocumentSyncRequest } from "../documents/sync/initialSync";
 import {
   createInitializedOrganizationProfileDocument,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,

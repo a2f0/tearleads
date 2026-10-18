@@ -5,8 +5,8 @@ import {
 } from "@tearleads/crypto";
 import { parseOrganizationAuthorityDescriptor } from "../../src/data/principals/organizationAuthorityDescriptor";
 import { inheritPrincipalHistoryProtection } from "../../src/data/principals/principalHistoryRuntime";
-import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/organizationGroupDirectory";
-import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicyRequest";
+import { buildOrganizationGroupDirectoryPolicyRequest } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
+import { buildInitialGroupPolicyRequest } from "../../src/workflows/organizations/principalPolicy/principalPolicyRequest";
 import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/registerIdentity";
 import { createMutationResponseFromRequest } from "./containerFixtures";
 import { createShareTestRuntime } from "./groupShareScenario";

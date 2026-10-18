@@ -3,7 +3,7 @@ import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { listDocumentsByContainerIdsOrDocumentIds } from "../../../data/persistence/documents/documentsPersistence";
-import type { SubtreePurgeRoot } from "../../documents/subtreePurgeScope";
+import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import { unlinkRemoteContainerDocument } from "../documentLinks";
 import type { ContainerState } from "../remoteHydration";

@@ -1,5 +1,5 @@
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { SubtreePurgeRoot } from "../../documents/subtreePurgeScope";
+import type { SubtreePurgeRoot } from "../../documents/purge/subtreePurgeScope";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerState } from "../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";

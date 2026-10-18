@@ -6,8 +6,8 @@ import {
   discardUnreadableJournaledPrincipalMutation,
   type PrincipalMutationRecoveryApi,
   readJournaledPrincipalMutation,
-} from "../../workflows/organizations/principalMutationJournalManagement";
-import { recoverJournaledPrincipalMutation } from "../../workflows/organizations/principalMutationJournalSession";
+} from "../../workflows/organizations/principalMutations/principalMutationJournalManagement";
+import { recoverJournaledPrincipalMutation } from "../../workflows/organizations/principalMutations/principalMutationJournalSession";
 import { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
 import {
   createJournaledPrincipalMutations,

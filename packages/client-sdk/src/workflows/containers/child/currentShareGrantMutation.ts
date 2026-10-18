@@ -1,17 +1,17 @@
 import type { MaterializedContainerSharePlan } from "../../../data/containers/shared/types";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { commitCurrentGroupPolicyMutation } from "../../organizations/commitCurrentGroupPolicyMutation";
-import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadataRuntime";
-import { buildSetGroupContainerGrantPolicyRequest } from "../../organizations/groupPolicyRequests";
-import {
-  type PreparedPrincipalContainerRematerializationBatch,
-  preparePrincipalContainerRematerializationBatch,
-} from "../../organizations/principalContainerRematerialization";
-import { groupPolicyNameMismatch } from "../../organizations/principalPolicyRequest";
+import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataRuntime";
+import { commitCurrentGroupPolicyMutation } from "../../organizations/groupPolicy/commitCurrentGroupPolicyMutation";
+import { buildSetGroupContainerGrantPolicyRequest } from "../../organizations/groupPolicy/groupPolicyRequests";
 import type {
   createRuntimeCurrentGroupMutation,
   RuntimeCurrentGroupMutationContext,
-} from "../../organizations/runtimeCurrentGroupMutation";
+} from "../../organizations/principalMutations/runtimeCurrentGroupMutation";
+import { groupPolicyNameMismatch } from "../../organizations/principalPolicy/principalPolicyRequest";
+import {
+  type PreparedPrincipalContainerRematerializationBatch,
+  preparePrincipalContainerRematerializationBatch,
+} from "../../organizations/rematerialization/principalContainerRematerialization";
 import type { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
 import type { shareRemoteContainerWithGroup } from "./share";
 import { GroupShareNameMismatchError } from "./sharePrincipalPolicy";

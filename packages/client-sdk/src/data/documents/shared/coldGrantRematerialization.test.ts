@@ -24,7 +24,7 @@ import {
   trustedUserIdentityFromResponse,
 } from "../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
-import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/documents/syncContentKeys";
+import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/documents/syncPlan/syncContentKeys";
 
 import { createProjectionCheckpointContext } from "../../keyingProjectionVerification/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../keyingProjectionVerification/principalPolicyVerification";

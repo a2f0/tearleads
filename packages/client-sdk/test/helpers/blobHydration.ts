@@ -1,5 +1,5 @@
 import { afterEach } from "bun:test";
-import type { hydrateDocumentAttachmentBlobs } from "../../src/workflows/blobs/hydrate";
+import type { hydrateDocumentAttachmentBlobs } from "../../src/workflows/blobs/hydration/hydrate";
 import {
   createUploadedAttachmentFixture as createFixture,
   createFixtureBinding,
