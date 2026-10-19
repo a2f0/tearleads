@@ -135,6 +135,11 @@ export interface CreatedChildContainerState {
 
 export interface ContainerIntentSyncState {
   containersById: ReadonlyMap<string, ContainerState>;
+  /**
+   * Metadata update ids this device sent, so their own update echoes are
+   * classified as self-authored (shared with the metadata sync).
+   */
+  locallyAcceptedMetadataUpdateIds?: Set<string> | undefined;
   persistence: ContainerContentsPersistence;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;

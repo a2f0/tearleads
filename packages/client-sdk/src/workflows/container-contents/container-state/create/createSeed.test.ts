@@ -213,13 +213,20 @@ test("a lost seeded container create response is adopted without resubmitting", 
   expect(requests).toHaveLength(1);
 });
 
-test("a replayed container create settles its queued metadata seed", async () => {
+async function runReplayedSeededCreate(
+  name: string,
+  respond: (
+    request: ContainerCreateWithMetadataDocumentRequest,
+    attempt: number,
+  ) => Promise<CreateResult>,
+) {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
   const childContainerId = crypto.randomUUID();
   const { doc, seed } = await metadataSeed(childContainerId);
   const requests: ContainerCreateWithMetadataDocumentRequest[] = [];
-  const { close, execSql } = await createTestExecSql("container-seed-replay");
+  const { close, execSql } = await createTestExecSql(name);
+  const locallyAcceptedMetadataUpdateIds = new Set<string>();
   const childState = createTestContainerState({
     id: childContainerId,
     parentId: parentContainerId,
@@ -259,13 +266,9 @@ test("a replayed container create settles its queued metadata seed", async () =>
         containerId === childContainerId ? [seed] : [],
       recordCreateIntentRevisionError: async () => undefined,
     },
+    locallyAcceptedMetadataUpdateIds,
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    runtime: await createRuntime({
-      execSql,
-      parent,
-      requests,
-      respond: acknowledge,
-    }),
+    runtime: await createRuntime({ execSql, parent, requests, respond }),
   };
   try {
     const created = await syncPendingContainerCreateIntents({
@@ -294,20 +297,58 @@ test("a replayed container create settles its queued metadata seed", async () =>
       requestRemoteReconciliation: () => undefined,
       state,
     });
-    expect(created).toBe(1);
-    expect(
-      requests[0]?.initialMetadataSync?.outgoingUpdates.map(
-        (update) => update.id,
-      ),
-    ).toEqual([seed.id]);
-    expect(persisted).toEqual([
-      {
-        acceptedPendingUpdateIds: [seed.id],
-        clearSyncFailure: true,
-        lastCommitLsn: "0/20",
-      },
-    ]);
+    return {
+      created,
+      locallyAcceptedMetadataUpdateIds,
+      persisted,
+      requests,
+      seed,
+    };
   } finally {
     close();
   }
+}
+
+test("a replayed container create settles its queued metadata seed", async () => {
+  const result = await runReplayedSeededCreate(
+    "container-seed-replay",
+    acknowledge,
+  );
+  expect(result.created).toBe(1);
+  expect(
+    result.requests[0]?.initialMetadataSync?.outgoingUpdates.map(
+      (update) => update.id,
+    ),
+  ).toEqual([result.seed.id]);
+  expect(result.persisted).toEqual([
+    {
+      acceptedPendingUpdateIds: [result.seed.id],
+      clearSyncFailure: true,
+      lastCommitLsn: "0/20",
+    },
+  ]);
+  // Registered before the create, so its own update echo stays self-authored.
+  expect([...result.locallyAcceptedMetadataUpdateIds]).toEqual([
+    result.seed.id,
+  ]);
+});
+
+test("a replayed container create whose seed was refused drops its registration", async () => {
+  const result = await runReplayedSeededCreate(
+    "container-seed-replay-refused",
+    (request, attempt) =>
+      attempt === 1 ? Promise.resolve(failure(402)) : acknowledge(request),
+  );
+  expect(result.created).toBe(1);
+  expect(
+    result.requests.map((request) => Boolean(request.initialMetadataSync)),
+  ).toEqual([true, false]);
+  expect(result.persisted).toEqual([
+    {
+      acceptedPendingUpdateIds: undefined,
+      clearSyncFailure: undefined,
+      lastCommitLsn: null,
+    },
+  ]);
+  expect([...result.locallyAcceptedMetadataUpdateIds]).toEqual([]);
 });

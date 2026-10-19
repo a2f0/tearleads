@@ -20,7 +20,10 @@ import {
   deferTooDeepCreate,
   recordRefusedTooDeepCreate,
 } from "./createIntentDepth";
-import { loadMetadataSeedUpdate } from "./createIntentSeed";
+import {
+  loadMetadataSeedUpdate,
+  withRegisteredMetadataSeed,
+} from "./createIntentSeed";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 
 class IncompleteContainerCreateSettlementError extends Error {}
@@ -310,15 +313,20 @@ async function createPendingRemoteContainer(input: {
   if (!syncInput.isCurrent()) return "abandoned";
   let created: Awaited<ReturnType<typeof createRemoteContainer>>;
   try {
-    created = await createRemoteContainer({
-      systemSlot: containerState.container.systemSlot,
-      containerId: containerState.container.id,
-      ...(metadataSeedUpdate ? { metadataSeedUpdate } : {}),
-      parentContainerId: parentState.container.id,
-      resolveProjectionUserKey: state.resolveProjectionUserKey,
-      runtime: state.runtime,
-      stillCurrent: syncInput.isCurrent,
-    });
+    created = await withRegisteredMetadataSeed(
+      state.locallyAcceptedMetadataUpdateIds,
+      metadataSeedUpdate,
+      () =>
+        createRemoteContainer({
+          systemSlot: containerState.container.systemSlot,
+          containerId: containerState.container.id,
+          ...(metadataSeedUpdate ? { metadataSeedUpdate } : {}),
+          parentContainerId: parentState.container.id,
+          resolveProjectionUserKey: state.resolveProjectionUserKey,
+          runtime: state.runtime,
+          stillCurrent: syncInput.isCurrent,
+        }),
+    );
   } catch (error) {
     if (error instanceof ContainerPathTooDeepError)
       return recordRefusedTooDeepCreate(syncInput);
