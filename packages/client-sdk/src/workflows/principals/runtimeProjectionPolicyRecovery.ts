@@ -14,6 +14,7 @@ import {
   recoverProjectionPolicyHistory,
 } from "./publicHistory/recoverProjectionPolicyHistory";
 import { isPrincipalRecoveryOutage } from "./recoveryOperation/principalRecoveryOutage";
+import { resumeAfterSupersededStage } from "./recoveryOperation/supersededStageResume";
 import type { PrincipalPolicyRecoveryRuntime } from "./runtimePolicyRecovery";
 
 async function recoverWithOutageFallback(
@@ -52,16 +53,20 @@ export function createRuntimeProjectionPolicyResolver(
                 leaseCurrent() && input.stillCurrent?.() !== false;
               assertProjectionVerificationCurrent(stillCurrent);
               try {
-                const policies = await recoverWithOutageFallback({
-                  ...input,
-                  historyReader,
-                  execSql: runtime.infra.execSql,
-                  protection,
+                const policies = await resumeAfterSupersededStage(
+                  () =>
+                    recoverWithOutageFallback({
+                      ...input,
+                      historyReader,
+                      execSql: runtime.infra.execSql,
+                      protection,
+                      stillCurrent,
+                      offline: runtime.state?.online === false,
+                      resolveTrustedUserIdentity:
+                        runtime.resolveTrustedUserIdentity,
+                    }),
                   stillCurrent,
-                  offline: runtime.state?.online === false,
-                  resolveTrustedUserIdentity:
-                    runtime.resolveTrustedUserIdentity,
-                });
+                );
                 return { policies, stillCurrent };
               } catch (error) {
                 assertProjectionVerificationCurrent(stillCurrent);
