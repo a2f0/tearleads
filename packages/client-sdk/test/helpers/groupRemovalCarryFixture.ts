@@ -203,7 +203,7 @@ export function stubRekeyRequest(id: string) {
     keyring: null,
     manifest: { objectId: id },
     predecessorBridge: null,
-    principalPolicies: [],
+    principalPolicyRefs: [],
     wraps: [],
   } as never;
 }

@@ -1,31 +1,24 @@
 import type { VerifiedPrincipalPolicy } from "@tearleads/crypto";
-import { readCanonicalRecord } from "../../keying/canonicalJson";
-import type {
-  PrincipalPolicyCheckpointEvidence,
-  PrincipalPolicyCurrentEvidence,
-} from "../../principals/principalPolicyEvidence";
+import type { PrincipalPolicyRef } from "@tearleads/validators/request";
+import type { PrincipalPolicyCurrentEvidence } from "../../principals/principalPolicyEvidence";
 
-export function principalPolicyRequestRecord(
-  policy: PrincipalPolicyCheckpointEvidence,
-  label = "Container principal policy",
-): Record<string, unknown> {
-  return readCanonicalRecord(
-    {
-      principalType: policy.principalType,
-      principalId: policy.principalId,
-      version: policy.version,
-      keyEpoch: policy.keyEpoch,
-      stateHash: policy.stateHash,
-      state: {
-        ...policy.state,
-        stateHash: policy.stateHash,
-      },
-      projection: policy.projection,
-      grants: policy.grants,
-      checkpoint: policy.checkpoint,
-    },
-    label,
-  );
+/**
+ * The head a container mutation cites for a policy it was planned against.
+ * The API authorizes from its own verified copy of that head, so the policy
+ * itself never travels.
+ */
+export function principalPolicyRef(
+  policy: Pick<
+    VerifiedPrincipalPolicy,
+    "principalId" | "principalType" | "stateHash" | "version"
+  >,
+): PrincipalPolicyRef {
+  return {
+    principalType: policy.principalType,
+    principalId: policy.principalId,
+    version: policy.version,
+    stateHash: policy.stateHash,
+  };
 }
 
 function principalPolicyKey(

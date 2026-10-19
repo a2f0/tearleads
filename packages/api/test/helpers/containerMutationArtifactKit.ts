@@ -16,6 +16,7 @@ import {
   loadPrincipalPoliciesForContainerPath,
   type StoredRootFixture,
 } from "./keyingWriterProjectionKit";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 
 export async function buildChildCreateRequest(input: {
   readonly root: StoredRootFixture;
@@ -96,10 +97,7 @@ export async function buildChildCreateRequest(input: {
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
     parentContainerPathRefs: containerManifestRefs(parentContainerPath),
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: null,
     predecessorBridge: null,

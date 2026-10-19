@@ -37,11 +37,12 @@ function containerRekey(policyGeneration: number): ContainerMutationRequest {
     keyring: null,
     manifest: { objectKind: "container" },
     predecessorBridge: null,
-    principalPolicies: [
+    principalPolicyRefs: [
       {
-        policyGeneration,
         principalId: "principal-1",
         principalType: "group",
+        stateHash: `state-${policyGeneration}`,
+        version: policyGeneration,
       },
     ],
     wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
@@ -196,11 +197,12 @@ test("syncRemoteDocument retries failed chained rekeys after recovering stale po
             ...materialized.plan,
             request: {
               ...materialized.plan.request,
-              principalPolicies: [
+              principalPolicyRefs: [
                 {
-                  policyGeneration: rekeyBuildCount,
                   principalId: repair.head.principalId,
                   principalType: "group",
+                  stateHash: `state-${rekeyBuildCount}`,
+                  version: rekeyBuildCount,
                 },
               ],
             },

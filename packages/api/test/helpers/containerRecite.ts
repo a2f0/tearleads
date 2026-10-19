@@ -17,6 +17,7 @@ import {
   createSignedAccessEvent,
   loadPrincipalPoliciesForContainerPath,
 } from "./keyingWriterProjectionKit";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 import { registerUser } from "./registerUser";
 
 export async function createReciteScenario() {
@@ -70,9 +71,9 @@ export async function buildReciteRequest(input: {
     expectedManifestHash: bundle.manifestHash,
     previousManifestRef: containerManifestRef(previousBundle),
     previousContainerPathRefs: containerManifestRefs(input.path),
-    principalPolicies: (
-      await loadPrincipalPoliciesForContainerPath(input.path)
-    ).map((policy) => ({ ...policy })),
+    principalPolicyRefs: principalPolicyRefs(
+      await loadPrincipalPoliciesForContainerPath(input.path),
+    ),
   };
 }
 

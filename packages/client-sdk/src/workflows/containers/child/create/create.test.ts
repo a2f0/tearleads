@@ -78,7 +78,7 @@ test("buildMaterializedContainerCreatePlan signs a child create and wraps the ch
     referencedPrincipalHeads: [],
   });
   expect(plan.request.userRecipientKeys).toEqual([]);
-  expect(plan.request.principalPolicies).toEqual([]);
+  expect(plan.request.principalPolicyRefs).toEqual([]);
   expect(
     plan.request.parentContainerPathRefs?.map((bundle) => bundle.manifestHash),
   ).toEqual(parent.projection.path.map((bundle) => bundle.manifestHash));

@@ -31,7 +31,7 @@ export function createContainerMutationRequest(): ContainerMutationRequest {
     keyEpoch: { containerKeyEpochId: "container-key-epoch-id" },
     predecessorBridge: null,
     keyring: null,
-    principalPolicies: [],
+    principalPolicyRefs: [],
     wraps: [],
   };
 }

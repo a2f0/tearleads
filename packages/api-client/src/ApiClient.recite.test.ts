@@ -39,7 +39,7 @@ testApiClient(
           manifestHash: response.accessManifest.manifestHash,
         },
       ],
-      principalPolicies: [],
+      principalPolicyRefs: [],
     };
     let projectionReads = 0;
     const submittedBodies: (string | null)[] = [];

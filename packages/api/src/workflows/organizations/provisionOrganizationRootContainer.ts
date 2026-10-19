@@ -24,7 +24,6 @@ import {
 import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 import { isKekRecipientKind } from "../containers/mutations/shared/containerKekRecords";
 import { assertPrincipalPoliciesCurrent } from "../containers/mutations/shared/principalPolicies";
-import { principalPoliciesFromRequest } from "../containers/mutations/shared/principalPolicyRecords";
 import { OrganizationProvisioningError } from "./provisionOrganizationError";
 
 interface RootContainerSigner {
@@ -237,7 +236,7 @@ export async function storeInitialRootContainer(
   const metadataDocumentId = readInitialRootContainerMetadataDocumentId(input);
   const principalPolicies = await assertPrincipalPoliciesCurrent(
     tx,
-    principalPoliciesFromRequest(request),
+    request.principalPolicyRefs,
     { requesterUserId: input.userId },
   );
 

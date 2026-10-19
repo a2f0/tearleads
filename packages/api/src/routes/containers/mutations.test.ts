@@ -114,6 +114,7 @@ import {
   submitOrganizationGroupPolicyCommit,
   withOrganizationGroupDirectoryPolicy,
 } from "../../../test/helpers/principalPolicy";
+import { principalPolicyRefs } from "../../../test/helpers/principalPolicyRefs";
 import {
   createProjectionWithAdminSigner,
   signPrincipalStateBundle,
@@ -716,10 +717,7 @@ async function buildCreateRequest(input: {
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
     parentContainerPathRefs: containerManifestRefs(parentContainerPath),
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: null,
     predecessorBridge: null,
@@ -922,7 +920,7 @@ async function buildGrantRequest(input: {
       input.previousContainerPath,
     ),
     containerManifestHistoryRefs: [containerManifestRef(input.previous)],
-    principalPolicies,
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: input.previousKekState.keyEpoch,
     keyring: null,
     predecessorBridge: null,
@@ -1036,10 +1034,7 @@ async function buildGroupGrantRequest(input: {
     containerManifestHistoryRefs: containerManifestRefs(
       input.containerManifestHistory ?? [input.previous],
     ),
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
       string,
       unknown
@@ -2538,9 +2533,9 @@ test("group grant revoke requires and commits with principal rotation", async ()
     error: "Group grants must be revoked atomically with principal rotation",
   });
 
-  revokeRequest.principalPolicies = (
-    revokeRequest.principalPolicies ?? []
-  ).filter((policy) => Reflect.get(policy, "principalId") !== groupPrincipalId);
+  revokeRequest.principalPolicyRefs = revokeRequest.principalPolicyRefs.filter(
+    (ref) => ref.principalId !== groupPrincipalId,
+  );
   await putGroupPrincipalPolicy({
     actor: owner,
     containerMutations: [revokeRequest],

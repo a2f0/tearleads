@@ -18,7 +18,7 @@ function repairPlan(
     organizationId,
     request: {
       containerRekeys: [
-        { principalPolicies: [{ principalId, principalType: "group" }] },
+        { principalPolicyRefs: [{ principalId, principalType: "group" }] },
       ],
     },
   } as unknown as DocumentSyncPlan;

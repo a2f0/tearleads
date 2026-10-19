@@ -53,6 +53,7 @@ import {
   ContentKeyWrappedKeySchema,
   contentKeyWrappingMetadataSchema,
 } from "./contentKeyEnvelopeSchema";
+import { PrincipalPolicyRefListSchema } from "./principalPolicyRef";
 
 export {
   ContainerManifestPathSchema,
@@ -167,7 +168,7 @@ const DocumentSyncContainerMutationRequestSchema = registerJsonSchemaView(
     predecessorBridge: plainObjectSchema.nullable(),
     previousContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
     previousManifestRef: ContainerManifestRefSchema.nullable().optional(),
-    principalPolicies: z.array(plainObjectSchema),
+    principalPolicyRefs: PrincipalPolicyRefListSchema,
     userRecipientKeys: z.array(plainObjectSchema).optional(),
     wraps: z.array(plainObjectSchema),
   }),

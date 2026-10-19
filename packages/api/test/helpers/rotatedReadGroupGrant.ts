@@ -45,6 +45,7 @@ import {
   loadVerifiedPrincipalPolicy,
   submitOrganizationGroupPolicyCommit,
 } from "./principalPolicy";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 import { signPrincipalStateBundle } from "./principalState";
 import type { DecryptableStoredRootFixture } from "./registeredRootKek";
 
@@ -231,10 +232,9 @@ async function buildGroupGrantMutation(input: {
     previousManifestRef: containerManifestRef(input.root.bundle),
     previousContainerPathRefs: [containerManifestRef(input.root.bundle)],
     containerManifestHistoryRefs: [containerManifestRef(input.root.bundle)],
-    principalPolicies: uniquePrincipalPolicies([
-      ...input.root.principalPolicies,
-      input.policy,
-    ]) as unknown as Record<string, unknown>[],
+    principalPolicyRefs: principalPolicyRefs(
+      uniquePrincipalPolicies([...input.root.principalPolicies, input.policy]),
+    ),
     keyEpoch: input.root.kekState.keyEpoch as unknown as Record<
       string,
       unknown
@@ -319,11 +319,6 @@ async function rotateRootGroupPolicy(input: {
       });
     }),
   )) as unknown as Record<string, unknown>[];
-  // Match SDK principalPolicyRequestRecord: the API reloads and verifies the
-  // stored chain, so mutation artifacts contain only the current policy fields.
-  rekey.request.principalPolicies = rekey.request.principalPolicies.map(
-    ({ history: _history, ...policy }) => policy,
-  );
   const mutation = await submitSuccessor({
     actor: input.actor,
     containerMutation: rekey.request,
@@ -480,8 +475,8 @@ export async function revokeRootRotatedReadGroup(input: {
     },
     signer: input.actor,
   });
-  revoke.principalPolicies = (revoke.principalPolicies ?? []).filter(
-    (policy) => Reflect.get(policy, "principalId") !== input.groupId,
+  revoke.principalPolicyRefs = revoke.principalPolicyRefs.filter(
+    (ref) => ref.principalId !== input.groupId,
   );
   await submitSuccessor({
     actor: input.actor,

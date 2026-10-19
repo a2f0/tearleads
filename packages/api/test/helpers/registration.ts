@@ -42,11 +42,13 @@ import type {
   ContainerMutationRequest,
   CreateOrganizationGroupRequest,
   DocumentCreateRequest,
+  PrincipalPolicyRef,
   ProvisionedDocumentRequest,
   ProvisionedSystemContainerRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import { containerManifestRefs } from "./containerManifestRefs";
+import { principalPolicyRef } from "./principalPolicyRefs";
 import {
   createOptionalProvisionedDocumentFixture,
   createProvisionedDocumentFixture,
@@ -115,7 +117,7 @@ interface RootContainerCreateArtifacts {
   manifest: AccessManifest;
   manifestHash: string;
   metadataDocumentId: string;
-  principalPolicies: Record<string, unknown>[];
+  principalPolicies: PrincipalPolicyRef[];
   recipientTargets: ContainerKekRecipientTarget[];
   request: ContainerMutationRequest;
   state: ContainerAccessManifestState;
@@ -336,34 +338,10 @@ async function principalHeadFromInitialGroupPolicy(input: {
   };
 }
 
-async function principalPolicyRecordFromInitialGroupPolicy(input: {
+async function principalPolicyRefFromInitialGroupPolicy(input: {
   adminGroup: CreateOrganizationGroupRequest;
-}): Promise<Record<string, unknown>> {
-  const { initialGroupPolicy } = input.adminGroup;
-  const head = await principalHeadFromInitialGroupPolicy(input);
-
-  return toWireRecord(
-    {
-      principalType: head.principalType,
-      principalId: head.principalId,
-      version: head.version,
-      keyEpoch: head.keyEpoch,
-      stateHash: head.stateHash,
-      state: {
-        ...initialGroupPolicy.state,
-        stateHash: head.stateHash,
-      },
-      projection: initialGroupPolicy.projection,
-      grants: initialGroupPolicy.grants,
-      checkpoint: {
-        principalType: head.principalType,
-        principalId: head.principalId,
-        version: head.version,
-        stateHash: head.stateHash,
-      },
-    },
-    "initial admin group policy",
-  );
+}): Promise<PrincipalPolicyRef> {
+  return principalPolicyRef(await principalHeadFromInitialGroupPolicy(input));
 }
 
 async function wrapRootContainerKeyForUser(input: {
@@ -477,7 +455,7 @@ async function createRootContainerArtifacts(input: {
     : null;
   const principalPolicies = input.adminGroup
     ? [
-        await principalPolicyRecordFromInitialGroupPolicy({
+        await principalPolicyRefFromInitialGroupPolicy({
           adminGroup: input.adminGroup,
         }),
       ]
@@ -592,7 +570,7 @@ async function createRootContainerArtifacts(input: {
       manifest: toWireRecord(manifest, "root container request manifest"),
       previousManifestRef: null,
       parentContainerPathRefs: [],
-      principalPolicies,
+      principalPolicyRefs: principalPolicies,
       keyEpoch: toWireRecord(keyEpoch, "root container request key epoch"),
       predecessorBridge: null,
       keyring: null,
@@ -757,7 +735,7 @@ async function createChildContainerArtifacts(input: {
     managedGrant && managedHead
       ? [
           ...input.parent.principalPolicies,
-          await principalPolicyRecordFromInitialGroupPolicy({
+          await principalPolicyRefFromInitialGroupPolicy({
             adminGroup: managedGrant.group,
           }),
         ]
@@ -785,7 +763,7 @@ async function createChildContainerArtifacts(input: {
       parentContainerPathRefs: containerManifestRefs(
         input.parentProjection.path,
       ),
-      principalPolicies,
+      principalPolicyRefs: principalPolicies,
       keyEpoch: toWireRecord(keyEpoch, "child container request key epoch"),
       predecessorBridge: null,
       keyring: null,

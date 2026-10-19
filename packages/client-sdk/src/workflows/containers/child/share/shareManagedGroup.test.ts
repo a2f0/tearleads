@@ -165,9 +165,7 @@ test("shareRemoteContainerWithGroup grants a managed principal with the selected
     keyFingerprint: groupPolicy.currentState.keyFingerprint,
   });
   expect(
-    (submittedRequest.principalPolicies as Record<string, unknown>[]).map(
-      (policy) => (policy as { principalId: unknown }).principalId,
-    ),
+    submittedRequest.principalPolicyRefs.map((ref) => ref.principalId),
   ).toEqual([groupId]);
   expect(
     (submittedRequest.wraps as unknown as ContainerKeyWrap[]).some(
@@ -321,8 +319,6 @@ test("shareRemoteContainerWithGroup accepts empty groups signed by an org admin"
   const submittedRequest = submittedRequests[0];
   if (!submittedRequest) throw new Error("Missing share request");
   expect(
-    (submittedRequest.principalPolicies as Record<string, unknown>[]).map(
-      (policy) => (policy as { principalId: unknown }).principalId,
-    ),
+    submittedRequest.principalPolicyRefs.map((ref) => ref.principalId),
   ).toEqual([groupId]);
 });
