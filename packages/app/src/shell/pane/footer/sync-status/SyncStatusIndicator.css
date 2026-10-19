@@ -11,6 +11,7 @@
      chip (below) is the only added chrome. */
   padding: 0;
   border: 0;
+  border-radius: var(--app-radius-control);
   background: none;
   /* The glyph sets its own hue, but the focus ring is currentColor; without
      this it falls back to the UA ButtonText (white/black) in every theme. */

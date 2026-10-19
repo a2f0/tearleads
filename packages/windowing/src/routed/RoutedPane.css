@@ -196,7 +196,7 @@
   min-width: var(--control-height);
   min-height: var(--control-height);
   padding: 0;
-  border: var(--border-width) solid transparent;
+  border: 0;
   border-radius: var(--app-radius-control);
   background: transparent;
   color: inherit;
@@ -207,10 +207,6 @@
 
 .routed-pane-iconbutton:hover:not(:disabled),
 .routed-pane-iconbutton:focus-visible:not(:disabled) {
-  background: var(--app-hover-surface);
-}
-
-.routed-pane-iconbutton[aria-expanded="true"] {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
 }
