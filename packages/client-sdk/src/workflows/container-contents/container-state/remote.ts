@@ -7,9 +7,10 @@ import { isContainerNotFoundFailure } from "../../../data/containers/shared/muta
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import {
-  moveRemoteContainer as moveRemoteContainerMutation,
+  type AppliedContainerMove,
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,
+  replayRemoteContainerMove,
   shareRemoteContainer as shareRemoteContainerMutation,
 } from "../../containers";
 import { createRuntimeCurrentGroupShare } from "../../containers/child/share/runtimeCurrentGroupShare";
@@ -198,6 +199,10 @@ export async function shareRemoteContainerWithGroup(input: {
   );
 }
 
+/**
+ * Replays a queued move. `applied` carries the verified head when the server
+ * already holds the container under the destination, so nothing is posted.
+ */
 export async function moveRemoteContainer(input: {
   containerId: string;
   onStaleAcceptance?: (() => void) | undefined;
@@ -205,14 +210,16 @@ export async function moveRemoteContainer(input: {
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
   stillCurrent?: (() => boolean) | undefined;
-}): Promise<RemoteContainer | null> {
+}): Promise<
+  { applied: AppliedContainerMove } | { moved: RemoteContainer } | null
+> {
   const writer = resolveContainerWriterContext(input.runtime, "container move");
   if (!writer) {
     return null;
   }
   const { apiClient, author, execSql, secretKey: targetSecretKey } = writer;
 
-  const moved = await moveRemoteContainerMutation({
+  const replayed = await replayRemoteContainerMove({
     reportSecurityIncident: input.runtime.util.reportSecurityIncident,
     apiClient,
     author,
@@ -227,26 +234,25 @@ export async function moveRemoteContainer(input: {
       input.runtime,
     ),
   });
-  if (!moved) {
-    return null;
+  if (!replayed || "applied" in replayed) {
+    return replayed;
   }
 
+  const { response } = replayed;
   return {
-    createdAt: moved.response.createdAt,
-    effectiveAccessLevel: "admin",
-    id: moved.response.containerId,
-    organizationId: moved.response.organizationId,
-    parentId: moved.response.parentId,
-    metadataDocumentId: readContainerMutationMetadataDocumentId({
-      response: moved.response,
-    }),
-    metadataAccessEpoch: moved.response.manifestHead.epoch,
-    metadataAccessStateHash: moved.response.manifestHead.manifestHash,
-    metadataReferencedPrincipals:
-      referencedPrincipalHeadsFromContainerMutationResponse({
-        response: moved.response,
-      }),
-    updatedAt: moved.response.updatedAt,
+    moved: {
+      createdAt: response.createdAt,
+      effectiveAccessLevel: "admin",
+      id: response.containerId,
+      organizationId: response.organizationId,
+      parentId: response.parentId,
+      metadataDocumentId: readContainerMutationMetadataDocumentId({ response }),
+      metadataAccessEpoch: response.manifestHead.epoch,
+      metadataAccessStateHash: response.manifestHead.manifestHash,
+      metadataReferencedPrincipals:
+        referencedPrincipalHeadsFromContainerMutationResponse({ response }),
+      updatedAt: response.updatedAt,
+    },
   };
 }
 

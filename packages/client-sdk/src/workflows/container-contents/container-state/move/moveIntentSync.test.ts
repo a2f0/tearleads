@@ -1,13 +1,14 @@
 import { expect, test } from "bun:test";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { waitFor } from "../../../../test/helpers/waitFor";
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { waitFor } from "../../../../../test/helpers/waitFor";
+import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
+import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type ContainerMoveIntentRecord,
   defaultContainerContentsPersistence,
-} from "../containerPersistence";
-import { createTestContainerState } from "./containerState.testFixtures";
+} from "../../containerPersistence";
+import { createTestContainerState } from "../containerState.testFixtures";
+import type { ContainerMoveIntentSyncState } from "../types";
 import {
   persistAcceptedMoveIntent,
   syncPendingContainerMoveIntents,
@@ -17,7 +18,6 @@ import {
   type MoveIntentError,
   moveIntentRecord,
 } from "./moveIntentSync.testFixtures";
-import type { ContainerMoveIntentSyncState } from "./types";
 
 test("pending container move sync records per-intent failures and continues", async () => {
   const errors: MoveIntentError[] = [];
@@ -65,6 +65,7 @@ test("pending container move sync records per-intent failures and continues", as
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
     requestRemoteReconciliation: () => {},
+    requestRetry: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -113,6 +114,7 @@ test("stale container move identity failures do not report into a replacement", 
       isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
       requestRemoteReconciliation: () => {},
+      requestRetry: () => {},
       state: createMoveIntentSyncState({
         containersById,
         incidents,
@@ -196,6 +198,7 @@ test("a blocked organization does not prevent another organization's move from s
       return organizationId === "custom-organization";
     },
     requestRemoteReconciliation: () => {},
+    requestRetry: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -244,6 +247,7 @@ test("a move whose source is not synced yet stays pending and retryable", async 
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
     requestRemoteReconciliation: () => {},
+    requestRetry: () => {},
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -286,6 +290,7 @@ test("move replay does not require a standalone settlement adapter", async () =>
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
     requestRemoteReconciliation: () => {},
+    requestRetry: () => {},
     state: createMoveIntentSyncState({
       containersById,
       onProjectionRequest: () => {

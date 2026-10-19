@@ -1,21 +1,9 @@
 import type {
-  AccessEvent,
-  AccessManifest,
   ContainerAccessManifestState,
-  ContainerKekKeyring,
-  ContainerKekPredecessorBridge,
-  ContainerKeyEpoch,
-  ContainerKeyWrap,
-  ContainerMoveAccessEventBody,
-  ContainerUserRecipientKey,
   VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
+import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type {
-  AccessManifestBundleWire,
-  ContainerMutationRequest,
-} from "@tearleads/validators/request";
-import type {
-  ContainerKekResponse,
   ContainerRotationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
@@ -23,7 +11,6 @@ import { assertContainerAuthorAccess } from "../../../../data/containers/shared/
 import { assertContainerChildPathFits } from "../../../../data/containers/shared/containerPathLimits";
 import {
   asContainerManifestBundle,
-  containerManifestRef,
   getTargetContainerContext,
   readContainerState,
   uniqueSortedManifestHashes,
@@ -37,20 +24,14 @@ import type {
 } from "../../../../data/containers/shared/types";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
 import { projectionVerificationOptions } from "../../../../data/documents/shared/types";
-import { readCanonicalRecord } from "../../../../data/keying/canonicalJson";
 import {
   nullOnProjectionVerificationCancellation,
   type ProjectionUserKeyResolver,
   type ReferencedPrincipalPolicyWarmer,
   requireProjectionUserKeyResolver,
 } from "../../../../data/keyingProjectionVerification";
-import type { PrincipalPolicyCurrentEvidence } from "../../../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import {
-  containerMutationRequestCore,
-  previousPathRequestFields,
-} from "../mutationRequestCore";
 import {
   submitAcknowledgedContainerMutation,
   submitContainerRotation,
@@ -65,46 +46,11 @@ import {
   buildMoveRotationWithBody,
   deriveMoveManifestArtifacts,
 } from "./moveArtifacts";
+import { buildContainerMovePlanResult } from "./moveRequest";
 import {
   buildContainerMoveWraps,
   collectContainerMovePrincipalPolicies,
 } from "./moveWraps";
-
-function buildContainerMoveRequest(input: {
-  body: ContainerMoveAccessEventBody;
-  destinationParentKek: ContainerKekResponse;
-  destinationParentProjection: ContainerWriterProjectionResponse;
-  event: AccessEvent;
-  keyEpoch: ContainerKeyEpoch;
-  keyring: ContainerKekKeyring;
-  manifest: AccessManifest;
-  manifestHash: string;
-  previousManifest: AccessManifestBundleWire;
-  previousProjection: ContainerWriterProjectionResponse;
-  predecessorBridge: ContainerKekPredecessorBridge;
-  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
-  userRecipientKeys: readonly ContainerUserRecipientKey[];
-  wraps: readonly ContainerKeyWrap[];
-}): ContainerMutationRequest {
-  return {
-    ...containerMutationRequestCore("move", input),
-    ...previousPathRequestFields(
-      input.previousManifest,
-      input.previousProjection,
-    ),
-    destinationParentContainerPathRefs:
-      input.destinationParentProjection.path.map(containerManifestRef),
-    predecessorBridge: readCanonicalRecord(
-      input.predecessorBridge,
-      "Container move predecessor bridge",
-    ),
-    keyring: readCanonicalRecord(input.keyring, "Container move keyring"),
-    parentKekState: readCanonicalRecord(
-      input.destinationParentKek,
-      "Container move destination parent KEK state",
-    ),
-  };
-}
 
 async function unwrapMoveContainerKeys(input: {
   destinationParentProjection: ContainerWriterProjectionResponse;
@@ -190,61 +136,6 @@ function containerMoveDependencyManifestHashes(input: {
   ];
 }
 
-function buildContainerMovePlanResult(input: {
-  body: ContainerMoveAccessEventBody;
-  containerId: string;
-  containerKey: Uint8Array;
-  containerKeyEpochId: string;
-  destinationParentKek: ContainerKekResponse;
-  destinationParentProjection: ContainerWriterProjectionResponse;
-  event: AccessEvent;
-  eventHash: string;
-  keyEpoch: ContainerKeyEpoch;
-  keyring: ContainerKekKeyring;
-  manifest: AccessManifest;
-  manifestHash: string;
-  previousManifest: AccessManifestBundleWire;
-  previousProjection: ContainerWriterProjectionResponse;
-  predecessorBridge: ContainerKekPredecessorBridge;
-  principalPolicies: readonly PrincipalPolicyCurrentEvidence[];
-  state: ContainerAccessManifestState;
-  userRecipientKeys: ContainerUserRecipientKey[];
-  wraps: ContainerKeyWrap[];
-}): MaterializedContainerMovePlan {
-  const plan: ContainerMovePlan = {
-    body: input.body,
-    containerId: input.containerId,
-    containerKeyEpochId: input.containerKeyEpochId,
-    event: input.event,
-    eventHash: input.eventHash,
-    keyEpoch: input.keyEpoch,
-    keyring: input.keyring,
-    manifest: input.manifest,
-    manifestHash: input.manifestHash,
-    previousManifest: input.previousManifest,
-    request: buildContainerMoveRequest({
-      body: input.body,
-      destinationParentKek: input.destinationParentKek,
-      destinationParentProjection: input.destinationParentProjection,
-      event: input.event,
-      keyEpoch: input.keyEpoch,
-      keyring: input.keyring,
-      manifest: input.manifest,
-      manifestHash: input.manifestHash,
-      previousManifest: input.previousManifest,
-      previousProjection: input.previousProjection,
-      predecessorBridge: input.predecessorBridge,
-      principalPolicies: input.principalPolicies,
-      userRecipientKeys: input.userRecipientKeys,
-      wraps: input.wraps,
-    }),
-    state: input.state,
-    wraps: input.wraps,
-  };
-
-  return { containerKey: input.containerKey, plan };
-}
-
 type MaterializedContainerMoveInput =
   BuildMaterializedContainerMovePlanInput & {
     resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -276,14 +167,20 @@ async function collectAuthorizedMovePolicies(
   return principalPolicies;
 }
 
-async function buildMaterializedContainerMovePlan(
+/**
+ * The source's verified head already sits under the destination: a move the
+ * server accepted but this device never settled, or one another writer made.
+ */
+export interface AppliedContainerMove {
+  readonly manifestHash: string;
+  readonly state: ContainerAccessManifestState;
+}
+
+/** Verifies both projections and reads the states a move rotates between. */
+async function verifyContainerMoveSources(
   input: MaterializedContainerMoveInput,
-): Promise<MaterializedContainerMovePlan> {
-  const {
-    containerKey: predecessorContainerKey,
-    destinationParent,
-    source,
-  } = await unwrapMoveContainerKeys({
+) {
+  const unwrapped = await unwrapMoveContainerKeys({
     destinationParentProjection: input.destinationParentProjection,
     execSql: input.execSql,
     previousProjection: input.previousProjection,
@@ -295,11 +192,36 @@ async function buildMaterializedContainerMovePlan(
   // Only a verified path is a final depth refusal; a padded unverified path
   // must fail verification (an incident), never look like an honest refusal.
   assertContainerChildPathFits(input.destinationParentProjection.path);
-  const { destinationState, previousState } = readContainerMoveStates({
-    authorOrganizationId: input.author.organizationId,
+  return {
+    ...unwrapped,
+    ...readContainerMoveStates({
+      authorOrganizationId: input.author.organizationId,
+      destinationParent: unwrapped.destinationParent,
+      source: unwrapped.source,
+    }),
+  };
+}
+
+async function buildMaterializedContainerMovePlan(
+  input: MaterializedContainerMoveInput & { adoptAppliedMove: boolean },
+): Promise<MaterializedContainerMovePlan | { applied: AppliedContainerMove }> {
+  const {
+    containerKey: predecessorContainerKey,
     destinationParent,
+    destinationState,
+    previousState,
     source,
-  });
+  } = await verifyContainerMoveSources(input);
+  if (
+    input.adoptAppliedMove &&
+    previousState.parentContainerId === destinationState.containerId
+  )
+    return {
+      applied: {
+        manifestHash: source.manifest.manifestHash,
+        state: previousState,
+      },
+    };
   const principalPolicies = await collectAuthorizedMovePolicies(input);
   const {
     body,
@@ -367,7 +289,7 @@ async function buildMaterializedContainerMovePlan(
   });
 }
 
-export async function moveRemoteContainer(input: {
+interface MoveRemoteContainerInput {
   reportSecurityIncident: SecurityIncidentReporter;
   apiClient: ContainerMoveApi;
   author: ContainerMutationAuthor;
@@ -381,11 +303,39 @@ export async function moveRemoteContainer(input: {
   stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<{
+}
+
+interface SubmittedContainerMove {
   containerKey: Uint8Array;
   plan: ContainerMovePlan;
   response: ContainerRotationResponse;
-} | null> {
+}
+
+/** Signs and submits a move; `null` when it was refused or abandoned. */
+export async function moveRemoteContainer(
+  input: MoveRemoteContainerInput,
+): Promise<SubmittedContainerMove | null> {
+  const moved = await submitRemoteContainerMove(input, false);
+  if (moved && "applied" in moved)
+    throw new Error("A move that adopts nothing cannot report one applied");
+  return moved;
+}
+
+/**
+ * Replays a queued move. When the verified source head already sits under
+ * the destination it signs nothing and returns that head, so a lost response
+ * settles without a second rotation.
+ */
+export function replayRemoteContainerMove(
+  input: MoveRemoteContainerInput,
+): Promise<SubmittedContainerMove | { applied: AppliedContainerMove } | null> {
+  return submitRemoteContainerMove(input, true);
+}
+
+async function submitRemoteContainerMove(
+  input: MoveRemoteContainerInput,
+  adoptAppliedMove: boolean,
+): Promise<SubmittedContainerMove | { applied: AppliedContainerMove } | null> {
   const resolveProjectionUserKey = requireProjectionUserKeyResolver(
     input.resolveProjectionUserKey,
     "Remote container move",
@@ -402,6 +352,7 @@ export async function moveRemoteContainer(input: {
 
   const materializedPlan = await nullOnProjectionVerificationCancellation(() =>
     buildMaterializedContainerMovePlan({
+      adoptAppliedMove,
       author: input.author,
       eventId: input.eventId,
       execSql: input.execSql,
@@ -414,7 +365,8 @@ export async function moveRemoteContainer(input: {
       warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
     }),
   );
-  if (!materializedPlan) return null;
+  if (!materializedPlan || "applied" in materializedPlan)
+    return materializedPlan;
   return submitAcknowledgedContainerMutation({
     reportSecurityIncident: input.reportSecurityIncident,
     recitationPolicies: [],
@@ -448,27 +400,36 @@ export async function moveRemoteContainer(input: {
     onStaleAcceptance: input.onStaleAcceptance,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
-    submit: (carried) => {
-      const request = carried.length
-        ? { ...materializedPlan.plan.request, containerRekeys: [...carried] }
-        : materializedPlan.plan.request;
-      const options = {
-        expectedPaymentRequiredOrganizationId: input.author.organizationId,
-      };
-      const { moveContainerResult } = input.apiClient;
-      return submitContainerRotation({
-        plain: () =>
-          input.apiClient.moveContainer(input.containerId, request, options),
-        result: moveContainerResult
-          ? () =>
-              moveContainerResult.call(
-                input.apiClient,
-                input.containerId,
-                request,
-                { ...options, reportErrors: false },
-              )
-          : undefined,
-      });
-    },
+    submit: (carried) =>
+      submitContainerMoveRequest(input, {
+        ...materializedPlan.plan.request,
+        ...(carried.length ? { containerRekeys: [...carried] } : {}),
+      }),
+  });
+}
+
+function submitContainerMoveRequest(
+  input: MoveRemoteContainerInput,
+  request: ContainerMutationRequest,
+) {
+  const options = {
+    expectedPaymentRequiredOrganizationId: input.author.organizationId,
+  };
+  const { moveContainerResult } = input.apiClient;
+  return submitContainerRotation({
+    plain: () =>
+      input.apiClient.moveContainer(input.containerId, request, options),
+    result: moveContainerResult
+      ? () =>
+          moveContainerResult.call(
+            input.apiClient,
+            input.containerId,
+            request,
+            {
+              ...options,
+              reportErrors: false,
+            },
+          )
+      : undefined,
   });
 }

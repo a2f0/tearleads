@@ -233,6 +233,11 @@ acknowledgments. See the [mapping and boundaries](./local-trust/UnacknowledgedIn
 models adopting a listed pending container create and the move it owes. See
 the [mapping](./local-trust/ContainerCreateAdoption.md).
 
+[`local-trust/ContainerMoveReplay.tla`](./local-trust/ContainerMoveReplay.tla)
+models a queued folder move whose accepted result is lost: the replay settles
+from the verified head without a second rotation, and the lost result schedules
+that replay itself. See the [mapping](./local-trust/ContainerMoveReplay.md).
+
 [`local-trust/DurableIdentityBinding.tla`](./local-trust/DurableIdentityBinding.tla)
 checks that persistent fingerprint-to-user bindings survive session recreation
 and stay unique within each trust domain. See the

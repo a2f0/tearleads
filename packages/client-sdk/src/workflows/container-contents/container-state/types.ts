@@ -182,5 +182,7 @@ export interface ContainerMoveIntentSyncInput {
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerMoveIntentRecord;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
+  /** Asks for a later pass that settles a move the server already holds. */
+  requestRetry: (intentId: string) => void;
   state: ContainerMoveIntentSyncState;
 }
