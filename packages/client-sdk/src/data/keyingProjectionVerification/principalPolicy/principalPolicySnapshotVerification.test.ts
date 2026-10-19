@@ -7,8 +7,8 @@ import {
   enforcePrincipalPolicySnapshotCheckpoints,
   verifyPrincipalPolicySnapshots,
 } from "../../../../test/helpers/principalPolicySnapshotVerification";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
-import { savePrincipalPolicyBundle } from "../../persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { savePrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
 import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,

@@ -3,8 +3,8 @@ import {
   type ReferencedPrincipalHead,
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
-import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../persistence/principalPolicyCheckpointSelection";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../persistence/principalPolicy/principalPolicyCheckpointSelection";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,

@@ -14,7 +14,7 @@ import {
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import { loadLocalOrganizationPolicyHistory } from "../readModel/localReadModelDetails";
 import {

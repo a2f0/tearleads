@@ -6,7 +6,7 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import {
   principalPolicies,
   principalPolicyCheckpoints,
-} from "../../../data/sqlite/principalPolicySchema";
+} from "../../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
 import { GroupMetadataUnreadableError } from "../groupMetadata/groupMetadataAccess";
 import { hydrateOrganizationGroupNames } from "./organizationGroupNames";

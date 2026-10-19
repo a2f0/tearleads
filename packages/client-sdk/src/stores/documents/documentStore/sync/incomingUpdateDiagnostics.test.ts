@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { DocumentSyncUpdateIsolationError } from "../../../../data/documents/shared/documentSyncUpdateIsolation";
+import { DocumentSyncUpdateIsolationError } from "../../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { hasRecordedTerminalSyncFailures } from "../../../../data/sqlite/documentSyncFailurePersistence";
+import { hasRecordedTerminalSyncFailures } from "../../../../data/sqlite/documentPersistence/documentSyncFailurePersistence";
 import { runSerializedSqlMutation } from "../../../../data/sqlite/sqlExec";
 import { Tearleads } from "../../../../Tearleads";
 import type { DocumentState, DocumentStoreState } from "../state";

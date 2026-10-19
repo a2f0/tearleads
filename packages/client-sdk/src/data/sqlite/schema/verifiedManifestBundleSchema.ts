@@ -1,0 +1,49 @@
+import { desc } from "drizzle-orm";
+import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
+
+/**
+ * Access-manifest bundles this device verified inside a writer projection,
+ * keyed by manifest hash. A later projection read cites them so the API can
+ * omit their bytes; the client refills each omission from this row and
+ * verifies the rebuilt projection from scratch. Rows are neither trust nor
+ * checkpoint state: a missing, evicted, or damaged row only costs bytes.
+ *
+ * Columns:
+ * - `manifestHash`: Manifest hash; equals the stored bundle's `manifestHash`.
+ * - `organizationId`, `objectKind`, `objectId`, `epoch`: The verified
+ *   manifest's object, used to cite the lineage relevant to a request.
+ * - `bundleJson`: The exact verified bundle as JSON.
+ * - `bundleDigest`: SHA-256 hex of `bundleJson`; a mismatch drops the row.
+ * - `verifiedAt`: Latest local verification time; oldest rows evict first.
+ */
+export const verifiedAccessManifestBundles = sqliteTable(
+  "verified_access_manifest_bundles",
+  {
+    manifestHash: text("manifest_hash").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    objectKind: text("object_kind").notNull(),
+    objectId: text("object_id").notNull(),
+    epoch: integer("epoch").notNull(),
+    bundleJson: text("bundle_json").notNull(),
+    bundleDigest: text("bundle_digest").notNull(),
+    verifiedAt: text("verified_at").notNull(),
+  },
+  (table) => [
+    index("verified_access_manifest_bundles_object_idx").on(
+      table.objectKind,
+      table.objectId,
+      desc(table.epoch),
+    ),
+    index("verified_access_manifest_bundles_verified_at_idx").on(
+      table.verifiedAt,
+    ),
+    index("verified_access_manifest_bundles_organization_idx").on(
+      table.organizationId,
+    ),
+  ],
+);
+
+export const verifiedManifestBundleTables: ReadonlyArray<SqlTableSchema> = [
+  defineSqlTableSchema(verifiedAccessManifestBundles),
+];

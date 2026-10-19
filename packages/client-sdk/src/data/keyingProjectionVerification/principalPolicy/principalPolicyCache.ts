@@ -1,8 +1,8 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
-import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../persistence/principalPolicyCheckpointSelection";
-import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicyReferencePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../persistence/principalPolicy/principalPolicyCheckpointSelection";
+import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicy/principalPolicyReferencePersistence";
 import {
   type PrincipalPolicyCurrentEvidence,
   principalPolicyEvidenceEntries,

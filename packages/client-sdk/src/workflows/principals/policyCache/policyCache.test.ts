@@ -16,7 +16,7 @@ import {
   loadPrincipalPolicyBundle,
   loadPrincipalPolicyStateHash,
   savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 
 test("principal policy sync caches a verified referenced principal bundle and skips refetching unchanged state", async () => {
   const { close, execSql } = await createTestExecSql(

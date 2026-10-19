@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createNewerPolicyPurgeFixture } from "../../../../test/helpers/documentPurgeNewerPolicies";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/documents/purge";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/documentPurgeCheckpointPersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
-import { principalHistoryPrefixes } from "../../sqlite/principalHistoryEvidenceSchema";
-import { principalHistoryStages } from "../../sqlite/principalHistoryStageSchema";
+import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { principalHistoryPrefixes } from "../../sqlite/schema/principalHistoryEvidenceSchema";
+import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 
 for (const mode of [
   "local",

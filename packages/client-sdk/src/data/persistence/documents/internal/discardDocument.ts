@@ -5,8 +5,8 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../../documents/documentKinds";
-import { deleteDocumentHistory } from "../../../sqlite/documentHistoryPersistence";
 import { clearDocumentSyncFailure } from "../../../sqlite/documentPersistence";
+import { deleteDocumentHistory } from "../../../sqlite/documentPersistence/documentHistoryPersistence";
 import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,

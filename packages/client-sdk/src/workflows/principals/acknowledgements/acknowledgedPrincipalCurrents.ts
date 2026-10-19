@@ -11,7 +11,7 @@ import {
   PrincipalAcknowledgementChangedError,
   persistAcknowledgedPrincipalCurrents,
 } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
-import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistoryEvidencePersistence";
+import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import { ownPrincipalHistoryProtection } from "../../../data/principals/principalHistoryProtection";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { RecoverPrincipalPolicyHistoryOptions } from "../historyRecovery/principalHistoryRecoveryTypes";

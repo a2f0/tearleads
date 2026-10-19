@@ -1,5 +1,5 @@
 import { expect, mock, test } from "bun:test";
-import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
+import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { reportDocumentSyncQuarantine } from "./reportDocumentSyncQuarantine";
 
 function quarantine(updateId = "private-update") {

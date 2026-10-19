@@ -4,7 +4,7 @@ import {
   type VerifiedPrincipalPolicyCurrent,
   type VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import {
   observeProjectionLifetime,

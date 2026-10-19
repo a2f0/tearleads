@@ -6,7 +6,7 @@ import type {
 import { loadContainerDisplayNamesByIds } from "../../../data/persistence/containers/containerPersistence";
 import { loadOrganizationGroupDisplayNames } from "../../../data/persistence/organizations/organizationGroupNamePersistence";
 import { loadOrganizationReadModelProjection } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { loadVerifiedOrganizationGroupRoles } from "../../../data/principals/organizationGroupRoles";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {

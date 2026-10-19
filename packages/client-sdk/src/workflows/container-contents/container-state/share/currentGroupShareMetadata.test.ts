@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/currentShareMetadata";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { resolveCurrentGroupKeyEpoch } from "./groupShareEpoch";
 
 for (const correctName of [true, false]) {

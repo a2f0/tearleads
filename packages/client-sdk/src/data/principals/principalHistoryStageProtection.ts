@@ -6,7 +6,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { isPrincipalPolicyPageResponse } from "@tearleads/validators/response";
-import type { PrincipalHistoryStage } from "../persistence/principalHistoryStagePersistence";
+import type { PrincipalHistoryStage } from "../persistence/principalHistory/principalHistoryStagePersistence";
 
 export function principalHistoryStageId(
   organizationId: string,

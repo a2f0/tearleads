@@ -3,12 +3,12 @@ import {
   type PrincipalPolicyCheckpoint,
   verifyPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type {
   AcknowledgedPrincipalCurrentPublication,
   ReconciledPrincipalCurrentPublication,
 } from "../../../data/persistence/principalCurrentAcknowledgementPersistence";
-import { loadPrincipalHistoryPrefix } from "../../../data/persistence/principalHistoryPrefixPersistence";
+import { loadPrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import {
   PrincipalHistoryEvidenceUnavailableError,

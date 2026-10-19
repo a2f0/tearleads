@@ -57,7 +57,7 @@ import {
 } from "../../../../test/helpers/staleBundleSyncFixture";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
-import { persistedDocumentSyncStateFromResponse } from "../../../data/documents/shared/syncResponses";
+import { persistedDocumentSyncStateFromResponse } from "../../../data/documents/shared/sync/syncResponses";
 import { ensureDocumentTables } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {

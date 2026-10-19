@@ -15,7 +15,7 @@ import type {
 } from "@tearleads/validators/response";
 import { documentKekTargetsFromContentKeyBundle } from "@tearleads/validators/response";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
-import { assertDocumentKekPathsCurrent } from "../../../data/documents/shared/containerKekCurrency";
+import { assertDocumentKekPathsCurrent } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import {
   assertDocumentWriterProjectionConsistent,
   authorizingContainerPathRefs,

@@ -154,7 +154,7 @@ worker message: `packages/sqlite-worker/src/types.ts` has no batch request.
 A probe in `packages/client-sdk` builds its own executor around a real
 SQLite wasm database from `createTestExecSql` in
 `packages/test-utils/src/createTestExecSql.ts` and records every call, as
-`packages/client-sdk/src/data/persistence/principalHistoryStageRetention.plan.test.ts`
+`packages/client-sdk/src/data/persistence/principalHistory/principalHistoryStageRetention.plan.test.ts`
 does. Use a fresh executor per measurement: executors are cached per client,
 and the first call on a connection also runs the schema ensure. Because
 the app canaries have no client hook, how often an SDK operation runs in a

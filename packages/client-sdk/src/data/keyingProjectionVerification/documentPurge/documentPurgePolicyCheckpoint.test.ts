@@ -22,8 +22,8 @@ import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
 } from "../../../workflows/documents/create";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/documentPurgeCheckpointPersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { verifyDocumentPurgeProof } from "./documentPurgeProofVerification";
 

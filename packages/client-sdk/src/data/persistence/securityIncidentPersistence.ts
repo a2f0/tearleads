@@ -10,7 +10,7 @@ import type {
 import {
   securityIncidents,
   securityIncidentTable,
-} from "../sqlite/securityIncidentSchema";
+} from "../sqlite/schema/securityIncidentSchema";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../sqlite/sqlSchema";
 

@@ -7,7 +7,7 @@ Client paths are under `packages/client-sdk/src` and API paths are under
 `packages/api/src` unless a full path is shown. API tables are defined in
 `packages/api-shared/src/schema` and listed in
 `packages/api-shared/drizzle/0000_greenfield_baseline.sql`; SDK tables are
-defined in `data/sqlite/*Schema.ts` and `data/sqlite/schema.ts`.
+defined in `data/sqlite/schema/`.
 
 | Slice | Client scope | API scope |
 | --- | --- | --- |

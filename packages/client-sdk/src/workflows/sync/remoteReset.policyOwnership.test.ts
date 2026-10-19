@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { organizationReadModelGroups } from "../../data/sqlite/organizationReadModelSchema";
 import {
   clientSqlTables,
   principalPolicies,
@@ -9,6 +8,7 @@ import {
   principalPolicyCheckpoints,
   principalPolicyOrganizations,
 } from "../../data/sqlite/schema";
+import { organizationReadModelGroups } from "../../data/sqlite/schema/organizationReadModelSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

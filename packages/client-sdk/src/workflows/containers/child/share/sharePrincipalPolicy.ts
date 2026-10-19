@@ -12,11 +12,11 @@ import type {
 } from "@tearleads/validators/response";
 import type { ContainerShareApi } from "../../../../data/containers/shared/types";
 import { throwKeyingVerificationErrorWithContext } from "../../../../data/keyingProjectionVerification/error";
-import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
-import { savePrincipalPolicyBundle } from "../../../../data/persistence/principalPolicyPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../../../data/persistence/principalPolicyReferencePersistence";
-import { retainVerifiedPrincipalPolicyBundle } from "../../../../data/persistence/verifiedPrincipalPolicyRetentionPersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { savePrincipalPolicyBundle } from "../../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
+import { retainVerifiedPrincipalPolicyBundle } from "../../../../data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
 import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,

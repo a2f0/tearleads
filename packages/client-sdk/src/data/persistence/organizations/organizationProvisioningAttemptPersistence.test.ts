@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
-import { organizationProvisioningAttempts } from "../../sqlite/organizationProvisioningAttemptSchema";
+import { organizationProvisioningAttempts } from "../../sqlite/schema/organizationProvisioningAttemptSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { sqlOrganizationProvisioningAttemptPersistence } from "./organizationProvisioningAttemptPersistence";
 

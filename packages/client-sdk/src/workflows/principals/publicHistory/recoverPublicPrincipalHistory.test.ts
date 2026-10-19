@@ -4,12 +4,12 @@ import { and, eq } from "drizzle-orm";
 import { signedRecoveryHistory } from "../../../../test/helpers/principalHistoryRecovery";
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistoryEvidencePersistence";
+import { loadPrincipalHistoryReference } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,
-} from "../../../data/sqlite/principalHistoryEvidenceSchema";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
+} from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
 

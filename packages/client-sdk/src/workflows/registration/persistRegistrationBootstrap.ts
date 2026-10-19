@@ -22,7 +22,7 @@ import {
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   type LocallyAcknowledgedAccessManifestHead,
-} from "../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+} from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import { documentContainerProjectionTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";

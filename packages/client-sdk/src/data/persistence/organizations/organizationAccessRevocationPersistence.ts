@@ -1,8 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { getOrCreatePrincipalPolicyCoordinator } from "../../principals/principalPolicyCoordinator";
-import { organizationDataUsageTables } from "../../sqlite/organizationDataUsageSchema";
-import { organizationReadModelRequesters } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
+import { organizationDataUsageTables } from "../../sqlite/schema/organizationDataUsageSchema";
+import { organizationReadModelRequesters } from "../../sqlite/schema/organizationReadModelSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import { ensureSqlTables } from "../../sqlite/sqlTableSchema";

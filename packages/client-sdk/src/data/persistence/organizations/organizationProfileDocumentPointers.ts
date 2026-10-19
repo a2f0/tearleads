@@ -1,5 +1,5 @@
-import { organizationReadModelState } from "../../sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../sqlite/schema";
+import { organizationReadModelState } from "../../sqlite/schema/organizationReadModelSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 

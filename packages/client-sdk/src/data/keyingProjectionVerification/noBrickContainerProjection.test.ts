@@ -17,7 +17,7 @@ import {
   type Signer,
   verifyPath,
 } from "../../../test/helpers/ancestorCitationScenario";
-import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 
 /**
  * Projects runs of the real container-path verifier onto the NoBrickedDevice

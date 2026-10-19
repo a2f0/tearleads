@@ -5,12 +5,12 @@ import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/princip
 import {
   loadPrincipalHistoryPrefix,
   savePrincipalHistoryPrefix,
-} from "../../../data/persistence/principalHistoryPrefixPersistence";
+} from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import {
   principalHistoryEvidenceScopeId,
   principalHistoryPrefixProtection,
 } from "../../../data/principals/principalHistoryPrefixProtection";
-import { principalHistoryPrefixes } from "../../../data/sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { principalHistoryVerificationContext } from "../../principals/historyRecovery/principalHistoryRecoveryVerification";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";
 

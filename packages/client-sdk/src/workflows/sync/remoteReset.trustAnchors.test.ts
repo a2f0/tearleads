@@ -6,11 +6,11 @@ import type {
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { advanceKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import {
   loadAccessManifestCheckpoint,
   loadPrincipalPolicyCheckpoint,
-} from "../../data/persistence/keyingCheckpointPersistence";
+} from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { clearRemoteSyncState } from "./remoteReset";
 
 const OLD_ORG = "old-organization";

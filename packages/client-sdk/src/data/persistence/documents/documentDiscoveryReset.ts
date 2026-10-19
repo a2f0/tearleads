@@ -3,7 +3,7 @@ import {
   documentDiscoveryHeads,
   documentDiscoverySequence,
   pendingDocumentDiscoveries,
-} from "../../sqlite/documentDiscoveryEvidenceSchema";
+} from "../../sqlite/schema/documentDiscoveryEvidenceSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 export async function isDocumentDiscoveryGenerationCurrent(

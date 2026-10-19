@@ -1,7 +1,7 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { getImportBlobMetadata } from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
-import { serializeDocumentSyncPullContinuation } from "../../documents/shared/pullContinuation";
+import { serializeDocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import {
   documentRecordSelection,
   mapSelectedDocumentRecord,

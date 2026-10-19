@@ -11,9 +11,9 @@ import {
   createDocumentProjectorRegistry,
   defaultDocumentProjectorRegistry,
 } from "../../../../data/documents/documentKinds";
-import { loadDocumentPurgeCheckpoint } from "../../../../data/persistence/documentPurgeCheckpointPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { loadDocumentPurgeCheckpoint } from "../../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   type ClientSQLitePersistenceRuntime,

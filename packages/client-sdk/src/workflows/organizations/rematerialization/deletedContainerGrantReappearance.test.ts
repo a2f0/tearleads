@@ -12,7 +12,7 @@ import {
   projectionPolicySource,
 } from "../../../../test/helpers/projectionPolicyHistory";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
-import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { recoverPublicPrincipalHistory } from "../../principals/publicHistory/recoverPublicPrincipalHistory";
 import { preparePrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 

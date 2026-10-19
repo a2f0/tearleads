@@ -5,9 +5,9 @@ the other slices in the coverage queue described in [batching.md](batching.md).
 
 API paths are under `packages/api/src` and client paths under
 `packages/client-sdk/src` unless a full path is shown. API tables are defined
-in `packages/api-shared/src/schema` and client tables in
-`data/sqlite/*Schema.ts` and `data/sqlite/schema.ts`. Attach each slice's
-live PlanetScale leads and baseline rows when dispatching it.
+in `packages/api-shared/src/schema` and client tables in `data/sqlite/schema/`.
+Attach each slice's live PlanetScale leads and baseline rows when dispatching
+it.
 
 | Slice | Scope |
 | --- | --- |

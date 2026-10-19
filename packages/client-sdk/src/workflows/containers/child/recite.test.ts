@@ -5,11 +5,11 @@ import {
   heldContainerSnapshot,
   rememberAcknowledgedContainerHead,
 } from "../../../data/containers/shared/heldContainerHeads";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   locallyAuthoredAccessManifestHead,
-} from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+} from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { reciteHeldDescendants } from "./recite";
 import {
   assertContainerReciteAcknowledgement,

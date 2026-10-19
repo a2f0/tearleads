@@ -1,7 +1,7 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicyReferencePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,

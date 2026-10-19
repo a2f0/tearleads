@@ -22,7 +22,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../../data/keyingProjectionVerification";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import { savePrincipalPolicyBundle } from "../../../../data/persistence/principalPolicyPersistence";
+import { savePrincipalPolicyBundle } from "../../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import type { SecurityIncidentReporter } from "../../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {

@@ -4,7 +4,7 @@ import {
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
-import { principalHistoryPrefixes } from "../../../data/sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 

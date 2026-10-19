@@ -18,7 +18,7 @@ import { tamperSealedKeyring } from "../../../../../test/helpers/keyringRotation
 import {
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
-} from "../../../../data/documents/shared/keyringRebuild";
+} from "../../../../data/documents/shared/containerKek/keyringRebuild";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 
 test("a poisoned keyring is rebuilt from the log and repaired by rekey", async () => {

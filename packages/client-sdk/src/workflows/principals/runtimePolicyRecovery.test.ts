@@ -16,13 +16,13 @@ import {
   type PrincipalPolicyCache,
   type ReferencedPrincipalPolicyWarmer,
 } from "../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   loadOrganizationFounder,
   rememberOrganizationFounder,
 } from "../../data/persistence/organizationFounderPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../data/principals/principalHistoryProtection";
-import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

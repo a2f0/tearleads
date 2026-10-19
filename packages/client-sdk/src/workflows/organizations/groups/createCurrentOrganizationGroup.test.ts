@@ -10,7 +10,7 @@ import {
   policyBundleFromInitialRequest,
   policyReceiptFromBundle,
 } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { createRuntimeCurrentOrganizationMutation } from "../principalMutations/runtimeCurrentOrganizationMutation";
 import { createCurrentOrganizationGroup } from "./createCurrentOrganizationGroup";
 import { createOrganizationGroup } from "./groupCreation";

@@ -17,10 +17,10 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
+import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import { verifyContainerWriterProjection } from "../../keyingProjectionVerification";
 import { enforceAccessManifestCheckpoints } from "../../keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
-import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 
 test("hidden future history cannot bypass a persisted projection head", async () => {
   const secondUserId = "user-2";

@@ -3,7 +3,7 @@ import {
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { principalHeadMatchesReference } from "../../../../data/principals/organizationAuthorityDescriptor";
 import { loadCurrentOrganizationAuthority } from "../../../organizations/currentOrganizationAuthority";
 import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../../organizations/groupMetadata/currentGroupMetadataAuthority";

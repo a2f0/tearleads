@@ -7,11 +7,11 @@ import {
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { signedPrincipalPolicyBundle } from "../../../../test/helpers/principalPolicyFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   cachePrincipalPolicyBundles,
   cacheReferencedPrincipalPolicies,

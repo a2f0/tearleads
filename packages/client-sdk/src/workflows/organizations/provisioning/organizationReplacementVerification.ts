@@ -4,7 +4,7 @@ import {
   verifyOrganizationReplacementAuthorization,
 } from "@tearleads/crypto";
 import type { CreateOrganizationResponse } from "@tearleads/validators/response";
-import { persistOrganizationReplacementCheckpoints } from "../../../data/persistence/organizationReplacementCheckpointPersistence";
+import { persistOrganizationReplacementCheckpoints } from "../../../data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 /** The API's user/organization echoes are not authority to rehome local data. */

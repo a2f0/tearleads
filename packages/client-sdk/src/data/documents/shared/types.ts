@@ -36,9 +36,9 @@ import type {
 import { requireProjectionUserKeyResolver } from "../../keyingProjectionVerification";
 import type { DocumentRecord } from "../../sqlite/documentPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
+import type { DocumentSyncSubmitFailure } from "./sync/syncSubmitFailure";
 
-export type { DocumentSyncSubmitFailure } from "./syncSubmitFailure";
+export type { DocumentSyncSubmitFailure } from "./sync/syncSubmitFailure";
 
 export const DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT =
   "tearleads.document.loro-update";

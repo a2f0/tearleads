@@ -5,8 +5,8 @@ import {
   verifyPrincipalPolicyBundle,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   type OrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

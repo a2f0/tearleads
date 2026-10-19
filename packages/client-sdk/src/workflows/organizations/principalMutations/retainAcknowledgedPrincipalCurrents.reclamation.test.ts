@@ -9,8 +9,8 @@ import {
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
-import { principalKeyEnvelopeArchive } from "../../../data/sqlite/principalHistoryRetentionSchema";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
+import { principalKeyEnvelopeArchive } from "../../../data/sqlite/schema/principalHistoryRetentionSchema";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { captureAcknowledgedPrincipalPredecessor } from "../../principals/acknowledgements/acknowledgedPrincipalPredecessor";
 import { restorePrincipalHistoryRecoveryStage } from "../../principals/historyRecovery/principalHistoryRecoveryStage";
 import { recoverPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverPrincipalPolicyHistory";

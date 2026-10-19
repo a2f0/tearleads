@@ -3,11 +3,11 @@ import { asc } from "drizzle-orm";
 import {
   principalHistoryEvidenceTables,
   principalHistoryPrefixes,
-} from "../../src/data/sqlite/principalHistoryEvidenceSchema";
+} from "../../src/data/sqlite/schema/principalHistoryEvidenceSchema";
 import {
   principalHistoryStages,
   principalHistoryStageTables,
-} from "../../src/data/sqlite/principalHistoryStageSchema";
+} from "../../src/data/sqlite/schema/principalHistoryStageSchema";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../src/data/sqlite/sqlSchema";
 

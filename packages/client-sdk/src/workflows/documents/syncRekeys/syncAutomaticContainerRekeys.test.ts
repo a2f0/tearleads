@@ -10,7 +10,7 @@ import {
   createResponseFromRequest,
 } from "../../../../test/helpers/documentResponseFixtures";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
-import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKekPath";
+import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import {
   buildMaterializedDocumentCreatePlan,

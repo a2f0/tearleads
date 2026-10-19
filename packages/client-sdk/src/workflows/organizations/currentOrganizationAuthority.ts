@@ -4,8 +4,8 @@ import {
 } from "@tearleads/crypto";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { assertProjectionVerificationCurrent } from "../../data/keyingProjectionVerification/types";
-import { validateKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpointAdvancePersistence";
-import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/verifiedPrincipalPolicyCurrent";
+import { validateKeyingCheckpointsAtomically } from "../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { assertCurrentMatchesVerifiedPolicy } from "../../data/persistence/principalPolicy/verifiedPrincipalPolicyCurrent";
 import {
   parseOrganizationAuthorityDescriptor,
   principalHeadMatchesReference,

@@ -7,7 +7,7 @@ import { assertProjectionVerificationCurrent } from "../../../data/keyingProject
 import {
   loadPrincipalHistoryPrefix,
   type PrincipalHistoryPrefix,
-} from "../../../data/persistence/principalHistoryPrefixPersistence";
+} from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import {
   principalHistoryEvidenceScopeId,

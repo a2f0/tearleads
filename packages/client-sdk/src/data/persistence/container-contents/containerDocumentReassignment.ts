@@ -1,6 +1,5 @@
 import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
-import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   documentContainerProjection,
   documentProjection,
@@ -8,6 +7,7 @@ import {
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
+import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   deleteContainerDocumentTombstoneHoldRowsForLinks,

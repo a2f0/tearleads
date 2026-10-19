@@ -3,7 +3,7 @@ import {
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { PrincipalHistoryEvidenceUnavailableError } from "../historyRecovery/principalHistoryRecoveryReferences";
 import type {
   PublicPrincipalHistoryOptions,

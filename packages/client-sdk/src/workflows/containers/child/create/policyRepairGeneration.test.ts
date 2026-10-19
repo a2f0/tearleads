@@ -15,7 +15,7 @@ import {
 } from "../../../../../test/helpers/principalPolicyFixtures";
 import { createRepairWarmer } from "../../../../../test/helpers/principalPolicyRepair";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { recoverPrincipalPolicyRepair } from "../../../principals/policyRepair";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
 import { buildInitialOrganizationPolicyRequest } from "../../../registration/registerIdentity";

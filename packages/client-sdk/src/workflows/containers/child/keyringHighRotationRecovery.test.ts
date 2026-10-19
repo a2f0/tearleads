@@ -8,7 +8,7 @@ import {
 import {
   fetchContainerKekLog,
   rebuildKeyringEntriesFromLog,
-} from "../../../data/documents/shared/keyringRebuild";
+} from "../../../data/documents/shared/containerKek/keyringRebuild";
 
 test("recovery crosses the KEK log page boundary", async () => {
   const containerId = crypto.randomUUID();

@@ -12,7 +12,7 @@ import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives
 import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { enforceAccessManifestCheckpoints } from "../../../data/keyingProjectionVerification/checkpoints/accessManifestCheckpointEnforcement";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRemoteDocument } from "./index";
 

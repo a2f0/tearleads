@@ -4,8 +4,8 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicySnapshotPageResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistoryEvidencePersistence";
-import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistoryStagePersistence";
+import { preparePrincipalHistoryEvidencePage } from "../../../data/persistence/principalHistory/principalHistoryEvidencePersistence";
+import { savePrincipalHistoryStage } from "../../../data/persistence/principalHistory/principalHistoryStagePersistence";
 import { principalHistoryStageProtection } from "../../../data/principals/principalHistoryStageProtection";
 import { collectPrincipalPolicySignerPublicKeys } from "../policyVerification";
 import {

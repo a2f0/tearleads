@@ -3,7 +3,7 @@ import type { PrincipalPolicyExternalAuthority } from "@tearleads/crypto";
 import { createOrganizationHistoryFixture } from "../../../../test/helpers/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createPublicHistoryFixture } from "../../../../test/helpers/publicPrincipalHistory";
-import { principalHistoryPrefixes } from "../../../data/sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { recoverPublicPrincipalHistory } from "./recoverPublicPrincipalHistory";
 
 let history: Awaited<ReturnType<typeof createOrganizationHistoryFixture>>;

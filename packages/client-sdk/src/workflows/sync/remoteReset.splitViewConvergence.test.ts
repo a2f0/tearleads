@@ -31,7 +31,7 @@ import {
   importDecryptedDocumentSyncUpdates,
   isDocumentSyncUpdateIsolationError,
   validateDocumentSyncUpdateImports,
-} from "../../data/documents/shared/documentSyncUpdateIsolation";
+} from "../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import {
   clientSqlTables,
   containers,

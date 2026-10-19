@@ -4,7 +4,7 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../test/helpers/containerFixtures";
-import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
+import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 
 test("KEK unwrapping classifies a malformed key epoch hash as a security failure", async () => {
   const parent = await createParentProjection();

@@ -2,7 +2,7 @@ import { ContainerAuthorAccessError } from "../../data/containers/shared/authorA
 import {
   ContainerKekRepairInaccessibleError,
   ContainerKekRepairRequiredError,
-} from "../../data/documents/shared/containerKekCurrency";
+} from "../../data/documents/shared/containerKek/containerKekCurrency";
 
 /**
  * Why the SDK refused to author a container-scoped write before anything was

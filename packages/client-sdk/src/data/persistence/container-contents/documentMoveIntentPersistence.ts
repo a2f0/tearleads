@@ -1,5 +1,4 @@
 import { and, asc, eq, inArray } from "drizzle-orm";
-import { documentIntentLinkTargets } from "../../sqlite/documentPlacementIntentSchema";
 import {
   containerTables,
   documentPlacementIntentTables,
@@ -8,6 +7,7 @@ import {
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
+import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,

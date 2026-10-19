@@ -11,7 +11,7 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
-} from "../../src/data/persistence/principalPolicyPersistence";
+} from "../../src/data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,

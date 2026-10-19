@@ -3,8 +3,8 @@ import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import { createClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../sqlite/sqlSchema";
-import { loadDocumentPurgeCheckpoint } from "../documentPurgeCheckpointPersistence";
-import { advanceKeyingCheckpointsAtomically } from "../keyingCheckpointAdvancePersistence";
+import { loadDocumentPurgeCheckpoint } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { advanceKeyingCheckpointsAtomically } from "../keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
 
 async function openCoordinatedDocumentConnections() {

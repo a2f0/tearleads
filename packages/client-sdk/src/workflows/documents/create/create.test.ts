@@ -22,7 +22,7 @@ import {
   createResponseFromRequest,
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   createRemoteDocument,
   documentWriterProjectionFromCreateResponse,

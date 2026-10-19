@@ -29,11 +29,11 @@ import {
 } from "../../../../test/helpers/containerFixtures";
 import { createProjectionPolicyEvidence } from "../../../../test/helpers/projectionPolicyEvidence";
 import { projectionPolicyWarmer } from "../../../../test/helpers/projectionPolicyHistory";
-import { unwrapContainerKekPath } from "../../documents/shared/containerKekPath";
+import { unwrapContainerKekPath } from "../../documents/shared/containerKek/containerKekPath";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
-} from "../../persistence/principalPolicyPersistence";
+} from "../../persistence/principalPolicy/principalPolicyPersistence";
 
 async function createGroupPrincipalPolicyBundle(input: {
   memberRecipientPublicKeys: Array<{

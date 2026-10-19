@@ -8,7 +8,7 @@ import {
   principalHistoryEntries,
   principalHistoryNodes,
   principalHistoryPrefixes,
-} from "../../../data/sqlite/principalHistoryEvidenceSchema";
+} from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 test("headless restarts reverify history without multiplying evidence rows", async () => {

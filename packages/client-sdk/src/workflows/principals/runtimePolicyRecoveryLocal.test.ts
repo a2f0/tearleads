@@ -7,7 +7,7 @@ import {
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
-import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
 import { cachePrincipalPolicyBundles } from "./policyCache";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 

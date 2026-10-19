@@ -13,8 +13,8 @@ import type {
   PrincipalPolicyBundleResponse,
   PrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
-import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { retainLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";

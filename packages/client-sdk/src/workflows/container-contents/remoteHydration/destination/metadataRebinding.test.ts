@@ -5,7 +5,7 @@ import {
   installForeignOrganizationBinding,
   installOrganizationBinding,
 } from "../../../../../test/helpers/containerMetadataBinding";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { clientSqlTables } from "../../../../data/sqlite/schema";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../../../data/sqlite/sqlTableSchema";

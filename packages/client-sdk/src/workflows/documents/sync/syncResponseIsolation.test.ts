@@ -15,7 +15,7 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
-import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
+import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { syncRemoteDocument } from "./index";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";

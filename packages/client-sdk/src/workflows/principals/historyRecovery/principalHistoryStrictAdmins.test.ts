@@ -3,7 +3,7 @@ import {
   createRecoveryFixture,
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
-import { principalHistoryPrefixes } from "../../../data/sqlite/principalHistoryEvidenceSchema";
+import { principalHistoryPrefixes } from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedRecoveryHistory>>;

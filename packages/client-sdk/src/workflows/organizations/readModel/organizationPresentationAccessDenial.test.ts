@@ -26,7 +26,7 @@ import {
   applyOrganizationReadModelResponse,
   loadOrganizationReadModelProjection,
 } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   loadLocalOrganizationDataUsage,

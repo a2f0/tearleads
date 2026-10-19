@@ -2,8 +2,8 @@ import {
   computePrincipalStateHash,
   computePrincipalStatePayloadCiphertextHash,
 } from "@tearleads/crypto";
-import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpointPersistence";
-import { loadPrincipalPolicyBundle } from "../persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalPolicyBundle } from "../persistence/principalPolicy/principalPolicyPersistence";
 import type { ExecSql } from "../sqlite/sqlSchema";
 import { parseOrganizationAuthorityDescriptor } from "./organizationAuthorityDescriptor";
 

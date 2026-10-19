@@ -1,4 +1,4 @@
-import type { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKekCurrency";
+import type { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/types";
 import type { SyncRemoteDocumentInput } from "../sync/readOnlySync";
 import { traceAncestorRepairAbandoned } from "../sync/syncTrace";

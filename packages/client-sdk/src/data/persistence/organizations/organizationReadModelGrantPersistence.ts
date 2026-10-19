@@ -7,7 +7,7 @@ import {
   isOrganizationGroupContainerAccessLevel,
 } from "@tearleads/validators/response";
 import { asc, eq } from "drizzle-orm";
-import { organizationReadModelContainerGrants } from "../../sqlite/organizationReadModelSchema";
+import { organizationReadModelContainerGrants } from "../../sqlite/schema/organizationReadModelSchema";
 import { sqliteInsertBatchSize } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { OrganizationReadModelIntegrityError } from "./organizationReadModelProtocol";

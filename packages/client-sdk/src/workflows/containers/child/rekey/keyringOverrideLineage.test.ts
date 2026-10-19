@@ -20,7 +20,7 @@ import {
 import {
   manifestHistoryEpochIds,
   unwrapKeyringContainerKeksAtIndex,
-} from "../../../../data/documents/shared/containerKekPathHistory";
+} from "../../../../data/documents/shared/containerKek/containerKekPathHistory";
 import { verifyContainerDestinationProjection } from "../../../../data/keyingProjectionVerification/container/containerDestinationVerification";
 import { verifyKeyringEntriesForSeal } from "../move/moveRotation";
 import { resolveRotationContext } from "../rotation/rotationContext";

@@ -6,7 +6,7 @@ import {
   generationGuardedPrincipalPolicyWarmer,
   isProjectionVerificationCancelledError,
 } from "../../data/keyingProjectionVerification/types";
-import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

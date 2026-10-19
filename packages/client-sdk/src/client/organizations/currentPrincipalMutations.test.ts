@@ -12,8 +12,8 @@ import {
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { policyBundleAfterMutation } from "../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
-import { principalGrantRetirements } from "../../data/sqlite/principalGrantRetirementSchema";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { principalGrantRetirements } from "../../data/sqlite/schema/principalGrantRetirementSchema";
 import { createCurrentPrincipalMutation } from "./currentPrincipalMutations";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

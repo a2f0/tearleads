@@ -13,7 +13,7 @@ import {
   principalPolicyBundleFromInitialPolicy,
   referencedPrincipalStateFromBundle,
 } from "../../../../test/helpers/policyCacheFixtures";
-import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 
 test("principal policy sync authorizes empty group bundles from verified organization admins", async () => {
   const { close, execSql } = await createTestExecSql(

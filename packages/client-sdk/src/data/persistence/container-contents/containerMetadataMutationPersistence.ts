@@ -3,16 +3,16 @@ import {
   assertHeldContainerBinding,
   heldContainerBinding,
 } from "../../containers/containerBinding";
-import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
-import {
-  hasQueuedDocumentUpdates,
-  settleQueuedDocumentUpdatesInTransaction,
-} from "../../sqlite/documentPendingUpdatePersistence";
+import { documentSyncPullContinuationsEqual } from "../../documents/shared/sync/pullContinuation";
 import {
   enqueueDocumentPendingUpdate,
   type PendingUpdateFields,
 } from "../../sqlite/documentPersistence";
-import { clearDocumentSyncFailureInTransaction } from "../../sqlite/documentSyncFailurePersistence";
+import {
+  hasQueuedDocumentUpdates,
+  settleQueuedDocumentUpdatesInTransaction,
+} from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
+import { clearDocumentSyncFailureInTransaction } from "../../sqlite/documentPersistence/documentSyncFailurePersistence";
 import {
   inLocalIntentLane,
   LOCAL_INTENT_LANES,

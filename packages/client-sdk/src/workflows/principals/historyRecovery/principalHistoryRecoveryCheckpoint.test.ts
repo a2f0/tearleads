@@ -4,9 +4,9 @@ import {
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 

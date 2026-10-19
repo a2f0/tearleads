@@ -8,8 +8,8 @@ import {
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
-import { organizationProvisioningAttempts } from "../../data/sqlite/organizationProvisioningAttemptSchema";
 import { clientSqlTables, containers } from "../../data/sqlite/schema";
+import { organizationProvisioningAttempts } from "../../data/sqlite/schema/organizationProvisioningAttemptSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql, ExecSqlClientLike } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";

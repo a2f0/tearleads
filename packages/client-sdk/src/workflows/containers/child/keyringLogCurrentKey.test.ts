@@ -3,7 +3,7 @@ import {
   makeEpochKeys,
   makeLogEpoch,
 } from "../../../../test/helpers/keyringRotationFixtures";
-import { rebuildKeyringEntriesFromLog } from "../../../data/documents/shared/keyringRebuild";
+import { rebuildKeyringEntriesFromLog } from "../../../data/documents/shared/containerKek/keyringRebuild";
 
 for (const count of [1, 3]) {
   test(`a ${count}-epoch log binds the supplied current key even with no bridges`, async () => {

@@ -8,11 +8,11 @@ import {
 } from "../../../../test/helpers/policyCacheFixtures";
 import { createPolicyDirectoryFixture } from "../../../../test/helpers/policyDirectoryFixtures";
 import { trustedUserIdentityFromResponse } from "../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "../../../data/persistence/principalPolicyPersistence";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { cachePrincipalPolicyBundles } from "./index";
 
 for (const scenario of [

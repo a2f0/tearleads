@@ -12,7 +12,7 @@ import {
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { assertSignedWrappingPublicKey } from "../../../../data/documents/shared/containerKekWrapping";
+import { assertSignedWrappingPublicKey } from "../../../../data/documents/shared/containerKek/containerKekWrapping";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
 import { buildMaterializedContainerRekeyPlan } from "../rekey";
 import { buildMaterializedContainerSharePlan } from "../share/shareMaterialization";

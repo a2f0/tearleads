@@ -21,7 +21,7 @@ import {
 import {
   assertContainerKekPathCurrent,
   assertDocumentKekPathsCurrent,
-} from "../../../data/documents/shared/containerKekCurrency";
+} from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { buildDocumentLinkSetEventPlan } from "../../../data/documents/shared/events";
 import {
   assertDocumentWriterProjectionConsistent,

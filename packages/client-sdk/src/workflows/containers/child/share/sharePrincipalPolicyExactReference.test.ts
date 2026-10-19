@@ -14,8 +14,8 @@ import {
   principalPolicyHead,
 } from "../../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
-import { savePrincipalPolicyBundle } from "../../../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { savePrincipalPolicyBundle } from "../../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 
 import { buildInitialOrganizationPolicyRequest } from "../../../registration/registerIdentity";

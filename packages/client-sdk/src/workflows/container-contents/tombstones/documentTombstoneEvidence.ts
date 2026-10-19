@@ -7,7 +7,7 @@ import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { reportKeyingVerificationErrorInCauseChain } from "../../../data/keyingProjectionVerification/error";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
-import { loadDocumentPurgeCheckpoint } from "../../../data/persistence/documentPurgeCheckpointPersistence";
+import { loadDocumentPurgeCheckpoint } from "../../../data/persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import type {
   ContainerDocumentTombstone,

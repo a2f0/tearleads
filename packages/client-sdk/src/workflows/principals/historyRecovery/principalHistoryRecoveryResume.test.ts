@@ -5,7 +5,7 @@ import {
 } from "../../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { isProjectionVerificationCancelledError } from "../../../data/keyingProjectionVerification/types";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { clearRemoteSyncState } from "../../sync/remoteReset";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 

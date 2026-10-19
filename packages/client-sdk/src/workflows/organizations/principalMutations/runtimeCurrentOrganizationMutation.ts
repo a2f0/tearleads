@@ -1,5 +1,5 @@
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import type { PrincipalPolicyRecoveryRuntime } from "../../principals/runtimePolicyRecovery";
 import type { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
 import { loadCurrentOrganizationMutationAuthority } from "./currentOrganizationMutationAuthority";

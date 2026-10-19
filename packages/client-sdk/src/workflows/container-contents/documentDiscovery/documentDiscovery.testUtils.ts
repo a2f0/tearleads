@@ -1,6 +1,6 @@
 import type { SyncWatermark } from "@tearleads/validators/response";
 import type { DiscoveredDocumentCandidate } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
-import { upsertAccessManifestCheckpointInTransaction } from "../../../data/persistence/keyingCheckpointPersistence";
+import { upsertAccessManifestCheckpointInTransaction } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { keyingCheckpointTables } from "../../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";

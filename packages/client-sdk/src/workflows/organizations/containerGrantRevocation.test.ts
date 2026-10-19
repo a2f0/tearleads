@@ -6,7 +6,7 @@ import {
   createParentProjection,
 } from "../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
-import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
 
 test("organization revocation cannot acknowledge or cascade after cancellation", async () => {

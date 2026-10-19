@@ -12,7 +12,7 @@ import type {
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
-import { readLinkedContainerIdsFromDocumentManifest } from "../../src/data/documents/shared/projectionTargets";
+import { readLinkedContainerIdsFromDocumentManifest } from "../../src/data/documents/shared/projection/projectionTargets";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/containers/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";

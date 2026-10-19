@@ -14,7 +14,7 @@ import {
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { InvalidDocumentSyncPullContinuationError } from "../../../data/documents/shared/syncPagination";
+import { InvalidDocumentSyncPullContinuationError } from "../../../data/documents/shared/sync/syncPagination";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 

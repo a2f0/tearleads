@@ -1,19 +1,19 @@
 export {
-  type DocumentSyncUpdateIsolationError,
-  type IncomingDocumentSyncUpdateValidator,
-  isDocumentSyncUpdateIsolationError,
-  validateDocumentSyncUpdateImports,
-} from "../../data/documents/shared/documentSyncUpdateIsolation";
-export {
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
 export {
+  type DocumentSyncUpdateIsolationError,
+  type IncomingDocumentSyncUpdateValidator,
+  isDocumentSyncUpdateIsolationError,
+  validateDocumentSyncUpdateImports,
+} from "../../data/documents/shared/sync/documentSyncUpdateIsolation";
+export {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
   readPullContinuation,
-} from "../../data/documents/shared/syncPagination";
+} from "../../data/documents/shared/sync/syncPagination";
 export type {
   DocumentCreateAuthor,
   DocumentLinkSetFailureHandler,
@@ -21,14 +21,14 @@ export type {
   RelinkRemoteDocumentResult,
 } from "../../data/documents/shared/types";
 export {
-  DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
-  DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
-} from "../../data/sqlite/documentHistoryPersistence";
-export {
   clearDocumentSyncFailure,
   invalidateDocumentSyncPullContinuation,
   recordDocumentSyncFailure,
 } from "../../data/sqlite/documentPersistence";
+export {
+  DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
+  DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
+} from "../../data/sqlite/documentPersistence/documentHistoryPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
 export { selectDocumentSyncOutgoingBatch } from "../../data/sync/documentSyncOutgoingBatch";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";

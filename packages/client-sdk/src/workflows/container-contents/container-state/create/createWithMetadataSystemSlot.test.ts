@@ -8,7 +8,7 @@ import {
 import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
-import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import {

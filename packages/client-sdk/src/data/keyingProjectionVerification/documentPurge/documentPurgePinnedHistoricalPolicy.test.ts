@@ -5,7 +5,7 @@ import { createVerifiedRemoteDocumentDeletionHandler } from "../../../workflows/
 import {
   loadAccessManifestCheckpoint,
   upsertAccessManifestCheckpointInTransaction,
-} from "../../persistence/keyingCheckpointPersistence";
+} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { verifyDocumentPurgeProofBaseline } from "./documentPurgeProofVerification";
 

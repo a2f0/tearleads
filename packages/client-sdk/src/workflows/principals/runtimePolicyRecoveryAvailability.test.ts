@@ -9,8 +9,8 @@ import {
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
 import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
-import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
-import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
+import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { principalPolicyCheckpoints } from "../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

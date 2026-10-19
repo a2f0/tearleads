@@ -8,7 +8,7 @@ import {
   projectionPolicySource,
   projectionPolicyWarmer,
 } from "../../../../test/helpers/projectionPolicyHistory";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { loadOrganizationFounder } from "../../persistence/organizationFounderPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,

@@ -1,6 +1,6 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { saveOrganizationGroupDisplayNames } from "../../../data/persistence/organizations/organizationGroupNamePersistence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";

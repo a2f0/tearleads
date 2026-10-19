@@ -4,7 +4,7 @@ import {
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { isReferencedPrincipalStateResponse } from "@tearleads/validators/response";
-import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistoryPrefixPersistence";
+import type { PrincipalHistoryPrefix } from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { PublicPrincipalHistoryOptions } from "./publicPrincipalHistoryTypes";
 

@@ -6,7 +6,7 @@ import {
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { policyBundleAfterMutation } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

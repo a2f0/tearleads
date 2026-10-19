@@ -11,7 +11,7 @@ import {
   discardPrincipalHistoryPrefix,
   loadPrincipalHistoryPrefix,
   savePrincipalHistoryPrefix,
-} from "../../../data/persistence/principalHistoryPrefixPersistence";
+} from "../../../data/persistence/principalHistory/principalHistoryPrefixPersistence";
 import { principalHistoryPrefixProtection } from "../../../data/principals/principalHistoryPrefixProtection";
 import { parsePrincipalHistoryStageCurrent } from "../../../data/principals/principalHistoryStageProtection";
 import type { RecoverPrincipalPolicyHistoryOptions } from "./principalHistoryRecoveryTypes";

@@ -7,8 +7,8 @@ import {
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { rememberVerifiedContainerHeads } from "../../containers/shared/heldContainerHeads";
-import type { DocumentPurgeCheckpoint } from "../../persistence/documentPurgeCheckpointPersistence";
-import { PrincipalAuthorizationCheckpointUnavailableError } from "../../persistence/principalAuthorizationCheckpoints";
+import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { PrincipalAuthorizationCheckpointUnavailableError } from "../../persistence/keyingCheckpoints/principalAuthorizationCheckpoints";
 import type { VerifiedManifestBundle } from "../../persistence/verifiedManifestBundlePersistence";
 import type { PrincipalPolicyCheckpointEvidence } from "../../principals/principalPolicyEvidence";
 import type { ExecSql } from "../../sqlite/sqlSchema";

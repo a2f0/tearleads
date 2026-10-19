@@ -7,7 +7,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKekCurrency";
+import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
 import { rekeyRemoteContainer } from "../rekey/rekeyRemote";
 import { shareRemoteContainer } from "./index";
 

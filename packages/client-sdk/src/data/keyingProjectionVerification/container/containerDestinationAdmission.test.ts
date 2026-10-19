@@ -14,7 +14,7 @@ import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/
 import {
   loadAccessManifestCheckpoint,
   loadPrincipalPolicyCheckpoint,
-} from "../../persistence/keyingCheckpointPersistence";
+} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { isProjectionVerificationCancelledError } from "../types";
 import { verifyContainerDestinationProjection } from "./containerDestinationVerification";
 

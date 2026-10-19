@@ -12,7 +12,7 @@ import {
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
-import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { ensureDocumentTables } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 

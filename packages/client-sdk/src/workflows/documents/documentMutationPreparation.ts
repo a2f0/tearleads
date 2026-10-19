@@ -2,7 +2,7 @@ import { mergeVersionVectors, satisfiesVersionVector } from "@tearleads/loro";
 import {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
-} from "../../data/documents/shared/syncPagination";
+} from "../../data/documents/shared/sync/syncPagination";
 import { canWriteEffectiveAccessLevel } from "../../data/keying/accessLevel";
 import type {
   DocumentsPersistence,

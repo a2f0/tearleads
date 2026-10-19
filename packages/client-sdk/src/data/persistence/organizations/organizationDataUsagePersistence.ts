@@ -8,8 +8,8 @@ import {
   ORGANIZATION_DATA_USAGE_PROJECTION_VERSION,
   organizationDataUsageSnapshots,
   organizationDataUsageTables,
-} from "../../sqlite/organizationDataUsageSchema";
-import { organizationReadModelTables } from "../../sqlite/organizationReadModelTableRegistry";
+} from "../../sqlite/schema/organizationDataUsageSchema";
+import { organizationReadModelTables } from "../../sqlite/schema/organizationReadModelTableRegistry";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

@@ -5,7 +5,7 @@ import {
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpointAdvancePersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { requireOrganizationGroupHead } from "../../../data/principals/organizationAuthorityDescriptor";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";

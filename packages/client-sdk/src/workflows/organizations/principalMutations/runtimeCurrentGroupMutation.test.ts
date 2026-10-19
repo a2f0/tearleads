@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import type { PrincipalHistoryProtectionLease } from "../../../data/principals/principalHistoryProtection";
 import { principalPolicyReferenceFromBundle } from "../../../data/principals/principalPolicyAdminSigners";
 import { prepareAuthoredGroupPolicy } from "../groupPolicy/groupPolicyMutationAcknowledgement";

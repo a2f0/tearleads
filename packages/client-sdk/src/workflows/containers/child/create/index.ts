@@ -40,7 +40,7 @@ import type {
   CreateRemoteContainerResult,
   MaterializedContainerCreatePlan,
 } from "../../../../data/containers/shared/types";
-import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKekCurrency";
+import { assertContainerKekPathCurrent } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
 import { unwrapContainerKekPath } from "../../../../data/documents/shared/projection";
 import {
   type ProjectionVerificationOptions,

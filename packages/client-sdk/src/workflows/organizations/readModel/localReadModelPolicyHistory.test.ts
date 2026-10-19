@@ -10,7 +10,7 @@ import {
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
-import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicyPersistence";
+import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { buildOrganizationPolicyHistory } from "../policyHistory/policyHistoryReadModel";
 import {
   loadLocalOrganizationPolicyHistory,

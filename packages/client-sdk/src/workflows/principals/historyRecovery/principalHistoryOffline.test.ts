@@ -8,9 +8,9 @@ import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFix
 import {
   principalHistoryNodes,
   principalHistoryPrefixes,
-} from "../../../data/sqlite/principalHistoryEvidenceSchema";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
-import { principalPolicyCheckpoints } from "../../../data/sqlite/principalPolicySchema";
+} from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
+import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverScopedPrincipalPolicyHistory } from "./recoverScopedPrincipalPolicyHistory";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

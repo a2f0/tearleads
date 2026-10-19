@@ -12,7 +12,7 @@ import { createAuthorityRecoveryFixture } from "../../../test/helpers/principalA
 import { projectionHistoryPages } from "../../../test/helpers/projectionPolicyHistory";
 import { ProjectionDependencyUnavailableError } from "../../data/keyingProjectionVerification/dependencyUnavailable";
 import { applyOrganizationReadModelResponse } from "../../data/persistence/organizations/organizationReadModelPersistence";
-import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { savePrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { unavailableExecSql } from "../../data/sqlite/sqlSchema";
 import { createOrganizationReadModelCoordinator } from "./organizationReadModels";

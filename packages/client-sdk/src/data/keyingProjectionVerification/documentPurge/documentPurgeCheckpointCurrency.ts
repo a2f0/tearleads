@@ -3,17 +3,17 @@ import type {
   VerifiedAccessManifestCheckpointEvidence,
   VerifiedPrincipalPolicySelection,
 } from "@tearleads/crypto";
-import type { DocumentPurgeCheckpoint } from "../../persistence/documentPurgeCheckpointPersistence";
-import { validateAccessManifestCheckpointEvidence } from "../../persistence/keyingCheckpointEvidence";
+import type { DocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { validateAccessManifestCheckpointEvidence } from "../../persistence/keyingCheckpoints/keyingCheckpointEvidence";
 import {
   accessManifestObjectKey,
   loadAccessManifestCheckpoint,
-} from "../../persistence/keyingCheckpointPersistence";
+} from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   PrincipalAuthorizationCheckpointUnavailableError,
   validatePrincipalAuthorizationCheckpoints,
-} from "../../persistence/principalAuthorizationCheckpoints";
-import { ensurePrincipalPolicyTables } from "../../persistence/principalPolicyPersistence";
+} from "../../persistence/keyingCheckpoints/principalAuthorizationCheckpoints";
+import { ensurePrincipalPolicyTables } from "../../persistence/principalPolicy/principalPolicyPersistence";
 import { registerClientSQLiteCommitGuard } from "../../sqlite/sqliteCommitGuards";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";

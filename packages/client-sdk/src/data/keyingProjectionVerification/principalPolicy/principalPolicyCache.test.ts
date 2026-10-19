@@ -12,13 +12,13 @@ import {
   referencedPrincipalStateFromBundle,
   referencedPrincipalStateFromPolicyState,
 } from "../../../../test/helpers/policyCacheFixtures";
-import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpointPersistence";
+import { advanceKeyingCheckpointsAtomically } from "../../persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,
-} from "../../persistence/principalPolicyPersistence";
-import { retainVerifiedPrincipalPolicyBundle } from "../../persistence/verifiedPrincipalPolicyRetentionPersistence";
+} from "../../persistence/principalPolicy/principalPolicyPersistence";
+import { retainVerifiedPrincipalPolicyBundle } from "../../persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
 import { principalPolicyBundleContainsReference } from "../../principals/principalPolicyStates";
 import {
   filterUncachedPrincipalPolicyReferences,

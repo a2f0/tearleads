@@ -1,5 +1,5 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { loadDocumentPurgeCheckpoint } from "../../persistence/documentPurgeCheckpointPersistence";
+import { loadDocumentPurgeCheckpoint } from "../../persistence/keyingCheckpoints/documentPurgeCheckpointPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 
 export async function rejectPurgedDocumentProjection(

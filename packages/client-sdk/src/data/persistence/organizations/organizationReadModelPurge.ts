@@ -1,5 +1,6 @@
 import { and, type Column, eq, ne, notExists, type SQL } from "drizzle-orm";
-import { organizationDataUsageSnapshots } from "../../sqlite/organizationDataUsageSchema";
+import { organizationReadModelTables } from "../../sqlite/schema";
+import { organizationDataUsageSnapshots } from "../../sqlite/schema/organizationDataUsageSchema";
 import {
   organizationReadModelContainerGrants,
   organizationReadModelDirectoryUsers,
@@ -7,8 +8,7 @@ import {
   organizationReadModelGroups,
   organizationReadModelRequesters,
   organizationReadModelState,
-} from "../../sqlite/organizationReadModelSchema";
-import { organizationReadModelTables } from "../../sqlite/schema";
+} from "../../sqlite/schema/organizationReadModelSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

@@ -14,9 +14,9 @@ import {
   createSyncResponse,
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
-import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/documentSyncUpdateIsolation";
 import { DocumentHistoryUnavailableError } from "../../../data/documents/shared/projection";
 import { targetEnvelopeReference } from "../../../data/documents/shared/readers";
+import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { syncRemoteDocumentResultFromResponse } from "../sync/syncResponseResult";
 import {
   DocumentRawHistoryUnavailableError,

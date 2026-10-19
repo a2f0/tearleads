@@ -1,7 +1,7 @@
 import { and, eq, lte } from "drizzle-orm";
 import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
 import { deriveStoredDocumentTitle } from "../../../documents/documentKinds";
-import { serializeDocumentSyncPullContinuation } from "../../../documents/shared/pullContinuation";
+import { serializeDocumentSyncPullContinuation } from "../../../documents/shared/sync/pullContinuation";
 import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
 import type { DocumentScope } from "../../../sqlite/documentPersistence";
 import {

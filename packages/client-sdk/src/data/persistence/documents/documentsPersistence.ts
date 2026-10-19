@@ -6,8 +6,8 @@ import {
   type DocumentSummary,
   HIDDEN_DOCUMENT_SUMMARY_KINDS,
 } from "../../documents/documentSummary";
-import { settleQueuedDocumentUpdatesInTransaction } from "../../sqlite/documentPendingUpdatePersistence";
 import { findLocalIdByDocumentId } from "../../sqlite/documentPersistence";
+import { settleQueuedDocumentUpdatesInTransaction } from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
 import {
   documentProjection,
   documentPurgeCheckpoints,

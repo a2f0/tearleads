@@ -15,7 +15,7 @@ import type {
 import { execSqlClientFromExecSql } from "../../../test/helpers/execSqlClient";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicyPersistence";
+import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
 import {
   buildInitialOrganizationPolicyRequest,

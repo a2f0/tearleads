@@ -6,7 +6,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   organizationReadModelGroupMembers,
   organizationReadModelGroups,
-} from "../../sqlite/organizationReadModelSchema";
+} from "../../sqlite/schema/organizationReadModelSchema";
 import {
   sqliteInsertBatchSize,
   sqliteRowsPerStatement,

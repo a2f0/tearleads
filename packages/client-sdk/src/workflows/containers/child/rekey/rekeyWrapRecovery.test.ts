@@ -12,11 +12,11 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
 } from "../../../../../test/helpers/containerFixtures";
-import { manifestHistoryEpochIds } from "../../../../data/documents/shared/containerKekPathHistory";
+import { manifestHistoryEpochIds } from "../../../../data/documents/shared/containerKek/containerKekPathHistory";
 import {
   HistoricalWrapUnavailableError,
   recoverKeyringEntryFromWraps,
-} from "../../../../data/documents/shared/keyringRebuild";
+} from "../../../../data/documents/shared/containerKek/keyringRebuild";
 import { sealRotationKeyring } from "../move/moveRotation";
 import { rekeyRemoteContainer } from "./rekeyRemote";
 

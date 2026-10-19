@@ -15,7 +15,7 @@ import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectio
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   locallyAuthoredAccessManifestHead,
-} from "../../../../data/persistence/locallyAcknowledgedCheckpointPersistence";
+} from "../../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type buildMaterializedContainerCreatePlan,

@@ -13,8 +13,8 @@ import { execSqlClientFromExecSql } from "../../../../test/helpers/execSqlClient
 import { respondToOrganizationProvisioning } from "../../../../test/helpers/organizationProvisioningResponder";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { organizationReadModelState } from "../../../data/sqlite/organizationReadModelSchema";
 import { organizationReadModelTables } from "../../../data/sqlite/schema";
+import { organizationReadModelState } from "../../../data/sqlite/schema/organizationReadModelSchema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents/historyContent";

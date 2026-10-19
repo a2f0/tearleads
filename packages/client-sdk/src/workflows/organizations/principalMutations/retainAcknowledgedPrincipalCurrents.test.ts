@@ -4,14 +4,14 @@ import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { currentPolicyPublicationFixture } from "../../../../test/helpers/currentPolicyPublication";
 import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpointPersistence";
-import { loadPrincipalKeyEnvelopeCandidates } from "../../../data/persistence/principalKeyEnvelopeCandidates";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { loadPrincipalKeyEnvelopeCandidates } from "../../../data/persistence/principalKeys/principalKeyEnvelopeCandidates";
 import { unwrapKeyEnvelopesWithPrincipalPolicies } from "../../../data/principals/principalPolicyCrypto";
 import {
   principalHistoryEntries,
   principalHistoryPrefixes,
-} from "../../../data/sqlite/principalHistoryEvidenceSchema";
-import { principalHistoryStages } from "../../../data/sqlite/principalHistoryStageSchema";
+} from "../../../data/sqlite/schema/principalHistoryEvidenceSchema";
+import { principalHistoryStages } from "../../../data/sqlite/schema/principalHistoryStageSchema";
 import { restorePrincipalHistoryRecoveryStage } from "../../principals/historyRecovery/principalHistoryRecoveryStage";
 import { recoverPrincipalPolicyHistory } from "../../principals/historyRecovery/recoverPrincipalPolicyHistory";
 import { retainAcknowledgedPrincipalCurrents } from "./retainAcknowledgedPrincipalCurrents";

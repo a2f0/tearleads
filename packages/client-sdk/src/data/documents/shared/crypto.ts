@@ -16,13 +16,13 @@ import {
   deriveDocumentPlaintextHashKey,
   importContentKeyMaterial,
 } from "./contentRecordKeys";
-import { decryptDocumentSyncUpdate } from "./documentSyncUpdateDecryption";
+import { asWebCryptoBytes, readWriteHeader } from "./readers";
+import { decryptDocumentSyncUpdate } from "./sync/documentSyncUpdateDecryption";
 import {
   isDocumentSyncUpdateIsolationError,
   isolateDocumentSyncBatchError,
   isolateDocumentSyncUpdateError,
-} from "./documentSyncUpdateIsolation";
-import { asWebCryptoBytes, readWriteHeader } from "./readers";
+} from "./sync/documentSyncUpdateIsolation";
 import {
   type DecryptedDocumentSyncUpdate,
   DOCUMENT_ENCRYPTED_LORO_UPDATE_FORMAT,

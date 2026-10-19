@@ -5,7 +5,7 @@ import {
   type HeldContainerBinding,
   heldContainerBinding,
 } from "../../containers/containerBinding";
-import { documentSyncPullContinuationsEqual } from "../../documents/shared/pullContinuation";
+import { documentSyncPullContinuationsEqual } from "../../documents/shared/sync/pullContinuation";
 import {
   containerHydrationTombstones,
   containers,
@@ -20,7 +20,7 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import { loadContainerById } from "../containers/containerPersistence";
-import { loadStoredAccessManifestCheckpoint } from "../keyingCheckpointPersistence";
+import { loadStoredAccessManifestCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import type {
   ContainerContentsPersistence,
   ContainerHydrationTombstone,
