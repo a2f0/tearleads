@@ -200,6 +200,7 @@ export async function shareRemoteContainerWithGroup(input: {
 
 export async function moveRemoteContainer(input: {
   containerId: string;
+  onStaleAcceptance?: (() => void) | undefined;
   parentContainerId: string;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;
@@ -218,6 +219,7 @@ export async function moveRemoteContainer(input: {
     containerId: input.containerId,
     destinationParentContainerId: input.parentContainerId,
     execSql,
+    onStaleAcceptance: input.onStaleAcceptance,
     resolveProjectionUserKey: input.resolveProjectionUserKey,
     stillCurrent: input.stillCurrent,
     targetSecretKey,

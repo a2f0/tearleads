@@ -12,7 +12,16 @@ export interface PurgeProgress {
   readonly totalCount: number;
 }
 
+/**
+ * A purge first waits for moves this device queued inside its scope: until the
+ * server holds them, the scope cannot prove what it would destroy. "waiting"
+ * reports the wait; "unsettled" means it ended before every move reached the
+ * server, and nothing was deleted.
+ */
+export type PurgeMoveSettlement = "waiting" | "unsettled";
+
 export interface PurgeOptions {
+  onMoveSettlement?: ((settlement: PurgeMoveSettlement) => void) | undefined;
   onProgress?: ((progress: PurgeProgress) => void) | undefined;
   signal?: AbortSignal | undefined;
 }

@@ -281,6 +281,7 @@ export type {
   ContainerContentsStoreSyncAgent,
   ContainerContentsStoreSyncState,
   ContainerState,
+  PurgeMoveSettlement,
   PurgeOptions,
   PurgeProgress,
 } from "./stores/container-contents";

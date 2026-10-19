@@ -375,6 +375,7 @@ export async function moveRemoteContainer(input: {
   destinationParentContainerId: string;
   eventId?: string | undefined;
   execSql: ExecSql;
+  onStaleAcceptance?: (() => void) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
@@ -444,6 +445,7 @@ export async function moveRemoteContainer(input: {
     },
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
+    onStaleAcceptance: input.onStaleAcceptance,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
     submit: (carried) => {
