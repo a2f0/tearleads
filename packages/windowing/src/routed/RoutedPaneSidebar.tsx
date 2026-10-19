@@ -8,6 +8,16 @@ import "./RoutedPaneSidebar.css";
 
 const DEFAULT_WIDTH = 224;
 
+function getResizeContainer(sidebar: HTMLElement) {
+  // The app bar spans sidebar + content in both launcher placements. Its width
+  // also changes when the side launcher expands, even if the viewport does not.
+  return (
+    sidebar
+      .closest(".routed-pane")
+      ?.querySelector<HTMLElement>(".routed-pane-appbar") ?? null
+  );
+}
+
 function RoutedPaneMobileSidebar({
   children,
   onClose,
@@ -38,6 +48,7 @@ function RoutedPaneTabletSidebar({ children }: { children: ReactNode }) {
   const resize = useSidebarResize({
     defaultWidth: DEFAULT_WIDTH,
     initialWidth: null,
+    getResizeContainer,
   });
 
   return (
@@ -54,6 +65,7 @@ function RoutedPaneTabletSidebar({ children }: { children: ReactNode }) {
         className="routed-pane-sidebar-resize-handle"
         controls="routed-pane-sidebar"
         currentWidth={resize.resolvedWidth}
+        maxWidth={resize.maxWidth}
         onKeyDown={resize.handleKeyDown}
         onPointerDown={resize.handlePointerDown}
       />
