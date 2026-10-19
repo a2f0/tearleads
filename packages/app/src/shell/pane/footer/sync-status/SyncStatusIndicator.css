@@ -19,9 +19,16 @@
   cursor: pointer;
 }
 
-.sync-status-indicator:hover,
 .sync-status-indicator:focus-visible {
   background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .sync-status-indicator:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
 }
 
 /* Click-popover body. The status line reads as text; the write-queue link below

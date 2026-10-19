@@ -211,7 +211,8 @@
 }
 
 @media (hover: hover) {
-  .routed-pane-iconbutton:hover:not(:disabled) {
+  .routed-pane-iconbutton:hover:not(:disabled),
+  .routed-pane-taskbar-menu-button:hover {
     background: var(--emphasis-surface);
     color: var(--emphasis-text);
   }
@@ -354,7 +355,6 @@
   cursor: pointer;
 }
 
-.routed-pane-taskbar-menu-button:hover,
 .routed-pane-taskbar-menu-button:focus-visible,
 .routed-pane-taskbar-menu-button[aria-expanded="true"] {
   background: var(--emphasis-surface);
