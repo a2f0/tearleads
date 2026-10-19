@@ -1,9 +1,7 @@
-import { encodeVersionVector } from "@tearleads/loro";
 import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
 import { reportAndRethrowKeyingVerificationError } from "../../../../data/keyingProjectionVerification/error";
 import { ContainerCreateIntentSupersededError } from "../../../../data/persistence/container-contents/containerIntentPersistence";
 import { errorMessage } from "../../../../data/shared/errorMessage";
-import { documentCreateSeedCandidate } from "../../../documents/sync/initialSync";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -22,6 +20,7 @@ import {
   deferTooDeepCreate,
   recordRefusedTooDeepCreate,
 } from "./createIntentDepth";
+import { loadMetadataSeedUpdate } from "./createIntentSeed";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 
 class IncompleteContainerCreateSettlementError extends Error {}
@@ -304,15 +303,10 @@ async function createPendingRemoteContainer(input: {
 }): Promise<CreateIntentSyncResult> {
   const { containerState, parentState, syncInput } = input;
   const { intent, state } = syncInput;
-  // The queued first metadata update, when it holds the whole document,
-  // commits with the create instead of a following metadata sync.
-  const metadataSeedUpdate = documentCreateSeedCandidate({
-    documentVersion: encodeVersionVector(containerState.doc),
-    pendingUpdates: await state.persistence.listPendingUpdates(
-      state.runtime.infra.execSql,
-      containerState.container.id,
-    ),
-  });
+  const metadataSeedUpdate = await loadMetadataSeedUpdate(
+    syncInput.state,
+    containerState,
+  );
   if (!syncInput.isCurrent()) return "abandoned";
   let created: Awaited<ReturnType<typeof createRemoteContainer>>;
   try {

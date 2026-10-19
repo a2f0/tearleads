@@ -9,6 +9,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../../data/containers/shared/mutationAcknowledgement";
+import { isContainerManifestAlreadyExistsConflict } from "../../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
@@ -322,10 +323,16 @@ async function createRemoteContainerWithMetadataDocumentAttempt(
     if (!submitted) return null;
   }
   // A seed only saves the first metadata sync: a refused seeded create falls
-  // back to the plain create once, so the row syncs as before. Its failures,
-  // a lost response included, then take the ordinary repair path.
+  // back to the plain create once, so the row syncs as before, and its failures
+  // take the ordinary repair path. A lost response is adopted directly, as a
+  // plain create's would be.
   const seeded = submitted?.ok === true;
-  if (!seeded) submitted = await submitRequest(request);
+  if (
+    !submitted ||
+    (!submitted.ok && !isContainerManifestAlreadyExistsConflict(submitted))
+  ) {
+    submitted = await submitRequest(request);
+  }
   if (!submitted?.ok) {
     return submitted;
   }

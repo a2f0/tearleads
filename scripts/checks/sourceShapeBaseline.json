@@ -46,6 +46,10 @@
       "lines": 974,
       "bytes": 53885
     },
+    "docs/developer/device-first.md": {
+      "lines": 366,
+      "bytes": 20185
+    },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 361,
       "bytes": 20661
@@ -67,8 +71,8 @@
       "bytes": 2571514
     },
     "docs/protocol-specification.md": {
-      "lines": 738,
-      "bytes": 39173
+      "lines": 740,
+      "bytes": 39299
     },
     "docs/security-guarantees.md": {
       "lines": 842,

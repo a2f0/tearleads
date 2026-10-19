@@ -340,6 +340,10 @@ Ordinary container write:
 2. The store persists the change and its `local_intents` row, then notifies.
 3. The promise settles without waiting for HTTP; the sync lane converges later.
 
+A device-first document or folder whose whole content is one queued update
+sends it with its create ([create seed](../document-link-and-sync-protocol.md)).
+Eager system-container creates are not seeded (#2585).
+
 ## Scope boundaries
 
 - Both layers key off `DomainScope` (`WeakMap`), so identity/db changes rotate

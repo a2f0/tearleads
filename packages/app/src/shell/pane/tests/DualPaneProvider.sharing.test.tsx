@@ -60,9 +60,10 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // operation; completed policy stages need no confirmation read. The
   // attachment's stage carries its part upload source and the bind completes
   // it. Batched discovery lists each reconciliation pass's lanes in one
-  // request. Measured 62–68 calls (settle timing) and about 2.0–2.1 MB
-  // received; keep eight calls of scheduling room.
-  total: 76,
+  // request. The empty folder's create carries its metadata as its seed, so
+  // no metadata sync follows. Measured 58 calls (62–68 before the seed) and
+  // about 2.0–2.1 MB received; keep eight calls of scheduling room.
+  total: 66,
   // Container mutations cite stored manifests by hash, so the share and its
   // recitations no longer echo path bundles: 180 KB sent (was 352 KB). Keep
   // the same ~8% request headroom and room for two extra document projections.
@@ -328,12 +329,13 @@ test(
     const syncIntents = documentSyncIntentCounts(
       listProxiedApiRequests().slice(testRequestStartIndex),
     );
-    // The empty folder metadata and note attachment each need a write.
-    // If the eager note create finishes before typing, the text needs its own
-    // sync; otherwise it is already in the create payload. Both schedules are
-    // valid (delaying typing until after creation reproduces the third write).
-    expect(syncIntents.writeBearing).toBeGreaterThanOrEqual(2);
-    expect(syncIntents.writeBearing).toBeLessThanOrEqual(3);
+    // The empty folder's metadata rides its create as the create's seed; the
+    // note attachment needs a write. If the eager note create finishes before
+    // typing, the text needs its own sync; otherwise it is already in the
+    // create payload. Both schedules are valid (delaying typing until after
+    // creation reproduces the second write).
+    expect(syncIntents.writeBearing).toBeGreaterThanOrEqual(1);
+    expect(syncIntents.writeBearing).toBeLessThanOrEqual(2);
     expect(syncIntents.readOnly).toBeLessThanOrEqual(16);
     expectProxiedApiRequestBudget(
       "active-roster-user root attachment share",

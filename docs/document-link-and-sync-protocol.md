@@ -24,6 +24,21 @@ principal policies, derives the document link-set manifest, stores the manifest
 head, and validates the submitted content-key bundle against derived document
 KEK targets.
 
+A create may also carry an `initialSync` seed (#2585): a `DocumentSyncRequest`
+holding exactly one outgoing update and no container rekeys, whose start is
+empty and whose `localVersionVector` is the update's end. It is the client's one
+queued update that holds the new document's whole content. The API commits the
+seed in the create transaction under the same write-header, target, and billing
+checks as a standalone sync, so a seed a sync would refuse fails the create, and
+nothing commits. The response's `initialSync` names the accepted update id and
+the commit position, which the client records as its first sync's. The route
+publishes the seed's update hint. The client settles its queued row only when
+that acknowledgement names it. A refused seed falls back once to the plain
+create, after which the row syncs as before. A lost response is adopted through
+`409 document_manifest_already_exists`. Adoption cannot tell whether the seed
+committed, so the row stays queued. A retried update id the seed already stored
+takes the ordinary known-update path.
+
 Both link and unlink bodies require `blobRewraps`: one entry per blob actively
 bound to the changed document, with `blobId`, the immutable `contentKeyEpoch`,
 and complete wrapped `targets` for every active binding and resulting linked

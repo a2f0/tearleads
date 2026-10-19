@@ -45,4 +45,12 @@ export const CONTAINER_ADOPTION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       expect: { kind: "invariant", name: "NoWriteIntoUnadoptedFolder" },
       why: "A move or metadata edit replayed into a folder whose create is pending reaches a listed identity adoption has not verified, or has refused (#2420).",
     },
+    {
+      id: "adopted-container-create-drops-metadata-seed",
+      module: MODULE,
+      config: CONFIG,
+      constants: { KeepMetadataSeedOnAdoption: "FALSE" },
+      expect: { kind: "invariant", name: "AdoptedSeedIsCommitted" },
+      why: "Adopting a container create whose response was lost must keep its metadata seed queued: the lost attempt may have been the plain fallback (#2585).",
+    },
   ];

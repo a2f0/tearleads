@@ -80,15 +80,17 @@ test("folder creation, document linking, unlinking and trash have separate reque
     operation: () => createChildContainer(pane, folder),
     budget: {
       // The operation discovers the directory once; completed directory,
-      // Admins and public history stages need no confirmation read.
-      total: 5,
+      // Admins and public history stages need no confirmation read. The
+      // create carries the folder's queued metadata as its seed, so no
+      // metadata sync (and its discovery read) follows.
+      total: 3,
       byRequest: {
-        "GET /principals/organization/:organizationId/policy": 2,
+        "GET /principals/organization/:organizationId/policy": 1,
         "GET /principals/group/:groupId/policy": 0,
         "GET /principals/history": 0,
         "POST /containers/documents/query": 1,
         "POST /containers/with-metadata-document": 1,
-        "POST /documents/:documentId/sync": 1,
+        "POST /documents/:documentId/sync": 0,
       },
     },
     mutations: [

@@ -75,6 +75,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A missing-row read from an obsolete generation must not clear a replacement store.",
   },
   {
+    id: "unacknowledged-create-seed-settles",
+    module: "formal/local-trust/QueuedDocumentCreate.tla",
+    config: "formal/local-trust/QueuedDocumentCreate.cfg",
+    constants: { RequireSeedAcknowledgement: "FALSE" },
+    expect: { kind: "invariant", name: "SettledSeedIsCommitted" },
+    why: "A create acknowledgement that does not name the seed (a plain fallback) must not settle the queued row (#2585).",
+  },
+  {
+    id: "adopted-create-drops-seed",
+    module: "formal/local-trust/QueuedDocumentCreate.tla",
+    config: "formal/local-trust/QueuedDocumentCreate.cfg",
+    constants: { KeepSeedOnAdoption: "FALSE" },
+    expect: { kind: "invariant", name: "SettledSeedIsCommitted" },
+    why: "Adopting a create whose response was lost must keep the seed queued: the lost attempt may have been the plain fallback (#2585).",
+  },
+  {
     id: "content-write-unrefreshed-citations",
     module: "formal/document-sync/ContentWriteAuthority.tla",
     config: "formal/document-sync/ContentWriteAuthority.cfg",

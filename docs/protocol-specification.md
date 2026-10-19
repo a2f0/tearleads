@@ -305,7 +305,9 @@ Signed container mutation routes are:
 
 Most signed mutations use `ContainerMutationRequest`. The container with
 metadata document create route wraps a `ContainerMutationRequest` with the
-initial metadata `DocumentCreateRequest`.
+initial metadata `DocumentCreateRequest`, and an optional
+`initialMetadataSync` seed that follows the
+[document create seed](document-link-and-sync-protocol.md) rules.
 
 Each signed mutation request carries:
 

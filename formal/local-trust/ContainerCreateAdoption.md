@@ -19,6 +19,8 @@ lane's pass.
 | `SettledMove` / `KeepQueuedMove` | `rebaseQueuedMove` keeps a queued move's destination and cites `supersededMovePreviousParentId` |
 | `RefuseForeignCreate` / `ParkForeignCreates` / `parked` | `ForeignContainerCreateError` is recorded as `CONTAINER_CREATE_ADOPTION_REFUSED`, which `syncListedContainerCreate` leaves blocked without a read |
 | `SiblingSync` / `LaneHalted` | `syncPendingContainerCreateIntents` continues with the next intent |
+| `seedQueued` / `seedCommitted` | the queued first metadata update `documentCreateSeedCandidate` picks; `createRemoteContainerWithMetadataDocument` sends it as `initialMetadataSync` |
+| `KeepMetadataSeedOnAdoption` / `SyncMetadataSeed` | `settleRemoteContainerCreate` returns early for `CONTAINER_ALREADY_COMMITTED`, leaving the seed for the folder's metadata sync; only `metadataSeed` passes `acceptedPendingUpdateIds` |
 | `WriteIntoFolder` / `HoldPendingWrites` / `wroteUnadopted` | `runContainerContentsStoreSyncIteration` passes `isCreatePending` to container and document move replay and skips the folder's metadata sync; `syncPendingContainerCreateIntents` holds child creates and `isContainerCreatePending` holds document creates |
 
 The configuration has three parents and two scopes: the device's own create
@@ -26,7 +28,7 @@ and a foreign one. The create committed under the first parent. TLC explores
 hydration at any point, local moves before and after it, remote moves while
 the intent is pending, and both listings.
 
-It checks five properties:
+It checks six properties:
 
 - adoption preserves the verified intended scope;
 - the settled move cites the parent the folder sits under now;
@@ -35,11 +37,14 @@ It checks five properties:
 - no folder move, document move, child or document create, or metadata
   edit is written into the folder while its create is pending;
 - a later intent in the same pass eventually syncs, under fairness for
-  adoption, refusal and that intent.
+  adoption, refusal and that intent;
+- the folder's metadata seed (#2585) leaves the queue only once the server
+  holds it: the lost response may have been the seeded create's or a plain
+  fallback's, so adoption keeps the seed queued.
 
-Five negative controls remove signed-create verification, current-parent
-citation, keeping a queued move, parking, and holding writes into a pending
-folder. Without the queued-move rule,
+Six negative controls remove signed-create verification, current-parent
+citation, keeping a queued move, parking, holding writes into a pending
+folder, and keeping the metadata seed on adoption. Without the queued-move rule,
 the owed move both cites a parent that never committed and takes over the
 queued destination; TLC reports the stale citation first.
 

@@ -57,16 +57,18 @@ test(
         // policy heads, so their first recovery reads no group history.
         // Batched discovery lists the four lanes queued at startup in one
         // request and a later-surfaced lane in a second.
-        // Login returns the first websocket ticket, so no ticket request.
-        total: 36,
+        // Login returns the first websocket ticket, so no ticket request. The
+        // self contact's create carries its queued content as its seed, so no
+        // content sync (and its discovery read) follows. Measured 32.
+        total: 34,
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 8,
+          "GET /principals/organization/:organizationId/policy": 7,
           "GET /principals/group/:groupId/policy": 0,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
           "GET /principals/history": 3,
           "POST /containers/documents/query": 2,
-          "POST /documents/:documentId/sync": 8,
+          "POST /documents/:documentId/sync": 7,
           "POST /containers/parent-lanes/query": 5,
           "GET /containers/:containerId/writer-projection": 4,
           // The root metadata write reads its document projection. Discovery
