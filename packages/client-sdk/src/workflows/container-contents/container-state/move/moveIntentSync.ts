@@ -18,6 +18,7 @@ import {
   appliedRemoteContainer,
   leaveAcceptedMoveQueued,
   STALE_ACCEPTED_MOVE,
+  unacknowledgedAcceptedMove,
   unpersistedAcceptedMove,
 } from "./acceptedMoveSettlement";
 
@@ -248,6 +249,14 @@ async function failedMoveReplay(input: {
   }
   if (error instanceof ContainerPathTooDeepError)
     return abandonTooDeepMove(syncInput);
+  // Even a refused acknowledgement leaves the move on the server; its replay
+  // verifies the head again before settling.
+  if (remoteMoveApplied && error instanceof Error)
+    leaveAcceptedMoveQueued(
+      syncInput,
+      "Container contents: an accepted container move failed to settle",
+      error,
+    );
   await reportAndRethrowKeyingVerificationError(
     error,
     state.runtime.util.reportSecurityIncident,
@@ -261,12 +270,6 @@ async function failedMoveReplay(input: {
   if (!syncInput.isCurrent()) {
     return abandonAppliedMove();
   }
-  if (remoteMoveApplied && error instanceof Error)
-    leaveAcceptedMoveQueued(
-      syncInput,
-      "Container contents: an accepted container move failed to settle",
-      error,
-    );
   await recordPendingMoveIntentError({
     containerId: intent.containerId,
     expectedIntentId: intent.id,
@@ -301,7 +304,7 @@ async function movePendingRemoteContainer(input: {
   try {
     const replayed = await moveRemoteContainer({
       containerId: intent.containerId,
-      onStaleAcceptance: () => {
+      onAccepted: () => {
         remoteMoveApplied = true;
       },
       parentContainerId: intent.parentContainerId,
@@ -315,6 +318,7 @@ async function movePendingRemoteContainer(input: {
           syncInput.requestRemoteReconciliation(intent.parentContainerId);
         return abandonAppliedMove();
       }
+      if (remoteMoveApplied) return unacknowledgedAcceptedMove(syncInput);
       await recordPendingMoveIntentError({
         containerId: intent.containerId,
         expectedIntentId: intent.id,

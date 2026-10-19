@@ -50,6 +50,18 @@ export function unpersistedAcceptedMove(
   return "failed";
 }
 
+/** The server accepted, but this current pass got no result to settle. */
+export function unacknowledgedAcceptedMove(
+  syncInput: AcceptedMoveInput,
+): "failed" {
+  leaveAcceptedMoveQueued(
+    syncInput,
+    "Container contents: an accepted container move was not acknowledged",
+    new Error("Accepted container move was not acknowledged"),
+  );
+  return "failed";
+}
+
 /**
  * Settles from the verified head the server already holds. A head carries no
  * server timestamps, so the container keeps the ones this device holds.

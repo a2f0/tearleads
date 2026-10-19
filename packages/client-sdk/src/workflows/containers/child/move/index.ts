@@ -297,7 +297,7 @@ interface MoveRemoteContainerInput {
   destinationParentContainerId: string;
   eventId?: string | undefined;
   execSql: ExecSql;
-  onStaleAcceptance?: (() => void) | undefined;
+  onAccepted?: (() => void) | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
@@ -397,7 +397,7 @@ async function submitRemoteContainerMove(
     },
     containerKey: materializedPlan.containerKey,
     execSql: input.execSql,
-    onStaleAcceptance: input.onStaleAcceptance,
+    onAccepted: input.onAccepted,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
     submit: (carried) =>

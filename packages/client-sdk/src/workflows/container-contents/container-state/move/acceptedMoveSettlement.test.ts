@@ -10,6 +10,7 @@ import { createAuthor } from "../../../../../test/helpers/documentFixturePrimiti
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { createDomainScope } from "../../../../data/shared/domainScope";
+import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
 import type { ContainerState } from "../../remoteHydration";
 import { createTestContainerState } from "../containerState.testFixtures";
@@ -26,6 +27,8 @@ import { syncPendingContainerMoveIntents } from "./moveIntentSync";
 async function replayAcceptedMove(input: {
   /** The server already holds the folder under the destination. */
   alreadyApplied?: boolean;
+  /** Checkpoint writes fail once the server has accepted the move. */
+  failCheckpointWrites?: boolean;
   host: ContainerMoveIntentSyncHost;
   /** Flips once the server has accepted the move. */
   staleAfterAcceptance: boolean;
@@ -81,9 +84,16 @@ async function replayAcceptedMove(input: {
       },
     },
   );
+  let accepted = false;
   let current = true;
   let retries = 0;
   let submissions = 0;
+  const execSql = ((sql: string, ...rest: [never, never]) =>
+    input.failCheckpointWrites &&
+    accepted &&
+    /^\s*(insert|update)\b[^;]*access_manifest_checkpoints/iu.test(sql)
+      ? Promise.reject(new Error("disk I/O error"))
+      : database.execSql(sql, ...rest)) as ExecSql;
   const reconciled: (string | null)[] = [];
   const reports: { error: unknown; message: string }[] = [];
   const state: ContainerMoveIntentSyncState = {
@@ -110,6 +120,7 @@ async function replayAcceptedMove(input: {
             moved,
             [...root.path, ...destination.path],
           );
+          accepted = true;
           if (input.staleAfterAcceptance) current = false;
           return { data, ok: true as const };
         },
@@ -133,7 +144,7 @@ async function replayAcceptedMove(input: {
         dbStatus: "ready",
         documentProjectors:
           {} as ContainerMoveIntentSyncState["runtime"]["infra"]["documentProjectors"],
-        execSql: database.execSql,
+        execSql,
       },
       resolveTrustedUserIdentity: async () => null,
       state: {
@@ -252,4 +263,19 @@ test("a replay of a move the server already holds settles without posting", asyn
   });
   expect(candidate?.container.id).toBe("moved");
   expect(mutationOptions?.moveIntentSettlement?.containerId).toBe("moved");
+}, 30_000);
+
+test("an acknowledgement that throws after acceptance re-arms the replay", async () => {
+  const outcome = await replayAcceptedMove({
+    failCheckpointWrites: true,
+    host: unusedHost,
+    staleAfterAcceptance: false,
+  });
+  expect(outcome.submissions).toBe(1);
+  expect(outcome.movedCount).toBe(0);
+  expect(outcome.queued).toHaveLength(1);
+  expect(outcome.reports.map(({ message }) => message)).toEqual([
+    "Container contents: an accepted container move failed to settle",
+  ]);
+  expect(outcome.retries).toBe(1);
 }, 30_000);

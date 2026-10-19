@@ -16,7 +16,7 @@ lost result schedules its own replay instead of waiting for a reload.
 | `Replay`, `AdoptAppliedMove` | `replayRemoteContainerMove` verifies both writer projections; `buildMaterializedContainerMovePlan` returns `applied` when the verified source head's parent is the destination, and `appliedRemoteContainer` feeds `persistAcceptedMoveIntent` with no request |
 | `Replay` (post) | `submitRemoteContainerMove` signs the move and submits it to the move endpoint |
 | `Settle` | `persistAcceptedMoveIntent` persists the head and settles the intent revision it read (`moveIntentSettlement`) in one transaction |
-| `LoseResult`, `RearmLostResult` | a stale pass (`onStaleAcceptance`, `abandonAppliedMove`), `unpersistedAcceptedMove`, and `failedMoveReplay` call `leaveAcceptedMoveQueued`, which reports and calls `requestRetry` (`requestSyncAfter`) |
+| `LoseResult`, `RearmLostResult` | `onAccepted` marks the move applied before acknowledgement; a stale pass (`abandonAppliedMove`), `unacknowledgedAcceptedMove`, `unpersistedAcceptedMove`, and `failedMoveReplay` call `leaveAcceptedMoveQueued`, which reports and calls `requestRetry` (`requestSyncAfter`) |
 | `SettleOnLocalClaim` | the option #2556 rejected; `buildMaterializedContainerMovePlan` instead compares the destination with the verified head, never with the local placement |
 | `NoRedundantRotation` | `buildMaterializedContainerMovePlan` returns before signing when the verified head already sits under the destination |
 | `SettleHasEvidence` | `persistAcceptedMoveIntent` runs only on the server's response or an `AppliedContainerMove` |
