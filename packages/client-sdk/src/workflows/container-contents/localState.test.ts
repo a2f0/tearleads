@@ -88,7 +88,7 @@ test("loadLocalContainerStates materializes metadata records and pending updates
     icon: "folder",
     id: "container-1",
     name: "Local folder",
-    parentId: null,
+    parentId: "root-1",
   });
   const savedContainers: SaveContainerCall[] = [];
   const pendingUpdates: Array<{
@@ -135,6 +135,35 @@ test("loadLocalContainerStates materializes metadata records and pending updates
   expect(pendingUpdates).toHaveLength(1);
   expect(pendingUpdates[0]?.execSql).toBe(execSql);
   expect(pendingUpdates[0]?.input.containerId).toBe(container.id);
+});
+
+test("loadLocalContainerStates queues no metadata for a device-first root", async () => {
+  // Registration provisioning commits the root's metadata; a queued copy would
+  // be replayed after login as duplicate ops.
+  const container = createContainerRecord({
+    icon: null,
+    id: "root-1",
+    name: "/",
+    parentId: null,
+  });
+  const savedContainers: SaveContainerCall[] = [];
+  const pendingUpdates: Array<{
+    execSql: ExecSql;
+    input: PendingUpdateInput;
+  }> = [];
+
+  const [containerState] = await loadLocalContainerStates({
+    persistence: createContainerContentsPersistence({
+      pendingUpdates,
+      savedContainers,
+      storedContainers: [{ container, record: null }],
+    }),
+    runtime,
+  });
+
+  expect(containerState?.record?.metadataUpdates).toBeTruthy();
+  expect(savedContainers).toHaveLength(1);
+  expect(pendingUpdates).toEqual([]);
 });
 
 test("loadLocalContainerStates replays metadata snapshots into containers", async () => {
