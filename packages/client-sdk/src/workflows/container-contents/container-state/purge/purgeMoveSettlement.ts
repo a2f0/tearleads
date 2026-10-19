@@ -153,8 +153,8 @@ export async function settlePurgeScopeMoves(
   };
   const readScope = createScopeReader(input);
   let intents = await readScope();
-  if (intents.length === 0) return "settled";
   if (cancelled()) return "cancelled";
+  if (intents.length === 0) return "settled";
   if (intents.some(isParked))
     return unsettled({
       error: new Error("Purge scope holds a parked move"),
