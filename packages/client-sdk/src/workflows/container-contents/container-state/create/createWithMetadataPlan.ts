@@ -33,6 +33,13 @@ export interface ContainerWithMetadataPlanInput {
   readonly stillCurrent?: (() => boolean) | undefined;
 }
 
+/** A folder's metadata document takes the folder's id, known before the create. */
+export function plannedContainerMetadataDocumentId(
+  containerId: string,
+): string {
+  return containerId;
+}
+
 async function buildPlans(input: ContainerWithMetadataPlanInput) {
   const execSql = input.runtime.infra.execSql;
   // Rebuild parent- and policy-dependent hashes, signatures, and wraps on every
@@ -43,7 +50,7 @@ async function buildPlans(input: ContainerWithMetadataPlanInput) {
     containerKey: input.containerKey,
     execSql,
     eventId: input.containerEventId,
-    metadataDocumentId: input.containerId,
+    metadataDocumentId: plannedContainerMetadataDocumentId(input.containerId),
     systemSlot: input.systemSlot,
     parentProjection: input.parentProjection,
     parentSecretKey: input.parentSecretKey,

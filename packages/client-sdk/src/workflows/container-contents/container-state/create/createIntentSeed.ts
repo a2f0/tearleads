@@ -8,6 +8,7 @@ import {
 import type { ContainerState } from "../../remoteHydration";
 import type { createRemoteContainer } from "../remote";
 import type { ContainerCreateIntentSyncState } from "../types";
+import { plannedContainerMetadataDocumentId } from "./createWithMetadataPlan";
 
 /**
  * The queued first metadata update, when it holds the whole document, commits
@@ -63,5 +64,25 @@ export async function withRegisteredMetadataSeed(
       registered,
       accepted,
     );
+  }
+}
+
+/**
+ * Runs a folder's create with its planned metadata document id registered, so
+ * a peer's metadata hint that arrives before the response installs the id
+ * still queues the folder's first read (see
+ * `listContainerMetadataDocumentUpdateIds`).
+ */
+export async function withPlannedMetadataDocumentId<T>(
+  plannedDocumentIds: Set<string> | undefined,
+  containerId: string,
+  create: () => Promise<T>,
+): Promise<T> {
+  const documentId = plannedContainerMetadataDocumentId(containerId);
+  plannedDocumentIds?.add(documentId);
+  try {
+    return await create();
+  } finally {
+    plannedDocumentIds?.delete(documentId);
   }
 }

@@ -8,7 +8,10 @@ import {
 } from "../../metadata/metadataStateIsolation";
 import type { ContainerState } from "../../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../../remoteHydration/reconciliation";
-import { createRemoteContainer, deleteRemoteContainer } from "../remote";
+import {
+  createRemoteContainer,
+  discardOrphanedRemoteContainer,
+} from "../remote";
 import type {
   ContainerCreateIntentSyncHost,
   ContainerCreateIntentSyncInput,
@@ -22,6 +25,7 @@ import {
 } from "./createIntentDepth";
 import {
   loadMetadataSeedUpdate,
+  withPlannedMetadataDocumentId,
   withRegisteredMetadataSeed,
 } from "./createIntentSeed";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
@@ -195,29 +199,6 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     updatedAt: created.updatedAt,
   };
   return "persisted";
-}
-
-async function discardOrphanedRemoteContainer(input: {
-  created: CreatedRemoteContainerState;
-  isCurrent: () => boolean;
-  state: ContainerCreateIntentSyncState;
-}): Promise<void> {
-  if (!input.isCurrent()) {
-    return;
-  }
-  const discardFailure = await deleteRemoteContainer({
-    containerId: input.created.containerId,
-    organizationId: input.created.organizationId,
-    runtime: input.state.runtime,
-  }).then(
-    (deleted) => (deleted ? null : "the server rejected the delete"),
-    (error: unknown) => errorMessage(error),
-  );
-  if (input.isCurrent() && discardFailure !== null) {
-    input.state.runtime.util.log(
-      `Container contents: failed to discard orphaned remote container ${input.created.containerId} after local delete: ${discardFailure}`,
-    );
-  }
 }
 
 async function settleRemoteContainerCreate(input: {
@@ -422,11 +403,16 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     return currentCreateResult(input.isCurrent, "blocked");
   }
 
-  return createPendingRemoteContainer({
-    containerState,
-    parentState,
-    syncInput: input,
-  });
+  return withPlannedMetadataDocumentId(
+    state.plannedMetadataDocumentIds,
+    containerState.container.id,
+    () =>
+      createPendingRemoteContainer({
+        containerState,
+        parentState,
+        syncInput: input,
+      }),
+  );
 }
 
 export async function syncPendingContainerCreateIntents(input: {

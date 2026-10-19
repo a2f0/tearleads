@@ -6,6 +6,7 @@ import type {
 import { isContainerNotFoundFailure } from "../../../data/containers/shared/mutationFailures";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
+import { errorMessage } from "../../../data/shared/errorMessage";
 import {
   type AppliedContainerMove,
   readContainerMutationMetadataDocumentId,
@@ -22,6 +23,7 @@ import {
   createRemoteContainerWithMetadataDocument,
 } from "./create/createWithMetadata";
 import type {
+  ContainerCreateIntentSyncState,
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,
   RemoteContainer,
@@ -286,4 +288,28 @@ export async function deleteRemoteContainer(input: {
   }
 
   return { deletedAt: deleteResult.data.deletedAt };
+}
+
+/** Best-effort delete of a remote container whose local folder is gone. */
+export async function discardOrphanedRemoteContainer(input: {
+  created: CreatedRemoteContainerState;
+  isCurrent: () => boolean;
+  state: Pick<ContainerCreateIntentSyncState, "runtime">;
+}): Promise<void> {
+  if (!input.isCurrent()) {
+    return;
+  }
+  const discardFailure = await deleteRemoteContainer({
+    containerId: input.created.containerId,
+    organizationId: input.created.organizationId,
+    runtime: input.state.runtime,
+  }).then(
+    (deleted) => (deleted ? null : "the server rejected the delete"),
+    (error: unknown) => errorMessage(error),
+  );
+  if (input.isCurrent() && discardFailure !== null) {
+    input.state.runtime.util.log(
+      `Container contents: failed to discard orphaned remote container ${input.created.containerId} after local delete: ${discardFailure}`,
+    );
+  }
 }

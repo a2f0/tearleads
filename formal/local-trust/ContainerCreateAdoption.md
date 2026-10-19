@@ -54,4 +54,9 @@ back while another writer moved the folder keeps the remote move. The model
 does not prove cryptography or the move replay itself. It also leaves out
 settlement's compare-and-set against a revision re-queued mid-pass, which
 persistence tests cover. A failed read that is not a foreign create is modeled
-as taking no step: it is recorded and retried on a later pass.
+as taking no step: it is recorded and retried on a later pass. It starts from
+a lost response, so it leaves out the acknowledged seeded create, which settles
+the seed and skips the folder's first metadata read; a peer's hint arriving
+before that response is the step
+[QueuedDocumentCreate](./QueuedDocumentCreate.md) models with
+`PeerEditIsPulled`.

@@ -20,6 +20,7 @@ import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../../containerPersistence";
+import { listContainerMetadataDocumentUpdateIds } from "../../metadata/metadataEvents";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createTestContainerState } from "../containerState.testFixtures";
 import type { ContainerCreateIntentSyncState } from "../types";
@@ -213,11 +214,15 @@ test("a lost seeded container create response is adopted without resubmitting", 
   expect(requests).toHaveLength(1);
 });
 
+/** Classifies one metadata update hint as the store's event handler does. */
+type MetadataHint = (documentId: string, updateIds: string[]) => string[];
+
 async function runReplayedSeededCreate(
   name: string,
   respond: (
     request: ContainerCreateWithMetadataDocumentRequest,
     attempt: number,
+    hint: MetadataHint,
   ) => Promise<CreateResult>,
 ) {
   const parent = await createParentProjection();
@@ -227,6 +232,7 @@ async function runReplayedSeededCreate(
   const requests: ContainerCreateWithMetadataDocumentRequest[] = [];
   const { close, execSql } = await createTestExecSql(name);
   const locallyAcceptedMetadataUpdateIds = new Set<string>();
+  const plannedMetadataDocumentIds = new Set<string>();
   const childState = createTestContainerState({
     id: childContainerId,
     parentId: parentContainerId,
@@ -267,8 +273,29 @@ async function runReplayedSeededCreate(
       recordCreateIntentRevisionError: async () => undefined,
     },
     locallyAcceptedMetadataUpdateIds,
+    plannedMetadataDocumentIds,
     resolveProjectionUserKey: createParentProjectionUserKeyResolver(parent),
-    runtime: await createRuntime({ execSql, parent, requests, respond }),
+    runtime: await createRuntime({
+      execSql,
+      parent,
+      requests,
+      respond: (request, attempt) =>
+        respond(request, attempt, (documentId, updateIds) =>
+          listContainerMetadataDocumentUpdateIds(
+            [
+              {
+                containerIds: [childContainerId],
+                documentId,
+                type: "document_update_created",
+                updateIds,
+              },
+            ],
+            state.containersById.values(),
+            locallyAcceptedMetadataUpdateIds,
+            plannedMetadataDocumentIds,
+          ),
+        ),
+    }),
   };
   try {
     const created = await syncPendingContainerCreateIntents({
@@ -301,6 +328,7 @@ async function runReplayedSeededCreate(
       created,
       locallyAcceptedMetadataUpdateIds,
       persisted,
+      plannedMetadataDocumentIds,
       requests,
       seed,
     };
@@ -351,4 +379,36 @@ test("a replayed container create whose seed was refused drops its registration"
     },
   ]);
   expect([...result.locallyAcceptedMetadataUpdateIds]).toEqual([]);
+});
+
+test("a peer's metadata hint before the create response still queues a read", async () => {
+  const observed: { echo?: string[]; peer?: string[]; planned?: string } = {};
+  const result = await runReplayedSeededCreate(
+    "container-seed-delayed-response",
+    (request, _attempt, hint) => {
+      const documentId = String(
+        Reflect.get(request.metadataDocument.manifest, "objectId"),
+      );
+      const seedId = request.initialMetadataSync?.outgoingUpdates[0]?.id ?? "";
+      observed.planned = documentId;
+      // The seed's own echo is self-authored and queues nothing.
+      observed.echo = hint(documentId, [seedId]);
+      // A peer renames the committed folder before the response arrives,
+      // while the folder's record has no metadata document id yet.
+      observed.peer = hint(documentId, ["peer-rename"]);
+      return acknowledge(request);
+    },
+  );
+  expect(result.created).toBe(1);
+  expect(result.persisted).toEqual([
+    {
+      acceptedPendingUpdateIds: [result.seed.id],
+      clearSyncFailure: true,
+      lastCommitLsn: "0/20",
+    },
+  ]);
+  expect(observed.echo).toEqual([]);
+  expect(observed.planned).toBeDefined();
+  expect(observed.peer).toEqual([observed.planned ?? ""]);
+  expect([...result.plannedMetadataDocumentIds]).toEqual([]);
 });

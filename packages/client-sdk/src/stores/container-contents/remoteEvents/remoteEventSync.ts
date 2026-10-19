@@ -43,6 +43,7 @@ export function handleContainerContentsRemoteEvents(input: {
     nextEvents,
     state.containersById.values(),
     state.locallyAcceptedMetadataUpdateIds,
+    state.plannedMetadataDocumentIds,
   );
   for (const metadataDocumentId of metadataDocumentIds) {
     state.metadataDocumentIdsNeedingSync.add(metadataDocumentId);

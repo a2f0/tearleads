@@ -140,6 +140,8 @@ export interface ContainerIntentSyncState {
    * classified as self-authored (shared with the metadata sync).
    */
   locallyAcceptedMetadataUpdateIds?: Set<string> | undefined;
+  /** Metadata document ids of folder creates in flight (shared with hints). */
+  plannedMetadataDocumentIds?: Set<string> | undefined;
   persistence: ContainerContentsPersistence;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;

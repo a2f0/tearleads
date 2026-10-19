@@ -8,7 +8,9 @@ not clear the replacement. Once started, the create may carry the document's
 one queued row as its seed (#2585). The row may leave the queue only when the
 server holds its content. A peer may edit the document after the create
 commits; settling the seed skips the pass's pull, so a hint for that edit must
-survive even when it arrives before the store holds the document's id.
+survive even when it arrives before the store holds the document's id. A
+folder's metadata document is created the same way, with its first metadata
+update as the seed, so the seams below name both lanes.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -25,9 +27,9 @@ survive even when it arrives before the store holds the document's id.
 | `Settle` / `RequireSeedAcknowledgement` | `committedSeedSettlement` settles the row only when `acceptedOutgoingUpdateIds` names it |
 | `Adopt` / `KeepSeedOnAdoption` | `adoptExistingRemoteDocument` returns no create response, so `persistCreatedRemoteDocument` leaves the row queued |
 | `SyncQueuedRow` | the queued row syncs through `syncRemoteDocument`; a seed already stored under its id fails `assertRetryUpdateMatchesAcceptedContent` because the row is encrypted again, and `settledPendingUpdateIdsFromSync` or `rekeyUnsettledRecoveryPendingUpdates` settles or re-keys it |
-| `PeerEdit` / `KeepPlannedIdHints` | `ensureRemoteDocument` calls `recordPlannedRemoteDocumentId` before `createRemoteDocument`, so `hasRemoteDocumentUpdateEvent` matches a hint for that id before `persistCreatedRemoteDocument` installs it |
+| `PeerEdit` / `KeepPlannedIdHints` | `ensureRemoteDocument` calls `recordPlannedRemoteDocumentId` before `createRemoteDocument`, so `hasRemoteDocumentUpdateEvent` matches a hint for that id before `persistCreatedRemoteDocument` installs it; a folder create runs inside `withPlannedMetadataDocumentId`, so `listContainerMetadataDocumentUpdateIds` queues a hint for its metadata document in `metadataDocumentIdsNeedingSync` |
 | `IdInstalled` | `persistCreatedRemoteDocument` sets the record's `documentId` |
-| `ClearOnlyConsumedSignal` | `ensureSeededRemoteDocument` calls `clearConsumedRemoteUpdateSignal` with the sequence the pass consumed, which a later hint has moved |
+| `ClearOnlyConsumedSignal` | `ensureSeededRemoteDocument` calls `clearConsumedRemoteUpdateSignal` with the sequence the pass consumed, which a later hint has moved; a folder create leaves `metadataDocumentIdsNeedingSync` to `clearMetadataSyncQueueIfUnchanged` |
 | `Pull` | `shouldSkipCleanScheduledDocumentSync` is false while `remoteUpdatePending`, so the pass pulls |
 | `PeerEditIsPulled` | the creating pass or the queued row's `syncRemoteDocument` pulls the edit, or `handleDocumentRemoteEvents` schedules a pass for the surviving signal |
 | `SettledSeedIsCommitted` | `ensureSeededRemoteDocument` re-lists the queue only after `onCommitted` |

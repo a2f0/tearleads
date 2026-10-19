@@ -37,7 +37,9 @@ that acknowledgement names it. Settling the seed answers only the update signal
 the client held before submitting the create, so the pass skips its pull. A
 peer can edit the document before the response arrives, so the client matches
 update hints against the id it submitted the create under until the response
-installs it, and any such hint keeps the pull owed. A refused seed falls back
+installs it, and any such hint keeps the pull owed. A folder's metadata
+document takes the folder's id, so a seeded folder create matches hints for it
+the same way. A refused seed falls back
 once to the plain create, after which the row syncs as before. A lost response
 is adopted through `409 document_manifest_already_exists`. Adoption cannot tell
 whether the seed committed, so the row stays queued and syncs as an ordinary

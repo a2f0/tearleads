@@ -100,6 +100,7 @@ export function createContainerContentsStoreState(
     metadataDocumentIdsNeedingSync: new Set(),
     metadataSyncSignalSeqById: new Map(),
     persistence,
+    plannedMetadataDocumentIds: new Set(),
     remoteHydrationPromise: null,
     remoteHydrationGeneration: null,
     remoteHydrationStructuralGeneration: null,
@@ -168,6 +169,7 @@ function resetContainerContentsStore(state: ContainerContentsStoreState) {
   state.locallyAcceptedMetadataUpdateIds = new Set();
   state.metadataDocumentIdsNeedingSync = new Set();
   state.metadataSyncSignalSeqById = new Map();
+  state.plannedMetadataDocumentIds = new Set();
   state.rootLaneHydrated = false;
   state.writeChain = Promise.resolve<ContainerNode | null>(null);
   setContainerContentsSnapshot(state, {
