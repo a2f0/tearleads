@@ -127,8 +127,12 @@ export async function submitAcknowledgedContainerMutation<
   execSql: ExecSql;
   plan: TPlan;
   recitationPolicies: readonly PrincipalPolicyCheckpointEvidence[];
-  /** Called when the server accepted but a stale caller dropped the result. */
-  onStaleAcceptance?: (() => void) | undefined;
+  /**
+   * Called once the server has accepted the mutation, before this device
+   * acknowledges it, so a caller can tell an accepted mutation it failed to
+   * settle from one that never committed.
+   */
+  onAccepted?: (() => void) | undefined;
   /** Session lifetime for best-effort work after durable acknowledgement. */
   recitationStillCurrent?: (() => boolean) | undefined;
   reportSecurityIncident: SecurityIncidentReporter;
@@ -149,6 +153,7 @@ export async function submitAcknowledgedContainerMutation<
       throw new ContainerPathTooDeepError();
     return null;
   }
+  input.onAccepted?.();
   const { carriedPlans } = submitted;
   const response = submitted.result.data;
 
@@ -168,10 +173,7 @@ export async function submitAcknowledgedContainerMutation<
           responses: [response, ...(response.containerRekeys ?? [])],
           stillCurrent: input.stillCurrent,
         });
-  if (!acknowledged || input.stillCurrent?.() === false) {
-    input.onStaleAcceptance?.();
-    return null;
-  }
+  if (!acknowledged || input.stillCurrent?.() === false) return null;
 
   try {
     rememberVerifiedContainerHeads({

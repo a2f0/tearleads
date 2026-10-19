@@ -246,6 +246,14 @@ queued; that purge resolves `false` without deleting anything. Each unsettled
 ending, and each accepted container move that a replay leaves queued, reports
 through `util.logError` with a fixed message and no identifiers.
 
+A queued container move settles even when the server accepted it and this
+device lost the result: a stale pass, a failed acknowledgement, or a failed
+local settlement reports and asks the lane for a pass a second later. Its replay
+verifies the folder's writer projection first; when the verified head already
+sits under the destination, it settles the intent from that head and posts
+nothing, so a lost response no longer costs a second key rotation or waits for
+a reload. `formal/local-trust/ContainerMoveReplay.tla` models the replay.
+
 Remote document deletion commits its verified terminal purge checkpoint in the
 same local transaction as the matching document teardown. An interruption,
 stale store generation, or identity replacement leaves both operations

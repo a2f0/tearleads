@@ -21,7 +21,7 @@ import {
 } from "../../containerPersistence";
 import type { ContainerState } from "../../remoteHydration";
 import { createTestContainerState } from "../containerState.testFixtures";
-import { syncPendingContainerMoveIntents } from "../moveIntentSync";
+import { syncPendingContainerMoveIntents } from "../move/moveIntentSync";
 import type { ContainerCreateIntentSyncState } from "../types";
 import { syncPendingContainerCreateIntents } from "./createIntentSync";
 
@@ -331,6 +331,7 @@ test("a queued move the server refuses for path length is abandoned, not retried
         requestRemoteReconciliation: (parentId) => {
           reconciled.push(parentId);
         },
+        acceptedMoveRetry: { arm: () => {}, resume: () => {} },
         state: withMove,
       }),
     ).resolves.toBe(0);

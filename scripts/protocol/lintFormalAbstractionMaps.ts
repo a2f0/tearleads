@@ -55,6 +55,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/document-sync/SyncLaneConcurrency.md": 1,
   "formal/local-trust/UnacknowledgedInput.md": 1,
   "formal/local-trust/ContainerCreateAdoption.md": 1,
+  "formal/local-trust/ContainerMoveReplay.md": 1,
   "formal/local-trust/QueuedDocumentCreate.md": 1,
   "formal/local-trust/DocumentMovePlacement.md": 1,
   "formal/local-trust/DurableIdentityBinding.md": 1,
