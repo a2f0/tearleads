@@ -174,6 +174,14 @@ export type ContainerMoveIntentSyncHost = Pick<
   "persistContainerState" | "updateSnapshot"
 >;
 
+/** Later passes for moves the server accepted but no pass settled. */
+export interface AcceptedMoveRetry {
+  /** The server holds the move: schedule a replay to settle it. */
+  arm: (intentId: string) => void;
+  /** A replay failed; continue an accepted move's retries, if it has some. */
+  resume: (intentId: string) => void;
+}
+
 export interface ContainerMoveIntentSyncInput {
   host: ContainerMoveIntentSyncHost;
   isCurrent: () => boolean;
@@ -182,7 +190,6 @@ export interface ContainerMoveIntentSyncInput {
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   intent: ContainerMoveIntentRecord;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
-  /** Asks for a later pass that settles a move the server already holds. */
-  requestRetry: (intentId: string) => void;
+  acceptedMoveRetry: AcceptedMoveRetry;
   state: ContainerMoveIntentSyncState;
 }

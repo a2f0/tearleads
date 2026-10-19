@@ -331,7 +331,7 @@ test("a queued move the server refuses for path length is abandoned, not retried
         requestRemoteReconciliation: (parentId) => {
           reconciled.push(parentId);
         },
-        requestRetry: () => {},
+        acceptedMoveRetry: { arm: () => {}, resume: () => {} },
         state: withMove,
       }),
     ).resolves.toBe(0);

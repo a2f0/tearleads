@@ -18,8 +18,16 @@ export const CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS: readonly NegativeControl[]
       module: MODULE,
       config: CONFIG,
       constants: { RearmLostResult: "FALSE" },
-      expect: { kind: "liveness", name: "QueuedMovesSettle" },
+      expect: { kind: "liveness", name: "AcceptedMovesSettle" },
       why: "A move the server accepted but no pass settled must schedule its own replay, not wait for an unrelated write or a reload (#2556).",
+    },
+    {
+      id: "container-move-failed-replay-drops-acceptance",
+      module: MODULE,
+      config: CONFIG,
+      constants: { ResumeAcceptedRetry: "FALSE" },
+      expect: { kind: "liveness", name: "AcceptedMovesSettle" },
+      why: "A re-armed replay that fails before reaching the server, say on a projection read, must keep the accepted move's retries going (#2556).",
     },
     {
       id: "container-move-settles-on-local-claim",

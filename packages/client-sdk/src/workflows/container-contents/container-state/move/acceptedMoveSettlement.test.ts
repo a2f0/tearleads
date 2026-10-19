@@ -29,6 +29,8 @@ async function replayAcceptedMove(input: {
   alreadyApplied?: boolean;
   /** Checkpoint writes fail once the server has accepted the move. */
   failCheckpointWrites?: boolean;
+  /** The folder's writer projection cannot be read. */
+  projectionUnavailable?: boolean;
   host: ContainerMoveIntentSyncHost;
   /** Flips once the server has accepted the move. */
   staleAfterAcceptance: boolean;
@@ -87,6 +89,7 @@ async function replayAcceptedMove(input: {
   let accepted = false;
   let current = true;
   let retries = 0;
+  const resumed: string[] = [];
   let submissions = 0;
   const execSql = ((sql: string, ...rest: [never, never]) =>
     input.failCheckpointWrites &&
@@ -112,7 +115,11 @@ async function replayAcceptedMove(input: {
     runtime: {
       apiClient: createMockApiClient({
         getContainerWriterProjection: async (id) =>
-          id === "moved" ? moved : destination,
+          input.projectionUnavailable
+            ? null
+            : id === "moved"
+              ? moved
+              : destination,
         moveContainerResult: async (_id, request) => {
           submissions += 1;
           const data = await createContainerMutationResponseFromRequest(
@@ -171,8 +178,13 @@ async function replayAcceptedMove(input: {
       requestRemoteReconciliation: (parentId) => {
         reconciled.push(parentId);
       },
-      requestRetry: () => {
-        retries += 1;
+      acceptedMoveRetry: {
+        arm: () => {
+          retries += 1;
+        },
+        resume: (intentId) => {
+          resumed.push(intentId);
+        },
       },
       state,
     });
@@ -180,7 +192,15 @@ async function replayAcceptedMove(input: {
       await defaultContainerContentsPersistence.listUnsyncedMoveIntents(
         database.execSql,
       );
-    return { movedCount, queued, reconciled, reports, retries, submissions };
+    return {
+      movedCount,
+      queued,
+      reconciled,
+      reports,
+      resumed,
+      retries,
+      submissions,
+    };
   } finally {
     database.close();
   }
@@ -278,4 +298,17 @@ test("an acknowledgement that throws after acceptance re-arms the replay", async
     "Container contents: an accepted container move failed to settle",
   ]);
   expect(outcome.retries).toBe(1);
+}, 30_000);
+
+test("a replay that cannot read its projection resumes an accepted move's retries", async () => {
+  const outcome = await replayAcceptedMove({
+    host: unusedHost,
+    projectionUnavailable: true,
+    staleAfterAcceptance: false,
+  });
+  expect(outcome.submissions).toBe(0);
+  expect(outcome.queued).toHaveLength(1);
+  // Only an earlier acceptance gives the retry policy a budget to resume.
+  expect(outcome.retries).toBe(0);
+  expect(outcome.resumed).toEqual(outcome.queued.map(({ id }) => id));
 }, 30_000);

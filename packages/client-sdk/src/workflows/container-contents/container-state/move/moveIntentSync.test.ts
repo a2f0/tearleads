@@ -65,7 +65,7 @@ test("pending container move sync records per-intent failures and continues", as
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
     requestRemoteReconciliation: () => {},
-    requestRetry: () => {},
+    acceptedMoveRetry: { arm: () => {}, resume: () => {} },
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -114,7 +114,7 @@ test("stale container move identity failures do not report into a replacement", 
       isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
       requestRemoteReconciliation: () => {},
-      requestRetry: () => {},
+      acceptedMoveRetry: { arm: () => {}, resume: () => {} },
       state: createMoveIntentSyncState({
         containersById,
         incidents,
@@ -198,7 +198,7 @@ test("a blocked organization does not prevent another organization's move from s
       return organizationId === "custom-organization";
     },
     requestRemoteReconciliation: () => {},
-    requestRetry: () => {},
+    acceptedMoveRetry: { arm: () => {}, resume: () => {} },
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -247,7 +247,7 @@ test("a move whose source is not synced yet stays pending and retryable", async 
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
     requestRemoteReconciliation: () => {},
-    requestRetry: () => {},
+    acceptedMoveRetry: { arm: () => {}, resume: () => {} },
     state: createMoveIntentSyncState({ containersById, persistence }),
   });
 
@@ -290,7 +290,7 @@ test("move replay does not require a standalone settlement adapter", async () =>
     isCurrent: () => true,
     isRemoteSyncBlocked: () => false,
     requestRemoteReconciliation: () => {},
-    requestRetry: () => {},
+    acceptedMoveRetry: { arm: () => {}, resume: () => {} },
     state: createMoveIntentSyncState({
       containersById,
       onProjectionRequest: () => {

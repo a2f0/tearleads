@@ -133,12 +133,12 @@ function syncPendingStoreDocumentMoves(input: {
 function syncPendingStoreContainerMoves(
   input: Omit<
     Parameters<typeof syncPendingContainerMoveIntents>[0],
-    "requestRetry" | "state"
+    "acceptedMoveRetry" | "state"
   > & { state: ContainerContentsStoreSyncState },
 ) {
   return syncPendingContainerMoveIntents({
     ...input,
-    requestRetry: createAcceptedMoveRetry(input.state),
+    acceptedMoveRetry: createAcceptedMoveRetry(input.state),
   });
 }
 

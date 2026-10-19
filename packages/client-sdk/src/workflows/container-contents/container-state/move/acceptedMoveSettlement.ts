@@ -4,7 +4,7 @@ import type { ContainerMoveIntentSyncInput } from "../types";
 
 type AcceptedMoveInput = Pick<
   ContainerMoveIntentSyncInput,
-  "intent" | "isCurrent" | "requestRetry" | "state"
+  "acceptedMoveRetry" | "intent" | "isCurrent" | "state"
 >;
 
 /**
@@ -24,7 +24,7 @@ export function leaveAcceptedMoveQueued(
   } catch {
     // A host logger must not change the replay result.
   }
-  syncInput.requestRetry(syncInput.intent.id);
+  syncInput.acceptedMoveRetry.arm(syncInput.intent.id);
 }
 
 export const STALE_ACCEPTED_MOVE =

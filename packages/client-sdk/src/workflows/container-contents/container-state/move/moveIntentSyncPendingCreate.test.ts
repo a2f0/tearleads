@@ -35,7 +35,7 @@ test.each([
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       requestRemoteReconciliation: () => {},
-      requestRetry: () => {},
+      acceptedMoveRetry: { arm: () => {}, resume: () => {} },
       state: createMoveIntentSyncState({
         containersById,
         onProjectionRequest: () => {

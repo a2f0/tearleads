@@ -10,6 +10,7 @@ import type { ContainerState, RemoteContainer } from "../../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../../remoteHydration/reconciliation";
 import { moveRemoteContainer } from "../remote";
 import type {
+  AcceptedMoveRetry,
   ContainerMoveIntentSyncHost,
   ContainerMoveIntentSyncInput,
   ContainerMoveIntentSyncState,
@@ -450,7 +451,7 @@ export async function syncPendingContainerMoveIntents(input: {
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
-  requestRetry: (intentId: string) => void;
+  acceptedMoveRetry: AcceptedMoveRetry;
   state: ContainerMoveIntentSyncState;
 }): Promise<number> {
   if (!input.isCurrent()) {
@@ -477,7 +478,7 @@ export async function syncPendingContainerMoveIntents(input: {
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       intent,
       requestRemoteReconciliation: input.requestRemoteReconciliation,
-      requestRetry: input.requestRetry,
+      acceptedMoveRetry: input.acceptedMoveRetry,
       state,
     });
     if (result === "abandoned") {
@@ -486,6 +487,10 @@ export async function syncPendingContainerMoveIntents(input: {
 
     if (result === "moved") {
       movedCount += 1;
+    } else {
+      // A replay that failed before reaching the server keeps an earlier
+      // acceptance's retries going.
+      input.acceptedMoveRetry.resume(intent.id);
     }
   }
 
