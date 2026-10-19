@@ -1,5 +1,5 @@
 import { syncPendingContainerCreateIntents } from "../../../workflows/container-contents/container-state/create/createIntentSync";
-import { syncPendingContainerMoveIntents } from "../../../workflows/container-contents/container-state/moveIntentSync";
+import { syncPendingContainerMoveIntents } from "../../../workflows/container-contents/container-state/move/moveIntentSync";
 import {
   type DocumentMoveIntentSyncHost,
   syncPendingDocumentMoveIntents,
@@ -19,6 +19,7 @@ import {
   primeStoreDocuments,
   recoverStoreStaleRoot,
 } from "../documentWork/documentRecovery";
+import { createAcceptedMoveRetry } from "./acceptedMoveRetry";
 import {
   bumpMetadataSyncSeq,
   clearMetadataSyncQueueIfUnchanged,
@@ -126,6 +127,18 @@ function syncPendingStoreDocumentMoves(input: {
     isCurrent: input.isCurrent,
     isRemoteSyncBlocked: input.isRemoteSyncBlocked,
     state: input.state,
+  });
+}
+
+function syncPendingStoreContainerMoves(
+  input: Omit<
+    Parameters<typeof syncPendingContainerMoveIntents>[0],
+    "acceptedMoveRetry" | "state"
+  > & { state: ContainerContentsStoreSyncState },
+) {
+  return syncPendingContainerMoveIntents({
+    ...input,
+    acceptedMoveRetry: createAcceptedMoveRetry(input.state),
   });
 }
 
@@ -275,7 +288,7 @@ export async function runContainerContentsStoreSyncIteration(
     return;
   }
 
-  const movedContainerCount = await syncPendingContainerMoveIntents({
+  const movedContainerCount = await syncPendingStoreContainerMoves({
     host,
     isCreatePending,
     isCurrent,

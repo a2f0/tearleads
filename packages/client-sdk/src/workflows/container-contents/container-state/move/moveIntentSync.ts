@@ -1,19 +1,27 @@
-import { ContainerPathTooDeepError } from "../../../data/containers/shared/containerPathLimits";
-import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import { errorMessage } from "../../../data/shared/errorMessage";
-import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
+import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
+import { reportAndRethrowKeyingVerificationError } from "../../../../data/keyingProjectionVerification/error";
+import { errorMessage } from "../../../../data/shared/errorMessage";
+import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
-} from "../metadata/metadataStateIsolation";
-import type { ContainerState, RemoteContainer } from "../remoteHydration";
-import { hasRemoteContainerMetadataState } from "../remoteHydration/reconciliation";
-import { moveRemoteContainer } from "./remote";
+} from "../../metadata/metadataStateIsolation";
+import type { ContainerState, RemoteContainer } from "../../remoteHydration";
+import { hasRemoteContainerMetadataState } from "../../remoteHydration/reconciliation";
+import { moveRemoteContainer } from "../remote";
 import type {
+  AcceptedMoveRetry,
   ContainerMoveIntentSyncHost,
   ContainerMoveIntentSyncInput,
   ContainerMoveIntentSyncState,
-} from "./types";
+} from "../types";
+import {
+  appliedRemoteContainer,
+  leaveAcceptedMoveQueued,
+  STALE_ACCEPTED_MOVE,
+  unacknowledgedAcceptedMove,
+  unpersistedAcceptedMove,
+} from "./acceptedMoveSettlement";
 
 type MoveIntentSyncResult = "abandoned" | "blocked" | "failed" | "moved";
 
@@ -21,66 +29,6 @@ function currentMoveResult<
   Result extends Exclude<MoveIntentSyncResult, "abandoned">,
 >(isCurrent: () => boolean, result: Result): "abandoned" | Result {
   return isCurrent() ? result : "abandoned";
-}
-
-/**
- * The server accepted a move this pass did not settle, so the intent stays
- * queued: a later pass re-posts it and a purge of its subtree waits. Fixed
- * messages only; the error's call site names the path.
- */
-function reportUnsettledAcceptedMove(
-  state: ContainerMoveIntentSyncState,
-  message: string,
-  error: Error,
-): void {
-  try {
-    const report = state.runtime.util.logError;
-    if (report) void Promise.resolve(report(message, error)).catch(() => {});
-  } catch {
-    // A host logger must not change the replay result.
-  }
-}
-
-function reportStaleAcceptedMove(
-  state: ContainerMoveIntentSyncState,
-  error: Error,
-): void {
-  reportUnsettledAcceptedMove(
-    state,
-    "Container contents: a stale sync pass dropped an accepted container move",
-    error,
-  );
-}
-
-function reportFailedAcceptedMove(
-  state: ContainerMoveIntentSyncState,
-  error: unknown,
-): void {
-  if (!(error instanceof Error)) return;
-  reportUnsettledAcceptedMove(
-    state,
-    "Container contents: an accepted container move failed to settle",
-    error,
-  );
-}
-
-/** persistAcceptedMoveIntent already asked to reconcile a stale result. */
-function unpersistedMoveResult(
-  syncInput: ContainerMoveIntentSyncInput,
-): MoveIntentSyncResult {
-  if (!syncInput.isCurrent()) {
-    reportStaleAcceptedMove(
-      syncInput.state,
-      new Error("Stale pass dropped a persisting container move"),
-    );
-    return "abandoned";
-  }
-  reportUnsettledAcceptedMove(
-    syncInput.state,
-    "Container contents: an accepted container move did not persist",
-    new Error("Accepted container move did not persist"),
-  );
-  return "failed";
 }
 
 async function recordPendingMoveIntentError(input: {
@@ -281,18 +229,73 @@ async function abandonTooDeepMove(
   return "failed";
 }
 
+/** A replay that threw: refused for depth, tampered, or left unsettled. */
+async function failedMoveReplay(input: {
+  abandonAppliedMove: () => "abandoned";
+  error: unknown;
+  parentState: ContainerState;
+  remoteMoveApplied: boolean;
+  syncInput: ContainerMoveIntentSyncInput;
+}): Promise<MoveIntentSyncResult> {
+  const {
+    abandonAppliedMove,
+    error,
+    parentState,
+    remoteMoveApplied,
+    syncInput,
+  } = input;
+  const { intent, state } = syncInput;
+  if (!syncInput.isCurrent()) {
+    return abandonAppliedMove();
+  }
+  if (error instanceof ContainerPathTooDeepError)
+    return abandonTooDeepMove(syncInput);
+  // Even a refused acknowledgement leaves the move on the server; its replay
+  // verifies the head again before settling.
+  if (remoteMoveApplied && error instanceof Error)
+    leaveAcceptedMoveQueued(
+      syncInput,
+      "Container contents: an accepted container move failed to settle",
+      error,
+    );
+  await reportAndRethrowKeyingVerificationError(
+    error,
+    state.runtime.util.reportSecurityIncident,
+    {
+      objectId: intent.containerId,
+      objectKind: "container",
+      operation: "container.move.replay",
+      organizationId: parentState.container.organizationId,
+    },
+  );
+  if (!syncInput.isCurrent()) {
+    return abandonAppliedMove();
+  }
+  await recordPendingMoveIntentError({
+    containerId: intent.containerId,
+    expectedIntentId: intent.id,
+    expectedUpdatedAt: intent.updatedAt,
+    isCurrent: syncInput.isCurrent,
+    message: `Failed to sync container move: ${errorMessage(error)}`,
+    state,
+  });
+  return currentMoveResult(syncInput.isCurrent, "failed");
+}
+
 async function movePendingRemoteContainer(input: {
+  containerState: ContainerState;
   parentState: ContainerState;
   syncInput: ContainerMoveIntentSyncInput;
 }): Promise<MoveIntentSyncResult> {
-  const { parentState, syncInput } = input;
+  const { containerState, parentState, syncInput } = input;
   const { host, intent, state } = syncInput;
   let remoteMoveApplied = false;
   let remoteParentId: string | null = intent.parentContainerId;
   const abandonAppliedMove = () => {
     if (remoteMoveApplied) {
-      reportStaleAcceptedMove(
-        state,
+      leaveAcceptedMoveQueued(
+        syncInput,
+        STALE_ACCEPTED_MOVE,
         new Error("Stale pass dropped an accepted container move"),
       );
       syncInput.requestRemoteReconciliation(remoteParentId);
@@ -300,9 +303,9 @@ async function movePendingRemoteContainer(input: {
     return "abandoned" as const;
   };
   try {
-    const moved = await moveRemoteContainer({
+    const replayed = await moveRemoteContainer({
       containerId: intent.containerId,
-      onStaleAcceptance: () => {
+      onAccepted: () => {
         remoteMoveApplied = true;
       },
       parentContainerId: intent.parentContainerId,
@@ -310,12 +313,13 @@ async function movePendingRemoteContainer(input: {
       runtime: state.runtime,
       stillCurrent: syncInput.isCurrent,
     });
-    if (!moved) {
+    if (!replayed) {
       if (!syncInput.isCurrent()) {
         if (!remoteMoveApplied)
           syncInput.requestRemoteReconciliation(intent.parentContainerId);
         return abandonAppliedMove();
       }
+      if (remoteMoveApplied) return unacknowledgedAcceptedMove(syncInput);
       await recordPendingMoveIntentError({
         containerId: intent.containerId,
         expectedIntentId: intent.id,
@@ -327,6 +331,10 @@ async function movePendingRemoteContainer(input: {
       return currentMoveResult(syncInput.isCurrent, "failed");
     }
     remoteMoveApplied = true;
+    const moved =
+      "applied" in replayed
+        ? appliedRemoteContainer(containerState, replayed.applied)
+        : replayed.moved;
     remoteParentId = moved.parentId;
     if (!syncInput.isCurrent()) return abandonAppliedMove();
 
@@ -338,40 +346,21 @@ async function movePendingRemoteContainer(input: {
       requestRemoteReconciliation: syncInput.requestRemoteReconciliation,
       state,
     });
-    if (!persisted) return unpersistedMoveResult(syncInput);
+    if (!persisted) return unpersistedAcceptedMove(syncInput);
     state.runtime.util.log(
-      `Container contents: synced queued container move ${intent.containerId}`,
+      "applied" in replayed
+        ? `Container contents: settled queued container move ${intent.containerId} the server already held`
+        : `Container contents: synced queued container move ${intent.containerId}`,
     );
     return "moved";
   } catch (error: unknown) {
-    if (!syncInput.isCurrent()) {
-      return abandonAppliedMove();
-    }
-    if (error instanceof ContainerPathTooDeepError)
-      return abandonTooDeepMove(syncInput);
-    await reportAndRethrowKeyingVerificationError(
+    return failedMoveReplay({
+      abandonAppliedMove,
       error,
-      state.runtime.util.reportSecurityIncident,
-      {
-        objectId: intent.containerId,
-        objectKind: "container",
-        operation: "container.move.replay",
-        organizationId: parentState.container.organizationId,
-      },
-    );
-    if (!syncInput.isCurrent()) {
-      return abandonAppliedMove();
-    }
-    if (remoteMoveApplied) reportFailedAcceptedMove(state, error);
-    await recordPendingMoveIntentError({
-      containerId: intent.containerId,
-      expectedIntentId: intent.id,
-      expectedUpdatedAt: intent.updatedAt,
-      isCurrent: syncInput.isCurrent,
-      message: `Failed to sync container move: ${errorMessage(error)}`,
-      state,
+      parentState,
+      remoteMoveApplied,
+      syncInput,
     });
-    return currentMoveResult(syncInput.isCurrent, "failed");
   }
 }
 
@@ -449,7 +438,11 @@ async function trySyncPendingContainerMoveIntent(
     return currentMoveResult(input.isCurrent, "blocked");
   }
 
-  return movePendingRemoteContainer({ parentState, syncInput: input });
+  return movePendingRemoteContainer({
+    containerState,
+    parentState,
+    syncInput: input,
+  });
 }
 
 export async function syncPendingContainerMoveIntents(input: {
@@ -458,6 +451,7 @@ export async function syncPendingContainerMoveIntents(input: {
   isCurrent: () => boolean;
   isRemoteSyncBlocked: (organizationId: string) => boolean;
   requestRemoteReconciliation: (parentContainerId: string | null) => void;
+  acceptedMoveRetry: AcceptedMoveRetry;
   state: ContainerMoveIntentSyncState;
 }): Promise<number> {
   if (!input.isCurrent()) {
@@ -484,6 +478,7 @@ export async function syncPendingContainerMoveIntents(input: {
       isRemoteSyncBlocked: input.isRemoteSyncBlocked,
       intent,
       requestRemoteReconciliation: input.requestRemoteReconciliation,
+      acceptedMoveRetry: input.acceptedMoveRetry,
       state,
     });
     if (result === "abandoned") {
@@ -492,6 +487,10 @@ export async function syncPendingContainerMoveIntents(input: {
 
     if (result === "moved") {
       movedCount += 1;
+    } else {
+      // A replay that failed before reaching the server keeps an earlier
+      // acceptance's retries going.
+      input.acceptedMoveRetry.resume(intent.id);
     }
   }
 

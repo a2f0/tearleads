@@ -1,8 +1,8 @@
-import { createDomainScope } from "../../../data/shared/domainScope";
-import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import type { ContainerMoveIntentRecord } from "../containerPersistence";
-import type { ContainerState } from "../remoteHydration";
-import type { ContainerMoveIntentSyncState } from "./types";
+import { createDomainScope } from "../../../../data/shared/domainScope";
+import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import type { ContainerMoveIntentRecord } from "../../containerPersistence";
+import type { ContainerState } from "../../remoteHydration";
+import type { ContainerMoveIntentSyncState } from "../types";
 
 /** A move-replay state whose writer projections are never served. */
 export type MoveIntentError = Parameters<

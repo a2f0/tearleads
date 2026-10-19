@@ -3,6 +3,7 @@ import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeContro
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
 import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInterestNegativeControls";
+import { CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS } from "./protocolContainerMoveReplayNegativeControls";
 import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
@@ -55,6 +56,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,
+  ...CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS,
   ...READ_MODEL_STAMP_NEGATIVE_CONTROLS,
   {
     id: "purged-queue-starts-remote-create",

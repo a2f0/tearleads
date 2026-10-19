@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { defaultContainerContentsPersistence } from "../containerPersistence";
-import { createTestContainerState } from "./containerState.testFixtures";
+import { defaultContainerContentsPersistence } from "../../containerPersistence";
+import { createTestContainerState } from "../containerState.testFixtures";
 import { syncPendingContainerMoveIntents } from "./moveIntentSync";
 import {
   createMoveIntentSyncState,
@@ -35,6 +35,7 @@ test.each([
       isCurrent: () => true,
       isRemoteSyncBlocked: () => false,
       requestRemoteReconciliation: () => {},
+      acceptedMoveRetry: { arm: () => {}, resume: () => {} },
       state: createMoveIntentSyncState({
         containersById,
         onProjectionRequest: () => {

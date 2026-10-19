@@ -33,7 +33,11 @@ export {
   childContainerWriterProjectionFromCreatePlan,
   createRemoteContainer,
 } from "./child/create";
-export { moveRemoteContainer } from "./child/move";
+export {
+  type AppliedContainerMove,
+  moveRemoteContainer,
+  replayRemoteContainerMove,
+} from "./child/move";
 export { buildMaterializedContainerRekeyPlan } from "./child/rekey";
 // A rebuilt keyring override that a concurrent rotation outdated: rebuild it.
 export { ContainerKeyringOverrideStaleError } from "./child/rekey/keyringOverrideLineage";
