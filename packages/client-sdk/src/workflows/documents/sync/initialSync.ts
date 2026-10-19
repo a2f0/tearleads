@@ -5,6 +5,7 @@ import {
 } from "@tearleads/loro";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import { importContentKeyMaterial } from "../../../data/documents/shared/contentRecordKeys";
 import { encryptDocumentPendingUpdate } from "../../../data/documents/shared/crypto";
@@ -117,4 +118,17 @@ export function documentCreateSeedCandidate(input: {
   ) && versionVectorsEqual(row.partialEndVersionVector, input.documentVersion)
     ? row
     : null;
+}
+
+const TEXT_ENCODER = new TextEncoder();
+
+/**
+ * A seed is held to the sync request limit (the API refuses a larger one), so
+ * a seed that does not fit is left out and the row syncs in ordinary batches.
+ */
+export function documentCreateSeedFits(seed: DocumentSyncRequest): boolean {
+  return (
+    TEXT_ENCODER.encode(JSON.stringify(seed)).byteLength <=
+    MAX_DOCUMENT_SYNC_REQUEST_BYTES
+  );
 }

@@ -8,7 +8,10 @@ import {
   DocumentCreateBaseRequestSchema,
   DocumentSyncRequestSchema,
 } from "./document";
-import { refineSingleUpdateSeed } from "./documentCreateSeed";
+import {
+  refineSeedWithinSyncRequestLimit,
+  refineSingleUpdateSeed,
+} from "./documentCreateSeed";
 
 export const containerCreateWithMetadataDocumentRequestShape = {
   container: ContainerMutationRequestSchema,
@@ -32,6 +35,11 @@ export const ContainerCreateWithMetadataDocumentRequestSchema =
           "container create metadata seed requires one update and no container rekeys",
         path: "initialMetadataSync",
       });
+      refineSeedWithinSyncRequestLimit(
+        value.initialMetadataSync,
+        context,
+        "initialMetadataSync",
+      );
     }),
     [containerCreateMetadataSeedRefinement],
   );

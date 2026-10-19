@@ -16,7 +16,10 @@ import {
   MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
-import { refineSingleUpdateSeed } from "./documentCreateSeed";
+import {
+  refineSeedWithinSyncRequestLimit,
+  refineSingleUpdateSeed,
+} from "./documentCreateSeed";
 import {
   ContainerManifestPathSchema,
   type ContainerManifestRef,
@@ -76,6 +79,7 @@ export const DocumentCreateRequestSchema = registerJsonSchemaRuntimeRefinements(
         "document create seed requires one update and no container rekeys",
       path: "initialSync",
     });
+    refineSeedWithinSyncRequestLimit(value.initialSync, context, "initialSync");
   }),
   [documentCreateSeedRefinement],
 );

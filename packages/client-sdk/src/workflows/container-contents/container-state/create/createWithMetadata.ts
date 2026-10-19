@@ -29,7 +29,10 @@ import {
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../../documents";
-import { buildDocumentCreateSeedRequest } from "../../../documents/sync/initialSync";
+import {
+  buildDocumentCreateSeedRequest,
+  documentCreateSeedFits,
+} from "../../../documents/sync/initialSync";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
 import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
 import type {
@@ -309,17 +312,17 @@ async function createRemoteContainerWithMetadataDocumentAttempt(
       runtime: input.runtime,
       stillCurrent: input.stillCurrent,
     });
-  let submitted: Awaited<ReturnType<typeof submitRequest>> = null;
-  if (input.metadataSeedUpdate) {
-    submitted = await submitRequest({
-      ...request,
-      initialMetadataSync: await buildDocumentCreateSeedRequest({
+  const seed = input.metadataSeedUpdate
+    ? await buildDocumentCreateSeedRequest({
         author: input.author,
         containerProjection: childProjection,
         materializedDocument: metadataDocumentPlan,
         pendingUpdate: input.metadataSeedUpdate,
-      }),
-    });
+      })
+    : null;
+  let submitted: Awaited<ReturnType<typeof submitRequest>> = null;
+  if (seed && documentCreateSeedFits(seed)) {
+    submitted = await submitRequest({ ...request, initialMetadataSync: seed });
     if (!submitted) return null;
   }
   // A seed only saves the first metadata sync: a refused seeded create falls

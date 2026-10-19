@@ -28,7 +28,10 @@ import { isContainerCreatePending } from "../../../data/persistence/container-co
 import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
-import { buildDocumentCreateSeedRequest } from "../sync/initialSync";
+import {
+  buildDocumentCreateSeedRequest,
+  documentCreateSeedFits,
+} from "../sync/initialSync";
 import {
   isDocumentManifestAlreadyExistsConflict,
   shouldRetryWithFreshProjection,
@@ -248,18 +251,18 @@ async function submitPlannedDocumentCreateRequest(
 ): Promise<DocumentCreateSubmission> {
   const request = createPlan.materializedPlan.plan.request;
   const organizationId = createPlan.containerProjection.organizationId;
-  if (input.seedUpdate) {
+  const seed = input.seedUpdate
+    ? await buildDocumentCreateSeedRequest({
+        author: input.author,
+        containerProjection: createPlan.containerProjection,
+        materializedDocument: createPlan.materializedPlan,
+        pendingUpdate: input.seedUpdate,
+      })
+    : null;
+  if (seed && documentCreateSeedFits(seed)) {
     const seeded = await submitDocumentCreate(
       input.apiClient,
-      {
-        ...request,
-        initialSync: await buildDocumentCreateSeedRequest({
-          author: input.author,
-          containerProjection: createPlan.containerProjection,
-          materializedDocument: createPlan.materializedPlan,
-          pendingUpdate: input.seedUpdate,
-        }),
-      },
+      { ...request, initialSync: seed },
       organizationId,
     );
     if (

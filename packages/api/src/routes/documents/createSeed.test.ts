@@ -4,8 +4,10 @@ import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
+import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
+import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {
   bootstrapRoot,
@@ -159,3 +161,65 @@ test("replaying a seeded create reports the committed manifest", async () => {
   );
   expect(await storedUpdateIds(created.id)).toEqual([updateId]);
 }, 15_000);
+
+/** Every field within its own bound; only the serialized seed is too large. */
+function oversizedSeed(
+  seed: NonNullable<DocumentCreateRequest["initialSync"]>,
+): NonNullable<DocumentCreateRequest["initialSync"]> {
+  const [update] = seed.outgoingUpdates;
+  if (!update) throw new Error("Expected a seed update");
+  return {
+    ...seed,
+    outgoingUpdates: [
+      {
+        ...update,
+        encryptedData: "a".repeat(MAX_DOCUMENT_SYNC_REQUEST_BYTES - 64),
+      },
+    ],
+  };
+}
+
+test("a create seed over the sync request limit is refused before the create", async () => {
+  const { owner, root } = await registeredRoot();
+  const { request } = await seededCreateRequest({ owner, root });
+  const seed = request.initialSync;
+  if (!seed) throw new Error("Expected a seed");
+  const documentId = String(Reflect.get(request.manifest, "objectId"));
+
+  const response = await postCreate(owner, {
+    ...request,
+    initialSync: oversizedSeed(seed),
+  });
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toEqual({ error: "Invalid request" });
+  const rows = await db
+    .select({ id: documents.id })
+    .from(documents)
+    .where(eq(documents.id, documentId));
+  expect(rows).toEqual([]);
+}, 30_000);
+
+test("a container metadata seed over the sync request limit is refused", async () => {
+  const { owner, root } = await registeredRoot();
+  const { request } = await seededCreateRequest({ owner, root });
+  const seed = request.initialSync;
+  if (!seed) throw new Error("Expected a seed");
+
+  const response = await routeApp.request(
+    "/containers/with-metadata-document",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${owner.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        container: await buildChildCreateRequest({ root, signer: owner }),
+        initialMetadataSync: oversizedSeed(seed),
+        metadataDocument: await createDocumentRequest({ owner, root }),
+      }),
+    },
+  );
+  expect(response.status).toBe(400);
+  await expect(response.json()).resolves.toEqual({ error: "Invalid request" });
+}, 30_000);
