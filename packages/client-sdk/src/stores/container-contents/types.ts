@@ -4,14 +4,14 @@ import type {
 } from "@tearleads/crypto";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import type { PurgeOptions } from "../../workflows/container-contents/container-state/purgeProgress";
+import type { PurgeOptions } from "../../workflows/container-contents/container-state/purge/purgeProgress";
 import type { ContainerContentsPersistence } from "../../workflows/container-contents/containerPersistence";
 import type { ContainerDocumentObjectSyncState } from "../../workflows/container-contents/syncState";
 import type {
   ContainerContentsStoreRuntime,
   ContainerContentsStoreSyncState,
   RefreshRootLaneOptions,
-} from "./syncAgentTypes";
+} from "./syncAgent/syncAgentTypes";
 
 // Reuse the canonical access-level union from the crypto layer (the same source
 // `ContainerShareAccessLevel` chains to) rather than re-spelling the literals,

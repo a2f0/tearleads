@@ -37,7 +37,7 @@ import {
   readRecordString,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
-import { resolveEventContainerPaths } from "../../../data/keyingProjectionVerification/documentDependencyPaths";
+import { resolveEventContainerPaths } from "../../../data/keyingProjectionVerification/document/documentDependencyPaths";
 
 import { assertAttachmentBindingVerified } from "../verification/attachmentBindingVerification";
 import { assertBlobWrapScopeVerified } from "../verification/verifiedWrapScope";

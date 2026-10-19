@@ -1,7 +1,7 @@
 import { requireTrustedUserIdentityResolver } from "../trustedUserIdentity/requiredResolver";
 import type { ProjectionUserKeyResolver } from "./types";
 
-export { resolveEventContainerPaths } from "./documentDependencyPaths";
+export { resolveEventContainerPaths } from "./document/documentDependencyPaths";
 export {
   readAccessEvent,
   readRecordString,
@@ -34,13 +34,13 @@ export function requireProjectionUserKeyResolver(
 export {
   collectContainerWriterProjectionPrincipalPolicies,
   verifyContainerWriterProjection,
-} from "./containerProjectionVerification";
+} from "./container/containerProjectionVerification";
 export {
   type DocumentWriterProjectionAuthorization,
   verifyDocumentWriterProjection,
   verifyDocumentWriterProjectionAuthorization,
-} from "./documentProjectionVerification";
+} from "./document/documentProjectionVerification";
 export {
   verifyDocumentPurgeProof,
   verifyDocumentPurgeProofBaseline,
-} from "./documentPurgeProofVerification";
+} from "./documentPurge/documentPurgeProofVerification";

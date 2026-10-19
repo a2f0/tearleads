@@ -4,7 +4,7 @@ import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "../containerPersistence";
 import type { ContainerContentsRootAdoptionInput } from "../runtime";
-import { rememberDestinationRole } from "./destinationRoleCache";
+import { rememberDestinationRole } from "./destination/destinationRoleCache";
 import {
   reconcileLocalOnlyRootContainers,
   reconcileLocalOnlySystemContainers,

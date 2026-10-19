@@ -38,7 +38,7 @@ import {
   verifyDocumentWriterProjection,
 } from "../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { documentContainerProjections } from "../../../data/keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   assertSubtreePurgePath,

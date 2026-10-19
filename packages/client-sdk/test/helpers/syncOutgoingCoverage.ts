@@ -21,7 +21,7 @@ import {
 import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
-} from "../../src/stores/documents/documentStore/syncGeneration";
+} from "../../src/stores/documents/documentStore/sync/syncGeneration";
 import type { DocumentsRuntime } from "../../src/stores/documents/types";
 import { enqueuePendingDocumentUpdate } from "../../src/workflows/documents";
 

@@ -26,7 +26,7 @@ import {
   readCanonicalJson,
   readCanonicalRecord,
 } from "../../../data/keying/canonicalJson";
-import { documentContainerProjections } from "../../../data/keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { decryptDocumentAttachmentBlob } from "../../blobs/hydration/decrypt";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import { relinkRemoteDocument } from "./linkSetRemote";

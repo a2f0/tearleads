@@ -4,7 +4,7 @@ import { didRegainSyncPrerequisites } from "../../workflows/container-contents/s
 import {
   isReconcilableContainerNode,
   isRemoteBackedContainerNode,
-} from "../container-contents/reconcilableContainer";
+} from "../container-contents/containerState/reconcilableContainer";
 import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import type { ContainerContentsStore } from "../container-contents/types";
 import {

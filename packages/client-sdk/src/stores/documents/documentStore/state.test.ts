@@ -20,7 +20,7 @@ import {
   invalidateDocumentStoreRemoteSync,
   isDocumentStoreRemoteSyncBlocked,
   markDocumentStoreRemoteSyncPending,
-} from "./syncGeneration";
+} from "./sync/syncGeneration";
 
 function createTestBlobStore(): BlobStore {
   return {

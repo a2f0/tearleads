@@ -85,9 +85,9 @@ The added regression tests live in:
 
 - `packages/api/src/services/blobs/multipartStageCleanup.pg.test.ts`
 - `packages/api-client/src/ApiClient.attachmentRefresh.test.ts`
-- `packages/client-sdk/src/stores/documents/documentStore/attachmentUploadResume.test.ts`
-- `packages/client-sdk/src/stores/documents/documentStore/attachmentUploadStageRecovery.test.ts`
-- `packages/client-sdk/src/workflows/blobs/multipartUpload.failureCodes.test.ts`
+- `packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadResume.test.ts`
+- `packages/client-sdk/src/stores/documents/documentStore/attachmentUpload/attachmentUploadStageRecovery.test.ts`
+- `packages/client-sdk/src/workflows/blobs/upload/multipartUpload.failureCodes.test.ts`
 
 The PostgreSQL cleanup tests are registered in `test:postgres-concurrency`.
 Run `bun run check:affected` for repository preflight and affected suites.

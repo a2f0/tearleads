@@ -26,8 +26,8 @@ import {
 import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 import { unwrapDocumentSyncResponseContentKeys } from "../../../workflows/documents/syncPlan/syncContentKeys";
 
-import { createProjectionCheckpointContext } from "../../keyingProjectionVerification/checkpointContext";
-import { collectReferencedPrincipalPolicies } from "../../keyingProjectionVerification/principalPolicyVerification";
+import { createProjectionCheckpointContext } from "../../keyingProjectionVerification/checkpoints/checkpointContext";
+import { collectReferencedPrincipalPolicies } from "../../keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import {
   ensurePrincipalPolicyTables,
   savePrincipalPolicyBundle,

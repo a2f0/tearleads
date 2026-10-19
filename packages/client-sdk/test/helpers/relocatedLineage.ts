@@ -7,7 +7,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
-import { rekeyRemoteContainer } from "../../src/workflows/containers/child/rekeyRemote";
+import { rekeyRemoteContainer } from "../../src/workflows/containers/child/rekey/rekeyRemote";
 import { shareRemoteContainer } from "../../src/workflows/containers/child/share";
 import {
   createMutationResponseFromRequest,

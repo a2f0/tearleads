@@ -3,7 +3,7 @@ import type { DocumentsRuntime } from "../types";
 import { parkForAncestorRepair } from "./ancestorRepairPark";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import { createDocumentStoreState, type DocumentStoreState } from "./state";
-import { handleDocumentRemoteEvents } from "./syncRemoteSignals";
+import { handleDocumentRemoteEvents } from "./sync/syncRemoteSignals";
 
 const DOCUMENT_ID = "55555555-5555-4555-8555-555555555555";
 

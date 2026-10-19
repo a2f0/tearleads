@@ -5,8 +5,8 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpointContext";
-import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicyVerification";
+import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
+import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { loadPrincipalPolicyBundleForReference } from "../../data/persistence/principalPolicyReferencePersistence";
 import { cachePrincipalPolicyBundles } from "./policyCache";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";

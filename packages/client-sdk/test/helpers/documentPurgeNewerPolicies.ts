@@ -4,7 +4,7 @@ import {
   commitProjectionCheckpoints,
   createProjectionCheckpointContext,
   observePrincipalPolicy,
-} from "../../src/data/keyingProjectionVerification/checkpointContext";
+} from "../../src/data/keyingProjectionVerification/checkpoints/checkpointContext";
 import {
   encodeOrganizationAuthorityDescriptor,
   parseOrganizationAuthorityDescriptor,

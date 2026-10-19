@@ -9,7 +9,7 @@ import type {
   BlobContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { documentContainerProjections } from "../../../keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../../keyingProjectionVerification/document/documentContainerProjections";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { assertDocumentKekPathsCurrent } from "../../shared/containerKekCurrency";
 import {

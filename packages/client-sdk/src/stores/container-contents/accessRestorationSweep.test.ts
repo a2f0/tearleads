@@ -24,7 +24,7 @@ import {
   createContainerContentsTestRuntime,
   emptyListContainersResponse,
 } from "./runtime.testFixtures";
-import type { ContainerContentsStoreSyncState } from "./syncAgentTypes";
+import type { ContainerContentsStoreSyncState } from "./syncAgent/syncAgentTypes";
 
 const ORGANIZATION_ID = "restored-organization";
 async function countMetadataDocuments(

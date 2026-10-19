@@ -11,7 +11,7 @@ import {
 } from "../../../../test/helpers/blobHydrationFixture";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import { readWriteHeader } from "../../../data/documents/shared/readers";
-import { documentContainerProjections } from "../../../data/keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { prepareDocumentLinkBlobRewraps } from "../../documents/linkSet/linkSetBlobRewraps";
 import { createAttachmentKeyAuthenticator } from "./attachmentKeyAuthenticator";
 

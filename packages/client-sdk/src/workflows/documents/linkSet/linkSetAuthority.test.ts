@@ -10,7 +10,7 @@ import {
   createResponse,
   writerProjectionEvidence,
 } from "../../../../test/helpers/documentFixtures";
-import { documentContainerProjections } from "../../../data/keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { buildMaterializedDocumentCreatePlan } from "../create";
 import { buildMaterializedDocumentLinkSetMutationPlan } from "./index";
 import { relinkRemoteDocument } from "./linkSetRemote";

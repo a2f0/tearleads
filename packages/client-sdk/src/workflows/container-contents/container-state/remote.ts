@@ -12,14 +12,14 @@ import {
   referencedPrincipalHeadsFromContainerMutationResponse,
   shareRemoteContainer as shareRemoteContainerMutation,
 } from "../../containers";
-import { createRuntimeCurrentGroupShare } from "../../containers/child/runtimeCurrentGroupShare";
+import { createRuntimeCurrentGroupShare } from "../../containers/child/share/runtimeCurrentGroupShare";
 import { resolveDocumentCreateAuthor } from "../../documents";
 import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataRuntime";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
   type ContainerAlreadyCommitted,
   createRemoteContainerWithMetadataDocument,
-} from "./createWithMetadata";
+} from "./create/createWithMetadata";
 import type {
   ContainerWorkflowRuntime,
   CreatedRemoteContainerState,

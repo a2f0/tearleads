@@ -21,9 +21,9 @@ import {
   ContainerKekHistoryUnavailableError,
   DocumentHistoryUnavailableError,
 } from "../../../data/documents/shared/projection";
-import { documentContainerProjections } from "../../../data/keyingProjectionVerification/documentContainerProjections";
+import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { readContainerKeyEpoch } from "../../../data/keyingProjectionVerification/readers";
-import { rekeyRemoteContainer } from "../../containers/child/rekeyRemote";
+import { rekeyRemoteContainer } from "../../containers/child/rekey/rekeyRemote";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 import { syncRemoteDocumentResultFromResponse } from "./syncResponseResult";

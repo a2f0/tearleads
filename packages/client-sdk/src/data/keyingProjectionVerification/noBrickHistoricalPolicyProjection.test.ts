@@ -17,9 +17,9 @@ import {
 import { createOrganizationHistoryFixture } from "../../../test/helpers/organizationPolicyHistory";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
 import { projectionPolicyWarmer } from "../../../test/helpers/projectionPolicyHistory";
-import { createProjectionCheckpointContext } from "./checkpointContext";
-import { verifyContainerManifestPath } from "./containerPathVerification";
-import { verifyProjectionPolicyEvidence } from "./projectionPolicyEvidence";
+import { createProjectionCheckpointContext } from "./checkpoints/checkpointContext";
+import { verifyContainerManifestPath } from "./container/containerPathVerification";
+import { verifyProjectionPolicyEvidence } from "./principalPolicy/projectionPolicyEvidence";
 
 test("fresh devices receive verifiable authority after its citation becomes historical and the group is deleted", async () => {
   const data = await createOrganizationHistoryFixture();

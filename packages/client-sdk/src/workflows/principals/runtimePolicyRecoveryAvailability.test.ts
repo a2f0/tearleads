@@ -7,8 +7,8 @@ import {
   signedAuthorityRecoveryHistory,
 } from "../../../test/helpers/principalAuthorityRecovery";
 import { principalPolicyHead } from "../../../test/helpers/principalPolicyFixtures";
-import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpointContext";
-import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicyVerification";
+import { createProjectionCheckpointContext } from "../../data/keyingProjectionVerification/checkpoints/checkpointContext";
+import { collectReferencedPrincipalPolicies } from "../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import { loadPrincipalPolicyCheckpoint } from "../../data/persistence/keyingCheckpointPersistence";
 import { principalPolicyCheckpoints } from "../../data/sqlite/principalPolicySchema";
 import { createRuntimePrincipalPolicyWarmer } from "./runtimePolicyWarmer";

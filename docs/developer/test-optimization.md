@@ -31,7 +31,7 @@ totals does not predict CI time saved.
 
 ## Retained optimization
 
-`packages/client-sdk/src/workflows/documents/syncContainerRekeyPrefix.test.ts`
+`packages/client-sdk/src/workflows/documents/syncRekeys/syncContainerRekeyPrefix.test.ts`
 rebuilt the same 17-level signed ancestor graph and document six times. It now
 builds that immutable template once in `beforeAll`. Each case clones all graph
 and key data, reconstructs its identity resolver, re-registers manifest
@@ -48,7 +48,7 @@ Command, run through `bun run agent:run` from the repository root:
 
 ```sh
 bun test --cwd packages/client-sdk \
-  ./src/workflows/documents/syncContainerRekeyPrefix.test.ts --max-concurrency=4
+  ./src/workflows/documents/syncRekeys/syncContainerRekeyPrefix.test.ts --max-concurrency=4
 ```
 
 All six test bodies retain their original assertions. Repeated fixture

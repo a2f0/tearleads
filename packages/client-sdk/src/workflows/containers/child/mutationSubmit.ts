@@ -19,12 +19,12 @@ import type {
 import type { PrincipalPolicyCheckpointEvidence } from "../../../data/principals/principalPolicyEvidence";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { scheduleHeldDescendantRecitations } from "./recite";
 import {
   type CarriedRekeyPlanningInput,
   planCarriedDescendantRekeys,
   type SpeculativePath,
-} from "./carriedDescendantRekeys";
-import { scheduleHeldDescendantRecitations } from "./recite";
+} from "./rekey/carriedDescendantRekeys";
 
 /**
  * Supplied by mutations that mint a new key epoch (rekey, revoke, move). The

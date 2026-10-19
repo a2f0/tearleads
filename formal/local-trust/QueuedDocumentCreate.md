@@ -20,7 +20,7 @@ not clear the replacement.
 The model bounds one document, one queued attempt, and two store generations.
 Two negative controls separately disable the durable-row guard and generation
 guard; TLC must detect the corresponding safety violation. The implementation
-regressions are in `documentStore/remoteCreateAfterPurge.test.ts`.
+regressions are in `documentStore/sync/remoteCreateAfterPurge.test.ts`.
 
 The durable read and its continuation are separate actions. Purge can happen
 before, during, or after them. The no-create guarantee covers a purge visible to

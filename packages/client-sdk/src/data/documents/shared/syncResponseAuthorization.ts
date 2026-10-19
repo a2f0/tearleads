@@ -4,7 +4,7 @@ import {
   makeVerifiedDocumentKekTargets,
 } from "@tearleads/crypto";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import { resolveEventContainerPaths } from "../../keyingProjectionVerification/documentDependencyPaths";
+import { resolveEventContainerPaths } from "../../keyingProjectionVerification/document/documentDependencyPaths";
 import { sortDocumentTargets } from "./readers";
 import type { DocumentSyncPlan } from "./types";
 

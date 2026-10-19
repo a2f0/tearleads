@@ -33,12 +33,12 @@ export {
   childContainerWriterProjectionFromCreatePlan,
   createRemoteContainer,
 } from "./child/create";
-// A rebuilt keyring override that a concurrent rotation outdated: rebuild it.
-export { ContainerKeyringOverrideStaleError } from "./child/keyringOverrideLineage";
 export { moveRemoteContainer } from "./child/move";
 export { buildMaterializedContainerRekeyPlan } from "./child/rekey";
-export { containerWriterProjectionFromRekeyPlan } from "./child/rekeyProjection";
-export { rekeyRemoteContainer } from "./child/rekeyRemote";
+// A rebuilt keyring override that a concurrent rotation outdated: rebuild it.
+export { ContainerKeyringOverrideStaleError } from "./child/rekey/keyringOverrideLineage";
+export { containerWriterProjectionFromRekeyPlan } from "./child/rekey/rekeyProjection";
+export { rekeyRemoteContainer } from "./child/rekey/rekeyRemote";
 export {
   buildMaterializedContainerRevokePlan,
   revokeRemoteContainer,
@@ -47,14 +47,14 @@ export {
   shareRemoteContainer,
   shareRemoteContainerWithGroup,
 } from "./child/share";
-export { buildMaterializedContainerSharePlan } from "./child/shareMaterialization";
-export { referencedPrincipalHeadFromPolicy } from "./child/sharePlanCore";
+export { buildMaterializedContainerSharePlan } from "./child/share/shareMaterialization";
+export { referencedPrincipalHeadFromPolicy } from "./child/share/sharePlanCore";
 export {
   advanceVerifiedSharePolicies,
   GroupShareNameMismatchError,
   loadVerifiedGroupSharePrincipalPolicy,
   type VerifiedSharePrincipalPolicy,
-} from "./child/sharePrincipalPolicy";
+} from "./child/share/sharePrincipalPolicy";
 export {
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,

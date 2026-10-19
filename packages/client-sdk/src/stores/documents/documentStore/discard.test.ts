@@ -19,11 +19,11 @@ import {
   deletePendingAttachment,
   saveLocalAttachmentRecords,
   savePendingAttachmentUpload,
-} from "./attachmentPersistence";
+} from "./attachments/attachmentPersistence";
 import { discardDocumentStoreLocalState } from "./discard";
 import { enqueuePendingUpdate } from "./persistence";
 import type { DocumentStoreState } from "./state";
-import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+import { captureDocumentStoreSyncGeneration } from "./sync/syncGeneration";
 
 test("discard re-seeds the discovered-share shell and clears the queue", async () => {
   const { close, execSql } = await createTestExecSql("discard-remote");

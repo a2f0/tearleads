@@ -1,0 +1,285 @@
+import { expect, test } from "bun:test";
+import { createDocument } from "@tearleads/loro";
+import { createDomainScope } from "../../../../data/shared/domainScope";
+import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+import type { DocumentStoreState } from "../state";
+import {
+  captureDocumentStoreAttachmentSyncGeneration,
+  captureDocumentStoreRemoteSyncGeneration,
+  captureDocumentStoreRemoteSyncRequestGeneration,
+  captureDocumentStoreSyncGeneration,
+  captureDocumentStoreSyncLaneGeneration,
+  didDocumentStoreRemoteSyncRequestComplete,
+  invalidateDocumentStoreRemoteSync,
+  invalidateDocumentStoreSyncLane,
+  isDocumentStoreRemoteSyncRequestGenerationCurrent,
+  isDocumentStoreSyncGenerationCurrent,
+  registerDocumentStoreRemoteSyncWaiter,
+} from "./syncGeneration";
+
+test("sync generation invalidates on document and structural runtime replacement", async () => {
+  const currentDoc = await createDocument("sync-generation-current");
+  const execSql = (async () => []) as ExecSql;
+  const resolveProjectionUserKey = async () => null;
+  const state = {
+    doc: currentDoc,
+    localWriteGeneration: 0,
+    persistence: {},
+    resolveProjectionUserKey,
+    runtime: {
+      apiClient: {},
+      auth: { organizationId: "organization-a" },
+      infra: { execSql },
+      state: {
+        containerId: "container-a",
+        domainScope: createDomainScope(),
+      },
+    },
+  } as unknown as DocumentStoreState;
+  const generation = captureDocumentStoreSyncGeneration(state, currentDoc);
+  expect(generation).not.toBeNull();
+  if (!generation) return;
+
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(true);
+
+  state.doc = await createDocument("sync-generation-replacement");
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(false);
+  state.doc = currentDoc;
+
+  const runtime = state.runtime;
+  state.runtime = {
+    ...runtime,
+    apiClient: {} as DocumentStoreState["runtime"]["apiClient"],
+  };
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(false);
+  state.runtime = runtime;
+
+  state.runtime = {
+    ...runtime,
+    state: { ...runtime.state, containerId: "container-b" },
+  };
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(false);
+  state.runtime = runtime;
+
+  state.runtime = {
+    ...runtime,
+    state: { ...runtime.state, domainScope: createDomainScope() },
+  };
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(false);
+  state.runtime = runtime;
+
+  state.runtime = {
+    ...runtime,
+    infra: { ...runtime.infra, execSql: (async () => []) as ExecSql },
+  };
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(false);
+  state.runtime = runtime;
+
+  state.resolveProjectionUserKey = async () => null;
+  expect(isDocumentStoreSyncGenerationCurrent(state, generation)).toBe(false);
+});
+
+test("reset or relink sequence reuse cannot complete an old remote request", async () => {
+  const state = {
+    doc: await createDocument("remote-request-generation"),
+    localWriteGeneration: 0,
+    remoteUpdateCompletedSignalSeq: 1,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+  } as unknown as DocumentStoreState;
+  const beforeReset = captureDocumentStoreRemoteSyncRequestGeneration(state);
+  expect(
+    isDocumentStoreRemoteSyncRequestGenerationCurrent(state, beforeReset),
+  ).toBe(true);
+  expect(didDocumentStoreRemoteSyncRequestComplete(state, beforeReset, 1)).toBe(
+    true,
+  );
+
+  state.localWriteGeneration += 1;
+  state.remoteUpdateCompletedSignalSeq = 0;
+  // A different document may reuse sequence 1 after reset.
+  state.remoteUpdateCompletedSignalSeq = 1;
+  expect(didDocumentStoreRemoteSyncRequestComplete(state, beforeReset, 1)).toBe(
+    false,
+  );
+
+  const beforeRelink = captureDocumentStoreRemoteSyncRequestGeneration(state);
+  invalidateDocumentStoreRemoteSync(state);
+  // A post-relink sync can also complete at the same sequence.
+  state.remoteUpdateCompletedSignalSeq = 1;
+  expect(
+    didDocumentStoreRemoteSyncRequestComplete(state, beforeRelink, 1),
+  ).toBe(false);
+});
+
+test("remote probe cancellation preserves local and pending attachment work", async () => {
+  const currentDoc = await createDocument("local-generation-after-abort");
+  const state = {
+    doc: currentDoc,
+    localWriteGeneration: 0,
+    remoteUpdatePending: true,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+  } as unknown as DocumentStoreState;
+  const syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
+  const localGeneration = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const attachmentGeneration = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    currentDoc,
+    syncLaneGeneration,
+  );
+  const remoteGeneration = captureDocumentStoreRemoteSyncGeneration(
+    state,
+    currentDoc,
+    syncLaneGeneration,
+  );
+  expect(localGeneration).not.toBeNull();
+  expect(attachmentGeneration).not.toBeNull();
+  expect(remoteGeneration).not.toBeNull();
+  if (!localGeneration || !attachmentGeneration || !remoteGeneration) return;
+
+  invalidateDocumentStoreRemoteSync(state);
+
+  expect(isDocumentStoreSyncGenerationCurrent(state, localGeneration)).toBe(
+    true,
+  );
+  expect(
+    isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration),
+  ).toBe(true);
+  expect(isDocumentStoreSyncGenerationCurrent(state, remoteGeneration)).toBe(
+    false,
+  );
+});
+
+test("remote waiter ownership is isolated by request generation", () => {
+  const state = {
+    localWriteGeneration: 0,
+    remoteSyncBlocked: false,
+    remoteUpdatePending: false,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+    syncLane: null,
+  } as unknown as DocumentStoreState;
+  const staleGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseStale = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    staleGeneration,
+  );
+
+  invalidateDocumentStoreRemoteSync(state);
+  const currentGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseCurrentFirst = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    currentGeneration,
+  );
+  const releaseCurrentLast = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    currentGeneration,
+  );
+
+  expect(releaseCurrentFirst()).toBe(false);
+  expect(releaseCurrentLast()).toBe(true);
+  expect(releaseStale()).toBe(true);
+});
+
+test("interleaved stale releases preserve current-generation waiter counts", () => {
+  const state = {
+    localWriteGeneration: 0,
+    remoteSyncBlocked: false,
+    remoteUpdatePending: false,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+    syncLane: null,
+  } as unknown as DocumentStoreState;
+  const staleGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseStale = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    staleGeneration,
+  );
+
+  invalidateDocumentStoreRemoteSync(state);
+  const middleGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseMiddle = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    middleGeneration,
+  );
+  // This replaces the registry array while releaseMiddle still owns a closure
+  // over the prior array.
+  expect(releaseStale()).toBe(true);
+
+  invalidateDocumentStoreRemoteSync(state);
+  const currentGeneration =
+    captureDocumentStoreRemoteSyncRequestGeneration(state);
+  const releaseCurrentFirst = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    currentGeneration,
+  );
+  expect(releaseMiddle()).toBe(true);
+  const releaseCurrentLast = registerDocumentStoreRemoteSyncWaiter(
+    state,
+    currentGeneration,
+  );
+
+  expect(releaseCurrentFirst()).toBe(false);
+  expect(releaseCurrentLast()).toBe(true);
+});
+
+test("coordinator disposal invalidates remote work but not local persistence", async () => {
+  const currentDoc = await createDocument("local-generation-after-disposal");
+  let disposed = false;
+  const state = {
+    doc: currentDoc,
+    localWriteGeneration: 0,
+    resolveProjectionUserKey: async () => null,
+    runtime: {
+      infra: { execSql: (async () => []) as ExecSql },
+      state: { domainScope: createDomainScope() },
+    },
+    syncLane: { isDisposed: () => disposed },
+  } as unknown as DocumentStoreState;
+  const syncLaneGeneration = captureDocumentStoreSyncLaneGeneration(state);
+  const localGeneration = captureDocumentStoreSyncGeneration(state, currentDoc);
+  const attachmentGeneration = captureDocumentStoreAttachmentSyncGeneration(
+    state,
+    currentDoc,
+    syncLaneGeneration,
+  );
+  const remoteGeneration = captureDocumentStoreRemoteSyncGeneration(
+    state,
+    currentDoc,
+    syncLaneGeneration,
+  );
+  expect(localGeneration).not.toBeNull();
+  expect(attachmentGeneration).not.toBeNull();
+  expect(remoteGeneration).not.toBeNull();
+  if (!localGeneration || !attachmentGeneration || !remoteGeneration) return;
+
+  disposed = true;
+  invalidateDocumentStoreSyncLane(state);
+
+  expect(isDocumentStoreSyncGenerationCurrent(state, localGeneration)).toBe(
+    true,
+  );
+  expect(
+    isDocumentStoreSyncGenerationCurrent(state, attachmentGeneration),
+  ).toBe(false);
+  expect(isDocumentStoreSyncGenerationCurrent(state, remoteGeneration)).toBe(
+    false,
+  );
+});

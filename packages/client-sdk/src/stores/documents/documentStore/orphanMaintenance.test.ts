@@ -9,7 +9,7 @@ import {
   defaultDocumentsPersistence,
   reclaimDocumentOrphanBlobs,
 } from "../../../workflows/documents";
-import { createDocumentStore } from "../documentStore";
+import { createDocumentStore } from "./index";
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import type { DocumentStoreState } from "./state";
 

@@ -1,5 +1,5 @@
-import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification/containerProjectionVerification";
-import { verifyDocumentPurgeProofBaseline } from "../../src/data/keyingProjectionVerification/documentPurgeProofVerification";
+import { verifyContainerWriterProjection } from "../../src/data/keyingProjectionVerification/container/containerProjectionVerification";
+import { verifyDocumentPurgeProofBaseline } from "../../src/data/keyingProjectionVerification/documentPurge/documentPurgeProofVerification";
 import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpointAdvancePersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { grantBy, verifyPath } from "./ancestorCitationScenario";

@@ -174,6 +174,72 @@ ls:
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
 
+  packages/client-sdk/src/data/keyingProjectionVerification:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-8
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-6
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-0
+
+  packages/client-sdk/src/data/keyingProjectionVerification/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
+  packages/client-sdk/src/stores/container-contents:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-8
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-15
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-5
+
+  packages/client-sdk/src/stores/container-contents/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
+  packages/client-sdk/src/stores/documents/documentStore:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-15
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-12
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-0
+
+  packages/client-sdk/src/stores/documents/documentStore/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
+  packages/client-sdk/src/workflows/containers/child:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-6
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-10
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-0
+
+  packages/client-sdk/src/workflows/containers/child/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
+  packages/client-sdk/src/workflows/container-contents/container-state:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-6
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-7
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-0
+
+  packages/client-sdk/src/workflows/container-contents/container-state/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
+  packages/client-sdk/src/workflows/container-contents/remoteHydration:
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-11
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-13
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-0
+
+  packages/client-sdk/src/workflows/container-contents/remoteHydration/*:
+    .dir: regex:[A-Za-z0-9][A-Za-z0-9-]*
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README
+    .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+    .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
+
   # The client root holds only its facade barrel; facades, runtime state, and
   # host contracts each live in a folder.
   packages/client-sdk/src/client:

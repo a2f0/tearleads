@@ -1,0 +1,176 @@
+import { expect, test } from "bun:test";
+import { bytesToBase64 } from "@tearleads/encoding";
+import { exportAllUpdates } from "@tearleads/loro";
+import { createTestExecSql } from "@tearleads/test-utils";
+import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import {
+  createInitializedContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../../../data/containers/containerMetadataDocument";
+import type { ContainerContentsPersistence } from "../../containerPersistence";
+import { defaultContainerContentsPersistence } from "../../containerPersistence";
+import type { ContainerState } from "../../remoteHydration";
+import type { ContainerWorkflowRuntime } from "../types";
+import {
+  persistDuplicateContainerShare,
+  persistSharedContainerState,
+} from "./sharePersistence";
+
+for (const variant of ["new share", "duplicate share"] as const) {
+  test(`${variant} preserves metadata completed during persistence`, async () => {
+    const database = await createTestExecSql(
+      `container-${variant.replace(" ", "-")}-metadata-race`,
+    );
+    try {
+      await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+      const containerId = `container-${variant.replace(" ", "-")}`;
+      const { doc, initialUpdate } =
+        await createInitializedContainerMetadataDocument(containerId, {
+          icon: null,
+          name: "Before share",
+        });
+      const containerState: ContainerState = {
+        container: {
+          effectiveAccessLevel: "admin",
+          icon: null,
+          id: containerId,
+          metadataDocumentId: `metadata-${containerId}`,
+          name: "Before share",
+          organizationId: "organization-1",
+          parentId: null,
+        },
+        doc,
+        record: {
+          accessEpoch: 1,
+          accessStateHash: "access-before-share",
+          contentKeyBundle: "content-key-before-share",
+          documentId: `metadata-${containerId}`,
+          documentKekTargets: "targets-before-share",
+          documentManifestBundle: "manifest-before-share",
+          id: containerId,
+          lastCommitLsn: null,
+          metadataUpdates: bytesToBase64(initialUpdate),
+          snapshotEndVersion: "",
+        },
+      };
+      await defaultContainerContentsPersistence.saveContainer(
+        database.execSql,
+        containerState.container,
+        containerState.record,
+      );
+      const liveDoc = containerState.doc;
+      let concurrentUpdates = "";
+      const persistence: ContainerContentsPersistence = {
+        ...defaultContainerContentsPersistence,
+        async commitMetadataMutation(execSql, input) {
+          const committed =
+            await defaultContainerContentsPersistence.commitMetadataMutation(
+              execSql,
+              input,
+            );
+          if (committed.committed) {
+            writeContainerMetadataValue(containerState.doc, {
+              icon: "archive",
+              name: "Concurrent rename",
+            });
+            concurrentUpdates = bytesToBase64(
+              exportAllUpdates(containerState.doc),
+            );
+            containerState.container = {
+              ...containerState.container,
+              icon: "archive",
+              name: "Concurrent rename",
+            };
+            containerState.record = {
+              ...containerState.record,
+              metadataUpdates: concurrentUpdates,
+            };
+          }
+          return committed;
+        },
+      };
+      const projection = {
+        containerId,
+        organizationId: "organization-1",
+      } as ContainerWriterProjectionResponse;
+      let policyReadCount = 0;
+      const runtime = {
+        apiClient: {
+          getCurrentPrincipalPolicy: async () => {
+            policyReadCount += 1;
+            throw new Error(
+              "Policy service became unavailable after the share committed",
+            );
+          },
+        },
+        infra: { execSql: database.execSql },
+        resolveTrustedUserIdentity: async () => null,
+        util: {
+          log: () => undefined,
+          reportSecurityIncident: async () => undefined,
+        },
+      } as unknown as ContainerWorkflowRuntime;
+
+      const referencedPrincipalHeads = [
+        {
+          principalType: "group" as const,
+          principalId: "committed-share-group",
+          version: 2,
+          keyEpoch: 1,
+          stateHash: "a".repeat(64),
+          keyFingerprint: "b".repeat(64),
+        },
+      ];
+      const result =
+        variant === "new share"
+          ? await persistSharedContainerState({
+              containerState,
+              persistence,
+              runtime,
+              writerProjectionGeneration: 0,
+              shared: {
+                accessEpoch: 2,
+                accessManifestHash: "access-after-share",
+                createdAt: "2026-01-01T00:00:00.000Z",
+                metadataDocumentId: `metadata-${containerId}`,
+                referencedPrincipalHeads,
+                updatedAt: "2026-01-02T00:00:00.000Z",
+                writerProjection: null,
+              },
+            })
+          : await persistDuplicateContainerShare({
+              containerState,
+              writerProjectionGeneration: 0,
+              grant: {
+                accessEpoch: 2,
+                accessStateHash: "access-after-share",
+                createdAt: "2026-01-01T00:00:00.000Z",
+                metadataDocumentId: `metadata-${containerId}`,
+                referencedPrincipalHeads,
+                updatedAt: "2026-01-02T00:00:00.000Z",
+              },
+              persistence,
+              projection,
+              runtime,
+            });
+
+      if (result?.status !== "persisted") {
+        throw new Error("Expected persisted share state");
+      }
+      expect(policyReadCount).toBe(0);
+      expect(containerState.doc).toBe(liveDoc);
+      expect(
+        readContainerMetadataValue(containerState.doc, "fallback"),
+      ).toEqual({ icon: "archive", name: "Concurrent rename" });
+      expect(containerState.record).toMatchObject({
+        accessEpoch: 2,
+        accessStateHash: "access-after-share",
+        metadataUpdates: concurrentUpdates,
+      });
+      expect(result.record).toBe(containerState.record);
+    } finally {
+      database.close();
+    }
+  });
+}

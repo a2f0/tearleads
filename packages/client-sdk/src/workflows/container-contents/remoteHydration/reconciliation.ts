@@ -1,18 +1,18 @@
 import type { LocalRootDescendantReparentInput } from "../containerPersistence";
 import {
+  isSessionRootState,
+  isVerifiedLocalRootReconciliationTarget,
+} from "./destination/verifiedDestination";
+import {
   createContainerChildIndex,
   moveIndexedContainerChild,
   removeIndexedContainerChild,
-} from "./childIndex";
+} from "./lanes/childIndex";
 import type {
   ContainerChildIndex,
   ContainerState,
   RemoteContainerHydrationState,
 } from "./types";
-import {
-  isSessionRootState,
-  isVerifiedLocalRootReconciliationTarget,
-} from "./verifiedDestination";
 
 export function hasRemoteContainerMetadataState(
   containerState: ContainerState,

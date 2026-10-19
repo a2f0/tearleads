@@ -40,7 +40,7 @@ import type { DocumentSnapshot, DocumentsRuntime } from "../types";
 import {
   getAttachmentStatuses,
   getAttachmentStorageKeys,
-} from "./attachmentSnapshot";
+} from "./attachments/attachmentSnapshot";
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["crypto"]["encapsulationKeyPair"]

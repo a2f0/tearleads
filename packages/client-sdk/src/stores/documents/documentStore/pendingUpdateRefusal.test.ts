@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { createCoverageFixture } from "../../../../test/helpers/syncOutgoingCoverage";
 import type { DocumentsPersistence } from "../../../workflows/documents";
 import { rebaseDocumentAfterPendingUpdateRefusal } from "./pendingUpdateRefusal";
-import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+import { captureDocumentStoreSyncGeneration } from "./sync/syncGeneration";
 
 test("a refused enqueue atomically adopts and registers the winning identity", async () => {
   const fixture = await createCoverageFixture(

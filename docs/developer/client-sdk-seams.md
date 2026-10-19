@@ -216,6 +216,9 @@ Probe each new rule with a temporary violating import before relying on it.
 - Formal abstraction maps under `formal/` name production seams, and
   `bun run lint:formal-maps` fails when a named function disappears. Update the
   map in the same change.
+- Moving files means searching scripts, docs, and `formal/` for every old
+  path, tests included. Protocol projection scripts such as
+  `scripts/protocol/checkRestartProbeProjection.ts` run scenario tests by path.
 - When a refactor changes behavior, even only the keying, add a test that fails
   under the old behavior and confirm it fails before relying on it.
 

@@ -25,7 +25,7 @@ import {
 import {
   captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
-} from "./syncGeneration";
+} from "./sync/syncGeneration";
 
 // Fixed literal: a reported message must never carry row ids or field values.
 const ROW_FAILURE_MESSAGE = "Documents: row mutation failed";

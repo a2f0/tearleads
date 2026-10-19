@@ -1,0 +1,407 @@
+import { expect, mock, test } from "bun:test";
+import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/cachedContainerHydrationRuntime";
+import { createRemoteContainerIngestor } from "../index";
+import type {
+  ContainerState,
+  RemoteContainer,
+  RemoteContainerHydrationHost,
+  RemoteContainerHydrationState,
+} from "../types";
+import { upsertRemoteContainerState } from "./remoteContainerState";
+
+function createExistingState(): ContainerState {
+  return {
+    container: {
+      icon: null,
+      id: "container-1",
+      metadataDocumentId: "metadata-1",
+      name: "Existing",
+      organizationId: "organization-1",
+      parentId: "root-1",
+      updatedAt: "2026-01-01T00:00:00.000Z",
+    },
+    containerWriterProjection: {
+      accessEpoch: 1,
+    } as unknown as ContainerState["containerWriterProjection"],
+    doc: {} as ContainerState["doc"],
+    record: {
+      accessEpoch: 1,
+      accessStateHash: "access-old",
+      contentKeyBundle: null,
+      documentId: "metadata-1",
+      documentKekTargets: null,
+      documentManifestBundle: null,
+      id: "container-1",
+      lastCommitLsn: null,
+      metadataUpdates: "",
+      snapshotEndVersion: "",
+    },
+  };
+}
+
+const remoteContainer: RemoteContainer = {
+  createdAt: "2026-01-01T00:00:00.000Z",
+  effectiveAccessLevel: "admin",
+  id: "container-1",
+  metadataAccessEpoch: 2,
+  metadataAccessStateHash: "access-new",
+  metadataDocumentId: "metadata-1",
+  metadataReferencedPrincipals: [],
+  organizationId: "organization-1",
+  parentId: "root-2",
+  systemSlot: null,
+  updatedAt: "2026-02-01T00:00:00.000Z",
+};
+
+test("stale existing-container persistence cannot publish after reset", async () => {
+  const existingState = createExistingState();
+  const state = {
+    containersById: new Map([[existingState.container.id, existingState]]),
+    runtime: cachedContainerHydrationRuntime([remoteContainer]),
+  } as unknown as RemoteContainerHydrationState;
+  let current = true;
+  let resolvePersist: (
+    result: Awaited<
+      ReturnType<RemoteContainerHydrationHost["persistContainerState"]>
+    >,
+  ) => void = () => {
+    throw new Error("persist promise was not initialized");
+  };
+  let persistedCandidate: ContainerState | null = null;
+  const host: RemoteContainerHydrationHost = {
+    persistContainerState: (candidate) => {
+      persistedCandidate = candidate;
+      return new Promise((resolve) => {
+        resolvePersist = resolve;
+      });
+    },
+    updateSnapshot: () => {},
+  };
+
+  const hydration = upsertRemoteContainerState({
+    containerIdsWithPendingMetadataUpdates: new Set(),
+    containerIdsWithPendingStructuralIntents: new Set(),
+    host,
+    isCurrent: () => current,
+    remoteContainer,
+    state,
+  });
+  await waitFor(() => persistedCandidate !== null);
+  expect(persistedCandidate).not.toBe(existingState);
+
+  current = false;
+  resolvePersist({ record: existingState.record, status: "persisted" });
+  await hydration;
+
+  expect(existingState.record.accessStateHash).toBe("access-old");
+  expect(existingState.container.parentId).toBe("root-1");
+  expect(existingState.container.updatedAt).toBe("2026-01-01T00:00:00.000Z");
+  expect(existingState.containerWriterProjection).not.toBeNull();
+});
+
+async function waitFor(condition: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    if (condition()) {
+      return;
+    }
+    await Bun.sleep(1);
+  }
+  throw new Error("condition was not reached");
+}
+
+test("reset during insert cannot redirect hydration into the recovered database", async () => {
+  const staleExecSql = cachedContainerHydrationRuntime([remoteContainer]).infra
+    .execSql;
+  const recoveredExecSql = cachedContainerHydrationRuntime([remoteContainer])
+    .infra.execSql;
+  let resolveDormantRecord: (record: null) => void = () => {
+    throw new Error("dormant-record promise was not initialized");
+  };
+  const loadContainerMetadataRecord = mock(
+    (_execSql: unknown) =>
+      new Promise<null>((resolve) => {
+        resolveDormantRecord = resolve;
+      }),
+  );
+  const commitHydratedContainer = mock(async () => {
+    throw new Error("stale insert must stop before save");
+  });
+  const host: RemoteContainerHydrationHost = {
+    persistContainerState: async () => {
+      throw new Error("stale insert must stop before host persistence");
+    },
+    updateSnapshot: () => {},
+  };
+  let current = true;
+  const state = {
+    containersById: new Map(),
+    persistence: {
+      isSupersededContainerBinding: async () => false,
+      loadHeldContainerBinding: async () => null,
+      loadContainerMetadataRecord,
+      commitHydratedContainer,
+    },
+    runtime: cachedContainerHydrationRuntime([remoteContainer], staleExecSql),
+  } as unknown as RemoteContainerHydrationState;
+
+  const hydration = upsertRemoteContainerState({
+    containerIdsWithPendingMetadataUpdates: new Set(),
+    containerIdsWithPendingStructuralIntents: new Set(),
+    host,
+    isCurrent: () => current,
+    remoteContainer,
+    state,
+  });
+  await waitFor(() => loadContainerMetadataRecord.mock.calls.length === 1);
+
+  current = false;
+  (state.runtime.infra as { execSql: unknown }).execSql = recoveredExecSql;
+  resolveDormantRecord(null);
+
+  await expect(hydration).resolves.toBeNull();
+  expect(loadContainerMetadataRecord.mock.calls[0]?.[0]).toBe(staleExecSql);
+  expect(commitHydratedContainer).not.toHaveBeenCalled();
+  expect(state.containersById.size).toBe(0);
+});
+
+test("remote ingestion replays after recovery without another event", async () => {
+  const staleExecSql = cachedContainerHydrationRuntime([remoteContainer]).infra
+    .execSql;
+  const recoveredExecSql = cachedContainerHydrationRuntime([remoteContainer])
+    .infra.execSql;
+  const resolvers: Array<(record: null) => void> = [];
+  let activeLoads = 0;
+  let maxActiveLoads = 0;
+  const loadContainerMetadataRecord = mock(
+    (_execSql: unknown) =>
+      new Promise<null>((resolve) => {
+        activeLoads += 1;
+        maxActiveLoads = Math.max(maxActiveLoads, activeLoads);
+        resolvers.push((record) => {
+          activeLoads -= 1;
+          resolve(record);
+        });
+      }),
+  );
+  const commitHydratedContainer = mock(
+    async (_execSql: unknown, input: { container: unknown }) => ({
+      committed: true as const,
+      container: input.container,
+    }),
+  );
+  const updateSnapshot = mock(() => {});
+  let resolveInitialization: () => void = () => {};
+  let serializationBarrier: Promise<void> | null = null;
+  const state = {
+    containersById: new Map(),
+    lifecycleGeneration: 0,
+    persistence: {
+      isSupersededContainerBinding: async () => false,
+      loadHeldContainerBinding: async () => null,
+      listPendingCreateIntents: async () => [],
+      loadContainerHydrationTombstones: async () => [],
+      listUnsyncedMoveIntents: async () => [],
+      loadContainerMetadataRecord,
+      commitHydratedContainer,
+    },
+    runtime: cachedContainerHydrationRuntime([remoteContainer], staleExecSql),
+  } as unknown as RemoteContainerHydrationState;
+  const ingest = createRemoteContainerIngestor({
+    getSerializationBarrier: () => serializationBarrier,
+    host: {
+      persistContainerState: async () => {
+        throw new Error("insert ingestion must use persistence directly");
+      },
+      updateSnapshot,
+    },
+    state,
+  });
+
+  const staleIngest = ingest(remoteContainer);
+  await waitFor(() => resolvers.length === 1);
+  state.lifecycleGeneration = 1;
+  (state.runtime.infra as { execSql: unknown }).execSql = recoveredExecSql;
+  (state.runtime.infra as { dbStatus: string }).dbStatus = "idle";
+
+  expect(loadContainerMetadataRecord).toHaveBeenCalledTimes(1);
+  resolvers[0]?.(null);
+  await staleIngest;
+  expect(activeLoads).toBe(0);
+  expect(loadContainerMetadataRecord).toHaveBeenCalledTimes(1);
+  (state.runtime.infra as { dbStatus: string }).dbStatus = "ready";
+  serializationBarrier = new Promise<void>((resolve) => {
+    resolveInitialization = resolve;
+  });
+  const resumedIngest = ingest.resume();
+  await Bun.sleep(1);
+  expect(loadContainerMetadataRecord).toHaveBeenCalledTimes(1);
+  serializationBarrier = null;
+  resolveInitialization();
+  await waitFor(() => resolvers.length === 2);
+
+  expect(loadContainerMetadataRecord.mock.calls[0]?.[0]).toBe(staleExecSql);
+  expect(loadContainerMetadataRecord.mock.calls[1]?.[0]).toBe(recoveredExecSql);
+  expect(state.containersById.size).toBe(0);
+  resolvers[1]?.(null);
+  await resumedIngest;
+
+  expect(maxActiveLoads).toBe(1);
+  expect(commitHydratedContainer).toHaveBeenCalledTimes(1);
+  expect(state.containersById.has(remoteContainer.id)).toBe(true);
+  expect(updateSnapshot).toHaveBeenCalledTimes(1);
+});
+
+test("remote ingestion discards payloads from a replaced structural context", async () => {
+  let resolveLoad: (record: null) => void = () => {
+    throw new Error("load promise was not initialized");
+  };
+  const loadContainerMetadataRecord = mock(
+    () =>
+      new Promise<null>((resolve) => {
+        resolveLoad = resolve;
+      }),
+  );
+  const commitHydratedContainer = mock(async () => {
+    throw new Error("stale structural ingestion must not commit");
+  });
+  const state = {
+    containersById: new Map(),
+    lifecycleGeneration: 0,
+    persistence: {
+      isSupersededContainerBinding: async () => false,
+      loadHeldContainerBinding: async () => null,
+      commitHydratedContainer,
+      listPendingCreateIntents: async () => [],
+      loadContainerHydrationTombstones: async () => [],
+      listUnsyncedMoveIntents: async () => [],
+      loadContainerMetadataRecord,
+    },
+    runtime: cachedContainerHydrationRuntime([remoteContainer]),
+    structuralGeneration: 0,
+  } as unknown as RemoteContainerHydrationState;
+  const ingest = createRemoteContainerIngestor({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("insert ingestion must use persistence directly");
+      },
+      updateSnapshot: () => {
+        throw new Error("stale structural ingestion must not publish");
+      },
+    },
+    state,
+  });
+
+  const staleIngest = ingest(remoteContainer);
+  await waitFor(() => loadContainerMetadataRecord.mock.calls.length === 1);
+  state.structuralGeneration = 1;
+  (
+    state.runtime as {
+      auth: { organizationId: string };
+    }
+  ).auth.organizationId = "organization-2";
+  resolveLoad(null);
+  await staleIngest;
+
+  expect(commitHydratedContainer).not.toHaveBeenCalled();
+  expect(state.containersById.size).toBe(0);
+  expect(ingest.hasPending()).toBe(false);
+  await ingest.resume();
+  expect(loadContainerMetadataRecord).toHaveBeenCalledTimes(1);
+});
+
+test("reset during a batch replays every item into the recovered database", async () => {
+  const staleExecSql = cachedContainerHydrationRuntime([remoteContainer]).infra
+    .execSql;
+  const recoveredExecSql = cachedContainerHydrationRuntime([remoteContainer])
+    .infra.execSql;
+  const secondRemoteContainer: RemoteContainer = {
+    ...remoteContainer,
+    id: "container-2",
+    metadataDocumentId: "metadata-2",
+  };
+  cachedContainerHydrationRuntime([secondRemoteContainer], staleExecSql);
+  cachedContainerHydrationRuntime([secondRemoteContainer], recoveredExecSql);
+  let resolveSecondStaleLoad: (record: null) => void = () => {
+    throw new Error("second stale load promise was not initialized");
+  };
+  const loadContainerMetadataRecord = mock(
+    (execSql: unknown, containerId: string) => {
+      if (
+        execSql === staleExecSql &&
+        containerId === secondRemoteContainer.id
+      ) {
+        return new Promise<null>((resolve) => {
+          resolveSecondStaleLoad = resolve;
+        });
+      }
+      return Promise.resolve(null);
+    },
+  );
+  const savedContainers: Array<{ execSql: unknown; id: string }> = [];
+  const commitHydratedContainer = mock(
+    async (execSql: unknown, input: { container: { id: string } }) => {
+      savedContainers.push({ execSql, id: input.container.id });
+      return { committed: true as const, container: input.container };
+    },
+  );
+  const updateSnapshot = mock(() => {});
+  const state = {
+    containersById: new Map(),
+    lifecycleGeneration: 0,
+    persistence: {
+      isSupersededContainerBinding: async () => false,
+      loadHeldContainerBinding: async () => null,
+      listPendingCreateIntents: async () => [],
+      loadContainerHydrationTombstones: async () => [],
+      listUnsyncedMoveIntents: async () => [],
+      loadContainerMetadataRecord,
+      commitHydratedContainer,
+    },
+    runtime: cachedContainerHydrationRuntime([remoteContainer], staleExecSql),
+  } as unknown as RemoteContainerHydrationState;
+  const ingest = createRemoteContainerIngestor({
+    host: {
+      persistContainerState: async () => {
+        throw new Error("insert ingestion must use persistence directly");
+      },
+      updateSnapshot,
+    },
+    state,
+  });
+
+  const firstIngest = ingest(remoteContainer);
+  const secondIngest = ingest(secondRemoteContainer);
+  await waitFor(() => loadContainerMetadataRecord.mock.calls.length === 2);
+  expect(savedContainers).toEqual([
+    { execSql: staleExecSql, id: remoteContainer.id },
+  ]);
+
+  state.lifecycleGeneration = 1;
+  state.containersById = new Map();
+  (state.runtime.infra as { dbStatus: string; execSql: unknown }).dbStatus =
+    "idle";
+  (state.runtime.infra as { dbStatus: string; execSql: unknown }).execSql =
+    recoveredExecSql;
+  resolveSecondStaleLoad(null);
+  await Promise.all([firstIngest, secondIngest]);
+
+  expect(ingest.hasPending()).toBe(true);
+  (state.runtime.infra as { dbStatus: string }).dbStatus = "ready";
+  await ingest.resume();
+
+  expect(loadContainerMetadataRecord.mock.calls).toEqual([
+    [staleExecSql, remoteContainer.id],
+    [staleExecSql, secondRemoteContainer.id],
+    [recoveredExecSql, remoteContainer.id],
+    [recoveredExecSql, secondRemoteContainer.id],
+  ]);
+  expect(savedContainers).toEqual([
+    { execSql: staleExecSql, id: remoteContainer.id },
+    { execSql: recoveredExecSql, id: remoteContainer.id },
+    { execSql: recoveredExecSql, id: secondRemoteContainer.id },
+  ]);
+  expect(state.containersById.has(remoteContainer.id)).toBe(true);
+  expect(state.containersById.has(secondRemoteContainer.id)).toBe(true);
+  expect(ingest.hasPending()).toBe(false);
+  expect(updateSnapshot).toHaveBeenCalledTimes(1);
+});

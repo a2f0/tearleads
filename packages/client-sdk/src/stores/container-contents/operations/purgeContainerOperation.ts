@@ -1,0 +1,29 @@
+import type { PurgeOptions } from "../../../workflows/container-contents/container-state/purge/purgeProgress";
+import type { ContainerWriteGuard } from "../remoteWrites/writeGeneration";
+import type { ContainerContentsStoreSyncAgent } from "../syncAgent";
+import type { ContainerContentsStoreState } from "../types";
+import { runContainerPurge } from "./containerPurgeCore";
+
+// Permanently destroy a container and everything beneath it. Unlike
+// deleteContainer (a leaf-only hard delete), this cascades: documents whose last
+// link is inside the subtree are purged, multi-folder documents are unlinked
+// from the subtree only, and descendant containers are deleted leaf-first. The
+// caller (the trash "Delete Forever" action) restricts this to folders under
+// trash; here we keep the same structural guards deleteContainer uses — never a
+// root and never a system container itself.
+export async function purgeContainer(
+  state: ContainerContentsStoreState,
+  syncAgent: ContainerContentsStoreSyncAgent,
+  containerId: string,
+  options?: PurgeOptions,
+  isCurrent: ContainerWriteGuard = () => true,
+): Promise<boolean> {
+  return runContainerPurge(state, syncAgent, containerId, options, isCurrent, {
+    describeResult: (target, result) =>
+      `purged container "${target.container.name}" (${result.purgedContainerIds.length} container(s) removed, ${result.failedCount} failed)`,
+    didSucceed: (result) => result.purgedContainerIds.includes(containerId),
+    validateTarget: (target) =>
+      target.container.parentId !== null &&
+      (target.container.systemSlot ?? null) === null,
+  });
+}

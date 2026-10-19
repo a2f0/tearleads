@@ -18,9 +18,9 @@ import {
 } from "@tearleads/crypto/test-fixtures";
 import type { createTestExecSql } from "@tearleads/test-utils";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
-import { createProjectionCheckpointContext } from "../../src/data/keyingProjectionVerification/checkpointContext";
-import { verifyContainerManifestPath } from "../../src/data/keyingProjectionVerification/containerPathVerification";
-import { principalPolicyCacheForVerifiedPolicies } from "../../src/data/keyingProjectionVerification/principalPolicyCache";
+import { createProjectionCheckpointContext } from "../../src/data/keyingProjectionVerification/checkpoints/checkpointContext";
+import { verifyContainerManifestPath } from "../../src/data/keyingProjectionVerification/container/containerPathVerification";
+import { principalPolicyCacheForVerifiedPolicies } from "../../src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { advanceKeyingCheckpointsAtomically } from "../../src/data/persistence/keyingCheckpointAdvancePersistence";
 import { createTestTrustedUserIdentity } from "./trustedUserIdentity";
 

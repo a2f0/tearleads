@@ -10,7 +10,7 @@ import { sqlDocumentContainerProjectionPersistence as links } from "../../../dat
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRemoteHistoryFixture } from "../../../stores/documents/documentStore/documentStore.testFixtures";
-import { persistFullHistoryDocument } from "../../../stores/documents/documentStore/rotationRecoveryHelpers.test";
+import { persistFullHistoryDocument } from "../../../stores/documents/documentStore/rotation/rotationRecoveryHelpers.test";
 import { subscribeToPersistedDocuments } from "../../../stores/documents/registry";
 
 test.each([false, true])(

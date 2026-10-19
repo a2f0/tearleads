@@ -17,11 +17,11 @@ import {
   runSerializedSqlMutation,
 } from "../../../workflows/documents";
 import { requestDocumentStoreSync } from "../registry";
-import { maybeCompactDocumentHistory } from "./documentHistoryCompaction";
+import { maybeCompactDocumentHistory } from "./history/documentHistoryCompaction";
 import {
   importDurableDocumentHistory,
   installDurableDocumentReload,
-} from "./durableDocumentReload";
+} from "./history/durableDocumentReload";
 import { runDocumentOrphanMaintenance } from "./orphanMaintenance";
 import {
   type DocumentState,
@@ -35,7 +35,7 @@ import { createFreshPeerStoredDocument } from "./storedDocument";
 import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent as isSyncGenerationCurrent,
-} from "./syncGeneration";
+} from "./sync/syncGeneration";
 
 export function documentSummaryFromRecord(
   record: DocumentRecord,
