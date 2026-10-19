@@ -26,6 +26,7 @@ import {
 } from "./principalPolicyHistoryReader";
 import { createPrincipalCurrentRecoveryBatch } from "./recoveryOperation/principalCurrentRecoveryBatch";
 import { recoverWithPrincipalLocalPreference } from "./recoveryOperation/principalRecoveryLocalPreference";
+import { resumeAfterSupersededStage } from "./recoveryOperation/supersededStageResume";
 
 export interface PrincipalPolicyRecoveryRuntime {
   readonly apiClient: Partial<PrincipalPolicyHistoryReader>;
@@ -63,6 +64,28 @@ interface PrincipalPolicyCurrentRequest
   /** A read-model caller has selected this exact signed head; not a freshness read. */
   readonly preferLocalCurrent?: boolean | undefined;
   readonly historyPage?: { readonly beforeVersion?: number } | undefined;
+}
+
+/** One recovery attempt for a resolver request through the operation's batch. */
+function recoverPolicyCurrent(
+  batch: ReturnType<typeof createPrincipalCurrentRecoveryBatch>,
+  options: Parameters<
+    ReturnType<typeof createPrincipalCurrentRecoveryBatch>["discover"]
+  >[0],
+  input: PrincipalPolicyCurrentRequest,
+): Promise<ScopedPrincipalPolicyRecovery> {
+  return input.reference
+    ? recoverWithPrincipalLocalPreference(
+        batch.recover,
+        {
+          ...options,
+          reference: input.reference,
+          historyPage: input.historyPage,
+        },
+        input.preferLocalCurrent === true || input.preferLocalHistory === true,
+        input.preferLocalHistory === true,
+      )
+    : batch.discover(options);
 }
 
 /** Keep current artifacts with their verified evidence and private runtime lifetime. */
@@ -119,20 +142,15 @@ export function createRuntimePrincipalPolicyCurrentResolver(
                     runtime.resolveTrustedUserIdentity,
                   stillCurrent,
                 };
-                const batch = recoverFor(input.recoveryBatch);
-                const result: ScopedPrincipalPolicyRecovery = input.reference
-                  ? await recoverWithPrincipalLocalPreference(
-                      batch.recover,
-                      {
-                        ...options,
-                        reference: input.reference,
-                        historyPage: input.historyPage,
-                      },
-                      input.preferLocalCurrent === true ||
-                        input.preferLocalHistory === true,
-                      input.preferLocalHistory === true,
-                    )
-                  : await batch.discover(options);
+                const result = await resumeAfterSupersededStage(
+                  () =>
+                    recoverPolicyCurrent(
+                      recoverFor(input.recoveryBatch),
+                      options,
+                      input,
+                    ),
+                  stillCurrent,
+                );
                 // Reused evidence stays bound to every producer lifetime.
                 const resultCurrent = () =>
                   stillCurrent() && result.stillCurrent();

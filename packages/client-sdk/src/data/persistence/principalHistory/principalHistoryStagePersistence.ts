@@ -45,6 +45,11 @@ class PrincipalHistoryStageChangedError extends Error {
   }
 }
 
+/** Another writer replaced this stage's progress between load and save. */
+export function isPrincipalHistoryStageChangedError(error: unknown): boolean {
+  return error instanceof PrincipalHistoryStageChangedError;
+}
+
 export async function loadPrincipalHistoryStage(
   execSql: ExecSql,
   id: string,
