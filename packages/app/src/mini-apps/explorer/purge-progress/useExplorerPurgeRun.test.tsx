@@ -69,3 +69,49 @@ test("unmounting mid-run aborts the in-flight purge", () => {
 
   expect(capturedSignal?.aborted).toBe(true);
 });
+
+test("a purge waiting on a queued move reports it, then the move's failure", async () => {
+  let unsettle: () => void = () => {};
+  const purgeContainer = (_id: string, options?: PurgeOptions) => {
+    options?.onMoveSettlement?.("waiting");
+    return new Promise<boolean>((resolve) => {
+      unsettle = () => {
+        options?.onMoveSettlement?.("unsettled");
+        resolve(false);
+      };
+    });
+  };
+  const { result } = renderPurgeRun({ purgeContainer });
+
+  act(() => result.current.startContainerPurge("c1", "Folder"));
+  expect(result.current.run).toMatchObject({
+    moveSettlement: "waiting",
+    progress: null,
+    status: "running",
+  });
+
+  act(() => unsettle());
+
+  await waitFor(() => expect(result.current.run?.status).toBe("failed"));
+  expect(result.current.run?.error).toBe(
+    "Couldn't finish moving to Trash, so nothing was deleted. Try again in a moment.",
+  );
+});
+
+test("a settled move lets the purge report progress and finish", async () => {
+  const purgeContainer = async (_id: string, options?: PurgeOptions) => {
+    options?.onMoveSettlement?.("waiting");
+    options?.onProgress?.({ completedCount: 1, failedCount: 0, totalCount: 1 });
+    return true;
+  };
+  const { result } = renderPurgeRun({ purgeContainer });
+
+  act(() => result.current.startContainerPurge("c1", "Folder"));
+
+  await waitFor(() => expect(result.current.run?.status).toBe("done"));
+  expect(result.current.run).toMatchObject({
+    error: null,
+    moveSettlement: "waiting",
+    progress: { completedCount: 1, failedCount: 0, totalCount: 1 },
+  });
+});

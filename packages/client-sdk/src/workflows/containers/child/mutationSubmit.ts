@@ -127,6 +127,8 @@ export async function submitAcknowledgedContainerMutation<
   execSql: ExecSql;
   plan: TPlan;
   recitationPolicies: readonly PrincipalPolicyCheckpointEvidence[];
+  /** Called when the server accepted but a stale caller dropped the result. */
+  onStaleAcceptance?: (() => void) | undefined;
   /** Session lifetime for best-effort work after durable acknowledgement. */
   recitationStillCurrent?: (() => boolean) | undefined;
   reportSecurityIncident: SecurityIncidentReporter;
@@ -166,7 +168,10 @@ export async function submitAcknowledgedContainerMutation<
           responses: [response, ...(response.containerRekeys ?? [])],
           stillCurrent: input.stillCurrent,
         });
-  if (!acknowledged || input.stillCurrent?.() === false) return null;
+  if (!acknowledged || input.stillCurrent?.() === false) {
+    input.onStaleAcceptance?.();
+    return null;
+  }
 
   try {
     rememberVerifiedContainerHeads({

@@ -18,6 +18,7 @@ import {
   verifyContainerGroupRewrapCurrent,
 } from "./operations/groupRewrapOperation";
 import { purgeContainer } from "./operations/purgeContainerOperation";
+import { chainPurgeAfterScopeMoves } from "./operations/purgeMoveSettlementOperation";
 import { setContainerIcon } from "./operations/setContainerIconOperation";
 import {
   shareContainerWithGroup,
@@ -340,22 +341,22 @@ export function createContainerWriteMethods(
       ),
     deleteContainer: createDeleteContainerMethod(state, syncAgent),
     purgeContainer: (containerId, options) =>
-      chainRemoteContainerTask(
+      chainPurgeAfterScopeMoves(
         state,
         syncAgent,
-        false,
+        containerId,
+        options,
         (isCurrent) =>
           purgeContainer(state, syncAgent, containerId, options, isCurrent),
-        containerId,
       ),
     emptyTrash: (trashContainerId, options) =>
-      chainRemoteContainerTask(
+      chainPurgeAfterScopeMoves(
         state,
         syncAgent,
-        false,
+        trashContainerId,
+        options,
         (isCurrent) =>
           emptyTrash(state, syncAgent, trashContainerId, options, isCurrent),
-        trashContainerId,
       ),
     ensureSystemContainer: createEnsureSystemContainerMethod(state, syncAgent),
     moveContainer: (containerId, parentId) =>

@@ -26,3 +26,27 @@ export async function hasUnsettledDocumentPlacement(
     .limit(1);
   return intent !== undefined;
 }
+
+export interface DocumentPlacementIntentState {
+  readonly lastAttemptedAt: string | null;
+  readonly localId: string;
+  readonly syncStatus: string;
+}
+
+/** Every queued placement on this device; purge narrows it to its scope. */
+export async function listDocumentPlacementIntentStates(
+  execSql: ExecSql,
+): Promise<DocumentPlacementIntentState[]> {
+  await ensureSqlTables(execSql, documentPlacementIntentTables);
+  const rows = await getClientSQLitePersistenceRuntime(execSql)
+    .db.select({
+      lastAttemptedAt: localIntents.lastAttemptedAt,
+      localId: localIntents.localId,
+      syncStatus: localIntents.syncStatus,
+    })
+    .from(localIntents)
+    .where(inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement));
+  return rows.flatMap(({ localId, ...row }) =>
+    localId === null ? [] : [{ ...row, localId }],
+  );
+}

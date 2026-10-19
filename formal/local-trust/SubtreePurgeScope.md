@@ -37,6 +37,12 @@ placement version abstracts both the document row and its ancestor chain.
 Implementation tests also cover local ancestors changing during remote
 verification.
 
+Before the scope runs, `settlePurgeScopeMoves` waits for the moves this device
+queued inside it to reach the server, so a purge soon after Move to Trash does
+not meet `RestoreIntent` refusals for its own trashing. The wait only delays
+`CheckCandidate` and changes no guard, so it adds no model action: any intent
+still queued afterwards is refused exactly as before.
+
 Cryptographic verification is abstracted as an authenticated membership fact;
 this model does not prove signature correctness or multiple concurrent moves.
 The client intent recheck and remote commit are one atomic model step. For

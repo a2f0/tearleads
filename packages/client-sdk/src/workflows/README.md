@@ -236,6 +236,16 @@ detected rows. Network and SQLite availability errors are not incidents.
 Incident rows intentionally exclude exception messages, ciphertext, and
 decrypted values, and remote-state reset does not erase them.
 
+Container purge and Empty Trash first wait for the container and document moves
+this device queued inside their scope: until the server accepts a move, the
+scope cannot prove what it would destroy. The store requests a structural sync
+pass and waits until the moves settle, a pass it requested leaves one queued or
+parked, a 30-second ceiling passes, or `signal` aborts. `onMoveSettlement`
+reports `"waiting"`, then `"unsettled"` if the wait ends with a move still
+queued; that purge resolves `false` without deleting anything. Each unsettled
+ending, and each accepted container move that a replay leaves queued, reports
+through `util.logError` with a fixed message and no identifiers.
+
 Remote document deletion commits its verified terminal purge checkpoint in the
 same local transaction as the matching document teardown. An interruption,
 stale store generation, or identity replacement leaves both operations
