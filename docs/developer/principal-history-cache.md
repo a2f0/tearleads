@@ -76,10 +76,11 @@ An evicted in-flight writer fails its progress compare-and-swap with
 `principal_history_stage_changed`; the caller must start another recovery, which
 can resume from a surviving authenticated prefix or genesis. The built-in runtime
 serializes recovery within an organization, but an acknowledged publication
-(`persistAcknowledgedPrincipalCurrents`) writes outside that queue, so its
-queued resolvers start that recovery themselves, once, in the same queue turn
-(`resumeAfterSupersededStage`). Custom hosts with overlapping calls must handle
-this retry. Eviction imposes no history-version cutoff.
+(`persistAcknowledgedPrincipalCurrents`) writes the private stage of its head
+outside that queue, so the queued current-policy resolver
+(`createRuntimePrincipalPolicyCurrentResolver`) starts that recovery itself,
+once, in the same queue turn (`resumeAfterSupersededStage`). Custom hosts with
+overlapping calls must handle this retry. Eviction imposes no history-version cutoff.
 Cancellation rolls back page acceptance, key archival and reclamation. Incomplete
 cleanup reads only stage identifiers; completed cleanup reads current artifacts
 only for its bounded archival/deletion batch. Both use the scoped recency index.
