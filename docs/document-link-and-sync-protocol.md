@@ -36,8 +36,14 @@ publishes the seed's update hint. The client settles its queued row only when
 that acknowledgement names it. A refused seed falls back once to the plain
 create, after which the row syncs as before. A lost response is adopted through
 `409 document_manifest_already_exists`. Adoption cannot tell whether the seed
-committed, so the row stays queued. A retried update id the seed already stored
-takes the ordinary known-update path.
+committed, so the row stays queued and syncs as an ordinary update. That sync
+encrypts the row again, so when the seed did commit, the reused id no longer
+matches the stored ciphertext and the server answers
+`409 document_sync_update_id_conflict`. Recovery settles the row when its pull
+carries the stored update and otherwise re-keys the row, whose ops then commit
+again under a fresh id; the duplicate is harmless because CRDT import is
+idempotent. A lost response therefore costs the recovery round trips, not
+data.
 
 Both link and unlink bodies require `blobRewraps`: one entry per blob actively
 bound to the changed document, with `blobId`, the immutable `contentKeyEpoch`,

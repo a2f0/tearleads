@@ -148,8 +148,10 @@ WriteIntoFolder ==
                   parked, siblingSynced>>
   /\ UNCHANGED seedVars
 
-(* Once adopted, the folder's metadata sync sends the queued seed; one    *)
-(* already stored under its id is a known update the server dedupes.     *)
+(* Once adopted, the folder's metadata sync sends the queued seed. One    *)
+(* already stored under its id comes back encrypted again, so the server  *)
+(* reports an update-id conflict and recovery settles or re-keys it; this *)
+(* step abstracts that exchange to its outcome.                           *)
 SyncMetadataSeed ==
   /\ ~pending /\ verified /\ seedQueued
   /\ seedQueued' = FALSE /\ seedCommitted' = TRUE

@@ -2,6 +2,11 @@ import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import {
+  computeDocumentContentRecordCiphertextHash,
+  signWriteHeader,
+  type UnsignedWriteHeader,
+} from "@tearleads/crypto";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";
@@ -15,6 +20,7 @@ import {
   type StoredRootFixture,
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { postDocumentSync } from "../../../test/helpers/staleBundleHealKit";
 import { routeApp } from "../../routeApp";
 
 async function registeredRoot(): Promise<{
@@ -158,6 +164,63 @@ test("replaying a seeded create reports the committed manifest", async () => {
   expect(replay.status).toBe(409);
   expect(((await replay.json()) as { code?: string }).code).toBe(
     "document_manifest_already_exists",
+  );
+  expect(await storedUpdateIds(created.id)).toEqual([updateId]);
+}, 15_000);
+
+/** The seed as a client re-sends its row: the same id, freshly encrypted. */
+async function reencryptedSeed(
+  owner: TestUser,
+  seed: NonNullable<DocumentCreateRequest["initialSync"]>,
+): Promise<NonNullable<DocumentCreateRequest["initialSync"]>> {
+  const [update] = seed.outgoingUpdates;
+  if (!update) throw new Error("Expected a seed update");
+  const encryptedData = `${update.encryptedData}:fresh-iv`;
+  const { signature: _signature, ...header } = update.writeHeader;
+  const writeHeader = await signWriteHeader(
+    {
+      ...(header as unknown as UnsignedWriteHeader),
+      ciphertextHash:
+        await computeDocumentContentRecordCiphertextHash(encryptedData),
+    },
+    owner.signing.signingPrivateKey,
+  );
+  return {
+    ...seed,
+    outgoingUpdates: [
+      {
+        ...update,
+        encryptedData,
+        writeHeader: writeHeader as unknown as Record<string, unknown>,
+      },
+    ],
+  };
+}
+
+test("a committed seed re-sent by a sync takes the update-id conflict", async () => {
+  const { owner, root } = await registeredRoot();
+  const { request, updateId } = await seededCreateRequest({ owner, root });
+  const seed = request.initialSync;
+  if (!seed) throw new Error("Expected a seed");
+  const first = await postCreate(owner, request);
+  expect(first.status).toBe(200);
+  const created = (await first.json()) as DocumentCreateResponse;
+
+  // Only a byte-identical re-send is a retry of the seed.
+  const retried = await postDocumentSync(owner, created.id, seed);
+  expect(retried.status).toBe(200);
+
+  // After a lost create response the adopted row syncs re-encrypted, so the
+  // server cannot treat it as a retry of the seed; client recovery settles or
+  // re-keys the row, and the duplicate ops import idempotently.
+  const resent = await postDocumentSync(
+    owner,
+    created.id,
+    await reencryptedSeed(owner, seed),
+  );
+  expect(resent.status).toBe(409);
+  expect(((await resent.json()) as { code?: string }).code).toBe(
+    "document_sync_update_id_conflict",
   );
   expect(await storedUpdateIds(created.id)).toEqual([updateId]);
 }, 15_000);

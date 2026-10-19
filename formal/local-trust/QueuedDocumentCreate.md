@@ -22,7 +22,7 @@ server holds its content.
 | `SubmitPlain` | `submitPlannedDocumentCreateRequest` resubmits the plain create once after a refused seed |
 | `Settle` / `RequireSeedAcknowledgement` | `committedSeedSettlement` settles the row only when `acceptedOutgoingUpdateIds` names it |
 | `Adopt` / `KeepSeedOnAdoption` | `adoptExistingRemoteDocument` returns no create response, so `persistCreatedRemoteDocument` leaves the row queued |
-| `SyncQueuedRow` | the queued row syncs through `syncRemoteDocument`; `assertRetryUpdateMatchesAcceptedContent` handles an update id the seed already stored |
+| `SyncQueuedRow` | the queued row syncs through `syncRemoteDocument`; a seed already stored under its id fails `assertRetryUpdateMatchesAcceptedContent` because the row is encrypted again, and `settledPendingUpdateIdsFromSync` or `rekeyUnsettledRecoveryPendingUpdates` settles or re-keys it |
 | `SettledSeedIsCommitted` | `ensureSeededRemoteDocument` re-lists the queue only after `onCommitted` |
 | `SeedCommitsWithDocument` | `commitDocumentCreateSeedInTransaction` runs inside the create's `db.transaction` |
 

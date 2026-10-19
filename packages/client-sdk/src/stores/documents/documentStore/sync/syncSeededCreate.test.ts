@@ -9,6 +9,7 @@ import {
 } from "@tearleads/loro";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
+import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createMaterializedSyncFixture } from "../../../../../test/helpers/documentFixtures";
 import { createResponseFromRequest } from "../../../../../test/helpers/documentResponseFixtures";
 import { createProbeRuntime } from "../../../../../test/helpers/remoteSyncWait";
@@ -16,6 +17,7 @@ import { createPendingUpdateFields } from "../../../../data/documents/documentSy
 import {
   type DocumentRecord,
   defaultDocumentsPersistence,
+  documentWriterProjectionFromCreateResponse,
 } from "../../../../workflows/documents";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState } from "../state";
@@ -68,15 +70,29 @@ async function acknowledge(
   };
 }
 
-/** One never-created document whose whole content is one queued row. */
+type Fixture = Awaited<ReturnType<typeof createMaterializedSyncFixture>>;
+
+/**
+ * One never-created document whose whole content is one queued row. A
+ * response may record the document it commits in `committed`, which the
+ * writer-projection read then serves, as after an earlier attempt committed.
+ */
 async function runSeededCreate(
   name: string,
   respond: (
     request: DocumentCreateRequest,
     attempt: number,
+    server: {
+      committed: DocumentWriterProjectionResponse | null;
+      readonly fixture: Fixture;
+    },
   ) => Promise<CreateResult>,
 ) {
   const fixture = await createMaterializedSyncFixture();
+  const server: {
+    committed: DocumentWriterProjectionResponse | null;
+    readonly fixture: Fixture;
+  } = { committed: null, fixture };
   const { close, execSql } = await createTestExecSql(name);
   try {
     await defaultDocumentsPersistence.ensureSchema(execSql);
@@ -113,10 +129,11 @@ async function runSeededCreate(
         createDocument: async () => null,
         createDocumentResult: async (request) => {
           requests.push(request);
-          return respond(request, requests.length);
+          return respond(request, requests.length, server);
         },
         getContainerWriterProjection: async () => fixture.projection,
-        getDocumentWriterProjection: async () => null,
+        getDocumentWriterProjection: async (documentId) =>
+          server.committed?.documentId === documentId ? server.committed : null,
         primeDocumentWriterProjection: () => undefined,
       }),
     };
@@ -186,12 +203,30 @@ test("an acknowledged create settles its seed and answers the earlier signal", a
   ).toBe(true);
 });
 
-test("a lost seeded create response leaves the seed queued for its sync", async () => {
-  const result = await runSeededCreate("seeded-create-lost-response", () =>
-    Promise.resolve(manifestExists),
+test("a lost seeded create response adopts the document and keeps its row queued", async () => {
+  const result = await runSeededCreate(
+    "seeded-create-lost-response",
+    async (request, _attempt, server) => {
+      // An earlier attempt committed this create; its response was lost.
+      server.committed = documentWriterProjectionFromCreateResponse({
+        containerProjection: server.fixture.projection,
+        response: await createResponseFromRequest(request),
+      });
+      return manifestExists;
+    },
   );
   // An existing manifest is adopted, never resubmitted without the seed.
   expect(result.requests).toHaveLength(1);
+  expect(result.created.record?.documentId).toBe(
+    String(Reflect.get(result.requests[0]?.manifest ?? {}, "objectId")),
+  );
+  // The adoption cannot tell whether the earlier attempt carried the seed, so
+  // the row stays queued and the pass's ordinary sync sends it. That re-send
+  // is re-encrypted, so a committed seed answers it with an update-id
+  // conflict, which recovery settles or re-keys.
+  expect(result.created.pendingUpdates.map((row) => row.id)).toEqual(
+    result.queued.map((row) => row.id),
+  );
   expect(result.remaining.map((row) => row.id)).toEqual(
     result.queued.map((row) => row.id),
   );

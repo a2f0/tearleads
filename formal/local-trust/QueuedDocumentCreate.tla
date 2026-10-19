@@ -99,8 +99,11 @@ Adopt ==
   /\ UNCHANGED <<serverDocument, serverSeed, attempt>>
   /\ UNCHANGED queueVars
 
-(* A row still queued syncs as an ordinary update; a seed already stored  *)
-(* under its id is a known update the server dedupes.                     *)
+(* A row still queued syncs as an ordinary update. A seed already stored  *)
+(* under its id comes back encrypted again, so the server reports an      *)
+(* update-id conflict and recovery settles or re-keys the row; this step  *)
+(* abstracts that exchange to its outcome, the ops stored and the row     *)
+(* settled.                                                               *)
 SyncQueuedRow ==
   /\ response = "settled" /\ seedQueued /\ serverDocument
   /\ seedQueued' = FALSE /\ serverSeed' = TRUE
