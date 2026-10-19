@@ -1,13 +1,30 @@
 import { expect, test } from "bun:test";
+import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
+import {
+  createContainerMutationResponseFromRequest,
+  createContainerWriterProjectionFixture,
+  createMockApiClient,
+  createTestExecSql,
+} from "@tearleads/test-utils";
+import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
+import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerMoveIntentRecord,
   defaultContainerContentsPersistence,
 } from "../containerPersistence";
+import type { ContainerState } from "../remoteHydration";
 import { createTestContainerState } from "./containerState.testFixtures";
-import { persistAcceptedMoveIntent } from "./moveIntentSync";
-import type { ContainerMoveIntentSyncState } from "./types";
+import {
+  persistAcceptedMoveIntent,
+  syncPendingContainerMoveIntents,
+} from "./moveIntentSync";
+import type {
+  ContainerMoveIntentSyncHost,
+  ContainerMoveIntentSyncState,
+} from "./types";
 
 test("an overtaking move intent prevents stale live-state installation", async () => {
   const child = createTestContainerState({ id: "child", parentId: "root" });
@@ -263,3 +280,186 @@ test("move persistence rejects a save without atomic intent settlement", async (
   ).toBe(true);
   expect(revisionSettlements).toHaveLength(0);
 });
+
+/**
+ * Replays one queued move of `moved` from root into `destination` against a
+ * server that accepts it, then lets the scenario lose the result.
+ */
+async function replayAcceptedMove(input: {
+  host: ContainerMoveIntentSyncHost;
+  /** Flips once the server has accepted the move. */
+  staleAfterAcceptance: boolean;
+}) {
+  const { author, signingPublicKey } = await createAuthor();
+  const kem = generateKemSeedAndKeyPair();
+  const signer = {
+    encapsulationPublicKey: kem.publicKey,
+    organizationId: author.organizationId,
+    signerDeviceId: author.signerDeviceId,
+    signerKeyFingerprint: author.signerKeyFingerprint,
+    signerPrivateKey: author.signerPrivateKey,
+    userId: author.signerUserId,
+  };
+  const root = await createContainerWriterProjectionFixture({
+    ...signer,
+    containerId: "root",
+  });
+  const [moved, destination] = await Promise.all(
+    ["moved", "destination"].map((containerId) =>
+      createContainerWriterProjectionFixture({
+        ...signer,
+        containerId,
+        parentProjection: root,
+      }),
+    ),
+  );
+  if (!moved || !destination) throw new Error("Expected signed fixtures");
+  const database = await createTestExecSql("container-move-accepted-reports");
+  const containerState = (id: string, parentId: string | null) =>
+    createTestContainerState({
+      id,
+      organizationId: author.organizationId,
+      parentId,
+    });
+  const movedLocally = containerState("moved", "destination");
+  movedLocally.doc = await createContainerMetadataDocument("moved");
+  await defaultContainerContentsPersistence.ensureSchema(database.execSql);
+  await defaultContainerContentsPersistence.saveContainer(
+    database.execSql,
+    movedLocally.container,
+    movedLocally.record,
+    {
+      moveIntent: {
+        parentContainerId: "destination",
+        previousParentContainerId: "root",
+      },
+    },
+  );
+  let current = true;
+  let submissions = 0;
+  const reconciled: (string | null)[] = [];
+  const reports: { error: unknown; message: string }[] = [];
+  const state: ContainerMoveIntentSyncState = {
+    containersById: new Map<string, ContainerState>([
+      ["root", containerState("root", null)],
+      ["destination", containerState("destination", "root")],
+      ["moved", movedLocally],
+    ]),
+    persistence: defaultContainerContentsPersistence,
+    resolveProjectionUserKey: createTestTrustedUserIdentityResolver({
+      encapsulationPublicKey: kem.publicKey,
+      signingKeyFingerprint: author.signerKeyFingerprint,
+      signingPublicKey,
+      userId: author.signerUserId,
+    }),
+    runtime: {
+      apiClient: createMockApiClient({
+        getContainerWriterProjection: async (id) =>
+          id === "moved" ? moved : destination,
+        moveContainerResult: async (_id, request) => {
+          submissions += 1;
+          const data = await createContainerMutationResponseFromRequest(
+            request,
+            moved,
+            [...root.path, ...destination.path],
+          );
+          if (input.staleAfterAcceptance) current = false;
+          return { data, ok: true as const };
+        },
+      }),
+      auth: {
+        isAuthenticated: true,
+        organizationId: author.organizationId,
+        userId: author.signerUserId,
+      },
+      crypto: {
+        encapsulationKeyPair: kem,
+        signingFingerprint: author.signerKeyFingerprint,
+        signingKeyPair: {
+          signingPrivateKey: author.signerPrivateKey,
+          signingPublicKey,
+        },
+      },
+      infra: {
+        blobStore:
+          {} as ContainerMoveIntentSyncState["runtime"]["infra"]["blobStore"],
+        dbStatus: "ready",
+        documentProjectors:
+          {} as ContainerMoveIntentSyncState["runtime"]["infra"]["documentProjectors"],
+        execSql: database.execSql,
+      },
+      resolveTrustedUserIdentity: async () => null,
+      state: {
+        containerId: "root",
+        domainScope: createDomainScope(),
+        events: [],
+        online: true,
+      },
+      util: {
+        log: () => {},
+        logError: (message, error) => {
+          reports.push({ error, message: String(message) });
+        },
+        reportSecurityIncident: async () => {},
+      },
+    },
+  };
+  try {
+    const movedCount = await syncPendingContainerMoveIntents({
+      host: input.host,
+      isCreatePending: () => false,
+      isCurrent: () => current,
+      isRemoteSyncBlocked: () => false,
+      requestRemoteReconciliation: (parentId) => {
+        reconciled.push(parentId);
+      },
+      state,
+    });
+    const queued =
+      await defaultContainerContentsPersistence.listUnsyncedMoveIntents(
+        database.execSql,
+      );
+    return { movedCount, queued, reconciled, reports, submissions };
+  } finally {
+    database.close();
+  }
+}
+
+const unusedHost: ContainerMoveIntentSyncHost = {
+  persistContainerState: async () => {
+    throw new Error("a stale pass must not persist");
+  },
+  updateSnapshot: () => {},
+};
+
+test("a stale pass that drops an accepted move reports it once", async () => {
+  const outcome = await replayAcceptedMove({
+    host: unusedHost,
+    staleAfterAcceptance: true,
+  });
+  expect(outcome.submissions).toBe(1);
+  expect(outcome.movedCount).toBe(0);
+  // The next pass re-posts the move the server already holds.
+  expect(outcome.queued).toHaveLength(1);
+  expect(outcome.reconciled).toEqual(["destination"]);
+  expect(outcome.reports.map(({ message }) => message)).toEqual([
+    "Container contents: a stale sync pass dropped an accepted container move",
+  ]);
+  expect(outcome.reports[0]?.error).toBeInstanceOf(Error);
+}, 30_000);
+
+test("an accepted move that fails to persist reports it once", async () => {
+  const outcome = await replayAcceptedMove({
+    host: {
+      persistContainerState: async () => ({ status: "missing" }),
+      updateSnapshot: () => {},
+    },
+    staleAfterAcceptance: false,
+  });
+  expect(outcome.submissions).toBe(1);
+  expect(outcome.movedCount).toBe(0);
+  expect(outcome.queued).toHaveLength(1);
+  expect(outcome.reports.map(({ message }) => message)).toEqual([
+    "Container contents: an accepted container move did not persist",
+  ]);
+}, 30_000);

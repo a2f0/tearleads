@@ -38,3 +38,13 @@ export function registerContainerContentsSyncLane(input: {
     },
   );
 }
+
+/** The lane's run counters, for work that waits on a pass it requested. */
+export function readContainerContentsSyncLane(domainScope: DomainScope) {
+  return (
+    getOrCreateDomainSyncCoordinator(domainScope)
+      .getSnapshot()
+      .lanes.find((lane) => lane.key === CONTAINER_CONTENTS_SYNC_LANE_KEY) ??
+    null
+  );
+}

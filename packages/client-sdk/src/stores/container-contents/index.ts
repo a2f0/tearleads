@@ -1,4 +1,5 @@
 export type {
+  PurgeMoveSettlement,
   PurgeOptions,
   PurgeProgress,
 } from "../../workflows/container-contents/container-state/purge/purgeProgress";

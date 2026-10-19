@@ -304,8 +304,10 @@ converge through durable sync lanes without blocking on the network. The view's
 reconciler owns remote discovery and prioritizes the active container.
 Permanently destroy with
 `tearleads.containerContents.documentLinks().purgeDocument({ note })`; remote
-purge requires one link and verifies its signed proof. See
-[device-first.md](./device-first.md).
+purge requires one link and verifies its signed proof. A container store's
+`purgeContainer` and `emptyTrash` first wait for moves queued inside their
+scope, reporting the wait through `PurgeOptions.onMoveSettlement`
+(`PurgeMoveSettlement`). See [device-first.md](./device-first.md).
 
 ## Constructor Options
 

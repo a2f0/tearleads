@@ -295,8 +295,13 @@ export const EXPLORER_LABELS = {
   newStructuredDocumentDocumentTypeHeading: "Document Type",
   newStructuredDocumentRouteLabel: "New document",
   purgeProgressCancelledStatus: "Stopped. Some items were permanently deleted.",
+  purgeProgressCancelledUntouchedStatus: "Stopped. Nothing was deleted.",
   purgeProgressCloseAction: "Close",
   purgeProgressDoneStatus: "Done.",
+  // Delete Forever soon after Move to Trash waits for the move to sync first.
+  purgeProgressFinishingMoveStatus: "Finishing move to Trash…",
+  purgeProgressMoveUnsettledError:
+    "Couldn't finish moving to Trash, so nothing was deleted. Try again in a moment.",
   purgeProgressOfflineError: "You must be online to permanently delete.",
   purgeProgressPartialFailure: "Some items could not be permanently deleted.",
   purgeProgressPreparingStatus: "Preparing…",

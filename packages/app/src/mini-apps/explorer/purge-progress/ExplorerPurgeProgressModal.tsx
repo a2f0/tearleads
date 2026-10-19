@@ -12,13 +12,16 @@ import type { ExplorerPurgeRunState } from "./useExplorerPurgeRun";
 function getExplorerPurgeStatusText(run: ExplorerPurgeRunState): string {
   switch (run.status) {
     case "running":
-      return run.progress
-        ? getExplorerPurgeProgressStatus(run.progress)
+      if (run.progress) return getExplorerPurgeProgressStatus(run.progress);
+      return run.moveSettlement === "waiting"
+        ? EXPLORER_LABELS.purgeProgressFinishingMoveStatus
         : EXPLORER_LABELS.purgeProgressPreparingStatus;
     case "done":
       return EXPLORER_LABELS.purgeProgressDoneStatus;
     case "cancelled":
-      return EXPLORER_LABELS.purgeProgressCancelledStatus;
+      return (run.progress?.completedCount ?? 0) > 0
+        ? EXPLORER_LABELS.purgeProgressCancelledStatus
+        : EXPLORER_LABELS.purgeProgressCancelledUntouchedStatus;
     case "failed":
       return run.error ?? EXPLORER_LABELS.purgeProgressPartialFailure;
   }

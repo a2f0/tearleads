@@ -1,5 +1,16 @@
-import type { PurgeOptions, PurgeProgress } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useRef, useState } from "react";
+import type {
+  PurgeMoveSettlement,
+  PurgeOptions,
+  PurgeProgress,
+} from "@tearleads/client-sdk";
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { EXPLORER_LABELS, getExplorerPurgeContainerTitle } from "../labels";
 
 export type ExplorerPurgeRunKind = "container" | "empty-trash";
@@ -16,6 +27,7 @@ export type ExplorerPurgeRunStatus =
 export interface ExplorerPurgeRunState {
   error: string | null;
   kind: ExplorerPurgeRunKind;
+  moveSettlement: PurgeMoveSettlement | null;
   progress: PurgeProgress | null;
   status: ExplorerPurgeRunStatus;
   title: string;
@@ -48,12 +60,12 @@ interface UseExplorerPurgeRunParams {
 
 // A fresh progress object each tick, applied only while still running so a late
 // callback can't overwrite an already-terminal state.
-function purgeRunWithProgress(
+function purgeRunWith(
   current: ExplorerPurgeRunState | null,
-  progress: PurgeProgress,
+  update: Pick<ExplorerPurgeRunState, "moveSettlement" | "progress">,
 ): ExplorerPurgeRunState | null {
   return current && current.status === "running"
-    ? { ...current, progress }
+    ? { ...current, ...update }
     : current;
 }
 
@@ -76,8 +88,35 @@ function settledPurgeRun(
   }
   return {
     ...current,
-    error: EXPLORER_LABELS.purgeProgressPartialFailure,
+    error:
+      current.moveSettlement === "unsettled"
+        ? EXPLORER_LABELS.purgeProgressMoveUnsettledError
+        : EXPLORER_LABELS.purgeProgressPartialFailure,
     status: "failed",
+  };
+}
+
+// Route the purge's callbacks into the run, keeping the other field as is.
+function purgeRunCallbacks(
+  setRun: Dispatch<SetStateAction<ExplorerPurgeRunState | null>>,
+): Pick<PurgeOptions, "onMoveSettlement" | "onProgress"> {
+  return {
+    onMoveSettlement: (moveSettlement) => {
+      setRun((current) =>
+        purgeRunWith(current, {
+          moveSettlement,
+          progress: current?.progress ?? null,
+        }),
+      );
+    },
+    onProgress: (progress) => {
+      setRun((current) =>
+        purgeRunWith(current, {
+          moveSettlement: current?.moveSettlement ?? null,
+          progress,
+        }),
+      );
+    },
   };
 }
 
@@ -116,6 +155,7 @@ export function useExplorerPurgeRun(
         setRun({
           error: EXPLORER_LABELS.purgeProgressOfflineError,
           kind: input.kind,
+          moveSettlement: null,
           progress: null,
           status: "failed",
           title: input.title,
@@ -129,6 +169,7 @@ export function useExplorerPurgeRun(
       setRun({
         error: null,
         kind: input.kind,
+        moveSettlement: null,
         progress: null,
         status: "running",
         title: input.title,
@@ -136,9 +177,7 @@ export function useExplorerPurgeRun(
 
       void input
         .invoke({
-          onProgress: (progress) => {
-            setRun((current) => purgeRunWithProgress(current, progress));
-          },
+          ...purgeRunCallbacks(setRun),
           signal: controller.signal,
         })
         .then((succeeded) => {
