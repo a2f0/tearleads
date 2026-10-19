@@ -74,23 +74,56 @@ test("a mutation rejects a citation naming another container", async () => {
   });
 }, 15_000);
 
-test("a mutation rejects a tampered principal policy artifact", async () => {
+async function postChildCreate(
+  token: string,
+  request: ContainerMutationRequest,
+): Promise<Response> {
+  return await routeApp.request("/containers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+}
+
+test("a mutation refuses a principal policy ref that is not the current head", async () => {
   const owner = createTestUser();
   await registerAndAuthenticate(owner);
   const root = await bootstrapRoot(owner);
   const request = await buildChildCreateRequest({ root, signer: owner });
-  const [policy] = request.principalPolicies;
-  if (!policy) throw new Error("expected a principal policy");
-  Reflect.set(policy, "grants", [
-    { accessLevel: "admin", containerId: crypto.randomUUID() },
-  ]);
+  const [ref] = request.principalPolicyRefs;
+  if (!ref) throw new Error("expected a principal policy ref");
+  request.principalPolicyRefs = [{ ...ref, stateHash: "0".repeat(64) }];
 
-  await expectRejection({
-    error: "Principal policy artifact does not match verified stored policy",
-    path: "/containers",
-    request,
-    token: owner.token,
-  });
+  const response = await postChildCreate(owner.token, request);
+  expect(response.status).toBe(409);
+  const body = (await response.json()) as {
+    readonly code?: unknown;
+    readonly principalHeads?: unknown;
+  };
+  expect(body.code).toBe("principal_policy_stale");
+  expect(body.principalHeads).toEqual([
+    expect.objectContaining({
+      principalId: ref.principalId,
+      stateHash: ref.stateHash,
+      version: ref.version,
+    }),
+  ]);
+}, 15_000);
+
+test("a mutation refuses more principal policy refs than the bound", async () => {
+  const owner = createTestUser();
+  await registerAndAuthenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const request = await buildChildCreateRequest({ root, signer: owner });
+  const [ref] = request.principalPolicyRefs;
+  if (!ref) throw new Error("expected a principal policy ref");
+  request.principalPolicyRefs = Array.from({ length: 4097 }, () => ref);
+
+  const response = await postChildCreate(owner.token, request);
+  expect(response.status).toBe(400);
 }, 15_000);
 
 test("a mutation rejects manifest history citing an unstored manifest", async () => {

@@ -99,11 +99,13 @@ test("a paged policy survives held-head cloning and signs a verifiable share pla
     expect(ContainerMutationRequestSchema.safeParse(plan.request).success).toBe(
       true,
     );
-    expect(plan.request.principalPolicies).toEqual([
-      expect.objectContaining({
+    expect(plan.request.principalPolicyRefs).toEqual([
+      {
+        principalType: policy.principalType,
+        principalId: policy.principalId,
         stateHash: policy.stateHash,
         version: policy.version,
-      }),
+      },
     ]);
     const event = await verifySignedAccessEvent({
       body: readCanonicalJson(plan.body, "Share body"),

@@ -312,7 +312,7 @@ test("containerRekeys batches are bounded", () => {
     body: { eventType: "container.rekey" },
     expectedManifestHash: "manifest-hash",
     manifest: { objectKind: "container" },
-    principalPolicies: [],
+    principalPolicyRefs: [],
     keyEpoch: { id: "epoch" },
     predecessorBridge: null,
     keyring: null,

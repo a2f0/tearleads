@@ -1,0 +1,23 @@
+# #2585 item 3: document and container creates accept an optional seed
+# (initialSync / initialMetadataSync) validated by the same runtime
+# refinements as a document sync; they apply only when a seed is present, so
+# no existing request is rejected. Remove these exact diagnostics once main
+# contains this contract.
+POST /containers/with-metadata-document: request refinement 'request.authorizing-paths-for-writes' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.container-create-metadata-seed' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.container-rekeys-require-write' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.inline-rekey-commit-marker' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.raw-history-null-frontier' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.raw-history-read-only' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.rotation-checkpoint-fields' was added; existing clients were not rejected by it.
+POST /containers/with-metadata-document: request refinement 'request.unique-outgoing-update-ids' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.authorizing-paths-for-writes' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.container-rekeys-require-write' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.document-create-seed' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.inline-rekey-commit-marker' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.pull-continuation-read-only' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.raw-history-null-frontier' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.raw-history-read-only' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.rotation-checkpoint-fields' was added; existing clients were not rejected by it.
+POST /documents: request refinement 'request.unique-outgoing-update-ids' was added; existing clients were not rejected by it.

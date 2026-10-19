@@ -26,6 +26,7 @@ import {
   resolveContainerKekEpochId,
   signContainerCreateEvent,
 } from "../../../data/containers/shared/events";
+import { principalPolicyRef } from "../../../data/containers/shared/principalPolicies";
 import {
   wrapContainerKeyToManagedPrincipal,
   wrapContainerKeyToRootUser,
@@ -41,10 +42,7 @@ import {
   readCanonicalRecords,
 } from "../../../data/keying/canonicalJson";
 
-import {
-  principalHeadFromInitialGroupPolicy,
-  principalPolicyRecordFromInitialGroupPolicy,
-} from "./initialGroupPolicy";
+import { principalHeadFromInitialGroupPolicy } from "./initialGroupPolicy";
 
 function buildRootContainerCreateBody(input: {
   author: ContainerMutationAuthor;
@@ -107,7 +105,7 @@ function buildRootContainerCreateRequest(input: {
   keyEpoch: ContainerKeyEpoch;
   manifest: AccessManifest;
   manifestHash: string;
-  principalPolicies: readonly Record<string, unknown>[];
+  principalPolicyRefs: ContainerMutationRequest["principalPolicyRefs"];
   userRecipientKeys: readonly ContainerUserRecipientKey[];
   wraps: readonly ContainerKeyWrap[];
 }): ContainerMutationRequest {
@@ -121,10 +119,7 @@ function buildRootContainerCreateRequest(input: {
     ),
     previousManifestRef: null,
     parentContainerPathRefs: [],
-    principalPolicies: readCanonicalRecords(
-      input.principalPolicies,
-      "Container root create principal policies",
-    ),
+    principalPolicyRefs: input.principalPolicyRefs,
     keyEpoch: readCanonicalRecord(
       input.keyEpoch,
       "Container root create key epoch",
@@ -139,33 +134,15 @@ function buildRootContainerCreateRequest(input: {
   };
 }
 
-async function buildRootManagedPrincipalContext(
-  adminGroup: CreateOrganizationGroupRequest | null,
-): Promise<{
-  managedPrincipalHead: ContainerGrantPrincipalHead | null;
-  managedPrincipalPolicies: Record<string, unknown>[];
-}> {
-  if (!adminGroup) {
-    return {
-      managedPrincipalHead: null,
-      managedPrincipalPolicies: [],
-    };
-  }
-
-  const managedPrincipalHead = await principalHeadFromInitialGroupPolicy({
-    principalId: adminGroup.groupId,
-    policy: adminGroup.initialGroupPolicy,
-  });
-
-  return {
-    managedPrincipalHead,
-    managedPrincipalPolicies: [
-      principalPolicyRecordFromInitialGroupPolicy({
-        head: managedPrincipalHead,
-        policy: adminGroup.initialGroupPolicy,
-      }),
-    ],
-  };
+async function rootManagedPrincipalHead(
+  group: CreateOrganizationGroupRequest | null,
+): Promise<ContainerGrantPrincipalHead | null> {
+  return group
+    ? principalHeadFromInitialGroupPolicy({
+        principalId: group.groupId,
+        policy: group.initialGroupPolicy,
+      })
+    : null;
 }
 
 async function deriveRootCreateArtifacts(input: {
@@ -303,15 +280,10 @@ export async function buildRootContainerCreatePlan(input: {
 }): Promise<MaterializedContainerCreatePlan> {
   const containerKey = rootKeyMaterial(input.containerKey);
   const adminGroup = input.adminGroup ?? null;
-  const { managedPrincipalHead, managedPrincipalPolicies } =
-    await buildRootManagedPrincipalContext(adminGroup);
-
-  const member = await buildRootManagedPrincipalContext(
-    input.memberGroup ?? null,
-  );
+  const managedPrincipalHead = await rootManagedPrincipalHead(adminGroup);
+  const memberHead = await rootManagedPrincipalHead(input.memberGroup ?? null);
   if (input.memberGroup && !adminGroup)
     throw new Error("Members root grant requires Admins authority");
-  managedPrincipalPolicies.push(...member.managedPrincipalPolicies);
   const containerKeyEpochId = await resolveContainerKekEpochId({
     containerId: input.containerId,
     keyEpoch: 1,
@@ -322,7 +294,7 @@ export async function buildRootContainerCreatePlan(input: {
       containerId: input.containerId,
       keyMaterial: containerKey,
     }),
-    memberHead: member.managedPrincipalHead,
+    memberHead,
     systemSlot: input.systemSlot ?? null,
     author: input.author,
     containerKeyEpochId,
@@ -341,7 +313,7 @@ export async function buildRootContainerCreatePlan(input: {
   const { recipientTargets, wraps, userRecipientKeys } =
     await wrapRootContainerRecipients({
       memberGroup: input.memberGroup ?? null,
-      memberHead: member.managedPrincipalHead,
+      memberHead,
       adminGroup,
       containerKey,
       containerKeyEpochId,
@@ -374,7 +346,9 @@ export async function buildRootContainerCreatePlan(input: {
       keyEpoch,
       manifest,
       manifestHash,
-      principalPolicies: managedPrincipalPolicies,
+      principalPolicyRefs: [managedPrincipalHead, memberHead]
+        .filter((head) => head !== null)
+        .map(principalPolicyRef),
       userRecipientKeys,
       wraps,
     }),

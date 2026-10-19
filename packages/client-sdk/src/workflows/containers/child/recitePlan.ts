@@ -9,7 +9,7 @@ import type { ContainerReciteRequest } from "@tearleads/validators/request";
 import type { ContainerReciteResponse } from "@tearleads/validators/response";
 import { signContainerMutationEvent } from "../../../data/containers/shared/events";
 import type { HeldContainerHead } from "../../../data/containers/shared/heldContainerHeads";
-import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
+import { principalPolicyRef } from "../../../data/containers/shared/principalPolicies";
 import { containerManifestRef } from "../../../data/containers/shared/projection";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
 import {
@@ -96,10 +96,10 @@ export async function buildContainerRecitePlan(input: {
     previousContainerPathRefs: input.path.map((head) =>
       containerManifestRef(head.bundle),
     ),
-    principalPolicies: referencedRecitationPolicies(
+    principalPolicyRefs: referencedRecitationPolicies(
       input.path,
       input.policies,
-    ).map((policy) => principalPolicyRequestRecord(policy)),
+    ).map(principalPolicyRef),
   };
   return { body, event, eventHash, manifest, manifestHash, state, request };
 }

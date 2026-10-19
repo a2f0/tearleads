@@ -68,14 +68,15 @@ const ADMIN_GROUP_MUTATION_REQUEST_BUDGET = {
   // are 70–73; allow three more bounded reads. Preparation continuations are
   // counted below.
   total: 76,
-  // Container mutations cite stored manifests by hash: 210 KB sent with one
-  // descendant recitation (389.5 KB when they echoed path bundles). Retain
-  // room for the second ~20 KB recitation already allowed below.
+  // Container mutations cite stored manifests by hash and principal policies
+  // by head: 134 KB sent with one descendant recitation (193 KB when they
+  // carried each ~9.8 KB policy, 389.5 KB when they also echoed path
+  // bundles). Retain room for the second recitation already allowed below.
   // Completing child hydration adds the peer's system-slot proofs and their
   // metadata paths and private current policy proofs: 2.44–2.54 MB received.
   // Each document carries one shared proof bundle for all of its authorizing
   // paths.
-  bodyBytes: { request: 240_000, response: 2_650_000 },
+  bodyBytes: { request: 160_000, response: 2_650_000 },
   byRequest: {
     "GET /principals/history": 7,
     "GET /containers": 0,

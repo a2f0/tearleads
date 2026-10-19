@@ -200,16 +200,16 @@ test("same-level Admins re-wrap survives a group rotation and cold root unwrap",
       throw new Error("Expected submitted root Admins re-wrap request");
     }
     expect(
-      (submittedRequest.principalPolicies ?? []).map((policy) => ({
-        grants: Reflect.get(policy, "grants"),
-        keyEpoch: Reflect.get(policy, "keyEpoch"),
-        principalId: Reflect.get(policy, "principalId"),
-      })),
+      submittedRequest.principalPolicyRefs.map(
+        ({ principalId, stateHash }) => ({
+          principalId,
+          stateHash,
+        }),
+      ),
     ).toEqual([
       {
-        grants: epochTwoPolicy.currentGrants,
-        keyEpoch: 2,
         principalId: ADMIN_GROUP_ID,
+        stateHash: epochTwoPolicy.currentState.stateHash,
       },
     ]);
 

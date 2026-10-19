@@ -72,6 +72,7 @@ import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLi
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import { buildDocumentPurgeRequest } from "../../../test/helpers/documentPurge";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
+import { principalPolicyRefs } from "../../../test/helpers/principalPolicyRefs";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { createFailingRuntime } from "../../../test/helpers/serviceRuntime";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
@@ -409,10 +410,7 @@ async function createChildContainer(input: {
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
     parentContainerPathRefs: [containerManifestRef(input.parent.bundle)],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: null,
     predecessorBridge: null,

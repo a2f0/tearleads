@@ -18,7 +18,7 @@ const rekey = {
   keyring: null,
   manifest: {},
   predecessorBridge: null,
-  principalPolicies: [],
+  principalPolicyRefs: [],
   wraps: [{ containerKeyEpochId: "epoch" }],
 };
 
@@ -128,7 +128,7 @@ test("mutation and recitation path citations are bounded by path depth", () => {
     expectedManifestHash: "manifest-hash",
     manifest: {},
     previousManifestRef: ref,
-    principalPolicies: [],
+    principalPolicyRefs: [],
   };
   expect(
     isContainerReciteRequest({

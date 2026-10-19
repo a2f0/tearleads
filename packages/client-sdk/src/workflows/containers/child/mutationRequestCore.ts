@@ -10,7 +10,7 @@ import type {
   ContainerMutationRequest,
 } from "@tearleads/validators/request";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { principalPolicyRequestRecord } from "../../../data/containers/shared/principalPolicies";
+import { principalPolicyRef } from "../../../data/containers/shared/principalPolicies";
 import { containerManifestRef } from "../../../data/containers/shared/projection";
 import {
   readCanonicalRecord,
@@ -71,7 +71,7 @@ export function containerMutationRequestCore(
   | "body"
   | "expectedManifestHash"
   | "manifest"
-  | "principalPolicies"
+  | "principalPolicyRefs"
   | "keyEpoch"
   | "wraps"
   | "userRecipientKeys"
@@ -82,12 +82,7 @@ export function containerMutationRequestCore(
     body: readCanonicalRecord(input.body, `${label} body`),
     expectedManifestHash: input.manifestHash,
     manifest: readCanonicalRecord(input.manifest, `${label} manifest`),
-    principalPolicies: readCanonicalRecords(
-      input.principalPolicies.map((policy) =>
-        principalPolicyRequestRecord(policy),
-      ),
-      `${label} principal policies`,
-    ),
+    principalPolicyRefs: input.principalPolicies.map(principalPolicyRef),
     keyEpoch: readCanonicalRecord(input.keyEpoch, `${label} key epoch`),
     wraps: readCanonicalRecords(input.wraps, `${label} wraps`),
     userRecipientKeys: readCanonicalRecords(

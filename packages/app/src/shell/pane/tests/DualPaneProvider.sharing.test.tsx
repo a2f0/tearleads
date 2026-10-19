@@ -64,10 +64,12 @@ const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // no metadata sync follows. Measured 58 calls (62–68 before the seed) and
   // about 2.0–2.1 MB received; keep eight calls of scheduling room.
   total: 66,
-  // Container mutations cite stored manifests by hash, so the share and its
-  // recitations no longer echo path bundles: 180 KB sent (was 352 KB). Keep
-  // the same ~8% request headroom and room for two extra document projections.
-  bodyBytes: { request: 195_000, response: 2_250_000 },
+  // Container mutations cite stored manifests by hash and principal policies
+  // by head, so the share and its recitations echo neither path bundles nor
+  // ~9.8 KB policies: 120 KB sent with create seeds (180 KB with policies,
+  // 352 KB with bundles). Keep the same ~8% request headroom and room for two
+  // extra document projections.
+  bodyBytes: { request: 130_000, response: 2_250_000 },
   byRequest: {
     "GET /principals/history": 0,
     "GET /documents/:documentId/writer-projection": 9,

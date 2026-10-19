@@ -52,17 +52,17 @@ test(
       budget: {
         // Root acknowledgement and verified adoption can each schedule a
         // root-lane pass; signed destination reads remain bounded at four.
-        // Measured 34 calls: private metadata-root authority adds one directory
+        // Measured 30 calls: private metadata-root authority adds one directory
         // discovery read per operation. Provisioning primes the founding
         // policy heads, so their first recovery reads no group history.
         // Batched discovery lists the four lanes queued at startup in one
         // request and a later-surfaced lane in a second.
         // Login returns the first websocket ticket, so no ticket request. The
         // self contact's create carries its queued content as its seed, so no
-        // content sync (and its discovery read) follows. Measured 32.
-        total: 34,
+        // content sync (and its discovery read) follows.
+        total: 32,
         byRequest: {
-          "GET /principals/organization/:organizationId/policy": 7,
+          "GET /principals/organization/:organizationId/policy": 6,
           "GET /principals/group/:groupId/policy": 0,
           // Compact projections read each new public head once; completed
           // stages need no confirmation read.
@@ -71,9 +71,10 @@ test(
           "POST /documents/:documentId/sync": 7,
           "POST /containers/parent-lanes/query": 5,
           "GET /containers/:containerId/writer-projection": 4,
-          // The root metadata write reads its document projection. Discovery
-          // reuses the signed heads of the seeded profile documents.
-          "GET /documents/:documentId/writer-projection": 1,
+          // Provisioning commits the root's metadata, so no device-first copy
+          // is replayed through a document projection. Discovery reuses the
+          // signed heads of the seeded profile documents.
+          "GET /documents/:documentId/writer-projection": 0,
           "GET /organizations/:organizationId/billing": 1,
           "POST /auth/register": 1,
           "POST /auth/verify": 1,

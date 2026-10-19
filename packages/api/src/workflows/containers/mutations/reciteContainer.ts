@@ -35,7 +35,6 @@ import {
   verifyContainerManifestFromRequest,
 } from "./shared/manifests";
 import { assertPrincipalPoliciesCurrent } from "./shared/principalPolicies";
-import { principalPoliciesFromRequest } from "./shared/principalPolicyRecords";
 import { resolveVerifiedStoredContainerManifest } from "./shared/storedManifestArtifacts";
 import type { ContainerMutationContext } from "./types";
 
@@ -67,7 +66,7 @@ async function verifyRecitation(
   );
   const principalPolicies = await assertPrincipalPoliciesCurrent(
     context.executor,
-    principalPoliciesFromRequest(input.request),
+    input.request.principalPolicyRefs,
     {
       referencedPrincipalHeads: (previousContainerPath ?? []).flatMap(
         (manifest) => manifest.state.referencedPrincipalHeads,

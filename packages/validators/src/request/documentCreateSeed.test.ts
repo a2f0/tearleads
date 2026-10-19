@@ -24,7 +24,7 @@ function createContainerMutationRequest(
         manifestHash: "previous-container-manifest-hash",
       },
     ],
-    principalPolicies: [],
+    principalPolicyRefs: [],
     keyEpoch: { id: "container-key-epoch-id" },
     predecessorBridge: null,
     keyring: null,

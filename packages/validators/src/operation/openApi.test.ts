@@ -438,7 +438,7 @@ test("container rekey projection follows every runtime guard field", () => {
     "keyring",
     "manifest",
     "predecessorBridge",
-    "principalPolicies",
+    "principalPolicyRefs",
     "wraps",
   ];
   for (const field of requiredFields) {
@@ -457,7 +457,7 @@ test("container rekey projection follows every runtime guard field", () => {
     { ...createContainerMutation(), expectedManifestHash: "" },
     { ...createContainerMutation(), keyEpoch: [] },
     { ...createContainerMutation(), manifest: [] },
-    { ...createContainerMutation(), principalPolicies: [null] },
+    { ...createContainerMutation(), principalPolicyRefs: [null] },
     { ...createContainerMutation(), wraps: [null] },
     { ...createContainerMutation(), previousManifestRef: {} },
     { ...createContainerMutation(), previousContainerPathRefs: [{}] },

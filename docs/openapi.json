@@ -548,13 +548,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -581,7 +609,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -1069,13 +1097,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -1102,7 +1158,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -1581,13 +1637,41 @@
                               }
                             ]
                           },
-                          "principalPolicies": {
-                            "type": "array",
+                          "principalPolicyRefs": {
                             "items": {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "principalType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "group",
+                                    "organization"
+                                  ]
+                                },
+                                "principalId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "stateHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "principalType",
+                                "principalId",
+                                "version",
+                                "stateHash"
+                              ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 4096,
+                            "type": "array"
                           },
                           "userRecipientKeys": {
                             "type": "array",
@@ -1614,7 +1698,7 @@
                           "keyring",
                           "manifest",
                           "predecessorBridge",
-                          "principalPolicies",
+                          "principalPolicyRefs",
                           "wraps"
                         ],
                         "additionalProperties": {}
@@ -1853,13 +1937,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -1886,7 +1998,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -2241,13 +2353,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -2274,7 +2414,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -2700,13 +2840,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -2733,7 +2901,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -3236,13 +3404,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -3269,7 +3465,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -3603,13 +3799,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -3636,7 +3860,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -4061,13 +4285,41 @@
                           }
                         ]
                       },
-                      "principalPolicies": {
-                        "type": "array",
+                      "principalPolicyRefs": {
                         "items": {
                           "type": "object",
-                          "properties": {},
+                          "properties": {
+                            "principalType": {
+                              "type": "string",
+                              "enum": [
+                                "group",
+                                "organization"
+                              ]
+                            },
+                            "principalId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "version": {
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "stateHash": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "principalType",
+                            "principalId",
+                            "version",
+                            "stateHash"
+                          ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 4096,
+                        "type": "array"
                       },
                       "userRecipientKeys": {
                         "type": "array",
@@ -4094,7 +4346,7 @@
                       "keyring",
                       "manifest",
                       "predecessorBridge",
-                      "principalPolicies",
+                      "principalPolicyRefs",
                       "wraps"
                     ],
                     "additionalProperties": {}
@@ -4333,13 +4585,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -4366,7 +4646,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -4700,13 +4980,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -4733,7 +5041,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -5161,13 +5469,41 @@
                               }
                             ]
                           },
-                          "principalPolicies": {
-                            "type": "array",
+                          "principalPolicyRefs": {
                             "items": {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "principalType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "group",
+                                    "organization"
+                                  ]
+                                },
+                                "principalId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "stateHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "principalType",
+                                "principalId",
+                                "version",
+                                "stateHash"
+                              ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 4096,
+                            "type": "array"
                           },
                           "userRecipientKeys": {
                             "type": "array",
@@ -5194,7 +5530,7 @@
                           "keyring",
                           "manifest",
                           "predecessorBridge",
-                          "principalPolicies",
+                          "principalPolicyRefs",
                           "wraps"
                         ],
                         "additionalProperties": {}
@@ -5433,13 +5769,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -5466,7 +5830,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -5821,13 +6185,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -5854,7 +6246,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -6308,13 +6700,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -6341,7 +6761,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -6675,13 +7095,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -6708,7 +7156,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -7138,13 +7586,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -7171,7 +7647,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -7410,13 +7886,41 @@
                                       }
                                     ]
                                   },
-                                  "principalPolicies": {
-                                    "type": "array",
+                                  "principalPolicyRefs": {
                                     "items": {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "principalType": {
+                                          "type": "string",
+                                          "enum": [
+                                            "group",
+                                            "organization"
+                                          ]
+                                        },
+                                        "principalId": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                          "type": "string"
+                                        },
+                                        "version": {
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
+                                        },
+                                        "stateHash": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "principalType",
+                                        "principalId",
+                                        "version",
+                                        "stateHash"
+                                      ],
                                       "additionalProperties": {}
-                                    }
+                                    },
+                                    "maxItems": 4096,
+                                    "type": "array"
                                   },
                                   "userRecipientKeys": {
                                     "type": "array",
@@ -7443,7 +7947,7 @@
                                   "keyring",
                                   "manifest",
                                   "predecessorBridge",
-                                  "principalPolicies",
+                                  "principalPolicyRefs",
                                   "wraps"
                                 ],
                                 "additionalProperties": {}
@@ -7798,13 +8302,41 @@
                                       }
                                     ]
                                   },
-                                  "principalPolicies": {
-                                    "type": "array",
+                                  "principalPolicyRefs": {
                                     "items": {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "principalType": {
+                                          "type": "string",
+                                          "enum": [
+                                            "group",
+                                            "organization"
+                                          ]
+                                        },
+                                        "principalId": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                          "type": "string"
+                                        },
+                                        "version": {
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
+                                        },
+                                        "stateHash": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "principalType",
+                                        "principalId",
+                                        "version",
+                                        "stateHash"
+                                      ],
                                       "additionalProperties": {}
-                                    }
+                                    },
+                                    "maxItems": 4096,
+                                    "type": "array"
                                   },
                                   "userRecipientKeys": {
                                     "type": "array",
@@ -7831,7 +8363,7 @@
                                   "keyring",
                                   "manifest",
                                   "predecessorBridge",
-                                  "principalPolicies",
+                                  "principalPolicyRefs",
                                   "wraps"
                                 ],
                                 "additionalProperties": {}
@@ -13490,13 +14022,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -13523,7 +14083,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -14015,13 +14575,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -14048,7 +14636,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -16142,13 +16730,41 @@
                           }
                         ]
                       },
-                      "principalPolicies": {
-                        "type": "array",
+                      "principalPolicyRefs": {
                         "items": {
                           "type": "object",
-                          "properties": {},
+                          "properties": {
+                            "principalType": {
+                              "type": "string",
+                              "enum": [
+                                "group",
+                                "organization"
+                              ]
+                            },
+                            "principalId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "version": {
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "stateHash": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "principalType",
+                            "principalId",
+                            "version",
+                            "stateHash"
+                          ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 4096,
+                        "type": "array"
                       },
                       "userRecipientKeys": {
                         "type": "array",
@@ -16175,7 +16791,7 @@
                       "keyring",
                       "manifest",
                       "predecessorBridge",
-                      "principalPolicies",
+                      "principalPolicyRefs",
                       "wraps"
                     ],
                     "additionalProperties": {}
@@ -16414,13 +17030,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -16447,7 +17091,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -16802,13 +17446,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -16835,7 +17507,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -18509,13 +19181,41 @@
                       }
                     ]
                   },
-                  "principalPolicies": {
-                    "type": "array",
+                  "principalPolicyRefs": {
                     "items": {
                       "type": "object",
-                      "properties": {},
+                      "properties": {
+                        "principalType": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "organization"
+                          ]
+                        },
+                        "principalId": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "type": "string"
+                        },
+                        "version": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "stateHash": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "principalType",
+                        "principalId",
+                        "version",
+                        "stateHash"
+                      ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "userRecipientKeys": {
                     "type": "array",
@@ -18736,13 +19436,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -18769,7 +19497,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -18786,7 +19514,7 @@
                   "keyring",
                   "manifest",
                   "predecessorBridge",
-                  "principalPolicies",
+                  "principalPolicyRefs",
                   "wraps"
                 ],
                 "additionalProperties": {}
@@ -19832,13 +20560,41 @@
                     ],
                     "additionalProperties": {}
                   },
-                  "principalPolicies": {
-                    "type": "array",
+                  "principalPolicyRefs": {
                     "items": {
                       "type": "object",
-                      "properties": {},
+                      "properties": {
+                        "principalType": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "organization"
+                          ]
+                        },
+                        "principalId": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "type": "string"
+                        },
+                        "version": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "stateHash": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "principalType",
+                        "principalId",
+                        "version",
+                        "stateHash"
+                      ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   }
                 },
                 "required": [
@@ -19848,7 +20604,7 @@
                   "manifest",
                   "previousContainerPathRefs",
                   "previousManifestRef",
-                  "principalPolicies"
+                  "principalPolicyRefs"
                 ],
                 "additionalProperties": {}
               }
@@ -20533,13 +21289,41 @@
                       }
                     ]
                   },
-                  "principalPolicies": {
-                    "type": "array",
+                  "principalPolicyRefs": {
                     "items": {
                       "type": "object",
-                      "properties": {},
+                      "properties": {
+                        "principalType": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "organization"
+                          ]
+                        },
+                        "principalId": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "type": "string"
+                        },
+                        "version": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "stateHash": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "principalType",
+                        "principalId",
+                        "version",
+                        "stateHash"
+                      ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "userRecipientKeys": {
                     "type": "array",
@@ -20760,13 +21544,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -20793,7 +21605,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -20810,7 +21622,7 @@
                   "keyring",
                   "manifest",
                   "predecessorBridge",
-                  "principalPolicies",
+                  "principalPolicyRefs",
                   "wraps"
                 ],
                 "additionalProperties": {}
@@ -22267,13 +23079,41 @@
                       }
                     ]
                   },
-                  "principalPolicies": {
-                    "type": "array",
+                  "principalPolicyRefs": {
                     "items": {
                       "type": "object",
-                      "properties": {},
+                      "properties": {
+                        "principalType": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "organization"
+                          ]
+                        },
+                        "principalId": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "type": "string"
+                        },
+                        "version": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "stateHash": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "principalType",
+                        "principalId",
+                        "version",
+                        "stateHash"
+                      ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "userRecipientKeys": {
                     "type": "array",
@@ -22494,13 +23334,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -22527,7 +23395,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -22544,7 +23412,7 @@
                   "keyring",
                   "manifest",
                   "predecessorBridge",
-                  "principalPolicies",
+                  "principalPolicyRefs",
                   "wraps"
                 ],
                 "additionalProperties": {}
@@ -23733,13 +24601,41 @@
                       }
                     ]
                   },
-                  "principalPolicies": {
-                    "type": "array",
+                  "principalPolicyRefs": {
                     "items": {
                       "type": "object",
-                      "properties": {},
+                      "properties": {
+                        "principalType": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "organization"
+                          ]
+                        },
+                        "principalId": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "type": "string"
+                        },
+                        "version": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "stateHash": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "principalType",
+                        "principalId",
+                        "version",
+                        "stateHash"
+                      ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "userRecipientKeys": {
                     "type": "array",
@@ -23766,7 +24662,7 @@
                   "keyring",
                   "manifest",
                   "predecessorBridge",
-                  "principalPolicies",
+                  "principalPolicyRefs",
                   "wraps"
                 ],
                 "additionalProperties": {}
@@ -25653,13 +26549,41 @@
                       }
                     ]
                   },
-                  "principalPolicies": {
-                    "type": "array",
+                  "principalPolicyRefs": {
                     "items": {
                       "type": "object",
-                      "properties": {},
+                      "properties": {
+                        "principalType": {
+                          "type": "string",
+                          "enum": [
+                            "group",
+                            "organization"
+                          ]
+                        },
+                        "principalId": {
+                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                          "type": "string"
+                        },
+                        "version": {
+                          "maximum": 9007199254740991,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "stateHash": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "principalType",
+                        "principalId",
+                        "version",
+                        "stateHash"
+                      ],
                       "additionalProperties": {}
-                    }
+                    },
+                    "maxItems": 4096,
+                    "type": "array"
                   },
                   "userRecipientKeys": {
                     "type": "array",
@@ -25686,7 +26610,7 @@
                   "keyring",
                   "manifest",
                   "predecessorBridge",
-                  "principalPolicies",
+                  "principalPolicyRefs",
                   "wraps"
                 ],
                 "additionalProperties": {}
@@ -27751,13 +28675,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -27784,7 +28736,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -30354,13 +31306,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -30387,7 +31367,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -31552,13 +32532,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -31585,7 +32593,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -33342,13 +34350,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -33375,7 +34411,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}
@@ -33709,13 +34745,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -33742,7 +34806,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -38201,13 +39265,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -38234,7 +39326,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -38708,13 +39800,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -38741,7 +39861,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -39214,13 +40334,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -39247,7 +40395,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -42006,13 +43154,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -42039,7 +43215,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -43456,13 +44632,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -43489,7 +44693,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -43962,13 +45166,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -43995,7 +45227,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -47718,13 +48950,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -47751,7 +49011,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -48239,13 +49499,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -48272,7 +49560,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -48751,13 +50039,41 @@
                               }
                             ]
                           },
-                          "principalPolicies": {
-                            "type": "array",
+                          "principalPolicyRefs": {
                             "items": {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "principalType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "group",
+                                    "organization"
+                                  ]
+                                },
+                                "principalId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "stateHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "principalType",
+                                "principalId",
+                                "version",
+                                "stateHash"
+                              ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 4096,
+                            "type": "array"
                           },
                           "userRecipientKeys": {
                             "type": "array",
@@ -48784,7 +50100,7 @@
                           "keyring",
                           "manifest",
                           "predecessorBridge",
-                          "principalPolicies",
+                          "principalPolicyRefs",
                           "wraps"
                         ],
                         "additionalProperties": {}
@@ -49023,13 +50339,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -49056,7 +50400,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -49411,13 +50755,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -49444,7 +50816,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -49870,13 +51242,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -49903,7 +51303,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -50406,13 +51806,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -50439,7 +51867,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -50773,13 +52201,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -50806,7 +52262,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -51231,13 +52687,41 @@
                           }
                         ]
                       },
-                      "principalPolicies": {
-                        "type": "array",
+                      "principalPolicyRefs": {
                         "items": {
                           "type": "object",
-                          "properties": {},
+                          "properties": {
+                            "principalType": {
+                              "type": "string",
+                              "enum": [
+                                "group",
+                                "organization"
+                              ]
+                            },
+                            "principalId": {
+                              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                              "type": "string"
+                            },
+                            "version": {
+                              "maximum": 9007199254740991,
+                              "minimum": 1,
+                              "type": "integer"
+                            },
+                            "stateHash": {
+                              "type": "string",
+                              "minLength": 1
+                            }
+                          },
+                          "required": [
+                            "principalType",
+                            "principalId",
+                            "version",
+                            "stateHash"
+                          ],
                           "additionalProperties": {}
-                        }
+                        },
+                        "maxItems": 4096,
+                        "type": "array"
                       },
                       "userRecipientKeys": {
                         "type": "array",
@@ -51264,7 +52748,7 @@
                       "keyring",
                       "manifest",
                       "predecessorBridge",
-                      "principalPolicies",
+                      "principalPolicyRefs",
                       "wraps"
                     ],
                     "additionalProperties": {}
@@ -51503,13 +52987,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -51536,7 +53048,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -51870,13 +53382,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -51903,7 +53443,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -52331,13 +53871,41 @@
                               }
                             ]
                           },
-                          "principalPolicies": {
-                            "type": "array",
+                          "principalPolicyRefs": {
                             "items": {
                               "type": "object",
-                              "properties": {},
+                              "properties": {
+                                "principalType": {
+                                  "type": "string",
+                                  "enum": [
+                                    "group",
+                                    "organization"
+                                  ]
+                                },
+                                "principalId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "stateHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "principalType",
+                                "principalId",
+                                "version",
+                                "stateHash"
+                              ],
                               "additionalProperties": {}
-                            }
+                            },
+                            "maxItems": 4096,
+                            "type": "array"
                           },
                           "userRecipientKeys": {
                             "type": "array",
@@ -52364,7 +53932,7 @@
                           "keyring",
                           "manifest",
                           "predecessorBridge",
-                          "principalPolicies",
+                          "principalPolicyRefs",
                           "wraps"
                         ],
                         "additionalProperties": {}
@@ -52603,13 +54171,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -52636,7 +54232,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -52991,13 +54587,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -53024,7 +54648,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -53478,13 +55102,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -53511,7 +55163,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -53845,13 +55497,41 @@
                                     }
                                   ]
                                 },
-                                "principalPolicies": {
-                                  "type": "array",
+                                "principalPolicyRefs": {
                                   "items": {
                                     "type": "object",
-                                    "properties": {},
+                                    "properties": {
+                                      "principalType": {
+                                        "type": "string",
+                                        "enum": [
+                                          "group",
+                                          "organization"
+                                        ]
+                                      },
+                                      "principalId": {
+                                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                        "type": "string"
+                                      },
+                                      "version": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 1,
+                                        "type": "integer"
+                                      },
+                                      "stateHash": {
+                                        "type": "string",
+                                        "minLength": 1
+                                      }
+                                    },
+                                    "required": [
+                                      "principalType",
+                                      "principalId",
+                                      "version",
+                                      "stateHash"
+                                    ],
                                     "additionalProperties": {}
-                                  }
+                                  },
+                                  "maxItems": 4096,
+                                  "type": "array"
                                 },
                                 "userRecipientKeys": {
                                   "type": "array",
@@ -53878,7 +55558,7 @@
                                 "keyring",
                                 "manifest",
                                 "predecessorBridge",
-                                "principalPolicies",
+                                "principalPolicyRefs",
                                 "wraps"
                               ],
                               "additionalProperties": {}
@@ -54308,13 +55988,41 @@
                                 }
                               ]
                             },
-                            "principalPolicies": {
-                              "type": "array",
+                            "principalPolicyRefs": {
                               "items": {
                                 "type": "object",
-                                "properties": {},
+                                "properties": {
+                                  "principalType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "group",
+                                      "organization"
+                                    ]
+                                  },
+                                  "principalId": {
+                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "maximum": 9007199254740991,
+                                    "minimum": 1,
+                                    "type": "integer"
+                                  },
+                                  "stateHash": {
+                                    "type": "string",
+                                    "minLength": 1
+                                  }
+                                },
+                                "required": [
+                                  "principalType",
+                                  "principalId",
+                                  "version",
+                                  "stateHash"
+                                ],
                                 "additionalProperties": {}
-                              }
+                              },
+                              "maxItems": 4096,
+                              "type": "array"
                             },
                             "userRecipientKeys": {
                               "type": "array",
@@ -54341,7 +56049,7 @@
                             "keyring",
                             "manifest",
                             "predecessorBridge",
-                            "principalPolicies",
+                            "principalPolicyRefs",
                             "wraps"
                           ],
                           "additionalProperties": {}
@@ -54580,13 +56288,41 @@
                                       }
                                     ]
                                   },
-                                  "principalPolicies": {
-                                    "type": "array",
+                                  "principalPolicyRefs": {
                                     "items": {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "principalType": {
+                                          "type": "string",
+                                          "enum": [
+                                            "group",
+                                            "organization"
+                                          ]
+                                        },
+                                        "principalId": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                          "type": "string"
+                                        },
+                                        "version": {
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
+                                        },
+                                        "stateHash": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "principalType",
+                                        "principalId",
+                                        "version",
+                                        "stateHash"
+                                      ],
                                       "additionalProperties": {}
-                                    }
+                                    },
+                                    "maxItems": 4096,
+                                    "type": "array"
                                   },
                                   "userRecipientKeys": {
                                     "type": "array",
@@ -54613,7 +56349,7 @@
                                   "keyring",
                                   "manifest",
                                   "predecessorBridge",
-                                  "principalPolicies",
+                                  "principalPolicyRefs",
                                   "wraps"
                                 ],
                                 "additionalProperties": {}
@@ -54968,13 +56704,41 @@
                                       }
                                     ]
                                   },
-                                  "principalPolicies": {
-                                    "type": "array",
+                                  "principalPolicyRefs": {
                                     "items": {
                                       "type": "object",
-                                      "properties": {},
+                                      "properties": {
+                                        "principalType": {
+                                          "type": "string",
+                                          "enum": [
+                                            "group",
+                                            "organization"
+                                          ]
+                                        },
+                                        "principalId": {
+                                          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                          "type": "string"
+                                        },
+                                        "version": {
+                                          "maximum": 9007199254740991,
+                                          "minimum": 1,
+                                          "type": "integer"
+                                        },
+                                        "stateHash": {
+                                          "type": "string",
+                                          "minLength": 1
+                                        }
+                                      },
+                                      "required": [
+                                        "principalType",
+                                        "principalId",
+                                        "version",
+                                        "stateHash"
+                                      ],
                                       "additionalProperties": {}
-                                    }
+                                    },
+                                    "maxItems": 4096,
+                                    "type": "array"
                                   },
                                   "userRecipientKeys": {
                                     "type": "array",
@@ -55001,7 +56765,7 @@
                                   "keyring",
                                   "manifest",
                                   "predecessorBridge",
-                                  "principalPolicies",
+                                  "principalPolicyRefs",
                                   "wraps"
                                 ],
                                 "additionalProperties": {}
@@ -59780,13 +61544,41 @@
                             }
                           ]
                         },
-                        "principalPolicies": {
-                          "type": "array",
+                        "principalPolicyRefs": {
                           "items": {
                             "type": "object",
-                            "properties": {},
+                            "properties": {
+                              "principalType": {
+                                "type": "string",
+                                "enum": [
+                                  "group",
+                                  "organization"
+                                ]
+                              },
+                              "principalId": {
+                                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                "type": "string"
+                              },
+                              "version": {
+                                "maximum": 9007199254740991,
+                                "minimum": 1,
+                                "type": "integer"
+                              },
+                              "stateHash": {
+                                "type": "string",
+                                "minLength": 1
+                              }
+                            },
+                            "required": [
+                              "principalType",
+                              "principalId",
+                              "version",
+                              "stateHash"
+                            ],
                             "additionalProperties": {}
-                          }
+                          },
+                          "maxItems": 4096,
+                          "type": "array"
                         },
                         "userRecipientKeys": {
                           "type": "array",
@@ -59813,7 +61605,7 @@
                         "keyring",
                         "manifest",
                         "predecessorBridge",
-                        "principalPolicies",
+                        "principalPolicyRefs",
                         "wraps"
                       ],
                       "additionalProperties": {}

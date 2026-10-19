@@ -94,7 +94,11 @@ export async function hydrateStoredContainerState(input: {
     });
     await persistence.saveContainer(execSql, nextContainer, nextRecord);
 
-    if (!container.metadataDocumentId) {
+    // A device-first child's first metadata waits for its create. A root's
+    // never does: only registration creates a root remotely, and provisioning
+    // commits the root's metadata itself, so a queued copy would only be
+    // replayed after login as duplicate ops.
+    if (!container.metadataDocumentId && container.parentId !== null) {
       await enqueuePendingContainerUpdate(execSql, persistence, {
         containerId: container.id,
         update: initialUpdate,

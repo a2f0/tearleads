@@ -23,6 +23,7 @@ import {
   submitOrganizationGroupPolicyCommit,
 } from "../../../test/helpers/principalPolicy";
 import { registerAndAuthenticate } from "../../../test/helpers/principalPolicyReadFixtures";
+import { principalPolicyRefs } from "../../../test/helpers/principalPolicyRefs";
 import { signPrincipalStateBundle } from "../../../test/helpers/principalState";
 import { recoverRegisteredRootKek } from "../../../test/helpers/registeredRootKek";
 import {
@@ -195,7 +196,7 @@ test("writer projections retain the old principal citation of an unchanged key w
             granted.root.bundle,
             initialRoot.bundle,
           ]),
-          principalPolicies: nextPolicies.map((policy) => ({ ...policy })),
+          principalPolicyRefs: principalPolicyRefs(nextPolicies),
           keyEpoch: { ...root.kekState.keyEpoch },
           keyring: null,
           predecessorBridge: null,

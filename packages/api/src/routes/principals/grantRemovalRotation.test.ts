@@ -67,8 +67,8 @@ test("a group cannot drop a container grant without rotating its key", async () 
     revokedGrant: { subjectId: groupId, subjectType: "group" },
     signer: owner,
   });
-  revoke.principalPolicies = (revoke.principalPolicies ?? []).filter(
-    (policy) => Reflect.get(policy, "principalId") !== groupId,
+  revoke.principalPolicyRefs = revoke.principalPolicyRefs.filter(
+    (ref) => ref.principalId !== groupId,
   );
 
   const response = await submitOrganizationGroupPolicyCommit({

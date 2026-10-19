@@ -129,6 +129,11 @@ export {
   PutPrincipalPolicyRequestSchema,
 } from "./principal";
 export {
+  type PrincipalPolicyRef,
+  PrincipalPolicyRefListSchema,
+  PrincipalPolicyRefSchema,
+} from "./principalPolicyRef";
+export {
   isRegistrationRequest,
   type RegistrationRequest,
   RegistrationRequestSchema,

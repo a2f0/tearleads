@@ -99,8 +99,8 @@ export async function setUpAdminGroupRoot() {
     signedAt: SIGNED_AT,
   });
   expect(
-    Reflect.get(root.plan.request.principalPolicies[0] ?? {}, "grants"),
-  ).toEqual(initialAdminGroup.initialGroupPolicy.grants);
+    root.plan.request.principalPolicyRefs.map((ref) => ref.principalId),
+  ).toEqual([initialAdminGroup.groupId]);
   const initialProjection = rootContainerWriterProjectionFromCreatePlan(
     root.plan,
   );

@@ -31,6 +31,7 @@ export function WindowSidebar({
       <SidebarResizeHandle
         className="window-sidebar-handle"
         currentWidth={resize.resolvedWidth}
+        maxWidth={resize.maxWidth}
         onKeyDown={resize.handleKeyDown}
         onPointerDown={resize.handlePointerDown}
       />

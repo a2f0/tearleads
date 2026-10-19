@@ -34,6 +34,7 @@ import {
   loadPrincipalPoliciesForContainerPath,
   uniquePrincipalPolicies,
 } from "./keyingWriterProjectionKit";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 
 async function loadPrincipalPoliciesForContainerPaths(
   paths: readonly (readonly AccessManifestBundleWire[])[],
@@ -140,10 +141,7 @@ export async function buildContainerMoveRequest(input: {
     destinationParentContainerPathRefs: containerManifestRefs(
       input.destinationParentPath,
     ),
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: keyring as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,

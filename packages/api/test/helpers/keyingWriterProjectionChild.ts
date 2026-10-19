@@ -25,6 +25,7 @@ import {
   createSignedAccessEvent,
   loadPrincipalPoliciesForContainerPath,
 } from "./keyingWriterProjectionKit";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 
 export interface CreateChildContainerInput {
   readonly parent: {
@@ -121,10 +122,7 @@ export async function createChildContainerFixture(
     expectedManifestHash: bundle.manifestHash,
     manifest: bundle.manifest,
     parentContainerPathRefs: containerManifestRefs(parentContainerPath),
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: null,
     predecessorBridge: null,

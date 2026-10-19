@@ -64,8 +64,8 @@ test("a fresh SDK verifies container history after its group is deleted", async 
       grants: [],
     });
     writer.common.apiClient.revokeContainerResult = async (_id, request) => {
-      request.principalPolicies = (request.principalPolicies ?? []).filter(
-        (policy) => Reflect.get(policy, "principalId") !== granted.groupId,
+      request.principalPolicyRefs = request.principalPolicyRefs.filter(
+        (ref) => ref.principalId !== granted.groupId,
       );
       return {
         ok: true,

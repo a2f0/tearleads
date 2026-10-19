@@ -56,9 +56,9 @@ test("a real stale create recovers signed pages and commits a rebuilt request wi
   const submit = apiClient.createContainerResult.bind(apiClient);
   apiClient.createContainerResult = async (request, options) => {
     requests.push(
-      request.principalPolicies.map((policy) => ({
-        principalId: Reflect.get(policy, "principalId"),
-        version: Reflect.get(policy, "version"),
+      request.principalPolicyRefs.map(({ principalId, version }) => ({
+        principalId,
+        version,
       })),
     );
     if (requests.length === 1) {

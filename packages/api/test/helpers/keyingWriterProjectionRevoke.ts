@@ -32,6 +32,7 @@ import {
   userRecipientKeysFromRecipientTargets,
   verifyKekState,
 } from "./keyingWriterProjectionKit";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 
 export async function buildRootRevokeRequest(input: {
   readonly previous: AccessManifestBundleWire;
@@ -155,10 +156,7 @@ export async function buildRootRevokeRequest(input: {
     previousManifestRef: containerManifestRef(input.previous),
     previousContainerPathRefs: [containerManifestRef(input.previous)],
     containerManifestHistoryRefs: [containerManifestRef(input.previous)],
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
     keyring: keyring as unknown as Record<string, unknown>,

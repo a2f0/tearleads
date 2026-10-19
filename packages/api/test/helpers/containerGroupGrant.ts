@@ -27,6 +27,7 @@ import {
 import { createGroupRequest } from "./organizationGroup";
 import { joinOrg } from "./organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 import {
   createManagedPrincipalWrap,
   principalHead,
@@ -101,10 +102,9 @@ async function buildContainerGroupGrantMutation(input: {
     containerManifestHistoryRefs: [
       containerManifestRef(input.container.bundle),
     ],
-    principalPolicies: uniquePrincipalPolicies([
-      ...pathPolicies,
-      input.policy,
-    ]) as unknown as Record<string, unknown>[],
+    principalPolicyRefs: principalPolicyRefs(
+      uniquePrincipalPolicies([...pathPolicies, input.policy]),
+    ),
     keyEpoch: input.container.kekState.keyEpoch as unknown as Record<
       string,
       unknown
