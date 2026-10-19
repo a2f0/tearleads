@@ -6,7 +6,9 @@ The store must check that row before beginning remote creation. If another
 generation replaces the store while that read is pending, the old result must
 not clear the replacement. Once started, the create may carry the document's
 one queued row as its seed (#2585). The row may leave the queue only when the
-server holds its content.
+server holds its content. A peer may edit the document after the create
+commits; settling the seed skips the pass's pull, so a hint for that edit must
+survive even when it arrives before the store holds the document's id.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -23,6 +25,11 @@ server holds its content.
 | `Settle` / `RequireSeedAcknowledgement` | `committedSeedSettlement` settles the row only when `acceptedOutgoingUpdateIds` names it |
 | `Adopt` / `KeepSeedOnAdoption` | `adoptExistingRemoteDocument` returns no create response, so `persistCreatedRemoteDocument` leaves the row queued |
 | `SyncQueuedRow` | the queued row syncs through `syncRemoteDocument`; a seed already stored under its id fails `assertRetryUpdateMatchesAcceptedContent` because the row is encrypted again, and `settledPendingUpdateIdsFromSync` or `rekeyUnsettledRecoveryPendingUpdates` settles or re-keys it |
+| `PeerEdit` / `KeepPlannedIdHints` | `ensureRemoteDocument` calls `recordPlannedRemoteDocumentId` before `createRemoteDocument`, so `hasRemoteDocumentUpdateEvent` matches a hint for that id before `persistCreatedRemoteDocument` installs it |
+| `IdInstalled` | `persistCreatedRemoteDocument` sets the record's `documentId` |
+| `ClearOnlyConsumedSignal` | `ensureSeededRemoteDocument` calls `clearConsumedRemoteUpdateSignal` with the sequence the pass consumed, which a later hint has moved |
+| `Pull` | `shouldSkipCleanScheduledDocumentSync` is false while `remoteUpdatePending`, so the pass pulls |
+| `PeerEditIsPulled` | the creating pass or the queued row's `syncRemoteDocument` pulls the edit, or `handleDocumentRemoteEvents` schedules a pass for the surviving signal |
 | `SettledSeedIsCommitted` | `ensureSeededRemoteDocument` re-lists the queue only after `onCommitted` |
 | `SeedCommitsWithDocument` | `commitDocumentCreateSeedInTransaction` runs inside the create's `db.transaction` |
 
@@ -30,7 +37,9 @@ The model bounds one document, one queued attempt, and two store generations.
 Two negative controls separately disable the durable-row guard and generation
 guard; TLC must detect the corresponding safety violation. Two more settle the
 seed on a plain acknowledgement and drop it on adoption; both break
-`SettledSeedIsCommitted`. The implementation regressions are in
+`SettledSeedIsCommitted`. The last two drop a hint for the submitted id before
+the response installs it, and let seed settlement clear a signal raised after
+submission; both break `PeerEditIsPulled`. The implementation regressions are in
 `documentStore/sync/remoteCreateAfterPurge.test.ts` and
 `documentStore/sync/syncSeededCreate.test.ts`.
 

@@ -22,7 +22,9 @@ import {
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
 import { createDocumentStoreState } from "../state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
+import { handleDocumentRemoteEvents } from "./syncRemoteSignals";
 import { ensureSeededRemoteDocument } from "./syncSeededCreate";
+import { shouldSkipCleanScheduledDocumentSync } from "./syncShared";
 
 type CreateResult = Awaited<ReturnType<ApiClient["createDocumentResult"]>>;
 
@@ -70,7 +72,21 @@ async function acknowledge(
   };
 }
 
+interface SeededCreateServer {
+  committed: DocumentWriterProjectionResponse | null;
+  readonly fixture: Fixture;
+  /**
+   * Delivers an update hint for the document to the store mid-flight and
+   * returns the store's signal sequence after it.
+   */
+  hint: (documentId: string, updateIds: string[]) => number;
+}
+
 type Fixture = Awaited<ReturnType<typeof createMaterializedSyncFixture>>;
+
+function plannedDocumentId(request: DocumentCreateRequest): string {
+  return String(Reflect.get(request.manifest, "objectId"));
+}
 
 /**
  * One never-created document whose whole content is one queued row. A
@@ -82,17 +98,16 @@ async function runSeededCreate(
   respond: (
     request: DocumentCreateRequest,
     attempt: number,
-    server: {
-      committed: DocumentWriterProjectionResponse | null;
-      readonly fixture: Fixture;
-    },
+    server: SeededCreateServer,
   ) => Promise<CreateResult>,
 ) {
   const fixture = await createMaterializedSyncFixture();
-  const server: {
-    committed: DocumentWriterProjectionResponse | null;
-    readonly fixture: Fixture;
-  } = { committed: null, fixture };
+  let scheduled = 0;
+  const server: SeededCreateServer = {
+    committed: null,
+    fixture,
+    hint: () => 0,
+  };
   const { close, execSql } = await createTestExecSql(name);
   try {
     await defaultDocumentsPersistence.ensureSchema(execSql);
@@ -151,6 +166,18 @@ async function runSeededCreate(
     // A signal raised before the pass, as a freshly opened store raises one.
     state.remoteUpdatePending = true;
     state.remoteUpdateSignalSeq = 1;
+    server.hint = (documentId, updateIds) => {
+      (state.runtime.state.events as unknown[]).push({
+        containerIds: [fixture.projection.containerId],
+        documentId,
+        type: "document_update_created",
+        updateIds,
+      });
+      handleDocumentRemoteEvents(state, () => {
+        scheduled += 1;
+      });
+      return state.remoteUpdateSignalSeq;
+    };
     const generation = captureDocumentStoreSyncGeneration(state, document);
     if (!generation) throw new Error("Expected sync generation");
 
@@ -175,6 +202,7 @@ async function runSeededCreate(
         record.id,
       ),
       requests,
+      scheduled,
       state,
     };
   } finally {
@@ -201,6 +229,38 @@ test("an acknowledged create settles its seed and answers the earlier signal", a
       result.documentVersion,
     ),
   ).toBe(true);
+});
+
+test("a peer edit hinted before the create response arrives still pulls", async () => {
+  const observed: { seqAfterEcho?: number } = {};
+  const result = await runSeededCreate(
+    "seeded-create-delayed-response",
+    async (request, _attempt, server) => {
+      const documentId = plannedDocumentId(request);
+      const seedId = request.initialSync?.outgoingUpdates[0]?.id ?? "";
+      // The seed's own echo is self-authored and raises no signal.
+      observed.seqAfterEcho = server.hint(documentId, [seedId]);
+      // A peer edits the committed document before the response arrives,
+      // while the store has no documentId yet.
+      server.hint(documentId, ["peer-update"]);
+      return acknowledge(request);
+    },
+  );
+  expect(observed.seqAfterEcho).toBe(1);
+  expect(result.remaining).toEqual([]);
+  expect(result.created.record?.lastCommitLsn).toBe("0/10");
+  // Only the signal raised before the create was submitted is answered.
+  expect(result.state.remoteUpdatePending).toBe(true);
+  expect(result.scheduled).toBe(1);
+  const record = result.created.record;
+  if (!record) throw new Error("Expected the created record");
+  expect(
+    shouldSkipCleanScheduledDocumentSync({
+      currentRecord: record,
+      pendingUpdates: result.created.pendingUpdates,
+      state: result.state,
+    }),
+  ).toBe(false);
 });
 
 test("a lost seeded create response adopts the document and keeps its row queued", async () => {

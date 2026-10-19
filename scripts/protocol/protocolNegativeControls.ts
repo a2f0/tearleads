@@ -91,6 +91,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Adopting a create whose response was lost must keep the seed queued: the lost attempt may have been the plain fallback (#2585).",
   },
   {
+    id: "planned-id-hint-dropped-before-create-response",
+    module: "formal/local-trust/QueuedDocumentCreate.tla",
+    config: "formal/local-trust/QueuedDocumentCreate.cfg",
+    constants: { KeepPlannedIdHints: "FALSE" },
+    expect: { kind: "invariant", name: "PeerEditIsPulled" },
+    why: "A peer edit hinted before the create response installs the document id must still mark the store pending: the seeded create skips its pull (#2585).",
+  },
+  {
+    id: "seeded-create-clears-post-submit-signal",
+    module: "formal/local-trust/QueuedDocumentCreate.tla",
+    config: "formal/local-trust/QueuedDocumentCreate.cfg",
+    constants: { ClearOnlyConsumedSignal: "FALSE" },
+    expect: { kind: "invariant", name: "PeerEditIsPulled" },
+    why: "Settling a seed may answer only the signal its pass consumed before submission; a later peer hint must still lead to a pull (#2585).",
+  },
+  {
     id: "content-write-unrefreshed-citations",
     module: "formal/document-sync/ContentWriteAuthority.tla",
     config: "formal/document-sync/ContentWriteAuthority.cfg",

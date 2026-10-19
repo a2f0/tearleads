@@ -33,12 +33,16 @@ checks as a standalone sync, so a seed a sync would refuse fails the create, and
 nothing commits. The response's `initialSync` names the accepted update id and
 the commit position, which the client records as its first sync's. The route
 publishes the seed's update hint. The client settles its queued row only when
-that acknowledgement names it. A refused seed falls back once to the plain
-create, after which the row syncs as before. A lost response is adopted through
-`409 document_manifest_already_exists`. Adoption cannot tell whether the seed
-committed, so the row stays queued and syncs as an ordinary update. That sync
-encrypts the row again, so when the seed did commit, the reused id no longer
-matches the stored ciphertext and the server answers
+that acknowledgement names it. Settling the seed answers only the update signal
+the client held before submitting the create, so the pass skips its pull. A
+peer can edit the document before the response arrives, so the client matches
+update hints against the id it submitted the create under until the response
+installs it, and any such hint keeps the pull owed. A refused seed falls back
+once to the plain create, after which the row syncs as before. A lost response
+is adopted through `409 document_manifest_already_exists`. Adoption cannot tell
+whether the seed committed, so the row stays queued and syncs as an ordinary
+update. That sync encrypts the row again, so when the seed did commit, the
+reused id no longer matches the stored ciphertext and the server answers
 `409 document_sync_update_id_conflict`. Recovery settles the row when its pull
 carries the stored update and otherwise re-keys the row, whose ops then commit
 again under a fresh id; the duplicate is harmless because CRDT import is

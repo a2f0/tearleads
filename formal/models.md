@@ -247,7 +247,9 @@ and stay unique within each trust domain. See the
 
 [QueuedDocumentCreate](./local-trust/QueuedDocumentCreate.md) checks that a queued
 store observes local purge before starting remote creation and that an obsolete
-read cannot retire a replacement store generation.
+read cannot retire a replacement store generation. It also checks that a create
+seed leaves the queue only once committed, and that a peer edit's hint
+arriving before the create response still leads to a pull.
 
 ### Document Move Placement
 

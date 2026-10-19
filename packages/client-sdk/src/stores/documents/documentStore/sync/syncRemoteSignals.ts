@@ -11,16 +11,37 @@ import {
   markDocumentStoreRemoteSyncPending,
 } from "./syncGeneration";
 
+/**
+ * The client-chosen id each store last submitted a remote create under. A peer
+ * can edit the document between the create's commit and the creator
+ * installing the id, and a seeded create answers the pass's earlier signal
+ * without a pull, so that edit's hint must still mark the store pending.
+ */
+const plannedRemoteDocumentIds = new WeakMap<DocumentStoreState, string>();
+
+export function recordPlannedRemoteDocumentId(
+  state: DocumentStoreState,
+  documentId: string,
+): void {
+  plannedRemoteDocumentIds.set(state, documentId);
+}
+
+function remoteUpdateHintDocumentId(state: DocumentStoreState): string | null {
+  if (!state.record) return null;
+  return state.record.documentId ?? plannedRemoteDocumentIds.get(state) ?? null;
+}
+
 export function hasRemoteDocumentUpdateEvent(
   state: DocumentStoreState,
   events: ReadonlyArray<unknown>,
 ): boolean {
+  const documentId = remoteUpdateHintDocumentId(state);
   let remoteUpdateFound = false;
 
   for (const event of events) {
     if (
       !isDocumentUpdateCreatedEvent(event) ||
-      event.documentId !== state.record?.documentId
+      event.documentId !== documentId
     ) {
       continue;
     }
@@ -83,12 +104,16 @@ export function handleDocumentRemoteEvents(
   );
   if (projectionInvalidated) invalidateDocumentWriterProjection(state);
 
-  if (!state.record?.documentId) return;
+  if (!remoteUpdateHintDocumentId(state)) return;
 
   // Writes parked behind an ancestor another member must re-key: this hint is
   // the only signal that the repair may have landed. It names no ancestor, so
   // any one re-runs the pass, which parks again if the path is still stale.
-  if (projectionInvalidated && resumeAfterAncestorRepairHint(state)) {
+  if (
+    state.record?.documentId &&
+    projectionInvalidated &&
+    resumeAfterAncestorRepairHint(state)
+  ) {
     scheduleSync();
   }
 

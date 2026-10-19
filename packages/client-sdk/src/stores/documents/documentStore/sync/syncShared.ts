@@ -29,6 +29,7 @@ import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+import { recordPlannedRemoteDocumentId } from "./syncRemoteSignals";
 
 /**
  * Record a refused read-only revalidation on this document's failure row, so
@@ -252,6 +253,9 @@ export async function ensureRemoteDocument(
     nextRecord?.recoveryDocumentId ??
     (await deriveStableDocumentId(state.localId));
   if (!generationIsCurrent()) return state.record ?? nextRecord;
+  // Hints for the document can arrive before the create's response installs
+  // its id; see recordPlannedRemoteDocumentId.
+  recordPlannedRemoteDocumentId(state, documentId);
 
   if (!(await hasDurableDocumentForCreate(state, generationIsCurrent)))
     return state.record;
