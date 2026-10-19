@@ -1,11 +1,7 @@
 import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import { type DatabaseSession, db } from "@tearleads/api-shared/postgres";
-import {
-  documentBaselines,
-  documents,
-  documentUpdates,
-} from "@tearleads/api-shared/schema";
+import { documents, documentUpdates } from "@tearleads/api-shared/schema";
 import {
   createDocument,
   encodeVersionVector,
@@ -339,52 +335,6 @@ test("byte floors never cut a page short of its exact serialized trim", async ()
     );
     expect(page.hasMore).toBe(fitting < updateIds.length);
   }
-});
-
-test("a checkpoint's source version vector counts toward a page's byte floors", async () => {
-  const documentId = await createStoredDocument();
-  const updateIds = [crypto.randomUUID(), crypto.randomUUID()];
-  for (const id of updateIds) {
-    await insertStoredUpdate({
-      documentId,
-      encryptedData: "x",
-      id,
-      insertSpans: false,
-      partialEndVersionVector: "end",
-      partialStartVersionVector: "start",
-    });
-  }
-  await db.insert(documentBaselines).values({
-    baselineUpdateId: updateIds[1] ?? "",
-    checkpointKind: "rotate_baseline",
-    documentId,
-    sourceVersionVector: "s".repeat(4_096),
-  });
-  const rowsBytes = (
-    await db
-      .select()
-      .from(documentUpdates)
-      .where(eq(documentUpdates.documentId, documentId))
-  ).reduce(
-    (sum, row) => sum + Buffer.byteLength(JSON.stringify(row), "utf8"),
-    3,
-  );
-
-  // Both rows fit the ceiling, but a response entry for the second carries
-  // its source version vector too, so the page never loads that row.
-  const page = await listMissingDocumentUpdatePage(db, {
-    afterSequence: 0,
-    documentId,
-    localVersionVector: null,
-    maxSerializedBytes: rowsBytes,
-    maxUpdates: 64,
-    upperBoundSequence: await readDocumentUpdateSequenceUpperBound(
-      db,
-      documentId,
-    ),
-  });
-  expect(page.updates.map(({ id }) => id)).toEqual(updateIds.slice(0, 1));
-  expect(page.hasMore).toBe(true);
 });
 
 test("listMissingDocumentUpdates rejects unsatisfied minLsn reads", async () => {

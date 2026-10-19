@@ -40,6 +40,16 @@ export function textByteLengthExpression(expression: SQLWrapper): SQL {
     : sql`octet_length(${expression})`;
 }
 
+// At most the UTF-8 bytes of a stored JSON value's compact serialization.
+// SQLite stores that text itself. Postgres renders jsonb with a space after
+// every ':' and ','; dropping each such pair, even inside a string, can only
+// undercount.
+export function jsonByteFloorExpression(expression: SQLWrapper): SQL {
+  return isSqliteApiDatabase()
+    ? sql`length(cast(${expression} as blob))`
+    : sql`octet_length(replace(replace(${expression}::text, ', ', ','), ': ', ':'))`;
+}
+
 export function nowExpression(): SQL {
   return isSqliteApiDatabase()
     ? sql`cast((julianday('now') - 2440587.5)*86400000 as integer)`

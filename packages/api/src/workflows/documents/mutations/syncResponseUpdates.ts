@@ -260,9 +260,9 @@ export async function listMissingSyncUpdateEntries(input: {
         localVersionVector: input.localVersionVector,
         minLsn: input.minLsn,
       });
-  // A page already fits its response byte floors, which leave out only each
-  // update's write header and its at most 64 authorization targets, so its
-  // metadata loads as one set. An unpaged listing has no such bound.
+  // A page already fits its response byte floors, which count each entry's
+  // write header, authorization targets, and checkpoint, so its metadata
+  // loads as one set. An unpaged listing has no such bound.
   const pageMetadata = page
     ? await listSyncEntryMetadata(
         input.executor,

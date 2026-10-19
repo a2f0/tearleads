@@ -1,10 +1,14 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   documentBaselines,
+  documentContentWriteHeaders,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
 import { eq, inArray, sql } from "drizzle-orm";
-import { textByteLengthExpression as textBytes } from "../utils/sqlDialect";
+import {
+  jsonByteFloorExpression as jsonBytes,
+  textByteLengthExpression as textBytes,
+} from "../utils/sqlDialect";
 
 function readByteCount(value: unknown): number {
   const count = typeof value === "string" ? Number(value) : value;
@@ -15,14 +19,14 @@ function readByteCount(value: unknown): number {
 }
 
 /**
- * The fewest bytes each update can add to a sync response: the UTF-8 length
- * of every variable-size string its response entry carries verbatim, which is
- * its ciphertext (`byte_length`), author fingerprint, version vectors,
- * plaintext hash, and a checkpoint's source version vector. JSON never encodes
- * a string in fewer bytes, so a page prefix whose floors overflow the byte
- * ceiling cannot fit, and nothing past it has to be loaded to find the page.
- * What the floors leave out is fixed-size or bounded: ids, epochs,
- * timestamps, and the write header with its at most 64 authorization targets.
+ * The fewest bytes each update can add to a sync response, from the stored
+ * lengths of every variable-size part of its response entry: the ciphertext
+ * (`byte_length`), author fingerprint, version vectors, plaintext hash, a
+ * checkpoint's source version vector, and the compact JSON of its write
+ * header and authorization targets. JSON never encodes a value in fewer
+ * bytes, so a page prefix whose floors overflow the byte ceiling cannot fit,
+ * and nothing past it has to be loaded to find the page. What the floors
+ * leave out is fixed-size: keys, ids, epochs, and timestamps.
  */
 export async function listDocumentUpdateResponseByteFloors(
   executor: DatabaseSession,
@@ -37,12 +41,19 @@ export async function listDocumentUpdateResponseByteFloors(
         + ${textBytes(documentUpdates.partialStartVersionVector)}
         + ${textBytes(documentUpdates.partialEndVersionVector)}
         + ${textBytes(documentUpdates.plaintextHash)}
-        + coalesce(${textBytes(documentBaselines.sourceVersionVector)}, 0)`,
+        + coalesce(${textBytes(documentBaselines.sourceVersionVector)}, 0)
+        + coalesce(${jsonBytes(documentContentWriteHeaders.header)}, 0)
+        + coalesce(${jsonBytes(documentContentWriteHeaders.authorizationTargets)}, 0)`,
     })
     .from(documentUpdates)
     .leftJoin(
       documentBaselines,
       eq(documentBaselines.baselineUpdateId, documentUpdates.id),
+    )
+    // A missing header is the response's own integrity failure to report.
+    .leftJoin(
+      documentContentWriteHeaders,
+      eq(documentContentWriteHeaders.updateId, documentUpdates.id),
     )
     .where(inArray(documentUpdates.id, [...updateIds]));
   return new Map(
