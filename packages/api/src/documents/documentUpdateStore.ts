@@ -18,6 +18,10 @@ import {
   uuidValue,
 } from "../utils/sqlDialect";
 import { readCurrentCommitLsn } from "./commitLsn";
+import {
+  listDocumentUpdateResponseByteFloors,
+  prefixWithinResponseByteFloors,
+} from "./documentUpdateByteFloors";
 
 interface SqlNamedColumn {
   name: string;
@@ -351,22 +355,32 @@ export async function listMissingDocumentUpdatePage(
     localVersionVector: input.localVersionVector,
     upperBoundSequence: input.upperBoundSequence,
   });
+  const pageCandidates = candidates.slice(0, input.maxUpdates);
+  // Size the page from stored lengths before loading it. Ciphertext is not
+  // the only variable-size column, so a page sized by byte_length alone could
+  // materialize an unbounded aggregate of version vectors and hashes before
+  // the exact trims run. A sync response entry carries at least its floor, so
+  // no row past the floor prefix can be in a response page, and none loads.
+  const loadable = prefixWithinResponseByteFloors(
+    pageCandidates,
+    await listDocumentUpdateResponseByteFloors(
+      executor,
+      pageCandidates.map(({ id }) => id),
+    ),
+    input.maxSerializedBytes,
+  );
+  if (!loadable) {
+    throw new DocumentUpdateReadError(
+      "Document update changed while loading page; retry",
+      409,
+    );
+  }
   const selected: DocumentUpdateRecord[] = [];
   let selectedBytes = 2; // JSON array brackets.
-  for (const candidate of candidates.slice(0, input.maxUpdates)) {
-    // Load one row at a time before retaining it. Candidate byte_length only
-    // describes ciphertext; selecting all 64 candidates from that value first
-    // can materialize an unbounded aggregate of version vectors, hashes, and
-    // other response metadata before the later wire-size trim runs.
-    const [update] = await loadDocumentUpdatesByCandidate(executor, [
-      candidate,
-    ]);
-    if (!update) {
-      throw new DocumentUpdateReadError(
-        "Document update changed while loading page; retry",
-        409,
-      );
-    }
+  for (const update of await loadDocumentUpdatesByCandidate(
+    executor,
+    loadable,
+  )) {
     const updateBytes = Buffer.byteLength(JSON.stringify(update), "utf8");
     const addedBytes = updateBytes + (selected.length === 0 ? 0 : 1);
     if (selectedBytes + addedBytes > input.maxSerializedBytes) {

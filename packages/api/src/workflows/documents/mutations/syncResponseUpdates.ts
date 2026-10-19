@@ -114,8 +114,12 @@ async function listSyncCheckpointMetadata(
   return byUpdateId;
 }
 
+type StoredSyncUpdate = Awaited<
+  ReturnType<typeof listMissingDocumentUpdates>
+>[number];
+
 function toSyncUpdate(
-  update: Awaited<ReturnType<typeof listMissingDocumentUpdates>>[number],
+  update: StoredSyncUpdate,
   writeHeader: {
     readonly authorizationTargets: readonly DocumentContentKeyTarget[];
     readonly header: WriteHeader;
@@ -147,6 +151,49 @@ function toSyncUpdate(
   };
 }
 
+interface SyncEntryMetadata {
+  readonly checkpoints: ReadonlyMap<string, SyncCheckpointMetadata>;
+  readonly writeHeaders: Awaited<
+    ReturnType<typeof listDocumentContentWriteHeaders>
+  >;
+}
+
+async function listSyncEntryMetadata(
+  executor: DatabaseSession,
+  updateIds: readonly string[],
+): Promise<SyncEntryMetadata> {
+  const [writeHeaders, checkpoints] = await Promise.all([
+    listDocumentContentWriteHeaders(updateIds, executor),
+    listSyncCheckpointMetadata(executor, updateIds),
+  ]);
+  return { checkpoints, writeHeaders };
+}
+
+async function toSyncResponseEntry(
+  update: StoredSyncUpdate,
+  metadata: SyncEntryMetadata,
+) {
+  const writeHeader = metadata.writeHeaders.get(update.id);
+  if (!writeHeader) {
+    throw new DocumentMutationError("Document write header missing", 409);
+  }
+  const checkpoint = await authenticateSyncCheckpointForResponse({
+    checkpoint: metadata.checkpoints.get(update.id),
+    documentId: update.documentId,
+    metadataHash: writeHeader.header.metadataHash,
+    partialEndVersionVector: update.partialEndVersionVector,
+    partialStartVersionVector: update.partialStartVersionVector,
+    plaintextHash: update.plaintextHash,
+    updateId: update.id,
+  });
+
+  return {
+    sequence: update.sequence,
+    update: toSyncUpdate(update, writeHeader, checkpoint),
+    writeHeader: writeHeader.header,
+  };
+}
+
 export async function materializeSyncResponseEntriesToBytes<
   Item,
   Entry extends {
@@ -161,9 +208,9 @@ export async function materializeSyncResponseEntriesToBytes<
   const selected: Entry[] = [];
   let serializedBytes = 2; // JSON array brackets.
   for (const item of items) {
-    // Materialize one metadata-bearing entry at a time. Write-header
-    // authorization targets and checkpoint vectors can each be large, so a
-    // bulk load would retain every candidate before this wire bound applies.
+    // Stop at the first entry past the exact wire bound. Callers bound what
+    // `materialize` loads: a page preloads metadata for updates that fit their
+    // byte floors, and an unpaged listing loads one entry's at a time.
     const entry = await materialize(item);
     const serializedEntry = JSON.stringify(entry.update);
     const addedBytes =
@@ -213,33 +260,23 @@ export async function listMissingSyncUpdateEntries(input: {
         localVersionVector: input.localVersionVector,
         minLsn: input.minLsn,
       });
+  // A page already fits its response byte floors, which leave out only each
+  // update's write header and its at most 64 authorization targets, so its
+  // metadata loads as one set. An unpaged listing has no such bound.
+  const pageMetadata = page
+    ? await listSyncEntryMetadata(
+        input.executor,
+        page.updates.map(({ id }) => id),
+      )
+    : undefined;
   const entries = await materializeSyncResponseEntriesToBytes(
     updates,
-    async (update) => {
-      const [writeHeadersByUpdateId, checkpointByUpdateId] = await Promise.all([
-        listDocumentContentWriteHeaders([update.id], input.executor),
-        listSyncCheckpointMetadata(input.executor, [update.id]),
-      ]);
-      const writeHeader = writeHeadersByUpdateId.get(update.id);
-      if (!writeHeader) {
-        throw new DocumentMutationError("Document write header missing", 409);
-      }
-      const checkpoint = await authenticateSyncCheckpointForResponse({
-        checkpoint: checkpointByUpdateId.get(update.id),
-        documentId: update.documentId,
-        metadataHash: writeHeader.header.metadataHash,
-        partialEndVersionVector: update.partialEndVersionVector,
-        partialStartVersionVector: update.partialStartVersionVector,
-        plaintextHash: update.plaintextHash,
-        updateId: update.id,
-      });
-
-      return {
-        sequence: update.sequence,
-        update: toSyncUpdate(update, writeHeader, checkpoint),
-        writeHeader: writeHeader.header,
-      };
-    },
+    async (update) =>
+      toSyncResponseEntry(
+        update,
+        pageMetadata ??
+          (await listSyncEntryMetadata(input.executor, [update.id])),
+      ),
   );
 
   if (page === undefined) return { entries };
