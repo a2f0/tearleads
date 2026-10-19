@@ -18,9 +18,14 @@ import {
   type DocumentRecord,
   defaultDocumentsPersistence,
   documentWriterProjectionFromCreateResponse,
+  type PendingUpdateRecord,
 } from "../../../../workflows/documents";
 import { noopDocumentStorePersistenceEffects } from "../documentStore.testFixtures";
-import { createDocumentStoreState } from "../state";
+import {
+  createDocumentStoreState,
+  type DocumentStoreState,
+  resetDocumentStore,
+} from "../state";
 import { captureDocumentStoreSyncGeneration } from "./syncGeneration";
 import { handleDocumentRemoteEvents } from "./syncRemoteSignals";
 import { ensureSeededRemoteDocument } from "./syncSeededCreate";
@@ -80,12 +85,29 @@ interface SeededCreateServer {
    * returns the store's signal sequence after it.
    */
   hint: (documentId: string, updateIds: string[]) => number;
+  /** Tears the store down mid-flight, as closing the document does. */
+  tearDown: () => void;
 }
 
 type Fixture = Awaited<ReturnType<typeof createMaterializedSyncFixture>>;
 
 function plannedDocumentId(request: DocumentCreateRequest): string {
   return String(Reflect.get(request.manifest, "objectId"));
+}
+
+/** Runs `read` when the row's payload is first read, inside seed encryption. */
+function onPayloadRead(
+  row: PendingUpdateRecord,
+  read: () => void,
+): PendingUpdateRecord {
+  const { updateData, ...rest } = row;
+  return Object.defineProperty(rest, "updateData", {
+    enumerable: true,
+    get: () => {
+      read();
+      return updateData;
+    },
+  }) as PendingUpdateRecord;
 }
 
 /**
@@ -100,6 +122,7 @@ async function runSeededCreate(
     attempt: number,
     server: SeededCreateServer,
   ) => Promise<CreateResult>,
+  onSeedEncrypt?: (state: DocumentStoreState) => void,
 ) {
   const fixture = await createMaterializedSyncFixture();
   let scheduled = 0;
@@ -107,6 +130,7 @@ async function runSeededCreate(
     committed: null,
     fixture,
     hint: () => 0,
+    tearDown: () => undefined,
   };
   const { close, execSql } = await createTestExecSql(name);
   try {
@@ -178,6 +202,7 @@ async function runSeededCreate(
       });
       return state.remoteUpdateSignalSeq;
     };
+    server.tearDown = () => resetDocumentStore(state);
     const generation = captureDocumentStoreSyncGeneration(state, document);
     if (!generation) throw new Error("Expected sync generation");
 
@@ -190,7 +215,9 @@ async function runSeededCreate(
       },
       generation,
       nextRecord: record,
-      pendingUpdates: queued,
+      pendingUpdates: onSeedEncrypt
+        ? queued.map((row) => onPayloadRead(row, () => onSeedEncrypt(state)))
+        : queued,
       state,
     });
     return {
@@ -261,6 +288,31 @@ test("a peer edit hinted before the create response arrives still pulls", async 
       state: result.state,
     }),
   ).toBe(false);
+});
+
+test("a store torn down while its seed encrypts submits no create", async () => {
+  const result = await runSeededCreate(
+    "seeded-create-teardown",
+    (request) => acknowledge(request),
+    resetDocumentStore,
+  );
+  expect(result.requests).toEqual([]);
+  expect(result.remaining.map((row) => row.id)).toEqual(
+    result.queued.map((row) => row.id),
+  );
+});
+
+test("a store torn down before the plain fallback submits it no further", async () => {
+  const result = await runSeededCreate(
+    "seeded-create-teardown-fallback",
+    (_request, _attempt, server) => {
+      server.tearDown();
+      return Promise.resolve(paymentRequired);
+    },
+  );
+  expect(
+    result.requests.map((request) => Boolean(request.initialSync)),
+  ).toEqual([true]);
 });
 
 test("a lost seeded create response adopts the document and keeps its row queued", async () => {

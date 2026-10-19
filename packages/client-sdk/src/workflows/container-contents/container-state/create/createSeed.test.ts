@@ -224,6 +224,7 @@ async function runReplayedSeededCreate(
     attempt: number,
     hint: MetadataHint,
   ) => Promise<CreateResult>,
+  tearDownOnSeedEncrypt = false,
 ) {
   const parent = await createParentProjection();
   const parentContainerId = parent.projection.containerId;
@@ -260,6 +261,17 @@ async function runReplayedSeededCreate(
     updatedAt: "2026-10-19T00:00:00.000Z",
   };
   const persisted: unknown[] = [];
+  let current = true;
+  // The seed's payload is first read inside its encryption.
+  const queuedSeed = tearDownOnSeedEncrypt
+    ? Object.defineProperty({ ...seed }, "updateData", {
+        enumerable: true,
+        get: () => {
+          current = false;
+          return seed.updateData;
+        },
+      })
+    : seed;
   const state: ContainerCreateIntentSyncState = {
     containersById: new Map([
       [childContainerId, childState],
@@ -269,7 +281,7 @@ async function runReplayedSeededCreate(
       ...defaultContainerContentsPersistence,
       listPendingCreateIntents: async () => [intent],
       listPendingUpdates: async (_execSql, containerId) =>
-        containerId === childContainerId ? [seed] : [],
+        containerId === childContainerId ? [queuedSeed] : [],
       recordCreateIntentRevisionError: async () => undefined,
     },
     locallyAcceptedMetadataUpdateIds,
@@ -319,7 +331,7 @@ async function runReplayedSeededCreate(
           };
         },
       },
-      isCurrent: () => true,
+      isCurrent: () => current,
       isRemoteSyncBlocked: () => false,
       requestRemoteReconciliation: () => undefined,
       state,
@@ -411,4 +423,14 @@ test("a peer's metadata hint before the create response still queues a read", as
   expect(observed.planned).toBeDefined();
   expect(observed.peer).toEqual([observed.planned ?? ""]);
   expect([...result.plannedMetadataDocumentIds]).toEqual([]);
+});
+
+test("a container create torn down while its seed encrypts submits nothing", async () => {
+  const result = await runReplayedSeededCreate(
+    "container-seed-teardown",
+    acknowledge,
+    true,
+  );
+  expect(result.requests).toEqual([]);
+  expect(result.persisted).toEqual([]);
 });

@@ -243,12 +243,14 @@ interface RemoteDocumentCreateInput {
  * A seed only saves the first sync. A refusal of the seeded create falls back
  * to the plain create once, so the row syncs as before and seeding adds no
  * failure mode. A lost response is adopted, and a stale target is replanned
- * with a fresh seed, exactly as for a plain create.
+ * with a fresh seed, exactly as for a plain create. Building the seed awaits
+ * its encryption, so each submission rechecks the caller is still current and
+ * returns null instead of creating a document whose response would be dropped.
  */
 async function submitPlannedDocumentCreateRequest(
   input: RemoteDocumentCreateInput,
   createPlan: MaterializedDocumentCreatePlanWithProjection,
-): Promise<DocumentCreateSubmission> {
+): Promise<DocumentCreateSubmission | null> {
   const request = createPlan.materializedPlan.plan.request;
   const organizationId = createPlan.containerProjection.organizationId;
   const seed = input.seedUpdate
@@ -260,6 +262,7 @@ async function submitPlannedDocumentCreateRequest(
       })
     : null;
   if (seed && documentCreateSeedFits(seed)) {
+    if (input.stillCurrent?.() === false) return null;
     const seeded = await submitDocumentCreate(
       input.apiClient,
       { ...request, initialSync: seed },
@@ -268,12 +271,12 @@ async function submitPlannedDocumentCreateRequest(
     if (
       seeded.ok ||
       isDocumentManifestAlreadyExistsConflict(seeded) ||
-      isStaleDocumentCreateTargetConflict(seeded) ||
-      input.stillCurrent?.() === false
+      isStaleDocumentCreateTargetConflict(seeded)
     ) {
       return seeded;
     }
   }
+  if (input.stillCurrent?.() === false) return null;
   return submitDocumentCreate(input.apiClient, request, organizationId);
 }
 
@@ -321,6 +324,7 @@ async function submitPlannedDocumentCreate(
   if (isRemoteDocumentCreatePlanBlocked(input, createPlan)) return null;
   if (input.stillCurrent?.() === false) return null;
   let submission = await submitPlannedDocumentCreateRequest(input, createPlan);
+  if (!submission) return null;
   if (isStaleDocumentCreateTargetConflict(submission)) {
     if (input.stillCurrent?.() === false) {
       return { createPlan, submission };
@@ -354,6 +358,7 @@ async function submitPlannedDocumentCreate(
     createPlan = refreshedPlan;
     if (input.stillCurrent?.() === false) return null;
     submission = await submitPlannedDocumentCreateRequest(input, createPlan);
+    if (!submission) return null;
   }
   return { createPlan, submission };
 }
