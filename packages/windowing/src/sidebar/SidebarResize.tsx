@@ -10,9 +10,12 @@ import {
   useState,
 } from "react";
 import "./SidebarResize.css";
+import {
+  MIN_SIDEBAR_WIDTH as MIN_WIDTH,
+  UNMEASURED_MAX_SIDEBAR_WIDTH,
+  useSidebarWidthBounds,
+} from "./useSidebarWidthBounds";
 
-const MIN_WIDTH = 80;
-const MAX_WIDTH = 400;
 const KEYBOARD_RESIZE_STEP = 10;
 
 interface DragState {
@@ -21,19 +24,21 @@ interface DragState {
   startX: number;
 }
 
-function clampSidebarWidth(width: number) {
-  return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, width));
+function clampSidebarWidth(width: number, maxWidth: number) {
+  return Math.min(maxWidth, Math.max(MIN_WIDTH, width));
 }
 
 function useSidebarDragEffect({
   active,
   draggingRef,
   endDrag,
+  maxWidthRef,
   setWidth,
 }: {
   active: boolean;
   draggingRef: RefObject<DragState | null>;
   endDrag: () => void;
+  maxWidthRef: RefObject<number>;
   setWidth: Dispatch<SetStateAction<number | null>>;
 }) {
   useEffect(() => {
@@ -48,7 +53,9 @@ function useSidebarDragEffect({
       }
 
       const dx = event.clientX - dragState.startX;
-      setWidth(clampSidebarWidth(dragState.startWidth + dx));
+      setWidth(
+        clampSidebarWidth(dragState.startWidth + dx, maxWidthRef.current),
+      );
     }
 
     function handlePointerEnd(event: PointerEvent) {
@@ -66,31 +73,38 @@ function useSidebarDragEffect({
       document.removeEventListener("pointercancel", handlePointerEnd);
       endDrag();
     };
-  }, [active, draggingRef, endDrag, setWidth]);
+  }, [active, draggingRef, endDrag, maxWidthRef, setWidth]);
 }
 
 export function useSidebarResize({
   defaultWidth,
   initialWidth = defaultWidth,
+  getResizeContainer,
 }: {
   defaultWidth: number;
   initialWidth?: number | null;
+  /** Stable resolver for the element spanning sidebar + content, excluding the launcher rail. */
+  getResizeContainer?: (sidebar: HTMLElement) => HTMLElement | null;
 }) {
   const [width, setWidth] = useState<number | null>(initialWidth);
   const [isDragging, setIsDragging] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<DragState | null>(null);
+  const { maxWidth, maxWidthRef } = useSidebarWidthBounds(
+    sidebarRef,
+    getResizeContainer,
+  );
 
   const readCurrentWidth = useCallback(() => {
     if (width !== null) {
-      return width;
+      return clampSidebarWidth(width, maxWidth);
     }
 
     const measuredWidth = sidebarRef.current?.getBoundingClientRect().width;
     return measuredWidth && measuredWidth > 0
-      ? clampSidebarWidth(measuredWidth)
-      : defaultWidth;
-  }, [defaultWidth, width]);
+      ? clampSidebarWidth(measuredWidth, maxWidth)
+      : clampSidebarWidth(defaultWidth, maxWidth);
+  }, [defaultWidth, maxWidth, width]);
 
   const endDrag = useCallback(() => {
     if (!draggingRef.current) {
@@ -107,6 +121,7 @@ export function useSidebarResize({
     active: isDragging,
     draggingRef,
     endDrag,
+    maxWidthRef,
     setWidth,
   });
 
@@ -141,7 +156,7 @@ export function useSidebarResize({
 
       if (event.key === "End") {
         event.preventDefault();
-        setWidth(MAX_WIDTH);
+        setWidth(maxWidth);
         return;
       }
 
@@ -152,22 +167,24 @@ export function useSidebarResize({
       event.preventDefault();
       const direction = event.key === "ArrowLeft" ? -1 : 1;
       const multiplier = event.shiftKey ? 5 : 1;
-      setWidth((currentWidth) =>
+      setWidth(
         clampSidebarWidth(
-          (currentWidth ?? readCurrentWidth()) +
-            direction * KEYBOARD_RESIZE_STEP * multiplier,
+          readCurrentWidth() + direction * KEYBOARD_RESIZE_STEP * multiplier,
+          maxWidth,
         ),
       );
     },
-    [readCurrentWidth],
+    [maxWidth, readCurrentWidth],
   );
 
   return {
     handleKeyDown,
     handlePointerDown,
+    maxWidth,
     resolvedWidth: readCurrentWidth(),
     sidebarRef,
-    width,
+    // Keep the chosen width when space returns, unless the user resizes again.
+    width: width === null ? null : clampSidebarWidth(width, maxWidth),
   };
 }
 
@@ -175,12 +192,14 @@ export function SidebarResizeHandle({
   className,
   controls,
   currentWidth,
+  maxWidth,
   onKeyDown,
   onPointerDown,
 }: {
   className: string;
   controls?: string | undefined;
   currentWidth: number;
+  maxWidth?: number;
   onKeyDown: (event: ReactKeyboardEvent<HTMLHRElement>) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLHRElement>) => void;
 }) {
@@ -189,7 +208,9 @@ export function SidebarResizeHandle({
       aria-controls={controls}
       aria-label="Resize sidebar"
       aria-orientation="vertical"
-      aria-valuemax={MAX_WIDTH}
+      aria-valuemax={
+        maxWidth ?? Math.max(UNMEASURED_MAX_SIDEBAR_WIDTH, currentWidth)
+      }
       aria-valuemin={MIN_WIDTH}
       aria-valuenow={currentWidth}
       className={`sidebar-resize-handle ${className}`}
