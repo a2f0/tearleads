@@ -169,10 +169,12 @@ export async function settlePurgeScopeMoves(
   while (true) {
     await delay(timing.pollMs, input.signal);
     if (cancelled()) return "cancelled";
+    // Read the lane first: a row still queued after a pass it shows finished
+    // survived that pass, while one read before could have settled since.
+    const lane = input.lane.read();
     intents = await readScope();
     if (cancelled()) return "cancelled";
     if (intents.length === 0) return "settled";
-    const lane = input.lane.read();
     // Only a pass that starts after the request answers it.
     if (lane && lane.runCount > runCountAtRequest)
       startedAt ??= lane.lastStartedAt;

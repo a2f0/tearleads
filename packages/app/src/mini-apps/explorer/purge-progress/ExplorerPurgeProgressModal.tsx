@@ -19,7 +19,10 @@ function getExplorerPurgeStatusText(run: ExplorerPurgeRunState): string {
     case "done":
       return EXPLORER_LABELS.purgeProgressDoneStatus;
     case "cancelled":
-      return (run.progress?.completedCount ?? 0) > 0
+      // A failed item may still have been deleted remotely; only a run that
+      // stopped before its first item deleted nothing.
+      return run.progress &&
+        run.progress.completedCount + run.progress.failedCount > 0
         ? EXPLORER_LABELS.purgeProgressCancelledStatus
         : EXPLORER_LABELS.purgeProgressCancelledUntouchedStatus;
     case "failed":

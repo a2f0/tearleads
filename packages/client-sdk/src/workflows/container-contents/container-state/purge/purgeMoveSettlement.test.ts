@@ -306,3 +306,36 @@ test("a move that never replays ends the wait at the ceiling", async () => {
     expect(outcome.reports).toEqual(["Purge scope move wait timed out"]);
   });
 });
+
+test("a pass that settles the move during the intent read is not a failure", async () => {
+  await withTestExecSql("purge-move-settlement-interleave", async (execSql) => {
+    let run: LaneRun = {
+      lastStartedAt: new Date().toISOString(),
+      requested: false,
+      runCount: 3,
+      running: true,
+    };
+    let queued = true;
+    let reads = 0;
+    const outcome = await settle({
+      execSql,
+      lane: { read: () => run, request: () => {} },
+      moves: () => {
+        reads += 1;
+        const rows = queued ? [moveIntent("folder")] : [];
+        if (reads === 2) {
+          // The requested pass settles the move and finishes mid-read.
+          run = { ...run, runCount: 4, running: false };
+          queued = false;
+        }
+        return rows;
+      },
+    });
+    expect(outcome).toEqual({
+      reports: [],
+      requests: 1,
+      result: "settled",
+      settlements: ["waiting"],
+    });
+  });
+});
