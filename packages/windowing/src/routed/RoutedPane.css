@@ -205,14 +205,17 @@
   cursor: pointer;
 }
 
-.routed-pane-iconbutton:hover:not(:disabled),
 .routed-pane-iconbutton:focus-visible:not(:disabled) {
-  background: var(--app-hover-surface);
-}
-
-.routed-pane-iconbutton[aria-expanded="true"] {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .routed-pane-iconbutton:hover:not(:disabled),
+  .routed-pane-taskbar-menu-button:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
 }
 
 .routed-pane-iconbutton:disabled {
@@ -352,7 +355,6 @@
   cursor: pointer;
 }
 
-.routed-pane-taskbar-menu-button:hover,
 .routed-pane-taskbar-menu-button:focus-visible,
 .routed-pane-taskbar-menu-button[aria-expanded="true"] {
   background: var(--emphasis-surface);

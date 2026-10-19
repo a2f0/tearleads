@@ -11,6 +11,7 @@
      chip (below) is the only added chrome. */
   padding: 0;
   border: 0;
+  border-radius: var(--app-radius-control);
   background: none;
   /* The glyph sets its own hue, but the focus ring is currentColor; without
      this it falls back to the UA ButtonText (white/black) in every theme. */
@@ -18,9 +19,16 @@
   cursor: pointer;
 }
 
-.sync-status-indicator:hover,
 .sync-status-indicator:focus-visible {
   background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .sync-status-indicator:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
 }
 
 /* Click-popover body. The status line reads as text; the write-queue link below
