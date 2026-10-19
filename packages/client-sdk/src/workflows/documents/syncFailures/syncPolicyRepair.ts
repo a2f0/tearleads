@@ -23,16 +23,8 @@ function requestedRepairPrincipalIdentities(
 ): Set<string> {
   const identities = new Set<string>();
   for (const rekey of plan.request.containerRekeys ?? []) {
-    for (const policy of rekey.principalPolicies) {
-      const principalType = Reflect.get(policy, "principalType");
-      const principalId = Reflect.get(policy, "principalId");
-      if (
-        (principalType === "group" || principalType === "organization") &&
-        typeof principalId === "string" &&
-        principalId.length > 0
-      ) {
-        identities.add(principalIdentityKey(principalType, principalId));
-      }
+    for (const ref of rekey.principalPolicyRefs) {
+      identities.add(principalIdentityKey(ref.principalType, ref.principalId));
     }
   }
   return identities;

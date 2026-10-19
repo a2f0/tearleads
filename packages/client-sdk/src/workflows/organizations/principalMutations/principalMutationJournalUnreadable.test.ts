@@ -18,7 +18,39 @@ import {
 } from "./principalMutationJournalManagement";
 import { recoverJournaledPrincipalMutation } from "./principalMutationJournalSession";
 
-async function fixture(format = false) {
+type UnreadableFormat = false | "future" | "inlinePolicies";
+
+/** A compound body this SDK no longer reads: one cited its policies inline. */
+function unsupportedBody(
+  signed: Awaited<ReturnType<typeof principalMutationJournalFixture>>,
+  format: Exclude<UnreadableFormat, false>,
+): string {
+  if (format === "future")
+    return JSON.stringify({
+      groupId: signed.mutation.groupId,
+      request: { futureFormat: true },
+    });
+  const body = structuredClone(signed.mutation);
+  if (body.kind !== "compound") throw new Error("Expected compound journal");
+  body.request.groupPolicy.containerMutations = [
+    {
+      body: { eventType: "container.share" },
+      event: { eventType: "container.share" },
+      expectedManifestHash: "manifest-hash",
+      keyEpoch: { epoch: 1 },
+      keyring: null,
+      manifest: { containerId: "container-1" },
+      predecessorBridge: null,
+      // The pre-#2585 field, journaled before principal policies were cited
+      // by head.
+      principalPolicies: [{ principalId: signed.mutation.groupId }],
+      wraps: [],
+    } as never,
+  ];
+  return JSON.stringify(body);
+}
+
+async function fixture(format: UnreadableFormat = false) {
   const signed = await principalMutationJournalFixture();
   const sqlite = await createTestExecSql("journal-unreadable-discard");
   let current = true;
@@ -30,10 +62,7 @@ async function fixture(format = false) {
   const row = await sealPrincipalMutation(signed);
   if (format) {
     // Authenticate a body unsupported by this SDK; its bytes are never submitted.
-    row.serializedRequest = JSON.stringify({
-      groupId: signed.mutation.groupId,
-      request: { futureFormat: true },
-    });
+    row.serializedRequest = unsupportedBody(signed, format);
     const scope = JSON.stringify([
       "tearleads.sdk.principal-mutation.v1",
       signed.scope.identityTrustDomain,
@@ -78,7 +107,7 @@ async function inspected(
   return error;
 }
 
-test.each([false, true])(
+test.each([false, "future", "inlinePolicies"] as const)(
   "explicit discard retires unreadable work without submission: authenticated format=%s",
   async (format) => {
     const f = await fixture(format);

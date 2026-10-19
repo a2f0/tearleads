@@ -318,7 +318,9 @@ Each signed mutation request carries:
   may cite one manifest twice, and history cites only the mutated container
   (the one `previousManifestRef` names), so both are refused with `400`
   before any citation is read; the history then loads in one bulk read
-- referenced principal policy bundles
+- `principalPolicyRefs`: `{principalType, principalId, version, stateHash}`
+  heads of the principal policies the mutation was planned against, at most
+  4,096 (`MAX_CONTAINER_PRINCIPAL_POLICY_REFS`), never the policies themselves
 - a container key epoch
 - a required nullable predecessor bridge (`null` for creates and same-epoch
   mutations; populated for every KEK rotation)
@@ -330,19 +332,24 @@ Each signed mutation request carries:
 
 The API verifies the signed event, derives the manifest, checks predecessor and
 path heads, verifies referenced principal policies, derives recipient targets,
-and verifies the container KEK state. Every cited manifest is resolved from the
-API's own artifacts: a manifest an earlier mutation of the same batch verified,
-or the stored bundle, re-verified because database rows are not a trust
-boundary. A citation whose hash is not stored, or whose `containerId` names a
-different container, is refused with `409`. The previous manifest and every path
-element must also be the container's current head, and the signed event's
-`dependencyManifestHashes` must equal the cited hashes, so a stale or uncited
-head is refused exactly as before. Only the new manifest the mutation commits
-travels in full; a recitation cites its previous head and current path the same
-way. Container KEK wraps target direct users,
-managed principals, or the parent container KEK. A child container can inherit
-access through parent KEK edges without rewriting every descendant object when
-an ancestor grant changes.
+and verifies the container KEK state. Each principal policy ref must name the
+principal's current head, or the mutation is refused with
+`409 principal_policy_stale` and the current heads the requester may read; the
+API then authorizes from its own verified copy of each head. The `stateHash`
+commits the signed state, and with it the projection and grant roots, so the
+head pins everything an inline policy would have carried. Every cited manifest
+is resolved from the API's own artifacts: a manifest an earlier mutation of the
+same batch verified, or the stored bundle, re-verified because database rows are
+not a trust boundary. A citation whose hash is not stored, or whose
+`containerId` names a different container, is refused with `409`. The previous
+manifest and every path element must also be the container's current head, and
+the signed event's `dependencyManifestHashes` must equal the cited hashes, so a
+stale or uncited head is refused exactly as before. Only the new manifest the
+mutation commits travels in full; a recitation cites its previous head and
+current path the same way. Container KEK wraps target direct users, managed
+principals, or the parent container KEK. A child container can inherit access
+through parent KEK edges without rewriting every descendant object when an
+ancestor grant changes.
 
 For a rotation, the API also verifies that the bridge connects the stored
 current epoch to exactly the proposed next epoch, that the keyring is sealed to
@@ -415,8 +422,9 @@ rolls back with it.
 
 For document sync, a stale inline rekey returns
 `document_sync_state_stale`. When the stale state is a principal policy, the
-response may include the current signed `principalPolicies[]`; clients verify
-and cache those bundles before refetching the writer projection and replanning.
+response may include the current `principalHeads[]` the requester may read;
+clients recover those heads through ordinary policy reads before refetching the
+writer projection and replanning.
 
 `DELETE /containers/:containerId` is an authenticated admin-only structural
 operation for empty non-system leaf containers. It is not a signed access-event

@@ -134,7 +134,7 @@ export function createRegistrationRequestFixture(): RegistrationRequest {
       parentContainerPathRefs: [],
       predecessorBridge: null,
       previousManifestRef: null,
-      principalPolicies: [],
+      principalPolicyRefs: [],
       userRecipientKeys: [{ userId }],
       wraps: [{ containerKeyEpochId: "container-key-epoch-id" }],
     },

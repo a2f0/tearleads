@@ -58,17 +58,21 @@
       "lines": 1207,
       "bytes": 59073
     },
+    "docs/limits.md": {
+      "lines": 196,
+      "bytes": 20617
+    },
     "docs/loro-e2ee-sync-protocol.md": {
-      "lines": 554,
-      "bytes": 23895
+      "lines": 555,
+      "bytes": 23986
     },
     "docs/openapi.json": {
-      "lines": 62196,
-      "bytes": 2503721
+      "lines": 63932,
+      "bytes": 2588999
     },
     "docs/protocol-specification.md": {
-      "lines": 738,
-      "bytes": 39173
+      "lines": 746,
+      "bytes": 39787
     },
     "docs/security-guarantees.md": {
       "lines": 842,
@@ -135,12 +139,12 @@
       "bytes": 19305
     },
     "packages/api/src/routes/containers/mutations.test.ts": {
-      "lines": 3795,
-      "bytes": 126054
+      "lines": 3790,
+      "bytes": 126082
     },
     "packages/api/src/routes/documents/purgeDocument.test.ts": {
-      "lines": 1231,
-      "bytes": 40834
+      "lines": 1229,
+      "bytes": 40880
     },
     "packages/api/src/routes/keyingWriterProjection.test.ts": {
       "lines": 2269,
@@ -311,8 +315,8 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 22778,
-      "bytes": 925055
+      "lines": 23150,
+      "bytes": 944699
     },
     "packages/validators/src/response/index.ts": {
       "lines": 536,

@@ -34,6 +34,7 @@ import {
   createTestContainerKekPredecessorBridge,
 } from "./containerKekMaterial";
 import { containerManifestRef } from "./containerManifestRefs";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 
 interface ContainerRekeyFixture {
   readonly bundle: AccessManifestBundleWire | VerifiedContainerAccessManifest;
@@ -333,10 +334,7 @@ export async function buildRootContainerRekeyMutation(input: {
         string,
         unknown
       >,
-      principalPolicies: principalPolicies as unknown as Record<
-        string,
-        unknown
-      >[],
+      principalPolicyRefs: principalPolicyRefs(principalPolicies),
       wraps: wraps as unknown as Record<string, unknown>[],
       userRecipientKeys: userRecipientKeys as unknown as Record<
         string,

@@ -20,6 +20,7 @@ import {
   createSignedContainerEvent,
   loadPrincipalPoliciesForContainerPaths,
 } from "./containerMutationRotations";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 
 export async function buildPrincipalGrantRefreshRequest(input: {
   readonly parentKekState: VerifiedContainerKekState | null;
@@ -98,10 +99,7 @@ export async function buildPrincipalGrantRefreshRequest(input: {
       input.previousContainerPath,
     ),
     containerManifestHistoryRefs: [containerManifestRef(input.previous)],
-    principalPolicies: refreshed.principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(refreshed.principalPolicies),
     keyEpoch: input.previousKekState.keyEpoch as unknown as Record<
       string,
       unknown

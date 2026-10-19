@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import type { PrincipalPolicyRef } from "@tearleads/validators/request";
 import { isPrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import {
@@ -21,29 +22,18 @@ import { routeApp } from "../../routeApp";
 // must serve only heads the requester could read through GET; otherwise a
 // fabricated stale entry naming any principal is an unauthorized read.
 
-/** A well-formed artifact for the group that names a superseded state. */
-async function staleArtifactFor(
-  groupId: string,
-): Promise<Record<string, unknown>> {
+/** A well-formed citation of the group that names a superseded state. */
+async function staleRefFor(groupId: string): Promise<PrincipalPolicyRef> {
   const current = await loadVerifiedPrincipalPolicy(db, "group", groupId);
-  const version = current.version + 1;
-  const stateHash = "0".repeat(64);
-  const { createdAt: _createdAt, ...signedState } =
-    current.state as unknown as Record<string, unknown>;
   return {
     principalType: "group",
     principalId: groupId,
-    version,
-    keyEpoch: current.keyEpoch,
-    stateHash,
-    state: { ...signedState, stateHash, version },
-    projection: current.projection,
-    grants: current.grants,
-    checkpoint: { ...current.checkpoint, stateHash, version },
+    version: current.version + 1,
+    stateHash: "0".repeat(64),
   };
 }
 
-/** Shares `actor`'s own root, citing a stale artifact for `groupId`. */
+/** Shares `actor`'s own root, citing a stale head for `groupId`. */
 async function shareOwnRootCiting(
   actor: TestUser,
   recipient: TestUser,
@@ -59,11 +49,11 @@ async function shareOwnRootCiting(
   return routeApp.request(`/containers/${root.kekState.containerId}/share`, {
     body: JSON.stringify({
       ...request,
-      principalPolicies: [
-        ...request.principalPolicies,
+      principalPolicyRefs: [
+        ...request.principalPolicyRefs,
         ...(await Promise.all(
           (typeof groupIds === "string" ? [groupIds] : groupIds).map(
-            staleArtifactFor,
+            staleRefFor,
           ),
         )),
       ],

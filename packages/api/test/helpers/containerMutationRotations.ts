@@ -38,6 +38,7 @@ import {
 } from "./containerManifestRefs";
 import { refreshContainerMutationPrincipal } from "./containerMutationPrincipalRefresh";
 import { loadVerifiedPrincipalPolicy } from "./principalPolicy";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 
 export function asVerifiedContainerManifest(
   bundle: AccessManifestBundleWire,
@@ -248,10 +249,7 @@ export async function buildRevokeRequest(input: {
     previousContainerPathRefs: containerManifestRefs(
       input.previousContainerPath,
     ),
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: keyring as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
@@ -367,10 +365,7 @@ export async function buildRekeyRequest(input: {
     previousContainerPathRefs: containerManifestRefs(
       input.previousContainerPath,
     ),
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: keyring as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,
@@ -482,10 +477,7 @@ export async function buildMoveRequest(input: {
     destinationParentContainerPathRefs: containerManifestRefs(
       input.destinationParentPath,
     ),
-    principalPolicies: principalPolicies as unknown as Record<
-      string,
-      unknown
-    >[],
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: keyring as unknown as Record<string, unknown>,
     predecessorBridge: predecessorBridge as unknown as Record<string, unknown>,

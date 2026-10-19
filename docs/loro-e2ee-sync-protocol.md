@@ -108,8 +108,9 @@ Access write routes are the signed `/containers` mutation family:
 
 Container mutations cite every manifest the server already stores (previous
 head, current and destination paths, KEK manifest history) by
-`{containerId, manifestHash}` reference; only the manifest being committed
-travels in full.
+`{containerId, manifestHash}` reference, and every principal policy by its
+`{principalType, principalId, version, stateHash}` head; only the manifest
+being committed travels in full.
 
 For the full HTTP surface, see
 [api-architecture.md](./api-architecture.md#http-protocol-surface).

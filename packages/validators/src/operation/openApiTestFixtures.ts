@@ -29,7 +29,7 @@ export function createContainerMutation() {
     keyring: null,
     manifest: { containerId: "container-1" },
     predecessorBridge: null,
-    principalPolicies: [],
+    principalPolicyRefs: [],
     wraps: [],
   };
 }

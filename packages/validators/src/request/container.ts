@@ -18,6 +18,7 @@ import {
   ContainerManifestRefSchema,
   OptionalContainerManifestPathSchema,
 } from "./containerManifestRef";
+import { PrincipalPolicyRefListSchema } from "./principalPolicyRef";
 
 const ContainerMutationKeyringSchema = registerJsonSchemaView(
   z.custom<Record<string, unknown>>(
@@ -32,6 +33,8 @@ const ContainerMutationKeyringSchema = registerJsonSchemaView(
 // paths and the previous manifest to current heads; the signed event binds the
 // same hashes as its dependencies, so no request copy of a stored bundle is
 // ever needed. Only the new manifest this mutation commits travels in full.
+// Principal policies are cited the same way, by head (see
+// `PrincipalPolicyRefSchema`).
 const containerMutationRequestShape = {
   body: requiredUnknownSchema,
   containerManifestHistoryRefs: ContainerManifestRefListSchema.optional(),
@@ -47,7 +50,7 @@ const containerMutationRequestShape = {
   predecessorBridge: plainObjectSchema.nullable(),
   previousContainerPathRefs: OptionalContainerManifestPathSchema.optional(),
   previousManifestRef: ContainerManifestRefSchema.nullable().optional(),
-  principalPolicies: arraySchema(plainObjectSchema),
+  principalPolicyRefs: PrincipalPolicyRefListSchema,
   userRecipientKeys: arraySchema(plainObjectSchema).optional(),
   wraps: arraySchema(plainObjectSchema),
 };
@@ -86,7 +89,7 @@ export const ContainerReciteRequestSchema = loosePlainObject({
   manifest: plainObjectSchema,
   previousContainerPathRefs: ContainerManifestPathSchema,
   previousManifestRef: ContainerManifestRefSchema,
-  principalPolicies: arraySchema(plainObjectSchema),
+  principalPolicyRefs: PrincipalPolicyRefListSchema,
 });
 
 export type ContainerReciteRequest = z.infer<

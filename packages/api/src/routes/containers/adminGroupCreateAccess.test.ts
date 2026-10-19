@@ -38,6 +38,7 @@ import { containerManifestRef } from "../../../test/helpers/containerManifestRef
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
+import { principalPolicyRefs } from "../../../test/helpers/principalPolicyRefs";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { getAccessManifestBundle } from "../../access/read/accessManifestStore";
 import {
@@ -337,10 +338,10 @@ async function buildChildCreateRequest(input: {
     expectedManifestHash: childBundle.manifestHash,
     manifest: childBundle.manifest,
     parentContainerPathRefs: [containerManifestRef(input.parent)],
-    principalPolicies: (input.principalPolicies ??
-      (await loadCurrentPrincipalPolicies([
-        input.parent,
-      ]))) as unknown as Record<string, unknown>[],
+    principalPolicyRefs: principalPolicyRefs(
+      input.principalPolicies ??
+        (await loadCurrentPrincipalPolicies([input.parent])),
+    ),
     keyEpoch: keyEpoch as unknown as Record<string, unknown>,
     keyring: null,
     predecessorBridge: null,

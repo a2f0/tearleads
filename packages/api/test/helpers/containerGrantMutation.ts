@@ -22,6 +22,7 @@ import {
   loadPrincipalPoliciesForContainerPaths,
 } from "./containerMutationRotations";
 import { joinOrg } from "./organizationMembership";
+import { principalPolicyRefs } from "./principalPolicyRefs";
 
 async function userRecipientKey(
   user: TestUser,
@@ -130,7 +131,7 @@ export async function buildContainerGrantRequest(input: {
       input.previousContainerPath,
     ),
     previousManifestRef: containerManifestRef(input.previous),
-    principalPolicies,
+    principalPolicyRefs: principalPolicyRefs(principalPolicies),
     userRecipientKeys: [
       ...userRecipientKeysFromKekTargets(input.previousKekState),
       recipientKey,

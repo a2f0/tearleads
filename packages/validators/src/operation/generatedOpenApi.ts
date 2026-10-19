@@ -1451,9 +1451,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -1595,9 +1601,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -1737,9 +1749,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -1807,9 +1825,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -1941,9 +1965,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -2054,9 +2084,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -2202,9 +2238,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -2297,9 +2339,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -2435,9 +2483,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -2514,9 +2568,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -2609,9 +2669,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -2748,9 +2814,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -2818,9 +2890,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -2952,9 +3030,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -3072,9 +3156,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -3167,9 +3257,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -3306,9 +3402,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -3376,9 +3478,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -3510,9 +3618,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -5054,9 +5168,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -5379,9 +5499,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -6416,9 +6542,15 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     }) | null;
-                    principalPolicies: {
+                    principalPolicyRefs: ({
+                        principalId: string;
+                        /** @enum {string} */
+                        principalType: "group" | "organization";
+                        stateHash: string;
+                        version: number;
+                    } & {
                         [key: string]: unknown;
-                    }[];
+                    })[];
                     userRecipientKeys?: {
                         [key: string]: unknown;
                     }[];
@@ -7052,9 +7184,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -7115,9 +7253,15 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     }) | null;
-                    principalPolicies: {
+                    principalPolicyRefs: ({
+                        principalId: string;
+                        /** @enum {string} */
+                        principalType: "group" | "organization";
+                        stateHash: string;
+                        version: number;
+                    } & {
                         [key: string]: unknown;
-                    }[];
+                    })[];
                     userRecipientKeys?: {
                         [key: string]: unknown;
                     }[];
@@ -7496,9 +7640,15 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     };
-                    principalPolicies: {
+                    principalPolicyRefs: ({
+                        principalId: string;
+                        /** @enum {string} */
+                        principalType: "group" | "organization";
+                        stateHash: string;
+                        version: number;
+                    } & {
                         [key: string]: unknown;
-                    }[];
+                    })[];
                 } & {
                     [key: string]: unknown;
                 };
@@ -7768,9 +7918,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -7831,9 +7987,15 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     }) | null;
-                    principalPolicies: {
+                    principalPolicyRefs: ({
+                        principalId: string;
+                        /** @enum {string} */
+                        principalType: "group" | "organization";
+                        stateHash: string;
+                        version: number;
+                    } & {
                         [key: string]: unknown;
-                    }[];
+                    })[];
                     userRecipientKeys?: {
                         [key: string]: unknown;
                     }[];
@@ -8389,9 +8551,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -8452,9 +8620,15 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     }) | null;
-                    principalPolicies: {
+                    principalPolicyRefs: ({
+                        principalId: string;
+                        /** @enum {string} */
+                        principalType: "group" | "organization";
+                        stateHash: string;
+                        version: number;
+                    } & {
                         [key: string]: unknown;
-                    }[];
+                    })[];
                     userRecipientKeys?: {
                         [key: string]: unknown;
                     }[];
@@ -8871,9 +9045,15 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     }) | null;
-                    principalPolicies: {
+                    principalPolicyRefs: ({
+                        principalId: string;
+                        /** @enum {string} */
+                        principalType: "group" | "organization";
+                        stateHash: string;
+                        version: number;
+                    } & {
                         [key: string]: unknown;
-                    }[];
+                    })[];
                     userRecipientKeys?: {
                         [key: string]: unknown;
                     }[];
@@ -9734,9 +9914,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -9813,9 +9999,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -10243,9 +10435,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -11053,9 +11251,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -12047,9 +12251,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -12437,9 +12647,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -13060,9 +13276,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -13204,9 +13426,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -13346,9 +13574,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -13416,9 +13650,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -13550,9 +13790,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -13663,9 +13909,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -13811,9 +14063,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -13906,9 +14164,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -14044,9 +14308,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];
@@ -14123,9 +14393,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -14218,9 +14494,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -14357,9 +14639,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -14427,9 +14715,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -14561,9 +14855,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -14681,9 +14981,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -14776,9 +15082,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -14915,9 +15227,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -14985,9 +15303,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -15119,9 +15443,15 @@ export interface operations {
                                 } & {
                                     [key: string]: unknown;
                                 }) | null;
-                                principalPolicies: {
+                                principalPolicyRefs: ({
+                                    principalId: string;
+                                    /** @enum {string} */
+                                    principalType: "group" | "organization";
+                                    stateHash: string;
+                                    version: number;
+                                } & {
                                     [key: string]: unknown;
-                                }[];
+                                })[];
                                 userRecipientKeys?: {
                                     [key: string]: unknown;
                                 }[];
@@ -17618,9 +17948,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -17759,9 +18095,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -18259,9 +18601,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -18867,9 +19215,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -19008,9 +19362,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -19149,9 +19509,15 @@ export interface operations {
                             } & {
                                 [key: string]: unknown;
                             }) | null;
-                            principalPolicies: {
+                            principalPolicyRefs: ({
+                                principalId: string;
+                                /** @enum {string} */
+                                principalType: "group" | "organization";
+                                stateHash: string;
+                                version: number;
+                            } & {
                                 [key: string]: unknown;
-                            }[];
+                            })[];
                             userRecipientKeys?: {
                                 [key: string]: unknown;
                             }[];
@@ -21074,9 +21440,15 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         }) | null;
-                        principalPolicies: {
+                        principalPolicyRefs: ({
+                            principalId: string;
+                            /** @enum {string} */
+                            principalType: "group" | "organization";
+                            stateHash: string;
+                            version: number;
+                        } & {
                             [key: string]: unknown;
-                        }[];
+                        })[];
                         userRecipientKeys?: {
                             [key: string]: unknown;
                         }[];

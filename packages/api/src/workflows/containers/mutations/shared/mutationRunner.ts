@@ -35,7 +35,6 @@ import {
 import { planContainerMutationBatchLocks } from "./mutationBatchLocks";
 import { persistVerifiedMutation } from "./persistence";
 import { assertPrincipalPoliciesCurrent } from "./principalPolicies";
-import { principalPoliciesFromRequest } from "./principalPolicyRecords";
 import {
   resolveCitedContainerHistory,
   resolveVerifiedStoredContainerManifest,
@@ -61,7 +60,7 @@ async function readCurrentPrincipalPolicies(input: {
 }) {
   return assertPrincipalPoliciesCurrent(
     input.executor,
-    principalPoliciesFromRequest(input.request),
+    input.request.principalPolicyRefs,
     {
       referencedPrincipalHeads: input.referencedPrincipalHeads,
       requesterUserId: input.requesterUserId,
