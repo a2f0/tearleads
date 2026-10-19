@@ -12,6 +12,7 @@ import {
 import "./SidebarResize.css";
 import {
   MIN_SIDEBAR_WIDTH as MIN_WIDTH,
+  UNMEASURED_MAX_SIDEBAR_WIDTH,
   useSidebarWidthBounds,
 } from "./useSidebarWidthBounds";
 
@@ -182,6 +183,7 @@ export function useSidebarResize({
     maxWidth,
     resolvedWidth: readCurrentWidth(),
     sidebarRef,
+    // Keep the chosen width when space returns, unless the user resizes again.
     width: width === null ? null : clampSidebarWidth(width, maxWidth),
   };
 }
@@ -197,7 +199,7 @@ export function SidebarResizeHandle({
   className: string;
   controls?: string | undefined;
   currentWidth: number;
-  maxWidth: number;
+  maxWidth?: number;
   onKeyDown: (event: ReactKeyboardEvent<HTMLHRElement>) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLHRElement>) => void;
 }) {
@@ -206,7 +208,9 @@ export function SidebarResizeHandle({
       aria-controls={controls}
       aria-label="Resize sidebar"
       aria-orientation="vertical"
-      aria-valuemax={maxWidth}
+      aria-valuemax={
+        maxWidth ?? Math.max(UNMEASURED_MAX_SIDEBAR_WIDTH, currentWidth)
+      }
       aria-valuemin={MIN_WIDTH}
       aria-valuenow={currentWidth}
       className={`sidebar-resize-handle ${className}`}

@@ -3,8 +3,21 @@ import { act, cleanup, fireEvent, render } from "@testing-library/react";
 import { RoutedPaneSidebar } from "../routed/RoutedPaneSidebar";
 import { captureResizeObservers } from "../window/layout.testUtils";
 import { WindowSidebar } from "../window/WindowSidebar";
+import { SidebarResizeHandle } from "./SidebarResize";
 
 afterEach(cleanup);
+
+test("legacy resize handles keep a valid range without an explicit maximum", () => {
+  const view = render(
+    <SidebarResizeHandle
+      className="legacy"
+      currentWidth={900}
+      onKeyDown={() => {}}
+      onPointerDown={() => {}}
+    />,
+  );
+  expect(view.getByRole("separator").getAttribute("aria-valuemax")).toBe("900");
+});
 
 for (const mode of ["window", "tablet"] as const) {
   test(`${mode} sidebar uses 90% of its available width and follows layout changes`, () => {
@@ -58,6 +71,11 @@ for (const mode of ["window", "tablet"] as const) {
       expect(sidebar?.style.width).toBe("540px");
       expect(handle.getAttribute("aria-valuemax")).toBe("540");
       expect(handle.getAttribute("aria-valuenow")).toBe("540");
+      availableWidth = 1_001;
+      act(() => observers.fire());
+      expect(sidebar?.style.width).toBe("900px");
+      availableWidth = 600;
+      act(() => observers.fire());
       fireEvent.pointerMove(document, { clientX: 2_100, pointerId: 1 });
       expect(sidebar?.style.width).toBe("540px");
       fireEvent.pointerUp(document, { pointerId: 1 });
