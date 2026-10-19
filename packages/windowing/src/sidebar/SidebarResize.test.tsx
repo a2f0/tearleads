@@ -8,7 +8,7 @@ afterEach(cleanup);
 
 for (const mode of ["window", "tablet"] as const) {
   test(`${mode} sidebar uses 90% of its available width and follows layout changes`, () => {
-    let availableWidth = 1_000;
+    let availableWidth = 1_001;
     const observers = captureResizeObservers();
     const bounds = spyOn(
       HTMLElement.prototype,

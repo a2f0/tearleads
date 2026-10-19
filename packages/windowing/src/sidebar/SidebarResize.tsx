@@ -12,7 +12,6 @@ import {
 import "./SidebarResize.css";
 import {
   MIN_SIDEBAR_WIDTH as MIN_WIDTH,
-  UNMEASURED_MAX_SIDEBAR_WIDTH,
   useSidebarWidthBounds,
 } from "./useSidebarWidthBounds";
 
@@ -83,7 +82,7 @@ export function useSidebarResize({
 }: {
   defaultWidth: number;
   initialWidth?: number | null;
-  /** The element spanning the sidebar and content, excluding any launcher rail. */
+  /** Stable resolver for the element spanning sidebar + content, excluding the launcher rail. */
   getResizeContainer?: (sidebar: HTMLElement) => HTMLElement | null;
 }) {
   const [width, setWidth] = useState<number | null>(initialWidth);
@@ -191,14 +190,14 @@ export function SidebarResizeHandle({
   className,
   controls,
   currentWidth,
-  maxWidth = UNMEASURED_MAX_SIDEBAR_WIDTH,
+  maxWidth,
   onKeyDown,
   onPointerDown,
 }: {
   className: string;
   controls?: string | undefined;
   currentWidth: number;
-  maxWidth?: number;
+  maxWidth: number;
   onKeyDown: (event: ReactKeyboardEvent<HTMLHRElement>) => void;
   onPointerDown: (event: ReactPointerEvent<HTMLHRElement>) => void;
 }) {
