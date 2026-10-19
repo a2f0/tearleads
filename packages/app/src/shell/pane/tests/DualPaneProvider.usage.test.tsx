@@ -279,9 +279,8 @@ test(
 
     // This is the org-manager-plus-system-bootstrap baseline. Usage counts
     // synced document update rows, not every document shell created by
-    // registration. Eight documents / nine updates decompose as:
-    //   1. root "/"                     (2 updates: one early bootstrap
-    //                                     metadata update, then the root sync)
+    // registration. Eight documents / eight updates decompose as:
+    //   1. root "/" metadata document                             (1 update)
     //   2. "Roster Profiles" container metadata document          (1 update)
     //   3. current user's roster profile document (display names) (1 update)
     //   4. "Organization Metadata" container metadata document    (1 update)
@@ -300,7 +299,7 @@ test(
     // profile linked into the org metadata container once the trial is loaded.
     await waitForCondition(
       () => {
-        if (pane.textContent?.includes("8 documents, 9 updates")) {
+        if (pane.textContent?.includes("8 documents, 8 updates")) {
           return true;
         }
 
