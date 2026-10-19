@@ -9,6 +9,7 @@ import type {
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { locallyAcknowledgedContainerMutationHead } from "../../../../data/containers/shared/mutationAcknowledgement";
+import { isContainerManifestAlreadyExistsConflict } from "../../../../data/containers/shared/mutationFailures";
 import type { ContainerMutationSubmitFailure } from "../../../../data/containers/shared/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../../data/documents/shared/projection";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
@@ -28,6 +29,10 @@ import {
   persistedDocumentCreateStateFromResponse,
   resolveDocumentCreateAuthor,
 } from "../../../documents";
+import {
+  buildDocumentCreateSeedRequest,
+  documentCreateSeedFits,
+} from "../../../documents/sync/initialSync";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
 import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
 import type {
@@ -190,6 +195,17 @@ function signedCreateSystemSlot(
   return state.systemSlot;
 }
 
+/** The seed the create committed, if the response accepted it. */
+function committedMetadataSeed(
+  response: ContainerCreateWithMetadataDocumentResponse,
+  seedUpdateId: string | undefined,
+): CreatedRemoteContainerState["metadataSeed"] {
+  const seed = response.metadataDocument.initialSync;
+  return seedUpdateId && seed?.acceptedOutgoingUpdateIds.includes(seedUpdateId)
+    ? { commitLsn: seed.commitLsn, updateId: seedUpdateId }
+    : undefined;
+}
+
 async function settleContainerWithMetadataCreate(input: {
   readonly childProjection: ContainerWriterProjectionResponse;
   readonly containerPlan: Awaited<
@@ -201,6 +217,7 @@ async function settleContainerWithMetadataCreate(input: {
   >;
   readonly response: ContainerCreateWithMetadataDocumentResponse;
   readonly runtime: ContainerWorkflowRuntime;
+  readonly seedUpdateId?: string | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
 }): Promise<{
   readonly ok: true;
@@ -248,10 +265,15 @@ async function settleContainerWithMetadataCreate(input: {
     response: input.response,
     runtime: input.runtime,
   });
+  const metadataSeed = committedMetadataSeed(
+    input.response,
+    input.seedUpdateId,
+  );
   return {
     ok: true,
     state: {
       accessManifestHash: input.response.container.manifestHead.manifestHash,
+      ...(metadataSeed ? { metadataSeed } : {}),
       systemSlot: signedCreateSystemSlot(input.containerPlan.plan.state),
       containerId: input.response.container.containerId,
       createdAt: input.response.container.createdAt,
@@ -278,16 +300,42 @@ async function createRemoteContainerWithMetadataDocumentAttempt(
   const plans = await buildContainerWithMetadataPlans(input);
   if (!plans) return null;
   const { containerPlan, childProjection, metadataDocumentPlan } = plans;
-  const submitted = await submitContainerWithMetadataDocument({
-    organizationId: containerPlan.plan.state.organizationId,
-    request: {
-      systemSlot: input.systemSlot ?? null,
-      container: containerPlan.plan.request,
-      metadataDocument: metadataDocumentPlan.plan.request,
-    },
-    runtime: input.runtime,
-    stillCurrent: input.stillCurrent,
-  });
+  const request = {
+    systemSlot: input.systemSlot ?? null,
+    container: containerPlan.plan.request,
+    metadataDocument: metadataDocumentPlan.plan.request,
+  };
+  const submitRequest = (body: ContainerCreateWithMetadataDocumentRequest) =>
+    submitContainerWithMetadataDocument({
+      organizationId: containerPlan.plan.state.organizationId,
+      request: body,
+      runtime: input.runtime,
+      stillCurrent: input.stillCurrent,
+    });
+  const seed = input.metadataSeedUpdate
+    ? await buildDocumentCreateSeedRequest({
+        author: input.author,
+        containerProjection: childProjection,
+        materializedDocument: metadataDocumentPlan,
+        pendingUpdate: input.metadataSeedUpdate,
+      })
+    : null;
+  let submitted: Awaited<ReturnType<typeof submitRequest>> = null;
+  if (seed && documentCreateSeedFits(seed)) {
+    submitted = await submitRequest({ ...request, initialMetadataSync: seed });
+    if (!submitted) return null;
+  }
+  // A seed only saves the first metadata sync: a refused seeded create falls
+  // back to the plain create once, so the row syncs as before, and its failures
+  // take the ordinary repair path. A lost response is adopted directly, as a
+  // plain create's would be.
+  const seeded = submitted?.ok === true;
+  if (
+    !submitted ||
+    (!submitted.ok && !isContainerManifestAlreadyExistsConflict(submitted))
+  ) {
+    submitted = await submitRequest(request);
+  }
   if (!submitted?.ok) {
     return submitted;
   }
@@ -298,6 +346,7 @@ async function createRemoteContainerWithMetadataDocumentAttempt(
     metadataDocumentPlan,
     response: submitted.response,
     runtime: input.runtime,
+    seedUpdateId: seeded ? input.metadataSeedUpdate?.id : undefined,
     stillCurrent: input.stillCurrent,
   });
 }
@@ -352,6 +401,7 @@ async function createContainerWithMetadataWithRepairs(
 export async function createRemoteContainerWithMetadataDocument(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
+  metadataSeedUpdate?: ContainerWithMetadataPlanInput["metadataSeedUpdate"];
   parentContainerId: string;
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
@@ -389,6 +439,7 @@ export async function createRemoteContainerWithMetadataDocument(input: {
     containerSignedAt,
     metadataContentKey,
     metadataEventId,
+    metadataSeedUpdate: input.metadataSeedUpdate,
     metadataSignedAt,
     parentContainerId: input.parentContainerId,
     parentProjection,

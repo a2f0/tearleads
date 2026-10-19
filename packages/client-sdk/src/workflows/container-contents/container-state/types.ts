@@ -73,6 +73,14 @@ export interface ContainerWorkflowRuntime
 
 export interface CreatedRemoteContainerState {
   accessManifestHash: string;
+  /**
+   * The metadata seed the create committed, settled by the caller instead of
+   * a first metadata sync. Absent when the create carried no seed or fell back
+   * to a plain create.
+   */
+  metadataSeed?:
+    | { readonly commitLsn: string | null; readonly updateId: string }
+    | undefined;
   /** The slot this client signed into the create; never the server's echo. */
   systemSlot: ContainerSystemSlot | null;
   containerId: string;
@@ -127,6 +135,13 @@ export interface CreatedChildContainerState {
 
 export interface ContainerIntentSyncState {
   containersById: ReadonlyMap<string, ContainerState>;
+  /**
+   * Metadata update ids this device sent, so their own update echoes are
+   * classified as self-authored (shared with the metadata sync).
+   */
+  locallyAcceptedMetadataUpdateIds?: Set<string> | undefined;
+  /** Metadata document ids of folder creates in flight (shared with hints). */
+  plannedMetadataDocumentIds?: Set<string> | undefined;
   persistence: ContainerContentsPersistence;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
   runtime: ContainerWorkflowRuntime;

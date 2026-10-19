@@ -8,7 +8,10 @@ import {
 } from "../../metadata/metadataStateIsolation";
 import type { ContainerState } from "../../remoteHydration";
 import { hasRemoteContainerMetadataState } from "../../remoteHydration/reconciliation";
-import { createRemoteContainer, deleteRemoteContainer } from "../remote";
+import {
+  createRemoteContainer,
+  discardOrphanedRemoteContainer,
+} from "../remote";
 import type {
   ContainerCreateIntentSyncHost,
   ContainerCreateIntentSyncInput,
@@ -20,6 +23,11 @@ import {
   deferTooDeepCreate,
   recordRefusedTooDeepCreate,
 } from "./createIntentDepth";
+import {
+  loadMetadataSeedUpdate,
+  withPlannedMetadataDocumentId,
+  withRegisteredMetadataSeed,
+} from "./createIntentSeed";
 import { CONTAINER_ALREADY_COMMITTED } from "./createWithMetadata";
 
 class IncompleteContainerCreateSettlementError extends Error {}
@@ -118,7 +126,8 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
       {
         accessEpoch: 1,
         accessStateHash: created.accessManifestHash,
-        lastCommitLsn: null,
+        // A committed seed stands in for the first metadata sync.
+        lastCommitLsn: created.metadataSeed?.commitLsn ?? null,
         metadataDocumentId: created.metadataDocumentId,
         systemSlot: created.systemSlot,
         organizationId: created.organizationId,
@@ -133,6 +142,12 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
         },
       },
       {
+        ...(created.metadataSeed
+          ? {
+              acceptedPendingUpdateIds: [created.metadataSeed.updateId],
+              clearSyncFailure: true,
+            }
+          : {}),
         createIntentSettlement: {
           containerId: intent.containerId,
           expectedIntentId: intent.id,
@@ -184,29 +199,6 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
     updatedAt: created.updatedAt,
   };
   return "persisted";
-}
-
-async function discardOrphanedRemoteContainer(input: {
-  created: CreatedRemoteContainerState;
-  isCurrent: () => boolean;
-  state: ContainerCreateIntentSyncState;
-}): Promise<void> {
-  if (!input.isCurrent()) {
-    return;
-  }
-  const discardFailure = await deleteRemoteContainer({
-    containerId: input.created.containerId,
-    organizationId: input.created.organizationId,
-    runtime: input.state.runtime,
-  }).then(
-    (deleted) => (deleted ? null : "the server rejected the delete"),
-    (error: unknown) => errorMessage(error),
-  );
-  if (input.isCurrent() && discardFailure !== null) {
-    input.state.runtime.util.log(
-      `Container contents: failed to discard orphaned remote container ${input.created.containerId} after local delete: ${discardFailure}`,
-    );
-  }
 }
 
 async function settleRemoteContainerCreate(input: {
@@ -295,16 +287,27 @@ async function createPendingRemoteContainer(input: {
 }): Promise<CreateIntentSyncResult> {
   const { containerState, parentState, syncInput } = input;
   const { intent, state } = syncInput;
+  const metadataSeedUpdate = await loadMetadataSeedUpdate(
+    syncInput.state,
+    containerState,
+  );
+  if (!syncInput.isCurrent()) return "abandoned";
   let created: Awaited<ReturnType<typeof createRemoteContainer>>;
   try {
-    created = await createRemoteContainer({
-      systemSlot: containerState.container.systemSlot,
-      containerId: containerState.container.id,
-      parentContainerId: parentState.container.id,
-      resolveProjectionUserKey: state.resolveProjectionUserKey,
-      runtime: state.runtime,
-      stillCurrent: syncInput.isCurrent,
-    });
+    created = await withRegisteredMetadataSeed(
+      state.locallyAcceptedMetadataUpdateIds,
+      metadataSeedUpdate,
+      () =>
+        createRemoteContainer({
+          systemSlot: containerState.container.systemSlot,
+          containerId: containerState.container.id,
+          ...(metadataSeedUpdate ? { metadataSeedUpdate } : {}),
+          parentContainerId: parentState.container.id,
+          resolveProjectionUserKey: state.resolveProjectionUserKey,
+          runtime: state.runtime,
+          stillCurrent: syncInput.isCurrent,
+        }),
+    );
   } catch (error) {
     if (error instanceof ContainerPathTooDeepError)
       return recordRefusedTooDeepCreate(syncInput);
@@ -400,11 +403,16 @@ async function trySyncPendingContainerContentsContainerCreateIntent(
     return currentCreateResult(input.isCurrent, "blocked");
   }
 
-  return createPendingRemoteContainer({
-    containerState,
-    parentState,
-    syncInput: input,
-  });
+  return withPlannedMetadataDocumentId(
+    state.plannedMetadataDocumentIds,
+    containerState.container.id,
+    () =>
+      createPendingRemoteContainer({
+        containerState,
+        parentState,
+        syncInput: input,
+      }),
+  );
 }
 
 export async function syncPendingContainerCreateIntents(input: {

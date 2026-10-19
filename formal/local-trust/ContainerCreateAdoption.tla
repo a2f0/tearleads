@@ -7,19 +7,21 @@ EXTENDS FiniteSets
 
 CONSTANTS Parents, Scopes, CreatedParent, IntendedScope, NoMove,
           VerifyContainerAdoption, CiteVerifiedHead, KeepQueuedMove,
-          ParkForeignCreates, HoldPendingWrites
+          ParkForeignCreates, HoldPendingWrites, KeepMetadataSeedOnAdoption
 ASSUME /\ CreatedParent \in Parents /\ IntendedScope \in Scopes
        /\ IsFiniteSet(Parents) /\ IsFiniteSet(Scopes)
        /\ NoMove \notin Parents \cup [to : Parents, from : Parents]
        /\ {VerifyContainerAdoption, CiteVerifiedHead, KeepQueuedMove,
-           ParkForeignCreates, HoldPendingWrites} \subseteq BOOLEAN
+           ParkForeignCreates, HoldPendingWrites,
+           KeepMetadataSeedOnAdoption} \subseteq BOOLEAN
 
 VARIABLES listedScope, hydrated, pending, adoptedScope, verified, desired,
           queuedTo, queuedFrom, remoteParent, owedMove, parked, siblingSynced,
-          wroteUnadopted
+          wroteUnadopted, seedQueued, seedCommitted
 vars == <<listedScope, hydrated, pending, adoptedScope, verified, desired,
           queuedTo, queuedFrom, remoteParent, owedMove, parked, siblingSynced,
-          wroteUnadopted>>
+          wroteUnadopted, seedQueued, seedCommitted>>
+seedVars == <<seedQueued, seedCommitted>>
 
 Moves == [to : Parents, from : Parents] \cup {NoMove}
 
@@ -31,6 +33,10 @@ Init ==
   /\ desired = CreatedParent /\ queuedTo = NoMove /\ queuedFrom = CreatedParent
   /\ remoteParent = CreatedParent /\ owedMove = NoMove
   /\ parked = FALSE /\ siblingSynced = FALSE /\ wroteUnadopted = FALSE
+  (* The folder's first metadata update is queued as the create's seed.   *)
+  (* The lost response may have been the seeded create's, which committed *)
+  (* it, or a plain fallback's, which did not.                            *)
+  /\ seedQueued = TRUE /\ seedCommitted \in BOOLEAN
 
 (* Hydration installs the listed container's metadata, which routes the     *)
 (* intent to adoption.                                                      *)
@@ -39,6 +45,7 @@ Hydrate ==
   /\ UNCHANGED <<listedScope, pending, adoptedScope, verified, desired,
                   queuedTo, queuedFrom, remoteParent, owedMove, parked,
                   siblingSynced, wroteUnadopted>>
+  /\ UNCHANGED seedVars
 
 LocalParent == IF queuedTo = NoMove THEN desired ELSE queuedTo
 
@@ -54,6 +61,7 @@ LocalMove(p) ==
        ELSE /\ desired' = p /\ UNCHANGED <<queuedTo, queuedFrom>>
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
                   remoteParent, owedMove, parked, siblingSynced, wroteUnadopted>>
+  /\ UNCHANGED seedVars
 
 RemoteMove(p) ==
   /\ pending /\ p # remoteParent
@@ -61,6 +69,7 @@ RemoteMove(p) ==
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
                   desired, queuedTo, queuedFrom, owedMove, parked,
                   siblingSynced, wroteUnadopted>>
+  /\ UNCHANGED seedVars
 
 (* Fault: the unsigned listing settles the intent unverified. *)
 DiscoverContainer ==
@@ -68,6 +77,7 @@ DiscoverContainer ==
   /\ pending' = FALSE /\ adoptedScope' = listedScope
   /\ UNCHANGED <<listedScope, hydrated, verified, desired, queuedTo,
                   queuedFrom, remoteParent, owedMove, parked, siblingSynced, wroteUnadopted>>
+  /\ UNCHANGED seedVars
 
 (* The create's own owed move cites the verified head's parent. A desired  *)
 (* parent equal to the created one means the user never moved the folder   *)
@@ -99,8 +109,12 @@ AdoptContainerCreate ==
   /\ pending /\ hydrated /\ listedScope = IntendedScope
   /\ pending' = FALSE /\ adoptedScope' = listedScope /\ verified' = TRUE
   /\ owedMove' = SettledMove
+  (* The committed manifest does not say whether the seed committed with  *)
+  (* it, so the seed stays queued for the folder's metadata sync.          *)
+  /\ seedQueued' = (seedQueued /\ KeepMetadataSeedOnAdoption)
   /\ UNCHANGED <<listedScope, hydrated, desired, queuedTo, queuedFrom,
-                  remoteParent, parked, siblingSynced, wroteUnadopted>>
+                  remoteParent, parked, siblingSynced, wroteUnadopted,
+                  seedCommitted>>
 
 (* A foreign create is refused. Parked, the intent is never read again: its *)
 (* signed facts cannot change. Unparked, the refusal stops the lane's pass. *)
@@ -110,6 +124,7 @@ RefuseForeignCreate ==
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
                   desired, queuedTo, queuedFrom, remoteParent, owedMove,
                   siblingSynced, wroteUnadopted>>
+  /\ UNCHANGED seedVars
 
 LaneHalted == pending /\ hydrated /\ listedScope # IntendedScope /\ ~parked
 
@@ -120,6 +135,7 @@ SiblingSync ==
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
                   desired, queuedTo, queuedFrom, remoteParent, owedMove,
                   parked, wroteUnadopted>>
+  /\ UNCHANGED seedVars
 
 (* A move or metadata edit written into the folder itself. Held, a folder  *)
 (* whose create is pending takes none: its listed identity is unverified,  *)
@@ -130,10 +146,22 @@ WriteIntoFolder ==
   /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
                   desired, queuedTo, queuedFrom, remoteParent, owedMove,
                   parked, siblingSynced>>
+  /\ UNCHANGED seedVars
+
+(* Once adopted, the folder's metadata sync sends the queued seed. One    *)
+(* already stored under its id comes back encrypted again, so the server  *)
+(* reports an update-id conflict and recovery settles or re-keys it; this *)
+(* step abstracts that exchange to its outcome.                           *)
+SyncMetadataSeed ==
+  /\ ~pending /\ verified /\ seedQueued
+  /\ seedQueued' = FALSE /\ seedCommitted' = TRUE
+  /\ UNCHANGED <<listedScope, hydrated, pending, adoptedScope, verified,
+                  desired, queuedTo, queuedFrom, remoteParent, owedMove,
+                  parked, siblingSynced, wroteUnadopted>>
 
 Next == \/ Hydrate \/ WriteIntoFolder \/ \E p \in Parents : LocalMove(p) \/ RemoteMove(p)
         \/ DiscoverContainer \/ AdoptContainerCreate \/ RefuseForeignCreate
-        \/ SiblingSync \/ UNCHANGED vars
+        \/ SiblingSync \/ SyncMetadataSeed \/ UNCHANGED vars
 Spec == Init /\ [][Next]_vars
           /\ WF_vars(AdoptContainerCreate) /\ WF_vars(RefuseForeignCreate)
           /\ SF_vars(SiblingSync)
@@ -143,7 +171,7 @@ TypeOK ==
   /\ {listedScope, adoptedScope} \subseteq Scopes
   /\ {desired, queuedFrom, remoteParent} \subseteq Parents
   /\ queuedTo \in Parents \cup {NoMove} /\ owedMove \in Moves
-  /\ wroteUnadopted \in BOOLEAN
+  /\ {wroteUnadopted, seedQueued, seedCommitted} \subseteq BOOLEAN
 ContainerAdoptionHasVerifiedScope ==
   ~pending => verified /\ adoptedScope = IntendedScope
 OwedMoveCitesCurrentParent == owedMove # NoMove => owedMove.from = remoteParent
@@ -155,5 +183,7 @@ SettledPlacementFollowsIntent ==
       (IF queuedTo # NoMove THEN queuedTo
        ELSE IF desired = CreatedParent THEN remoteParent ELSE desired)
 NoWriteIntoUnadoptedFolder == ~wroteUnadopted
+(* The metadata seed leaves the queue only once the server holds it. *)
+AdoptedSeedIsCommitted == ~seedQueued => seedCommitted
 SiblingEventuallySyncs == <>siblingSynced
 =============================================================================

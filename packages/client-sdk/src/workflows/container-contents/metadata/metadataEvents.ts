@@ -41,12 +41,19 @@ function metadataEventHasRemoteUpdate(
   return remoteUpdateFound;
 }
 
+/**
+ * `plannedDocumentIds` names the metadata documents of folders whose create is
+ * in flight. A peer can edit one after the create commits but before the
+ * response installs its id, and a committed seed stands in for the folder's
+ * first metadata sync, so that hint must still queue a read.
+ */
 export function listContainerMetadataDocumentUpdateIds(
   events: ReadonlyArray<unknown>,
   metadataStates: Iterable<{ record: Pick<DocumentRecord, "documentId"> }>,
   locallyAcceptedUpdateIds?: Set<string>,
+  plannedDocumentIds?: Iterable<string>,
 ): string[] {
-  const metadataDocumentIds = new Set<string>();
+  const metadataDocumentIds = new Set<string>(plannedDocumentIds);
   for (const metadataState of metadataStates) {
     if (typeof metadataState.record.documentId === "string") {
       metadataDocumentIds.add(metadataState.record.documentId);

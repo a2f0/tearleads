@@ -106,6 +106,7 @@ export {
   hasDocumentUpdateEvent,
   syncRemoteDocument,
 } from "./sync";
+export { documentCreateSeedCandidate } from "./sync/initialSync";
 export type { SyncRemoteDocumentInput } from "./sync/readOnlySync";
 export type { DocumentSyncContainerRekeyBuilder } from "./sync/syncAttemptState";
 export {

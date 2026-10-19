@@ -177,6 +177,7 @@ export {
   DocumentContentKeyTargetEnvelopeResponseSchema,
   type DocumentCreateResponse,
   DocumentCreateResponseSchema,
+  type DocumentCreateSeedResponse,
   type DocumentKekTargetsResponse,
   DocumentKekTargetsResponseSchema,
   type DocumentLinkSetMutationResponse,

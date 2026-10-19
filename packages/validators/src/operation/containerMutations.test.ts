@@ -1,5 +1,7 @@
 import { expect, test } from "bun:test";
 import Ajv2020 from "ajv/dist/2020";
+import { containerCreateMetadataSeedRefinement } from "../documentCreateSeedRefinements";
+import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
 import {
   ContainerCreateWithMetadataDocumentRequestSchema,
@@ -58,7 +60,11 @@ test("container mutation operations own their complete wire metadata", () => {
     auth: "session",
     failureStatuses: standardFailureStatuses,
     method: "POST",
-    runtimeRefinements: [organizationProvisioningContainerKeyringRefinement],
+    runtimeRefinements: [
+      organizationProvisioningContainerKeyringRefinement,
+      containerCreateMetadataSeedRefinement,
+      ...documentSyncRequestRuntimeRefinements,
+    ],
   });
   expect(deleteContainerOperation).toMatchObject({
     auth: "session",
@@ -155,12 +161,21 @@ test("OpenAPI declares the container keyring runtime-only invariant", () => {
     openApiDocument.paths["/containers/{containerId}/rekey"]?.post,
     openApiDocument.paths["/containers/{containerId}/revoke"]?.post,
     openApiDocument.paths["/containers/{containerId}/share"]?.post,
-    openApiDocument.paths["/containers/with-metadata-document"]?.post,
   ]) {
     expect(operation?.["x-tearleads-runtime-refinements"]).toEqual(
       runtimeRefinements,
     );
   }
+  // The metadata seed adds its own rule and the nested sync request's.
+  expect(
+    openApiDocument.paths["/containers/with-metadata-document"]?.post?.[
+      "x-tearleads-runtime-refinements"
+    ],
+  ).toEqual([
+    ...runtimeRefinements,
+    containerCreateMetadataSeedRefinement,
+    ...documentSyncRequestRuntimeRefinements,
+  ]);
 
   const responseSchema =
     openApiDocument.paths["/containers"]?.post?.responses["200"]?.content?.[

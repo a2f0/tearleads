@@ -46,6 +46,10 @@
       "lines": 974,
       "bytes": 53885
     },
+    "docs/developer/device-first.md": {
+      "lines": 366,
+      "bytes": 20185
+    },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 361,
       "bytes": 20661
@@ -67,12 +71,12 @@
       "bytes": 23986
     },
     "docs/openapi.json": {
-      "lines": 63932,
-      "bytes": 2588999
+      "lines": 65532,
+      "bytes": 2659678
     },
     "docs/protocol-specification.md": {
-      "lines": 746,
-      "bytes": 39787
+      "lines": 748,
+      "bytes": 39913
     },
     "docs/security-guarantees.md": {
       "lines": 842,
@@ -315,12 +319,12 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 23150,
-      "bytes": 944699
+      "lines": 23510,
+      "bytes": 962515
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 536,
-      "bytes": 18886
+      "lines": 537,
+      "bytes": 18921
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 508,

@@ -1,7 +1,11 @@
 import type { ContainerCreateWithMetadataDocumentRequest } from "@tearleads/validators/request";
 import type { ContainerCreateWithMetadataDocumentResponse } from "@tearleads/validators/response";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
-import { createDocumentWithExecutor } from "../../documents/mutations/createDocument";
+import {
+  commitDocumentCreateSeedInTransaction,
+  createDocumentWithExecutor,
+  documentCreateSeedResponse,
+} from "../../documents/mutations/createDocument";
 import { DocumentMutationError } from "../../documents/mutations/errors";
 import { createContainer } from "./createContainer";
 import { ContainerMutationError, toMutationError } from "./errors";
@@ -11,6 +15,12 @@ export interface CreateContainerWithMetadataDocumentInput {
   readonly fingerprint: string;
   readonly request: ContainerCreateWithMetadataDocumentRequest;
   readonly userId: string;
+}
+
+export interface ContainerCreateWithMetadataDocumentWorkflowResult {
+  /** Metadata seed update ids this create inserted, for the update broadcast. */
+  readonly insertedMetadataUpdateIds: readonly string[];
+  readonly response: ContainerCreateWithMetadataDocumentResponse;
 }
 
 export function readContainerMetadataDocumentId(
@@ -49,9 +59,9 @@ export function assertContainerSystemSlot(
 export async function runCreateContainerWithMetadataDocumentWorkflow(
   db: ApiDatabase,
   input: CreateContainerWithMetadataDocumentInput,
-): Promise<ContainerCreateWithMetadataDocumentResponse> {
+): Promise<ContainerCreateWithMetadataDocumentWorkflowResult> {
   try {
-    return await db.transaction(async (tx) => {
+    const { response, seed } = await db.transaction(async (tx) => {
       const container = await createContainer({
         executor: tx,
         fingerprint: input.fingerprint,
@@ -80,8 +90,28 @@ export async function runCreateContainerWithMetadataDocumentWorkflow(
         input.userId,
       );
 
-      return { container, metadataDocument };
+      return {
+        response: { container, metadataDocument },
+        seed: await commitDocumentCreateSeedInTransaction({
+          documentId: metadataDocument.id,
+          executor: tx,
+          fingerprint: input.fingerprint,
+          seed: input.request.initialMetadataSync,
+          userId: input.userId,
+        }),
+      };
     });
+    if (!seed) return { insertedMetadataUpdateIds: [], response };
+    return {
+      insertedMetadataUpdateIds: seed.insertedUpdateIds,
+      response: {
+        ...response,
+        metadataDocument: {
+          ...response.metadataDocument,
+          initialSync: await documentCreateSeedResponse(db, seed),
+        },
+      },
+    };
   } catch (error) {
     const containerMutationError = toMutationError(error);
     if (containerMutationError) {

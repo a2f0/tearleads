@@ -2,6 +2,7 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
+import type { PendingUpdateRecord } from "../../../../data/sqlite/documentPersistence";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
@@ -21,6 +22,8 @@ export interface ContainerWithMetadataPlanInput {
   readonly containerSignedAt: string;
   readonly metadataContentKey: Uint8Array;
   readonly metadataEventId: string;
+  /** The queued update holding the metadata document's whole content. */
+  readonly metadataSeedUpdate?: PendingUpdateRecord | undefined;
   readonly metadataSignedAt: string;
   readonly parentProjection: ContainerWriterProjectionResponse;
   readonly parentSecretKey: Uint8Array;
@@ -28,6 +31,13 @@ export interface ContainerWithMetadataPlanInput {
   readonly runtime: ContainerWorkflowRuntime;
   readonly systemSlot?: ContainerSystemSlot | null | undefined;
   readonly stillCurrent?: (() => boolean) | undefined;
+}
+
+/** A folder's metadata document takes the folder's id, known before the create. */
+export function plannedContainerMetadataDocumentId(
+  containerId: string,
+): string {
+  return containerId;
 }
 
 async function buildPlans(input: ContainerWithMetadataPlanInput) {
@@ -40,7 +50,7 @@ async function buildPlans(input: ContainerWithMetadataPlanInput) {
     containerKey: input.containerKey,
     execSql,
     eventId: input.containerEventId,
-    metadataDocumentId: input.containerId,
+    metadataDocumentId: plannedContainerMetadataDocumentId(input.containerId),
     systemSlot: input.systemSlot,
     parentProjection: input.parentProjection,
     parentSecretKey: input.parentSecretKey,

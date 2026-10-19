@@ -132,6 +132,9 @@ export interface RemoteContainerHydrationHost {
     updateView?: boolean,
     saveOptions?: SaveContainerOptions,
     mutationOptions?: {
+      /** Queued metadata rows the server committed, settled in this write. */
+      acceptedPendingUpdateIds?: readonly string[] | undefined;
+      clearSyncFailure?: boolean | undefined;
       expectedStateWhenMissing?: ContainerState | undefined;
       isCurrent?: (() => boolean) | undefined;
       createIntentSettlement?: Parameters<

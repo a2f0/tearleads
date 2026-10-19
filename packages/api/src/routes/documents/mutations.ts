@@ -104,19 +104,35 @@ export function documentSyncErrorBody(
 
 async function respondWithDocumentCreate(
   c: DocumentRouteContext,
-  runtime: ApiServiceRuntime,
-  request: DocumentCreateRequest,
+  input: {
+    readonly publish: DocumentMutationsRouteDeps["publish"];
+    readonly request: DocumentCreateRequest;
+    readonly runtime: ApiServiceRuntime;
+  },
 ) {
   const session = c.get("session");
 
   try {
-    return c.json<DocumentCreateResponse>(
-      await createDocument(runtime, {
+    const { insertedUpdateIds, response } = await createDocument(
+      input.runtime,
+      {
         fingerprint: session.fingerprint,
-        request,
+        request: input.request,
         userId: session.userId,
-      }),
+      },
     );
+    // A seeded create stands in for the first sync, so it carries that sync's
+    // update hint; peers learn of the new document from it.
+    if (insertedUpdateIds.length > 0) {
+      await publishDocumentUpdateCreatedEvent({
+        documentId: response.id,
+        documentKekTargets: response.documentKekTargets,
+        origin: { sessionId: session.id, userId: session.userId },
+        publish: input.publish,
+        updateIds: insertedUpdateIds,
+      });
+    }
+    return c.json<DocumentCreateResponse>(response);
   } catch (error) {
     const result = handleDocumentMutationError(error);
     return c.json<DocumentMutationFailureResponse>(
@@ -360,7 +376,12 @@ export function createDocumentMutationsRoute({
     operationRoutePath(createDocumentOperation),
     requireAuth,
     jsonRequestValidator(createDocumentOperation.body),
-    (c) => respondWithDocumentCreate(c, runtime, c.req.valid("json")),
+    (c) =>
+      respondWithDocumentCreate(c, {
+        publish,
+        request: c.req.valid("json"),
+        runtime,
+      }),
   );
 
   route.on(

@@ -25,8 +25,13 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import { isContainerCreatePending } from "../../../data/persistence/container-contents/pendingContainerCreate";
+import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
+import {
+  buildDocumentCreateSeedRequest,
+  documentCreateSeedFits,
+} from "../sync/initialSync";
 import {
   isDocumentManifestAlreadyExistsConflict,
   shouldRetryWithFreshProjection,
@@ -222,10 +227,57 @@ interface RemoteDocumentCreateInput {
    */
   onTerminalSubmitFailure?: DocumentCreateTerminalFailureHandler | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;
+  /**
+   * The queued row holding the new document's whole content (see
+   * `documentCreateSeedCandidate`). The create commits it as its seed, and the
+   * caller settles the row from the response instead of syncing it.
+   */
+  seedUpdate?: PendingUpdateRecord | undefined;
   signedAt?: string | undefined;
   stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
+}
+
+/**
+ * A seed only saves the first sync. A refusal of the seeded create falls back
+ * to the plain create once, so the row syncs as before and seeding adds no
+ * failure mode. A lost response is adopted, and a stale target is replanned
+ * with a fresh seed, exactly as for a plain create. Building the seed awaits
+ * its encryption, so each submission rechecks the caller is still current and
+ * returns null instead of creating a document whose response would be dropped.
+ */
+async function submitPlannedDocumentCreateRequest(
+  input: RemoteDocumentCreateInput,
+  createPlan: MaterializedDocumentCreatePlanWithProjection,
+): Promise<DocumentCreateSubmission | null> {
+  const request = createPlan.materializedPlan.plan.request;
+  const organizationId = createPlan.containerProjection.organizationId;
+  const seed = input.seedUpdate
+    ? await buildDocumentCreateSeedRequest({
+        author: input.author,
+        containerProjection: createPlan.containerProjection,
+        materializedDocument: createPlan.materializedPlan,
+        pendingUpdate: input.seedUpdate,
+      })
+    : null;
+  if (seed && documentCreateSeedFits(seed)) {
+    if (input.stillCurrent?.() === false) return null;
+    const seeded = await submitDocumentCreate(
+      input.apiClient,
+      { ...request, initialSync: seed },
+      organizationId,
+    );
+    if (
+      seeded.ok ||
+      isDocumentManifestAlreadyExistsConflict(seeded) ||
+      isStaleDocumentCreateTargetConflict(seeded)
+    ) {
+      return seeded;
+    }
+  }
+  if (input.stillCurrent?.() === false) return null;
+  return submitDocumentCreate(input.apiClient, request, organizationId);
 }
 
 function isRemoteDocumentCreatePlanBlocked(
@@ -271,11 +323,8 @@ async function submitPlannedDocumentCreate(
   }
   if (isRemoteDocumentCreatePlanBlocked(input, createPlan)) return null;
   if (input.stillCurrent?.() === false) return null;
-  let submission = await submitDocumentCreate(
-    input.apiClient,
-    createPlan.materializedPlan.plan.request,
-    createPlan.containerProjection.organizationId,
-  );
+  let submission = await submitPlannedDocumentCreateRequest(input, createPlan);
+  if (!submission) return null;
   if (isStaleDocumentCreateTargetConflict(submission)) {
     if (input.stillCurrent?.() === false) {
       return { createPlan, submission };
@@ -308,11 +357,8 @@ async function submitPlannedDocumentCreate(
     if (isRemoteDocumentCreatePlanBlocked(input, refreshedPlan)) return null;
     createPlan = refreshedPlan;
     if (input.stillCurrent?.() === false) return null;
-    submission = await submitDocumentCreate(
-      input.apiClient,
-      createPlan.materializedPlan.plan.request,
-      createPlan.containerProjection.organizationId,
-    );
+    submission = await submitPlannedDocumentCreateRequest(input, createPlan);
+    if (!submission) return null;
   }
   return { createPlan, submission };
 }

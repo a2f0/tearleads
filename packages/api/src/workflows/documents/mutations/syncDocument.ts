@@ -354,35 +354,44 @@ export interface DocumentSyncWorkflowResult {
   readonly response: DocumentSyncResponse;
 }
 
-/**
- * Commits the one encrypted update born with a provisioned document.
- * This stays out of the document-mutations facade: bypassing billing is valid
- * only for the freshly-created artifact in an organization-provisioning
- * transaction.
- */
-export async function appendProvisionedDocumentInitialUpdate(input: {
+interface DocumentCreateSeedInput {
   readonly documentId: string;
   readonly executor: DatabaseTransaction;
   readonly fingerprint: string;
   readonly request: DocumentSyncRequest;
   readonly signingPublicKey: Uint8Array;
   readonly userId: string;
-}): Promise<void> {
+}
+
+export interface DocumentCreateSeedResult {
+  readonly acceptedOutgoingUpdateIds: readonly string[];
+  /** Empty when the seed was already committed (a retried create). */
+  readonly insertedUpdateIds: readonly string[];
+}
+
+async function commitDocumentCreateSeed(
+  input: DocumentCreateSeedInput & { readonly enforceSyncEligibility: boolean },
+): Promise<DocumentCreateSeedResult> {
   assertProvisionedDocumentInitialUpdate(input.request);
 
   try {
-    await syncDocumentTransaction({
-      // Provisioning discards this response and submits exactly one update, so
-      // the initial transaction cannot expose a paginated continuation.
+    const result = await syncDocumentTransaction({
+      // The seed is the document's only update and the request's frontier is
+      // its end, so the transaction cannot expose a paginated continuation.
       cursorHmacKey: null,
       documentId: input.documentId,
-      enforceSyncEligibility: false,
+      enforceSyncEligibility: input.enforceSyncEligibility,
       fingerprint: input.fingerprint,
       request: input.request,
       signingPublicKey: input.signingPublicKey,
       tx: input.executor,
       userId: input.userId,
     });
+    return {
+      acceptedOutgoingUpdateIds:
+        result.responseWithoutCommit.acceptedOutgoingUpdateIds,
+      insertedUpdateIds: result.insertedUpdateIds,
+    };
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {
@@ -390,6 +399,29 @@ export async function appendProvisionedDocumentInitialUpdate(input: {
     }
     throw error;
   }
+}
+
+/**
+ * Commits the one encrypted update born with a provisioned document.
+ * This stays out of the document-mutations facade: bypassing billing is valid
+ * only for the freshly-created artifact in an organization-provisioning
+ * transaction.
+ */
+export async function appendProvisionedDocumentInitialUpdate(
+  input: DocumentCreateSeedInput,
+): Promise<void> {
+  await commitDocumentCreateSeed({ ...input, enforceSyncEligibility: false });
+}
+
+/**
+ * Commits an ordinary create's seed in the create transaction. It is held to
+ * the same sync eligibility and write checks as the standalone sync it
+ * replaces, so a seed the sync would refuse fails the create instead.
+ */
+export function appendDocumentCreateSeed(
+  input: DocumentCreateSeedInput,
+): Promise<DocumentCreateSeedResult> {
+  return commitDocumentCreateSeed({ ...input, enforceSyncEligibility: true });
 }
 
 export async function runDocumentSyncWorkflow(

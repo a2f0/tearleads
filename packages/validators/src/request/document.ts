@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { documentCreateSeedRefinement } from "../documentCreateSeedRefinements";
 import { documentLinkSetPathRefinement } from "../documentSyncRefinements";
 import { registerJsonSchemaRuntimeRefinements } from "../jsonSchema";
 import {
@@ -15,6 +16,10 @@ import {
   MAX_INLINE_CONTAINER_REKEYS,
 } from "../util";
 import { ContainerMutationRequestSchema } from "./container";
+import {
+  refineSeedWithinSyncRequestLimit,
+  refineSingleUpdateSeed,
+} from "./documentCreateSeed";
 import {
   ContainerManifestPathSchema,
   type ContainerManifestRef,
@@ -54,8 +59,29 @@ export const documentCreateRequestShape = {
   targetContainerPathRefs: ContainerManifestPathSchema.optional(),
 } satisfies z.ZodRawShape;
 
-export const DocumentCreateRequestSchema = loosePlainObject(
+/** A document create with no seed: a container's metadata document. */
+export const DocumentCreateBaseRequestSchema = loosePlainObject(
   documentCreateRequestShape,
+);
+
+/**
+ * `POST /documents`. The optional seed is the create's first queued update,
+ * committed in the create transaction under the same checks as a standalone
+ * sync, so a new document needs no follow-up sync round trip.
+ */
+export const DocumentCreateRequestSchema = registerJsonSchemaRuntimeRefinements(
+  loosePlainObject({
+    ...documentCreateRequestShape,
+    initialSync: DocumentSyncRequestSchema.optional(),
+  }).superRefine((value, context) => {
+    refineSingleUpdateSeed(value.initialSync, context, {
+      message:
+        "document create seed requires one update and no container rekeys",
+      path: "initialSync",
+    });
+    refineSeedWithinSyncRequestLimit(value.initialSync, context, "initialSync");
+  }),
+  [documentCreateSeedRefinement],
 );
 
 export type DocumentCreateRequest = z.infer<typeof DocumentCreateRequestSchema>;

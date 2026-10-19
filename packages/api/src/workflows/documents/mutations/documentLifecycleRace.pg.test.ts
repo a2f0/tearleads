@@ -26,7 +26,7 @@ test.skipIf(getDefaultApiDatabaseKind() !== "postgres")(
     await authenticate(owner);
     const root = await bootstrapRoot(owner);
     const createRequest = await createDocumentRequest({ owner, root });
-    const created = await runCreateDocumentWorkflow(db, {
+    const { response: created } = await runCreateDocumentWorkflow(db, {
       fingerprint: owner.fingerprint,
       request: createRequest,
       userId: owner.userId,

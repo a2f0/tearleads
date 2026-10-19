@@ -12,6 +12,7 @@ import {
   DocumentSyncRequestSchema,
   documentCreateRequestShape,
 } from "./document";
+import { refineSingleUpdateSeed } from "./documentCreateSeed";
 import { CreateOrganizationGroupRequestSchema } from "./organization";
 import { OrganizationPrincipalPolicyRequestSchema } from "./principal";
 
@@ -38,20 +39,11 @@ export const ProvisionedDocumentRequestSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject(provisionedDocumentRequestShape).superRefine(
       (value, context) => {
-        if (!Array.isArray(value.initialSync?.outgoingUpdates)) {
-          return;
-        }
-        if (
-          value.initialSync.outgoingUpdates.length !== 1 ||
-          (value.initialSync.containerRekeys?.length ?? 0) !== 0
-        ) {
-          context.addIssue({
-            code: "custom",
-            message:
-              "provisioned document seed requires one update and no container rekeys",
-            path: ["initialSync"],
-          });
-        }
+        refineSingleUpdateSeed(value.initialSync, context, {
+          message:
+            "provisioned document seed requires one update and no container rekeys",
+          path: "initialSync",
+        });
       },
     ),
     [organizationProvisioningDocumentSeedRefinement],
@@ -65,20 +57,11 @@ export const ProvisionedSystemContainerRequestSchema =
   registerJsonSchemaRuntimeRefinements(
     loosePlainObject(provisionedSystemContainerRequestShape).superRefine(
       (value, context) => {
-        if (!Array.isArray(value.initialMetadataSync?.outgoingUpdates)) {
-          return;
-        }
-        if (
-          value.initialMetadataSync.outgoingUpdates.length !== 1 ||
-          (value.initialMetadataSync.containerRekeys?.length ?? 0) !== 0
-        ) {
-          context.addIssue({
-            code: "custom",
-            message:
-              "provisioned system-container metadata seed requires one update and no container rekeys",
-            path: ["initialMetadataSync"],
-          });
-        }
+        refineSingleUpdateSeed(value.initialMetadataSync, context, {
+          message:
+            "provisioned system-container metadata seed requires one update and no container rekeys",
+          path: "initialMetadataSync",
+        });
       },
     ),
     [organizationProvisioningContainerSeedRefinement],

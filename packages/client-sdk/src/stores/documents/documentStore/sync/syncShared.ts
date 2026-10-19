@@ -14,7 +14,6 @@ import {
 import { reportDocumentSyncQuarantine } from "../../../../workflows/documents/sync/reportDocumentSyncQuarantine";
 import { createRuntimePrincipalPolicyWarmer } from "../../../../workflows/principals/runtimePolicyWarmer";
 import { chainIdentityWrite } from "../identityWriteChain";
-import { persistDocument } from "../persistence";
 import {
   type DocumentState,
   type DocumentStoreState,
@@ -23,9 +22,14 @@ import {
 } from "../state";
 import { installDocumentWriterProjection } from "../writerProjectionGeneration";
 import {
+  type CreateSeed,
+  persistCreatedRemoteDocument,
+} from "./createdDocumentPersistence";
+import {
   type DocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
 } from "./syncGeneration";
+import { recordPlannedRemoteDocumentId } from "./syncRemoteSignals";
 
 /**
  * Record a refused read-only revalidation on this document's failure row, so
@@ -208,6 +212,7 @@ export async function ensureRemoteDocument(
   nextRecord: DocumentRecord | null,
   encapsulationKeyPair: EncapsulationKeyPair,
   generation?: DocumentStoreSyncGeneration,
+  seed?: CreateSeed,
 ): Promise<DocumentRecord | null> {
   const generationIsCurrent = () =>
     !generation || isDocumentStoreSyncGenerationCurrent(state, generation);
@@ -248,6 +253,9 @@ export async function ensureRemoteDocument(
     nextRecord?.recoveryDocumentId ??
     (await deriveStableDocumentId(state.localId));
   if (!generationIsCurrent()) return state.record ?? nextRecord;
+  // Hints for the document can arrive before the create's response installs
+  // its id; see recordPlannedRemoteDocumentId.
+  recordPlannedRemoteDocumentId(state, documentId);
 
   if (!(await hasDurableDocumentForCreate(state, generationIsCurrent)))
     return state.record;
@@ -268,6 +276,7 @@ export async function ensureRemoteDocument(
       generation,
     ),
     resolveProjectionUserKey: state.resolveProjectionUserKey,
+    seedUpdate: seed?.update,
     stillCurrent: generationIsCurrent,
     targetSecretKey: encapsulationKeyPair.secretKey,
     warmReferencedPrincipalPolicies:
@@ -307,18 +316,15 @@ export async function ensureRemoteDocument(
     // (the new-note "type immediately" race). Preserve the optimistic snapshot —
     // documentId/keys still propagate via state.record, independent of the
     // snapshot text — matching finalizeDocumentSync and the keystroke writes.
-    const persistPatch = { ...created.persistedState };
-    const persistOptions = {
-      preserveSnapshotStructuredFields: true,
-      preserveSnapshotText: true,
-    };
-    const persisted = await persistDocument(
-      state,
+    // A committed seed settles its row in this persist, so the pass needs no
+    // sync request.
+    const persisted = await persistCreatedRemoteDocument({
+      created,
       currentDoc,
-      persistPatch,
-      persistOptions,
       generation,
-    );
+      seed,
+      state,
+    });
     return persisted?.record ?? state.record ?? nextRecord;
   });
 }

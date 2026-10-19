@@ -15,6 +15,8 @@ type MetadataPersistenceInput = Parameters<
 interface PersistContainerStateOptions
   extends Pick<
     MetadataPersistenceInput,
+    | "acceptedPendingUpdateIds"
+    | "clearSyncFailure"
     | "patch"
     | "saveOptions"
     | "localMetadataPatch"
@@ -35,6 +37,8 @@ export async function persistContainerState(
 ): Promise<PersistContainerStateResult> {
   const { expectedStateWhenMissing, isCurrent, updateView = true } = options;
   const persisted = await persistContainerMetadataStateFromRuntime({
+    acceptedPendingUpdateIds: options.acceptedPendingUpdateIds,
+    clearSyncFailure: options.clearSyncFailure,
     metadataState: containerState,
     localMetadataPatch: options.localMetadataPatch,
     localUpdate: options.localUpdate,

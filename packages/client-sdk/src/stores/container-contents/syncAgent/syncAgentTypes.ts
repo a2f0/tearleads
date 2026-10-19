@@ -76,6 +76,11 @@ export interface ContainerContentsStoreSyncState {
    * `clearMetadataSyncQueueIfUnchanged`.
    */
   metadataSyncSignalSeqById: Map<string, number>;
+  /**
+   * Metadata document ids of folder creates in flight. A remote hint for one
+   * queues the folder's first read before the create response installs the id.
+   */
+  plannedMetadataDocumentIds: Set<string>;
   containerParentIdsNeedingHydration: Set<string | null>;
   persistence: ContainerContentsPersistence;
   remoteHydrationPromise: Promise<void> | null;
