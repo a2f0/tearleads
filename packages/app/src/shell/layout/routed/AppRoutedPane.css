@@ -25,7 +25,6 @@
   );
 }
 
-.routed-pane-taskbar-menu-button:hover,
 .routed-pane-taskbar-menu-button:focus-visible,
 .routed-pane-taskbar-menu-button[aria-expanded="true"] {
   --tearleads-logo-primary: color-mix(
@@ -34,4 +33,15 @@
     var(--emphasis-surface)
   );
   --tearleads-logo-secondary: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .routed-pane-taskbar-menu-button:hover {
+    --tearleads-logo-primary: color-mix(
+      in srgb,
+      var(--emphasis-text) 62%,
+      var(--emphasis-surface)
+    );
+    --tearleads-logo-secondary: var(--emphasis-text);
+  }
 }

@@ -48,6 +48,32 @@
   border-radius: var(--app-radius-control);
 }
 
+/* Taskbar icons sit directly on the bar in both navigation modes. The shared
+   action-button frame is still useful for ordinary text actions. */
+:root[data-navigation-mode]
+  :is(.pane-footer-tray, .routed-pane-taskbar-end)
+  .tearleads-action-button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+:root[data-navigation-mode]
+  :is(.pane-footer-tray, .routed-pane-taskbar-end)
+  .tearleads-action-button:focus-visible {
+  background: var(--emphasis-surface);
+  color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  :root[data-navigation-mode]
+    :is(.pane-footer-tray, .routed-pane-taskbar-end)
+    .tearleads-action-button:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-navigation-mode] {
     --transition: 0s;
