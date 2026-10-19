@@ -54,13 +54,24 @@
   :is(.pane-footer-tray, .routed-pane-taskbar-end)
   .tearleads-action-button {
   border: 0;
+  background: transparent;
+  color: inherit;
 }
 
 :root[data-navigation-mode]
-  .routed-pane-taskbar-end
-  .tearleads-action-button:is(:hover, :focus-visible) {
+  :is(.pane-footer-tray, .routed-pane-taskbar-end)
+  .tearleads-action-button:focus-visible {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  :root[data-navigation-mode]
+    :is(.pane-footer-tray, .routed-pane-taskbar-end)
+    .tearleads-action-button:hover {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -205,10 +205,16 @@
   cursor: pointer;
 }
 
-.routed-pane-iconbutton:hover:not(:disabled),
 .routed-pane-iconbutton:focus-visible:not(:disabled) {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);
+}
+
+@media (hover: hover) {
+  .routed-pane-iconbutton:hover:not(:disabled) {
+    background: var(--emphasis-surface);
+    color: var(--emphasis-text);
+  }
 }
 
 .routed-pane-iconbutton:disabled {
