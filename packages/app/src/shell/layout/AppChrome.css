@@ -51,13 +51,13 @@
 /* Taskbar icons sit directly on the bar in both navigation modes. The shared
    action-button frame is still useful for ordinary text actions. */
 :root[data-navigation-mode]
-  :is(.pane-footer-end, .routed-pane-taskbar-end)
+  :is(.pane-footer-tray, .routed-pane-taskbar-end)
   .tearleads-action-button {
   border: 0;
 }
 
 :root[data-navigation-mode]
-  :is(.pane-footer-end, .routed-pane-taskbar-end)
+  .routed-pane-taskbar-end
   .tearleads-action-button:is(:hover, :focus-visible) {
   background: var(--emphasis-surface);
   color: var(--emphasis-text);

@@ -196,7 +196,7 @@
   min-width: var(--control-height);
   min-height: var(--control-height);
   padding: 0;
-  border: 0;
+  border: var(--border-width) solid transparent;
   border-radius: var(--app-radius-control);
   background: transparent;
   color: inherit;
