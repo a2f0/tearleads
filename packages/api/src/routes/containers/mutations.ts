@@ -35,6 +35,7 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 import { jsonRequestValidator } from "../../validators/jsonRequest";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
+import { publishDocumentUpdateCreatedEvent } from "../documents/mutationEvents";
 import { respondToStatusError } from "../errorResponse";
 import {
   publishCarriedContainerRekeys,
@@ -140,18 +141,31 @@ async function createContainerWithMetadataDocumentResponse(input: {
   readonly sessionId: string;
   readonly userId: string;
 }): Promise<ContainerCreateWithMetadataDocumentResponse> {
-  const response = await createContainerWithMetadataDocument(input.runtime, {
-    fingerprint: input.fingerprint,
-    request: input.request,
-    userId: input.userId,
-  });
+  const { insertedMetadataUpdateIds, response } =
+    await createContainerWithMetadataDocument(input.runtime, {
+      fingerprint: input.fingerprint,
+      request: input.request,
+      userId: input.userId,
+    });
+  const origin = { sessionId: input.sessionId, userId: input.userId };
   await publishContainerMutationCreated({
     expectedEventType: "container.create",
-    origin: { sessionId: input.sessionId, userId: input.userId },
+    origin,
     publish: input.publish,
     request: input.request.container,
     response: response.container,
   });
+  // A seeded create stands in for the metadata document's first sync, so it
+  // carries that sync's update hint.
+  if (insertedMetadataUpdateIds.length > 0) {
+    await publishDocumentUpdateCreatedEvent({
+      documentId: response.metadataDocument.id,
+      documentKekTargets: response.metadataDocument.documentKekTargets,
+      origin,
+      publish: input.publish,
+      updateIds: insertedMetadataUpdateIds,
+    });
+  }
 
   return response;
 }

@@ -161,14 +161,42 @@ function addHistoricalContentKeyBundleIssues(
   });
 }
 
+export const commitLsnResponseShape = {
+  commitLsn: z.string().nullable(),
+  commitLsnMode: z.union([z.literal("tracked"), z.literal("untracked")]),
+};
+
+/** The 0/0 sentinel and the untracked mode imply each other. */
+function addCommitLsnIssues(
+  response: {
+    readonly commitLsn: string | null;
+    readonly commitLsnMode: "tracked" | "untracked";
+  },
+  context: z.RefinementCtx,
+): void {
+  if (response.commitLsnMode === "untracked" && response.commitLsn !== "0/0") {
+    context.addIssue({
+      code: "custom",
+      message: "untracked commit LSN must use the 0/0 sentinel",
+      path: ["commitLsn"],
+    });
+  }
+  if (response.commitLsn === "0/0" && response.commitLsnMode !== "untracked") {
+    context.addIssue({
+      code: "custom",
+      message: "0/0 commit LSN must be declared untracked",
+      path: ["commitLsnMode"],
+    });
+  }
+}
+
 export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
   loosePlainObject({
     acceptedOutgoingUpdateIds: arraySchema(
       z.string(),
       MAX_DOCUMENT_SYNC_OUTGOING_UPDATES,
     ),
-    commitLsn: z.string().nullable(),
-    commitLsnMode: z.union([z.literal("tracked"), z.literal("untracked")]),
+    ...commitLsnResponseShape,
     contentKeyBundle: DocumentContentKeyBundleResponseSchema,
     contentKeyBundles: arraySchema(DocumentContentKeyBundleResponseSchema),
     documentId: z.string(),
@@ -189,26 +217,7 @@ export const DocumentSyncResponseSchema = registerJsonSchemaRuntimeRefinements(
         path: ["pullPage", "nextCursor"],
       });
     }
-    if (
-      response.commitLsnMode === "untracked" &&
-      response.commitLsn !== "0/0"
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "untracked commit LSN must use the 0/0 sentinel",
-        path: ["commitLsn"],
-      });
-    }
-    if (
-      response.commitLsn === "0/0" &&
-      response.commitLsnMode !== "untracked"
-    ) {
-      context.addIssue({
-        code: "custom",
-        message: "0/0 commit LSN must be declared untracked",
-        path: ["commitLsnMode"],
-      });
-    }
+    addCommitLsnIssues(response, context);
     addHistoricalContentKeyBundleIssues(response, context);
   }),
   [

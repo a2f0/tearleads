@@ -1,5 +1,6 @@
 export {
   createDocumentWithExecutor,
+  type DocumentCreateWorkflowResult,
   runCreateDocumentWorkflow,
 } from "./createDocument";
 export { runDocumentPurgeProofWorkflow } from "./documentPurgeProof";

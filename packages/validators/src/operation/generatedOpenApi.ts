@@ -3738,6 +3738,13 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 id: string;
+                                initialSync?: {
+                                    acceptedOutgoingUpdateIds: string[];
+                                    commitLsn: string | null;
+                                    commitLsnMode: "tracked" | "untracked";
+                                } & {
+                                    [key: string]: unknown;
+                                };
                             } & {
                                 [key: string]: unknown;
                             };
@@ -3800,6 +3807,13 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             id: string;
+                            initialSync?: {
+                                acceptedOutgoingUpdateIds: string[];
+                                commitLsn: string | null;
+                                commitLsnMode: "tracked" | "untracked";
+                            } & {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         };
@@ -3862,6 +3876,13 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             id: string;
+                            initialSync?: {
+                                acceptedOutgoingUpdateIds: string[];
+                                commitLsn: string | null;
+                                commitLsnMode: "tracked" | "untracked";
+                            } & {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         };
@@ -4020,6 +4041,13 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 id: string;
+                                initialSync?: {
+                                    acceptedOutgoingUpdateIds: string[];
+                                    commitLsn: string | null;
+                                    commitLsnMode: "tracked" | "untracked";
+                                } & {
+                                    [key: string]: unknown;
+                                };
                             } & {
                                 [key: string]: unknown;
                             };
@@ -4082,6 +4110,13 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             id: string;
+                            initialSync?: {
+                                acceptedOutgoingUpdateIds: string[];
+                                commitLsn: string | null;
+                                commitLsnMode: "tracked" | "untracked";
+                            } & {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         };
@@ -4240,6 +4275,13 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 id: string;
+                                initialSync?: {
+                                    acceptedOutgoingUpdateIds: string[];
+                                    commitLsn: string | null;
+                                    commitLsnMode: "tracked" | "untracked";
+                                } & {
+                                    [key: string]: unknown;
+                                };
                             } & {
                                 [key: string]: unknown;
                             };
@@ -9746,6 +9788,131 @@ export interface operations {
                     } & {
                         [key: string]: unknown;
                     };
+                    initialMetadataSync?: {
+                        authorizingContainerPathRefs?: ({
+                            containerId: string;
+                            manifestHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[][];
+                        containerRekeys?: ({
+                            body: unknown;
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: {
+                                [key: string]: unknown;
+                            } | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifestRef?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        contentKeyBundle?: {
+                            contentKeyEpoch: number;
+                            linkSetManifestHash: string;
+                            targetHash: string;
+                            targets: ({
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHash: string;
+                                wrappedKey: string;
+                                wrappingMetadata: {
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        contentKeyEpoch: number;
+                        expectedLinkSetManifestHash: string;
+                        expectedTargetHash: string;
+                        /**
+                         * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                         * @constant
+                         */
+                        historyMode?: "raw";
+                        inlineRekeyCommitId?: string;
+                        localVersionVector: string | null;
+                        minLsn?: string;
+                        outgoingUpdates: ({
+                            /** @constant */
+                            checkpointKind?: "rotate_baseline";
+                            /** @constant */
+                            checkpointPayloadKind?: "full_history_snapshot";
+                            encryptedData: string;
+                            id: string;
+                            partialEndVersionVector: string;
+                            partialStartVersionVector: string;
+                            plaintextHash: string;
+                            sourceVersionVector?: string;
+                            writeHeader: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        pullCursor?: string;
+                        /** @constant */
+                        supportsPullPagination: true;
+                    } & {
+                        [key: string]: unknown;
+                    };
                     metadataDocument: {
                         authorizingContainerPathRefs?: ({
                             containerId: string;
@@ -10029,6 +10196,13 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             id: string;
+                            initialSync?: {
+                                acceptedOutgoingUpdateIds: string[];
+                                commitLsn: string | null;
+                                commitLsnMode: "tracked" | "untracked";
+                            } & {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         };
@@ -10280,6 +10454,131 @@ export interface operations {
                         [key: string]: unknown;
                     };
                     expectedManifestHash: string;
+                    initialSync?: {
+                        authorizingContainerPathRefs?: ({
+                            containerId: string;
+                            manifestHash: string;
+                        } & {
+                            [key: string]: unknown;
+                        })[][];
+                        containerRekeys?: ({
+                            body: unknown;
+                            containerManifestHistoryRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            destinationParentContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            event: {
+                                [key: string]: unknown;
+                            };
+                            expectedManifestHash: string;
+                            keyEpoch: {
+                                [key: string]: unknown;
+                            };
+                            keyring: {
+                                [key: string]: unknown;
+                            } | null;
+                            manifest: {
+                                [key: string]: unknown;
+                            };
+                            parentContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            parentKekState?: {
+                                [key: string]: unknown;
+                            } | null;
+                            predecessorBridge: {
+                                [key: string]: unknown;
+                            } | null;
+                            previousContainerPathRefs?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            previousManifestRef?: ({
+                                containerId: string;
+                                manifestHash: string;
+                            } & {
+                                [key: string]: unknown;
+                            }) | null;
+                            principalPolicies: {
+                                [key: string]: unknown;
+                            }[];
+                            userRecipientKeys?: {
+                                [key: string]: unknown;
+                            }[];
+                            wraps: {
+                                [key: string]: unknown;
+                            }[];
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        contentKeyBundle?: {
+                            contentKeyEpoch: number;
+                            linkSetManifestHash: string;
+                            targetHash: string;
+                            targets: ({
+                                containerId: string;
+                                containerKeyEpoch: number;
+                                containerKeyEpochId: string;
+                                containerManifestHash: string;
+                                wrappedKey: string;
+                                wrappingMetadata: {
+                                    iv: string;
+                                    /** @constant */
+                                    suite: "tearleads.document.content-key-wrap.aes-256-gcm-container-kek";
+                                };
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        contentKeyEpoch: number;
+                        expectedLinkSetManifestHash: string;
+                        expectedTargetHash: string;
+                        /**
+                         * @description Explicit read-only recovery mode that bypasses rotation-baseline redirection and returns retained missing history
+                         * @constant
+                         */
+                        historyMode?: "raw";
+                        inlineRekeyCommitId?: string;
+                        localVersionVector: string | null;
+                        minLsn?: string;
+                        outgoingUpdates: ({
+                            /** @constant */
+                            checkpointKind?: "rotate_baseline";
+                            /** @constant */
+                            checkpointPayloadKind?: "full_history_snapshot";
+                            encryptedData: string;
+                            id: string;
+                            partialEndVersionVector: string;
+                            partialStartVersionVector: string;
+                            plaintextHash: string;
+                            sourceVersionVector?: string;
+                            writeHeader: {
+                                [key: string]: unknown;
+                            };
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        pullCursor?: string;
+                        /** @constant */
+                        supportsPullPagination: true;
+                    } & {
+                        [key: string]: unknown;
+                    };
                     manifest: {
                         [key: string]: unknown;
                     };
@@ -10356,6 +10655,13 @@ export interface operations {
                             [key: string]: unknown;
                         };
                         id: string;
+                        initialSync?: {
+                            acceptedOutgoingUpdateIds: string[];
+                            commitLsn: string | null;
+                            commitLsnMode: "tracked" | "untracked";
+                        } & {
+                            [key: string]: unknown;
+                        };
                     } & {
                         [key: string]: unknown;
                     };
@@ -15362,6 +15668,13 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 id: string;
+                                initialSync?: {
+                                    acceptedOutgoingUpdateIds: string[];
+                                    commitLsn: string | null;
+                                    commitLsnMode: "tracked" | "untracked";
+                                } & {
+                                    [key: string]: unknown;
+                                };
                             } & {
                                 [key: string]: unknown;
                             };
@@ -15424,6 +15737,13 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             id: string;
+                            initialSync?: {
+                                acceptedOutgoingUpdateIds: string[];
+                                commitLsn: string | null;
+                                commitLsnMode: "tracked" | "untracked";
+                            } & {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         };
@@ -15500,6 +15820,13 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             id: string;
+                            initialSync?: {
+                                acceptedOutgoingUpdateIds: string[];
+                                commitLsn: string | null;
+                                commitLsnMode: "tracked" | "untracked";
+                            } & {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         };
@@ -15658,6 +15985,13 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 id: string;
+                                initialSync?: {
+                                    acceptedOutgoingUpdateIds: string[];
+                                    commitLsn: string | null;
+                                    commitLsnMode: "tracked" | "untracked";
+                                } & {
+                                    [key: string]: unknown;
+                                };
                             } & {
                                 [key: string]: unknown;
                             };
@@ -15720,6 +16054,13 @@ export interface operations {
                                 [key: string]: unknown;
                             };
                             id: string;
+                            initialSync?: {
+                                acceptedOutgoingUpdateIds: string[];
+                                commitLsn: string | null;
+                                commitLsnMode: "tracked" | "untracked";
+                            } & {
+                                [key: string]: unknown;
+                            };
                         } & {
                             [key: string]: unknown;
                         };
@@ -15878,6 +16219,13 @@ export interface operations {
                                     [key: string]: unknown;
                                 };
                                 id: string;
+                                initialSync?: {
+                                    acceptedOutgoingUpdateIds: string[];
+                                    commitLsn: string | null;
+                                    commitLsnMode: "tracked" | "untracked";
+                                } & {
+                                    [key: string]: unknown;
+                                };
                             } & {
                                 [key: string]: unknown;
                             };

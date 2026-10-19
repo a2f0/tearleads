@@ -2,6 +2,7 @@ import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemS
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
+import type { PendingUpdateRecord } from "../../../../data/sqlite/documentPersistence";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
@@ -21,6 +22,8 @@ export interface ContainerWithMetadataPlanInput {
   readonly containerSignedAt: string;
   readonly metadataContentKey: Uint8Array;
   readonly metadataEventId: string;
+  /** The queued update holding the metadata document's whole content. */
+  readonly metadataSeedUpdate?: PendingUpdateRecord | undefined;
   readonly metadataSignedAt: string;
   readonly parentProjection: ContainerWriterProjectionResponse;
   readonly parentSecretKey: Uint8Array;

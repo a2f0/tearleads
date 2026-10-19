@@ -42,8 +42,8 @@ import {
 } from "./syncGeneration";
 import { prepareDocumentOutgoingCoverage } from "./syncOutgoingCoverage";
 import { requestRemoteDocumentSync } from "./syncRequest";
+import { ensureSeededRemoteDocument } from "./syncSeededCreate";
 import {
-  ensureRemoteDocument,
   isContainerAwaitingRemoteCreate,
   shouldSkipCleanScheduledDocumentSync,
 } from "./syncShared";
@@ -166,13 +166,17 @@ async function syncDocumentState(
     }
     if (containerAwaitsCreate) return nextRecord;
   }
-  let nextRemoteRecord = await ensureRemoteDocument(
-    state,
+  const created = await ensureSeededRemoteDocument({
+    consumedRemoteUpdateSignalSeq,
     currentDoc,
-    nextRecord,
     encapsulationKeyPair,
     generation,
-  );
+    nextRecord,
+    pendingUpdates,
+    state,
+  });
+  let nextRemoteRecord = created.record;
+  pendingUpdates = created.pendingUpdates;
   if (!isDocumentStoreSyncGenerationCurrent(state, generation)) {
     requestDocumentStoreSync(state);
     return state.record ?? nextRecord;

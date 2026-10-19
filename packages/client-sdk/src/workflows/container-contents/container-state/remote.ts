@@ -61,6 +61,9 @@ function resolveContainerWriterContext(
 export async function createRemoteContainer(input: {
   systemSlot?: ContainerSystemSlot | null | undefined;
   containerId: string;
+  metadataSeedUpdate?: Parameters<
+    typeof createRemoteContainerWithMetadataDocument
+  >[0]["metadataSeedUpdate"];
   parentContainerId: string;
   parentProjection?: ContainerWriterProjectionResponse | undefined;
   resolveProjectionUserKey: ProjectionUserKeyResolver;

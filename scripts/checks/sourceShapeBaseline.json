@@ -63,8 +63,8 @@
       "bytes": 23895
     },
     "docs/openapi.json": {
-      "lines": 62196,
-      "bytes": 2503721
+      "lines": 63740,
+      "bytes": 2571514
     },
     "docs/protocol-specification.md": {
       "lines": 738,
@@ -311,12 +311,12 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 22778,
-      "bytes": 925055
+      "lines": 23126,
+      "bytes": 942235
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 536,
-      "bytes": 18886
+      "lines": 537,
+      "bytes": 18921
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 508,

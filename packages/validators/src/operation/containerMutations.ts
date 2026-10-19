@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { containerCreateMetadataSeedRefinement } from "../documentCreateSeedRefinements";
+import { documentSyncRequestRuntimeRefinements } from "../documentSyncRefinements";
 import { organizationProvisioningContainerKeyringRefinement } from "../organizationProvisioningRefinements";
 import {
   ContainerCreateWithMetadataDocumentRequestSchema,
@@ -82,7 +84,11 @@ export const createContainerWithMetadataDocumentOperation = defineJsonOperation(
     params: EmptyContainerMutationPathParamsSchema,
     path: "/containers/with-metadata-document",
     responses: { 200: ContainerCreateWithMetadataDocumentResponseSchema },
-    runtimeRefinements: containerMutationRuntimeRefinements,
+    runtimeRefinements: [
+      ...containerMutationRuntimeRefinements,
+      containerCreateMetadataSeedRefinement,
+      ...documentSyncRequestRuntimeRefinements,
+    ],
   },
 );
 

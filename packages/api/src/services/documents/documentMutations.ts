@@ -1,6 +1,6 @@
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import {
   type CreateDocumentInput,
+  type DocumentCreateWorkflowResult,
   type DocumentLinkSetMutationWorkflowResult,
   type DocumentSyncWorkflowResult,
   type MutateDocumentLinkSetInput,
@@ -20,7 +20,7 @@ export { DocumentMutationError } from "../../workflows/documents/mutations";
 
 export const createDocument = createDatabaseWorkflowService<
   CreateDocumentInput,
-  DocumentCreateResponse
+  DocumentCreateWorkflowResult
 >(runCreateDocumentWorkflow);
 
 export const mutateDocumentLinkSet = createDatabaseWorkflowService<

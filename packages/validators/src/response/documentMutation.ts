@@ -16,6 +16,7 @@ import {
   ContainerKeyingPathWireResponseSchema,
 } from "./container";
 import {
+  commitLsnResponseShape,
   type DocumentContentKeyBundleResponse,
   DocumentContentKeyBundleResponseSchema,
   type DocumentKekTargetsResponse,
@@ -47,12 +48,28 @@ export {
   DocumentSyncUpdateResponseSchema,
 } from "./documentSyncSchema";
 
+/**
+ * What the create transaction committed of a seed: the accepted update id and
+ * the commit position a following sync reads from, as a sync response reports
+ * them.
+ */
+export const DocumentCreateSeedResponseSchema = loosePlainObject({
+  acceptedOutgoingUpdateIds: arraySchema(nonEmptyStringSchema, 1),
+  ...commitLsnResponseShape,
+});
+
+export type DocumentCreateSeedResponse = z.infer<
+  typeof DocumentCreateSeedResponseSchema
+>;
+
 export const DocumentCreateResponseSchema = loosePlainObject({
   accessManifest: AccessManifestBundleWireResponseSchema,
   contentKeyBundle: DocumentContentKeyBundleResponseSchema,
   createdAt: z.string(),
   documentKekTargets: DocumentKekTargetsResponseSchema,
   id: z.string(),
+  /** Present exactly when the request carried a seed. */
+  initialSync: DocumentCreateSeedResponseSchema.optional(),
 });
 
 export type DocumentCreateResponse = z.infer<

@@ -1,7 +1,9 @@
 import { z } from "zod";
+import { documentCreateSeedRefinement } from "../documentCreateSeedRefinements";
 import {
   documentLinkSetPathRefinement,
   documentSyncRequestRotationRefinement,
+  documentSyncRequestRuntimeRefinements,
 } from "../documentSyncRefinements";
 import { registerJsonSchemaFragment } from "../jsonSchema";
 import {
@@ -80,6 +82,10 @@ export const createDocumentOperation = defineJsonOperation({
   params: EmptyDocumentMutationPathParamsSchema,
   path: "/documents",
   responses: { 200: DocumentCreateResponseSchema },
+  runtimeRefinements: [
+    documentCreateSeedRefinement,
+    ...documentSyncRequestRuntimeRefinements,
+  ],
 });
 
 function defineDocumentLinkSetMutationOperation<

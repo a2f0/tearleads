@@ -3,14 +3,22 @@ import type {
   DatabaseTransaction,
 } from "@tearleads/api-shared/postgres";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
-import type { DocumentCreateResponse } from "@tearleads/validators/response";
+import type {
+  DocumentCreateResponse,
+  DocumentCreateSeedResponse,
+} from "@tearleads/validators/response";
 import { lockAccessManifestHeadsForShare } from "../../../access/read/accessManifestStore";
 import { storeVerifiedAccessManifestInTransaction } from "../../../access/write/accessManifestStore";
 import { storeDocumentContentKeyBundleInTransaction } from "../../../access/write/documentContentKeyStore";
 import { recordDocumentManifestObservationInTransaction } from "../../../access/write/documentManifestObservationStore";
+import {
+  readCommitLsnMode,
+  readCurrentCommitLsn,
+} from "../../../documents/commitLsn";
 import { assertOrganizationCanSync } from "../../billing/organizationSyncEligibility";
 import { applyContainerRekeys } from "../../containers/mutations";
 import { assertRosterProfileDocumentIdCanBeCreated } from "../../organizations/rosterProfileBindingInvariant";
+import { loadSignerPublicKey } from "../../signerPublicKey";
 import { markStoredDocumentManifest } from "../markStoredDocumentManifest";
 import { lockDocumentLifecycleInTransaction } from "./documentLifecycleLock";
 import { DocumentMutationError, toMutationError } from "./errors";
@@ -29,14 +37,60 @@ import {
   verifyDocumentEvent,
   verifyDocumentManifestFromRequest,
 } from "./shared/verification";
+import {
+  appendDocumentCreateSeed,
+  type DocumentCreateSeedResult,
+} from "./syncDocument";
 import type { CreateDocumentInput } from "./types";
+
+export interface DocumentCreateWorkflowResult {
+  /** Seed update ids this create inserted, for the update broadcast. */
+  readonly insertedUpdateIds: readonly string[];
+  readonly response: DocumentCreateResponse;
+}
+
+/** Commits a create's seed in its transaction; see `appendDocumentCreateSeed`. */
+export async function commitDocumentCreateSeedInTransaction(input: {
+  readonly documentId: string;
+  readonly executor: DatabaseTransaction;
+  readonly fingerprint: string;
+  readonly seed: DocumentCreateRequest["initialSync"];
+  readonly userId: string;
+}): Promise<DocumentCreateSeedResult | null> {
+  if (!input.seed) return null;
+  return appendDocumentCreateSeed({
+    documentId: input.documentId,
+    executor: input.executor,
+    fingerprint: input.fingerprint,
+    request: input.seed,
+    signingPublicKey: await loadSignerPublicKey(input.executor, {
+      error: (message, status) => new DocumentMutationError(message, status),
+      fingerprint: input.fingerprint,
+      userId: input.userId,
+    }),
+    userId: input.userId,
+  });
+}
+
+/** Read after commit, as a sync response reports its commit position. */
+export async function documentCreateSeedResponse(
+  db: ApiDatabase,
+  seed: DocumentCreateSeedResult,
+): Promise<DocumentCreateSeedResponse> {
+  const commitLsnMode = readCommitLsnMode();
+  return {
+    acceptedOutgoingUpdateIds: [...seed.acceptedOutgoingUpdateIds],
+    commitLsn: await readCurrentCommitLsn(db),
+    commitLsnMode,
+  };
+}
 
 export async function runCreateDocumentWorkflow(
   db: ApiDatabase,
   input: CreateDocumentInput,
-): Promise<DocumentCreateResponse> {
+): Promise<DocumentCreateWorkflowResult> {
   try {
-    return await db.transaction(async (tx) => {
+    const { created, seed } = await db.transaction(async (tx) => {
       const { created, organizationId } = await createDocumentInTransaction({
         executor: tx,
         fingerprint: input.fingerprint,
@@ -46,8 +100,25 @@ export async function runCreateDocumentWorkflow(
       // Public boundary: registration bootstraps its documents via
       // createDocumentWithExecutor directly, so gate only here.
       await assertOrganizationCanSync(tx, organizationId, input.userId);
-      return created;
+      return {
+        created,
+        seed: await commitDocumentCreateSeedInTransaction({
+          documentId: created.id,
+          executor: tx,
+          fingerprint: input.fingerprint,
+          seed: input.request.initialSync,
+          userId: input.userId,
+        }),
+      };
     });
+    if (!seed) return { insertedUpdateIds: [], response: created };
+    return {
+      insertedUpdateIds: seed.insertedUpdateIds,
+      response: {
+        ...created,
+        initialSync: await documentCreateSeedResponse(db, seed),
+      },
+    };
   } catch (error) {
     const mutationError = toMutationError(error);
     if (mutationError) {

@@ -1,7 +1,9 @@
+import { encodeVersionVector } from "@tearleads/loro";
 import { ContainerPathTooDeepError } from "../../../../data/containers/shared/containerPathLimits";
 import { reportAndRethrowKeyingVerificationError } from "../../../../data/keyingProjectionVerification/error";
 import { ContainerCreateIntentSupersededError } from "../../../../data/persistence/container-contents/containerIntentPersistence";
 import { errorMessage } from "../../../../data/shared/errorMessage";
+import { documentCreateSeedCandidate } from "../../../documents/sync/initialSync";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,
@@ -118,7 +120,8 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
       {
         accessEpoch: 1,
         accessStateHash: created.accessManifestHash,
-        lastCommitLsn: null,
+        // A committed seed stands in for the first metadata sync.
+        lastCommitLsn: created.metadataSeed?.commitLsn ?? null,
         metadataDocumentId: created.metadataDocumentId,
         systemSlot: created.systemSlot,
         organizationId: created.organizationId,
@@ -133,6 +136,12 @@ async function persistCreatedRemoteContainerStateFromIntent(input: {
         },
       },
       {
+        ...(created.metadataSeed
+          ? {
+              acceptedPendingUpdateIds: [created.metadataSeed.updateId],
+              clearSyncFailure: true,
+            }
+          : {}),
         createIntentSettlement: {
           containerId: intent.containerId,
           expectedIntentId: intent.id,
@@ -295,11 +304,22 @@ async function createPendingRemoteContainer(input: {
 }): Promise<CreateIntentSyncResult> {
   const { containerState, parentState, syncInput } = input;
   const { intent, state } = syncInput;
+  // The queued first metadata update, when it holds the whole document,
+  // commits with the create instead of a following metadata sync.
+  const metadataSeedUpdate = documentCreateSeedCandidate({
+    documentVersion: encodeVersionVector(containerState.doc),
+    pendingUpdates: await state.persistence.listPendingUpdates(
+      state.runtime.infra.execSql,
+      containerState.container.id,
+    ),
+  });
+  if (!syncInput.isCurrent()) return "abandoned";
   let created: Awaited<ReturnType<typeof createRemoteContainer>>;
   try {
     created = await createRemoteContainer({
       systemSlot: containerState.container.systemSlot,
       containerId: containerState.container.id,
+      ...(metadataSeedUpdate ? { metadataSeedUpdate } : {}),
       parentContainerId: parentState.container.id,
       resolveProjectionUserKey: state.resolveProjectionUserKey,
       runtime: state.runtime,

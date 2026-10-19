@@ -73,6 +73,14 @@ export interface ContainerWorkflowRuntime
 
 export interface CreatedRemoteContainerState {
   accessManifestHash: string;
+  /**
+   * The metadata seed the create committed, settled by the caller instead of
+   * a first metadata sync. Absent when the create carried no seed or fell back
+   * to a plain create.
+   */
+  metadataSeed?:
+    | { readonly commitLsn: string | null; readonly updateId: string }
+    | undefined;
   /** The slot this client signed into the create; never the server's echo. */
   systemSlot: ContainerSystemSlot | null;
   containerId: string;
