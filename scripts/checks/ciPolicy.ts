@@ -11,7 +11,7 @@ export function ciDiffRange(
 
 export function ciScopes(paths: readonly string[]) {
   const common = paths.some((path) =>
-    /^(\.github\/workflows\/|scripts\/checks\/ci|\.mise\.toml$|bun\.lock$|package\.json$)/.test(
+    /^(\.github\/workflows\/|scripts\/checks\/ci|\.mise\.toml$|mise\.lock$|bun\.lock$|package\.json$)/.test(
       path,
     ),
   );

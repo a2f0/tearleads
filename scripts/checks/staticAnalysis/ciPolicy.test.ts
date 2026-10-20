@@ -108,6 +108,8 @@ test("selects native and infrastructure checks without skipping their dependenci
   }
   for (const path of [
     ".github/workflows/ci.yml",
+    ".mise.toml",
+    "mise.lock",
     "bun.lock",
     "scripts/checks/ciPolicy.ts",
   ]) {
