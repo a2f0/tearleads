@@ -30,9 +30,18 @@ test("API Requests shows earlier traffic, updates live, survives reopening and r
   let table = await open(view);
   expect(table.getByText("GET /auth/sessions")).toBeTruthy();
   act(() => {
-    metrics.begin(null, listSessionsOperation)("failed");
+    metrics.begin(null, listSessionsOperation)("failed", {
+      totalMs: 42,
+      databaseMs: 17,
+    });
   });
   expect(table.getByText("2")).toBeTruthy();
+  const timing = within(
+    view.getByRole("table", { name: "Request timing by endpoint" }),
+  );
+  expect(timing.getByText("GET /auth/sessions")).toBeTruthy();
+  expect(timing.getByText("42")).toBeTruthy();
+  expect(timing.getByText("17")).toBeTruthy();
   fireEvent.click(view.getByRole("tab", { name: "Logs" }));
   fireEvent.click(view.getByRole("tab", { name: "API Requests" }));
   table = within(view.getByRole("table", { name: "Requests by endpoint" }));
@@ -46,6 +55,7 @@ test("API Requests shows earlier traffic, updates live, survives reopening and r
     reopened.getByRole("button", { name: "Reset request counts" }),
   );
   expect(reopened.getByText("No API requests recorded yet.")).toBeTruthy();
+  expect(reopened.getByText("No timed API requests yet.")).toBeTruthy();
   expect(metrics.getSnapshot(null).total).toBe(0);
   reopened.unmount();
 });
