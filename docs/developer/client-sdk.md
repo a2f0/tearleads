@@ -951,13 +951,18 @@ connection outcomes, not later body parsing or cryptographic verification.
 Response headers end the in-flight measurement; bodies are never consumed by
 instrumentation. No request URLs, queries, bodies, or tokens are retained.
 
+Rows also time attempts until headers, failure, or cancellation: `duration` has
+p50/p95 over the latest 256 plus count, total, and max since reset.
+`serverDuration` and `databaseDuration` summarize the API's `Server-Timing`
+`total` and `db` (I/O wait on Workers), null until a response reports them.
+
 Hosts can pass an `ApiRequestMetrics` instance as `apiRequestMetrics` to retain
 counts across SDK disposal/recreation. The app retains one store per API/identity
 namespace until a page reload. System Monitor's **API Requests** tab shows the
 current identity, retains its counts when switching away and back, and includes
-those counts in the copied report. Reset discards earlier in-flight completions
-without affecting the requests themselves. This telemetry never uses durable
-storage or a remote diagnostics service.
+those counts and timings in the copied report. Reset discards earlier in-flight
+completions without affecting the requests themselves. This telemetry never uses
+durable storage or a remote diagnostics service.
 
 ## Explorer hydration and pending downloads
 
