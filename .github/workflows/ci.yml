@@ -35,9 +35,11 @@ jobs:
         with:
           fetch-depth: 0
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          bun-version: 1.4.2
+          version: 2026.10.3
+          install_args: bun
+          cache: true
       - name: Determine platform checks
         id: scopes
         env:
@@ -66,9 +68,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          bun-version: 1.4.2
+          version: 2026.10.3
+          install_args: bun
+          cache: true
       - name: Require every applicable check to succeed
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
@@ -88,13 +92,8 @@ jobs:
         uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: 2026.10.3
-          install_args: java shellcheck github:oasdiff/oasdiff github:tlaplus/tlaplus
+          install_args: bun java shellcheck github:oasdiff/oasdiff github:tlaplus/tlaplus
           cache: true
-
-      - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.2
 
       # turbo.json hashes CI_TOOLCHAIN; Turbo does not hash the runtime itself.
       - name: Key the Turbo cache to this runtime
@@ -158,9 +157,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          bun-version: 1.4.2
+          version: 2026.10.3
+          install_args: bun
+          cache: true
 
       - name: Key the Turbo cache to this runtime
         run: echo "CI_TOOLCHAIN=bun-$(bun --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
@@ -215,9 +216,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          bun-version: 1.4.2
+          version: 2026.10.3
+          install_args: bun
+          cache: true
 
       - name: Key the Turbo cache to this runtime
         run: echo "CI_TOOLCHAIN=bun-$(bun --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
@@ -258,9 +261,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Bun
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          bun-version: 1.4.2
+          version: 2026.10.3
+          install_args: bun
+          cache: true
 
       - name: Key the Turbo cache to this runtime
         run: echo "CI_TOOLCHAIN=bun-$(bun --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
@@ -287,16 +292,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+      - name: Set up Terraform tooling
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          terraform_version: 1.16.1
-          terraform_wrapper: false
-
-      - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
-        with:
-          tflint_version: v0.64.0
+          version: 2026.10.3
+          install_args: terraform tflint
+          cache: true
 
       - name: Init TFLint plugins
         run: tflint --init
