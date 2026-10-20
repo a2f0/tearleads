@@ -3,6 +3,27 @@ import type { Subsystem } from "./subsystems";
 
 const sdk = packageSourcePath.clientSdk;
 
+// The workflows/principals modules the rest of the SDK may import. Its index
+// is the public package facade, so recovery's verification context, history
+// selection, and stored stage and prefix formats stay private to it.
+const principalsWorkflowSurface = [
+  "acknowledgements/acknowledgedPrincipalCurrents",
+  "acknowledgements/acknowledgedPrincipalPredecessor",
+  "acknowledgements/principalAcknowledgementChecks",
+  "currentPrincipalPolicyReader",
+  "externalAdminPolicy",
+  "index",
+  "historyRecovery/loadRecoveredPrincipalHistoryPage",
+  "policyRepair",
+  "policyRepairBudget",
+  "policyVerification",
+  "recoveryOperation/principalCurrentRecoveryBatch",
+  "principalPolicyHistoryReader",
+  "runtimePolicyRecovery",
+  "runtimePolicyWarmer",
+  "runtimeProjectionPolicyRecovery",
+].map((module) => `${sdk}/workflows/principals/${module}.ts`);
+
 /** The `packages/client-sdk` rows of the subsystem manifest in `subsystems.ts`. */
 export const clientSdkSubsystems: readonly Subsystem[] = [
   {
@@ -18,6 +39,20 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/stores/documents/`,
       `${sdk}/client/documents/`,
     ],
+    surface: [
+      `${sdk}/client/documents/index.ts`,
+      `${sdk}/data/documents/index.ts`,
+      `${sdk}/stores/documents/index.ts`,
+      `${sdk}/workflows/documents/index.ts`,
+      `${sdk}/data/documents/documentConstants.ts`,
+      `${sdk}/data/documents/documentKinds.ts`,
+      `${sdk}/data/documents/documentSummary.ts`,
+      `${sdk}/data/documents/shared/readers.ts`,
+      `${sdk}/data/documents/shared/responses.ts`,
+      `${sdk}/data/documents/shared/types.ts`,
+      `${sdk}/data/documents/blob/shared/types.ts`,
+      `${sdk}/data/persistence/documents/documentsPersistence.ts`,
+    ],
   },
   {
     name: "Container Contents",
@@ -31,6 +66,13 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/stores/container-contents/`,
       `${sdk}/client/containerContents/`,
     ],
+    surface: [
+      `${sdk}/client/containerContents/index.ts`,
+      `${sdk}/stores/container-contents/index.ts`,
+      `${sdk}/workflows/container-contents/index.ts`,
+      `${sdk}/stores/container-contents/types.ts`,
+      `${sdk}/data/persistence/container-contents/containerContentsPersistence.ts`,
+    ],
   },
   {
     name: "Container Data",
@@ -42,6 +84,13 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/workflows/containers/`,
       `${sdk}/data/containers/`,
       `${sdk}/data/persistence/containers/`,
+    ],
+    surface: [
+      `${sdk}/workflows/containers/index.ts`,
+      `${sdk}/data/containers/containerMetadataDocument.ts`,
+      `${sdk}/data/containers/shared/mutationFailures.ts`,
+      `${sdk}/data/containers/shared/types.ts`,
+      `${sdk}/data/persistence/containers/containerPersistence.ts`,
     ],
   },
   {
@@ -55,6 +104,11 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/blobs/`,
       `${sdk}/client/blobs/`,
     ],
+    surface: [
+      `${sdk}/client/blobs/index.ts`,
+      `${sdk}/workflows/blobs/index.ts`,
+      `${sdk}/data/blobs/blobContracts.ts`,
+    ],
   },
   {
     name: "Organization Read Models",
@@ -67,6 +121,10 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/persistence/organizations/`,
       `${sdk}/client/organizations/`,
     ],
+    surface: [
+      `${sdk}/client/organizations/index.ts`,
+      `${sdk}/workflows/organizations/index.ts`,
+    ],
   },
   {
     name: "Root Console Client",
@@ -75,6 +133,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "Root-only identity, organization, roster, billing, and data usage lookups, gated by the session's server-reported root flag.",
     seam: "tearleads.root facade; workflows/root",
     paths: [`${sdk}/workflows/root/`, `${sdk}/client/root/`],
+    surface: [`${sdk}/client/root/index.ts`, `${sdk}/workflows/root/index.ts`],
   },
   {
     name: "Principal Policy (client)",
@@ -91,6 +150,13 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/persistence/principalMutationJournalPersistence.ts`,
       `${sdk}/data/persistence/principalPolicy/`,
     ],
+    surface: [
+      ...principalsWorkflowSurface,
+      `${sdk}/data/principals/organizationAuthorityDescriptor.ts`,
+      `${sdk}/data/principals/principalPolicyEvidence.ts`,
+      `${sdk}/data/principals/principalPolicyStates.ts`,
+      `${sdk}/data/persistence/principalPolicy/principalPolicyPersistence.ts`,
+    ],
   },
   {
     name: "Client Registration",
@@ -99,6 +165,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "Identity registration and the initial organization/root-container bootstrap performed from the client.",
     seam: "workflows/registration",
     paths: [`${sdk}/workflows/registration/`],
+    surface: [`${sdk}/workflows/registration/index.ts`],
   },
   {
     name: "Sync Engine",
@@ -114,6 +181,15 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/stores/local-projection/`,
       `${sdk}/client/deviceFirst/`,
     ],
+    surface: [
+      `${sdk}/client/deviceFirst/index.ts`,
+      `${sdk}/stores/local-projection/index.ts`,
+      `${sdk}/sync/reconciliation/index.ts`,
+      `${sdk}/workflows/sync/index.ts`,
+      `${sdk}/data/shared/domainScope.ts`,
+      `${sdk}/data/sync/databaseUnavailable.ts`,
+      `${sdk}/data/sync/syncCoordinator.ts`,
+    ],
   },
   {
     name: "Identity & Session",
@@ -127,6 +203,12 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/persistence/trustedUserIdentityPinPersistence.ts`,
       `${sdk}/data/persistence/trustedUserIdentityPinTransaction.ts`,
     ],
+    surface: [
+      `${sdk}/client/identity/index.ts`,
+      `${sdk}/client/session/index.ts`,
+      `${sdk}/client/session/sessionTypes.ts`,
+      `${sdk}/data/trustedUserIdentity/index.ts`,
+    ],
   },
   {
     name: "Local Keyring",
@@ -135,6 +217,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "The on-device keyring (manifest storage, scopes, sessions) and its PIN-code unlock support.",
     seam: "createLocalKeyring / createBrowserLocalKeyring exports",
     paths: [`${sdk}/client/localKeyring/`],
+    surface: [`${sdk}/client/localKeyring/index.ts`],
   },
   {
     name: "Client Purchases",
@@ -143,6 +226,10 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       "Provider-agnostic purchase capabilities for org sync billing: the PurchasesCapability interface (provider-hosted flows) with the RevenueCat mapping core over an injectable backend, the DirectCheckoutCapability interface (an in-app payment element the app styles itself), and the unavailable stubs for both.",
     seam: "createRevenueCatPurchases / createUnavailablePurchases / createUnavailableDirectCheckout exports",
     paths: [`${sdk}/client/billing/`],
+    surface: [
+      `${sdk}/client/billing/directCheckout.ts`,
+      `${sdk}/client/billing/purchases.ts`,
+    ],
   },
   {
     name: "SQLite Runtime",
@@ -165,6 +252,14 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/persistence/organizationFounderPersistence.ts`,
       `${sdk}/data/persistence/verifiedManifestBundlePersistence.ts`,
     ],
+    surface: [
+      `${sdk}/data/keyingProjectionVerification/index.ts`,
+      `${sdk}/data/keyingProjectionVerification/dependencyUnavailable.ts`,
+      `${sdk}/data/keyingProjectionVerification/error.ts`,
+      `${sdk}/data/keyingProjectionVerification/types.ts`,
+      `${sdk}/data/keying/`,
+      `${sdk}/data/persistence/keyingCheckpoints/keyingCheckpointPersistence.ts`,
+    ],
   },
   {
     name: "Security Incident Detection",
@@ -176,6 +271,10 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/client/securityIncidents/`,
       `${sdk}/data/shared/securityIncidents.ts`,
       `${sdk}/data/persistence/securityIncidentPersistence.ts`,
+    ],
+    surface: [
+      `${sdk}/client/securityIncidents/index.ts`,
+      `${sdk}/data/shared/securityIncidents.ts`,
     ],
   },
   {
@@ -205,6 +304,15 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/client/runtime/`,
       `${sdk}/client/host/`,
       `${sdk}/index.ts`,
+    ],
+    surface: [
+      `${sdk}/Tearleads.ts`,
+      `${sdk}/TearleadsOptions.ts`,
+      `${sdk}/index.ts`,
+      `${sdk}/client/index.ts`,
+      `${sdk}/client/host/`,
+      `${sdk}/client/runtime/database.ts`,
+      `${sdk}/client/runtime/workflowRuntime.ts`,
     ],
   },
 ];

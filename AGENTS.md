@@ -220,13 +220,13 @@ A **subsystem** is a stable proper noun for a slice of the system a developer
 reasons about as one unit (e.g. `Containers`, `Realtime Sync`, `Access Plane &
 Keying`). Use it in PRs and review to say where a feature lives and who owns it.
 
-A subsystem is **descriptive, not a new enforcement axis**. It indexes paths
-that already exist and may deliberately span several layers (`Containers` covers
-its routes, its service facade, and its transaction-orchestration workflows).
-Import direction stays enforced by the lanes/layers/planes in
-`dependency-cruiser.config.ts`. The registry lives in `scripts/architecture/subsystems.ts`
-and `docs/subsystems.md`; `bun run lint:architecture` fails if a production file
-maps to zero or more than one subsystem, or if the manifest and docs drift.
+A subsystem indexes existing paths and may span layers (`Containers` covers its
+routes, service facade, and workflows). Import direction stays enforced by the
+lanes/layers/planes in `dependency-cruiser.config.ts`. A subsystem declaring a
+`surface` (client SDK rows) is a boundary: other subsystems import only those
+files. The registry is `scripts/architecture/subsystems.ts` plus
+`docs/subsystems.md`; `bun run lint:architecture` fails if a file maps to zero or
+several subsystems, manifest and docs drift, or an import skips a surface.
 Registered: `packages/api`, `packages/client-sdk`, and `packages/app`.
 
 ### Boundary vocabulary axes
