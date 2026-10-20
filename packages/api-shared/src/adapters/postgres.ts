@@ -8,6 +8,7 @@ import pg from "pg";
 import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
 import { databaseStatementLogger } from "./databaseStatementCounter";
+import { timeDatabaseClient } from "./databaseWaitTiming";
 import {
   type ApiDatabaseEnv,
   createPostgresPoolConfig,
@@ -56,7 +57,11 @@ function sqliteMigrationsFolder(): string {
 
 function createMemoryApiDatabase(): ManagedApiDatabase {
   const client = new PGlite({ dataDir: "memory://", debug: 0 });
-  const db = drizzle({ client, schema, logger: databaseStatementLogger });
+  const db = drizzle({
+    client: timeDatabaseClient(client),
+    schema,
+    logger: databaseStatementLogger,
+  });
 
   return {
     db: withDatabaseTransactionCompletion(db),
@@ -83,7 +88,7 @@ function createPostgresApiDatabase(
     ),
   );
   const db = drizzleNodePostgres({
-    client: pool,
+    client: timeDatabaseClient(pool),
     schema,
     logger: databaseStatementLogger,
   });
