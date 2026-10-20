@@ -5,6 +5,13 @@ Toolchain versions live in `.mise.toml`; Terraform provider constraints and
 lockfiles live beside each stack. Native dependency lockfiles and SQLite build
 checksums are checked in with their owning packages.
 
+Linux and macOS CI install each job's required tools from `.mise.toml` and
+`mise.lock` through the pinned mise action. Keep Bun's `packageManager`
+declaration aligned with its mise pin. Ruby keeps `ruby/setup-ruby` for Bundler
+caching, and npm trusted publishing keeps `actions/setup-node`. Windows jobs
+keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since the mise
+lockfile currently covers macOS arm64 and Linux x64, not Windows.
+
 ## Current constraints
 
 The compatibility decisions come from [#2225](https://github.com/a2f0/tearleads/pull/2225)
