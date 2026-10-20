@@ -106,7 +106,7 @@ for the exact-length rule.
 | Outgoing updates per request | 64 (`MAX_DOCUMENT_SYNC_OUTGOING_UPDATES`) | SDK: `data/sync/documentSyncOutgoingBatch.ts`. | Pagination. |
 | Authorization paths per request | 64 (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATHS`), each at most 100 deep, so 6,400 path refs (`MAX_DOCUMENT_SYNC_AUTHORIZATION_PATH_REFS`) | Validators; derived from the structural limits so every valid link set stays syncable after later moves deepen its paths. | Refusal. |
 | Content-key targets per document | 64 (`MAX_DOCUMENT_SYNC_CONTENT_KEY_TARGETS`) | API create and link validation; SDK link preflight in `workflows/documents/linkSet/`. | Refusal at link time, so no document can be created that does not fit the sync contract. |
-| Response page | 48 MiB (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES`), of which 16 MiB is envelope (`MAX_DOCUMENT_SYNC_RESPONSE_ENVELOPE_BYTES`) | API. Sized to carry the largest accepted atomic rotation baseline plus its signed metadata, while the page and its serialized copy both fit the 128 MB Workers isolate. | Pagination. |
+| Response page | 48 MiB (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_BYTES`), of which 16 MiB is envelope (`MAX_DOCUMENT_SYNC_RESPONSE_ENVELOPE_BYTES`) | API. Sized to carry the largest accepted atomic rotation baseline plus its signed metadata, while the page and its serialized copy both fit the 128 MB Workers isolate. A page is sized from stored byte lengths before it loads, so it holds at most the 32 MiB update share plus 64 entries' fixed-size fields. | Pagination. |
 | Updates per response page | 64 (`MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES`) | API. | Pagination via the pull cursor. |
 | Pull cursor length | 512 (`MAX_DOCUMENT_SYNC_PULL_CURSOR_LENGTH`) | Validators. | Refusal. |
 

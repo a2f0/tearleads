@@ -1,5 +1,5 @@
 import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
-import { type SQL, sql } from "drizzle-orm";
+import { type SQL, type SQLWrapper, sql } from "drizzle-orm";
 
 export function isSqliteApiDatabase(): boolean {
   const kind = getDefaultApiDatabaseKind();
@@ -30,6 +30,24 @@ export function uuidExpression(expression: SQL): SQL {
 
 export function intExpression(expression: SQL): SQL {
   return isSqliteApiDatabase() ? expression : sql`${expression}::int`;
+}
+
+// UTF-8 byte length of a text value. Postgres reads it from the stored datum
+// without detoasting; SQLite's cast form also works on Turso's libSQL.
+export function textByteLengthExpression(expression: SQLWrapper): SQL {
+  return isSqliteApiDatabase()
+    ? sql`length(cast(${expression} as blob))`
+    : sql`octet_length(${expression})`;
+}
+
+// At most the UTF-8 bytes of a stored JSON value's compact serialization.
+// SQLite stores that text itself. Postgres renders jsonb with a space after
+// every ':' and ','; dropping each such pair, even inside a string, can only
+// undercount.
+export function jsonByteFloorExpression(expression: SQLWrapper): SQL {
+  return isSqliteApiDatabase()
+    ? sql`length(cast(${expression} as blob))`
+    : sql`octet_length(replace(replace(${expression}::text, ', ', ','), ': ', ':'))`;
 }
 
 export function nowExpression(): SQL {

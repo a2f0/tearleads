@@ -9,6 +9,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
+import { asc, eq } from "drizzle-orm";
 import { insertDocumentUpdateSpans } from "./documentUpdateSpans";
 import {
   assertMinLsnSatisfied,
@@ -275,6 +276,65 @@ test("document update pages budget serialized metadata, not only ciphertext", as
 
   expect(page.updates.map(({ id }) => id)).toEqual(updateIds.slice(0, 1));
   expect(page.hasMore).toBe(true);
+});
+
+test("byte floors never cut a page short of its exact serialized trim", async () => {
+  const documentId = await createStoredDocument();
+  const sizes = [1, 700, 40, 1_500, 3, 900];
+  const updateIds: string[] = [];
+  for (const [index, size] of sizes.entries()) {
+    const id = crypto.randomUUID();
+    updateIds.push(id);
+    await insertStoredUpdate({
+      authorFingerprint: `author-${"✓".repeat(index * 50)}`,
+      documentId,
+      encryptedData: "e".repeat(size),
+      id,
+      insertSpans: false,
+      partialEndVersionVector: `end-${"v".repeat(size % 300)}`,
+      partialStartVersionVector: `start-${index}`,
+    });
+  }
+  const rowBytes = (
+    await db
+      .select()
+      .from(documentUpdates)
+      .where(eq(documentUpdates.documentId, documentId))
+      .orderBy(asc(documentUpdates.sequence))
+  ).map((row) => Buffer.byteLength(JSON.stringify(row), "utf8"));
+  const upperBoundSequence = await readDocumentUpdateSequenceUpperBound(
+    db,
+    documentId,
+  );
+  const allRowsBytes =
+    rowBytes.reduce((sum, bytes) => sum + bytes, 0) + rowBytes.length + 1;
+  for (
+    let ceiling = (rowBytes[0] ?? 0) + 2;
+    ceiling <= allRowsBytes;
+    ceiling += 97
+  ) {
+    // The exact trim over every row, as a page loaded one row at a time.
+    let usedBytes = 2;
+    let fitting = 0;
+    for (const bytes of rowBytes) {
+      const addedBytes = bytes + (fitting === 0 ? 0 : 1);
+      if (usedBytes + addedBytes > ceiling) break;
+      usedBytes += addedBytes;
+      fitting += 1;
+    }
+    const page = await listMissingDocumentUpdatePage(db, {
+      afterSequence: 0,
+      documentId,
+      localVersionVector: null,
+      maxSerializedBytes: ceiling,
+      maxUpdates: 64,
+      upperBoundSequence,
+    });
+    expect(page.updates.map(({ id }) => id)).toEqual(
+      updateIds.slice(0, fitting),
+    );
+    expect(page.hasMore).toBe(fitting < updateIds.length);
+  }
 });
 
 test("listMissingDocumentUpdates rejects unsatisfied minLsn reads", async () => {
