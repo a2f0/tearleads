@@ -68,6 +68,7 @@ const ignoredPathPatterns = [
   /^playwright-report\//,
   /^scripts\/checks\/lintSourceShape\.ts$/,
   /^scripts\/checks\/sourceShapeBaseline\.json$/,
+  /^scripts\/architecture\/subsystemSurfaceBaseline\.json$/,
   /^test-results\//,
   /\.min\.js$/,
   /\.map$/,
