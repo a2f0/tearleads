@@ -200,7 +200,8 @@ failed attach enqueues the birth alone. A write that advances the marker, a
 reset, or a failed initialization also lifts the wait, and a caller that gives
 up before attaching releases it with `attachFiles([])`. The store factories
 take that option, with `remoteSyncMode`, as a trailing
-`DocumentStoreOpenOptions` object.
+`DocumentStoreOpenOptions` object. Its `initialStructuredFields` and
+`initialRows` join the birth update when the open creates the record.
 
 The `blobs` facade also exports encrypted local blob store helpers, including
 `createLazyEncryptedBlobStore` for hosts that load encryption keys from an async

@@ -45,6 +45,7 @@ import {
   isDocumentStoreSyncGenerationCurrent,
   markDocumentStoreRemoteSyncPending,
 } from "../sync/syncGeneration";
+import { writeInitialDocumentContent } from "./initialContent";
 import {
   installPersistedAttachments,
   type LoadedDocumentStoreState,
@@ -71,11 +72,13 @@ async function createInitialDocumentRecord(
   if (state.initialText.length > 0) {
     nextDoc.getText("text").update(state.initialText);
   }
+  const wroteInitialContent = writeInitialDocumentContent(state, nextDoc);
   const initialDocumentState = readStoredDocumentState(
     nextDoc,
     state.runtime.infra.documentProjectors,
   );
   const hasInitialContent =
+    wroteInitialContent ||
     state.initialText.length > 0 ||
     state.initialDocumentKind !== DEFAULT_DOCUMENT_KIND;
   const initialUpdate = hasInitialContent

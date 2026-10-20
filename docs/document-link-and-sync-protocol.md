@@ -27,7 +27,10 @@ KEK targets.
 A create may also carry an `initialSync` seed (#2585): a `DocumentSyncRequest`
 holding exactly one outgoing update and no container rekeys, whose start is
 empty and whose `localVersionVector` is the update's end. It is the client's one
-queued update that holds the new document's whole content. The API commits the
+queued update that holds the new document's whole content. Content known at
+creation (a contact's names, an imported file's fields and rows) is opened into
+that birth update rather than written after it, so such a document qualifies.
+The API commits the
 seed in the create transaction under the same write-header, target, and billing
 checks as a standalone sync, so a seed a sync would refuse fails the create, and
 nothing commits. The response's `initialSync` names the accepted update id and

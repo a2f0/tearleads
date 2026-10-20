@@ -187,6 +187,11 @@ gives up before attaching must call `attachFiles([])` to release the wait. The
 factories take the option, with `remoteSyncMode`, in a trailing
 `DocumentStoreOpenOptions` object.
 
+`initialStructuredFields` and `initialRows`, on the same options and on both
+`openDocument` inputs, put content known at creation into the birth update
+beside the kind and text, so the first sync can send it inside the create. A
+record that already exists ignores them; fields need a non-note kind.
+
 For bounded UI hydration, resolve `localId` with
 `tearleads.documents.findLocalIdByDocumentId(documentId)`, open with
 `remoteSyncMode: "on-demand"`, and await `requestRemoteSyncAndWait(signal)`.

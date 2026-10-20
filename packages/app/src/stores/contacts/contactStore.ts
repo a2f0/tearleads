@@ -79,6 +79,8 @@ async function writeContactPatch(
   options: {
     readonly deferRemoteSync?: boolean | undefined;
     readonly guard?: ContactStoreOperationGuard | undefined;
+    /** A contact this write creates opens with the patch as its birth. */
+    readonly seedBirth?: boolean | undefined;
   } = {},
 ): Promise<void> {
   const guard = options.guard ?? allowContactStoreOperation;
@@ -86,17 +88,20 @@ async function writeContactPatch(
     return;
   }
   contactId = resolveContactWriteTarget(state, contactId);
-  const store = ensureContactDocumentStore(state, contactId, options);
+  const fields = contactEntryToStructuredFieldPatch(patch);
+  const store = ensureContactDocumentStore(state, contactId, {
+    deferRemoteSync: options.deferRemoteSync,
+    ...(options.seedBirth ? { initialFields: fields } : {}),
+  });
   const snapshot = store.getSnapshot();
   if (snapshot.ready && !snapshot.canWrite) {
     return;
   }
 
-  await store.setStructuredFields(
-    "contact",
-    contactEntryToStructuredFieldPatch(patch),
-    { deferRemoteSync: options.deferRemoteSync },
-  );
+  // A no-op after a seeded birth (equal values); applies to existing records.
+  await store.setStructuredFields("contact", fields, {
+    deferRemoteSync: options.deferRemoteSync,
+  });
   if (!guard()) {
     return;
   }
@@ -116,7 +121,7 @@ async function createContactFromRuntime(
 
   const contactId = createDocumentDraft({ documentKind: "contact" }).id;
   await queueContactWrite(state, "Contacts: failed to create contact.", () =>
-    writeContactPatch(state, contactId, patch),
+    writeContactPatch(state, contactId, patch, { seedBirth: true }),
   );
   return contactId;
 }
@@ -279,11 +284,17 @@ async function importKeyFromRuntime(
         encapsulationPublicKey: userIdentity.encapsulationPublicKey,
         userId: userIdentity.userId,
       });
-      await writeContactPatch(state, importedContactId, {
-        encapsulationPublicKey: userIdentity.encapsulationPublicKey,
-        isSelf,
-        userId: userIdentity.userId,
-      });
+      // The self contact keeps its own two-step bootstrap semantics.
+      await writeContactPatch(
+        state,
+        importedContactId,
+        {
+          encapsulationPublicKey: userIdentity.encapsulationPublicKey,
+          isSelf,
+          userId: userIdentity.userId,
+        },
+        { seedBirth: !isSelf },
+      );
       if (isSelf && identity) {
         await removeDuplicateSelfContacts(
           state,

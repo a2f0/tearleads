@@ -36,11 +36,16 @@ import {
   type PendingUpdateInsert,
   resolveDocumentCreateAuthor,
 } from "../../../workflows/documents";
-import type { DocumentSnapshot, DocumentsRuntime } from "../types";
+import type {
+  DocumentSnapshot,
+  DocumentStoreOpenOptions,
+  DocumentsRuntime,
+} from "../types";
 import {
   getAttachmentStatuses,
   getAttachmentStorageKeys,
 } from "./attachments/attachmentSnapshot";
+import { sameValidationIssues, shallowEqualRecord } from "./snapshotEquality";
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
   DocumentsRuntime["crypto"]["encapsulationKeyPair"]
@@ -119,6 +124,11 @@ export interface DocumentStoreState {
   doc: DocumentState | null;
   effects: DocumentStorePersistenceEffects;
   initialDocumentId: string | null;
+  /** Fields and rows a created record starts with; see `initialContent.ts`. */
+  initialContent?: Pick<
+    DocumentStoreOpenOptions,
+    "initialRows" | "initialStructuredFields"
+  >;
   initialDocumentKind: StoredDocumentKind;
   initialText: string;
   initializePromise: Promise<void> | null;
@@ -202,47 +212,6 @@ const EMPTY_DOCUMENT_SNAPSHOT: DocumentSnapshot = {
   title: "",
   syncing: false,
 };
-function shallowEqualRecord<Value>(
-  left: Readonly<Record<string, Value>>,
-  right: Readonly<Record<string, Value>>,
-): boolean {
-  let leftKeyCount = 0;
-  for (const key in left) {
-    if (!Object.hasOwn(left, key)) continue;
-
-    leftKeyCount += 1;
-    if (!Object.hasOwn(right, key) || !Object.is(left[key], right[key])) {
-      return false;
-    }
-  }
-
-  let rightKeyCount = 0;
-  for (const key in right) {
-    if (Object.hasOwn(right, key)) {
-      rightKeyCount += 1;
-    }
-  }
-
-  return leftKeyCount === rightKeyCount;
-}
-
-function sameValidationIssues(
-  left: DocumentSnapshot["fieldValidationIssues"],
-  right: DocumentSnapshot["fieldValidationIssues"],
-): boolean {
-  return (
-    left.length === right.length &&
-    left.every((issue, index) => {
-      const nextIssue = right[index];
-      return (
-        nextIssue !== undefined &&
-        issue.field === nextIssue.field &&
-        issue.message === nextIssue.message &&
-        Object.is(issue.value, nextIssue.value)
-      );
-    })
-  );
-}
 
 export function createDocumentStoreState(
   localId: string,
