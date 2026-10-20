@@ -15,6 +15,11 @@ import {
 } from "./diagnostics/apiVersion";
 import { createApiErrorHandler } from "./diagnostics/errorHandler";
 import { reportBackgroundFailure } from "./diagnostics/reportBackgroundFailure";
+import {
+  createRequestCostMiddleware,
+  readApiRequestCostLog,
+  serverTimingHeaderName,
+} from "./diagnostics/requestCost";
 import type { SessionEnv } from "./middleware/session";
 import type { PublishedRealtimeEvent } from "./realtime/publishedRealtimeEvents";
 import {
@@ -46,6 +51,8 @@ interface RouteAppOptions {
   readonly billingReturnOrigins?: readonly string[] | undefined;
   /** The origin login challenges must be signed for; see `apiPublicOrigin`. */
   readonly publicOrigin?: string | null | undefined;
+  /** Log one cost line per request; see `diagnostics/requestCost`. */
+  readonly requestCostLog?: boolean | undefined;
 }
 
 const API_CORS_ALLOW_HEADERS = [
@@ -55,6 +62,7 @@ const API_CORS_ALLOW_HEADERS = [
 ];
 const API_CORS_EXPOSE_HEADERS = [
   apiVersionHeaderName,
+  serverTimingHeaderName,
   ...new Set(
     protocolOperations.flatMap((operation) =>
       operationResponseHeaderNames(operation),
@@ -252,6 +260,14 @@ export function createRouteApp(
     routeApp.use("*", createApiVersionMiddleware(apiVersion));
   }
   routeApp.use("*", createApiCorsMiddleware(corsOrigins));
+  // Inside CORS, so answered preflights are neither timed nor logged; outside
+  // the read-model hints, whose verification queries belong to the request.
+  routeApp.use(
+    "*",
+    createRequestCostMiddleware({
+      log: options.requestCostLog ?? readApiRequestCostLog(),
+    }),
+  );
   routeApp.use("*", createReadModelHintMiddleware(deps.publish, deps.runtime));
 
   mountRouters(

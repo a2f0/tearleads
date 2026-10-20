@@ -15,6 +15,8 @@
   // transaction. CPU time is a fraction of its wall time, but the default
   // 30 s ceiling leaves no margin for verification-heavy requests.
   "limits": { "cpu_ms": 120000 },
+  // Deployed tiers also log one request-cost line per request; see
+  // docs/developer/api-request-cost.md.
   "observability": { "enabled": true },
   // Workers forbid compiling WebAssembly at runtime; the Loro alias target
   // initializes its web build from the module Wrangler compiles. The other
@@ -67,6 +69,7 @@
         { "binding": "HYPERDRIVE", "id": "HYPERDRIVE_ID_staging" }
       ],
       "vars": {
+        "API_REQUEST_COST_LOG": "true",
         "API_SENTRY_ENVIRONMENT": "staging",
         "BLOB_OBJECT_STORE": "s3",
         "BLOB_OBJECT_STORE_S3_BUCKET": "tearleads-blobs-staging",
@@ -90,6 +93,7 @@
       // deployApi.sh fills this from the tier's Terraform hyperdrive_id output.
       "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "HYPERDRIVE_ID_prod" }],
       "vars": {
+        "API_REQUEST_COST_LOG": "true",
         "API_SENTRY_ENVIRONMENT": "production",
         "BLOB_OBJECT_STORE": "s3",
         "BLOB_OBJECT_STORE_S3_BUCKET": "tearleads-blobs-prod",
