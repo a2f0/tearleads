@@ -10,7 +10,7 @@ through the pinned mise action. Keep Bun's `packageManager` declaration aligned
 with its mise pin. Ruby keeps `ruby/setup-ruby` for Bundler caching, and npm
 trusted publishing keeps `actions/setup-node`. Windows jobs keep
 `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since the mise
-lockfile currently covers macOS arm64 and Linux, not Windows.
+lockfile currently covers macOS arm64 and Linux x64, not Windows.
 
 ## Current constraints
 
