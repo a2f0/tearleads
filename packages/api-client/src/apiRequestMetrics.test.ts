@@ -33,6 +33,9 @@ test("aggregates concurrent attempts by endpoint and identity with immutable sna
       succeeded: 1,
       failed: 1,
       cancelled: 0,
+      duration: expect.objectContaining({ samples: 2 }),
+      serverDuration: null,
+      databaseDuration: null,
     },
   ]);
   expect(metrics.getSnapshot("bob").total).toBe(1);
