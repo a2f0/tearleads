@@ -40,7 +40,8 @@ production structural lanes currently request immediate work only.
 
 The coordinator also maintains cached read-only telemetry snapshots. A snapshot
 contains lane phase, status, request/run/error counts, last action timestamps,
-the last handled error message, and an optional blob storage key for navigation.
+monotonic run durations (last, max, total, and how many runs were timed), the
+last handled error message, and an optional blob storage key for navigation.
 It is for diagnostics and UI observation only; callers still trigger sync
 through the lane owners. Manual Sync requests only pump-driven structural and
 document lanes. It never executes an observational blob row or fabricates a

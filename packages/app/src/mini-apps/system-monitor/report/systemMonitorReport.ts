@@ -20,6 +20,7 @@ import {
   type SystemStatusSnapshot,
 } from "../../../shell/pane/status/useSystemStatusSnapshot";
 import { BILLING_PURCHASE_TRACE_FRAGMENT } from "../../../utils/billingPurchaseTrace";
+import { formatDurationMs } from "../../../utils/formatDurationMs";
 import type { EnvironmentRow } from "../environment/useSystemEnvironment";
 import { formatApiRequestReport } from "../requests/apiRequestReport";
 import { formatTable } from "./reportTables";
@@ -368,6 +369,16 @@ function formatSyncLaneProgress(
   return `${progress.bytesUploaded} / ${progress.bytesTotal} bytes, ${progress.partsCompleted} / ${progress.partsTotal} parts`;
 }
 
+function formatSyncLaneRunDurations(
+  durations: SyncLaneSnapshot["runDurations"],
+): string {
+  if (!durations) {
+    return "-";
+  }
+  const average = formatDurationMs(durations.totalMs / durations.count);
+  return `last ${formatDurationMs(durations.lastMs)}, average ${average}, max ${formatDurationMs(durations.maxMs)}, total ${formatDurationMs(durations.totalMs)} over ${durations.count} timed run(s)`;
+}
+
 function formatSyncLane(lane: SyncLaneSnapshot): ReadonlyArray<string> {
   const details = formatTable(
     ["Field", "Value"],
@@ -386,6 +397,7 @@ function formatSyncLane(lane: SyncLaneSnapshot): ReadonlyArray<string> {
       ["Error Count", String(lane.errorCount)],
       ["Request Count", String(lane.requestCount)],
       ["Run Count", String(lane.runCount)],
+      ["Run Durations", formatSyncLaneRunDurations(lane.runDurations)],
       ["Registration Index", String(lane.registrationIndex)],
       ["Progress", formatSyncLaneProgress(lane.progress)],
       ["Blob Storage Key", formatRedactedPresence(lane.blobStorageKey)],

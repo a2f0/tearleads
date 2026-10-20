@@ -33,6 +33,7 @@ const SNAPSHOT: DomainSyncSnapshot = {
       requested: true,
       runAbandoned: false,
       runCount: 0,
+      runDurations: null,
       running: false,
       status: "queued",
     },

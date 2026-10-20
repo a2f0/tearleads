@@ -437,6 +437,7 @@ export const subsystems: readonly Subsystem[] = [
       `${sdk}/client/host/`,
       `${sdk}/data/shared/errorMessage.ts`,
       `${sdk}/data/shared/recordReaders.ts`,
+      `${sdk}/data/shared/userTiming.ts`,
       `${sdk}/index.ts`,
       `${sdk}/workflows/shared/`,
     ],

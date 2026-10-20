@@ -24,6 +24,18 @@ export interface SyncLaneProgress {
   partsTotal: number;
 }
 
+/**
+ * Monotonic durations of a lane's settled runs. A run abandoned by its
+ * watchdog is counted when it finally settles, with its real duration; the
+ * watchdog verdict itself records none, since the run had not finished.
+ */
+export interface SyncLaneRunDurations {
+  count: number;
+  lastMs: number;
+  maxMs: number;
+  totalMs: number;
+}
+
 export interface SyncLaneSnapshot {
   /** Storage key used to open the associated blob, when this is a blob lane. */
   blobStorageKey: string | null;
@@ -44,6 +56,8 @@ export interface SyncLaneSnapshot {
   requested: boolean;
   runAbandoned: boolean;
   runCount: number;
+  /** Null until a run settles. */
+  runDurations: SyncLaneRunDurations | null;
   running: boolean;
   status: SyncLaneStatus;
 }
@@ -78,6 +92,7 @@ interface SyncLaneTelemetryState {
   requested: boolean;
   runAbandoned: boolean;
   runCount: number;
+  runDurations: SyncLaneRunDurations | null;
   running: boolean;
 }
 
@@ -100,6 +115,19 @@ interface SyncLaneOrderInput {
 
 export function createSyncTimestamp(): string {
   return new Date().toISOString();
+}
+
+// Returns a new object, so a published snapshot can share it safely.
+export function addSyncLaneRunDuration(
+  durations: SyncLaneRunDurations | null,
+  durationMs: number,
+): SyncLaneRunDurations {
+  return {
+    count: (durations?.count ?? 0) + 1,
+    lastMs: durationMs,
+    maxMs: Math.max(durations?.maxMs ?? 0, durationMs),
+    totalMs: (durations?.totalMs ?? 0) + durationMs,
+  };
 }
 
 function getSyncLanePhaseRank(state: SyncLaneOrderInput): number {
@@ -160,6 +188,7 @@ function createSyncLaneSnapshot(
     requested: state.requested,
     runAbandoned: state.runAbandoned,
     runCount: state.runCount,
+    runDurations: state.runDurations,
     running: state.running,
     status: getSyncLaneStatus(state),
   };

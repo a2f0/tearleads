@@ -23,6 +23,7 @@ import {
   ExplorerSyncLaneStatusBadge,
 } from "./ExplorerSyncLaneShared";
 import {
+  formatSyncLaneRunDuration,
   getSyncLaneCompactLabel,
   getSyncLanePhaseLabel,
 } from "./ExplorerSyncLaneUtils";
@@ -33,6 +34,7 @@ type SyncLaneListColumnId =
   | "progress"
   | "last-action"
   | "counts"
+  | "last-run"
   | "status";
 
 const SYNC_LANE_LIST_COLUMN_IDS: ReadonlyArray<SyncLaneListColumnId> = [
@@ -41,6 +43,7 @@ const SYNC_LANE_LIST_COLUMN_IDS: ReadonlyArray<SyncLaneListColumnId> = [
   "progress",
   "last-action",
   "counts",
+  "last-run",
   "status",
 ];
 
@@ -58,6 +61,7 @@ const SYNC_LANE_TOGGLEABLE_COLUMN_IDS: ReadonlyArray<SyncLaneListColumnId> = [
   "progress",
   "last-action",
   "counts",
+  "last-run",
   "status",
 ];
 
@@ -76,6 +80,8 @@ function getSyncLaneListColumnLabel(id: SyncLaneListColumnId): string {
       return EXPLORER_LABELS.syncLanesLastActionColumn;
     case "counts":
       return EXPLORER_LABELS.syncLanesCountsColumn;
+    case "last-run":
+      return EXPLORER_LABELS.syncLanesLastRunColumn;
     case "status":
       return EXPLORER_LABELS.syncLanesStatusColumn;
   }
@@ -111,6 +117,7 @@ const SYNC_LANE_COLUMN_WIDTH_REM: Record<SyncLaneListColumnId, number> = {
   progress: 11,
   "last-action": 12,
   counts: 12,
+  "last-run": 7,
   status: 7,
 };
 
@@ -194,6 +201,12 @@ function renderSyncLaneCell(params: {
             requestCount: lane.requestCount,
             runCount: lane.runCount,
           })}
+        </MiniAppTableCell>
+      );
+    case "last-run":
+      return (
+        <MiniAppTableCell key="last-run">
+          {formatSyncLaneRunDuration(lane, (durations) => durations.lastMs)}
         </MiniAppTableCell>
       );
     case "status":

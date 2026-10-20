@@ -47,8 +47,8 @@ other file there.
   workflows.
 - `shared/` holds only contracts and helpers every layer uses with no
   subsystem of their own: `DomainScope`, the `SecurityIncidentReporter` port,
-  `errorMessage`, and record readers. A helper one subsystem uses goes in that
-  subsystem's folder instead.
+  `errorMessage`, record readers, and User Timing marks. A helper one
+  subsystem uses goes in that subsystem's folder instead.
 - `blobs/`, `contacts/`, `persistence/`, `sqlite/`, and `sync/` are internal
   to stores. A store reaches a module there through the matching workflow
   facade, such as `workflows/blobs` or `workflows/sync`.

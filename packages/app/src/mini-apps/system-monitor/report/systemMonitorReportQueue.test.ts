@@ -92,6 +92,7 @@ function createLane(
     requested: false,
     runAbandoned: false,
     runCount: 3,
+    runDurations: null,
     running: false,
     status: "complete",
     ...overrides,
@@ -315,6 +316,7 @@ test("report serializes sync-lane state without free-text diagnostics", () => {
             partsCompleted: 1,
             partsTotal: 4,
           },
+          runDurations: { count: 2, lastMs: 120, maxMs: 1_500, totalMs: 1_620 },
           status: "error",
         }),
       ],
@@ -329,6 +331,9 @@ test("report serializes sync-lane state without free-text diagnostics", () => {
   expect(report).toContain("| Last Error | [redacted] |");
   expect(report).toContain("| Error Count | 2 |");
   expect(report).toContain("| Progress | 10 / 100 bytes, 1 / 4 parts |");
+  expect(report).toContain(
+    "| Run Durations | last 120 ms, average 810 ms, max 1.5 s, total 1.6 s over 2 timed run(s) |",
+  );
   expect(report).toContain("| Blob Storage Key | [redacted] |");
 });
 
