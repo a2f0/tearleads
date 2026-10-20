@@ -1,4 +1,7 @@
-import type { DocumentStore } from "@tearleads/client-sdk";
+import type {
+  DocumentStore,
+  DocumentStructuredFieldPatch,
+} from "@tearleads/client-sdk";
 import { loadProjectedContacts } from "./contactProjection";
 import { sortContactEntries } from "./contactSnapshot";
 import { contactEntryFromDocumentStore } from "./contactStoreLookup";
@@ -19,7 +22,11 @@ export function hasContactsContainerRuntime(
 export function ensureContactDocumentStore(
   state: ContactsStoreState,
   contactId: string,
-  options: { readonly deferRemoteSync?: boolean | undefined } = {},
+  options: {
+    readonly deferRemoteSync?: boolean | undefined;
+    /** Fields a contact created by this open starts with, in its birth. */
+    readonly initialFields?: DocumentStructuredFieldPatch | undefined;
+  } = {},
 ): DocumentStore {
   const existing = state.contactDocumentStoresById.get(contactId);
   if (existing) {
@@ -32,7 +39,12 @@ export function ensureContactDocumentStore(
     documentId: null,
     initialText: "",
     localId: contactId,
-    ...(options.deferRemoteSync ? {} : { initialDocumentKind: "contact" }),
+    ...(options.deferRemoteSync
+      ? {}
+      : {
+          initialDocumentKind: "contact",
+          initialStructuredFields: options.initialFields,
+        }),
   });
   const unsubscribe = store.subscribe(() => {
     const entry = contactEntryFromDocumentStore(contactId, store);

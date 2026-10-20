@@ -2,45 +2,32 @@ import { encodeVersionVector } from "@tearleads/loro";
 import {
   addDocumentRow,
   createDocumentRowId,
-  type DocumentRowAttribution,
   removeDocumentRow,
   setDocumentRowFields,
-} from "../../../data/documents/documentRowList";
-import { createPendingUpdateFields } from "../../../data/documents/documentSync";
-import { resolveDocumentCreateAuthor } from "../../../workflows/documents";
-import { requestDocumentStoreSync } from "../registry";
-import { ensureDocumentStoreReady } from "./initialization";
-import { revalidateDocumentMutationIdentity } from "./mutationIdentityRevalidation";
+} from "../../../../data/documents/documentRowList";
+import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import { requestDocumentStoreSync } from "../../registry";
+import { ensureDocumentStoreReady } from "../initialization";
+import { revalidateDocumentMutationIdentity } from "../mutationIdentityRevalidation";
 import {
   advancePendingBaseVersion,
   pendingDeltaSinceBase,
   persistDocument,
-} from "./persistence";
-import { reportDocumentStoreWriteFailure } from "./reportWriteFailure";
+} from "../persistence";
+import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canWriteDocument,
   type DocumentState,
   type DocumentStoreState,
-} from "./state";
+} from "../state";
 import {
   captureDocumentStoreSyncGeneration,
   isDocumentStoreSyncGenerationCurrent,
-} from "./sync/syncGeneration";
+} from "../sync/syncGeneration";
+import { resolveRowAttribution } from "./rowAttribution";
 
 // Fixed literal: a reported message must never carry row ids or field values.
 const ROW_FAILURE_MESSAGE = "Documents: row mutation failed";
-
-// Stamp each row write with the local signing identity (or "" when
-// unauthenticated) and an ISO timestamp, matching the keys the edit-attribution
-// layer resolves against.
-function resolveRowAttribution(
-  state: DocumentStoreState,
-): DocumentRowAttribution {
-  return {
-    at: new Date().toISOString(),
-    userId: resolveDocumentCreateAuthor(state.runtime)?.signerUserId ?? "",
-  };
-}
 
 async function persistRowMutation(
   state: DocumentStoreState,

@@ -32,7 +32,7 @@ export const PDF_UPLOAD: DocumentAttachmentUpload = {
 
 // Offline, so no sync pass can materialize the deferred birth on its own; a
 // key pair stand-in makes `canAttachFiles` true unless the test drops it.
-function offlineAttachRuntime(input: {
+export function offlineAttachRuntime(input: {
   blobStore: BlobStore;
   canAttach: boolean;
   execSql: DocumentsRuntime["infra"]["execSql"];

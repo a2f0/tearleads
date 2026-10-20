@@ -36,6 +36,7 @@ import {
   ensureDocumentStoreReady,
   relinkDocumentStore,
 } from "./initialization";
+import { assertInitialContentFitsKind } from "./initialization/initialContent";
 import { registerInternalDocumentRelink } from "./internalRelink";
 import { setDocumentStructuredFields, setDocumentText } from "./mutations";
 import { assertDocumentStoreCanRotateContentKey } from "./rotation";
@@ -312,6 +313,9 @@ function createBackingStoreContext(
     (options.remoteSyncMode ?? "startup") === "startup",
   );
   if (options.deferInitialUpdate) state.deferInitialUpdate = true;
+  const { initialRows, initialStructuredFields } = options;
+  assertInitialContentFitsKind({ initialStructuredFields }, documentKind);
+  state.initialContent = { initialRows, initialStructuredFields };
   refreshDocumentStoreSyncLane(state);
   const scheduleSync = () => requestDocumentStoreSync(state);
   return {

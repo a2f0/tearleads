@@ -11,6 +11,7 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   DEFAULT_DOCUMENT_ID as DEFAULT_LOCAL_DOCUMENT_ID,
   type DocumentStore,
+  type DocumentStoreOpenOptions,
   type DocumentsRuntime,
   openDocumentStore,
   type PersistedDocumentListener,
@@ -49,6 +50,9 @@ export interface OpenDocumentInput {
   readonly containerId?: string | null | undefined;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
+  /** Birth content of a created record; see `DocumentStoreOpenOptions`. */
+  readonly initialRows?: DocumentStoreOpenOptions["initialRows"];
+  readonly initialStructuredFields?: DocumentStoreOpenOptions["initialStructuredFields"];
   readonly initialText?: string | undefined;
   readonly localId?: string | undefined;
 }
@@ -155,6 +159,8 @@ class DocumentsService implements Documents {
       containerId,
       documentId = null,
       initialDocumentKind = DEFAULT_DOCUMENT_KIND,
+      initialRows,
+      initialStructuredFields,
       initialText = "",
       localId = DEFAULT_LOCAL_DOCUMENT_ID,
     } = input;
@@ -167,7 +173,11 @@ class DocumentsService implements Documents {
       documentId,
       initialText,
       initialDocumentKind,
-      { remoteSyncMode: options.remoteSyncMode },
+      {
+        initialRows,
+        initialStructuredFields,
+        remoteSyncMode: options.remoteSyncMode,
+      },
     );
   }
 

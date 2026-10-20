@@ -15,7 +15,6 @@ type ImportedDocumentFile = Awaited<
 >;
 
 interface ExplorerDroppedFileDocumentStore {
-  addRow: (fields: Readonly<Record<string, string>>) => Promise<string>;
   attachFiles: (
     files: ReadonlyArray<DocumentAttachmentUpload>,
   ) => Promise<void> | void;
@@ -26,11 +25,6 @@ interface ExplorerDroppedFileDocumentStore {
     title: string;
   };
   requestSync: () => void;
-  setStructuredFields: (
-    kind: Exclude<StoredDocumentKind, "note">,
-    patch: Readonly<Record<string, string | undefined>>,
-    options?: { deferRemoteSync?: boolean },
-  ) => Promise<void>;
   setText: (value: string) => Promise<void>;
 }
 
@@ -53,6 +47,8 @@ interface ExplorerDroppedFileImportStoreInput {
   containerId: string;
   deferInitialUpdate: boolean;
   initialDocumentKind: StoredDocumentKind;
+  initialRows: ReadonlyArray<Readonly<Record<string, string>>>;
+  initialStructuredFields: Readonly<Record<string, string>>;
   initialText: string;
   localId: string;
 }
@@ -146,8 +142,10 @@ function assertExplorerDroppedFileCanBeImported(
   }
 }
 
+// The store was opened with the file's text, fields and rows, so they are its
+// birth; this waits for that birth (the equal text writes nothing) and then
+// attaches the file, whose update carries a deferred birth with it.
 async function fillImportedDocument(input: {
-  attachmentFollows: boolean;
   importedFile: ImportedDocumentFile;
   labels: ExplorerDroppedFileImportLabels;
   store: ExplorerDroppedFileDocumentStore;
@@ -156,20 +154,6 @@ async function fillImportedDocument(input: {
   await store.setText(importedFile.initialText);
   if (!store.getSnapshot().ready) {
     throw new Error(input.labels.fileImportStoreNotReady);
-  }
-
-  if (
-    importedFile.documentKind !== "note" &&
-    Object.keys(importedFile.structuredFields).length > 0
-  ) {
-    await store.setStructuredFields(
-      importedFile.documentKind,
-      importedFile.structuredFields,
-      { deferRemoteSync: input.attachmentFollows },
-    );
-  }
-  for (const row of importedFile.rows ?? []) {
-    await store.addRow(row);
   }
   if (importedFile.attachment) {
     await store.attachFiles([importedFile.attachment]);
@@ -207,20 +191,22 @@ async function importExplorerDroppedFile(input: {
   );
   const localId = input.createLocalId();
   const importedFile = await importer.importFile(input.file);
-  // A binary file's attach follows in this call, so its update carries the
-  // birth and the metadata fields: one Loro update per uploaded file. A failed
-  // attach enqueues them on their own (see the SDK's deferred initial update).
+  // The text, fields and rows open as the birth: one Loro update per file. A
+  // binary file's attach follows in this call and carries that birth, and a
+  // failed attach enqueues it on its own (see the SDK's deferred initial update).
   const attachmentFollows = importedFile.attachment !== null;
   const store = input.createDocumentStore({
     containerId: input.containerId,
     deferInitialUpdate: attachmentFollows,
     initialDocumentKind: importedFile.documentKind,
+    initialRows: importedFile.rows ?? [],
+    initialStructuredFields:
+      importedFile.documentKind === "note" ? {} : importedFile.structuredFields,
     initialText: importedFile.initialText,
     localId,
   });
   try {
     await fillImportedDocument({
-      attachmentFollows,
       importedFile,
       labels: input.labels,
       store,
@@ -349,20 +335,7 @@ export function useExplorerDroppedFileImport(params: {
     (containerId, files, options) =>
       importExplorerDroppedFiles({
         containerId,
-        createDocumentStore: ({
-          containerId: targetContainerId,
-          deferInitialUpdate,
-          initialDocumentKind,
-          initialText,
-          localId,
-        }) =>
-          appData.openDocument({
-            containerId: targetContainerId,
-            deferInitialUpdate,
-            initialDocumentKind,
-            initialText,
-            localId,
-          }),
+        createDocumentStore: (storeInput) => appData.openDocument(storeInput),
         createLocalId: () => crypto.randomUUID(),
         files,
         labels,

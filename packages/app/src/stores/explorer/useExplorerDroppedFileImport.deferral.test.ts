@@ -15,7 +15,10 @@ interface DeferralStore {
   attachFileCounts: number[];
   deferInitialUpdate: boolean;
   documentKind: StoredDocumentKind;
+  // Writes after open; each file's fields and rows must open as its birth.
   fieldWrites: Array<{ deferRemoteSync: boolean | undefined }>;
+  initialFieldCount: number;
+  initialRowCount: number;
   rowCount: number;
 }
 
@@ -28,6 +31,8 @@ function createDeferralStoreFactory(
   return (input: {
     deferInitialUpdate: boolean;
     initialDocumentKind: StoredDocumentKind;
+    initialRows: ReadonlyArray<unknown>;
+    initialStructuredFields: Readonly<Record<string, string>>;
   }) => {
     const created: DeferralStore = {
       attachCount: 0,
@@ -35,6 +40,8 @@ function createDeferralStoreFactory(
       deferInitialUpdate: input.deferInitialUpdate,
       documentKind: input.initialDocumentKind,
       fieldWrites: [],
+      initialFieldCount: Object.keys(input.initialStructuredFields).length,
+      initialRowCount: input.initialRows.length,
       rowCount: 0,
     };
     createdStores.push(created);
@@ -87,7 +94,7 @@ function importFiles(
   });
 }
 
-test("only an attached binary file defers its birth and metadata to the attach", async () => {
+test("each file opens with its content and only an attached binary file defers it", async () => {
   const createdStores: DeferralStore[] = [];
   const result = await importFiles(
     [
@@ -102,25 +109,50 @@ test("only an attached binary file defers its birth and metadata to the attach",
   );
 
   expect(result.importedCount).toBe(4);
-  // The PDF's single attach update carries the birth and its metadata.
-  expect(createdStores.find((store) => store.documentKind === "pdf")).toEqual({
-    attachCount: 1,
-    attachFileCounts: [1],
-    deferInitialUpdate: true,
-    documentKind: "pdf",
-    fieldWrites: [{ deferRemoteSync: true }],
-    rowCount: 0,
+  const summaries = Object.fromEntries(
+    createdStores.map((store) => [
+      store.documentKind,
+      {
+        attachFileCounts: store.attachFileCounts,
+        deferInitialUpdate: store.deferInitialUpdate,
+        followUpWrites: store.fieldWrites.length + store.rowCount,
+        opensWithFields: store.initialFieldCount > 0,
+        opensWithRows: store.initialRowCount,
+      },
+    ]),
+  );
+  expect(summaries).toEqual({
+    // The PDF's single attach update carries the birth and its metadata.
+    pdf: {
+      attachFileCounts: [1],
+      deferInitialUpdate: true,
+      followUpWrites: 0,
+      opensWithFields: true,
+      opensWithRows: 0,
+    },
+    // Without an attach to carry it, every other kind's birth is its update.
+    json_file: {
+      attachFileCounts: [],
+      deferInitialUpdate: false,
+      followUpWrites: 0,
+      opensWithFields: true,
+      opensWithRows: 0,
+    },
+    env_file: {
+      attachFileCounts: [],
+      deferInitialUpdate: false,
+      followUpWrites: 0,
+      opensWithFields: true,
+      opensWithRows: 1,
+    },
+    note: {
+      attachFileCounts: [],
+      deferInitialUpdate: false,
+      followUpWrites: 0,
+      opensWithFields: false,
+      opensWithRows: 0,
+    },
   });
-  // Without an attach to carry them, every other kind enqueues at birth.
-  for (const store of createdStores.filter(
-    (candidate) => candidate.documentKind !== "pdf",
-  )) {
-    expect(store.deferInitialUpdate).toBe(false);
-    expect(store.attachCount).toBe(0);
-    for (const write of store.fieldWrites) {
-      expect(write.deferRemoteSync).toBe(false);
-    }
-  }
 });
 
 test("a cancelled import never leaves a deferred birth without its attach", async () => {

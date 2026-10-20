@@ -13,7 +13,8 @@ interface CreatedImportStore {
   initialText: string;
   ready: boolean;
   localId: string;
-  structuredFieldKind: StoredDocumentKind | null;
+  // Field or row writes after open; the content must open as the birth.
+  followUpWrites: number;
   structuredFields: Record<string, string | undefined>;
   syncRequests: number;
 }
@@ -33,29 +34,34 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
   return ({
     containerId,
     initialDocumentKind,
+    initialStructuredFields,
     initialText,
     localId,
   }: {
     containerId: string;
     initialDocumentKind: StoredDocumentKind;
+    initialStructuredFields: Readonly<Record<string, string>>;
     initialText: string;
     localId: string;
   }) => {
     const createdStore: CreatedImportStore = {
       attachments: [],
       containerId,
+      followUpWrites: 0,
       initialDocumentKind,
       initialText,
       ready: false,
       localId,
-      structuredFieldKind: null,
-      structuredFields: {},
+      structuredFields: { ...initialStructuredFields },
       syncRequests: 0,
     };
     createdStores.push(createdStore);
 
     return {
-      addRow: async () => "row-1",
+      addRow: async () => {
+        createdStore.followUpWrites += 1;
+        return "row";
+      },
       attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => {
         createdStore.attachments.push(...files);
       },
@@ -71,13 +77,8 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
       requestSync: () => {
         createdStore.syncRequests += 1;
       },
-      setStructuredFields: async (
-        kind: Exclude<StoredDocumentKind, "note">,
-        patch: Readonly<Record<string, string | undefined>>,
-      ) => {
-        createdStore.ready = true;
-        createdStore.structuredFieldKind = kind;
-        createdStore.structuredFields = { ...patch };
+      setStructuredFields: async () => {
+        createdStore.followUpWrites += 1;
       },
       setText: async (value: string) => {
         createdStore.ready = true;
@@ -128,7 +129,7 @@ test("dropped file import creates JSON documents with raw text and filename meta
       initialText: jsonText,
       localId: "local-1",
       ready: true,
-      structuredFieldKind: "json_file",
+      followUpWrites: 0,
       structuredFields: {
         fileName: "config.json",
       },

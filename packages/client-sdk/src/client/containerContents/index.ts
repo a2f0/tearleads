@@ -188,6 +188,26 @@ interface ContainerInfoOrganizationScope {
   readonly userId: string;
 }
 
+function openContainerDocument(
+  runtime: ContainerContentsStoreWorkflowRuntime,
+  documentRuntime: (containerId: string | null) => DocumentsWorkflowRuntime,
+  input: OpenContainerDocumentInput,
+) {
+  return openDocumentStore(
+    runtime.state.domainScope,
+    input.localId,
+    documentRuntime(input.containerId),
+    input.documentId ?? null,
+    input.initialText,
+    input.initialDocumentKind,
+    {
+      deferInitialUpdate: input.deferInitialUpdate,
+      initialRows: input.initialRows,
+      initialStructuredFields: input.initialStructuredFields,
+    },
+  );
+}
+
 function readyExecSql(
   runtime: InternalWorkflowRuntimeInput,
 ): InternalWorkflowRuntimeInput["infra"]["execSql"] | null {
@@ -257,20 +277,11 @@ class ContainerContentsService implements ContainerContents {
       createContainerContentsDocumentProjectionUserKeyResolver(runtime);
     const documentRuntime = (containerId: string | null) =>
       createContainerContentsDocumentsRuntime(runtime, containerId);
-    const openContainerDocument = (input: OpenContainerDocumentInput) =>
-      openDocumentStore(
-        runtime.state.domainScope,
-        input.localId,
-        documentRuntime(input.containerId),
-        input.documentId ?? null,
-        input.initialText,
-        input.initialDocumentKind,
-        { deferInitialUpdate: input.deferInitialUpdate },
-      );
     const documentLinks: ContainerDocumentLinks = {
       ...runtime,
       documentRuntime,
-      openDocument: openContainerDocument,
+      openDocument: (input) =>
+        openContainerDocument(runtime, documentRuntime, input),
       setActiveDocumentContainer: (input) =>
         activateDocumentLink({
           host: createDocumentLinkHost(

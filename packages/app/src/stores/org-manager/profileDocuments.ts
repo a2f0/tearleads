@@ -102,23 +102,27 @@ export async function createRosterProfileDocument(input: {
   nickname?: string | undefined;
   organizationId: string;
 }): Promise<string | null> {
-  const store = input.documents.open({
-    containerId: input.containerId,
-    initialDocumentKind: "contact",
-    localId: getRosterProfileDocumentLocalId({
-      organizationId: input.organizationId,
-      userId: input.identity.userId,
-    }),
-  });
-
-  await store.setStructuredFields("contact", {
+  const fields = {
     ...buildRosterProfileDocumentPatch({
       encapsulationPublicKey: input.identity.encapsulationPublicKey,
       isSelf: input.isSelf,
       userId: input.identity.userId,
     }),
     ...(input.nickname ? { nickname: input.nickname } : {}),
+  };
+  // A created profile carries its fields in its birth, so the write below
+  // changes nothing; it still fills a profile whose record already existed.
+  const store = input.documents.open({
+    containerId: input.containerId,
+    initialDocumentKind: "contact",
+    initialStructuredFields: fields,
+    localId: getRosterProfileDocumentLocalId({
+      organizationId: input.organizationId,
+      userId: input.identity.userId,
+    }),
   });
+
+  await store.setStructuredFields("contact", fields);
   if (!store.getSnapshot().ready) {
     return null;
   }
@@ -133,20 +137,20 @@ export async function createOrganizationProfileDocument(input: {
   name?: string | undefined;
   organizationId: string;
 }): Promise<string | null> {
+  const fields = buildOrganizationProfileDocumentPatch({
+    name: input.name ?? DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
+  });
+  // As for roster profiles: the birth carries the fields when it creates one.
   const store = input.documents.open({
     containerId: input.containerId,
     initialDocumentKind: ORGANIZATION_PROFILE_DOCUMENT_KIND,
+    initialStructuredFields: fields,
     localId: getOrganizationProfileDocumentLocalId({
       organizationId: input.organizationId,
     }),
   });
 
-  await store.setStructuredFields(
-    ORGANIZATION_PROFILE_DOCUMENT_KIND,
-    buildOrganizationProfileDocumentPatch({
-      name: input.name ?? DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,
-    }),
-  );
+  await store.setStructuredFields(ORGANIZATION_PROFILE_DOCUMENT_KIND, fields);
   if (!store.getSnapshot().ready) {
     return null;
   }

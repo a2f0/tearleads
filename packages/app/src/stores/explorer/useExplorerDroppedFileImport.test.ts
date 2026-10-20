@@ -18,7 +18,8 @@ interface CreatedImportStore {
   ready: boolean;
   localId: string;
   rows: Array<Record<string, string>>;
-  structuredFieldKind: StoredDocumentKind | null;
+  // Field or row writes after open; the content must open as the birth.
+  followUpWrites: number;
   structuredFields: Record<string, string | undefined>;
   syncRequests: number;
 }
@@ -85,32 +86,36 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
   return ({
     containerId,
     initialDocumentKind,
+    initialRows,
+    initialStructuredFields,
     initialText,
     localId,
   }: {
     containerId: string;
     initialDocumentKind: StoredDocumentKind;
+    initialRows: ReadonlyArray<Readonly<Record<string, string>>>;
+    initialStructuredFields: Readonly<Record<string, string>>;
     initialText: string;
     localId: string;
   }) => {
     const createdStore: CreatedImportStore = {
       attachments: [],
       containerId,
+      followUpWrites: 0,
       initialDocumentKind,
       initialText,
       ready: false,
       localId,
-      rows: [],
-      structuredFieldKind: null,
-      structuredFields: {},
+      rows: initialRows.map((row) => ({ ...row })),
+      structuredFields: { ...initialStructuredFields },
       syncRequests: 0,
     };
     createdStores.push(createdStore);
 
     return {
-      addRow: async (fields: Readonly<Record<string, string>>) => {
-        createdStore.rows.push({ ...fields });
-        return `row-${createdStore.rows.length}`;
+      addRow: async () => {
+        createdStore.followUpWrites += 1;
+        return "row";
       },
       attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => {
         createdStore.attachments.push(...files);
@@ -128,13 +133,8 @@ function createImportStoreFactory(createdStores: CreatedImportStore[]) {
       requestSync: () => {
         createdStore.syncRequests += 1;
       },
-      setStructuredFields: async (
-        kind: Exclude<StoredDocumentKind, "note">,
-        patch: Readonly<Record<string, string | undefined>>,
-      ) => {
-        createdStore.ready = true;
-        createdStore.structuredFieldKind = kind;
-        createdStore.structuredFields = { ...patch };
+      setStructuredFields: async () => {
+        createdStore.followUpWrites += 1;
       },
       setText: async (value: string) => {
         createdStore.ready = true;
@@ -206,7 +206,7 @@ test("dropped file import initializes notes and merges persisted summaries", asy
       initialDocumentKind: store.initialDocumentKind,
       initialText: store.initialText,
       localId: store.localId,
-      structuredFieldKind: store.structuredFieldKind,
+      followUpWrites: store.followUpWrites,
       syncRequests: store.syncRequests,
     })),
   ).toEqual([
@@ -216,7 +216,7 @@ test("dropped file import initializes notes and merges persisted summaries", asy
       initialDocumentKind: "note",
       initialText: "Alpha",
       localId: "local-a",
-      structuredFieldKind: null,
+      followUpWrites: 0,
       syncRequests: 1,
     },
     {
@@ -225,7 +225,7 @@ test("dropped file import initializes notes and merges persisted summaries", asy
       initialDocumentKind: "note",
       initialText: "Beta",
       localId: "local-b",
-      structuredFieldKind: null,
+      followUpWrites: 0,
       syncRequests: 1,
     },
   ]);
@@ -286,7 +286,7 @@ test("dropped file import creates file document types with original attachments"
         attachmentType: store.attachments[0]?.mimeType,
         initialDocumentKind: store.initialDocumentKind,
         initialText: store.initialText,
-        structuredFieldKind: store.structuredFieldKind,
+        followUpWrites: store.followUpWrites,
         title: fileName,
       };
     }),
@@ -296,7 +296,7 @@ test("dropped file import creates file document types with original attachments"
       attachmentType: "audio/mpeg",
       initialDocumentKind: "audio",
       initialText: "",
-      structuredFieldKind: "audio",
+      followUpWrites: 0,
       title: "sample.mp3",
     },
     {
@@ -307,7 +307,7 @@ test("dropped file import creates file document types with original attachments"
       attachmentType: null,
       initialDocumentKind: "generic_file",
       initialText: "",
-      structuredFieldKind: "generic_file",
+      followUpWrites: 0,
       title: "archive.bin",
     },
     {
@@ -315,7 +315,7 @@ test("dropped file import creates file document types with original attachments"
       attachmentType: "image/jpeg",
       initialDocumentKind: "image",
       initialText: "",
-      structuredFieldKind: "image",
+      followUpWrites: 0,
       title: "dl_front.jpeg",
     },
     {
@@ -323,7 +323,7 @@ test("dropped file import creates file document types with original attachments"
       attachmentType: "application/pdf",
       initialDocumentKind: "pdf",
       initialText: "",
-      structuredFieldKind: "pdf",
+      followUpWrites: 0,
       title: "Skiff_Whitepaper_2023.pdf",
     },
   ]);
@@ -362,7 +362,7 @@ test("dropped file import creates env file documents without attachments", async
       { key: "API_TOKEN", value: "secret" },
       { key: "DEBUG", value: "true" },
     ],
-    structuredFieldKind: "env_file",
+    followUpWrites: 0,
     structuredFields: {
       fileName: ".env",
     },

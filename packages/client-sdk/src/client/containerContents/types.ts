@@ -6,7 +6,10 @@ import type {
   ContainerContentsStoreOptions,
   ContainerContentsStoreRuntime,
 } from "../../stores/container-contents";
-import type { DocumentStore } from "../../stores/documents";
+import type {
+  DocumentStore,
+  DocumentStoreOpenOptions,
+} from "../../stores/documents";
 import type {
   DocumentAttributionRangesInput,
   DocumentAttributionRangesPage,
@@ -75,6 +78,9 @@ export interface OpenContainerDocumentInput {
   readonly deferInitialUpdate?: boolean | undefined;
   readonly documentId?: string | null | undefined;
   readonly initialDocumentKind?: StoredDocumentKind | undefined;
+  /** Birth content of a created record; see `DocumentStoreOpenOptions`. */
+  readonly initialRows?: DocumentStoreOpenOptions["initialRows"];
+  readonly initialStructuredFields?: DocumentStoreOpenOptions["initialStructuredFields"];
   readonly initialText?: string | undefined;
   readonly localId: string;
 }

@@ -35,6 +35,7 @@ test("roster profile documents use stable org-scoped local ids", () => {
 
 test("roster profile documents persist trusted identity fields", async () => {
   let documentId: string | null = null;
+  let initialStructuredFields: unknown;
   let requestSyncCalls = 0;
   let structuredFields: Readonly<Record<string, string | undefined>> = {};
   let unsubscribeCalls = 0;
@@ -60,8 +61,12 @@ test("roster profile documents persist trusted identity fields", async () => {
     },
   } as unknown as DocumentStore;
   const documents = {
-    open: (input: { containerId?: string | null | undefined }) => {
+    open: (input: {
+      containerId?: string | null | undefined;
+      initialStructuredFields?: unknown;
+    }) => {
       expect(input.containerId).toBe("roster-profile-container-1");
+      initialStructuredFields = input.initialStructuredFields;
       return store;
     },
   } as unknown as Documents;
@@ -79,12 +84,16 @@ test("roster profile documents persist trusted identity fields", async () => {
   });
 
   expect(createdDocumentId).toBe("profile-document-1");
-  expect(structuredFields).toEqual({
+  const expectedFields = {
     encapsulationPublicKey: "trusted-encapsulation-public-key",
     isSelf: "1",
     nickname: "Ada",
     userId: user.userId,
-  });
+  };
+  // A created profile's birth carries the fields; the same write still fills
+  // a profile whose record already existed.
+  expect(initialStructuredFields).toEqual(expectedFields);
+  expect(structuredFields).toEqual(expectedFields);
   expect(unsubscribeCalls).toBe(1);
   expect(requestSyncCalls).toBe(1);
 });
