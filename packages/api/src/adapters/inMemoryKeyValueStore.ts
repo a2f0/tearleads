@@ -1,4 +1,6 @@
-type EventListener = (message: string) => void;
+// The key/value store outside Workers (the local Bun server and tests): one
+// process's Maps, with the same TTL, GETDEL, and SET XX KEEPTTL semantics
+// the KeyValueStore Durable Object serves on Workers.
 
 interface StringEntry {
   expiresAt: number | null;
@@ -12,8 +14,6 @@ interface SetEntry {
 
 const stringEntries = new Map<string, StringEntry>();
 const setEntries = new Map<string, SetEntry>();
-const listeners = new Set<EventListener>();
-const apiRedisEnvKey = "API_REDIS";
 
 function ttlExpiresAt(ttlSeconds: number | undefined): number | null {
   return ttlSeconds === undefined ? null : Date.now() + ttlSeconds * 1000;
@@ -56,15 +56,11 @@ function deleteKey(key: string): void {
   setEntries.delete(key);
 }
 
-export function isInMemoryRedisEnabled(): boolean {
-  return process.env[apiRedisEnvKey] === "memory";
-}
-
-export async function inMemoryRedisGet(key: string): Promise<string | null> {
+export async function inMemoryGet(key: string): Promise<string | null> {
   return getStringEntry(key)?.value ?? null;
 }
 
-export async function inMemoryRedisSet(
+export async function inMemorySet(
   key: string,
   value: string,
   ttlSeconds?: number,
@@ -76,7 +72,7 @@ export async function inMemoryRedisSet(
   });
 }
 
-export async function inMemoryRedisSetKeepTtl(
+export async function inMemorySetKeepTtl(
   key: string,
   value: string,
 ): Promise<void> {
@@ -88,17 +84,17 @@ export async function inMemoryRedisSetKeepTtl(
   entry.value = value;
 }
 
-export async function inMemoryRedisGetDel(key: string): Promise<string | null> {
+export async function inMemoryGetDel(key: string): Promise<string | null> {
   const value = getStringEntry(key)?.value ?? null;
   stringEntries.delete(key);
   return value;
 }
 
-export async function inMemoryRedisDel(key: string): Promise<void> {
+export async function inMemoryDel(key: string): Promise<void> {
   deleteKey(key);
 }
 
-export async function inMemoryRedisExpire(
+export async function inMemoryExpire(
   key: string,
   ttlSeconds: number,
 ): Promise<void> {
@@ -115,10 +111,7 @@ export async function inMemoryRedisExpire(
   }
 }
 
-export async function inMemoryRedisSadd(
-  key: string,
-  member: string,
-): Promise<void> {
+export async function inMemorySadd(key: string, member: string): Promise<void> {
   stringEntries.delete(key);
 
   const entry = getSetEntry(key);
@@ -133,10 +126,7 @@ export async function inMemoryRedisSadd(
   });
 }
 
-export async function inMemoryRedisSrem(
-  key: string,
-  member: string,
-): Promise<void> {
+export async function inMemorySrem(key: string, member: string): Promise<void> {
   const entry = getSetEntry(key);
   if (!entry) {
     return;
@@ -148,7 +138,7 @@ export async function inMemoryRedisSrem(
   }
 }
 
-export async function* inMemoryRedisSscanMembers(
+export async function* inMemorySscanMembers(
   key: string,
 ): AsyncGenerator<string[], void, unknown> {
   const entry = getSetEntry(key);
@@ -162,31 +152,7 @@ export async function* inMemoryRedisSscanMembers(
   }
 }
 
-export async function inMemoryRedisPublish(
-  event: Record<string, unknown>,
-): Promise<void> {
-  const message = JSON.stringify(event);
-  for (const listener of listeners) {
-    try {
-      listener(message);
-    } catch (error) {
-      console.error("In-memory Redis listener error:", error);
-    }
-  }
-}
-
-export function inMemoryRedisAddListener(listener: EventListener): () => void {
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-  };
-}
-
-export function clearInMemoryRedisData(): void {
+export function clearInMemoryKeyValueStore(): void {
   stringEntries.clear();
   setEntries.clear();
-}
-
-export function clearInMemoryRedisPubSub(): void {
-  listeners.clear();
 }

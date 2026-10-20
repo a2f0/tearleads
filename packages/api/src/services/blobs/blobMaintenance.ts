@@ -134,7 +134,8 @@ interface BlobMaintenanceSummary {
 
 // One entrypoint for scheduled blob storage reclamation: reclaim dereferenced
 // committed blobs and clean up expired stage uploads. The deployed trigger is
-// scripts/blobGc.ts, run hourly by the Ansible-managed systemd timer.
+// the Worker's hourly Cron Trigger (worker/maintenance.ts); scripts/blobGc.ts
+// runs it on demand.
 export async function runBlobMaintenance(
   runtime: ApiServiceRuntime,
   input: BlobMaintenanceInput = {},

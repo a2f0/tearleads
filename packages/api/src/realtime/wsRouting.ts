@@ -102,10 +102,10 @@ function removeFromIndex<K>(
 }
 
 /**
- * Process-local websocket router. Redis pub/sub still fans every event to every
- * API process; this routes within one process to only the sockets that are both
- * connected here and interested in the event's containers, reconstructing the
- * minimal client payload from the shared frame schemas. Malformed and unknown
+ * Process-local websocket router. Every published event reaches the one
+ * process (or realtime hub) holding sockets; this routes it to only the sockets
+ * interested in the event's containers, reconstructing the minimal client
+ * payload from the shared frame schemas. Malformed and unknown
  * published events fail closed and route nowhere. Socket handles never leave
  * the process.
  */
@@ -282,10 +282,9 @@ export class WsEventRouter {
   }
 
   private routeHint(event: PublishedHintEvent): void {
-    // Resolve recipients before serializing. Redis fans every event to every
-    // API process, but most processes hold no socket interested in a given
-    // event's containers; returning early there skips the reconstruction
-    // entirely on the common no-recipient path.
+    // Resolve recipients before serializing. Most events have no interested
+    // socket; returning early there skips the reconstruction entirely on the
+    // common no-recipient path.
     const recipients = this.recipientsForHint(event);
     if (recipients.size === 0) {
       return;
@@ -293,12 +292,12 @@ export class WsEventRouter {
     // The authoring session is identified by `origin` (added by the publisher
     // on the HTTP sync path). We skip that exact socket so the author does not
     // receive its own update echoed back over its own connection. Matching is
-    // on (userId, sessionId) — globally unique — NOT a socket handle, so it
-    // works even though redis fanned this event in from another API process and
-    // the authoring socket may be connected here. Per-SESSION, never per-user:
-    // the author's other devices/tabs are distinct sessions and must still
-    // receive the event so they sync. Absent `origin` (e.g. attachment-bind
-    // events) means "exclude nobody" — every interested socket gets it.
+    // on (userId, sessionId) — globally unique — NOT a socket handle, because
+    // the event was published by an HTTP request that never held the socket.
+    // Per-SESSION, never per-user: the author's other devices/tabs are distinct
+    // sessions and must still receive the event so they sync. Absent `origin`
+    // (e.g. attachment-bind events) means "exclude nobody" — every interested
+    // socket gets it.
     //
     // Each frame is scoped to the ids its recipient holds interest in, so a
     // watcher of only the destination never learns the source of a move and a

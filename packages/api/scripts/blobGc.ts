@@ -1,7 +1,8 @@
 // Out-of-process trigger for blob storage reclamation: reclaim blobs that purge
-// soft-deleted past the grace period and clean up expired stage uploads. Run on
-// demand or from a scheduler (systemd timer / cron); nothing schedules it in the
-// app process. Usage: API_DATABASE=postgres bun packages/api/scripts/blobGc.ts
+// soft-deleted past the grace period and clean up expired stage uploads.
+// Deployed tiers run the same maintenance from the Worker's hourly Cron Trigger
+// (src/worker/maintenance.ts); this script runs it on demand. Usage:
+// API_DATABASE=postgres bun packages/api/scripts/blobGc.ts
 //   [--grace-ms <n>] [--limit <n>]
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";
 import { reportBackgroundFailure } from "../src/diagnostics/reportBackgroundFailure";
@@ -37,9 +38,9 @@ try {
   });
   console.log(JSON.stringify(summary, null, 2));
 } catch (error) {
-  // Report failures so a cron/systemd run is detectable as failed. Nothing
-  // watches this binary's exit status the way a request watches a response, so
-  // the aggregate — which carries every per-object failure — is the only signal
+  // Report failures so a failed run is detectable. Nothing watches this
+  // binary's exit status the way a request watches a response, so the
+  // aggregate — which carries every per-object failure — is the only signal
   // that reclamation is wedged.
   console.error("Blob GC maintenance failed:", error);
   reportBackgroundFailure(error, "blob.maintenance");

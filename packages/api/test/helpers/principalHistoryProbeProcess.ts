@@ -65,7 +65,6 @@ async function startChild(
     ],
     env: {
       ...process.env,
-      API_REDIS: "memory",
       DOCUMENT_SYNC_CURSOR_HMAC_KEY: secret,
       PRINCIPAL_HISTORY_PROBE_IDENTITY: JSON.stringify(owner),
     },

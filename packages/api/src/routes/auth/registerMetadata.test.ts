@@ -15,7 +15,7 @@ import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/valida
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
-import { del } from "../../adapters/redis";
+import { del } from "../../adapters/keyValueStore";
 import { routeApp } from "../../routeApp";
 
 const fingerprints: string[] = [];

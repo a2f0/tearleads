@@ -30,8 +30,8 @@
     "@libsql/client": "./src/worker/stubs/libsql.ts"
   },
   "triggers": {
-    // Billing maintenance every minute and blob garbage collection hourly,
-    // matching the retired systemd timers. `scheduled` branches on the cron.
+    // Billing maintenance every minute and blob garbage collection hourly.
+    // `scheduled` branches on the cron.
     "crons": ["* * * * *", "0 * * * *"]
   },
   "migrations": [

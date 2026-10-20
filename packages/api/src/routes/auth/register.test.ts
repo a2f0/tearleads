@@ -22,7 +22,7 @@ import {
   createRegistrationRequestBody,
   submitRegistration,
 } from "../../../test/helpers/api";
-import { del, get } from "../../adapters/redis";
+import { del, get } from "../../adapters/keyValueStore";
 import { routeApp } from "../../routeApp";
 
 let fingerprint: string;
@@ -35,11 +35,10 @@ afterAll(async () => {
   await del(fingerprint);
 });
 
-test("POST /auth/register stores the key in redis keyed by fingerprint", async () => {
+test("POST /auth/register keeps the signing key out of the key/value store", async () => {
   const { signingPrivateKey, signingPublicKey } =
     generateSigningSeedAndKeyPair();
   const { publicKey } = generateKemSeedAndKeyPair();
-  const keyArray = Array.from(signingPublicKey);
   fingerprint = await toFingerprint(signingPublicKey);
 
   const res = await submitRegistration(
@@ -57,9 +56,8 @@ test("POST /auth/register stores the key in redis keyed by fingerprint", async (
   expect(typeof body.rootMetadataAccessStateHash).toBe("string");
   expect(body.rootMetadataAccessStateHash.length).toBeGreaterThan(0);
 
-  const stored = await get(fingerprint);
-  invariant(stored, "expected publicKey to be stored in redis by fingerprint");
-  expect(decodeKey(stored)).toEqual(keyArray);
+  // Login reads the canonical database key; nothing caches it by fingerprint.
+  expect(await get(fingerprint)).toBeNull();
 });
 
 test("POST /auth/register creates a user with the source IP", async () => {

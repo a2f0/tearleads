@@ -32,7 +32,7 @@ Cloudflare credentials use `TF_VAR_cloudflare_api_token` and
 `TF_VAR_cloudflare_account_id`. The token needs Workers Scripts Edit, Workers
 Routes Edit, and Zone Read for the target account/zone. Terraform also needs the
 tier's R2 state key, `TF_STATE_ACCESS_KEY_ID` and `TF_STATE_SECRET_ACCESS_KEY`
-in `app.env`. No SSH or Hetzner credentials are needed for a standalone website
+in `app.env`. No other credentials are needed for a standalone website
 deployment.
 
 The full `scripts/deployStaging.sh` and `scripts/deployProduction.sh` include this

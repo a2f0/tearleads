@@ -59,9 +59,8 @@ build_app_web() {
 
 # Stage one build for Wrangler. Builds recreate dist/, so each variant is
 # copied aside before the next build. Source maps stay out of the upload, and
-# the header file reproduces the previous nginx cache policy: the entry
-# document and the runtime workers revalidate on every load, while hashed
-# chunks are immutable.
+# the header file sets the cache policy: the entry document and the runtime
+# workers revalidate on every load, while hashed chunks are immutable.
 stage_assets() {
   local variant="$1"
   local assets_dir="$APP_WEB_DIR/dist-$variant"

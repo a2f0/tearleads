@@ -1,8 +1,8 @@
 import { db } from "@tearleads/api-shared/postgres";
 import type { BlobObjectStore } from "../adapters/blobObjectStore";
 import { createDefaultBlobObjectStore } from "../adapters/defaultBlobObjectStore";
-import { del, get, getdel, set } from "../adapters/redis";
-import { publish } from "../adapters/redisPubSub";
+import { del, get, getdel, set } from "../adapters/keyValueStore";
+import { publish } from "../adapters/pubSub";
 import { createSession, type IssuedSession } from "../middleware/session";
 import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
 import { readDocumentSyncCursorHmacKey } from "../utils/serverSecrets";

@@ -244,11 +244,12 @@ export async function finalizeDocumentSync(
     return state.record ?? currentRecord;
   }
 
-  // The sent IDs were pre-registered as self-authored before the network call so
-  // the redis echo can never beat us. Reconcile against what the server actually
-  // accepted: an ID we sent but the server did not accept will never be echoed,
-  // so drop it to keep locallyAcceptedUpdateIds from leaking. Accepted IDs (a
-  // subset of what we sent) stay registered until their echo consumes them.
+  // The sent IDs were pre-registered as self-authored before the network call
+  // so the realtime echo can never beat us. Reconcile against what the server
+  // actually accepted: an ID we sent but the server did not accept will never
+  // be echoed, so drop it to keep locallyAcceptedUpdateIds from leaking.
+  // Accepted IDs (a subset of what we sent) stay registered until their echo
+  // consumes them.
   discardUnacceptedPreRegisteredUpdateIds(
     state,
     sentUpdateIds,

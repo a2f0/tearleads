@@ -1,5 +1,6 @@
-// Out-of-process billing maintenance. The existing systemd timer runs this
-// every minute: due free trials and purges are persisted before Stripe seat
+// Out-of-process billing maintenance. Deployed tiers run the same work from the
+// Worker's per-minute Cron Trigger (src/worker/maintenance.ts); this script runs
+// it on demand: due free trials and purges are persisted before Stripe seat
 // reconciliation. Row locks, leases, DB predicates, and Stripe idempotency make
 // overlaps safe.
 import { closeApiDatabase } from "@tearleads/api-shared/postgres";

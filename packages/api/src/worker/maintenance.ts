@@ -16,7 +16,7 @@ const BILLING_MAINTENANCE_CRON = "* * * * *";
 const BLOB_MAINTENANCE_CRON = "0 * * * *";
 const blobGcHealthcheckUrlEnvKey = "BLOB_GC_HEALTHCHECK_URL";
 
-/** Replaces the per-minute `tearleads-stripe-seat-sync` systemd timer. */
+/** Billing maintenance, run every minute. */
 function billingPhases(): readonly MaintenancePhase[] {
   const runtime = getDefaultApiServiceRuntime();
   return [
@@ -39,8 +39,8 @@ function billingPhases(): readonly MaintenancePhase[] {
 }
 
 /**
- * Replaces the hourly `tearleads-blob-gc` systemd timer, including its
- * Healthchecks start, success, and failure pings.
+ * Blob garbage collection, run hourly, with its Healthchecks start, success,
+ * and failure pings.
  */
 function blobPhases(): readonly MaintenancePhase[] {
   return [

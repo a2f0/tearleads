@@ -63,7 +63,7 @@ afterEach(() => {
   setSystemTime();
 });
 
-test("set, get, and expiry behave like Redis strings with TTL", () => {
+test("set, get, and expiry behave like strings with TTL", () => {
   const { store } = createStore();
   store.set("session:a", "alice", 60);
   store.set("session:b", "bob");

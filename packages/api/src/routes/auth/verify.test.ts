@@ -13,7 +13,7 @@ import {
   submitRegistration,
   submitVerify,
 } from "../../../test/helpers/api";
-import { del, get } from "../../adapters/redis";
+import { del, get } from "../../adapters/keyValueStore";
 import { consumeWebSocketTicket } from "../../realtime/wsTicket";
 import { routeApp } from "../../routeApp";
 

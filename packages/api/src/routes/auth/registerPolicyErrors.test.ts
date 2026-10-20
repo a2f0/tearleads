@@ -6,7 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
-import { del } from "../../adapters/redis";
+import { del } from "../../adapters/keyValueStore";
 import { routeApp } from "../../routeApp";
 
 const fingerprints = new Set<string>();

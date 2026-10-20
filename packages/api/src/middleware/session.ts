@@ -11,7 +11,7 @@ import {
   setKeepTtl,
   srem,
   sscanMembers,
-} from "../adapters/redis";
+} from "../adapters/keyValueStore";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { notifySessionRevoked } from "../realtime/sessionRevocation";
 import { withPrincipalHistoryRequest } from "../utils/principalHistoryWork";

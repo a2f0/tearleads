@@ -2,7 +2,7 @@
 // implementations so the adapters that call them never depend on the Workers
 // runtime modules (which would close an import cycle through the gateway).
 
-/** The Redis subset the API uses, served by `KeyValueStore`. */
+/** The key/value operations the API uses, served by `KeyValueStore`. */
 export interface KeyValueStoreRpc {
   del(key: string): void;
   expire(key: string, ttlSeconds: number): void;

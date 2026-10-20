@@ -230,20 +230,19 @@ export const subsystems: readonly Subsystem[] = [
     name: "Infrastructure Adapters",
     package: "api",
     responsibility:
-      "Effectful infrastructure boundaries other than blob storage: the key/value and pub/sub surface backed by Redis, the Workers Durable Objects, or the in-memory fake used for tests and dev.",
-    seam: "adapters/redis.ts, adapters/redisPubSub.ts (closed over by factories)",
+      "Effectful infrastructure boundaries other than blob storage: the key/value and pub/sub surface backed by the Workers Durable Objects, or by in-process state for the local server and tests.",
+    seam: "adapters/keyValueStore.ts, adapters/pubSub.ts (closed over by factories)",
     paths: [
-      `${api}/adapters/redis.ts`,
-      `${api}/adapters/redisClient.ts`,
-      `${api}/adapters/redisPubSub.ts`,
-      `${api}/adapters/inMemoryRedis.ts`,
+      `${api}/adapters/keyValueStore.ts`,
+      `${api}/adapters/inMemoryKeyValueStore.ts`,
+      `${api}/adapters/pubSub.ts`,
     ],
   },
   {
     name: "Workers Runtime",
     package: "api",
     responsibility:
-      "The Cloudflare Workers composition root: the fetch and scheduled entry, environment binding into process.env, the SQLite Durable Object that replaces Redis, the realtime hub Durable Object that hosts the gateway, scheduled maintenance, and the Loro WebAssembly alias.",
+      "The Cloudflare Workers composition root: the fetch and scheduled entry, environment binding into process.env, the SQLite Durable Object key/value store, the realtime hub Durable Object that hosts the gateway, scheduled maintenance, and the Loro WebAssembly alias.",
     seam: "worker/index.ts (Wrangler main); adapters reach it through worker/environment.ts",
     paths: [`${api}/worker/`],
   },

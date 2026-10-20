@@ -14,7 +14,7 @@ export type UserActivityRecorder = (input: UserActivityInput) => Promise<void>;
 
 /**
  * Persists `users.last_active_at` so operators can see when an identity was
- * last seen across all of its sessions, not only the ones still in Redis.
+ * last seen across all of its sessions, not only the ones still stored.
  * `requireAuth` calls this on its throttled activity path (about once a
  * minute per session); the write only moves the timestamp forward so
  * concurrent sessions cannot regress it.

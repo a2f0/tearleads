@@ -2,11 +2,11 @@ import { DurableObject } from "cloudflare:workers";
 import type { KeyValueStoreRpc } from "./contracts";
 import { KEY_VALUE_SET_PAGE_SIZE } from "./environment";
 
-// The Redis subset the API uses (strings with TTL, sets with TTL, atomic
-// GETDEL and SET XX KEEPTTL), served by one SQLite-backed Durable Object. A
-// Durable Object runs one event at a time, so every method below is atomic
-// with respect to the others without explicit locking. Expiry is enforced on
-// read and swept by an hourly alarm.
+// The key/value operations the API uses (strings with TTL, sets with TTL,
+// atomic GETDEL and SET XX KEEPTTL), served by one SQLite-backed Durable
+// Object. A Durable Object runs one event at a time, so every method below is
+// atomic with respect to the others without explicit locking. Expiry is
+// enforced on read and swept by an hourly alarm.
 
 const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
 

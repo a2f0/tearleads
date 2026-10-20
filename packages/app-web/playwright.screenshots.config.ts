@@ -106,7 +106,7 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "API_PORT=32001 API_DATABASE=memory API_REDIS=memory BLOB_OBJECT_STORE=memory bun ../api/src/index.ts",
+        "API_PORT=32001 API_DATABASE=memory BLOB_OBJECT_STORE=memory bun ../api/src/index.ts",
       url: WEB_API_BASE_URL,
       reuseExistingServer: false,
       stdout: "pipe",
@@ -115,7 +115,7 @@ export default defineConfig({
     },
     {
       command:
-        "API_PORT=32002 API_DATABASE=memory API_REDIS=memory BLOB_OBJECT_STORE=memory bun ../api/src/index.ts",
+        "API_PORT=32002 API_DATABASE=memory BLOB_OBJECT_STORE=memory bun ../api/src/index.ts",
       url: MOBILE_API_BASE_URL,
       reuseExistingServer: false,
       stdout: "pipe",
@@ -124,7 +124,7 @@ export default defineConfig({
     },
     {
       command:
-        "API_PORT=32003 API_DATABASE=memory API_REDIS=memory BLOB_OBJECT_STORE=memory bun ../api/src/index.ts",
+        "API_PORT=32003 API_DATABASE=memory BLOB_OBJECT_STORE=memory bun ../api/src/index.ts",
       url: COLLABORATION_API_BASE_URL,
       reuseExistingServer: false,
       stdout: "pipe",

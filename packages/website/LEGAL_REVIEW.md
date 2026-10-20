@@ -100,7 +100,7 @@ Build and review both pages again, then deploy only when publication is authoriz
 | Billing-email cancellation | `src/pages/manage-subscription.astro`, `packages/api/src/billing/stripeCustomerEmail.ts` |
 | Blob lifecycle and durable audit metadata | `docs/attachment-retention.md` |
 | Lapse purge and retained organization/identity/billing records | `docs/developer/billing-lapse-recovery.md`, `docs/developer/billing-purge-recovery.md` |
-| Hosting providers and primary regions | `terraform/stacks/prod/{server,postgres,storage,website}`, `ansible/playbooks/templates/etc/nginx/nginx.conf.j2` |
+| Hosting providers and primary regions | `terraform/stacks/prod/{edge,postgres,storage,website}`, `packages/api/wrangler.jsonc`, `packages/app-web/wrangler.app.jsonc` |
 
 Paths outside this package are relative to the repository root.
 

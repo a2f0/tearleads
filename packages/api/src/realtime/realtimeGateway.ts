@@ -2,7 +2,7 @@ import { MAX_WS_CLIENT_MESSAGE_BYTES } from "@tearleads/validators/realtime";
 import {
   addListener,
   addSubscriberReconnectListener,
-} from "../adapters/redisPubSub";
+} from "../adapters/pubSub";
 import { reportBackgroundFailure } from "../diagnostics/reportBackgroundFailure";
 import { authorizeContainerAccessWithWorkflow } from "./containerInterestAccess";
 import { ContainerInterestAuthorizer } from "./containerInterestAuthorization";
@@ -196,12 +196,12 @@ function createInterestAuthorizers(
 }
 
 /**
- * The realtime sync gateway owns the in-memory socket/interest router and the
- * Redis pub/sub subscription. Interest belongs to one open socket: a client
+ * The realtime sync gateway owns the in-memory socket/interest router and its
+ * pub/sub subscription. Interest belongs to one open socket: a client
  * declares it after every connect, and no reconnect cache outlives the socket.
  * Constructing it has no side effects; the subscription opens only when
- * `start()` is called, so importing this module never connects to Redis. The
- * gateway is constructed and started once at the composition root (index.ts),
+ * `start()` is called. On the local server the gateway is constructed and
+ * started once at the composition root (index.ts),
  * the same place the HTTP app is assembled — there is no second, import-time
  * composition root. Deps default to production singletons and are injectable for
  * tests.
