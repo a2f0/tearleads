@@ -9,10 +9,11 @@ import {
 
 /**
  * A subsystem names a vertical slice or platform concern and indexes its paths.
- * It is not a dependency boundary. Import direction stays enforced by
- * `dependency-cruiser.config.ts` (lanes, layers, planes). A subsystem may span
- * several layers (e.g. Containers spans routes/, services/, and orchestration
- * workflows), which is exactly the scatter the registry makes greppable.
+ * Import direction stays enforced by `dependency-cruiser.config.ts` (lanes,
+ * layers, planes). A subsystem may span several layers (e.g. Containers spans
+ * routes/, services/, and orchestration workflows), which is exactly the
+ * scatter the registry makes greppable. A subsystem that declares a `surface`
+ * is also a boundary: other subsystems may import only those files.
  *
  * See `docs/subsystems.md` for the human-facing table and AGENTS.md
  * "## Subsystems" for how this term relates to plane/layer/lane/facade.
@@ -33,6 +34,14 @@ export interface Subsystem {
    * enforced by the `*-subsystem-registry-covers-every-source-file` lint check.
    */
   readonly paths: readonly string[];
+  /**
+   * The files other subsystems may import, written like `paths`: its facade
+   * indexes and the contract modules it deliberately exposes. Enforced by the
+   * `subsystem-imports-use-declared-surface` lint check, with older deep
+   * imports listed in `subsystemSurfaceBaseline.json`. Omitted, any file may be
+   * imported, as for platform subsystems such as SQLite Runtime.
+   */
+  readonly surface?: readonly string[];
 }
 
 const api = packageSourcePath.api;

@@ -186,6 +186,26 @@ becomes a service: one entry point that composes the ports and the per-scope
 state, replacing option bags that thread the same collaborators through every
 call.
 
+## Subsystem surfaces
+
+Each subsystem in `scripts/architecture/clientSdkSubsystems.ts` declares a
+`surface`: the files other subsystems may import. It holds the subsystem's
+facade indexes and the contract modules it means to share, such as types,
+errors, document kinds, and its main persistence module. SQLite Runtime and SDK
+Shared Utilities declare none, so any of their files may be imported.
+
+`bun run lint:architecture` fails when an import enters another subsystem
+outside its surface, type-only imports included. Deep imports that predate the
+check are listed by target file in
+`scripts/architecture/subsystemSurfaceBaseline.json`. The check also fails on an
+entry that no longer occurs, so the list only shrinks.
+
+- When you change code that imports through the baseline, import from the
+  surface instead, or export the symbol from a facade, and delete the entry.
+- Add a module to a surface only when it is a deliberate contract. Never add a
+  baseline entry to land new code.
+- When you move a file the baseline names, rename its entries.
+
 ## Enforcing a boundary
 
 Client SDK dependency rules live in
@@ -193,9 +213,11 @@ Client SDK dependency rules live in
 component gets:
 
 - a declared entry: other code imports the component's `index.ts`, not its
-  internals. When that index is a public workflow facade, list the modules the
-  rest of the SDK may import instead, as `principalsSurface` does for
-  `workflows/principals`, rather than adding internal exports to the facade;
+  internals. A whole subsystem gets this from its surface; a component inside
+  one, such as `sync/reconciliation`, gets its own rule. When the entry is a
+  public workflow facade, list the modules the rest of the SDK may import in
+  the surface instead, as `workflows/principals` does, rather than adding
+  internal exports to the facade;
 - no runtime imports of upper layers, with type-only imports allowed through
   `dependencyTypesNot: ["type-only"]`;
 - its place in the tier order data → workflows → stores → sync → client.

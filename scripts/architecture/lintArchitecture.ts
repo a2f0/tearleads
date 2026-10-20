@@ -21,6 +21,10 @@ import {
 import { runDependencyCruiserCheck } from "./dependencyCruiserCheck";
 import { packageSourcePath } from "./dependencySourceRoots";
 import {
+  findSubsystemSurfaceViolations,
+  subsystemSurfaceBaselinePath,
+} from "./subsystemSurfaces";
+import {
   findSubsystemCoverageViolations,
   findSubsystemDocsViolations,
   miniAppNames,
@@ -406,6 +410,12 @@ const architectureChecks: ArchitectureCheck[] = [
     message:
       "The docs/subsystems.md registry table and scripts/architecture/subsystems.ts should list the same subsystems.",
     name: "subsystem-registry-matches-docs",
+  }),
+  createListCheck({
+    findItems: findSubsystemSurfaceViolations,
+    formatItem: (violation) => violation,
+    message: `Other subsystems import only the files in a subsystem's declared surface. Import through its facade, or add a deliberate contract module to the surface. Older deep imports are listed in ${subsystemSurfaceBaselinePath}, which only shrinks.`,
+    name: "subsystem-imports-use-declared-surface",
   }),
 ];
 

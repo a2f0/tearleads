@@ -5,14 +5,13 @@ developer reasons about as one unit — for example "Containers" or "Realtime
 Sync". It is the name we use in conversation, PR descriptions, and code review
 to say _where a feature lives_ and _who owns it_.
 
-A subsystem is **descriptive, not a new boundary**. It is an ownership and
-navigation index laid over paths that already exist. Import direction stays
-enforced by the lanes, layers, and planes in `dependency-cruiser.config.ts`; the
-file-size and barrel rules stay in `scripts/checks/lintSourceShape.ts`. A subsystem
-may deliberately span several layers — `Containers` covers its routes, its service
-facade, and its transaction-orchestration workflows — which is exactly the
-scatter the registry makes greppable. See AGENTS.md "## Subsystems" for how this
-term relates to plane / layer / lane / facade.
+A subsystem is an ownership and navigation index laid over paths that already
+exist. Import direction stays enforced by the lanes, layers, and planes in
+`dependency-cruiser.config.ts`. A subsystem may span several layers:
+`Containers` covers its routes, service facade, and orchestration workflows. A
+subsystem that declares a **surface** is also a boundary: other subsystems
+import only its surface files.
+See AGENTS.md "## Subsystems" for the related axes.
 
 ## How it is kept honest
 
@@ -25,6 +24,8 @@ term relates to plane / layer / lane / facade.
   lint:architecture` instead of silently becoming an orphan.
 - The `subsystem-registry-matches-docs` check keeps the table below in lockstep
   with the manifest.
+- `subsystem-imports-use-declared-surface` enforces surfaces; see
+  [SDK seams](developer/client-sdk-seams.md#subsystem-surfaces).
 
 Rolled out package by package. Registered: `packages/api`,
 `packages/client-sdk`, `packages/app`.
