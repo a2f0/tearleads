@@ -61,6 +61,8 @@ changes the operation's outcome.
 
 See [private error diagnostics](sentry.md) for project configuration,
 deployment, collection limits, and verification commands.
+Per-request timings and statement counts go to Workers Logs instead of Sentry;
+see [API request cost](api-request-cost.md).
 
 Worker builds admit only the deployed entry bundle, `index.js`. workerd exposes
 bundle positions to the in-process Sentry client; Cloudflare remaps its own
