@@ -47,9 +47,6 @@ package or runtime, and remove them when the stated checks pass without the pin.
 Run the relevant regressions and validate the affected integrations when
 upgrading these dependencies:
 
-- Redis uses RESP2, explicit keepalive, and disabled command timeouts for
-  session and realtime connections; validate those connections and the
-  [pub/sub regressions](../packages/api/src/adapters/redisPubSub.test.ts).
 - Zod/OpenAPI changes preserve registered wire contracts and tested runtime
   refinements. Crypto changes preserve recovery-key BIP39 phrases and complete
   identity key hashes in the deterministic test vectors.

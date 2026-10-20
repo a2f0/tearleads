@@ -42,7 +42,7 @@ function createLeaseGuard(input: {
   };
 }
 
-// Redis publishes run without command timeouts, so a broker outage would
+// Realtime publishes have no timeout of their own, so a stalled hub would
 // otherwise stall this purge, and every purge queued behind it, on a lossy
 // hint. Sockets a skipped invalidation misses lose the purged containers on
 // their next periodic re-verification instead.

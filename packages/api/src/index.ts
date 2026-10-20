@@ -25,9 +25,11 @@ if (publicOriginWarning !== null) {
   console.warn(publicOriginWarning);
 }
 
-// The realtime gateway is the second half of this composition root: build it
-// once here, alongside the HTTP app, and open its Redis subscription explicitly.
-// Constructing it is side-effect free; start() is what subscribes.
+// This Bun entry is the local development server; deployed tiers run the
+// Worker entry (worker/index.ts). The realtime gateway is the second half of
+// this composition root: build it once here, alongside the HTTP app, and
+// subscribe it to the in-process bus explicitly. Constructing it is side-effect
+// free; start() is what subscribes.
 const realtimeGateway = createRealtimeGateway();
 realtimeGateway.start();
 
@@ -89,7 +91,7 @@ export function resolveApiHost(configuredHost?: string): string {
   const host = configuredHost ?? "127.0.0.1";
   if (!LOOPBACK_API_HOSTS.has(host)) {
     throw new Error(
-      "API_HOST must be loopback-only; public traffic must pass through nginx",
+      "API_HOST must be loopback-only; this is the local development server",
     );
   }
   return host;
@@ -98,9 +100,9 @@ export function resolveApiHost(configuredHost?: string): string {
 const { API_HOST, API_PORT = "3001" } = process.env;
 
 const server = {
-  // Route-specific JSON ceilings rely on nginx rejecting chunked/headerless
-  // bodies before Bun buffers them. Never expose this upload-capable Bun
-  // listener directly to the network.
+  // Nothing in front of this listener rejects chunked or headerless bodies
+  // before Bun buffers them (the Worker entry does that for deployed tiers),
+  // so never expose this upload-capable development server to the network.
   hostname: resolveApiHost(API_HOST),
   port: Number(API_PORT),
   // Bound every request body to the multipart part ceiling. The part route reads

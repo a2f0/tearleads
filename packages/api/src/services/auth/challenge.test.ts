@@ -92,9 +92,8 @@ test("verifyChallenge returns a session token for a valid signature", async () =
   expect(result.token).toBe("test-session");
 });
 
-test("registered users can log in after the Redis identity cache is lost", async () => {
+test("registered users can log in after their registration challenge is lost", async () => {
   const { fingerprint, runtime, user } = await registerAuthServiceUser();
-  await runtime.keyValueStore.del(fingerprint);
   await runtime.keyValueStore.del(`challenge:${fingerprint}`);
 
   const { challenge } = await createChallenge(runtime, { fingerprint });
@@ -132,7 +131,7 @@ test("verifyChallenge rejects raw challenge signatures without the auth domain",
   expect(error.reason).toBe("invalid_signature");
 });
 
-test("verifyChallenge uses the canonical database signing key when redis drifts", async () => {
+test("verifyChallenge ignores a signing key planted in the key/value store", async () => {
   const { fingerprint, runtime, user } = await registerAuthServiceUser();
   const staleKeys = generateSigningSeedAndKeyPair();
   await runtime.keyValueStore.set(
@@ -176,7 +175,7 @@ test("verifyChallenge uses the canonical database signing key when redis drifts"
   expect(result.token).toBe("test-session");
 });
 
-test("verifyChallenge rejects challenges backed only by stale redis keys", async () => {
+test("verifyChallenge rejects challenges backed only by key/value entries", async () => {
   const runtime = createServiceTestRuntime();
   const staleKeys = generateSigningSeedAndKeyPair();
   const fingerprint = await toFingerprint(staleKeys.signingPublicKey);

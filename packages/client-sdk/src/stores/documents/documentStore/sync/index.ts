@@ -207,7 +207,7 @@ async function syncDocumentState(
   }
 
   // Pre-register the IDs we are about to send so the author's OWN
-  // `document_update_created` echo (fanned back over redis) is classified as
+  // `document_update_created` echo (fanned back over realtime) is classified as
   // self-authored and never re-arms a redundant sync. Registering BEFORE the
   // network await closes the race where the echo lands before
   // finalizeDocumentSync records the accepted IDs — the gap that turned every

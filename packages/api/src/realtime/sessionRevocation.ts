@@ -1,4 +1,4 @@
-import { publish } from "../adapters/redisPubSub";
+import { publish } from "../adapters/pubSub";
 import type { SessionData } from "../validators/session";
 import type { PublishedRealtimeEvent } from "./publishedRealtimeEvents";
 

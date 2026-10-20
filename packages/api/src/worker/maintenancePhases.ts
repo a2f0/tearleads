@@ -31,10 +31,9 @@ function countFailedItems(summary: unknown): number {
 }
 
 /**
- * Each phase is independent, so one failure never skips the rest, exactly as
- * the systemd timer entrypoints behaved; unlike them, the run then rejects, so
- * a Cron invocation whose phase threw or whose items failed is recorded as a
- * failed run instead of a success.
+ * Each phase is independent, so one failure never skips the rest; the run then
+ * rejects, so a Cron invocation whose phase threw or whose items failed is
+ * recorded as a failed run instead of a success.
  */
 export async function runMaintenancePhases(
   phases: readonly MaintenancePhase[],

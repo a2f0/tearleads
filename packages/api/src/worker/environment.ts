@@ -21,7 +21,7 @@ const nodeEnvKey = "NODE_ENV";
 const KEY_VALUE_STORE_NAME = "default";
 const REALTIME_HUB_NAME = "hub";
 const DEFAULT_LOCATION_HINT = "enam";
-/** Members per `smembers` page; mirrors the Redis SSCAN batch the API used. */
+/** Members per `smembers` page, the same batch the in-memory store yields. */
 export const KEY_VALUE_SET_PAGE_SIZE = 100;
 
 let boundEnvironment: WorkerBindings | undefined;

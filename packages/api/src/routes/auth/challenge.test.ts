@@ -9,7 +9,7 @@ import {
   requestChallenge,
   submitRegistration,
 } from "../../../test/helpers/api";
-import { del } from "../../adapters/redis";
+import { del } from "../../adapters/keyValueStore";
 import { routeApp } from "../../routeApp";
 
 const signingKeys = generateSigningSeedAndKeyPair();

@@ -1,21 +1,17 @@
 import { afterAll } from "bun:test";
 
-const apiRedisEnvKey = "API_REDIS";
-
-process.env[apiRedisEnvKey] ??= "memory";
-
 const [
   { initializeApiDatabase },
-  { clearInMemoryRedisData },
+  { resetKeyValueStore },
   { closeApiTestAdapters },
 ] = await Promise.all([
   import("@tearleads/api-shared/postgres"),
-  import("../src/adapters/inMemoryRedis"),
+  import("../src/adapters/keyValueStore"),
   import("./cleanup"),
 ]);
 
 await initializeApiDatabase();
-clearInMemoryRedisData();
+resetKeyValueStore();
 
 afterAll(async () => {
   await closeApiTestAdapters();

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { collectWorkerSetMembers } from "./redis";
+import { collectWorkerSetMembers } from "./keyValueStore";
 
 /**
  * A key/value store whose caller prunes members while paging, as

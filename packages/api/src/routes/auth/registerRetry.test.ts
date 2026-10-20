@@ -9,7 +9,7 @@ import {
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { createRegistrationRequestBody } from "../../../test/helpers/api";
-import { del } from "../../adapters/redis";
+import { del } from "../../adapters/keyValueStore";
 import { routeApp } from "../../routeApp";
 
 const fingerprints = new Set<string>();

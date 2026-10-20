@@ -26,8 +26,8 @@ setup. The Test Store key must never be used for an App Store, TestFlight, or
 Google Play release.
 
 To test the server-side billing activation too, point the build at staging and
-enable `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` on the staging API before its
-Ansible deploy. Production intentionally ignores sandbox grants. Full setup and
+set `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` in staging's `app.env` before its API
+Worker deploys. Production intentionally ignores sandbox grants. Full setup and
 the real Apple/Google sandbox checklist are in
 [`revenuecat-native-stores.md`](../../docs/developer/revenuecat-native-stores.md).
 

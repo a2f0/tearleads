@@ -1,6 +1,6 @@
 import pgClient from "@tearleads/api-shared/postgres";
-import { closeRedisClient } from "../src/adapters/redis";
-import { closeRedisPubSub } from "../src/adapters/redisPubSub";
+import { resetKeyValueStore } from "../src/adapters/keyValueStore";
+import { resetPubSub } from "../src/adapters/pubSub";
 
 const cleanupPromiseKey = Symbol.for("tearleads.apiTestCleanupPromise");
 
@@ -15,8 +15,8 @@ function isAlreadyClosedError(error: unknown): boolean {
 export async function closeApiTestAdapters(): Promise<void> {
   const cleanupGlobal = globalThis as ApiTestCleanupGlobal;
   cleanupGlobal[cleanupPromiseKey] ??= (async () => {
-    await closeRedisPubSub();
-    await closeRedisClient();
+    resetPubSub();
+    resetKeyValueStore();
 
     try {
       await pgClient.close();

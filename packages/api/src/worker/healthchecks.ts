@@ -1,7 +1,6 @@
 /**
- * Healthchecks.io pings for the blob garbage collector, replacing the
- * systemd `ExecStartPre`/`ExecStartPost` wrapper. The ping URL is a secret;
- * a failed or stalled ping is logged and never delays or fails the
+ * Healthchecks.io pings for the blob garbage collector. The ping URL is a
+ * secret; a failed or stalled ping is logged and never delays or fails the
  * maintenance run itself.
  */
 export type HealthcheckSignal = "start" | "success" | "fail";

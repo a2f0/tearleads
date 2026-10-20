@@ -212,8 +212,8 @@ This is the lowest layer.
 Examples:
 
 - `packages/api-shared/src/adapters/postgres.ts`
-- `packages/api/src/adapters/redis.ts`
-- `packages/api/src/adapters/redisPubSub.ts`
+- `packages/api/src/adapters/keyValueStore.ts`
+- `packages/api/src/adapters/pubSub.ts`
 - `packages/api/src/adapters/blobObjectStore.ts`
 - `packages/api/src/adapters/s3BlobObjectStore.ts`
 - session token creation

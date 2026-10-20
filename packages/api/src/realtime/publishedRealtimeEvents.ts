@@ -13,7 +13,7 @@ const uuidV4Schema =
   WsOrganizationReadModelAccessRevokedFrameSchema.shape.organizationId;
 
 /**
- * The internal Redis pub/sub event contract, derived from the shared public
+ * The internal pub/sub event contract, derived from the shared public
  * hint schemas plus server-only routing metadata. `origin` identifies the
  * authoring session so the router does not echo an event back over the
  * author's own socket; it must never cross the websocket boundary, which the

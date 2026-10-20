@@ -55,8 +55,8 @@ test("a stalled broker cannot block an organization purge or its blob cleanup", 
       },
     }),
     eventPublisher: {
-      // Redis publishes carry no command timeout; model a broker that never
-      // answers.
+      // Realtime publishes carry no timeout of their own; model a hub that
+      // never answers.
       publish: () => {
         publishes += 1;
         return new Promise<void>(() => undefined);

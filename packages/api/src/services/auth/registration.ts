@@ -4,7 +4,6 @@ import {
   generateChallenge,
   toFingerprint,
 } from "@tearleads/crypto";
-import { bytesToBase64 } from "@tearleads/encoding";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import type { RegistrationResponse } from "@tearleads/validators/response";
 import {
@@ -20,10 +19,7 @@ export { isDuplicateRegistrationFingerprintError, RegistrationError };
 async function issueRegistrationChallenge(
   runtime: ApiServiceRuntime,
   fingerprint: string,
-  signingKeyBytes: Uint8Array,
 ) {
-  await runtime.keyValueStore.set(fingerprint, bytesToBase64(signingKeyBytes));
-
   const challengeBytes = generateChallenge();
   const challengeHex = bytesToHex(challengeBytes);
   await runtime.keyValueStore.set(
@@ -53,11 +49,7 @@ export async function registerUser(
     ip: options.sourceIpAddress ?? null,
     signingKeyBytes,
   });
-  const challengeHex = await issueRegistrationChallenge(
-    runtime,
-    fingerprint,
-    signingKeyBytes,
-  );
+  const challengeHex = await issueRegistrationChallenge(runtime, fingerprint);
 
   await runtime.eventPublisher.publish({
     type: "user_registered",

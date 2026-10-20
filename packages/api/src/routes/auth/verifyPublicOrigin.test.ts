@@ -8,7 +8,7 @@ import {
 } from "@tearleads/crypto";
 import invariant from "invariant";
 import { submitRegistration } from "../../../test/helpers/api";
-import { del } from "../../adapters/redis";
+import { del } from "../../adapters/keyValueStore";
 import { createRouteApp } from "../../routeApp";
 
 // Behind the production tunnel the request URL is a loopback address, so the

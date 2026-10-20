@@ -6,16 +6,6 @@ import { GlobalRegistrator } from "@happy-dom/global-registrator";
 import { resetContainerManifestRegistry } from "@tearleads/test-utils";
 import { takeUnhandledRequests } from "./test/helpers/unhandledRequests";
 
-// The app suite boots the real API runtime in-process (see mswServer.ts), which
-// otherwise opens a live node-redis connection to :6379. Mirror
-// packages/api/test/preload.ts and route those calls through the in-memory Redis
-// adapter (kv + sets + pub/sub) so the suite needs no Redis server — CI provisions
-// none. `??=` leaves an explicit `API_REDIS=…` override in place.
-const appTestEnvironment = process.env as typeof process.env & {
-  API_REDIS?: string;
-};
-appTestEnvironment.API_REDIS ??= "memory";
-
 // Workspace deps the app suite imports through their *built* `dist` (their
 // package exports resolve to dist, never source). Relative to this preload.
 const BUILT_WORKSPACE_DEPS = [

@@ -13,7 +13,7 @@ import {
   submitRegistration,
   submitVerify,
 } from "../../../test/helpers/api";
-import { del } from "../../adapters/redis";
+import { del } from "../../adapters/keyValueStore";
 
 const signingKeys = generateSigningSeedAndKeyPair();
 const kemKeys = generateKemSeedAndKeyPair();
