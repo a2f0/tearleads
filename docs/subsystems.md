@@ -17,7 +17,8 @@ term relates to plane / layer / lane / facade.
 ## How it is kept honest
 
 - `scripts/architecture/subsystems.ts` is the machine-readable manifest: each
-  subsystem lists the path prefixes and exact files it owns.
+  subsystem lists the path prefixes and exact files it owns. The client SDK's
+  rows live in `scripts/architecture/clientSdkSubsystems.ts`.
 - The `subsystem-registry-covers-every-source-file` architecture check requires
   every production source file in a registered package to map to **exactly one**
   subsystem, so a newly added file that finds no home fails `bun run
@@ -56,23 +57,23 @@ Rolled out package by package. Registered: `packages/api`,
 
 | Subsystem | Owns | Public seam | Source paths |
 | --- | --- | --- | --- |
-| **Document Store & Sync** | Client-side document open/list/delete, the per-scope document store, document workflow operations, persisted-document registry, and document summary/sync contracts. | `tearleads.documents` facade; `workflows/documents` | `workflows/documents/`, `data/documents/`, `stores/documents/`, `client/documents/` |
-| **Container Contents** | Container tree projections, container metadata documents, document discovery/links/queries, blob info, and sync-state read models for product UI. | `tearleads.containerContents` facade; `workflows/container-contents` | `workflows/container-contents/`, `stores/container-contents/`, `client/containerContents/` |
-| **Container Data** | Client-side container CRUD/share workflow operations and the local container persistence shape. | `workflows/containers` | `workflows/containers/`, `data/containers/` |
+| **Document Store & Sync** | Client-side document open/list/delete, the per-scope document store, document workflow operations, persisted-document registry, document summary/sync contracts, and their SQLite persistence. | `tearleads.documents` facade; `workflows/documents` | `workflows/documents/`, `data/documents/`, `data/persistence/documents/`, `stores/documents/`, `client/documents/` |
+| **Container Contents** | Container tree projections, container metadata documents, document discovery/links/queries, blob info, sync-state read models for product UI, and their SQLite persistence. | `tearleads.containerContents` facade; `workflows/container-contents` | `workflows/container-contents/`, `data/persistence/container-contents/`, `stores/container-contents/`, `client/containerContents/` |
+| **Container Data** | Client-side container CRUD/share workflow operations and the local container persistence shape. | `workflows/containers` | `workflows/containers/`, `data/containers/`, `data/persistence/containers/` |
 | **Client Blob Storage** | Active blob store selection (ephemeral vs identity-namespaced), OPFS/memory byte stores, encrypted envelopes, and blob workflow operations. | `tearleads.blobs` facade; `workflows/blobs`; `blobContracts` | `workflows/blobs/`, `data/blobs/`, `client/blobs/` |
-| **Organization Read Models** | Org directory/groups/grants/usage/user-detail read models, roster/profile mutations, and atomic principal-container rematerialization for the client. | `tearleads.organizations` facade; `workflows/organizations` | `workflows/organizations/`, `client/organizations/` |
+| **Organization Read Models** | Org directory/groups/grants/usage/user-detail read models and their SQLite persistence, roster/profile mutations, and atomic principal-container rematerialization for the client. | `tearleads.organizations` facade; `workflows/organizations` | `workflows/organizations/`, `data/persistence/organizations/`, `client/organizations/` |
 | **Root Console Client** | Root-only identity, organization, roster, billing, and data usage lookups, gated by the session's server-reported root flag. | `tearleads.root` facade; `workflows/root` | `workflows/root/`, `client/root/` |
-| **Principal Policy (client)** | Client-side principal policy workflow operations, admin-signer resolution, and principal-policy crypto helpers. | `workflows/principals` | `workflows/principals/`, `data/principals/` |
+| **Principal Policy (client)** | Client-side principal policy workflow operations, admin-signer resolution, principal-policy crypto helpers, and their SQLite persistence. | `workflows/principals` | `workflows/principals/`, `data/principals/`, `data/persistence/principalCurrentAcknowledgementPersistence.ts`, `data/persistence/principalHistory/`, `data/persistence/principalKeys/`, `data/persistence/principalMutationJournalPersistence.ts`, `data/persistence/principalPolicy/` |
 | **Client Registration** | Identity registration and the initial organization/root-container bootstrap performed from the client. | `workflows/registration` | `workflows/registration/` |
 | **Sync Engine** | The per-`DomainScope` sync coordinator (lanes, phases, coalescing), device-first local projection + background reconciliation, and the scope/peer-seed primitives that drive cache invalidation. | `tearleads.deviceFirst` facade; sync workflow facade snapshots | `workflows/sync/`, `data/sync/`, `sync/`, `stores/local-projection/`, `client/deviceFirst/`, `data/shared/domainScope.ts` |
-| **Identity & Session** | Identity keypairs, auth context, and durable trust-on-first-use validation of complete user identity bundles. | `tearleads.identity/session/userIdentities` facades; `data/trustedUserIdentity` gateway | `client/identity/`, `client/session/`, `data/trustedUserIdentity/` |
+| **Identity & Session** | Identity keypairs, auth context, and durable trust-on-first-use validation of complete user identity bundles. | `tearleads.identity/session/userIdentities` facades; `data/trustedUserIdentity` gateway | `client/identity/`, `client/session/`, `data/trustedUserIdentity/`, `data/persistence/trustedUserIdentityPinPersistence.ts`, `data/persistence/trustedUserIdentityPinTransaction.ts` |
 | **Local Keyring** | The on-device keyring (manifest storage, scopes, sessions) and its PIN-code unlock support. | `createLocalKeyring` / `createBrowserLocalKeyring` exports | `client/localKeyring/` |
 | **Client Purchases** | Provider-agnostic purchase capabilities for org sync billing: the `PurchasesCapability` interface (provider-hosted flows) with the RevenueCat mapping core over an injectable backend, the `DirectCheckoutCapability` interface (an in-app payment element the app styles itself), and the unavailable stubs for both. | `createRevenueCatPurchases` / `createUnavailablePurchases` / `createUnavailableDirectCheckout` exports | `client/billing/` |
 | **SQLite Runtime** | The local SQLite executor, Drizzle schema, transaction serialization, and the `@tearleads/client-sdk/sqlite` public worker-runtime entry point. | `@tearleads/client-sdk/sqlite` subpath; `data/sqlite` | `data/sqlite/`, `sqlite/` |
-| **Local Persistence** | Domain-specific SQLite read/write modules that take an explicit `ExecSql` executor (containers, container-contents, documents, principal policy). | `data/persistence` (consumed by workflows with `ExecSql` threaded in) | `data/persistence/` |
-| **Keying Verification** | Client-side cryptographic verification of server writer/access-manifest/link-set projections, canonical-record decode, access-level helpers, and stable resource-id derivation. | `data/keyingProjectionVerification` facade | `data/keyingProjectionVerification/`, `data/keying/` |
-| **Security Incident Detection** | Durable, redacted detection records and host notifications for terminal client trust-boundary verification failures. | `tearleads.securityIncidents` facade; `onSecurityIncident` callback | `client/securityIncidents/`, `data/shared/securityIncidents.ts` |
-| **SDK Runtime & Composition Root** | The `Tearleads` facade that wires every SDK subsystem object, the runtime-snapshot projector, the SQLite database handle, the events/network/API-version state, logging, the platform I/O capability contracts (`NetworkStatusSource`, `FileSaver`), and the package root entry point. | `new Tearleads(options)`; the package root index | `Tearleads.ts`, `TearleadsOptions.ts`, `client/index.ts`, `client/runtime/`, `client/host/`, `data/shared/errorMessage.ts`, `data/shared/recordReaders.ts`, `data/shared/userTiming.ts`, `index.ts`, `workflows/shared/` |
+| **Keying Verification** | Client-side cryptographic verification of server writer/access-manifest/link-set projections, canonical-record decode, access-level helpers, stable resource-id derivation, and the checkpoints and bindings it persists. | `data/keyingProjectionVerification` facade | `data/keyingProjectionVerification/`, `data/keying/`, `data/persistence/keyingCheckpoints/`, `data/persistence/organizationFounderPersistence.ts`, `data/persistence/verifiedManifestBundlePersistence.ts` |
+| **Security Incident Detection** | Durable, redacted detection records and host notifications for terminal client trust-boundary verification failures. | `tearleads.securityIncidents` facade; `onSecurityIncident` callback | `client/securityIncidents/`, `data/shared/securityIncidents.ts`, `data/persistence/securityIncidentPersistence.ts` |
+| **SDK Shared Utilities** | Helpers every layer uses with no subsystem of their own: error messages, record readers, User Timing measures, timestamp selection, and the workflow runtime input contract. | direct import | `data/shared/errorMessage.ts`, `data/shared/recordReaders.ts`, `data/shared/userTiming.ts`, `data/persistence/latestTimestamp.ts`, `workflows/shared/` |
+| **SDK Runtime & Composition Root** | The `Tearleads` facade that wires every SDK subsystem object, the runtime-snapshot projector, the SQLite database handle, the events/network/API-version state, logging, the platform I/O capability contracts (`NetworkStatusSource`, `FileSaver`), and the package root entry point. | `new Tearleads(options)`; the package root index | `Tearleads.ts`, `TearleadsOptions.ts`, `client/index.ts`, `client/runtime/`, `client/host/`, `index.ts` |
 
 ### App — `packages/app/src/`
 
@@ -102,8 +103,9 @@ Rolled out package by package. Registered: `packages/api`,
 
 ## Adding or changing a subsystem
 
-1. Edit `scripts/architecture/subsystems.ts` so the owning subsystem's `paths`
-   claim the new file (or add a new subsystem entry).
+1. Edit `scripts/architecture/subsystems.ts` (or `clientSdkSubsystems.ts` for
+   the client SDK) so the owning subsystem's `paths` claim the new file, or add
+   a new subsystem entry.
 2. Mirror the change in the table above.
 3. Run `bun run lint:architecture`. The coverage check tells you about any file
    that maps to zero or more than one subsystem; the docs check tells you about

@@ -335,8 +335,8 @@
       "bytes": 20435
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 797,
-      "bytes": 30467
+      "lines": 600,
+      "bytes": 22416
     }
   },
   "suppressions": {
