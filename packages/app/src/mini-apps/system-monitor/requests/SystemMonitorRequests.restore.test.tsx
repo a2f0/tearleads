@@ -84,7 +84,12 @@ test(
       expect(live).toBeGreaterThanOrEqual(snapshot.total);
       expect(totalRow?.textContent).toBe(`Total requests${live}`);
     });
-    expect(requests.getByText("POST /auth/register")).toBeTruthy();
+    for (const name of ["Requests by endpoint", "Request timing by endpoint"])
+      expect(
+        within(requests.getByRole("table", { name })).getByText(
+          "POST /auth/register",
+        ),
+      ).toBeTruthy();
     restored.unmount();
   },
   PANE_LONG_ASYNC_TEST_TIMEOUT_MS * 2,

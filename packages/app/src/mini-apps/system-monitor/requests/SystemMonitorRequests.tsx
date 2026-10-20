@@ -7,6 +7,11 @@ import {
   MiniAppTableRow,
 } from "../../../components/mini-app/MiniAppTable";
 import { useApiRequestMetrics } from "../../../providers/api/useApiRequestMetrics";
+import {
+  apiRequestTimingDescription,
+  apiRequestTimingHeaders,
+  listApiRequestTimingRows,
+} from "./apiRequestTiming";
 
 const columns = [
   { id: "endpoint", header: "Endpoint" },
@@ -17,8 +22,14 @@ const columns = [
   { id: "cancelled", header: "Cancelled" },
 ];
 
+const timingColumns = apiRequestTimingHeaders.map((header) => ({
+  id: header,
+  header,
+}));
+
 export function SystemMonitorRequests() {
   const { snapshot, hasIdentity, reset } = useApiRequestMetrics();
+  const timingRows = listApiRequestTimingRows(snapshot);
   return (
     <section
       aria-label="API request counts"
@@ -37,6 +48,7 @@ export function SystemMonitorRequests() {
         4xx/5xx or a connection failure, even if the app handles that response.
         Counts do not include later response validation.
       </p>
+      <p>{apiRequestTimingDescription}</p>
       <MiniAppInfoTable className="mini-app-info-table--borderless">
         <tbody>
           <MiniAppInfoRow label="Counting since">
@@ -77,6 +89,30 @@ export function SystemMonitorRequests() {
           {snapshot.endpoints.length === 0 && (
             <MiniAppTableEmptyRow colSpan={columns.length}>
               No API requests recorded yet.
+            </MiniAppTableEmptyRow>
+          )}
+        </MiniAppTable>
+      </div>
+      <div className="system-monitor-request-table">
+        <MiniAppTable
+          aria-label="Request timing by endpoint"
+          columns={timingColumns}
+        >
+          {timingRows.map((row) => (
+            <MiniAppTableRow key={row.endpoint}>
+              <MiniAppTableCell>
+                <code>{row.endpoint}</code>
+              </MiniAppTableCell>
+              {row.cells.map((cell, index) => (
+                <MiniAppTableCell key={timingColumns[index + 1]?.id}>
+                  {cell}
+                </MiniAppTableCell>
+              ))}
+            </MiniAppTableRow>
+          ))}
+          {timingRows.length === 0 && (
+            <MiniAppTableEmptyRow colSpan={timingColumns.length}>
+              No timed API requests yet.
             </MiniAppTableEmptyRow>
           )}
         </MiniAppTable>

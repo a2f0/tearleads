@@ -1,5 +1,10 @@
 import type { ApiRequestMetricsSnapshot } from "@tearleads/client-sdk";
 import { formatTable } from "../report/reportTables";
+import {
+  apiRequestTimingDescription,
+  apiRequestTimingHeaders,
+  listApiRequestTimingRows,
+} from "./apiRequestTiming";
 
 export function formatApiRequestReport(
   snapshot: ApiRequestMetricsSnapshot,
@@ -30,6 +35,18 @@ export function formatApiRequestReport(
         String(row.succeeded),
         String(row.failed),
         String(row.cancelled),
+      ]),
+    ),
+    "",
+    "### Timing",
+    "",
+    apiRequestTimingDescription,
+    "",
+    formatTable(
+      apiRequestTimingHeaders,
+      listApiRequestTimingRows(snapshot).map((row) => [
+        row.endpoint,
+        ...row.cells,
       ]),
     ),
   ];
