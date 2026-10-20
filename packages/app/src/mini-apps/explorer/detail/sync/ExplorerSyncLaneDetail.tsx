@@ -22,6 +22,7 @@ import {
 } from "./ExplorerSyncLaneShared";
 import {
   formatExplorerSyncLaneBoolean,
+  formatSyncLaneRunDuration,
   getExplorerSyncLaneProgressPercent,
   getSyncLaneLastActionLabel,
   getSyncLanePhaseLabel,
@@ -185,6 +186,24 @@ function ExplorerSyncLaneTimingSection(params: { lane: SyncLaneSnapshot }) {
             title={lane.lastFailedAt}
           >
             {formatSyncLaneDateTime(lane.lastFailedAt)}
+          </ExplorerSyncLaneInfoRow>
+          <ExplorerSyncLaneInfoRow
+            label={EXPLORER_LABELS.syncLanesLastRunDurationRow}
+          >
+            {formatSyncLaneRunDuration(lane, (durations) => durations.lastMs)}
+          </ExplorerSyncLaneInfoRow>
+          <ExplorerSyncLaneInfoRow
+            label={EXPLORER_LABELS.syncLanesAverageRunDurationRow}
+          >
+            {formatSyncLaneRunDuration(
+              lane,
+              (durations) => durations.totalMs / durations.count,
+            )}
+          </ExplorerSyncLaneInfoRow>
+          <ExplorerSyncLaneInfoRow
+            label={EXPLORER_LABELS.syncLanesMaxRunDurationRow}
+          >
+            {formatSyncLaneRunDuration(lane, (durations) => durations.maxMs)}
           </ExplorerSyncLaneInfoRow>
           <ExplorerSyncLaneInfoRow
             label={EXPLORER_LABELS.syncLanesLastErrorRow}

@@ -199,8 +199,8 @@
       "bytes": 17006
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerSyncLanesPanel.test.tsx": {
-      "lines": 533,
-      "bytes": 16881
+      "lines": 534,
+      "bytes": 16907
     },
     "packages/app/src/mini-apps/explorer/detail/sync/ExplorerWriteQueuePanel.test.tsx": {
       "lines": 619,

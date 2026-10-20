@@ -61,6 +61,7 @@ function lane(status: SyncLaneSnapshot["status"]): SyncLaneSnapshot {
     requested: false,
     runAbandoned: false,
     runCount: 0,
+    runDurations: null,
     running: status === "running",
     status,
   };

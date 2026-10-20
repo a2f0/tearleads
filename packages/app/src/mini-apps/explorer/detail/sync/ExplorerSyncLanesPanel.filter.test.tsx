@@ -38,6 +38,7 @@ function createLaneSnapshot(input: {
     requested: false,
     runAbandoned: false,
     runCount: 0,
+    runDurations: null,
     running: input.status === "running",
     status: input.status,
   };

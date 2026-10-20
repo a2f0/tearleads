@@ -1,3 +1,4 @@
+import { readUserTimingClock } from "../shared/userTiming";
 import type {
   DomainSyncCoordinatorState,
   SyncLaneState,
@@ -9,7 +10,7 @@ import {
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
 import type { SyncLaneProgress } from "./syncTelemetry";
-import { createSyncTimestamp } from "./syncTelemetry";
+import { addSyncLaneRunDuration, createSyncTimestamp } from "./syncTelemetry";
 
 /**
  * Handle for an observational upload lane. Unlike pump-driven lanes, these are
@@ -54,6 +55,25 @@ function evictRetainedUploadLanes(
   for (const lane of settledUploadLanes.slice(0, removeCount)) {
     coordinatorState.lanes.delete(lane.key);
   }
+}
+
+// Returns the session's run-ending step. Upload rows are timed like pump runs,
+// once per session, but stay off the User Timing tracks: the owning document
+// lane's run already spans them.
+function startUploadLaneRun(lane: SyncLaneState): () => void {
+  const startedAtMs = readUserTimingClock();
+  let timed = false;
+  return () => {
+    lane.running = false;
+    if (timed) {
+      return;
+    }
+    timed = true;
+    lane.runDurations = addSyncLaneRunDuration(
+      lane.runDurations,
+      readUserTimingClock() - startedAtMs,
+    );
+  };
 }
 
 export function beginUploadLane(
@@ -111,13 +131,14 @@ export function beginUploadLane(
   // callbacks can't clobber the newer upload's state.
   const sessionRunCount = uploadLane.runCount;
   const isCurrentSession = () => uploadLane.runCount === sessionRunCount;
+  const endRun = startUploadLaneRun(uploadLane);
 
   return {
     complete() {
       if (!isCurrentSession()) {
         return;
       }
-      uploadLane.running = false;
+      endRun();
       uploadLane.lastAction = "completed";
       uploadLane.lastActionAt = createSyncTimestamp();
       uploadLane.lastCompletedAt = uploadLane.lastActionAt;
@@ -136,7 +157,7 @@ export function beginUploadLane(
       if (!isCurrentSession()) {
         return;
       }
-      uploadLane.running = false;
+      endRun();
       uploadLane.errorCount += 1;
       uploadLane.lastAction = "failed";
       uploadLane.lastActionAt = createSyncTimestamp();

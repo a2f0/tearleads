@@ -3,6 +3,7 @@ import type {
   DomainSyncSnapshot,
   SyncLaneLastAction,
   SyncLaneProgress,
+  SyncLaneRunDurations,
 } from "./syncTelemetry";
 import { createDomainSyncSnapshot } from "./syncTelemetry";
 
@@ -35,6 +36,7 @@ export interface SyncLaneState {
   requested: boolean;
   runAbandoned: boolean;
   runCount: number;
+  runDurations: SyncLaneRunDurations | null;
   running: boolean;
 }
 
@@ -57,6 +59,7 @@ export const INITIAL_SYNC_LANE_RUN_STATE = {
   lastRunOrder: 0,
   runAbandoned: false,
   runCount: 0,
+  runDurations: null,
   running: false,
 } as const;
 

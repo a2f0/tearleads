@@ -1,10 +1,12 @@
 import { formatByteLength } from "../../utils/formatByteLength";
 import { EXPLORER_LABELS as CATALOG_LABELS } from "./labelCatalog";
 import { EXPLORER_DOWNLOAD_LABELS } from "./shared/downloadLabels";
+import { EXPLORER_SYNC_LANE_TIMING_LABELS } from "./shared/syncLaneTimingLabels";
 
 export const EXPLORER_LABELS = {
   ...CATALOG_LABELS,
   ...EXPLORER_DOWNLOAD_LABELS,
+  ...EXPLORER_SYNC_LANE_TIMING_LABELS,
 };
 
 const EXPLORER_COUNT_FORMATTER = new Intl.NumberFormat();

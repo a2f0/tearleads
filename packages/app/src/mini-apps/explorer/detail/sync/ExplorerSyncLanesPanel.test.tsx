@@ -56,6 +56,7 @@ function createLaneSnapshot(
     requested: false,
     runAbandoned: false,
     runCount: 0,
+    runDurations: null,
     running: false,
     status: "idle",
     ...overrides,
@@ -337,16 +338,16 @@ test("ExplorerSyncLanesPanelView places the column menu in the rightmost status 
 
   expect(headerCells.at(-1)?.textContent).toContain("Status");
   expect(headerCells.at(-1)?.contains(columnsButton)).toBe(true);
-  // Inline floor = sum of visible columns' fixed rem widths (10+7+11+12+12+7).
+  // Inline floor = sum of visible columns' fixed rem widths (10+7+11+12+12+7+7).
   // Set explicitly, not via CSS `max-content` (which Firefox sizes from cell
   // content, blowing the columns out); hiding Progress drops its 11rem too.
-  expect(table.style.minWidth).toBe("59rem");
+  expect(table.style.minWidth).toBe("66rem");
 
   fireEvent.click(columnsButton);
   fireEvent.click(view.getByRole("checkbox", { name: /Progress/u }));
 
   expect(view.queryByRole("progressbar")).toBeNull();
-  expect(table.style.minWidth).toBe("48rem");
+  expect(table.style.minWidth).toBe("55rem");
 });
 
 test("ExplorerSyncLanesPanel triggers a manual sync from the toolbar action", async () => {

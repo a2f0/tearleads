@@ -44,9 +44,10 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
   id derivation) live under `keying/`.
 - `shared/` holds the few layer-neutral contracts and helpers every layer uses:
   the `DomainScope` token that keys per-scope singletons, the
-  `SecurityIncidentReporter` port, `errorMessage`, and untrusted-record
-  readers. Code that belongs to one subsystem goes in that subsystem's folder
-  instead.
+  `SecurityIncidentReporter` port, `errorMessage`, untrusted-record readers,
+  and the on-device User Timing helper that sync lanes and SQLite mutations
+  draw on DevTools tracks. Code that belongs to one subsystem goes in that
+  subsystem's folder instead.
 - Shared helpers and domain read-model contracts hold pure or mostly pure
   projection, crypto, event, request, response validation, and view-facing data
   shapes that workflows and stores can reuse without importing provider or UI

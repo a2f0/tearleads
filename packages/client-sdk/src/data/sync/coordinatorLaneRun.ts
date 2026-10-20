@@ -1,3 +1,7 @@
+import {
+  readUserTimingClock,
+  recordUserTimingEntry,
+} from "../shared/userTiming";
 import type {
   DomainSyncCoordinatorState,
   SyncLaneState,
@@ -7,7 +11,7 @@ import {
   publishSyncCoordinatorSnapshot,
 } from "./coordinatorState";
 import type { SyncLaneConfig } from "./syncLaneConfig";
-import { createSyncTimestamp } from "./syncTelemetry";
+import { addSyncLaneRunDuration, createSyncTimestamp } from "./syncTelemetry";
 
 const SYNC_LANE_WATCHDOG_MS = 120_000;
 const FAILED_LANE_REARM_BACKOFF_MS = 1000;
@@ -95,19 +99,48 @@ function recordSyncLaneRunResult(
   }
 }
 
+// Times a settled run and draws it on the DevTools "Sync lanes" track. A
+// watchdog verdict is not a settlement and records nothing: the abandoned run
+// is timed when its late result arrives.
+function recordSyncLaneRunTiming(
+  lane: SyncLaneState,
+  startedAtMs: number,
+  runResult: SyncLaneRunResult,
+  abandoned: boolean,
+): void {
+  const endedAtMs = readUserTimingClock();
+  lane.runDurations = addSyncLaneRunDuration(
+    lane.runDurations,
+    endedAtMs - startedAtMs,
+  );
+  recordUserTimingEntry({
+    endMs: endedAtMs,
+    failed: runResult.status === "failed",
+    name: `Sync lane: ${lane.config.label ?? lane.key}`,
+    properties: [
+      ["phase", lane.config.phase ?? "document"],
+      ["outcome", runResult.status],
+      ["watchdog", abandoned ? "abandoned" : "within limit"],
+    ],
+    startMs: startedAtMs,
+    track: "Sync lanes",
+  });
+}
+
 // Replace the watchdog failure with the late result, then release queued work.
 function settleAbandonedSyncLaneRun(
   coordinatorState: DomainSyncCoordinatorState,
   lane: SyncLaneState,
-  runToken: object,
+  run: { readonly startedAtMs: number; readonly token: object },
   runResult: SyncLaneRunResult,
   wake: () => void,
 ): void {
-  if (lane.activeRunToken !== runToken) {
+  if (lane.activeRunToken !== run.token) {
     return;
   }
   lane.activeRunToken = null;
   lane.runAbandoned = false;
+  recordSyncLaneRunTiming(lane, run.startedAtMs, runResult, true);
   recordSyncLaneRunResult(lane, runResult);
   publishSyncCoordinatorSnapshot(coordinatorState);
   if (!coordinatorState.disposed && lane.requested) {
@@ -130,6 +163,7 @@ function startSyncLaneRun(
   const runToken = {};
   lane.activeRunToken = runToken;
   publishSyncCoordinatorSnapshot(coordinatorState);
+  const startedAtMs = readUserTimingClock();
 
   // Keep follow-up requests even on failure to preserve phase ordering; see
   // docs/client-sync-ordering.md.
@@ -142,7 +176,7 @@ function startSyncLaneRun(
     },
   );
 
-  return { runToken, runResultPromise };
+  return { runToken, runResultPromise, startedAtMs };
 }
 
 export async function runCoordinatorLane(
@@ -150,7 +184,7 @@ export async function runCoordinatorLane(
   lane: SyncLaneState,
   wake: () => void,
 ): Promise<void> {
-  const { runToken, runResultPromise } = startSyncLaneRun(
+  const { runToken, runResultPromise, startedAtMs } = startSyncLaneRun(
     coordinatorState,
     lane,
   );
@@ -181,6 +215,7 @@ export async function runCoordinatorLane(
   if (raceOutcome.kind === "settled") {
     lane.activeRunToken = null;
     runResult = raceOutcome.result;
+    recordSyncLaneRunTiming(lane, startedAtMs, runResult, false);
   } else {
     lane.runAbandoned = true;
     runResult = {
@@ -193,7 +228,7 @@ export async function runCoordinatorLane(
       settleAbandonedSyncLaneRun(
         coordinatorState,
         lane,
-        runToken,
+        { startedAtMs, token: runToken },
         result,
         wake,
       ),

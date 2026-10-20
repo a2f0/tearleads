@@ -281,6 +281,32 @@ scheduling reasons, applied incoming-update and attachment-slot counts, and an
 `unavailable` outcome. These entries never include document text, structured
 fields, attachment names, blob bytes, keys, or decrypted payloads.
 
+## Timing Diagnostics
+
+Each lane snapshot carries `runDurations`: the last, maximum, and total
+duration of its settled runs on the monotonic clock, and how many runs were
+timed, so the average is the total divided by that count. The Explorer sync
+lane list shows the last run, its lane detail adds the average and maximum, and
+the System Monitor report carries all of them. A watchdog verdict records no
+duration because the run has not finished; the abandoned run is timed with its
+real duration when it settles. Observational upload rows are timed from the
+start of an upload attempt to its first terminal callback.
+
+The SDK also draws runs on DevTools Performance tracks under a `Tearleads`
+group, through `performance.measure` with numeric timestamps:
+
+- `Sync lanes`: one entry per lane run, named `Sync lane: <label>`, with the
+  phase, outcome, and whether the watchdog abandoned it;
+- `SQLite mutation queue`: time an outermost serialized mutation waited behind
+  another one on the same connection (nested calls on the held lock draw
+  nothing);
+- `SQLite mutations`: time that mutation held the connection lock.
+
+Entries are cleared from the performance timeline as soon as they are
+recorded, so a long session does not accumulate them; a DevTools recording
+already captured them. Nothing is sent off the device, and runtimes without
+User Timing skip the tracks.
+
 ## Orchestration Boundary
 
 There is no domain-specific sync orchestrator. The domain sync coordinator

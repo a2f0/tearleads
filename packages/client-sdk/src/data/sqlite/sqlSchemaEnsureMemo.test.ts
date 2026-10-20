@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, spyOn, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { documentTables } from "./schema";
 import type { ExecSql } from "./sqlExec";
@@ -80,5 +80,40 @@ test("runOncePerConnection shares completion across lock contexts without sharin
     expect(runs).toBe(2);
   } finally {
     close();
+  }
+});
+
+test("outermost mutations draw their queue wait and lock hold on User Timing tracks", async () => {
+  const measure = spyOn(performance, "measure");
+  const execSql: ExecSql = (async () => []) as ExecSql;
+  try {
+    let releaseFirst: () => void = () => {};
+    const firstHeld = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const first = runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+      // A nested call reuses the held lock and draws nothing of its own.
+      await runSerializedSqlMutation(lockedExecSql, async () => {});
+      await firstHeld;
+    });
+    const second = runSerializedSqlMutation(execSql, async () => {
+      throw new Error("constraint failed");
+    });
+    releaseFirst();
+    await first;
+    await expect(second).rejects.toThrow("constraint failed");
+
+    expect(
+      measure.mock.calls.map(([name, options]) => [
+        name,
+        typeof options === "object" ? options.detail.devtools.color : null,
+      ]),
+    ).toEqual([
+      ["SQLite mutation", "primary"],
+      ["SQLite mutation wait", "primary"],
+      ["SQLite mutation", "error"],
+    ]);
+  } finally {
+    measure.mockRestore();
   }
 });

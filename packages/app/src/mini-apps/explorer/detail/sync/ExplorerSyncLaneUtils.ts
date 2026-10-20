@@ -5,6 +5,7 @@ import type {
   SyncLaneSnapshot,
   SyncLaneStatus,
 } from "@tearleads/client-sdk";
+import { formatDurationMs } from "../../../../utils/formatDurationMs";
 import { EXPLORER_LABELS } from "../../labels";
 
 interface SyncLaneSummary {
@@ -143,6 +144,18 @@ export function filterSyncLanes(
   return filter === null
     ? lanes
     : lanes.filter((lane) => lane.status === filter);
+}
+
+type SyncLaneRunDurations = NonNullable<SyncLaneSnapshot["runDurations"]>;
+
+/** A dash until the lane has a settled run to measure. */
+export function formatSyncLaneRunDuration(
+  lane: SyncLaneSnapshot,
+  select: (durations: SyncLaneRunDurations) => number,
+): string {
+  return lane.runDurations
+    ? formatDurationMs(select(lane.runDurations))
+    : EXPLORER_LABELS.syncLanesNoRunDuration;
 }
 
 export function formatExplorerSyncLaneBoolean(value: boolean): string {

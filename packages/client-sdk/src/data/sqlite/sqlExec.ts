@@ -1,3 +1,8 @@
+import {
+  readUserTimingClock,
+  recordUserTimingEntry,
+} from "../shared/userTiming";
+
 export type SqlRowValue = string | number | null;
 export type SqlRow = Record<string, SqlRowValue>;
 export type SqlArrayRow = SqlRowValue[];
@@ -183,6 +188,8 @@ function createSerializedSqlExec(execSql: ExecSql): ExecSql {
 // Nested callers must keep passing the provided locked executor. Re-entering
 // with the original canonical executor will wait on the current mutation and
 // deadlock.
+// Each outermost mutation is drawn on DevTools tracks: time spent queued
+// behind another mutation, then time holding the lock.
 export async function runSerializedSqlMutation<T>(
   execSql: ExecSql,
   operation: (execSql: ExecSql) => Promise<T> | T,
@@ -191,23 +198,46 @@ export async function runSerializedSqlMutation<T>(
     return operation(execSql);
   }
 
-  const previous = sqlMutationQueue.get(execSql) ?? Promise.resolve();
+  const queuedAtMs = readUserTimingClock();
+  const previous = sqlMutationQueue.get(execSql);
   let releaseCurrent = () => {};
   const current = new Promise<void>((resolve) => {
     releaseCurrent = resolve;
   });
-  const waitForPrevious = previous.catch(() => undefined);
+  const waitForPrevious = (previous ?? Promise.resolve()).catch(
+    () => undefined,
+  );
   const queuedCurrent = waitForPrevious.then(() => current);
 
   sqlMutationQueue.set(execSql, queuedCurrent);
   await waitForPrevious;
+  const acquiredAtMs = readUserTimingClock();
+  if (previous) {
+    recordUserTimingEntry({
+      endMs: acquiredAtMs,
+      name: "SQLite mutation wait",
+      startMs: queuedAtMs,
+      track: "SQLite mutation queue",
+    });
+  }
 
+  let failed = true;
   try {
-    return await operation(createSerializedSqlExec(execSql));
+    const result = await operation(createSerializedSqlExec(execSql));
+    failed = false;
+    return result;
   } finally {
+    const releasedAtMs = readUserTimingClock();
     releaseCurrent();
     if (sqlMutationQueue.get(execSql) === queuedCurrent) {
       sqlMutationQueue.delete(execSql);
     }
+    recordUserTimingEntry({
+      endMs: releasedAtMs,
+      failed,
+      name: "SQLite mutation",
+      startMs: acquiredAtMs,
+      track: "SQLite mutations",
+    });
   }
 }
