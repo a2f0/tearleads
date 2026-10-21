@@ -1,15 +1,6 @@
 {
-  "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
-  ],
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/container-contents/documentMoveIntentPersistence.ts": [
-    "packages/client-sdk/src/client/organizations/organizationAccessRestoration.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/container-contents/dormantMetadataSweep.ts": [
-    "packages/client-sdk/src/client/organizations/organizationAccessRestoration.ts"
   ],
   "packages/client-sdk/src/data/persistence/container-contents/supersededContainerBindings.ts": [
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"
@@ -19,10 +10,6 @@
   ],
   "packages/client-sdk/src/data/persistence/documents/internal/orphanSideRows.ts": [
     "packages/client-sdk/src/workflows/sync/remoteResetAttachments.ts"
-  ],
-  "packages/client-sdk/src/stores/documents/documentStore/internalRelink.ts": [
-    "packages/client-sdk/src/client/containerContents/index.ts",
-    "packages/client-sdk/src/stores/container-contents/syncAgent/syncLaneIteration.ts"
   ],
   "packages/client-sdk/src/workflows/organizations/readModel/organizationPresentationAccessState.ts": [
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"

@@ -1,4 +1,5 @@
 import type { DomainScope } from "../../data/shared/domainScope";
+import { recoverOrganizationAccess } from "../../workflows/container-contents/recovery/accessRestoration";
 import {
   loadLocalOrganizationContainerGrants,
   loadLocalOrganizationDirectoryAndGroups,
@@ -19,7 +20,6 @@ import {
   wasOrganizationPresentationAccessDeniedByServer,
 } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
-import { recoverOrganizationAccess } from "./organizationAccessRestoration";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 import { loadBoundedOrganizationHistory } from "./organizationHistory";
@@ -284,9 +284,11 @@ class OrganizationReadModelCoordinatorImpl
           directoryAndGroups !== undefined;
         if (accessWasRestored)
           await recoverOrganizationAccess({
-            active,
             domainScope,
+            execSql: active.runtime.infra.execSql,
+            organizationId: active.organizationId,
             stillCurrent,
+            userId: active.userId,
           });
         if (!stillCurrent()) return null;
         return hydrateOrganizationGroupNamesForRuntime(
