@@ -6,13 +6,13 @@ import {
   documents,
   localIntents,
 } from "../../data/sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
-import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
-import { clearRemoteSyncState } from "./remoteReset";
 import {
   REMOTE_RESET_SQL_BATCH_SIZE,
   remoteResetBatches,
-} from "./remoteResetBatches";
+} from "../../data/sqlite/sqliteBindBudget";
+import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
+import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
+import { clearRemoteSyncState } from "./remoteReset";
 
 test("remote reset batches organizations beyond SQLite bind limits", async () => {
   const { close, execSql } = await createTestExecSql(

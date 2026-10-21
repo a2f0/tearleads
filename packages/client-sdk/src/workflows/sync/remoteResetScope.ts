@@ -1,21 +1,19 @@
-import { eq } from "drizzle-orm";
-import {
-  containerSyncWatermarks,
-  containers,
-  documentContainerProjection,
-  documentProjection,
-  documents,
-  dormantContainerMetadata,
-  LOCAL_INTENT_LANES,
-  localIntents,
-} from "../../data/sqlite/schema";
-import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
-import { isRemoteResetSyncCursor } from "./remoteResetCursorScope";
-import type { ResetDocumentScope } from "./remoteResetPlans";
 import {
   loadRemoteResetPrincipalScope,
   type RemoteResetPrincipalKey,
-} from "./remoteResetPrincipalScope";
+} from "../../data/persistence/principalPolicy/principalPolicyRemoteReset";
+import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
+import {
+  countContainerResetIntents,
+  countRemoteResetSyncCursors,
+  listDocumentPlacementRows,
+  loadContainerResetScope,
+  type ResetContainerRow,
+} from "../container-contents/remoteReset/containerRemoteReset";
+import {
+  loadDocumentResetScope,
+  type ResetDocumentRow,
+} from "../documents/remoteReset/documentRemoteReset";
 
 export interface RemoteResetReplacement {
   readonly organizationId: string;
@@ -25,16 +23,6 @@ export interface RemoteResetReplacement {
 export interface RemoteResetInput {
   readonly organizationId: string;
   readonly replacement?: RemoteResetReplacement | undefined;
-}
-
-export interface ResetContainerRow {
-  readonly id: string;
-  readonly parentId: string | null;
-}
-
-export interface ResetDocumentRow extends ResetDocumentScope {
-  readonly documentId: string | null;
-  readonly recoveryDocumentId: string | null;
 }
 
 export interface RemoteSyncStateSnapshot {
@@ -58,177 +46,43 @@ function principalKeyOfRow(row: {
   return `${row.principalType}\0${row.principalId}`;
 }
 
-function scopeKey(scope: ResetDocumentScope): string {
-  return `${scope.appKind}\0${scope.localId}`;
-}
-
-async function loadContainerScope(
-  tx: ClientSQLiteTransactionScope,
-  organizationId: string,
-): Promise<{
-  containerIds: string[];
-  containerRows: ResetContainerRow[];
-}> {
-  const liveContainerRows = (
-    await tx
-      .select({ id: containers.id, parentId: containers.parentId })
-      .from(containers)
-      .where(eq(containers.organizationId, organizationId))
-  ).flatMap((row) => (row.id ? [{ id: row.id, parentId: row.parentId }] : []));
-  const dormantContainerRows = await tx
-    .select({ id: dormantContainerMetadata.containerId })
-    .from(dormantContainerMetadata)
-    .where(eq(dormantContainerMetadata.organizationId, organizationId));
-  const containerRows = liveContainerRows;
-  return {
-    containerIds: [
-      ...new Set([
-        ...containerRows.map((row) => row.id),
-        ...dormantContainerRows.map((row) => row.id),
-      ]),
-    ],
-    containerRows,
-  };
-}
-
-async function loadDocumentScope(input: {
-  containerIds: readonly string[];
-  organizationId: string;
-  tx: ClientSQLiteTransactionScope;
-}): Promise<{
-  documentLocalIds: string[];
-  documentRows: ResetDocumentRow[];
-  oldDocumentIds: string[];
-}> {
-  const { organizationId, tx } = input;
-  const containerIdSet = new Set(input.containerIds);
-  const [allDocuments, projectionRows, linkRows] =
-    await loadDocumentAssociationRows(tx);
-  const linkedDocumentIds = new Set(
-    linkRows
-      .filter((row) => containerIdSet.has(row.containerId))
-      .map((row) => row.documentId),
-  );
-  const projectedLocalIds = new Set(
-    projectionRows
-      .filter(
-        (row) =>
-          (row.containerId !== null && containerIdSet.has(row.containerId)) ||
-          row.organizationId === organizationId ||
-          (row.documentId !== null && linkedDocumentIds.has(row.documentId)),
-      )
-      .flatMap((row) => (row.localId ? [row.localId] : [])),
-  );
-  const documentRows = allDocuments.filter(
-    (row) =>
-      (row.appKind === "container-metadata" &&
-        containerIdSet.has(row.localId)) ||
-      (row.appKind === "documents" && projectedLocalIds.has(row.localId)) ||
-      (row.documentId !== null && linkedDocumentIds.has(row.documentId)),
-  );
-  return {
-    documentLocalIds: [
-      ...new Set(
-        documentRows
-          .filter((row) => row.appKind === "documents")
-          .map((row) => row.localId),
-      ),
-    ],
-    documentRows,
-    oldDocumentIds: [
-      ...new Set(
-        documentRows.flatMap((row) => (row.documentId ? [row.documentId] : [])),
-      ),
-    ],
-  };
-}
-
-function loadDocumentAssociationRows(tx: ClientSQLiteTransactionScope) {
-  return Promise.all([
-    tx
-      .select({
-        appKind: documents.appKind,
-        documentId: documents.documentId,
-        localId: documents.localId,
-        recoveryDocumentId: documents.recoveryDocumentId,
-      })
-      .from(documents),
-    tx.select().from(documentProjection),
-    tx.select().from(documentContainerProjection),
-  ]);
-}
-
-async function loadSnapshotCounts(input: {
-  containerIds: readonly string[];
-  documentRows: readonly ResetDocumentRow[];
-  organizationId: string;
-  tx: ClientSQLiteTransactionScope;
-}) {
-  const { organizationId, tx } = input;
-  const containerIdSet = new Set(input.containerIds);
-  const documentScopeKeys = new Set(input.documentRows.map(scopeKey));
-  const [principalScope, intents] = await Promise.all([
-    loadRemoteResetPrincipalScope(tx, organizationId),
-    tx
-      .select({
-        lane: localIntents.lane,
-        localId: localIntents.localId,
-        subjectId: localIntents.subjectId,
-      })
-      .from(localIntents),
-  ]);
-  const containerIntentCount = (lane: string) =>
-    intents.filter(
-      (row) => row.lane === lane && containerIdSet.has(row.subjectId),
-    ).length;
-  const principalKeys = principalScope.principalKeys;
-  const principalKeySet = new Set(principalKeys.map(principalKeyOfRow));
-  const scopedContainerIds = new Set(input.containerIds);
-  const syncLanes = await tx.select().from(containerSyncWatermarks);
-
-  return {
-    clearedContainerCreateIntentCount: containerIntentCount(
-      LOCAL_INTENT_LANES.containerCreate,
-    ),
-    clearedContainerMoveIntentCount: containerIntentCount(
-      LOCAL_INTENT_LANES.containerMove,
-    ),
-    clearedDocumentMoveIntentCount: intents.filter(
-      (row) =>
-        row.lane === LOCAL_INTENT_LANES.documentPlacement &&
-        row.localId !== null &&
-        documentScopeKeys.has(
-          scopeKey({ appKind: "documents", localId: row.localId }),
-        ),
-    ).length,
-    clearedPrincipalPolicyCount: principalScope.policyRows.filter((row) =>
-      principalKeySet.has(`${row.type}\0${row.id}`),
-    ).length,
-    clearedSyncCursorCount: syncLanes.filter((row) =>
-      isRemoteResetSyncCursor({
-        containerIds: scopedContainerIds,
-        row,
-      }),
-    ).length,
-    principalKeys,
-  };
-}
-
+/**
+ * Reads what a reset of the organization covers, from each subsystem that owns
+ * part of it: folders, then the documents in them, then principal policies.
+ */
 export async function readRemoteSyncStateSnapshot(
   tx: ClientSQLiteTransactionScope,
   organizationId: string,
 ): Promise<RemoteSyncStateSnapshot> {
-  const containerScope = await loadContainerScope(tx, organizationId);
-  const documentScope = await loadDocumentScope({
+  const containerScope = await loadContainerResetScope(tx, organizationId);
+  const documentScope = await loadDocumentResetScope({
     containerIds: containerScope.containerIds,
     organizationId,
+    placementRows: await listDocumentPlacementRows(tx),
     tx,
   });
-  const counts = await loadSnapshotCounts({
-    containerIds: containerScope.containerIds,
-    documentRows: documentScope.documentRows,
+  const principalScope = await loadRemoteResetPrincipalScope(
+    tx,
     organizationId,
+  );
+  const intentCounts = await countContainerResetIntents({
+    containerIds: containerScope.containerIds,
+    documentLocalIds: documentScope.documentLocalIds,
     tx,
   });
-  return { ...containerScope, ...documentScope, ...counts };
+  const principalKeys = principalScope.principalKeys;
+  const principalKeySet = new Set(principalKeys.map(principalKeyOfRow));
+  return {
+    ...containerScope,
+    ...documentScope,
+    ...intentCounts,
+    clearedPrincipalPolicyCount: principalScope.policyRows.filter((row) =>
+      principalKeySet.has(`${row.type}\0${row.id}`),
+    ).length,
+    clearedSyncCursorCount: await countRemoteResetSyncCursors({
+      containerIds: containerScope.containerIds,
+      tx,
+    }),
+    principalKeys,
+  };
 }
