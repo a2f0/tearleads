@@ -1,11 +1,4 @@
 export {
-  type ContainerMetadataDocument,
-  createInitializedContainerMetadataDocument,
-  getDefaultContainerName,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../data/containers/containerMetadataDocument";
-export {
   didRegainSyncPrerequisites,
   isDatabaseUnavailableError,
 } from "../../data/sync/syncCoordinator";
@@ -95,6 +88,13 @@ export {
   renameContainerMetadataStateFromRuntime,
   syncContainerMetadataState,
 } from "./metadata";
+export {
+  type ContainerMetadataDocument,
+  createInitializedContainerMetadataDocument,
+  getDefaultContainerName,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "./metadata/containerMetadataDocument";
 export {
   listPendingWrites,
   type PendingWriteQueueItem,

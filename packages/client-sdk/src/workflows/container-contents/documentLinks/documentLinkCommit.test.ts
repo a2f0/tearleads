@@ -5,8 +5,8 @@ import {
   createWorkflowInputFixture,
 } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createContainerContents } from "../../../client/containerContents";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence as documents } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { createRemoteHistoryFixture } from "../../../stores/documents/documentStore/documentStore.testFixtures";

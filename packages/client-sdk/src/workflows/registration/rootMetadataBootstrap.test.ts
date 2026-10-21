@@ -3,7 +3,7 @@ import { importUpdates } from "@tearleads/loro";
 import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
-} from "../../data/containers/containerMetadataDocument";
+} from "../container-contents/metadata/containerMetadataDocument";
 import { createInitialRootMetadataBootstrap } from "./rootMetadataBootstrap";
 
 test("createInitialRootMetadataBootstrap creates root metadata update", async () => {

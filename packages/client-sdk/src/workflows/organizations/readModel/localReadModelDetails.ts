@@ -3,7 +3,7 @@ import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import { loadContainerDisplayNamesByIds } from "../../../data/persistence/containers/containerPersistence";
+import { loadContainerDisplayNamesByIds } from "../../../data/persistence/container-contents/containerPersistence";
 import { loadOrganizationGroupDisplayNames } from "../../../data/persistence/organizations/organizationGroupNamePersistence";
 import { loadOrganizationReadModelProjection } from "../../../data/persistence/organizations/organizationReadModelPersistence";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";

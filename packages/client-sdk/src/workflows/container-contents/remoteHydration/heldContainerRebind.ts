@@ -1,7 +1,7 @@
 import {
   type HeldContainerBinding,
   rebindsHeldContainer,
-} from "../../../data/containers/containerBinding";
+} from "../../../data/persistence/container-contents/containerBinding";
 import { installContainerMetadataRecord } from "../metadata/metadataStateInstallation";
 import type {
   ContainerState,

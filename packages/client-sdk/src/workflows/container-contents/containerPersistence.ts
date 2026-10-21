@@ -7,7 +7,7 @@ import {
   containerContentsSyncLane,
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
-} from "../../data/persistence/containers/containerSyncWatermarkPersistence";
+} from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 
 export type {
@@ -21,8 +21,8 @@ export type {
   StoredContainerState,
 } from "../../data/persistence/container-contents/containerContentsPersistence";
 export { sqlContainerContentsPersistence as defaultContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
-export type { ContainerRecord } from "../../data/persistence/containers/containerPersistence";
-export type { ContainerSyncWatermarkLane } from "../../data/persistence/containers/containerSyncWatermarkPersistence";
+export type { ContainerRecord } from "../../data/persistence/container-contents/containerPersistence";
+export type { ContainerSyncWatermarkLane } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 
 export async function enqueuePendingContainerUpdate(
   execSql: ExecSql,

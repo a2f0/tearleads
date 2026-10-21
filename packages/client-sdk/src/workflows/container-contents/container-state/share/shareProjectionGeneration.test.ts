@@ -8,8 +8,8 @@ import {
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../../test/helpers/containerFixtures";
 import { createShareTestRuntime } from "../../../../../test/helpers/groupShareScenario";
-import { createInitializedContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
+import { createInitializedContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
 import { invalidateContainerProjections } from "../projectionCache";
 import { shareContainerState } from "./index";

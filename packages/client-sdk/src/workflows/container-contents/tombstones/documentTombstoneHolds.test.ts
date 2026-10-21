@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import {
   HELD_TOMBSTONE_RETRY_INTERVAL_MS,
   heldTombstoneRetryDelayMs,

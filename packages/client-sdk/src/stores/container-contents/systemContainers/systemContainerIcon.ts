@@ -3,7 +3,7 @@ import {
   getDefaultContainerName,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
+} from "../../../workflows/container-contents/metadata/containerMetadataDocument";
 import {
   createDetachedContainerMetadataState,
   installDetachedContainerMetadataState,

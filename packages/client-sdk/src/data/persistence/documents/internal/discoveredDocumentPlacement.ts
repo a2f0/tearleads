@@ -1,7 +1,7 @@
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../../documents/documentConstants";
 import type { DiscoveredDocumentInput } from "../../../documents/documentSummary";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
-import { loadDocumentMovePlacement } from "../../containers/documentPlacement";
+import { loadDocumentMovePlacement } from "../../container-contents/documentPlacement";
 import type { StoredDocumentRecord } from "../types";
 import { resolvePersistedAccessStateHash } from "./documentRuntimeState";
 

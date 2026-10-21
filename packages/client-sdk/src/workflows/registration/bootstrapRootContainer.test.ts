@@ -5,7 +5,7 @@ import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
-} from "../../data/persistence/containers/containerPersistence";
+} from "../../data/persistence/container-contents/containerPersistence";
 import { bootstrapRootContainer } from "./bootstrapRootContainer";
 
 test("bootstrapRootContainer creates one local root container and reuses it", async () => {

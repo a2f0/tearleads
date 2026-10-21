@@ -8,12 +8,12 @@ import {
 import {
   ensureContainerTables,
   saveContainer,
-} from "../../../data/persistence/containers/containerPersistence";
+} from "../../../data/persistence/container-contents/containerPersistence";
 import {
   containerContentsSyncLane,
   containerParentSyncLane,
   sqlContainerSyncWatermarkPersistence,
-} from "../../../data/persistence/containers/containerSyncWatermarkPersistence";
+} from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,

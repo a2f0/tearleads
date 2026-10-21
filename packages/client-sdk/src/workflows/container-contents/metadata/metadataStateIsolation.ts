@@ -6,12 +6,12 @@ import {
   importUpdates,
   satisfiesVersionVector,
 } from "@tearleads/loro";
+import { projectionGeneration } from "../projectionGeneration";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
   readContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
-import { projectionGeneration } from "../projectionGeneration";
+} from "./containerMetadataDocument";
 import { metadataSyncSecurityContextMatches } from "./metadataSyncSettlement";
 import type { ContainerMetadataState } from "./metadataTypes";
 

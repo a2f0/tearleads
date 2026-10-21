@@ -2,11 +2,11 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
-import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
+} from "./containerMetadataDocument";
 import {
   createContainerContentsPersistence,
   createContainerRecord,

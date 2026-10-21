@@ -6,13 +6,13 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import {
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import { enqueuePendingContainerUpdate } from "../containerPersistence";
+import {
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "./containerMetadataDocument";
 import {
   createContainerRecord,
   createDocumentRecord,

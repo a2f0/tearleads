@@ -1,13 +1,13 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlContainerContentsPersistence } from "../container-contents/containerContentsPersistence";
-import { sqlDocumentMoveIntentPersistence } from "../container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../documents/documentsPersistence";
+import { sqlContainerContentsPersistence } from "./containerContentsPersistence";
 import {
   loadContainerDisplayNamesByIds,
   loadContainers,
 } from "./containerPersistence";
 import { sqlDocumentContainerProjectionPersistence } from "./documentContainerProjectionPersistence";
+import { sqlDocumentMoveIntentPersistence } from "./documentMoveIntentPersistence";
 
 const TEST_SYSTEM_SLOT = "sys_v1_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 

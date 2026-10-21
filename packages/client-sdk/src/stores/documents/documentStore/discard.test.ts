@@ -5,8 +5,8 @@ import {
   type RecordedProjectionDelete,
   saveSyncedDocumentRecord,
 } from "../../../../test/helpers/documentDiscard";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/internal/constants";
 import {

@@ -1,5 +1,5 @@
+import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/containers/documentContainerProjectionPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { runSerializedSqlMutation } from "../../src/data/sqlite/sqlSchema";

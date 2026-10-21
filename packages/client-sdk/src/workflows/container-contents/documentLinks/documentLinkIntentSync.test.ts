@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { runQueuedDocumentMoveFixture } from "../../../../test/helpers/queuedDocumentMoveFixture";
 import { sqlContainerContentsPersistence as containers } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence as intents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 
 test("queued links replay signed additions without unlinking or rotating the source", async () => {
   const fixture = await runQueuedDocumentMoveFixture({

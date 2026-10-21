@@ -13,7 +13,7 @@ import {
 import { Database, type SessionSnapshot, Tearleads } from ".";
 import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import type { DocumentProjectorDefinition } from "./data/documents";
-import { loadContainers } from "./data/persistence/containers/containerPersistence";
+import { loadContainers } from "./data/persistence/container-contents/containerPersistence";
 import type {
   ExecSql,
   ExecSqlClientLike,

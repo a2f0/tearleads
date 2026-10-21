@@ -3,7 +3,7 @@ import {
   createContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
+} from "./containerMetadataDocument";
 import {
   createContainerRecord,
   createDocumentRecord,

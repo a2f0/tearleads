@@ -3,10 +3,6 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { encodeVersionVector, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
-import {
-  createContainerMetadataDocument,
-  writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
 import { recordDocumentSyncFailure } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
@@ -14,6 +10,10 @@ import {
   insertTestPendingUpdate,
   saveTestSyncedContainer,
 } from "../documentQueries/documentQueries.testFixtures";
+import {
+  createContainerMetadataDocument,
+  writeContainerMetadataValue,
+} from "../metadata/containerMetadataDocument";
 import { listPendingWrites } from "../pendingWrites";
 import { reattachDormantContainerMetadata } from "../remoteHydration/reattachMetadata";
 

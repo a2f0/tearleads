@@ -1,10 +1,5 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
-import {
-  assertHeldContainerBinding,
-  type HeldContainerBinding,
-  heldContainerBinding,
-} from "../../containers/containerBinding";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/sync/pullContinuation";
 import {
   containerHydrationTombstones,
@@ -19,8 +14,12 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
-import { loadContainerById } from "../containers/containerPersistence";
 import { loadStoredAccessManifestCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
+import {
+  assertHeldContainerBinding,
+  type HeldContainerBinding,
+  heldContainerBinding,
+} from "./containerBinding";
 import type {
   ContainerContentsPersistence,
   ContainerHydrationTombstone,
@@ -30,6 +29,7 @@ import {
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
+import { loadContainerById } from "./containerPersistence";
 import { isSupersededContainerBinding } from "./supersededContainerBindings";
 
 function sameNullableValue(

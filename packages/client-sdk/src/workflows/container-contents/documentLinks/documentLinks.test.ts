@@ -18,7 +18,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { DocumentsPersistence } from "../../documents";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";

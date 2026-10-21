@@ -1,5 +1,4 @@
 import { and, eq } from "drizzle-orm";
-import type { HeldContainerBinding } from "../../containers/containerBinding";
 import {
   containers,
   documents,
@@ -7,6 +6,7 @@ import {
 } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import type { HeldContainerBinding } from "./containerBinding";
 import { loadStoredHeldContainerBinding } from "./containerHydrationPersistence";
 import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 import {

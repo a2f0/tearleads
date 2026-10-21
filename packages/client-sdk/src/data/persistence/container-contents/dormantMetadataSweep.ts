@@ -8,7 +8,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { ensureContainerTables } from "../containers/containerPersistence";
+import { ensureContainerTables } from "./containerPersistence";
 
 export interface DormantMetadataSweepRequest {
   readonly attemptCount: number;

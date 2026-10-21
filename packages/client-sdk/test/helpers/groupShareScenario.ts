@@ -6,13 +6,13 @@ import {
   createTestExecSql,
 } from "@tearleads/test-utils";
 import { createMemoryBlobStore } from "../../src/data/blobs/memoryBlobStore";
-import { createInitializedContainerMetadataDocument } from "../../src/data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { loadPrincipalPolicyCheckpoint } from "../../src/data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { shareContainerStateWithGroup } from "../../src/workflows/container-contents/container-state/share";
 import { withDirectGroupGrant } from "../../src/workflows/container-contents/container-state/share/share.testFixtures";
 import { defaultContainerContentsPersistence } from "../../src/workflows/container-contents/containerPersistence";
+import { createInitializedContainerMetadataDocument } from "../../src/workflows/container-contents/metadata/containerMetadataDocument";
 import type { ContainerState } from "../../src/workflows/container-contents/remoteHydration";
 import {
   type ContainerContentsWorkflowRuntimeInput,

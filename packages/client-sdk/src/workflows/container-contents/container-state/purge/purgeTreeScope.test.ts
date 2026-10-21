@@ -5,15 +5,15 @@ import {
 } from "../../../../../test/helpers/containerFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
-import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import {
   buildMaterializedContainerCreatePlan,
   childContainerWriterProjectionFromCreatePlan,
 } from "../../../containers/child/create";
+import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import { upsertRemoteContainerState } from "../../remoteHydration/remoteContainers/remoteContainerState";
 import type {
   ContainerState,

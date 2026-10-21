@@ -224,7 +224,7 @@
     },
     "packages/client-sdk/src/Tearleads.test.ts": {
       "lines": 967,
-      "bytes": 31254
+      "bytes": 31259
     },
     "packages/client-sdk/src/data/containers/shared/projection.test.ts": {
       "lines": 709,

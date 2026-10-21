@@ -8,7 +8,7 @@ import {
 import {
   containerContentsSyncLane,
   sqlContainerSyncWatermarkPersistence,
-} from "../../data/persistence/containers/containerSyncWatermarkPersistence";
+} from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import {
   clientSqlTables,

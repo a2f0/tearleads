@@ -3,13 +3,13 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
+import type { ContainerContentsPersistence } from "../../containerPersistence";
+import { defaultContainerContentsPersistence } from "../../containerPersistence";
 import {
   createInitializedContainerMetadataDocument,
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../../../data/containers/containerMetadataDocument";
-import type { ContainerContentsPersistence } from "../../containerPersistence";
-import { defaultContainerContentsPersistence } from "../../containerPersistence";
+} from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
 import type { ContainerWorkflowRuntime } from "../types";
 import {

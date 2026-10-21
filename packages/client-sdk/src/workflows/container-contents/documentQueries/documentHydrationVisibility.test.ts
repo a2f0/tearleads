@@ -2,12 +2,12 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { emptyVersionVector, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import { defaultContainerContentsPersistence } from "../containerPersistence";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
-import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { defaultContainerContentsPersistence } from "../containerPersistence";
+} from "../metadata/containerMetadataDocument";
 import { createContainerDocumentQueriesFromRuntime } from "./index";
 
 const sort = { key: "name", direction: "asc" } as const;

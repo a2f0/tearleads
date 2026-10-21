@@ -7,7 +7,6 @@ import {
 } from "../../../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
-import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { ContainerCreateIntentSupersededError } from "../../../../data/persistence/container-contents/containerIntentPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
@@ -15,6 +14,7 @@ import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../../containerPersistence";
+import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createTestContainerState } from "../containerState.testFixtures";
 import type { ContainerCreateIntentSyncState } from "../types";

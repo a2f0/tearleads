@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { ContainerContentsPersistence } from "../containerPersistence";
+import { createContainerMetadataDocument } from "../metadata/containerMetadataDocument";
 import type { ContainerContentsRootAdoptionInput } from "../runtime";
 import { rememberDestinationRole } from "./destination/destinationRoleCache";
 import {

@@ -1,8 +1,8 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates, importUpdates } from "@tearleads/loro";
-import { readContainerMetadataValue } from "../../../data/containers/containerMetadataDocument";
 import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/sync/pullContinuation";
 import type { ContainerMetadataRecord } from "../containerPersistence";
+import { readContainerMetadataValue } from "../metadata/containerMetadataDocument";
 import type { ContainerMetadataDocumentState } from "./types";
 
 /**

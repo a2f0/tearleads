@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../../workflows/container-contents/containerPersistence";
+import { createContainerMetadataDocument } from "../../../workflows/container-contents/metadata/containerMetadataDocument";
 import { createContainerWriteMethods } from "../containerContentsStore";
 import { createContainerContentsTestRuntime } from "../runtime.testFixtures";
 import {

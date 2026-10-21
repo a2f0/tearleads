@@ -1,4 +1,4 @@
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
+import { createContainerMetadataDocument } from "../metadata/containerMetadataDocument";
 import type { ContainerState } from "./types";
 
 /** A pre-login local root: no remote identity, no organization. */

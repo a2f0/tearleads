@@ -8,12 +8,12 @@ import type {
 } from "@tearleads/validators/response";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
+import { defaultContainerContentsPersistence } from "../containerPersistence";
+import { insertTestPendingUpdate } from "../documentQueries/documentQueries.testFixtures";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
-import { defaultContainerContentsPersistence } from "../containerPersistence";
-import { insertTestPendingUpdate } from "../documentQueries/documentQueries.testFixtures";
+} from "../metadata/containerMetadataDocument";
 import { listPendingWrites } from "../pendingWrites";
 import {
   createRemoteContainerIngestor,

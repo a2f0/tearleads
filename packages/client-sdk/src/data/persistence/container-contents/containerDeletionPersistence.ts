@@ -15,22 +15,22 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import {
-  deleteContainerRowsInTransaction,
-  ensureContainerTables,
-} from "../containers/containerPersistence";
-import {
-  deleteContainerWatermarksInTransaction,
-  sqlContainerSyncWatermarkPersistence,
-} from "../containers/containerSyncWatermarkPersistence";
 import type {
   ContainerContentsPersistence,
   ContainerDeletionGuard,
   ContainerRemoval,
 } from "./containerContentsPersistenceTypes";
 import { recordContainerHydrationTombstones } from "./containerHydrationPersistence";
+import {
+  deleteContainerRowsInTransaction,
+  ensureContainerTables,
+} from "./containerPersistence";
 import { containerIdsWithRemovalWork } from "./containerRemovalWork";
 import { repairDocumentsForRemovedContainersInTransaction } from "./containerStructuralRepair";
+import {
+  deleteContainerWatermarksInTransaction,
+  sqlContainerSyncWatermarkPersistence,
+} from "./containerSyncWatermarkPersistence";
 import {
   refreshPlacementIntentsAfterRemoval,
   repairLinkIntentsForRemovedContainers,

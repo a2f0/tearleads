@@ -5,7 +5,7 @@ import {
   documentProjection,
 } from "../../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../../sqlite/sqlitePersistenceRuntime";
-import { filterWritableDocumentPlacements } from "../../containers/documentPlacement";
+import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
 import type { ContainerDocumentTombstoneInput } from "../types";
 
 export interface ContainerDocumentPlacementKey {

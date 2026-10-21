@@ -9,7 +9,6 @@ import {
   localIntents,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { deleteContainerWatermarksInTransaction } from "../containers/containerSyncWatermarkPersistence";
 import { deleteContainerDocumentTombstoneHoldsForContainers } from "../documents/containerDocumentTombstoneHoldsPersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
 import type {
@@ -17,6 +16,7 @@ import type {
   LocalRootDescendantReparentInput,
 } from "./containerContentsPersistenceTypes";
 import { saveContainerCreateIntent } from "./containerIntentPersistence";
+import { deleteContainerWatermarksInTransaction } from "./containerSyncWatermarkPersistence";
 import { deleteContainerMetadataDocumentRowsInTransaction } from "./dormantContainerMetadata";
 
 // The containers being removed still exist when repair runs (deletion follows

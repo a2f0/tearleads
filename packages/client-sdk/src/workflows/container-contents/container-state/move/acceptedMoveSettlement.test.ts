@@ -8,10 +8,10 @@ import {
 } from "@tearleads/test-utils";
 import { createAuthor } from "../../../../../test/helpers/documentFixturePrimitives";
 import { createTestTrustedUserIdentityResolver } from "../../../../../test/helpers/trustedUserIdentity";
-import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
+import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
 import { createTestContainerState } from "../containerState.testFixtures";
 import type {

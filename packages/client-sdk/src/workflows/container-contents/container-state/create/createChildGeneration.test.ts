@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../containerPersistence";
+import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import {
   createContainerRecord,
   createDocumentRecord,

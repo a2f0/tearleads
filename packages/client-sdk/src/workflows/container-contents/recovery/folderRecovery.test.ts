@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { sqlDocumentMoveIntentPersistence as placementIntents } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { defaultContainerContentsPersistence as persistence } from "../containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "../documentQueries";
@@ -9,6 +8,7 @@ import {
   insertTestPendingUpdate,
   saveTestSyncedContainer,
 } from "../documentQueries/documentQueries.testFixtures";
+import { createInitializedContainerMetadataDocument } from "../metadata/containerMetadataDocument";
 
 async function fixture(queued = true) {
   const database = await createTestExecSql("folder-recovery");

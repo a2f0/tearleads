@@ -1,4 +1,4 @@
-import { ensureContainerTables } from "../../../data/persistence/containers/containerPersistence";
+import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { emptyContentFrontierSql } from "./hydrationSql";

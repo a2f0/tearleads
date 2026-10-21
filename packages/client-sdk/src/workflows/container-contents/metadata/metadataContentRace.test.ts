@@ -6,12 +6,12 @@ import {
   importUpdates,
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import { enqueuePendingContainerUpdate } from "../containerPersistence";
 import {
   readContainerMetadataValue,
   writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
-import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { enqueuePendingContainerUpdate } from "../containerPersistence";
+} from "./containerMetadataDocument";
 import {
   createContainerRecord,
   createDocumentRecord,

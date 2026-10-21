@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { ContainerMetadataRecord } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
+import type { ContainerRecord } from "../../../data/persistence/container-contents/containerPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { createContainerMetadataDocument } from "./containerMetadataDocument";
 import {
   createContainerContentsPersistence,
   createContainerRecord,

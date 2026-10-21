@@ -1,9 +1,9 @@
 import { and, eq, inArray, or } from "drizzle-orm";
-import { recordSupersededContainerBindingsInTransaction } from "../../data/persistence/container-contents/supersededContainerBindings";
 import {
   deleteDocumentPlacementRowsByContainerIds,
   deleteDocumentPlacementRowsByDocumentIds,
-} from "../../data/persistence/containers/documentContainerProjectionPersistence";
+} from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
+import { recordSupersededContainerBindingsInTransaction } from "../../data/persistence/container-contents/supersededContainerBindings";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../data/persistence/documents/documentDiscoveryReset";
 import {
   queuedUpdateRow,

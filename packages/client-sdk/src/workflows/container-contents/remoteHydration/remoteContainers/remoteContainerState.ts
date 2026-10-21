@@ -1,13 +1,13 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import {
-  heldContainerBinding,
-  listingRepeatsHeldOrdinaryBinding,
-} from "../../../../data/containers/containerBinding";
-import {
   isKeyingVerificationError,
   runWithSecurityIncidentReporting,
 } from "../../../../data/keyingProjectionVerification/error";
 import { isProjectionVerificationCancelledError } from "../../../../data/keyingProjectionVerification/types";
+import {
+  heldContainerBinding,
+  listingRepeatsHeldOrdinaryBinding,
+} from "../../../../data/persistence/container-contents/containerBinding";
 import type { ContainerHydrationTombstone } from "../../containerPersistence";
 import { installContainerMetadataRecord } from "../../metadata/metadataPersistence";
 import { projectionGeneration } from "../../projectionGeneration";

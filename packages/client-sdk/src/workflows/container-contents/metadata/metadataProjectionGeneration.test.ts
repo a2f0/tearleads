@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { invalidateContainerProjections } from "../container-state/projectionCache";
 import type { ContainerState } from "../remoteHydration";
+import { createContainerMetadataDocument } from "./containerMetadataDocument";
 import { syncContainerMetadataState } from "./index";
 import {
   createContainerContentsPersistence,

@@ -3,11 +3,11 @@ import { createMaterializedSyncFixture } from "../../../../../test/helpers/docum
 import { createDocumentPurgeProof } from "../../../../../test/helpers/documentPurge";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
-import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../runtime";
 import { purgeContainerTree } from "./purgeTree";

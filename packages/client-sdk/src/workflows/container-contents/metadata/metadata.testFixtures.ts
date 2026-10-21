@@ -3,7 +3,7 @@ import type {
   ContainerMetadataRecord as ContainerDocumentRecord,
   StoredContainerState,
 } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
+import type { ContainerRecord } from "../../../data/persistence/container-contents/containerPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 export const metadataTestExecSql: ExecSql = async () => [];
