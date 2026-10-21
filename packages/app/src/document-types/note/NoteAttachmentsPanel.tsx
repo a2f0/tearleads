@@ -137,7 +137,7 @@ function NoteAttachmentTile({
 // tile grid. When empty it collapses to a single hint line that doubles as the
 // drop target. Kept as a <fieldset> so the whole region is a drag/drop surface
 // and an accessible group. The header's Upload button opens the shared file
-// input; a "Select Blob" button appears alongside it — sharing the structured
+// input; a "Attach Existing" button appears alongside it — sharing the structured
 // document button chrome — only when the host offers a blob to pick.
 export function NoteAttachmentsPanel({
   attachments,

@@ -349,13 +349,23 @@ export function getExplorerMakeLinkedContainerActiveLabel(
   return `Make linked container ${containerName} active`;
 }
 
+/**
+ * Document kind labels are lowercase so they read naturally mid-sentence
+ * ("Remove this credit card?"); a label that starts a cell or a line is
+ * capitalized, matching the "Folder" type beside it.
+ */
+export function capitalizeExplorerLabel(label: string): string {
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function getExplorerDocumentSubtitle(input: {
   containerName: string | null;
   documentTypeLabel: string;
 }): string {
+  const typeLabel = capitalizeExplorerLabel(input.documentTypeLabel);
   return input.containerName
-    ? `${input.documentTypeLabel} in ${input.containerName}`
-    : input.documentTypeLabel;
+    ? `${typeLabel} in ${input.containerName}`
+    : typeLabel;
 }
 
 export function getExplorerItemTableLabel(containerName: string): string {

@@ -257,7 +257,7 @@ test("free-trial lifecycle activity explains capacity, cost, and expiration", ()
     />,
   );
 
-  expect(view.getByText("Free trial initialized")).toBeDefined();
+  expect(view.getByText("Free trial started")).toBeDefined();
   expect(view.getByText("Free trial expired")).toBeDefined();
   expect(view.getByText("10 licensed seats")).toBeDefined();
   expect(view.getByText("0 licensed seats")).toBeDefined();

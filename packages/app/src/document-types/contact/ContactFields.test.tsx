@@ -29,7 +29,7 @@ test("read mode shows values as text without editable inputs", () => {
   expect(view.queryByLabelText("Nickname")).toBeNull();
 });
 
-test("read mode renders empty optional fields as None", () => {
+test("read mode leaves out empty fields", () => {
   const view = render(
     <ContactFields
       isEditing={false}
@@ -38,7 +38,40 @@ test("read mode renders empty optional fields as None", () => {
     />,
   );
 
-  expect(view.getAllByText("None").length).toBeGreaterThan(0);
+  expect(view.queryByText("Tearleads user ID")).toBeNull();
+  expect(view.queryByRole("button", { name: "Copy user ID" })).toBeNull();
+  expect(view.getByText("Nickname")).toBeTruthy();
+  expect(view.queryByText("None")).toBeNull();
+});
+
+test("read mode with no filled-in fields says so", () => {
+  const view = render(
+    <ContactFields
+      isEditing={false}
+      onFieldCommit={() => undefined}
+      values={{
+        encapsulationPublicKey: "",
+        firstName: "",
+        lastName: " ",
+        nickname: "",
+        userId: "",
+      }}
+    />,
+  );
+
+  expect(view.getByText("No details yet.")).toBeTruthy();
+});
+
+test("edit mode keeps empty fields so they can be filled in", () => {
+  const view = render(
+    <ContactFields
+      isEditing={true}
+      onFieldCommit={() => undefined}
+      values={{ ...values, userId: "" }}
+    />,
+  );
+
+  expect(view.getByLabelText("Tearleads user ID")).toBeTruthy();
 });
 
 test("edit mode exposes editable inputs seeded from values", () => {

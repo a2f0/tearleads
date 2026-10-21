@@ -88,7 +88,9 @@ function ContactsContent() {
 
   return (
     <MiniAppRoot className="contacts">
-      <ShareIdentityLink />
+      {/* Your own card offers the link too (ContactsDetailPanel); the phone
+          list home keeps it within reach of the place people land. */}
+      {model.showCompactListHome && <ShareIdentityLink />}
       {model.showCompactListHome ? (
         <ContactsListHome
           blobStore={model.blobStore}

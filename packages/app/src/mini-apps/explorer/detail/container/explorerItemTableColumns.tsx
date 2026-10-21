@@ -22,7 +22,7 @@ import { getDocumentTypeIcon } from "../../../../document-types/registry";
 import { getViewerRelativeContactDocumentLabel } from "../../../../stores/contacts/contactLabels";
 import { explorerDocumentRouteContainerId } from "../../../../stores/explorer/orphanedDocuments";
 import { formatMiniAppDateTime } from "../../../../utils/formatMiniAppDate";
-import { EXPLORER_LABELS } from "../../labels";
+import { capitalizeExplorerLabel, EXPLORER_LABELS } from "../../labels";
 import { ExplorerSyncStateBadge } from "../../shared/ExplorerSyncStateBadge";
 import { getExplorerContactAvatar } from "../../shared/explorerContactAvatar";
 import { getExplorerContainerIcon } from "../../shared/explorerContainerIcons";
@@ -119,9 +119,11 @@ function getExplorerContainerItemTypeLabel(row: ContainerItemRow): string {
     return EXPLORER_LABELS.folderType;
   }
 
-  return getStoredDocumentTypeLabel(
-    row.documentKind,
-    APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+  return capitalizeExplorerLabel(
+    getStoredDocumentTypeLabel(
+      row.documentKind,
+      APP_DOCUMENT_PROJECTOR_DEFINITIONS,
+    ),
   );
 }
 

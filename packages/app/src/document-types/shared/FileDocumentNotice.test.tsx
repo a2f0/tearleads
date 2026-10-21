@@ -23,7 +23,7 @@ function renderFields(attachmentNotice: string | null) {
         onCommitFileName={() => undefined}
         onDownload={() => undefined}
         onToggleEditing={() => undefined}
-        readFields={[{ label: "MIME Type", value: "image/png" }]}
+        readFields={[{ label: "File Type", value: "image/png" }]}
       />
     </WindowMenuProvider>,
   );

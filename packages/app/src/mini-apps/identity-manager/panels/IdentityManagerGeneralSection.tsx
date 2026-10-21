@@ -11,6 +11,7 @@ import { compactIdentifier } from "../sessions/IdentityManagerSessionDisplay";
 import {
   IdentityActionToolbar,
   type IdentityActionToolbarProps,
+  IdentityDestroyKeyPair,
 } from "../toolbar/IdentityManagerActionToolbar";
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
@@ -134,6 +135,12 @@ export function IdentityManagerGeneralSection({
         <dd>{session.isAuthenticated ? "Authenticated" : "Signed out"}</dd>
       </dl>
       <IdentityActionToolbar {...actions} />
+      {actions.hasSigningKeyPair && (
+        <IdentityDestroyKeyPair
+          disabled={actions.identityBusy !== null}
+          onDestroy={actions.handleDestroyKeyPair}
+        />
+      )}
     </MiniAppSection>
   );
 }

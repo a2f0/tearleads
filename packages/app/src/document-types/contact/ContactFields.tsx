@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useId, useState } from "react";
 import {
   MiniAppClipboardButton,
   MiniAppInput,
+  MiniAppStatus,
   MiniAppTextarea,
 } from "../../components/mini-app/MiniAppLayout";
 import {
@@ -19,11 +20,6 @@ import {
 } from "./contactFieldDescriptors";
 
 type ContactFieldCommit = (key: ContactFieldKey, value: string) => void;
-
-function getReadValue(value: string): string {
-  const normalized = value.trim();
-  return normalized.length > 0 ? normalized : CONTACT_FIELD_LABELS.none;
-}
 
 function useSyncedFieldValue(value: string) {
   const [localValue, setLocalValue] = useState(value);
@@ -49,8 +45,8 @@ function ContactReadFieldRow({
     <MiniAppRow density="roomy">
       <MiniAppRowStack>
         <strong>{label}</strong>
-        <MiniAppRowText muted title={trimmed.length > 0 ? trimmed : undefined}>
-          {getReadValue(value)}
+        <MiniAppRowText muted title={trimmed}>
+          {trimmed}
         </MiniAppRowText>
       </MiniAppRowStack>
       {action}
@@ -124,7 +120,8 @@ function ContactEditFieldRow({
 // callback that is fired (on blur) when an editable field changes. While
 // editing, `disabled` greys out the inputs without leaving edit mode, so a
 // transient not-ready state (e.g. a background sync) never discards unsaved
-// local edits by unmounting the fields.
+// local edits by unmounting the fields. Reading shows only filled-in fields;
+// editing shows every field so an empty one can be filled in.
 export function ContactFields({
   disabled,
   isEditing,
@@ -136,38 +133,45 @@ export function ContactFields({
   onFieldCommit: ContactFieldCommit;
   values: ContactFieldValues;
 }) {
+  if (isEditing) {
+    return (
+      <>
+        {CONTACT_FIELD_DESCRIPTORS.map((descriptor) => (
+          <ContactEditFieldRow
+            key={descriptor.key}
+            descriptor={descriptor}
+            disabled={disabled}
+            value={values[descriptor.key]}
+            onCommit={(nextValue) => onFieldCommit(descriptor.key, nextValue)}
+          />
+        ))}
+      </>
+    );
+  }
+
+  const filled = CONTACT_FIELD_DESCRIPTORS.filter(
+    (descriptor) => values[descriptor.key].trim().length > 0,
+  );
+  if (filled.length === 0) {
+    return <MiniAppStatus>{CONTACT_FIELD_LABELS.noDetails}</MiniAppStatus>;
+  }
   return (
     <>
-      {CONTACT_FIELD_DESCRIPTORS.map((descriptor) => {
-        const value = values[descriptor.key];
-        if (isEditing) {
-          return (
-            <ContactEditFieldRow
-              key={descriptor.key}
-              descriptor={descriptor}
-              disabled={disabled}
-              value={value}
-              onCommit={(nextValue) => onFieldCommit(descriptor.key, nextValue)}
-            />
-          );
-        }
-
-        return (
-          <ContactReadFieldRow
-            key={descriptor.key}
-            action={
-              descriptor.copyable ? (
-                <MiniAppClipboardButton
-                  label={getContactCopyLabel(descriptor)}
-                  value={value}
-                />
-              ) : undefined
-            }
-            label={descriptor.label}
-            value={value}
-          />
-        );
-      })}
+      {filled.map((descriptor) => (
+        <ContactReadFieldRow
+          key={descriptor.key}
+          action={
+            descriptor.copyable ? (
+              <MiniAppClipboardButton
+                label={getContactCopyLabel(descriptor)}
+                value={values[descriptor.key]}
+              />
+            ) : undefined
+          }
+          label={descriptor.label}
+          value={values[descriptor.key]}
+        />
+      ))}
     </>
   );
 }

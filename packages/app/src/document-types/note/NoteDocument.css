@@ -85,16 +85,20 @@
   background: color-mix(in srgb, currentColor 8%, transparent);
 }
 
+/* On a narrow pane the actions wrap under the title rather than squeezing it
+   to an ellipsis ("ATTACHMEN…"). */
 .note-document-attachments-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
+  gap: var(--space-xs) var(--space-sm);
   min-width: 0;
   padding: var(--space-2xs) var(--space-xs) var(--space-sm);
 }
 
 .note-document-attachments-title {
+  flex: 1 0 auto;
   min-width: 0;
   overflow: hidden;
   font-size: var(--font-size-xs);
@@ -105,7 +109,7 @@
   opacity: var(--opacity-heading);
 }
 
-/* Upload + Select Blob controls. They use the shared `.attachment-action-button`
+/* Upload + Attach Existing controls. They use the shared `.attachment-action-button`
    chrome (see the shared MiniAppButton); this row just keeps them together and
    stops them from stretching as the title column flexes. */
 .note-document-attachments-actions {

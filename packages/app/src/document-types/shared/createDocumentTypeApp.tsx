@@ -4,6 +4,7 @@ import { DocumentsProvider } from "../../stores/documents/DocumentsProvider";
 import { useDocumentDraft } from "../../stores/documents/useDocumentDraft";
 import type { DocumentTypeAppProps } from "../types";
 import { FileDocument } from "./FileDocument";
+import type { FileDocumentExtraField } from "./fileDocumentReadFields";
 
 interface DocumentTypeContentProps {
   containerId: string | null;
@@ -56,7 +57,7 @@ export function createDocumentTypeApp(
 export function createFileDocumentTypeApp(
   initialDocumentKind: StoredDocumentKind,
   config: {
-    extraFieldLabels?: Readonly<Record<string, string>> | undefined;
+    extraFields?: ReadonlyArray<FileDocumentExtraField> | undefined;
     title: string;
   },
 ): ComponentType<DocumentTypeAppProps> {

@@ -72,7 +72,7 @@ test("billing status and trial labels format correctly", () => {
 test("billing history labels cover invoice and licensed-seat events", () => {
   expect(getOrgManagerBillingEventLabel("INVOICE_PAID")).toBe("Invoice paid");
   expect(getOrgManagerBillingEventLabel("free_trial_initialized")).toBe(
-    "Free trial initialized",
+    "Free trial started",
   );
   expect(getOrgManagerBillingEventLabel("free_trial_expired")).toBe(
     "Free trial expired",

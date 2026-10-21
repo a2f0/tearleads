@@ -40,12 +40,13 @@ const EQUIPMENT_RECEIPT_IMAGE_SLOT_ID = "receipt-image";
 export const EQUIPMENT_ATTACHMENT_SLOTS: ReadonlyArray<DocumentAttachmentSlot> =
   [
     {
-      label: "Equipment Photos",
+      itemLabel: "Photo",
+      label: "Photos",
       slotId: "equipment-photos",
       multiple: true,
     },
     {
-      label: "Receipt Image",
+      label: "Receipt",
       slotId: EQUIPMENT_RECEIPT_IMAGE_SLOT_ID,
     },
   ];

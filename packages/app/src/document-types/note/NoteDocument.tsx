@@ -7,7 +7,7 @@ import { useNoteEditorFields } from "./useNoteEditorFields";
 // actions. The shared editor data wiring and presentation are reused from
 // useNoteEditorFields / NoteEditorFields so behavior stays identical to the
 // standalone notes mini-app. The container/local ids come from the explorer so
-// the "Select Blob" control can route to the host blob picker; the standalone
+// the "Attach Existing" control can route to the host blob picker; the standalone
 // mini-app renders without them and that control stays hidden.
 export function NoteDocument({
   containerId = null,

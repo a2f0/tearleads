@@ -24,7 +24,7 @@ import { useRootPage } from "../organizations/useRootPage";
 const COLUMNS = [
   { id: "id", header: "Organization ID" },
   { id: "documents", header: "Documents" },
-  { id: "blobs", header: "Blobs" },
+  { id: "blobs", header: "Files" },
   { id: "total", header: "Total usage" },
 ];
 export function DataUsageReportView({

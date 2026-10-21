@@ -11,6 +11,8 @@ export interface DocumentAttachmentSlot {
   slotId: string;
   /** A named collection; each image has its own immutable storage slot. */
   multiple?: boolean;
+  /** A collection item's label, numbered as "Photo 1"; defaults to `label`. */
+  itemLabel?: string;
 }
 
 export function resolveAttachmentUploadSlot(
@@ -34,7 +36,7 @@ export function expandAttachmentSlots(
     const expanded: DocumentAttachmentSlot[] = attachments
       .filter((attachment) => attachment.slotId.startsWith(`${slot.slotId}:`))
       .map((photo, index) => ({
-        label: `${slot.label} ${index + 1}`,
+        label: `${slot.itemLabel ?? slot.label} ${index + 1}`,
         slotId: photo.slotId,
       }));
     if (canAttach || expanded.length === 0) {

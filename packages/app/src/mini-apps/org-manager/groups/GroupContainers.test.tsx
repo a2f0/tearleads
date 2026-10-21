@@ -79,7 +79,7 @@ test("org manager group containers use two-line summaries on phone layouts", () 
       rowSummary.querySelectorAll(".mini-app-compact-table-field-label"),
       (label) => label.textContent?.trim(),
     ),
-  ).toEqual(["Container:", "Access:", "Updated:"]);
+  ).toEqual(["Folder:", "Access:", "Updated:"]);
   expect(
     within(rowLines.item(0))
       .getByText(container.containerDisplayName)

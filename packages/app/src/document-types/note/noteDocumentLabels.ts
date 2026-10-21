@@ -14,9 +14,10 @@ export const NOTE_DOCUMENT_LABELS = {
   // one the document records; its content update has not arrived.
   attachmentDiffers: "Differs",
   // Attach controls in the panel header. "Upload" opens the file picker;
-  // "Select Blob" opens the host's blob picker (hidden when no blobs exist).
+  // "Attach Existing" opens the host's picker of stored files (hidden when
+  // there are none).
   uploadAttachment: "Upload",
-  selectBlob: "Select Blob",
+  selectBlob: "Attach Existing",
   editor: "Notes editor",
   editorLoadingPlaceholder: "Loading notes...",
   editorReadyPlaceholder: "Type your notes here...",
