@@ -1,4 +1,5 @@
 import type { Plugin } from "vite";
+// Vite loads this config chain natively, requiring explicit TypeScript extensions.
 import { isNativeSentryAssetPath } from "../src/diagnostics/sentryConfig.ts";
 
 // This packaged manifest is the exact allowlist of generated JavaScript paths.

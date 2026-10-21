@@ -126,15 +126,16 @@ const mainMap = {
   names: [],
 };
 
-test.each([false, true])(
-  "main-process map sources resolve with mixed bases: %s",
-  async (mixed) => {
+test.each(["package", "mixed", "ambiguous"])(
+  "main-process map source resolution: %s",
+  async (mode) => {
     await withRoot(async (root) => {
       const packageRoot = join(root, "packages/app-electrobun");
       await Bun.write(join(packageRoot, "src/bun/index.ts"), "export {};\n");
       const appDir = join(root, "build/stable/Resources/app");
       const dependency = join(root, "packages/diagnostics/src/index.ts");
       await Bun.write(dependency, "export {};\n");
+      const mixed = mode === "mixed";
       const map = mixed
         ? {
             ...mainMap,
@@ -152,14 +153,23 @@ test.each([false, true])(
       );
       const stagingDir = join(root, "sentry-sourcemaps");
       await prepareSourceMapStaging({ stagingDir, buildDir: appDir });
-      await stageMainProcessSourceMap({
+      const options = {
         appDir,
         stagingDir,
         commit,
-        target: "linux-x64",
+        target: "linux-x64" as const,
         repoRoot: root,
         packageRoot,
-      });
+      };
+      if (mode === "ambiguous") {
+        await Bun.write(join(appDir, "bun/src/bun/index.ts"), "export {};\n");
+        await expect(stageMainProcessSourceMap(options)).rejects.toThrow(
+          "ambiguous",
+        );
+        expect(listFiles(stagingDir)).toEqual([]);
+        return;
+      }
+      await stageMainProcessSourceMap(options);
       expect(listFiles(stagingDir)).toEqual([
         "bun/index.js",
         "bun/index.js.map",
