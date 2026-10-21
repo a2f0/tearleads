@@ -26,14 +26,10 @@
   ],
   "documentHistoryCheckpoints": [
     "packages/client-sdk/src/data/persistence/container-contents/containerMetadataRows.ts",
-    "packages/client-sdk/src/data/persistence/container-contents/dormantContainerMetadata.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/documentHistoryPersistence.ts"
+    "packages/client-sdk/src/data/persistence/container-contents/dormantContainerMetadata.ts"
   ],
   "documentHistoryUpdates": [
     "packages/client-sdk/src/data/persistence/container-contents/dormantContainerMetadata.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/documentHistoryPersistence.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/documentPendingUpdatePersistence.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/documentRecordPersistence.ts",
     "packages/client-sdk/src/workflows/container-contents/documentPriming/index.ts",
     "packages/client-sdk/src/workflows/container-contents/documentQueries/sql.ts",
     "packages/client-sdk/src/workflows/container-contents/pendingWrites/deferredTails.ts",
@@ -74,10 +70,6 @@
     "packages/client-sdk/src/data/persistence/container-contents/containerRebindPersistence.ts",
     "packages/client-sdk/src/data/persistence/container-contents/documentPlacement.ts",
     "packages/client-sdk/src/data/persistence/container-contents/dormantContainerMetadata.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/documentPendingUpdatePersistence.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/documentRecordPersistence.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/documentSyncFailurePersistence.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/index.ts",
     "packages/client-sdk/src/workflows/container-contents/documentPriming/documentHydrationProbe.ts",
     "packages/client-sdk/src/workflows/container-contents/documentPriming/index.ts",
     "packages/client-sdk/src/workflows/container-contents/documentQueries/hydrationSql.ts",
@@ -90,7 +82,7 @@
   "localIntents": [
     "packages/client-sdk/src/data/persistence/documents/internal/discardDocument.ts",
     "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts",
-    "packages/client-sdk/src/data/sqlite/documentPersistence/documentSyncFailurePersistence.ts"
+    "packages/client-sdk/src/data/persistence/documents/records/documentSyncFailurePersistence.ts"
   ],
   "pendingDocumentDiscoveries": [
     "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts"

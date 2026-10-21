@@ -20,7 +20,7 @@ import {
 import {
   ensureDocumentTables,
   recordDocumentSyncFailure,
-} from "../../data/sqlite/documentPersistence";
+} from "../../data/persistence/documents/records";
 import { containerTables } from "../../data/sqlite/schema";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { ensureSqlTables } from "../../data/sqlite/sqlSchema";

@@ -34,7 +34,7 @@ import type {
   DocumentWriterProjectionAuthorization as WriterAuthorization,
 } from "../../keyingProjectionVerification";
 import { requireProjectionUserKeyResolver } from "../../keyingProjectionVerification";
-import type { DocumentRecord } from "../../sqlite/documentPersistence";
+import type { DocumentRecord } from "../../persistence/documents/records";
 import type { ExecSql } from "../../sqlite/sqlSchema";
 import type { DocumentSyncSubmitFailure } from "./sync/syncSubmitFailure";
 

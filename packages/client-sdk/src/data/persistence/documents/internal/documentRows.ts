@@ -6,7 +6,6 @@ import {
 import { deriveStoredDocumentTitle } from "../../../documents/documentKinds";
 import { serializeDocumentSyncPullContinuation } from "../../../documents/shared/sync/pullContinuation";
 import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
-import type { DocumentScope } from "../../../sqlite/documentPersistence";
 import {
   documentProjection,
   documentProjectionText,
@@ -17,6 +16,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
+import type { DocumentScope } from "../records";
 import type { StoredDocumentRecord } from "../types";
 import {
   getProjectionDocumentKind,

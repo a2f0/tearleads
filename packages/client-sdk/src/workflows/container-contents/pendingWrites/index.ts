@@ -5,7 +5,7 @@ import { sqlDocumentsPersistence } from "../../../data/persistence/documents/doc
 import {
   clearDocumentSyncFailure,
   resetDocumentPendingUpdateRekeyBudget,
-} from "../../../data/sqlite/documentPersistence";
+} from "../../../data/persistence/documents/records";
 import {
   documentPlacementIntentTables,
   documentTables,

@@ -1,24 +1,24 @@
 import { and, eq, isNull } from "drizzle-orm";
 import {
+  documentAttachmentBlobProjection,
+  documentPendingAttachments,
+} from "../../../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
+import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
+import {
   enqueueDocumentPendingUpdateWithHistory,
   listDocumentPendingUpdates,
   rekeyDocumentPendingUpdate,
   settleDocumentPendingUpdate,
   unqueueDocumentPendingUpdates,
-} from "../../../sqlite/documentPersistence";
+} from "../records";
 import {
   appendDocumentHistoryUpdates,
   listDocumentHistoryTailEntries,
   loadDocumentHistoryRestoreState,
   readDocumentHistoryTailSize,
   replaceDocumentHistoryCheckpoint,
-} from "../../../sqlite/documentPersistence/documentHistoryPersistence";
-import {
-  documentAttachmentBlobProjection,
-  documentPendingAttachments,
-} from "../../../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
-import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
+} from "../records/documentHistoryPersistence";
 import type { DocumentsPersistence } from "../types";
 import {
   buildPendingAttachmentRow,

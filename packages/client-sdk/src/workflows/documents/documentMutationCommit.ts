@@ -12,7 +12,7 @@ import type {
   DocumentsPersistence,
   StoredDocumentRecord,
 } from "../../data/persistence/documents/documentsPersistence";
-import type { PendingUpdateFields } from "../../data/sqlite/documentPersistence";
+import type { PendingUpdateFields } from "../../data/persistence/documents/records";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { createInitialDocumentRows } from "./create/documentCreationPersistence";
 import {

@@ -24,7 +24,7 @@ import type {
   PrincipalPolicyResolveRequest,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification/types";
-import { ensureDocumentTables } from "../../../data/sqlite/documentPersistence";
+import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 

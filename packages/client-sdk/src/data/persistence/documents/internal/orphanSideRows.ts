@@ -10,7 +10,6 @@ import {
   type SQL,
 } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
-import { documentOrphanBlobReclaims } from "../../../sqlite/documentPersistence/documentOrphanBlobReclaims";
 import {
   documentAttachmentBlobProjection,
   documentHistoryCheckpoints,
@@ -18,6 +17,7 @@ import {
   documentPendingAttachments,
   documents,
 } from "../../../sqlite/schema";
+import { documentOrphanBlobReclaims } from "../../../sqlite/schema/documentOrphanBlobReclaimSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,

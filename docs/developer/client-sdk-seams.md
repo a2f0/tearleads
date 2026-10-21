@@ -189,11 +189,11 @@ call.
 ## Subsystem surfaces
 
 Each subsystem in `scripts/architecture/clientSdkSubsystems.ts` declares a
-`surface`: the files other subsystems may import. It holds the subsystem's
-facade indexes, the contract modules it means to share, such as types, errors,
-document kinds, and its main persistence module, and the capabilities other
-subsystems build on, such as keying checkpoint persistence or admin-signer
-verification. SQLite Runtime and SDK
+`surface`, listed in `clientSdkSurfaces.ts`: the files other subsystems may
+import. It holds the subsystem's facade indexes, the contract modules it means
+to share, such as types, errors, document kinds, and its main persistence
+module, and the capabilities other subsystems build on, such as keying
+checkpoint persistence or admin-signer verification. SQLite Runtime and SDK
 Shared Utilities declare none, so any of their files may be imported.
 
 `bun run lint:architecture` fails when an import enters another subsystem

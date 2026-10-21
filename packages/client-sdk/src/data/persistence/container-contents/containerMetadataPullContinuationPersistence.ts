@@ -1,6 +1,6 @@
-import { invalidateDocumentSyncPullContinuation } from "../../sqlite/documentPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import { invalidateDocumentSyncPullContinuation } from "../documents/records";
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
 import { selectContainerMetadataRecord } from "./containerMetadataRows";
 import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";

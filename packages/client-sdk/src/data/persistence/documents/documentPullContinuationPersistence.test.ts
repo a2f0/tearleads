@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { invalidateDocumentSyncPullContinuation } from "../../sqlite/documentPersistence";
 import { sqlDocumentsPersistence } from "./documentsPersistence";
+import { invalidateDocumentSyncPullContinuation } from "./records";
 
 test("document pull progress survives saves and clears explicitly", async () => {
   const { close, execSql } = await createTestExecSql(

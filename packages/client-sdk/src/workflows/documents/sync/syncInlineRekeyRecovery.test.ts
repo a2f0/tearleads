@@ -17,7 +17,7 @@ import {
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createFullHistoryRotationSnapshot } from "../../../../test/helpers/staleBundleSyncFixture";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
-import { ensureDocumentTables } from "../../../data/sqlite/documentPersistence";
+import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 

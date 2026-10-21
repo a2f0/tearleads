@@ -9,8 +9,6 @@ import {
   type DocumentSummary,
   HIDDEN_DOCUMENT_SUMMARY_KINDS,
 } from "../../documents/documentSummary";
-import { findLocalIdByDocumentId } from "../../sqlite/documentPersistence";
-import { settleQueuedDocumentUpdatesInTransaction } from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
 import {
   documentProjection,
   documentPurgeCheckpoints,
@@ -68,6 +66,8 @@ import {
 } from "./internal/pendingCreateAdoption";
 import { documentRowQueryPersistence } from "./internal/rowQueryPersistence";
 import { documentSyncQueuePersistence } from "./internal/syncQueuePersistence";
+import { findLocalIdByDocumentId } from "./records";
+import { settleQueuedDocumentUpdatesInTransaction } from "./records/documentPendingUpdatePersistence";
 import type {
   ContainerDocumentTombstoneInput,
   DiscardDocumentToShellResult,

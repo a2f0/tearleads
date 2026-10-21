@@ -4,8 +4,8 @@ import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../../data/persistence/documents/documentsPersistence";
+import { findLocalIdByDocumentId } from "../../../data/persistence/documents/records";
 import { loadOrganizationProfileDocumentIds } from "../../../data/persistence/organizations/organizationProfileDocumentPointers";
-import { findLocalIdByDocumentId } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents";
 import {

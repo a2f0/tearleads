@@ -2,15 +2,12 @@ import { desc, eq, notInArray } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documents/documentSummary";
 import {
-  findLocalIdByDocumentId,
-  loadDocumentRecord,
-} from "../../../sqlite/documentPersistence";
-import {
   documentProjection,
   documentProjectionText,
   documents,
 } from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
+import { findLocalIdByDocumentId, loadDocumentRecord } from "../records";
 import type { DocumentsPersistence } from "../types";
 import {
   documentSummaryJoin,

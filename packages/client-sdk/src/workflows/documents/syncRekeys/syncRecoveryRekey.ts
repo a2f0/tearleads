@@ -5,7 +5,7 @@ import {
   MAX_PENDING_UPDATE_REKEYS,
   type PendingUpdateRecord,
   rekeyDocumentPendingUpdate,
-} from "../../../data/sqlite/documentPersistence";
+} from "../../../data/persistence/documents/records";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,

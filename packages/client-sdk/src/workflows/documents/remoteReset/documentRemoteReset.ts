@@ -2,8 +2,8 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import {
   queuedUpdateRow,
   unqueueDocumentScopesInTransaction,
-} from "../../../data/sqlite/documentPersistence/documentPendingUpdatePersistence";
-import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../../../data/sqlite/documentPersistence/documentSyncFailurePersistence";
+} from "../../../data/persistence/documents/records/documentPendingUpdatePersistence";
+import { CLEARED_DOCUMENT_SYNC_FAILURE } from "../../../data/persistence/documents/records/documentSyncFailurePersistence";
 import {
   documentAttachmentBlobProjection,
   documentHistoryUpdates,

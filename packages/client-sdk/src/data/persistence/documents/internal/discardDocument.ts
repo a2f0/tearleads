@@ -5,8 +5,6 @@ import {
   type DocumentProjectorRegistryInput,
   resolveDocumentProjectorRegistry,
 } from "../../../documents/documentKinds";
-import { clearDocumentSyncFailure } from "../../../sqlite/documentPersistence";
-import { deleteDocumentHistory } from "../../../sqlite/documentPersistence/documentHistoryPersistence";
 import {
   documentAttachmentBlobProjection,
   documentPendingAttachments,
@@ -24,6 +22,8 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
+import { clearDocumentSyncFailure } from "../records";
+import { deleteDocumentHistory } from "../records/documentHistoryPersistence";
 import type {
   DiscardDocumentToShellResult,
   DocumentsPersistence,

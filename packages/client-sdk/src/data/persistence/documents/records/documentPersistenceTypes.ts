@@ -1,5 +1,5 @@
 import type { ContainerAccessLevel } from "@tearleads/crypto";
-import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
+import type { DocumentSyncPullContinuation } from "../../../documents/shared/sync/pullContinuation";
 
 export interface DocumentRecord {
   id: string;

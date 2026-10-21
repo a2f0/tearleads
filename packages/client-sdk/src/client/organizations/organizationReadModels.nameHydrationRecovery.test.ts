@@ -16,11 +16,11 @@ import {
   repairProtectionLease,
 } from "../../../test/helpers/principalPolicyRepair";
 import { sqlDocumentMoveIntentPersistence } from "../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import {
   ensureDocumentTables,
   recordDocumentSyncFailure,
-} from "../../data/sqlite/documentPersistence";
+} from "../../data/persistence/documents/records";
+import { inheritPrincipalHistoryProtection } from "../../data/principals/principalHistoryRuntime";
 import { containerTables } from "../../data/sqlite/schema";
 import { type ExecSql, ensureSqlTables } from "../../data/sqlite/sqlSchema";
 import {

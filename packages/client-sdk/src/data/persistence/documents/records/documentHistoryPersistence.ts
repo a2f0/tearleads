@@ -10,9 +10,9 @@ import {
   documentHistoryCheckpoints,
   documentHistoryUpdates,
   documentTables,
-} from "../schema";
-import { getClientSQLitePersistenceRuntime } from "../sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../sqlSchema";
+} from "../../../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
+import { type ExecSql, ensureSqlTables } from "../../../sqlite/sqlSchema";
 import type { DocumentScope } from "./documentPersistenceTypes";
 
 /**

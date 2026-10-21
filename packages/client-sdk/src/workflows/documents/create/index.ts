@@ -25,7 +25,7 @@ import {
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
 import { isContainerCreatePending } from "../../../data/persistence/container-contents/pendingContainerCreate";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { recordDocumentAuthorAccessFailure } from "../authorAccessFailure";
 import {

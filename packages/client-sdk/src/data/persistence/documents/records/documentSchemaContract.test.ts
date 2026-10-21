@@ -1,7 +1,10 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { documentProjectionTables, documentTables } from "../schema";
-import { ensureSqlTables } from "../sqlTableSchema";
+import {
+  documentProjectionTables,
+  documentTables,
+} from "../../../sqlite/schema";
+import { ensureSqlTables } from "../../../sqlite/sqlTableSchema";
 
 const documentsTable = documentTables[0];
 if (!documentsTable) throw new Error("Documents table schema is missing");

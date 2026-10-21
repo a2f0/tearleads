@@ -3,14 +3,18 @@ import {
   DOCUMENT_SYNC_PULL_RECOVERY_REQUIRED,
   type DocumentSyncPullContinuation,
   serializeDocumentSyncPullContinuation,
-} from "../../documents/shared/sync/pullContinuation";
-import { documentProjectionTables, documents, documentTables } from "../schema";
-import { getClientSQLitePersistenceRuntime } from "../sqlitePersistenceRuntime";
+} from "../../../documents/shared/sync/pullContinuation";
+import {
+  documentProjectionTables,
+  documents,
+  documentTables,
+} from "../../../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
   ensureSqlTables,
   runSerializedSqlMutation,
-} from "../sqlSchema";
+} from "../../../sqlite/sqlSchema";
 import type { DocumentRecord } from "./documentPersistenceTypes";
 import { loadDocumentRecord } from "./documentRecordPersistence";
 

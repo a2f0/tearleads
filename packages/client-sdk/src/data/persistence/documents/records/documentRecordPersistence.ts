@@ -1,9 +1,9 @@
 import { and, desc, eq, sql } from "drizzle-orm";
-import { deserializeDocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
-import { normalizeEffectiveAccessLevel } from "../../keying/accessLevel";
-import { documentHistoryUpdates, documents } from "../schema";
-import { getClientSQLitePersistenceRuntime } from "../sqlitePersistenceRuntime";
-import type { ExecSql } from "../sqlSchema";
+import { deserializeDocumentSyncPullContinuation } from "../../../documents/shared/sync/pullContinuation";
+import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
+import { documentHistoryUpdates, documents } from "../../../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
+import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type {
   DocumentRecord,
   DocumentScope,

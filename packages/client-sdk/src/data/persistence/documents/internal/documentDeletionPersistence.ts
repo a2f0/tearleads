@@ -1,12 +1,6 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
-  clearDocumentSyncFailure,
-  deleteDocumentRecord,
-  loadDocumentRecord,
-} from "../../../sqlite/documentPersistence";
-import { deleteDocumentHistory } from "../../../sqlite/documentPersistence/documentHistoryPersistence";
-import {
   documentAttachmentBlobProjection,
   documentContainerProjection,
   documentPendingAttachments,
@@ -28,6 +22,12 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
+import {
+  clearDocumentSyncFailure,
+  deleteDocumentRecord,
+  loadDocumentRecord,
+} from "../records";
+import { deleteDocumentHistory } from "../records/documentHistoryPersistence";
 import type { StoredDocumentRecord } from "../types";
 import { deleteContainerDocumentTombstoneHoldsForDocuments } from "./containerDocumentTombstoneHolds";
 import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";

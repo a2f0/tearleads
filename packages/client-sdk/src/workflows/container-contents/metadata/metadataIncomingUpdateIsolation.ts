@@ -4,7 +4,7 @@ import {
   validateDocumentSyncUpdateImports,
 } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import type { SyncRemoteDocumentResult } from "../../../data/documents/shared/types";
-import { recordDocumentSyncFailure } from "../../../data/sqlite/documentPersistence";
+import { recordDocumentSyncFailure } from "../../../data/persistence/documents/records";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,

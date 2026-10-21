@@ -7,21 +7,21 @@ import {
 import { and, eq } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { documentSyncPullContinuationsEqual } from "../../../documents/shared/sync/pullContinuation";
-import {
-  appendDocumentHistoryUpdates,
-  replaceDocumentHistoryCheckpoint,
-} from "../../../sqlite/documentPersistence/documentHistoryPersistence";
-import {
-  insertDocumentPendingUpdateWithHistoryInTransaction,
-  settleQueuedDocumentUpdatesInTransaction,
-} from "../../../sqlite/documentPersistence/documentPendingUpdatePersistence";
-import { clearDocumentSyncFailureInTransaction } from "../../../sqlite/documentPersistence/documentSyncFailurePersistence";
 import { documentHistoryUpdates } from "../../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
+import {
+  appendDocumentHistoryUpdates,
+  replaceDocumentHistoryCheckpoint,
+} from "../records/documentHistoryPersistence";
+import {
+  insertDocumentPendingUpdateWithHistoryInTransaction,
+  settleQueuedDocumentUpdatesInTransaction,
+} from "../records/documentPendingUpdatePersistence";
+import { clearDocumentSyncFailureInTransaction } from "../records/documentSyncFailurePersistence";
 import type { DocumentsPersistence, StoredDocumentRecord } from "../types";
 import {
   applyStoredAttachmentRemoval,

@@ -1,14 +1,5 @@
 import { eq } from "drizzle-orm";
 import {
-  enqueueDocumentPendingUpdate,
-  ensureDocumentProjectionTables,
-  ensureDocumentTables,
-} from "../../sqlite/documentPersistence";
-import {
-  hasQueuedDocumentUpdates,
-  settleQueuedDocumentUpdatesInTransaction,
-} from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
-import {
   containerHydrationTombstones,
   containers,
   documentContainerProjectionTables,
@@ -23,6 +14,15 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
+import {
+  enqueueDocumentPendingUpdate,
+  ensureDocumentProjectionTables,
+  ensureDocumentTables,
+} from "../documents/records";
+import {
+  hasQueuedDocumentUpdates,
+  settleQueuedDocumentUpdatesInTransaction,
+} from "../documents/records/documentPendingUpdatePersistence";
 import { getLatestTimestamp } from "../latestTimestamp";
 import {
   ensureContainerTables,

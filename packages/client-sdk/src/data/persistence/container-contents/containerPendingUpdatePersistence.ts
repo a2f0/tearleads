@@ -1,15 +1,15 @@
 import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
+import { documents } from "../../sqlite/schema";
+import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
+import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import {
   enqueueDocumentPendingUpdate,
   listDocumentPendingUpdates,
   rekeyDocumentPendingUpdate,
   settleDocumentPendingUpdate,
   unqueueDocumentPendingUpdates,
-} from "../../sqlite/documentPersistence";
-import { listLocalIdsWithQueuedUpdates } from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
-import { documents } from "../../sqlite/schema";
-import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
-import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+} from "../documents/records";
+import { listLocalIdsWithQueuedUpdates } from "../documents/records/documentPendingUpdatePersistence";
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
 import { getContainerMetadataScope } from "./containerMetadataRows";
 import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
