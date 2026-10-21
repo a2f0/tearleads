@@ -1,20 +1,20 @@
-import type { MaterializedContainerSharePlan } from "../../../../data/containers/shared/types";
-import { assertProjectionVerificationCurrent } from "../../../../data/keyingProjectionVerification/types";
-import { createRuntimeGroupMetadataAccess } from "../../../organizations/groupMetadata/groupMetadataRuntime";
-import { commitCurrentGroupPolicyMutation } from "../../../organizations/groupPolicy/commitCurrentGroupPolicyMutation";
-import { buildSetGroupContainerGrantPolicyRequest } from "../../../organizations/groupPolicy/groupPolicyRequests";
-import type {
-  createRuntimeCurrentGroupMutation,
-  RuntimeCurrentGroupMutationContext,
-} from "../../../organizations/principalMutations/runtimeCurrentGroupMutation";
-import { groupPolicyNameMismatch } from "../../../organizations/principalPolicy/principalPolicyRequest";
+import type { MaterializedContainerSharePlan } from "../../../data/containers/shared/types";
+import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import {
   type PreparedPrincipalContainerRematerializationBatch,
   preparePrincipalContainerRematerializationBatch,
-} from "../../rematerialization";
+} from "../../containers/rematerialization";
+import { createRuntimeGroupMetadataAccess } from "../groupMetadata/groupMetadataRuntime";
+import { commitCurrentGroupPolicyMutation } from "../groupPolicy/commitCurrentGroupPolicyMutation";
+import { buildSetGroupContainerGrantPolicyRequest } from "../groupPolicy/groupPolicyRequests";
+import type {
+  createRuntimeCurrentGroupMutation,
+  RuntimeCurrentGroupMutationContext,
+} from "../principalMutations/runtimeCurrentGroupMutation";
+import { groupPolicyNameMismatch } from "../principalPolicy/principalPolicyRequest";
 import type { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
-import type { shareRemoteContainerWithGroup } from "./index";
 import { GroupShareNameMismatchError } from "./sharePrincipalPolicy";
+import type { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 /** Fresh mutation authority rechecks the chosen name before authoring a grant. */
 export async function commitCurrentShareGrant(input: {

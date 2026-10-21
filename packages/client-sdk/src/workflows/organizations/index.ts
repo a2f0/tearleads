@@ -31,6 +31,10 @@ export {
 } from "./billing";
 export { revokeOrganizationContainerGrant } from "./containerGrantRevocation";
 export { GroupMembershipNameMismatchError } from "./groupNames/groupMembershipName";
+export {
+  GroupShareNameMismatchError,
+  shareRemoteContainerWithGroup,
+} from "./groupShare";
 export { deleteOrganizationGroup } from "./groups/deleteOrganizationGroup";
 export {
   buildOrganizationProfileDocumentPatch,

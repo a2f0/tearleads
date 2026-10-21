@@ -38,6 +38,11 @@ export {
   moveRemoteContainer,
   replayRemoteContainerMove,
 } from "./child/move";
+// Organizations' group shares submit and acknowledge their container mutation.
+export {
+  submitAcknowledgedContainerMutation,
+  submitPlainContainerMutation,
+} from "./child/mutationSubmit";
 export { buildMaterializedContainerRekeyPlan } from "./child/rekey";
 // A rebuilt keyring override that a concurrent rotation outdated: rebuild it.
 export { ContainerKeyringOverrideStaleError } from "./child/rekey/keyringOverrideLineage";
@@ -47,18 +52,10 @@ export {
   buildMaterializedContainerRevokePlan,
   revokeRemoteContainer,
 } from "./child/revoke";
-export {
-  shareRemoteContainer,
-  shareRemoteContainerWithGroup,
-} from "./child/share";
+export { shareRemoteContainer } from "./child/share";
 export { buildMaterializedContainerSharePlan } from "./child/share/shareMaterialization";
 export { referencedPrincipalHeadFromPolicy } from "./child/share/sharePlanCore";
-export {
-  advanceVerifiedSharePolicies,
-  GroupShareNameMismatchError,
-  loadVerifiedGroupSharePrincipalPolicy,
-  type VerifiedSharePrincipalPolicy,
-} from "./child/share/sharePrincipalPolicy";
+export { resolveShareProjection } from "./child/share/shareProjection";
 export {
   readContainerMutationMetadataDocumentId,
   referencedPrincipalHeadsFromContainerMutationResponse,

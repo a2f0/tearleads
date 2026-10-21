@@ -2,19 +2,19 @@ import {
   KeyingVerificationError,
   type ReferencedPrincipalHead,
 } from "@tearleads/crypto";
-import { assertProjectionVerificationCurrent } from "../../../../data/keyingProjectionVerification/types";
-import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { principalHeadMatchesReference } from "../../../../data/principals/organizationAuthorityDescriptor";
-import { loadCurrentOrganizationAuthority } from "../../../organizations/currentOrganizationAuthority";
-import { createSelectedCurrentGroupMetadataContainerVerifier } from "../../../organizations/groupMetadata/currentGroupMetadataAuthority";
-import { assertGroupMetadataBinding } from "../../../organizations/groupMetadata/groupMetadataBinding";
-import { createRuntimeGroupMetadataAccess } from "../../../organizations/groupMetadata/groupMetadataRuntime";
-import { createCurrentPrincipalMutationLease } from "../../../organizations/principalMutations/currentPrincipalMutationLease";
-import type { PrincipalMutationRecoveryApi } from "../../../organizations/principalMutations/principalMutationJournalManagement";
+import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { principalHeadMatchesReference } from "../../../data/principals/organizationAuthorityDescriptor";
+import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";
+import { createSelectedCurrentGroupMetadataContainerVerifier } from "../groupMetadata/currentGroupMetadataAuthority";
+import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
+import { createRuntimeGroupMetadataAccess } from "../groupMetadata/groupMetadataRuntime";
+import { createCurrentPrincipalMutationLease } from "../principalMutations/currentPrincipalMutationLease";
+import type { PrincipalMutationRecoveryApi } from "../principalMutations/principalMutationJournalManagement";
 import {
   type GroupPolicyNameReader,
   groupPolicyNameMismatch,
-} from "../../../organizations/principalPolicy/principalPolicyRequest";
+} from "../principalPolicy/principalPolicyRequest";
 import { GroupShareNameMismatchError } from "./sharePrincipalPolicy";
 
 type CurrentShareRuntime = Parameters<

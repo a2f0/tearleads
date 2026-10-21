@@ -11,9 +11,9 @@ import type {
   createRemoteContainer,
   moveRemoteContainer,
   shareRemoteContainer,
-  shareRemoteContainerWithGroup,
 } from "../../containers";
 import type { createRemoteDocument } from "../../documents";
+import type { shareRemoteContainerWithGroup } from "../../organizations/groupShare";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import type { PrincipalPolicyHistoryReader } from "../../principals/principalPolicyHistoryReader";
 import type {

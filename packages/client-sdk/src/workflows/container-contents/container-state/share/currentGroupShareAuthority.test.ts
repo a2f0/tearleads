@@ -9,7 +9,7 @@ import { createCurrentShareMetadataFixture } from "../../../../../test/helpers/c
 import { createShareTestRuntime } from "../../../../../test/helpers/groupShareScenario";
 import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
 import { inheritPrincipalHistoryProtection } from "../../../../data/principals/principalHistoryRuntime";
-import { commitCurrentShareGrant } from "../../../containers/child/share/currentShareGrantMutation";
+import { commitCurrentShareGrant } from "../../../organizations/groupShare/currentShareGrantMutation";
 import { createRuntimeCurrentGroupMutation } from "../../../organizations/principalMutations/runtimeCurrentGroupMutation";
 import { shareRemoteContainerWithGroup } from "../remote";
 
