@@ -1,12 +1,12 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { ContainerKekRepairInaccessibleError } from "../../../data/documents/shared/containerKek/containerKekCurrency";
 import { assertDocumentManifestBundleConsistent } from "../../../data/documents/shared/readers";
+import { isDocumentSyncRequestLimitError } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
 import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
 } from "../../../data/documents/shared/sync/syncPagination";
 import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
-import { isDocumentSyncRequestLimitError } from "../../../data/sync/documentSyncOutgoingBatch";
 import { retrySyncPlanOrAbandon } from "../syncFailures";
 import {
   abandonAncestorRepair,

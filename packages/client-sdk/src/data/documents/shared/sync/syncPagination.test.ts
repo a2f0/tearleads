@@ -9,8 +9,8 @@ import {
   MAX_DOCUMENT_SYNC_REQUEST_BYTES,
   MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES,
 } from "@tearleads/validators/util";
-import { limitDocumentSyncRequestBytes } from "../../../sync/documentSyncOutgoingBatch";
 import type { DocumentSyncApi, DocumentSyncPlan } from "../types";
+import { limitDocumentSyncRequestBytes } from "./documentSyncOutgoingBatch";
 import {
   readPullContinuation,
   resolvePullContinuationMinLsn,

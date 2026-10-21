@@ -26,6 +26,7 @@ import {
   unwrapDocumentContentKeyFromBundle,
 } from "../../../data/documents/shared/projection";
 import { assertDocumentManifestBundleConsistent } from "../../../data/documents/shared/readers";
+import { selectDocumentSyncOutgoingBatch } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
 import type {
   BuildDocumentSyncPlanInput,
   DocumentCreateAuthor,
@@ -36,7 +37,6 @@ import { projectionVerificationOptions } from "../../../data/documents/shared/ty
 import type { DocumentWriterProjectionAuthorization } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { selectDocumentSyncOutgoingBatch } from "../../../data/sync/documentSyncOutgoingBatch";
 import {
   type DocumentSyncTraceEmitter,
   traceCheckpointRegeneration,

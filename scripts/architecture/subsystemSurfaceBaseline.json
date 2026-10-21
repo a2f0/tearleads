@@ -409,13 +409,6 @@
     "packages/client-sdk/src/workflows/organizations/rosterProfileContainer.ts",
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts"
   ],
-  "packages/client-sdk/src/data/sync/documentSyncOutgoingBatch.ts": [
-    "packages/client-sdk/src/workflows/documents/index.ts",
-    "packages/client-sdk/src/workflows/documents/sync/readOnlySync.ts",
-    "packages/client-sdk/src/workflows/documents/sync/syncAttemptPlanning.ts",
-    "packages/client-sdk/src/workflows/documents/syncPlan/syncPlanMaterial.ts",
-    "packages/client-sdk/src/workflows/documents/syncPlan/syncPlanRequestBounds.ts"
-  ],
   "packages/client-sdk/src/data/sync/outgoingUpdateSettlement.ts": [
     "packages/client-sdk/src/workflows/container-contents/metadata/index.ts",
     "packages/client-sdk/src/workflows/documents/index.ts"

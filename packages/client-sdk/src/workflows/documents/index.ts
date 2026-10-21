@@ -3,6 +3,7 @@ export {
   unwrapDocumentContentKeyTarget,
 } from "../../data/documents/shared/projection";
 export { persistedDocumentCreateStateFromResponse } from "../../data/documents/shared/responses";
+export { selectDocumentSyncOutgoingBatch } from "../../data/documents/shared/sync/documentSyncOutgoingBatch";
 export {
   type DocumentSyncUpdateIsolationError,
   type IncomingDocumentSyncUpdateValidator,
@@ -30,7 +31,6 @@ export {
   DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
 } from "../../data/sqlite/documentPersistence/documentHistoryPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
-export { selectDocumentSyncOutgoingBatch } from "../../data/sync/documentSyncOutgoingBatch";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {
   didRegainSyncPrerequisites,

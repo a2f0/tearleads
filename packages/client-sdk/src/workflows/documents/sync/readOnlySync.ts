@@ -13,6 +13,7 @@ import {
   persistedDocumentSyncStateFromResponse,
   submitDocumentSync,
 } from "../../../data/documents/shared/responses";
+import { limitDocumentSyncRequestBytes } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
 import type {
   DocumentSyncUpdateIsolationError,
   IncomingDocumentSyncUpdateValidator,
@@ -37,7 +38,6 @@ import type {
 } from "../../../data/keyingProjectionVerification";
 import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { limitDocumentSyncRequestBytes } from "../../../data/sync/documentSyncOutgoingBatch";
 import {
   assertRawContinuationCanRetry,
   refreshSyncAttemptWriterProjection,
