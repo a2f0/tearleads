@@ -219,12 +219,16 @@ else goes through the owner's surface.
 
 `bun run lint:architecture` checks every way a file reaches a table:
 
-- importing it from a schema module, statically or with `import()`;
-- reading its key off a schema module namespace, a schema object such as
-  `clientSQLiteSchema`, or Drizzle's `db.query`, by property, literal index, or
-  destructuring;
-- re-exporting a schema module wholesale, which counts every table it exports;
+- importing it, statically or with an awaited `import()`;
+- reading it off a schema module namespace, a schema object such as
+  `clientSQLiteSchema`, or Drizzle's `db.query`, by property, literal index,
+  destructuring (quoted keys included), or a local alias;
 - naming it in raw SQL in a string or template.
+
+Imports resolve through any module that re-exports schema values, aliases and
+`export *` included, so a re-export is not itself a use: each table is checked
+where it is read or written. An unawaited `import()` of a schema module, or a
+computed index into a schema value, counts as writing every table it reaches.
 
 A column reference, `.from(...)`, a join, `typeof`, `db.query`, and SQL
 `FROM`/`JOIN` read a table; `insert`, `update`, `delete`, and SQL `INSERT`,

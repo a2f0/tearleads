@@ -5,7 +5,6 @@ import { findTableViolations } from "./subsystemTables";
 import {
   findTableUsesInSources,
   rawSqlTableAccess,
-  schemaKeyAccessInSource,
 } from "./subsystemTableUses";
 
 function subsystem(
@@ -139,41 +138,6 @@ test("raw SQL reads and writes its tables; prose and comments name none", () => 
   });
 });
 
-test("keys reached through schema roots carry how they are used", () => {
-  const source = parse("fixture.ts", [
-    "const a = tx.select().from(schema.documents);",
-    'await tx.delete(schema["containers"]).run();',
-    "const { localIntents } = schema;",
-    "const c = all.principalPolicies.version;",
-    "const d = all.clientSQLiteSchema.securityIncidents;",
-    "await db.query.documentHistoryUpdates.findMany();",
-    'await db.query["documentPendingAttachments"].findMany();',
-    "const { verifiedAccessManifestBundles } = tx.query;",
-    "const ignored = other.organizationFounders;",
-    "const runtime = drizzle(execute, { schema });",
-  ]);
-
-  expect(
-    Object.fromEntries(
-      schemaKeyAccessInSource(source, {
-        namespaces: new Set(["all"]),
-        objects: new Set(["schema"]),
-        schemaObjectNames: new Set(["clientSQLiteSchema"]),
-      }),
-    ),
-  ).toEqual({
-    clientSQLiteSchema: "read",
-    containers: "write",
-    documentHistoryUpdates: "read",
-    documentPendingAttachments: "read",
-    documents: "read",
-    localIntents: "write",
-    principalPolicies: "read",
-    securityIncidents: "write",
-    verifiedAccessManifestBundles: "read",
-  });
-});
-
 test("every way of reaching another subsystem's table is classified and checked", () => {
   const sources = new Map(
     [
@@ -190,9 +154,16 @@ test("every way of reaching another subsystem's table is classified and checked"
       parse("pkg/sqlite/schema/extra.ts", [
         'export const extraRows = sqliteTable("extra_rows", {});',
       ]),
+      parse("pkg/sqlite/schema/alias.ts", [
+        'export { betaRows as rows } from "./index";',
+      ]),
+      parse("pkg/sqlite/schema/aliasAgain.ts", [
+        'export { rows } from "./alias";',
+      ]),
       parse("pkg/sqlite/runtime.ts", [
         'import { appSchema } from "./schema";',
         "export const db = drizzle(execute, { schema: appSchema });",
+        'export { appSchema } from "./schema";',
       ]),
       parse("pkg/a/own.ts", [
         'import { alphaRows } from "../sqlite/schema";',
@@ -203,6 +174,11 @@ test("every way of reaching another subsystem's table is classified and checked"
         "export const x = tx.select({ at: betaLog.at }).from(betaLog);",
         'export const y = "SELECT at FROM beta_log";',
         "export type Row = typeof betaLog.$inferSelect;",
+        "export const z = db.query.betaLog.findMany();",
+      ]),
+      parse("pkg/a/readsDynamicExposed.ts", [
+        'const { betaLog } = await import("../sqlite/schema");',
+        "export const r = betaLog.at;",
       ]),
       parse("pkg/a/viaImport.ts", [
         'import { betaRows as rows } from "../sqlite/schema";',
@@ -216,9 +192,26 @@ test("every way of reaching another subsystem's table is classified and checked"
         'import { appSchema } from "../sqlite/schema";',
         "export const x = tx.update(appSchema.betaLog).set(row);",
       ]),
+      parse("pkg/a/viaRuntimeReexport.ts", [
+        'import { appSchema } from "../sqlite/runtime";',
+        "export const x = tx.delete(appSchema.betaLog);",
+      ]),
+      parse("pkg/a/viaAlias.ts", [
+        'import { appSchema } from "../sqlite/schema";',
+        "const schema = appSchema;",
+        "export const x = tx.update(schema.betaLog).set(row);",
+      ]),
+      parse("pkg/a/viaComputedKey.ts", [
+        'import { appSchema } from "../sqlite/schema";',
+        "export const x = appSchema[name];",
+      ]),
       parse("pkg/a/viaNamespace.ts", [
         'import * as registry from "../sqlite/schema/registry";',
         "export const x = registry.betaSchema.betaRows.id;",
+      ]),
+      parse("pkg/a/viaChainedAlias.ts", [
+        'import { rows } from "../sqlite/schema/aliasAgain";',
+        "export const x = tx.delete(rows);",
       ]),
       parse("pkg/a/viaRelationalIndex.ts", [
         'export const x = db.query["betaRows"].findMany();',
@@ -226,13 +219,13 @@ test("every way of reaching another subsystem's table is classified and checked"
       parse("pkg/a/viaRawSql.ts", [
         'export const x = "UPDATE beta_log SET at = ?";',
       ]),
-      parse("pkg/a/viaReexport.ts", ['export * from "../sqlite/schema";']),
-      parse("pkg/a/viaReexportOne.ts", [
+      parse("pkg/a/reexports.ts", [
+        'export * from "../sqlite/schema";',
         'export * from "../sqlite/schema/extra";',
       ]),
-      parse("pkg/a/readsDynamicExposed.ts", [
-        'const { betaLog } = await import("../sqlite/schema");',
-        "export const r = betaLog.at;",
+      parse("pkg/a/viaReexport.ts", [
+        'import { betaRows, extraRows } from "./reexports";',
+        "export const x = [tx.delete(betaRows), tx.update(extraRows)];",
       ]),
       parse("pkg/a/viaDynamicNamespace.ts", [
         'const schema = await import("../sqlite/schema");',
@@ -242,8 +235,13 @@ test("every way of reaching another subsystem's table is classified and checked"
         'const { betaLog } = await import("../sqlite/schema");',
         "export const y = tx.delete(betaLog);",
       ]),
-      parse("pkg/a/viaDynamicThen.ts", [
-        'export const z = import("../sqlite/schema/extra").then((m) => m);',
+      parse("pkg/a/viaQuotedKey.ts", [
+        'const { "betaRows": rows } = await import("../sqlite/schema");',
+        "export const x = tx.delete(rows);",
+      ]),
+      parse("pkg/a/viaUnawaitedImport.ts", [
+        'const pending = import("../sqlite/schema/extra");',
+        "export const x = pending.then((m) => tx.delete(m.extraRows));",
       ]),
     ].map((source) => [source.fileName, source] as const),
   );
@@ -265,17 +263,22 @@ test("every way of reaching another subsystem's table is classified and checked"
       registry,
     }),
   ).toEqual([
+    "pkg/a/viaAlias.ts writes betaLog, which Beta owns",
+    "pkg/a/viaChainedAlias.ts writes betaRows, which Beta owns",
+    "pkg/a/viaComputedKey.ts writes betaLog, which Beta owns",
+    "pkg/a/viaComputedKey.ts writes betaRows, which Beta owns",
     "pkg/a/viaDynamicDestructure.ts writes betaLog, which Beta owns",
     "pkg/a/viaDynamicNamespace.ts reads betaRows, which Beta does not expose for reading",
-    "pkg/a/viaDynamicThen.ts writes extraRows, which Beta owns",
     "pkg/a/viaImport.ts reads betaRows, which Beta does not expose for reading",
     "pkg/a/viaLoop.ts writes betaLog, which Beta owns",
     "pkg/a/viaNamespace.ts reads betaRows, which Beta does not expose for reading",
+    "pkg/a/viaQuotedKey.ts writes betaRows, which Beta owns",
     "pkg/a/viaRawSql.ts writes betaLog, which Beta owns",
-    "pkg/a/viaReexport.ts writes betaLog, which Beta owns",
     "pkg/a/viaReexport.ts writes betaRows, which Beta owns",
-    "pkg/a/viaReexportOne.ts writes extraRows, which Beta owns",
+    "pkg/a/viaReexport.ts writes extraRows, which Beta owns",
     "pkg/a/viaRelationalIndex.ts reads betaRows, which Beta does not expose for reading",
+    "pkg/a/viaRuntimeReexport.ts writes betaLog, which Beta owns",
     "pkg/a/viaSchemaObject.ts writes betaLog, which Beta owns",
+    "pkg/a/viaUnawaitedImport.ts writes extraRows, which Beta owns",
   ]);
 });
