@@ -31,7 +31,7 @@ exit nonzero; that output must be compared with this record, not ignored.
 ## Current record
 
 The active overrides and exceptions below were last reconciled in
-[#2474](https://github.com/a2f0/tearleads/pull/2474). That PR and the earlier
+[#2615](https://github.com/a2f0/tearleads/pull/2615). That PR and the earlier
 [triage issue #1441](https://github.com/a2f0/tearleads/issues/1441) retain completed
 fixes and historical evidence. Advisory counts and clean-audit claims belong
 in the upgrade PR because they describe a particular lockfile and advisory

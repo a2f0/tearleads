@@ -14,10 +14,12 @@ lockfile currently covers macOS arm64 and Linux x64, not Windows.
 
 ## Current constraints
 
-The compatibility decisions come from [#2225](https://github.com/a2f0/tearleads/pull/2225)
-and [#2474](https://github.com/a2f0/tearleads/pull/2474); those PRs retain migration
-and validation history. Revisit these constraints when updating their owning
-package or runtime, and remove them when the stated checks pass without the pin.
+The compatibility decisions were last reconciled in
+[#2615](https://github.com/a2f0/tearleads/pull/2615). That PR and the earlier
+[#2225](https://github.com/a2f0/tearleads/pull/2225) and
+[#2474](https://github.com/a2f0/tearleads/pull/2474) retain migration and validation
+history. Revisit these constraints when updating their owning package or runtime,
+and remove them when the stated checks pass without the pin.
 
 - Biome stays on 2.5.15 until [grid-cell counting](https://github.com/biomejs/biome/issues/12502)
   is fixed: 2.6.2 compares CSS grid row text lengths and rejects valid layouts.
