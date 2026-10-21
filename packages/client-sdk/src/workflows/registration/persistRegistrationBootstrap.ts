@@ -19,11 +19,11 @@ import {
   DOCUMENTS_APP_KIND,
   sqlDocumentsPersistence,
 } from "../../data/persistence/documents/documentsPersistence";
+import type { DocumentRecord } from "../../data/persistence/documents/records";
 import {
   advanceLocallyAcknowledgedAccessManifestHeadsAtomically,
   type LocallyAcknowledgedAccessManifestHead,
 } from "../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
-import type { DocumentRecord } from "../../data/sqlite/documentPersistence";
 import { documentContainerProjectionTables } from "../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import {

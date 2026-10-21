@@ -22,7 +22,7 @@ import {
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
 import { createStaleBundleSyncFixture } from "../../../../test/helpers/staleBundleSyncFixture";
 import type { DocumentSyncSubmitFailure } from "../../../data/documents/shared/types";
-import { ensureDocumentTables } from "../../../data/sqlite/documentPersistence";
+import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildDocumentSyncPlan } from "../syncPlan/syncPlanIdentity";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

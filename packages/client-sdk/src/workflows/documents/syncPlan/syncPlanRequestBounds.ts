@@ -1,7 +1,7 @@
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { limitDocumentSyncRequestBytes } from "../../../data/documents/shared/sync/documentSyncOutgoingBatch";
 import type { MaterializedDocumentSyncPlan } from "../../../data/documents/shared/types";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 
 interface SyncPlanMaterial {
   readonly contentKey: Uint8Array;

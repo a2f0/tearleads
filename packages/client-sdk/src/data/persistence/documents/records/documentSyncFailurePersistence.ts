@@ -4,12 +4,12 @@ import {
   documentTables,
   localIntents,
   localIntentTables,
-} from "../schema";
+} from "../../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
-} from "../sqlitePersistenceRuntime";
-import { type ExecSql, ensureSqlTables } from "../sqlSchema";
+} from "../../../sqlite/sqlitePersistenceRuntime";
+import { type ExecSql, ensureSqlTables } from "../../../sqlite/sqlSchema";
 import type { DocumentScope } from "./documentPersistenceTypes";
 
 interface DocumentSyncFailureFields {

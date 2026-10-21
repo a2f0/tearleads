@@ -1,11 +1,11 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import type {
   DocumentRecord,
   PendingUpdateFields,
   PendingUpdateRecord,
-} from "../../sqlite/documentPersistence";
-import type { ExecSql } from "../../sqlite/sqlSchema";
+} from "../documents/records";
 import type { HeldContainerBinding } from "./containerBinding";
 import type { ContainerRecord } from "./containerPersistence";
 import type { DormantMetadataSweepPersistence } from "./dormantMetadataSweep";

@@ -9,7 +9,7 @@ import {
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
-import type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../persistence/documents/records";
 import { contentRecordAdditionalDataBytes } from "./contentRecordAdditionalData";
 import {
   deriveDocumentContentRecordKey,

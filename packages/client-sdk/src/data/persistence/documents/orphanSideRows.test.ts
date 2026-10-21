@@ -4,12 +4,12 @@ import {
   insertQueuedUpdateRows,
   QUEUED_UPDATES_SQL,
 } from "../../../../test/helpers/queuedUpdateRows";
+import { sqlDocumentsPersistence } from "./documentsPersistence";
+import { deleteOrphanedDocumentSideRows } from "./internal/orphanSideRows";
 import {
   ensureDocumentProjectionTables,
   ensureDocumentTables,
-} from "../../sqlite/documentPersistence";
-import { sqlDocumentsPersistence } from "./documentsPersistence";
-import { deleteOrphanedDocumentSideRows } from "./internal/orphanSideRows";
+} from "./records";
 
 const OLD = "2026-07-01T00:00:00.000Z";
 const FRESH = "2026-07-30T00:00:00.000Z";

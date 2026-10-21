@@ -2,16 +2,16 @@ import { base64ToBytes } from "@tearleads/encoding";
 import { getImportBlobMetadata } from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
 import { serializeDocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
-import {
-  documentRecordSelection,
-  mapSelectedDocumentRecord,
-} from "../../sqlite/documentPersistence";
 import { documentHistoryCheckpoints, documents } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import {
+  documentRecordSelection,
+  mapSelectedDocumentRecord,
+} from "../documents/records";
 import type {
   ContainerCreateIntentInput,
   ContainerMetadataRecord,

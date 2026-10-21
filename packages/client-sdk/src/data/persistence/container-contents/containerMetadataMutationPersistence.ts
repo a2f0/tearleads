@@ -1,15 +1,6 @@
 import { and, eq, or } from "drizzle-orm";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/sync/pullContinuation";
 import {
-  enqueueDocumentPendingUpdate,
-  type PendingUpdateFields,
-} from "../../sqlite/documentPersistence";
-import {
-  hasQueuedDocumentUpdates,
-  settleQueuedDocumentUpdatesInTransaction,
-} from "../../sqlite/documentPersistence/documentPendingUpdatePersistence";
-import { clearDocumentSyncFailureInTransaction } from "../../sqlite/documentPersistence/documentSyncFailurePersistence";
-import {
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
@@ -19,6 +10,15 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import {
+  enqueueDocumentPendingUpdate,
+  type PendingUpdateFields,
+} from "../documents/records";
+import {
+  hasQueuedDocumentUpdates,
+  settleQueuedDocumentUpdatesInTransaction,
+} from "../documents/records/documentPendingUpdatePersistence";
+import { clearDocumentSyncFailureInTransaction } from "../documents/records/documentSyncFailurePersistence";
 import {
   assertHeldContainerBinding,
   heldContainerBinding,

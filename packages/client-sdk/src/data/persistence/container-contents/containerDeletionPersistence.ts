@@ -1,5 +1,4 @@
 import { and, inArray } from "drizzle-orm";
-import { ensureDocumentProjectionTables } from "../../sqlite/documentPersistence";
 import {
   containers,
   documentContainerProjectionTables,
@@ -15,6 +14,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
+import { ensureDocumentProjectionTables } from "../documents/records";
 import type {
   ContainerContentsPersistence,
   ContainerDeletionGuard,

@@ -6,7 +6,7 @@ import { sqlDocumentsPersistence } from "../../../data/persistence/documents/doc
 import {
   clearDocumentSyncFailure,
   recordDocumentSyncFailure,
-} from "../../../data/sqlite/documentPersistence";
+} from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   createContainerParentSyncLane,

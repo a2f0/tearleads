@@ -10,7 +10,7 @@ import { DocumentSyncUpdateIsolationError } from "../../../data/documents/shared
 import {
   ensureDocumentTables,
   hasRecordedTerminalSyncFailures,
-} from "../../../data/sqlite/documentPersistence";
+} from "../../../data/persistence/documents/records";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import {
   applyIncomingContainerMetadataUpdates,

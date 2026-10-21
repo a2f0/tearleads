@@ -11,7 +11,7 @@ import {
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { DocumentSyncResponse } from "@tearleads/validators/response";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { hasRecordedTerminalSyncFailures } from "../../../../data/sqlite/documentPersistence";
+import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records";
 import type { DocumentsRuntime } from "../../types";
 import {
   createRemoteHistoryFixture,

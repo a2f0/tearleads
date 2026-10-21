@@ -5,7 +5,7 @@ import {
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { settleOutgoingPassAndDecideReArm } from "../../../data/sync/outgoingUpdateSettlement";
 import {
   readPullContinuation,

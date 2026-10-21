@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { ensureDocumentProjectionTables } from "../documentPersistence";
+import { ensureDocumentProjectionTables } from "../../persistence/documents/records";
 
 test("document_projection gets container, orphan, and document indexes", async () => {
   const { close, execSql } = await createTestExecSql(

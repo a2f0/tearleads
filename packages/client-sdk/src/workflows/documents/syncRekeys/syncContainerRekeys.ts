@@ -1,7 +1,7 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import type { MaterializedContainerRekeyPlan } from "../../../data/containers/shared/types";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { SyncRemoteDocumentInput } from "../sync/readOnlySync";
 import { DocumentSyncPreparationRequiredError } from "../syncFailures/syncRepairAbandon";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";

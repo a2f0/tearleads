@@ -1,5 +1,5 @@
 import { encodeVersionVector } from "@tearleads/loro";
-import type { PendingUpdateRecord } from "../../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../../data/persistence/documents/records";
 import { documentCreateSeedCandidate } from "../../../documents/sync/initialSync";
 import {
   discardUnacceptedContainerMetadataUpdateIds,

@@ -1,5 +1,5 @@
 import { isDocumentUpdateCreatedEvent } from "../../../data/documents/documentSync";
-import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";
+import type { DocumentRecord } from "../../../data/persistence/documents/records";
 
 export function hasContainerMetadataDocumentUpdateEvent(
   events: ReadonlyArray<unknown>,

@@ -18,7 +18,7 @@ import {
   collectContainerKeksForDocumentSync,
 } from "../../../../data/documents/shared/projection";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { hasRecordedTerminalSyncFailures } from "../../../../data/sqlite/documentPersistence";
+import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records";
 import {
   DocumentRawHistoryUnavailableError,
   isDocumentSyncUpdateIsolationError,

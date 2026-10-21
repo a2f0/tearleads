@@ -12,7 +12,7 @@ import {
   verifyDocumentWriterProjectionAuthorization,
 } from "../../../data/keyingProjectionVerification";
 import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { refreshSyncAttemptWriterProjection } from "../syncFailures";
 import { DocumentRawHistoryUnavailableError } from "../syncPlan/syncContentKeys";
 import {

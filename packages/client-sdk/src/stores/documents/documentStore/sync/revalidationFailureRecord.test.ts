@@ -6,8 +6,8 @@ import {
 } from "../../../../../test/helpers/queuedUpdateRows";
 import { DocumentSyncUpdateIsolationError } from "../../../../data/documents/shared/sync/documentSyncUpdateIsolation";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { clearDocumentSyncFailure } from "../../../../data/sqlite/documentPersistence";
-import { hasRecordedTerminalSyncFailures } from "../../../../data/sqlite/documentPersistence/documentSyncFailurePersistence";
+import { clearDocumentSyncFailure } from "../../../../data/persistence/documents/records";
+import { hasRecordedTerminalSyncFailures } from "../../../../data/persistence/documents/records/documentSyncFailurePersistence";
 import { runSerializedSqlMutation } from "../../../../data/sqlite/sqlExec";
 import type { DocumentRecord } from "../../../../workflows/documents/persistence";
 import type {

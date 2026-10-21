@@ -9,7 +9,7 @@ import {
   hasRecordedTerminalSyncFailures,
   listDocumentPendingUpdates,
   recordDocumentSyncFailure,
-} from "../../../data/sqlite/documentPersistence";
+} from "../../../data/persistence/documents/records";
 import { documentHistoryUpdates } from "../../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import { resetPendingWriteRetryState } from "./index";

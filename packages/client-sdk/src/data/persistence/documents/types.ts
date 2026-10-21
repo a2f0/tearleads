@@ -7,15 +7,15 @@ import type {
   DocumentSummary,
 } from "../../documents/documentSummary";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
+import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { DocumentOrphanBlobPersistence } from "./orphanBlobPersistence";
 import type {
   DocumentRecord as BaseDocumentRecord,
   PendingUpdateFields,
   PendingUpdateRecord,
-} from "../../sqlite/documentPersistence";
-import type { ExecSql } from "../../sqlite/sqlSchema";
-import type { DocumentOrphanBlobPersistence } from "./orphanBlobPersistence";
+} from "./records";
 
-export type { PendingUpdateRecord } from "../../sqlite/documentPersistence";
+export type { PendingUpdateRecord } from "./records";
 
 export interface StoredDocumentRecord extends BaseDocumentRecord {
   containerId: string | null;

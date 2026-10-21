@@ -1,4 +1,3 @@
-import { ensureDocumentTables } from "../../sqlite/documentPersistence";
 import {
   documentContainerProjectionTables,
   documentPlacementIntentTables,
@@ -9,6 +8,7 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
+import { ensureDocumentTables } from "../documents/records";
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
 import { reassignContainerDocumentsInTransaction } from "./containerDocumentReassignment";
 import { ensureContainerTables } from "./containerPersistence";

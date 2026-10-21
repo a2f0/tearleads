@@ -1,8 +1,4 @@
 import {
-  ensureDocumentProjectionTables,
-  ensureDocumentTables,
-} from "../../../sqlite/documentPersistence";
-import {
   documentContainerProjectionTables,
   documentPlacementIntentTables,
   keyingCheckpointTables,
@@ -13,6 +9,10 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
+import {
+  ensureDocumentProjectionTables,
+  ensureDocumentTables,
+} from "../records";
 
 export async function ensureDocumentsSchema(execSql: ExecSql): Promise<void> {
   await runOncePerConnection(execSql, "ensure:documents", () =>

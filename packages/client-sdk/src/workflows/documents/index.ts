@@ -25,11 +25,11 @@ export {
   clearDocumentSyncFailure,
   invalidateDocumentSyncPullContinuation,
   recordDocumentSyncFailure,
-} from "../../data/sqlite/documentPersistence";
+} from "../../data/persistence/documents/records";
 export {
   DOCUMENT_HISTORY_COMPACTION_MAX_BYTES,
   DOCUMENT_HISTORY_COMPACTION_MAX_ROWS,
-} from "../../data/sqlite/documentPersistence/documentHistoryPersistence";
+} from "../../data/persistence/documents/records/documentHistoryPersistence";
 export type { ExecSql } from "../../data/sqlite/sqlSchema";
 export { settleOutgoingPassAndDecideReArm } from "../../data/sync/outgoingUpdateSettlement";
 export {

@@ -1,4 +1,4 @@
-import type { DocumentRecord } from "../../../sqlite/documentPersistence";
+import type { DocumentRecord } from "../records";
 import type { StoredDocumentRecord } from "../types";
 
 export function sameNullableDocumentValue(

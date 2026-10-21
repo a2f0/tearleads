@@ -36,7 +36,7 @@ import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   assertRawContinuationCanRetry,

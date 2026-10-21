@@ -5,7 +5,7 @@ import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/
 import {
   hasRecordedTerminalSyncFailures,
   recordDocumentSyncFailure,
-} from "../../../../data/sqlite/documentPersistence";
+} from "../../../../data/persistence/documents/records";
 import type { DocumentsPersistence } from "../../../../workflows/documents";
 import {
   createRemoteHistoryFixture,

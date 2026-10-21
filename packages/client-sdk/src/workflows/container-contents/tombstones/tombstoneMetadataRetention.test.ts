@@ -3,7 +3,7 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { encodeVersionVector, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
-import { recordDocumentSyncFailure } from "../../../data/sqlite/documentPersistence";
+import { recordDocumentSyncFailure } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import {

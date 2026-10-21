@@ -6,7 +6,7 @@ import {
   type DocumentSyncPullContinuation,
   resolvePullContinuationMinLsn,
 } from "../../../data/documents/shared/sync/syncPagination";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { retrySyncPlanOrAbandon } from "../syncFailures";
 import {
   abandonAncestorRepair,

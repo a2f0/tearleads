@@ -7,10 +7,6 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
-import {
-  documentOrphanBlobReclaims,
-  documentOrphanBlobReclaimTable,
-} from "../documentPersistence/documentOrphanBlobReclaims";
 import { defineSqlTableSchema, type SqlTableSchema } from "../sqlTableSchema";
 import { containerDocumentTombstoneHolds } from "./containerDocumentTombstoneHoldSchema";
 import {
@@ -26,6 +22,10 @@ import {
   documentDiscoverySequence,
   pendingDocumentDiscoveries,
 } from "./documentDiscoveryEvidenceSchema";
+import {
+  documentOrphanBlobReclaims,
+  documentOrphanBlobReclaimTable,
+} from "./documentOrphanBlobReclaimSchema";
 import { documentIntentLinkTargets } from "./documentPlacementIntentSchema";
 import { localIntents } from "./localIntentSchema";
 import * as organizationDataUsage from "./organizationDataUsageSchema";

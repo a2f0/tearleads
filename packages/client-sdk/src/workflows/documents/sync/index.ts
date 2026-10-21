@@ -15,7 +15,7 @@ import {
   type ProjectionUserKeyResolver,
   requireProjectionUserKeyResolver,
 } from "../../../data/keyingProjectionVerification";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import { createVerifiedRemoteDocumentDeletionHandler } from "../purge";
 import {
   assertRawContinuationCanRetry,

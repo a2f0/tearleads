@@ -23,7 +23,7 @@ import {
   listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,
-} from "../../../data/sqlite/documentPersistence";
+} from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { buildMaterializedDocumentSyncPlan } from "../syncPlan/syncPlanMaterial";
 

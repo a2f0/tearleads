@@ -35,7 +35,7 @@ import type {
 } from "../../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import type { DocumentWriterProjectionAuthorization } from "../../../data/keyingProjectionVerification";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type DocumentSyncTraceEmitter,

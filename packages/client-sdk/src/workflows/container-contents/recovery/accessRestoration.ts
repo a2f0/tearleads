@@ -1,7 +1,7 @@
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { requestDormantMetadataRestorationSweeps } from "../../../data/persistence/container-contents/dormantMetadataSweep";
+import { hasRecordedTerminalSyncFailures } from "../../../data/persistence/documents/records";
 import type { DomainScope } from "../../../data/shared/domainScope";
-import { hasRecordedTerminalSyncFailures } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   requestAllDomainSyncLanes,

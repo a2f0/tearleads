@@ -24,7 +24,7 @@ import type {
 } from "../../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
 import { isKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
+import type { PendingUpdateRecord } from "../../../data/persistence/documents/records";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 type SyncResponseUpdate = DocumentSyncResponse["updates"][number];

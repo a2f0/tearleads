@@ -13,7 +13,7 @@ import {
   hasRecordedTerminalSyncFailures,
   listDocumentPendingUpdates,
   recordDocumentSyncFailure,
-} from "../../../data/sqlite/documentPersistence";
+} from "../../../data/persistence/documents/records";
 import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import {
   deletePendingAttachment,

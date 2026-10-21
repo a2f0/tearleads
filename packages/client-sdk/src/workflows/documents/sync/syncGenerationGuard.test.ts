@@ -12,8 +12,8 @@ import {
   writerKeyResolver,
 } from "../../../../test/helpers/documentFixtures";
 import { syncRemoteDocumentWithoutImportValidationForTest as syncRemoteDocument } from "../../../../test/helpers/documentSync";
+import { ensureDocumentTables } from "../../../data/persistence/documents/records";
 import { loadAccessManifestCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { ensureDocumentTables } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 test("syncRemoteDocument does not retry after its generation expires", async () => {

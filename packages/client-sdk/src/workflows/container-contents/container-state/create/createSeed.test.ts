@@ -12,8 +12,8 @@ import { createResponseFromRequest } from "../../../../../test/helpers/documentF
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
+import type { PendingUpdateRecord } from "../../../../data/persistence/documents/records";
 import { createDomainScope } from "../../../../data/shared/domainScope";
-import type { PendingUpdateRecord } from "../../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type ContainerCreateIntentRecord,

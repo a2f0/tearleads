@@ -9,7 +9,7 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
-import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../../data/sqlite/documentPersistence/documentHistoryPersistence";
+import { DOCUMENT_HISTORY_COMPACTION_MAX_ROWS } from "../../../../data/persistence/documents/records/documentHistoryPersistence";
 import { persistDocument } from "../persistence";
 import { openHistoryTestStore } from "./historyDurability.testFixtures";
 

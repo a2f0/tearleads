@@ -6,7 +6,7 @@ import {
   listDocumentPendingUpdates,
   MAX_PENDING_UPDATE_REKEYS,
   rekeyDocumentPendingUpdate,
-} from "../../../data/sqlite/documentPersistence";
+} from "../../../data/persistence/documents/records";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import {
   rekeyAndReportUnsettledRecoveryPendingUpdates,

@@ -7,7 +7,6 @@ import {
 } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { addDocumentAttachments } from "../../data/documents/documentContent";
-import { documentOrphanBlobReclaims } from "../../data/sqlite/documentPersistence/documentOrphanBlobReclaims";
 import {
   clientSqlTables,
   documentAttachmentBlobProjection,
@@ -16,6 +15,7 @@ import {
   documentProjection,
   documents,
 } from "../../data/sqlite/schema";
+import { documentOrphanBlobReclaims } from "../../data/sqlite/schema/documentOrphanBlobReclaimSchema";
 import { getClientSQLitePersistenceRuntime } from "../../data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../data/sqlite/sqlTableSchema";
 import { clearRemoteSyncState } from "./remoteReset";

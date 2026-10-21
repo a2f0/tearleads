@@ -5,7 +5,7 @@ import {
   WsDocumentUpdateCreatedHintSchema,
   type WsInvalidationHint,
 } from "@tearleads/validators/realtime";
-import type { PendingUpdateFields } from "../sqlite/documentPersistence";
+import type { PendingUpdateFields } from "../persistence/documents/records";
 
 type DocumentUpdateCreatedEvent = Extract<
   WsInvalidationHint,
