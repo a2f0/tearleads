@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 import * as ts from "typescript";
 import type { Subsystem } from "./subsystems";
-import { findTableViolations, rawSqlTableNames } from "./subsystemTables";
+import {
+  findTableViolations,
+  rawSqlTableNames,
+  schemaKeysReadInSource,
+} from "./subsystemTables";
 
 function subsystem(
   name: string,
@@ -114,5 +118,32 @@ test("raw SQL in strings and templates names its tables; prose and comments do n
     "document_projection",
     "documents",
     "local_intents",
+  ]);
+});
+
+test("tables read through a schema object or Drizzle's db.query count as uses", () => {
+  const source = ts.createSourceFile(
+    "fixture.ts",
+    [
+      'import { clientSQLiteSchema as schema } from "../sqlite/schema";',
+      "const a = schema.documents;",
+      'const b = schema["containers"];',
+      "const { localIntents, documentProjection: projection } = schema;",
+      "await db.query.principalPolicies.findMany();",
+      "const ignored = other.securityIncidents;",
+      "const runtime = drizzle(execute, { schema });",
+    ].join("\n"),
+    ts.ScriptTarget.Latest,
+    true,
+  );
+
+  expect(
+    [...schemaKeysReadInSource(source, new Set(["schema"]))].sort(),
+  ).toEqual([
+    "containers",
+    "documentProjection",
+    "documents",
+    "localIntents",
+    "principalPolicies",
   ]);
 });

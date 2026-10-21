@@ -235,8 +235,104 @@ async function readTableSources(): Promise<Map<string, ts.SourceFile>> {
   );
 }
 
+/** The exported object literals in a schema module whose values are tables. */
+function schemaObjectTableKeys(
+  source: ts.SourceFile,
+  tables: ReadonlySet<string>,
+): { key: string; object: string; table: string }[] {
+  return source.statements.flatMap((statement) => {
+    if (
+      !ts.isVariableStatement(statement) ||
+      !statement.modifiers?.some(
+        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+      )
+    ) {
+      return [];
+    }
+    return statement.declarationList.declarations.flatMap((declaration) => {
+      const literal = declaration.initializer;
+      if (
+        !ts.isIdentifier(declaration.name) ||
+        literal === undefined ||
+        !ts.isObjectLiteralExpression(literal)
+      ) {
+        return [];
+      }
+      const object = declaration.name.text;
+      return literal.properties.flatMap((property) => {
+        const value = ts.isShorthandPropertyAssignment(property)
+          ? property.name
+          : ts.isPropertyAssignment(property)
+            ? property.initializer
+            : undefined;
+        return value !== undefined &&
+          ts.isIdentifier(value) &&
+          tables.has(value.text) &&
+          property.name !== undefined &&
+          ts.isIdentifier(property.name)
+          ? [{ key: property.name.text, object, table: value.text }]
+          : [];
+      });
+    });
+  });
+}
+
+/**
+ * Schema keys a file reads off an imported schema object (`schema.documents`,
+ * `schema["documents"]`, `const { documents } = schema`) or through Drizzle's
+ * relational API (`db.query.documents`). Passing a whole schema object along,
+ * as SQLite Runtime does to build the Drizzle database, names no key.
+ */
+export function schemaKeysReadInSource(
+  source: ts.SourceFile,
+  schemaObjectBindings: ReadonlySet<string>,
+): Set<string> {
+  const keys = new Set<string>();
+  const isSchemaObject = (node: ts.Expression) =>
+    ts.isIdentifier(node) && schemaObjectBindings.has(node.text);
+  const visit = (node: ts.Node): void => {
+    for (const key of schemaKeysReadAt(node, isSchemaObject)) keys.add(key);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return keys;
+}
+
+function schemaKeysReadAt(
+  node: ts.Node,
+  isSchemaObject: (node: ts.Expression) => boolean,
+): string[] {
+  if (ts.isPropertyAccessExpression(node)) {
+    const target = node.expression;
+    const relational =
+      ts.isPropertyAccessExpression(target) && target.name.text === "query";
+    return isSchemaObject(target) || relational ? [node.name.text] : [];
+  }
+  if (ts.isElementAccessExpression(node)) {
+    return isSchemaObject(node.expression) &&
+      ts.isStringLiteralLike(node.argumentExpression)
+      ? [node.argumentExpression.text]
+      : [];
+  }
+  if (
+    ts.isVariableDeclaration(node) &&
+    ts.isObjectBindingPattern(node.name) &&
+    node.initializer !== undefined &&
+    isSchemaObject(node.initializer)
+  ) {
+    return node.name.elements.flatMap((element) => {
+      const key = element.propertyName ?? element.name;
+      return ts.isIdentifier(key) ? [key.text] : [];
+    });
+  }
+  return [];
+}
+
 interface SchemaCatalog {
   readonly isSchemaModule: (filePath: string) => boolean;
+  /** Exported schema objects (`{ documents, ... }`) and the tables they hold. */
+  readonly schemaObjects: ReadonlySet<string>;
+  readonly tablesBySchemaKey: ReadonlyMap<string, string>;
   readonly tables: ReadonlySet<string>;
   readonly tablesByFile: ReadonlyMap<string, readonly string[]>;
   readonly tablesBySqlName: ReadonlyMap<string, string>;
@@ -256,10 +352,19 @@ function readSchemaCatalog(
       declarations.map((declaration) => declaration.name),
     ]),
   );
+  const isSchemaModule = (filePath: string) =>
+    tablesByFile.has(filePath) || schemaDirectoryPattern.test(filePath);
+  const tables = new Set([...tablesByFile.values()].flat());
+  const schemaObjectKeys = [...sources].flatMap(([filePath, source]) =>
+    isSchemaModule(filePath) ? schemaObjectTableKeys(source, tables) : [],
+  );
   return {
-    isSchemaModule: (filePath) =>
-      tablesByFile.has(filePath) || schemaDirectoryPattern.test(filePath),
-    tables: new Set([...tablesByFile.values()].flat()),
+    isSchemaModule,
+    schemaObjects: new Set(schemaObjectKeys.map(({ object }) => object)),
+    tablesBySchemaKey: new Map(
+      schemaObjectKeys.map(({ key, table }) => [key, table]),
+    ),
+    tables,
     tablesByFile,
     tablesBySqlName: new Map(
       [...declarationsByFile.values()]
@@ -303,6 +408,49 @@ function importedTableUses(
   });
 }
 
+function schemaObjectTableUses(
+  from: string,
+  source: ts.SourceFile,
+  catalog: SchemaCatalog,
+  knownFiles: ReadonlySet<string>,
+): SubsystemTableUse[] {
+  const bindings = new Set(
+    source.statements.flatMap((statement) => {
+      if (
+        !ts.isImportDeclaration(statement) ||
+        !ts.isStringLiteral(statement.moduleSpecifier)
+      ) {
+        return [];
+      }
+      const to = resolveRelativeImport(
+        from,
+        statement.moduleSpecifier.text,
+        knownFiles,
+      );
+      const named = statement.importClause?.namedBindings;
+      if (
+        to === undefined ||
+        !catalog.isSchemaModule(to) ||
+        named === undefined ||
+        !ts.isNamedImports(named)
+      ) {
+        return [];
+      }
+      return named.elements
+        .filter((element) =>
+          catalog.schemaObjects.has(
+            (element.propertyName ?? element.name).text,
+          ),
+        )
+        .map((element) => element.name.text);
+    }),
+  );
+  return [...schemaKeysReadInSource(source, bindings)].flatMap((key) => {
+    const table = catalog.tablesBySchemaKey.get(key);
+    return table === undefined ? [] : [{ from, table }];
+  });
+}
+
 async function readTableUses(): Promise<{
   declaredTables: string[];
   uses: SubsystemTableUse[];
@@ -319,6 +467,7 @@ async function readTableUses(): Promise<{
     });
     for (const use of [
       ...importedTableUses(from, source, catalog, knownFiles),
+      ...schemaObjectTableUses(from, source, catalog, knownFiles),
       ...rawSqlUses,
     ]) {
       uses.set(`${use.from} -> ${use.table}`, use);
