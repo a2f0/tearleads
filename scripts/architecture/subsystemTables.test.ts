@@ -1,11 +1,12 @@
 import { expect, test } from "bun:test";
 import * as ts from "typescript";
 import type { Subsystem } from "./subsystems";
+import { findTableViolations } from "./subsystemTables";
 import {
-  findTableViolations,
+  findTableUsesInSources,
   rawSqlTableNames,
   schemaKeysReadInSource,
-} from "./subsystemTables";
+} from "./subsystemTableUses";
 
 function subsystem(
   name: string,
@@ -121,29 +122,114 @@ test("raw SQL in strings and templates names its tables; prose and comments do n
   ]);
 });
 
-test("tables read through a schema object or Drizzle's db.query count as uses", () => {
-  const source = ts.createSourceFile(
-    "fixture.ts",
-    [
-      'import { clientSQLiteSchema as schema } from "../sqlite/schema";',
-      "const a = schema.documents;",
-      'const b = schema["containers"];',
-      "const { localIntents, documentProjection: projection } = schema;",
-      "await db.query.principalPolicies.findMany();",
-      "const ignored = other.securityIncidents;",
-      "const runtime = drizzle(execute, { schema });",
-    ].join("\n"),
+function parse(fileName: string, lines: readonly string[]): ts.SourceFile {
+  return ts.createSourceFile(
+    fileName,
+    lines.join("\n"),
     ts.ScriptTarget.Latest,
     true,
   );
+}
+
+test("keys read off schema roots name tables; passing a root along does not", () => {
+  const source = parse("fixture.ts", [
+    "const a = schema.documents;",
+    'const b = schema["containers"];',
+    "const { localIntents, documentProjection: projection } = schema;",
+    "const c = all.principalPolicies;",
+    "const d = all.clientSQLiteSchema.securityIncidents;",
+    'const e = all["clientSQLiteSchema"]["trustedUserIdentityPins"];',
+    "await db.query.documentHistoryUpdates.findMany();",
+    'await db.query["documentPendingAttachments"].findMany();',
+    "const { verifiedAccessManifestBundles } = tx.query;",
+    "const ignored = other.organizationFounders;",
+    "const runtime = drizzle(execute, { schema });",
+  ]);
 
   expect(
-    [...schemaKeysReadInSource(source, new Set(["schema"]))].sort(),
+    [
+      ...schemaKeysReadInSource(source, {
+        namespaces: new Set(["all"]),
+        objects: new Set(["schema"]),
+        schemaObjectNames: new Set(["clientSQLiteSchema"]),
+      }),
+    ].sort(),
   ).toEqual([
+    "clientSQLiteSchema",
     "containers",
+    "documentHistoryUpdates",
+    "documentPendingAttachments",
     "documentProjection",
     "documents",
     "localIntents",
     "principalPolicies",
+    "securityIncidents",
+    "trustedUserIdentityPins",
+    "verifiedAccessManifestBundles",
   ]);
+});
+
+test("every way of reaching another subsystem's table is rejected", () => {
+  const sources = new Map(
+    [
+      parse("pkg/sqlite/schema/index.ts", [
+        'export const alphaRows = sqliteTable("alpha_rows", {});',
+        'export const betaRows = sqliteTable("beta_rows", {});',
+        "export const appSchema = { alphaRows, betaRows };",
+      ]),
+      parse("pkg/sqlite/schema/registry.ts", [
+        'import { betaRows } from "./index";',
+        "export const betaSchema = { betaRows };",
+      ]),
+      parse("pkg/sqlite/runtime.ts", [
+        'import { appSchema } from "./schema";',
+        "export const db = drizzle(execute, { schema: appSchema });",
+      ]),
+      parse("pkg/a/own.ts", [
+        'import { alphaRows } from "../sqlite/schema";',
+        "export const own = [alphaRows, db.query.alphaRows];",
+      ]),
+      parse("pkg/a/viaImport.ts", [
+        'import { betaRows as rows } from "../sqlite/schema";',
+        "export const x = rows;",
+      ]),
+      parse("pkg/a/viaSchemaObject.ts", [
+        'import { appSchema } from "../sqlite/schema";',
+        "export const x = appSchema.betaRows;",
+      ]),
+      parse("pkg/a/viaNamespace.ts", [
+        'import * as registry from "../sqlite/schema/registry";',
+        "export const x = registry.betaSchema.betaRows;",
+      ]),
+      parse("pkg/a/viaRelationalIndex.ts", [
+        'export const x = db.query["betaRows"].findMany();',
+      ]),
+      parse("pkg/a/viaRawSql.ts", [
+        'export const x = "SELECT id FROM beta_rows";',
+      ]),
+      parse("pkg/a/viaReexport.ts", ['export * from "../sqlite/schema";']),
+    ].map((source) => [source.fileName, source] as const),
+  );
+  const registry = [
+    subsystem("Alpha", ["pkg/a/"], ["alphaRows"]),
+    subsystem("Beta", ["pkg/b/"], ["betaRows"]),
+    subsystem("Runtime", ["pkg/sqlite/"]),
+  ];
+
+  expect(
+    findTableViolations({
+      baseline: {},
+      ...findTableUsesInSources(sources),
+      registry,
+    }),
+  ).toEqual(
+    [
+      "viaImport",
+      "viaNamespace",
+      "viaRawSql",
+      "viaReexport",
+      "viaRelationalIndex",
+      "viaSchemaObject",
+    ].map((file) => `pkg/a/${file}.ts uses betaRows, which Beta owns`),
+  );
 });
