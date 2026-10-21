@@ -1,5 +1,5 @@
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
-import type { BlobAttachmentApi } from "../../../data/documents/blob/shared/types";
+import type { BlobAttachmentApi } from "../../../data/blobs/attachments/types";
 
 type RequestFailureInput = Parameters<
   NonNullable<BlobAttachmentApi["getRequestFailure"]>

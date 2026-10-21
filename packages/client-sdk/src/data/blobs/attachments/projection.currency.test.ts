@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
-import { createResponseFromRequest } from "../../../../../test/helpers/documentResponseFixtures";
+import { createRotatedAncestorFixture } from "../../../../test/helpers/ancestorRotationRecovery";
+import { createResponseFromRequest } from "../../../../test/helpers/documentResponseFixtures";
 import {
   buildMaterializedDocumentCreatePlan,
   documentWriterProjectionFromCreateResponse,
-} from "../../../../workflows/documents/create";
+} from "../../../workflows/documents/create";
 import { wrapBlobContentKey } from "./projection";
 
 test("blob wrapping checks every ancestor of its targets without blocking on an unrelated stale path", async () => {

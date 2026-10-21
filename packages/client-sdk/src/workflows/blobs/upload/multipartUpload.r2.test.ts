@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { bytesToHex, createIncrementalSha256 } from "@tearleads/crypto";
 import type { MultipartBlobStagePart } from "@tearleads/validators/response";
-import { deriveBlobContentRecordKey } from "../../../data/documents/blob/shared/blobRecordCrypto";
-import { prepareBlobEncryption } from "../../../data/documents/blob/shared/crypto";
-import { parseBlobEncryptedBytes } from "../../../data/documents/blob/shared/readers";
-import type { BlobAttachmentApi } from "../../../data/documents/blob/shared/types";
+import { deriveBlobContentRecordKey } from "../../../data/blobs/attachments/blobRecordCrypto";
+import { prepareBlobEncryption } from "../../../data/blobs/attachments/crypto";
+import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
+import type { BlobAttachmentApi } from "../../../data/blobs/attachments/types";
 import { importContentKeyMaterial } from "../../../data/documents/shared/contentRecordKeys";
 import { decryptBlobChunks } from "../hydration/blobChunkDecryption";
 import { stageMultipartBlobAttachment } from "./multipartUpload";

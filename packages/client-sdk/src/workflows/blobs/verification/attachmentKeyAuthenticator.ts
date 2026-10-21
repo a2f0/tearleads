@@ -3,11 +3,11 @@ import {
   blobChunkPlaintextByteLength,
   bytesToHex,
 } from "@tearleads/crypto";
-import { createBlobEnvelopeStream } from "../../../data/documents/blob/shared/blobEnvelopeStream";
+import { createBlobEnvelopeStream } from "../../../data/blobs/attachments/blobEnvelopeStream";
 import type {
   BlobEncryptedBytesHeader,
   DecryptDocumentAttachmentBlobInput,
-} from "../../../data/documents/blob/shared/types";
+} from "../../../data/blobs/attachments/types";
 import {
   assertEqualBytes,
   readWriteHeader,

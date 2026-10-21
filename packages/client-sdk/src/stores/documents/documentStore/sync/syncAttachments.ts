@@ -1,5 +1,7 @@
-import type { BlobSourceSnapshot } from "../../../../data/documents/blob/shared/blobSourceSnapshot";
-import type { BlobByteSource } from "../../../../workflows/blobs";
+import type {
+  BlobByteSource,
+  BlobSourceSnapshot,
+} from "../../../../workflows/blobs";
 import type { uploadPreparedDocumentAttachment as uploadDocumentAttachment } from "../../../../workflows/blobs/upload";
 import {
   clearDocumentSyncFailure,

@@ -1,17 +1,17 @@
 import { MAX_BLOB_CHUNK_COUNT } from "@tearleads/crypto";
 import type { MultipartBlobStagePart } from "@tearleads/validators/response";
 import { MAX_MULTIPART_BLOB_PART_BYTES } from "@tearleads/validators/util";
-import {
-  BLOB_TRANSFER_CONCURRENCY,
-  runBlobTransfer,
-} from "../../../data/blobs/transferPool";
-import type { BlobEncryptionPlan } from "../../../data/documents/blob/shared/crypto";
+import type { BlobEncryptionPlan } from "../../../data/blobs/attachments/crypto";
 import type {
   BlobAttachmentApi,
   MultipartStageResolvedListener,
   MultipartUploadProgressListener,
   UploadDocumentAttachmentInput,
-} from "../../../data/documents/blob/shared/types";
+} from "../../../data/blobs/attachments/types";
+import {
+  BLOB_TRANSFER_CONCURRENCY,
+  runBlobTransfer,
+} from "../../../data/blobs/transferPool";
 import {
   type MultipartPartSources,
   type PreparedFirstPart,

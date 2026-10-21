@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { MULTIPART_BLOB_STAGE_ERROR_CODES } from "@tearleads/validators/response";
 import { initiatedStage } from "../../../../test/helpers/multipartUpload";
-import type { BlobEncryptionPlan } from "../../../data/documents/blob/shared/crypto";
-import type { BlobAttachmentApi } from "../../../data/documents/blob/shared/types";
+import type { BlobEncryptionPlan } from "../../../data/blobs/attachments/crypto";
+import type { BlobAttachmentApi } from "../../../data/blobs/attachments/types";
 import { stageMultipartBlobAttachment } from "./multipartUpload";
 
 const CHUNK_SIZE = 5 * 1024 * 1024;

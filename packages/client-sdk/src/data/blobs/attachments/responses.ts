@@ -10,7 +10,10 @@ import type {
   BlobAttachmentBindResponse,
   BlobAttachmentDetachResponse,
 } from "@tearleads/validators/response";
-import { serializeCanonical, uniqueSortedStrings } from "../../shared/readers";
+import {
+  serializeCanonical,
+  uniqueSortedStrings,
+} from "../../documents/shared/readers";
 import {
   contentKeyTargetReference,
   readBlobKekTarget,

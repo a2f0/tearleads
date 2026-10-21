@@ -10,7 +10,7 @@ import type {
   BlobAttachmentBindResponse,
   DocumentCreateResponse,
 } from "@tearleads/validators/response";
-import type { BlobAttachmentApi } from "../../src/data/documents/blob/shared/types";
+import type { BlobAttachmentApi } from "../../src/data/blobs/attachments/types";
 import {
   readWriteHeader,
   uniqueSortedStrings,

@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { verifySignedAccessEvent } from "@tearleads/crypto";
-import { createAuthor } from "../../../../../test/helpers/documentFixturePrimitives";
-import { readCanonicalJson } from "../../../keying/canonicalJson";
+import { createAuthor } from "../../../../test/helpers/documentFixturePrimitives";
+import { readCanonicalJson } from "../../keying/canonicalJson";
 import {
   signBlobAttachmentDetachEvent,
   signBlobAttachmentEvent,

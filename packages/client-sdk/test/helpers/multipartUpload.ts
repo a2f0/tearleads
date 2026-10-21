@@ -1,7 +1,7 @@
 import type { InitiateMultipartBlobStageRequest } from "@tearleads/validators/request";
 import type { InitiateMultipartBlobStageResponse } from "@tearleads/validators/response";
-import type { BlobEncryptionPlan } from "../../src/data/documents/blob/shared/crypto";
-import type { BlobAttachmentApi } from "../../src/data/documents/blob/shared/types";
+import type { BlobEncryptionPlan } from "../../src/data/blobs/attachments/crypto";
+import type { BlobAttachmentApi } from "../../src/data/blobs/attachments/types";
 
 export const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
 

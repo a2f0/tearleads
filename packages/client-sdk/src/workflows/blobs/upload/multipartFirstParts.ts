@@ -6,13 +6,13 @@ import {
   type MultipartBlobPartDescriptor,
   type MultipartBlobPartUploadSource,
 } from "@tearleads/validators/util";
+import type { BlobEncryptionPlan } from "../../../data/blobs/attachments/crypto";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import {
   acquireBlobTransferPermit,
   type BlobTransferPermit,
   tryAcquireBlobTransferPermit,
 } from "../../../data/blobs/transferPool";
-import type { BlobEncryptionPlan } from "../../../data/documents/blob/shared/crypto";
 
 export interface PreparedMultipartPart {
   readonly bytes: BlobBytes;

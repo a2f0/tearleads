@@ -21,9 +21,9 @@ import {
   createMaterializedSyncFixture,
   createResponse,
 } from "../../../../test/helpers/documentFixtures";
+import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { readContainerState } from "../../../data/containers/shared/projection";
-import { parseBlobEncryptedBytes } from "../../../data/documents/blob/shared/readers";
 import { ensurePrincipalPolicyTables } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
 import { uploadDocumentAttachment } from "./index";
