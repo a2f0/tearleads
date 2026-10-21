@@ -18,7 +18,7 @@ import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingC
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
-import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import {
   GroupShareNameMismatchError,
   loadVerifiedGroupSharePrincipalPolicy,

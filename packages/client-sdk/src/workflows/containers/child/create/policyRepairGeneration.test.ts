@@ -18,7 +18,7 @@ import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trust
 import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { recoverPrincipalPolicyRepair } from "../../../principals/policyRepair";
 import { PrincipalPolicyRepairBudget } from "../../../principals/policyRepairBudget";
-import { buildInitialOrganizationPolicyRequest } from "../../../registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../../registration/organizationProvisioning";
 import { repairContainerCreateFailure } from "./createSubmission";
 
 test("stale-policy repair refuses expired verification without admitting a pin", async () => {

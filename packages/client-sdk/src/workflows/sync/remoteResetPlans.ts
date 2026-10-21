@@ -3,7 +3,7 @@ import { and, eq, ne, or, sql } from "drizzle-orm";
 import {
   type DocumentAttachment,
   getDocumentAttachments,
-} from "../../data/documents/documentContent";
+} from "../../data/documents";
 import { createPendingUpdateFields } from "../../data/documents/documentSync";
 import { DOCUMENTS_APP_KIND } from "../../data/persistence/documents/documentsPersistence";
 import {
@@ -14,7 +14,7 @@ import {
   documents,
 } from "../../data/sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
-import { importDocumentHistoryTailUpdates } from "../documents/historyContent";
+import { importDocumentHistoryTailUpdates } from "../documents";
 import { remoteResetBatches } from "./remoteResetBatches";
 
 export interface ResetDocumentUpdate {

@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   documentContainerProjection,
   documentProjection,
@@ -12,7 +13,6 @@ import type { ExecSql } from "../../../sqlite/sqlSchema";
 import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
 import { getLatestTimestamp } from "../../latestTimestamp";
 import type { ContainerDocumentTombstoneInput } from "../types";
-import { DOCUMENTS_APP_KIND } from "./constants";
 import { deleteContainerDocumentTombstoneHoldRows } from "./containerDocumentTombstoneHolds";
 import {
   documentSummaryJoin,

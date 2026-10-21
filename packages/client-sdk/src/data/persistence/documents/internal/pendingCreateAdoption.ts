@@ -1,10 +1,10 @@
 import { and, eq, isNull } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import type { DocumentSummary } from "../../../documents/documentSummary";
 import { deriveStableDocumentId } from "../../../documents/shared/stableDocumentId";
 import { documentProjection, documents } from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
-import { DOCUMENTS_APP_KIND } from "./constants";
 import {
   documentSummaryJoin,
   documentSummarySelection,

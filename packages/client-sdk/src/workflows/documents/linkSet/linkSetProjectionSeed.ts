@@ -7,7 +7,7 @@ import type {
 } from "@tearleads/validators/response";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import type { DocumentLinkSetMutationOperation } from "../../../data/documents/shared/types";
-import { mergeProjectionPolicyEvidence } from "../../../data/keyingProjectionVerification/principalPolicy/mergeProjectionPolicyEvidence";
+import { mergeProjectionPolicyEvidence } from "../../../data/keyingProjectionVerification";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
 interface DocumentLinkSetProjectionSeedApi {

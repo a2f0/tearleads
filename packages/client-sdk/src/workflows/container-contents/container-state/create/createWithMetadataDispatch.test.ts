@@ -25,7 +25,7 @@ import { defaultDocumentProjectorRegistry } from "../../../../data/documents/doc
 import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { createDomainScope } from "../../../../data/shared/domainScope";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import { buildInitialOrganizationPolicyRequest } from "../../../registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../../registration/organizationProvisioning";
 
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createRemoteContainer } from "../remote";

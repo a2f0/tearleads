@@ -15,7 +15,7 @@ import {
   loadOrganizationFounder,
   rememberOrganizationFounder,
 } from "../../../../data/persistence/organizationFounderPersistence";
-import { buildOrganizationProvisioningArtifacts } from "../../../registration/registerIdentity";
+import { buildOrganizationProvisioningArtifacts } from "../../../registration/organizationProvisioning";
 import { assertPermittedDestinationBinding } from "./replacementBinding";
 
 test("a re-shared member accepts only the held founder's signed replacement", async () => {

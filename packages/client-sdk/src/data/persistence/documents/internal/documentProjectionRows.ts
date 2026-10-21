@@ -1,5 +1,8 @@
 import { and, eq } from "drizzle-orm";
-import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
+import {
+  DEFAULT_DOCUMENT_KIND,
+  DOCUMENTS_APP_KIND,
+} from "../../../documents/documentConstants";
 import {
   deriveStoredDocumentTitle,
   getUntitledDocumentTitle,
@@ -9,7 +12,6 @@ import type { DocumentSummary } from "../../../documents/documentSummary";
 import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
 import { documentProjection, documents } from "../../../sqlite/schema";
 import type { StoredDocumentRecord } from "../types";
-import { DOCUMENTS_APP_KIND } from "./constants";
 
 interface SelectedDocumentProjection {
   localId: string | null;

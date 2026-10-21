@@ -1,5 +1,8 @@
 import { and, eq, lte } from "drizzle-orm";
-import { DEFAULT_DOCUMENT_KIND } from "../../../documents/documentConstants";
+import {
+  DEFAULT_DOCUMENT_KIND,
+  DOCUMENTS_APP_KIND,
+} from "../../../documents/documentConstants";
 import { deriveStoredDocumentTitle } from "../../../documents/documentKinds";
 import { serializeDocumentSyncPullContinuation } from "../../../documents/shared/sync/pullContinuation";
 import { normalizeEffectiveAccessLevel } from "../../../keying/accessLevel";
@@ -15,7 +18,6 @@ import {
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
 import type { StoredDocumentRecord } from "../types";
-import { DOCUMENTS_APP_KIND } from "./constants";
 import {
   getProjectionDocumentKind,
   getProjectionText,

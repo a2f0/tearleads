@@ -3,8 +3,10 @@ import {
   KeyingVerificationError,
 } from "@tearleads/crypto";
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { verifiedContainerCreateManifest } from "../../../../data/keyingProjectionVerification/container/containerCreateManifest";
-import { verifyContainerDestinationProjection } from "../../../../data/keyingProjectionVerification/container/containerDestinationVerification";
+import {
+  verifiedContainerCreateManifest,
+  verifyContainerDestinationProjection,
+} from "../../../../data/keyingProjectionVerification";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,

@@ -1,6 +1,6 @@
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import { createAuthor } from "./containerFixtures";
 import {
   buildInitialGroupPolicyRequest,

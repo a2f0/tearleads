@@ -1,4 +1,5 @@
 import { and, eq, inArray, ne } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   clearDocumentSyncFailure,
   deleteDocumentRecord,
@@ -28,7 +29,6 @@ import {
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
 import type { StoredDocumentRecord } from "../types";
-import { DOCUMENTS_APP_KIND } from "./constants";
 import { deleteContainerDocumentTombstoneHoldsForDocuments } from "./containerDocumentTombstoneHolds";
 import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";
 import { getDocumentScope } from "./documentRows";

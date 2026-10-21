@@ -13,7 +13,7 @@ import {
   type TrustedUserIdentityResolver,
   type TrustedUserIdentityService,
 } from "../../data/trustedUserIdentity";
-import type { ContainerContentsRootAdopter } from "../../workflows/container-contents/runtime";
+import type { ContainerContentsRootAdopter } from "../../workflows/container-contents";
 import {
   createProvisionedPrincipalHistoryPrimer,
   type ProvisionedPrincipalHistoryPrimer,

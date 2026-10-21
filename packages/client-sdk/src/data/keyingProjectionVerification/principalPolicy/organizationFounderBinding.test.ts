@@ -19,7 +19,7 @@ import {
 import { sharedReplacementBindingFixture } from "../../../../test/helpers/sharedReplacementBinding";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
 import { rootContainerWriterProjectionFromCreatePlan } from "../../../workflows/containers/root/create";
-import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
 import { loadOrganizationFounder } from "../../persistence/organizationFounderPersistence";
 import { verifyContainerDestinationProjection } from "../container/containerDestinationVerification";
 

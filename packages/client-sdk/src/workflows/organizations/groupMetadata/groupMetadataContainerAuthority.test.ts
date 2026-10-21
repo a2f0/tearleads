@@ -10,7 +10,7 @@ import {
   policyBundleFromInitialRequest,
 } from "../../../../test/helpers/principalPolicyFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
-import { buildOrganizationProvisioningArtifacts } from "../../registration/registerIdentity";
+import { buildOrganizationProvisioningArtifacts } from "../../registration/organizationProvisioning";
 import { createGroupMetadataContainerVerifier } from "./groupMetadataContainerAuthority";
 
 test("the metadata root must be committed by both reserved group grant indexes", async () => {

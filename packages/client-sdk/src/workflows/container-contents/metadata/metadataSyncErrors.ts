@@ -1,9 +1,9 @@
 import { isDocumentSyncUpdateIsolationError } from "../../../data/documents/shared/sync/documentSyncUpdateIsolation";
+import { isPrincipalPolicyNotCachedError } from "../../../data/keyingProjectionVerification";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,
 } from "../../../data/keyingProjectionVerification/error";
-import { isPrincipalPolicyNotCachedError } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyVerification";
 import type { SecurityIncidentReporter } from "../../../data/shared/securityIncidents";
 
 function isStaleContainerMetadataSecurityStateError(error: unknown): boolean {

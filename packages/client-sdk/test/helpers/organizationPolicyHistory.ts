@@ -13,7 +13,7 @@ import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
 } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import {
   buildInitialGroupPolicyRequest,
   testGroupMetadataKey,

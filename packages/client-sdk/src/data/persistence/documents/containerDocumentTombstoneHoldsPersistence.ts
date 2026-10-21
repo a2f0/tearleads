@@ -1,4 +1,5 @@
 import { and, eq, max } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
 import {
   containerDocumentTombstoneHolds,
   documentContainerProjectionTables,
@@ -11,7 +12,6 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import {
   type ContainerDocumentPlacementKey,
   type ContainerDocumentTombstoneHoldRow,

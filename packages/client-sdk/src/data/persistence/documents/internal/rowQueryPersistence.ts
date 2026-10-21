@@ -1,4 +1,5 @@
 import { desc, eq, notInArray } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { HIDDEN_DOCUMENT_SUMMARY_KINDS } from "../../../documents/documentSummary";
 import {
   findLocalIdByDocumentId,
@@ -11,7 +12,6 @@ import {
 } from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { DocumentsPersistence } from "../types";
-import { DOCUMENTS_APP_KIND } from "./constants";
 import {
   documentSummaryJoin,
   documentSummarySelection,

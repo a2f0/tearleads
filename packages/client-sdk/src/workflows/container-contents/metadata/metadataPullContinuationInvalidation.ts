@@ -1,11 +1,11 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { importUpdates } from "@tearleads/loro";
+import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
 import {
   type DocumentSyncPullContinuation,
   documentSyncPullContinuationsEqual,
-} from "../../../data/documents/shared/sync/syncPagination";
-import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import { runSerializedSqlMutation } from "../../../data/sqlite/sqlSchema";
+} from "../../documents";
 import type { ContainerContentsWorkflowSqlRuntime } from "../runtime";
 import { currentMetadataPullContinuation } from "./metadataPersistence";
 import type { ContainerMetadataState } from "./metadataTypes";

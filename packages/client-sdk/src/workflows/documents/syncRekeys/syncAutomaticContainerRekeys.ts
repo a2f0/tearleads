@@ -10,7 +10,7 @@ import { ContainerKekRepairInaccessibleError } from "../../../data/documents/sha
 import { ContainerKekTargetUnreachableError } from "../../../data/documents/shared/containerKek/containerKekPath";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
+import { buildMaterializedContainerRekeyPlan } from "../../containers";
 import type { SyncRemoteDocumentInput } from "../sync/readOnlySync";
 import { DocumentAncestorRepairAbandonedError } from "../syncFailures/syncRepairAbandon";
 import { hasOtherLinkedWriteAccess } from "../syncFailures/syncRepairAccess";

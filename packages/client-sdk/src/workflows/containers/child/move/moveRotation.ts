@@ -12,7 +12,7 @@ import {
 } from "@tearleads/crypto";
 import type { ContainerKekResponse } from "@tearleads/validators/response";
 import { resolveContainerKekEpochId } from "../../../../data/containers/shared/events";
-import { verifyContainerKekEntries } from "../../../../data/documents/shared/containerKek/containerKekEntryVerification";
+import { verifyContainerKekEntries } from "../../../../data/documents/shared/containerKek";
 
 /**
  * A rotation must never launder history it did not verify: an

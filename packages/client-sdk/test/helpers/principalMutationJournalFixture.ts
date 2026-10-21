@@ -3,7 +3,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,

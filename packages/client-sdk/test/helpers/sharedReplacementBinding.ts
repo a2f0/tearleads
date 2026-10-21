@@ -7,7 +7,7 @@ import {
 import { rememberOrganizationFounder } from "../../src/data/persistence/organizationFounderPersistence";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import type { assertPermittedDestinationBinding } from "../../src/workflows/container-contents/remoteHydration/destination/replacementBinding";
-import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/registerIdentity";
+import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/organizationProvisioning";
 import { policySnapshot } from "./organizationPolicyHistory";
 import { organizationPolicyBundleFromInitialRequest } from "./principalPolicyFixtures";
 import { verifyPrincipalPolicySnapshots } from "./principalPolicySnapshotVerification";

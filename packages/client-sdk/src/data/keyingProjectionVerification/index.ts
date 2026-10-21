@@ -1,4 +1,4 @@
-import { requireTrustedUserIdentityResolver } from "../trustedUserIdentity/requiredResolver";
+import { requireTrustedUserIdentityResolver } from "../trustedUserIdentity";
 import type { ProjectionUserKeyResolver } from "./types";
 
 export { resolveEventContainerPaths } from "./document/documentDependencyPaths";
@@ -31,6 +31,8 @@ export function requireProjectionUserKeyResolver(
   return requireTrustedUserIdentityResolver(resolveProjectionUserKey);
 }
 
+export { verifiedContainerCreateManifest } from "./container/containerCreateManifest";
+export { verifyContainerDestinationProjection } from "./container/containerDestinationVerification";
 export {
   collectContainerWriterProjectionPrincipalPolicies,
   verifyContainerWriterProjection,
@@ -44,3 +46,5 @@ export {
   verifyDocumentPurgeProof,
   verifyDocumentPurgeProofBaseline,
 } from "./documentPurge/documentPurgeProofVerification";
+export { mergeProjectionPolicyEvidence } from "./principalPolicy/mergeProjectionPolicyEvidence";
+export { isPrincipalPolicyNotCachedError } from "./principalPolicy/principalPolicyVerification";

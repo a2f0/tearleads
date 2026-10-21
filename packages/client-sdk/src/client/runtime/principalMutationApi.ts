@@ -1,13 +1,13 @@
 import type { ApiClient } from "@tearleads/api-client";
 import type { SigningKeyPair } from "@tearleads/crypto";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
+import { recoverJournaledPrincipalMutation } from "../../workflows/organizations";
 import {
   abandonJournaledPrincipalMutation,
   discardUnreadableJournaledPrincipalMutation,
   type PrincipalMutationRecoveryApi,
   readJournaledPrincipalMutation,
 } from "../../workflows/organizations/principalMutations/principalMutationJournalManagement";
-import { recoverJournaledPrincipalMutation } from "../../workflows/organizations/principalMutations/principalMutationJournalSession";
 import { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
 import {
   createJournaledPrincipalMutations,

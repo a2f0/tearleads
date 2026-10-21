@@ -4,9 +4,11 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { verifiedContainerCreateManifest } from "../../../../data/keyingProjectionVerification/container/containerCreateManifest";
-import { verifyContainerDestinationProjection } from "../../../../data/keyingProjectionVerification/container/containerDestinationVerification";
-import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
+import {
+  verifiedContainerCreateManifest,
+  verifyContainerDestinationProjection,
+  verifyContainerWriterProjection,
+} from "../../../../data/keyingProjectionVerification";
 import {
   isKeyingVerificationError,
   reportKeyingVerificationErrorInCauseChain,

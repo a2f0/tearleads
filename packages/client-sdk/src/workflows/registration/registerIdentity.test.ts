@@ -17,11 +17,8 @@ import { respondToRegistration } from "../../../test/helpers/organizationProvisi
 import { sqlContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 import { loadPrincipalPolicyBundle } from "../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../data/principals/organizationAuthorityDescriptor";
-import {
-  buildInitialOrganizationPolicyRequest,
-  type RegistrationApi,
-  registerIdentity,
-} from "./registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "./organizationProvisioning";
+import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 interface CapturedRegistrationRequest {
   userId: string;

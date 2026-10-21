@@ -5,6 +5,7 @@ import {
   updateMatchesDocumentHistory,
 } from "@tearleads/loro";
 import { and, eq } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { documentSyncPullContinuationsEqual } from "../../../documents/shared/sync/pullContinuation";
 import {
   appendDocumentHistoryUpdates,
@@ -26,7 +27,6 @@ import {
   applyStoredAttachmentRemoval,
   upsertStoredAttachmentStagingRows,
 } from "./attachmentStagingPersistence";
-import { DOCUMENTS_APP_KIND } from "./constants";
 import {
   sameDocumentSecurityIdentity,
   sameNullableDocumentValue,

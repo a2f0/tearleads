@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/internal/constants";
 import {
   hasRecordedTerminalSyncFailures,
   listDocumentPendingUpdates,

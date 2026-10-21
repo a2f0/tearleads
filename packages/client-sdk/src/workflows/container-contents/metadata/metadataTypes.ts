@@ -1,7 +1,7 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/sync/syncPagination";
 import type { ContainerMetadataRecord } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ContainerRecord } from "../../../data/persistence/container-contents/containerPersistence";
+import type { DocumentSyncPullContinuation } from "../../documents";
 import type { ContainerMetadataDocument } from "./containerMetadataDocument";
 
 export interface ContainerMetadataState {

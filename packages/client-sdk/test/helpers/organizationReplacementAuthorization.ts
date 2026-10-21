@@ -4,7 +4,7 @@ import {
   signOrganizationReplacementAuthorization,
   verifyOrganizationReplacementAuthorization,
 } from "@tearleads/crypto";
-import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/registerIdentity";
+import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/organizationProvisioning";
 
 export async function createReplacementAuthorizationFixture() {
   const signingKeyPair = generateSigningSeedAndKeyPair();

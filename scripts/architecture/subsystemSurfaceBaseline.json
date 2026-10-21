@@ -2,65 +2,6 @@
   "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
   ],
-  "packages/client-sdk/src/data/documents/documentContent.ts": [
-    "packages/client-sdk/src/workflows/blobs/hydration/hydrate.ts",
-    "packages/client-sdk/src/workflows/sync/remoteResetPlans.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/containerKek/containerKekCurrency.ts": [
-    "packages/client-sdk/src/data/blobs/attachments/projection.ts",
-    "packages/client-sdk/src/workflows/containers/child/create/index.ts",
-    "packages/client-sdk/src/workflows/containers/child/move/moveWraps.ts",
-    "packages/client-sdk/src/workflows/containers/child/rotation/rotationContext.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/shareAncestorRepair.ts",
-    "packages/client-sdk/src/workflows/containers/index.ts",
-    "packages/client-sdk/src/workflows/containers/writeRefusal.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/containerKek/containerKekEntryVerification.ts": [
-    "packages/client-sdk/src/workflows/containers/child/move/moveRotation.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/containerKek/containerKekPath.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/shareAncestorRepair.ts",
-    "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataAccess.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/containerKek/containerKekPathHistory.ts": [
-    "packages/client-sdk/src/workflows/containers/child/rotation/rotationContext.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/containerKek/keyringRebuild.ts": [
-    "packages/client-sdk/src/workflows/containers/index.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/projection/projectionContentKeys.ts": [
-    "packages/client-sdk/src/data/blobs/attachments/projection.ts"
-  ],
-  "packages/client-sdk/src/data/documents/shared/sync/syncPagination.ts": [
-    "packages/client-sdk/src/workflows/container-contents/metadata/index.ts",
-    "packages/client-sdk/src/workflows/container-contents/metadata/metadataMutationPreparation.ts",
-    "packages/client-sdk/src/workflows/container-contents/metadata/metadataPullContinuationInvalidation.ts",
-    "packages/client-sdk/src/workflows/container-contents/metadata/metadataSyncSettlement.ts",
-    "packages/client-sdk/src/workflows/container-contents/metadata/metadataTypes.ts"
-  ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/container/containerCreateManifest.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/create/createAdoption.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/verifiedDestination.ts"
-  ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/container/containerDestinationVerification.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/create/createAdoption.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/verifiedDestination.ts"
-  ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/container/containerProjectionVerification.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/purge/purgeTreeScope.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/verifiedDestination.ts"
-  ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/document/documentDependencyPaths.ts": [
-    "packages/client-sdk/src/data/documents/shared/sync/syncResponseAuthorization.ts",
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts"
-  ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/mergeProjectionPolicyEvidence.ts": [
-    "packages/client-sdk/src/workflows/containers/child/rekey/rekeyProjection.ts",
-    "packages/client-sdk/src/workflows/documents/linkSet/linkSetProjectionSeed.ts"
-  ],
-  "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts": [
-    "packages/client-sdk/src/workflows/container-contents/metadata/metadataSyncErrors.ts"
-  ],
   "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"
   ],
@@ -75,10 +16,6 @@
   ],
   "packages/client-sdk/src/data/persistence/documents/documentDiscoveryReset.ts": [
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/documents/internal/constants.ts": [
-    "packages/client-sdk/src/data/persistence/container-contents/documentPlacement.ts",
-    "packages/client-sdk/src/workflows/container-contents/pendingWrites/index.ts"
   ],
   "packages/client-sdk/src/data/persistence/documents/internal/orphanSideRows.ts": [
     "packages/client-sdk/src/workflows/sync/remoteResetAttachments.ts"
@@ -101,68 +38,11 @@
     "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts",
     "packages/client-sdk/src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence.ts"
   ],
-  "packages/client-sdk/src/data/trustedUserIdentity/requiredResolver.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/index.ts"
-  ],
-  "packages/client-sdk/src/stores/container-contents/containerState/reconcilableContainer.ts": [
-    "packages/client-sdk/src/stores/local-projection/localProjectionStore.ts"
-  ],
-  "packages/client-sdk/src/stores/container-contents/syncAgent/index.ts": [
-    "packages/client-sdk/src/stores/local-projection/localProjectionStore.ts",
-    "packages/client-sdk/src/stores/local-projection/registry.ts",
-    "packages/client-sdk/src/stores/local-projection/types.ts"
-  ],
   "packages/client-sdk/src/stores/documents/documentStore/internalRelink.ts": [
     "packages/client-sdk/src/client/containerContents/index.ts",
     "packages/client-sdk/src/stores/container-contents/syncAgent/syncLaneIteration.ts"
   ],
-  "packages/client-sdk/src/workflows/container-contents/runtime.ts": [
-    "packages/client-sdk/src/client/deviceFirst/index.ts",
-    "packages/client-sdk/src/client/runtime/rootContainerAdoption.ts",
-    "packages/client-sdk/src/client/runtime/workflowRuntime.ts"
-  ],
-  "packages/client-sdk/src/workflows/container-contents/systemSlot.ts": [
-    "packages/client-sdk/src/workflows/registration/provisioningBootstrapBuilders.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/child/create/index.ts": [
-    "packages/client-sdk/src/workflows/registration/organizationProvisioningArtifacts.ts",
-    "packages/client-sdk/src/workflows/registration/provisioningBootstrapBuilders.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/child/rekey/index.ts": [
-    "packages/client-sdk/src/workflows/documents/syncRekeys/syncAutomaticContainerRekeys.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/root/create.ts": [
-    "packages/client-sdk/src/workflows/registration/organizationProvisioningArtifacts.ts",
-    "packages/client-sdk/src/workflows/registration/provisioningBootstrapBuilders.ts"
-  ],
-  "packages/client-sdk/src/workflows/documents/author.ts": [
-    "packages/client-sdk/src/workflows/registration/provisioningBootstrapBuilders.ts",
-    "packages/client-sdk/src/workflows/registration/registerIdentity.ts"
-  ],
-  "packages/client-sdk/src/workflows/documents/create/index.ts": [
-    "packages/client-sdk/src/workflows/registration/organizationProvisioningArtifacts.ts",
-    "packages/client-sdk/src/workflows/registration/provisioningBootstrapBuilders.ts"
-  ],
-  "packages/client-sdk/src/workflows/documents/historyContent.ts": [
-    "packages/client-sdk/src/workflows/container-contents/info/documentInfo.ts",
-    "packages/client-sdk/src/workflows/organizations/readModel/listLocalOrganizations.ts",
-    "packages/client-sdk/src/workflows/sync/remoteResetPlans.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/billing.ts": [
-    "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/principalMutations/principalMutationJournalSession.ts": [
-    "packages/client-sdk/src/client/runtime/principalMutationApi.ts",
-    "packages/client-sdk/src/client/runtime/principalMutationDispatch.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/principalMutations/principalOperationReceipt.ts": [
-    "packages/client-sdk/src/client/runtime/principalMutationDispatch.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/readModel/organizationPresentationAccessState.ts": [
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ],
-  "packages/client-sdk/src/workflows/registration/registerIdentity.ts": [
-    "packages/client-sdk/src/workflows/organizations/provisioning/createOrganization.ts",
-    "packages/client-sdk/src/workflows/organizations/provisioning/organizationProvisioningAttempt.ts"
   ]
 }

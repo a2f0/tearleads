@@ -1,9 +1,9 @@
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { insertDocumentPendingUpdateWithHistoryInTransaction } from "../../../sqlite/documentPersistence/documentPendingUpdatePersistence";
 import { documentHistoryCheckpoints } from "../../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
 import type { DocumentsPersistence } from "../types";
-import { DOCUMENTS_APP_KIND } from "./constants";
 import {
   createDocumentRowsIfAbsent,
   resolveDocumentSaveTimestamp,

@@ -2,7 +2,7 @@ import type { DomainScope } from "../../data/shared/domainScope";
 import type {
   ContainerContentsRootAdopter,
   ContainerContentsRootAdoptionInput,
-} from "../../workflows/container-contents/runtime";
+} from "../../workflows/container-contents";
 import type { Session } from "../session/sessionTypes";
 
 interface RootContainerAdoptionDependencies {

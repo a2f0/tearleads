@@ -1,7 +1,7 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import type { DocumentSummary } from "../../../../data/documents/documentSummary";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
-import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
+import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification";
 import { runWithSecurityIncidentReporting } from "../../../../data/keyingProjectionVerification/error";
 import { rethrowProjectionVerificationCancelled } from "../../../../data/keyingProjectionVerification/types";
 import { hasUnsettledDocumentPlacement } from "../../../../data/persistence/container-contents/documentPurgePlacement";

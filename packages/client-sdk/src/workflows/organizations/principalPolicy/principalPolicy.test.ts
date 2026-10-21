@@ -23,7 +23,7 @@ import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedU
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import { parseOrganizationAuthorityDescriptor } from "../../../data/principals/organizationAuthorityDescriptor";
-import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import {
   buildAddGroupUserPolicyRequest,
   buildRemoveGroupUserPolicyRequest,

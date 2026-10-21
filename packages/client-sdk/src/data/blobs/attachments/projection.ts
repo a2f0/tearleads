@@ -9,13 +9,13 @@ import type {
   BlobContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { assertDocumentKekPathsCurrent } from "../../documents/shared/containerKek/containerKekCurrency";
+import { assertDocumentKekPathsCurrent } from "../../documents/shared/containerKek";
 import {
   readLinkedContainerIdsFromDocumentManifest,
   unwrapContainerKekPath,
+  unwrapContentKeyTargetForKind,
   verifiedDocumentWrapTargets,
 } from "../../documents/shared/projection";
-import { unwrapContentKeyTargetForKind } from "../../documents/shared/projection/projectionContentKeys";
 import {
   assertEqualBytes,
   normalizeDocumentKekTargetResponse,
