@@ -3,7 +3,7 @@ import {
   createPrincipalReciteFixture,
   ROOT_CONTAINER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
-import { containerWriterProjectionFromSharePlan } from "../../containers/child/rekey/rekeyProjection";
+import { containerWriterProjectionFromSharePlan } from "../child/rekey/rekeyProjection";
 import { preparePrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 
 test("grant projections preserve key epochs and require the authored predecessor", async () => {

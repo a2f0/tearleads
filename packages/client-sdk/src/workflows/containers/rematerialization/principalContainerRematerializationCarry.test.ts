@@ -4,8 +4,8 @@ import {
   createPrincipalReciteFixture as createFixture,
   ROOT_CONTAINER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
-import { buildMaterializedContainerCreatePlan } from "../../containers/child/create";
-import { childContainerWriterProjectionFromCreatePlan } from "../../containers/child/create/createProjection";
+import { buildMaterializedContainerCreatePlan } from "../child/create";
+import { childContainerWriterProjectionFromCreatePlan } from "../child/create/createProjection";
 import { preparePrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 
 const MID_CONTAINER_ID = "a-mid-child";

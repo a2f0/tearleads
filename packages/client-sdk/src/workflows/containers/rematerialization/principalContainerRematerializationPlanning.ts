@@ -18,7 +18,7 @@ import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdent
 import {
   planCarriedDescendantRekey,
   type SpeculativePath,
-} from "../../containers/child/rekey/carriedDescendantRekeys";
+} from "../child/rekey/carriedDescendantRekeys";
 import type { PlannedRematerialization } from "./principalContainerRematerializationTargets";
 
 export interface RematerializationApi

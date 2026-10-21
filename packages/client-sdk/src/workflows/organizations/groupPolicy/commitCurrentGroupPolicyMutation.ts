@@ -6,14 +6,16 @@ import type { PutPrincipalPolicyRequest } from "@tearleads/validators/request";
 import type { PrincipalPolicyMutationResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import type {
+  PreparedPrincipalContainerRematerializationBatch,
+  PrincipalRematerializationPredecessor,
+} from "../../containers/rematerialization";
 import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
 } from "../groups/organizationGroupDirectory";
 import { assertAuthoredPrincipalMutationReceipt } from "../principalMutations/principalMutationReceipt";
 import type { RuntimeCurrentGroupMutationContext } from "../principalMutations/runtimeCurrentGroupMutation";
-import type { PreparedPrincipalContainerRematerializationBatch } from "../rematerialization/principalContainerRematerialization";
-import type { PrincipalRematerializationPredecessor } from "../rematerialization/principalContainerRematerializationPlanning";
 import {
   projectionUserIds,
   resolveRequiredUserIdentities,

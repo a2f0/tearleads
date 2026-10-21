@@ -1,5 +1,5 @@
 import type { ContainerWriterProjectionResponse } from "@tearleads/validators/response";
-import { rebaseOnDeepestAncestor } from "../../containers/child/rekey/carriedDescendantRekeys";
+import { rebaseOnDeepestAncestor } from "../child/rekey/carriedDescendantRekeys";
 import { withAuthoredPrincipalPolicies } from "./authoredPrincipalPolicyWarmer";
 import type { PrincipalContainerRematerializationInput } from "./principalContainerRematerializationPlanning";
 
