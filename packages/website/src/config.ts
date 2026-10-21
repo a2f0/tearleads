@@ -25,8 +25,8 @@ export const androidDownloadUrl = isStaging
 
 /**
  * The site's release notice, shown by StatusNotice.astro under the label
- * "Early access." in the Home hero and the Features, Pricing, and Linux
- * install headers. It carries the release status that the app's
+ * "Early access." in the Home hero, the screenshot gallery, and the Features,
+ * Pricing, and Linux install headers. It carries the release status that the app's
  * TestSystemBanner (packages/app/src/shell/layout/TestSystemBanner.tsx) shows
  * in every deployment and that the website's phone and tablet captures leave
  * out (packages/app-web/screenshots/deviceScreen.ts). Set it to null in the

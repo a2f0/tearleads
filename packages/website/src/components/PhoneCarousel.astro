@@ -2,27 +2,21 @@
 import { publicDir } from "astro:config/server";
 import { loadScreenshotManifest } from "../screenshots";
 import "../styles/phoneCarousel.css";
-import { findScreenshot, screenshotPath } from "./screenshotsManifest";
+import {
+  type PhoneCarouselScreen,
+  phoneCarouselSlides,
+} from "./phoneCarouselSlides";
+import { screenshotPath } from "./screenshotsManifest";
 
 /**
  * Home hero: phone captures in device frames, in a row that scrolls sideways
  * and snaps to each phone. The captures already have the display's rounded
  * corners cut out (packages/app-web/screenshots/deviceScreen.ts); the frame
  * adds the bezel. Screens without a light capture are skipped, and the row
- * renders nothing without at least two (CI and test builds stage an empty
- * manifest), so the hero must read well without it.
- *
- * Without JavaScript the row still scrolls; the step buttons appear once the
- * script runs.
+ * renders nothing without at least two (phoneCarouselSlides.ts), so the hero
+ * must read well without it. The step buttons are phoneCarouselSteps.ts.
  */
-interface Slide {
-  /** Manifest screen id. */
-  readonly name: string;
-  readonly caption: string;
-  readonly alt: string;
-}
-
-const slides: readonly Slide[] = [
+const screens: readonly PhoneCarouselScreen[] = [
   {
     name: "explorer",
     caption: "Explorer",
@@ -75,16 +69,13 @@ const slides: readonly Slide[] = [
   },
 ];
 
-const manifest = await loadScreenshotManifest(publicDir);
-const shown = slides.flatMap((slide) => {
-  const light = findScreenshot(manifest, "mobile", "light", slide.name);
-  if (!light) return [];
-  const dark = findScreenshot(manifest, "mobile", "dark", slide.name);
-  return [{ ...slide, light, dark }];
-});
+const shown = phoneCarouselSlides(
+  await loadScreenshotManifest(publicDir),
+  screens,
+);
 ---
 
-{shown.length >= 2 && (
+{shown.length > 0 && (
   <div class="phone-carousel" data-phone-carousel>
     <div class="phone-carousel-track" role="region" aria-label="Tearleads on a phone" tabindex="0" data-track>
       <ul class="phone-carousel-list" role="list">
@@ -135,36 +126,12 @@ const shown = slides.flatMap((slide) => {
 )}
 
 <script>
-  // Each step scrolls by the phones that fit, so a press never skips one
-  // only partly seen. The buttons disable at either end of the row.
+  import { initPhoneCarouselSteps } from "./phoneCarouselSteps";
+
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-  for (const carousel of document.querySelectorAll<HTMLElement>("[data-phone-carousel]")) {
-    const track = carousel.querySelector<HTMLElement>("[data-track]");
-    const steps = carousel.querySelector<HTMLElement>("[data-steps]");
-    const slide = carousel.querySelector<HTMLElement>(".phone-carousel-slide");
-    if (!track || !steps || !slide) continue;
-    const buttons = steps.querySelectorAll<HTMLButtonElement>("[data-step]");
-    const update = () => {
-      const end = track.scrollWidth - track.clientWidth;
-      for (const button of buttons) {
-        const forward = button.dataset.step === "1";
-        button.disabled = forward ? track.scrollLeft >= end - 1 : track.scrollLeft <= 1;
-      }
-    };
-    for (const button of buttons) {
-      button.addEventListener("click", () => {
-        const pitch = slide.getBoundingClientRect().width +
-          Number.parseFloat(getComputedStyle(slide.parentElement ?? slide).columnGap || "0");
-        const fit = Math.max(1, Math.floor(track.clientWidth / pitch));
-        track.scrollBy({
-          left: Number(button.dataset.step) * fit * pitch,
-          behavior: reducedMotion.matches ? "auto" : "smooth",
-        });
-      });
-    }
-    track.addEventListener("scroll", update, { passive: true });
-    new ResizeObserver(update).observe(track);
-    steps.hidden = false;
-    update();
+  for (const carousel of document.querySelectorAll<HTMLElement>(
+    "[data-phone-carousel]",
+  )) {
+    initPhoneCarouselSteps(carousel, () => reducedMotion.matches);
   }
 </script>
