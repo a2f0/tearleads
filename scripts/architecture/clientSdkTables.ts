@@ -1,6 +1,6 @@
 // The SQLite tables each client SDK subsystem owns, by the name of their
-// `sqliteTable` export. Only the owner imports a table from the schema; see
-// `subsystem-uses-own-tables` in subsystemTables.ts.
+// `sqliteTable` export, and the ones it lets other subsystems read. Only the
+// owner writes a table; see `subsystem-uses-own-tables` in subsystemTables.ts.
 
 export const documentStoreTables = [
   "containerDocumentTombstoneHolds",
@@ -68,3 +68,14 @@ export const keyingVerificationTables = [
 ];
 
 export const securityIncidentTables = ["securityIncidents"];
+
+// Container Contents is a read model over documents and their placements; its
+// listing, pending-write, and priming queries join these tables.
+export const documentStoreReadableTables = [
+  "containerDocumentTombstoneHolds",
+  "documentAttachmentBlobProjection",
+  "documentHistoryUpdates",
+  "documentPendingAttachments",
+  "documentProjection",
+  "documents",
+];

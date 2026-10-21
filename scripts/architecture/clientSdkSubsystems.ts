@@ -17,6 +17,7 @@ import {
 } from "./clientSdkSurfaces";
 import {
   containerContentsTables,
+  documentStoreReadableTables,
   documentStoreTables,
   identityTables,
   keyingVerificationTables,
@@ -46,6 +47,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     ],
     surface: documentStoreSurface,
     tables: documentStoreTables,
+    readableTables: documentStoreReadableTables,
   },
   {
     name: "Container Contents",

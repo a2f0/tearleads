@@ -212,24 +212,30 @@ entry that no longer occurs, so the list only shrinks.
 
 Each SQLite table belongs to one subsystem, listed by its `sqliteTable` export
 name in the subsystem's `tables` (`scripts/architecture/clientSdkTables.ts`).
-Only the owner imports a table from the schema; other subsystems reach that data
-through the owner's surface. `bun run lint:architecture` fails when another
-subsystem's file reaches a table by:
+Only the owner writes a table. Others read only the tables the owner lists in
+`readableTables`, the way a surface exposes files; Document Store, for example,
+exposes the document tables Container Contents' read model joins on. Anything
+else goes through the owner's surface.
+
+`bun run lint:architecture` checks every way a file reaches a table:
 
 - importing it from a schema module;
 - reading its key off a schema module namespace, a schema object such as
   `clientSQLiteSchema`, or Drizzle's `db.query`, by property, literal index, or
   destructuring;
 - re-exporting a schema module wholesale;
-- naming it in raw SQL in a string or template, after `FROM`, `JOIN`, `INTO`, or
-  `UPDATE`.
+- naming it in raw SQL in a string or template.
 
-The surface check sees none of these: schema imports land in SQLite Runtime,
-which declares no surface, and raw SQL imports nothing. Schema modules are
-exempt, and passing a whole schema object along, as SQLite Runtime does to
-build the Drizzle database, names no table. Older uses are listed by table in
-`scripts/architecture/subsystemTableBaseline.json`, which only shrinks like the
-surface baseline.
+A column reference, `.from(...)`, a join, `typeof`, `db.query`, and SQL
+`FROM`/`JOIN` read a table; `insert`, `update`, `delete`, and SQL `INSERT`,
+`UPDATE`, and `DELETE` write it. Any other use, such as passing the table to a
+helper or listing it for a loop, counts as a write, so an indirect write cannot
+pass as a read. Schema modules are exempt, and passing a whole schema object
+along, as SQLite Runtime does to build the Drizzle database, names no table.
+The surface check sees none of this: schema imports land in SQLite Runtime,
+which declares no surface, and raw SQL imports nothing. Older uses are listed by
+table in `scripts/architecture/subsystemTableBaseline.json`, which only shrinks
+like the surface baseline.
 
 ## Enforcing a boundary
 
