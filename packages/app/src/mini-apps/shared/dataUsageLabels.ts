@@ -8,7 +8,7 @@ export const DATA_USAGE_LABELS = {
   usageCategoryContainerMetadata: "Folder details",
   usageCategoryOrganizationMetadata: "Organization details",
   usageCategoryRosterProfiles: "Member profiles",
-  usageCategoryUser: "Notes, contacts, and records",
+  usageCategoryUser: "Notes and records",
   usageData: "Documents and files",
   usageDefinition:
     "The encrypted documents and files sync stores for this organization. Data kept only on your devices and organization records aren't counted.",

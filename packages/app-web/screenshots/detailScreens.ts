@@ -26,9 +26,13 @@ export const openContactDetail: OpenDetail = async (scope) => {
     })
     .first()
     .click();
-  await expect(scope.getByText("Public key").first()).toBeVisible({
-    timeout: 20_000,
-  });
+  // The card is ready once its name heading shows; empty fields are hidden.
+  await expect(
+    scope.getByRole("heading", {
+      name: seedExpectations.contact.displayName,
+      exact: true,
+    }),
+  ).toBeVisible({ timeout: 20_000 });
   await assertImagesDecoded(
     scope.getByRole("img", {
       name: `Avatar for ${seedExpectations.contact.displayName}`,

@@ -256,9 +256,7 @@ test("reports show usage by org, paginate, search, and open the shared usage tab
     const panel = view.getByRole("tabpanel", { name: "Data Usage" });
     await within(panel).findByText("2 documents, 4 updates");
     expect(within(panel).getByText("Folder details")).toBeTruthy();
-    expect(
-      within(panel).getByText("Notes, contacts, and records"),
-    ).toBeTruthy();
+    expect(within(panel).getByText("Notes and records")).toBeTruthy();
     expect(within(panel).getByText("2.5 KB")).toBeTruthy();
     fireEvent.keyDown(tab, { key: "Home" });
     expect(
