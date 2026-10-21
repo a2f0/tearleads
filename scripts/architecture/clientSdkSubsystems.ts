@@ -62,6 +62,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     surface: [
       `${sdk}/client/documents/index.ts`,
       `${sdk}/data/documents/index.ts`,
+      `${sdk}/data/documents/shared/containerKek/index.ts`,
       `${sdk}/data/documents/shared/projection/index.ts`,
       `${sdk}/stores/documents/index.ts`,
       `${sdk}/workflows/documents/index.ts`,
@@ -235,6 +236,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     paths: [`${sdk}/workflows/registration/`],
     surface: [
       `${sdk}/workflows/registration/index.ts`,
+      `${sdk}/workflows/registration/organizationProvisioning.ts`,
       `${sdk}/workflows/registration/provisionedPrincipalHistory.ts`,
     ],
   },

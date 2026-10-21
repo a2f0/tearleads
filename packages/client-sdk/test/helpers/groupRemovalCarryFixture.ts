@@ -9,7 +9,7 @@ import {
   buildAddGroupUserPolicyRequest,
   buildSetGroupContainerGrantPolicyRequest,
 } from "../../src/workflows/organizations/groupPolicy/groupPolicyRequests";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import {
   buildInitialGroupPolicyRequest,
   testGroupMetadataKey,

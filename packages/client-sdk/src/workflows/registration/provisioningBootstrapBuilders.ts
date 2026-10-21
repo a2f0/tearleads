@@ -2,21 +2,19 @@ import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
 import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
-import { createInitializedContainerMetadataDocument } from "../container-contents/metadata/containerMetadataDocument";
 import {
   type ContainerSystemSlotDefinition,
   deriveContainerSystemSlot,
-} from "../container-contents/systemSlot";
+} from "../container-contents";
+import { createInitializedContainerMetadataDocument } from "../container-contents/metadata/containerMetadataDocument";
 import {
   buildContainerCreatePlan,
-  childContainerWriterProjectionFromCreatePlan,
-} from "../containers/child/create";
-import {
   buildRootContainerCreatePlan,
+  childContainerWriterProjectionFromCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
-} from "../containers/root/create";
-import type { resolveDocumentCreateAuthor } from "../documents/author";
-import { buildMaterializedDocumentCreatePlan } from "../documents/create";
+} from "../containers";
+import type { resolveDocumentCreateAuthor } from "../documents";
+import { buildMaterializedDocumentCreatePlan } from "../documents";
 import { buildInitialDocumentSyncRequest } from "../documents/sync/initialSync";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import {

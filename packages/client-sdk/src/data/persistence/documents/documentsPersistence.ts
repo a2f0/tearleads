@@ -1,6 +1,9 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { and, desc, eq, inArray, notInArray, or, type SQL } from "drizzle-orm";
-import { DEFAULT_DOCUMENT_KIND } from "../../documents/documentConstants";
+import {
+  DEFAULT_DOCUMENT_KIND,
+  DOCUMENTS_APP_KIND,
+} from "../../documents/documentConstants";
 import {
   type DiscoveredDocumentInput,
   type DocumentSummary,
@@ -18,7 +21,6 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
-import { DOCUMENTS_APP_KIND } from "./internal/constants";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
 import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocumentWithHistoryCheckpoint";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
@@ -74,7 +76,7 @@ import type {
   StoredDocumentRecord,
 } from "./types";
 
-export { DOCUMENTS_APP_KIND } from "./internal/constants";
+export { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
 export type {
   AttachmentRemovalRows,
   AttachmentStagingRows,

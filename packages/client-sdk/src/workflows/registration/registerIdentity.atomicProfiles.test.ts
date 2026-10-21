@@ -26,11 +26,8 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../documents/historyContent";
 import { getOrganizationProfileDocumentLocalId } from "../organizations/organizationProfile";
 import { getRosterProfileDocumentLocalId } from "../organizations/rosterProfileContainer";
-import {
-  buildOrganizationProvisioningArtifacts,
-  type RegistrationApi,
-  registerIdentity,
-} from "./registerIdentity";
+import { buildOrganizationProvisioningArtifacts } from "./organizationProvisioning";
+import { type RegistrationApi, registerIdentity } from "./registerIdentity";
 
 function requireCapturedRequest(
   request: RegistrationRequest | null,

@@ -5,7 +5,7 @@ import { principalPolicyBundleFromInitialPolicy } from "../../../../test/helpers
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import { createExternallyAuthorizedPrincipalPolicySnapshots } from "../../../../test/helpers/principalPolicySnapshots";
 import { createTestTrustedUserIdentityResolver } from "../../../../test/helpers/trustedUserIdentity";
-import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../../workflows/registration/organizationProvisioning";
 import { savePrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
 import { createProjectionCheckpointContext } from "../checkpoints/checkpointContext";
 import { verifyContainerWriterProjection } from "../container/containerProjectionVerification";

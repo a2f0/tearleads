@@ -10,11 +10,11 @@ import {
   isPrincipalPolicyMutationResponse,
 } from "@tearleads/validators/response";
 import type { AuthoredPrincipalMutation } from "../../data/principals/principalMutationJournal";
+import type { PrincipalMutationResponse } from "../../workflows/organizations";
 import {
   type PrincipalMutationJournalContext,
   submitJournaledPrincipalMutation,
-} from "../../workflows/organizations/principalMutations/principalMutationJournalSession";
-import type { PrincipalMutationResponse } from "../../workflows/organizations/principalMutations/principalOperationReceipt";
+} from "../../workflows/organizations";
 
 import type { createPrincipalMutationDispatcher } from "./principalMutationDeadline";
 

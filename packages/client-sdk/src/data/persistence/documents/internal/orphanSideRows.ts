@@ -9,6 +9,7 @@ import {
   or,
   type SQL,
 } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { documentOrphanBlobReclaims } from "../../../sqlite/documentPersistence/documentOrphanBlobReclaims";
 import {
   documentAttachmentBlobProjection,
@@ -25,7 +26,6 @@ import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
-import { DOCUMENTS_APP_KIND } from "./constants";
 
 // Crash residue gets a full day to outlive slow devices and wall-clock skew;
 // canonical-row absence is necessary but never sufficient for fresh writes.

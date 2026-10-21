@@ -1,6 +1,6 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { ContainerMutationAuthor } from "../../src/data/containers/shared/types";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,

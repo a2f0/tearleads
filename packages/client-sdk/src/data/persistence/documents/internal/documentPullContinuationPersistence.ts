@@ -1,8 +1,8 @@
+import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import { invalidateDocumentSyncPullContinuation } from "../../../sqlite/documentPersistence";
 import { getClientSQLitePersistenceRuntime } from "../../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../../sqlite/sqlSchema";
 import type { DocumentsPersistence } from "../types";
-import { DOCUMENTS_APP_KIND } from "./constants";
 
 export async function invalidateStoredDocumentPullContinuation(
   execSql: Parameters<DocumentsPersistence["invalidatePullContinuation"]>[0],

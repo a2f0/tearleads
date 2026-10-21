@@ -26,7 +26,7 @@ import {
 } from "../../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { loadPersistedDocumentContent } from "../../documents/historyContent";
+import { loadPersistedDocumentContent } from "../../documents";
 import { computeDocumentBlame } from "../attribution/documentCharacterBlame";
 import { computeFieldBlame } from "../attribution/documentFieldBlame";
 import type {

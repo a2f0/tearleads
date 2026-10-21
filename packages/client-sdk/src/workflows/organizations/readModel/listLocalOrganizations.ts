@@ -7,7 +7,7 @@ import {
 import { loadOrganizationProfileDocumentIds } from "../../../data/persistence/organizations/organizationProfileDocumentPointers";
 import { findLocalIdByDocumentId } from "../../../data/sqlite/documentPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { loadPersistedDocumentContent } from "../../documents/historyContent";
+import { loadPersistedDocumentContent } from "../../documents";
 import {
   getOrganizationProfileDocumentLocalId,
   readOrganizationProfileName,

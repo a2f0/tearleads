@@ -1,9 +1,9 @@
 import type { DomainScope } from "../../data/shared/domainScope";
+import type { ContainerContentsStoreRuntime } from "../container-contents";
 import {
   type ContainerContentsStoreOptions,
   getOrCreateContainerContentsStore,
 } from "../container-contents";
-import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
 import {
   createLocalProjectionStore,
   type LocalProjectionStore,

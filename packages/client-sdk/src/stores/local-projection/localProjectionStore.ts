@@ -1,11 +1,11 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
 import { loadLocalContainerProjectionDocumentsFromRuntime } from "../../workflows/container-contents/projectionView";
 import { didRegainSyncPrerequisites } from "../../workflows/container-contents/syncLane";
+import type { ContainerContentsStoreRuntime } from "../container-contents";
 import {
   isReconcilableContainerNode,
   isRemoteBackedContainerNode,
-} from "../container-contents/containerState/reconcilableContainer";
-import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
+} from "../container-contents";
 import type { ContainerContentsStore } from "../container-contents/types";
 import {
   applyContainerSummaries,

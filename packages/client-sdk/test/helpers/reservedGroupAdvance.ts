@@ -11,7 +11,7 @@ import {
   buildOrganizationGroupDirectoryPolicyRequest,
   replaceOrganizationGroupHead,
 } from "../../src/workflows/organizations/groups/organizationGroupDirectory";
-import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/registerIdentity";
+import { buildOrganizationProvisioningArtifacts } from "../../src/workflows/registration/organizationProvisioning";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,

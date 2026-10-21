@@ -1,5 +1,6 @@
 export const DEFAULT_DOCUMENT_ACCESS_EPOCH = 1;
 export const DEFAULT_DOCUMENT_KIND = "note";
+export const DOCUMENTS_APP_KIND = "documents";
 // SDK-owned structured kind: the organization profile document every
 // registration provisions. Homed in the data layer (like the "note" kind)
 // so the projector registry can give it a stable untitled title on hosts

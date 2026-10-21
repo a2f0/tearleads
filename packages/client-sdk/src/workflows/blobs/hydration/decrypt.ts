@@ -36,8 +36,8 @@ import type { DocumentWriterProjectionAuthorization } from "../../../data/keying
 import {
   readRecordString,
   requireProjectionUserKeyResolver,
+  resolveEventContainerPaths,
 } from "../../../data/keyingProjectionVerification";
-import { resolveEventContainerPaths } from "../../../data/keyingProjectionVerification/document/documentDependencyPaths";
 
 import { assertAttachmentBindingVerified } from "../verification/attachmentBindingVerification";
 import { assertBlobWrapScopeVerified } from "../verification/verifiedWrapScope";

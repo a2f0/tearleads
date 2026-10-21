@@ -1,4 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
 import {
   documents,
   inLocalIntentLane,
@@ -6,7 +7,6 @@ import {
   localIntents,
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { DOCUMENTS_APP_KIND } from "../documents/internal/constants";
 
 export interface DocumentPlacementInput {
   documentId: string;

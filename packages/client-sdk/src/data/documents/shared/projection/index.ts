@@ -33,6 +33,7 @@ export {
   collectContainerKeksForDocumentSync,
   DocumentContentKeyUnavailableError,
   DocumentHistoryUnavailableError,
+  unwrapContentKeyTargetForKind,
   unwrapDocumentContentKeyFromBundle,
   unwrapDocumentContentKeyFromWriterProjection,
   unwrapDocumentContentKeyTarget,

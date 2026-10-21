@@ -1,5 +1,5 @@
 import type { ApiClient } from "@tearleads/api-client";
-import { resolveOrganizationBillingView } from "../../workflows/organizations/billing";
+import { resolveOrganizationBillingView } from "../../workflows/organizations";
 import {
   loadOrganizationReplacementFinalizationRequest,
   removeOrganizationProvisioningAttempt,

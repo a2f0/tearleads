@@ -3,12 +3,14 @@ import {
   exportFullHistorySnapshot,
 } from "@tearleads/loro";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { readPullContinuation } from "../../../data/documents/shared/sync/syncPagination";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { PendingUpdateRecord } from "../../../data/sqlite/documentPersistence";
 import { settleOutgoingPassAndDecideReArm } from "../../../data/sync/outgoingUpdateSettlement";
-import { shouldClearDocumentSyncFailureAfterPass } from "../../documents";
+import {
+  readPullContinuation,
+  shouldClearDocumentSyncFailureAfterPass,
+} from "../../documents";
 import { applyIncomingContainerMetadataUpdates } from "./metadataIncomingUpdateIsolation";
 import {
   currentMetadataPullContinuation,

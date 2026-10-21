@@ -29,13 +29,13 @@ import {
   type ReconciliationService,
   systemReconciliationClock,
 } from "../../sync/reconciliation";
-import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
-import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
 import {
   type ContainerContentsStoreWorkflowRuntime,
   createContainerContentsDocumentsRuntime,
   createContainerContentsStoreWorkflowRuntime,
-} from "../../workflows/container-contents/runtime";
+} from "../../workflows/container-contents";
+import { listAllContainerDocumentIdsFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
+import { probeUndiscoveredRemoteDocumentBatch } from "../../workflows/container-contents/documentPriming/documentHydrationProbe";
 import type { ContainerContents } from "../containerContents";
 import { discoverContainerDocumentLanesForRuntime } from "../containerContents/documentDiscovery";
 import type { InternalRuntime } from "../runtime/workflowRuntime";

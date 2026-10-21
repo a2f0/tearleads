@@ -9,21 +9,19 @@ export type {
   ContainerMutationAuthor,
   MaterializedContainerRekeyPlan,
 } from "../../data/containers/shared/types";
-export {
-  ContainerKekRepairInaccessibleError,
-  ContainerKekRepairRequiredError,
-} from "../../data/documents/shared/containerKek/containerKekCurrency";
 export type {
   AggregatedContainerKekLog,
   KeyringRebuildResult,
-} from "../../data/documents/shared/containerKek/keyringRebuild";
+} from "../../data/documents/shared/containerKek";
 export {
+  ContainerKekRepairInaccessibleError,
+  ContainerKekRepairRequiredError,
   fetchContainerKekLog,
   HistoricalWrapUnavailableError,
   type HistoricalWrapUnavailableReason,
   rebuildKeyringEntriesFromLog,
   recoverKeyringEntryFromWraps,
-} from "../../data/documents/shared/containerKek/keyringRebuild";
+} from "../../data/documents/shared/containerKek";
 // A share's projection verification can be cancelled by a newer generation
 // underneath the caller; hosts filter that outcome from their own reporting.
 export { isProjectionVerificationCancelledError } from "../../data/keyingProjectionVerification/types";

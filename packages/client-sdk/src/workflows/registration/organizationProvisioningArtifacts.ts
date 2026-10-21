@@ -6,9 +6,11 @@ import type {
   RegistrationRequest,
 } from "@tearleads/validators/request";
 import type { OrganizationReplacementAuthorization } from "@tearleads/validators/util";
-import type { buildContainerCreatePlan } from "../containers/child/create";
-import type { buildRootContainerCreatePlan } from "../containers/root/create";
-import type { buildMaterializedDocumentCreatePlan } from "../documents/create";
+import type {
+  buildContainerCreatePlan,
+  buildRootContainerCreatePlan,
+} from "../containers";
+import type { buildMaterializedDocumentCreatePlan } from "../documents";
 import type { createInitialRootMetadataBootstrap } from "./rootMetadataBootstrap";
 
 export type InitialRootMetadataDocument = Awaited<

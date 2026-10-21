@@ -5,7 +5,7 @@ import {
   verifyPrincipalPolicySnapshot,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import type { Signer } from "./ancestorCitationScenario";
 import { policySnapshot } from "./organizationPolicyHistory";
 import {

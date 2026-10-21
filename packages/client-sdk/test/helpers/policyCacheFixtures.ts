@@ -18,7 +18,7 @@ import {
   type CacheReferencedPrincipalPoliciesOptions,
   cacheReferencedPrincipalPolicies,
 } from "../../src/workflows/principals/policyCache";
-import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import type { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import type { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import type { PolicyDirectoryFixture } from "./policyDirectoryFixtures";
 import {

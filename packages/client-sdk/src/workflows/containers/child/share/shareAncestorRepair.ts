@@ -5,8 +5,10 @@ import type {
   ContainerRekeyApi,
   ContainerShareApi,
 } from "../../../../data/containers/shared/types";
-import { ContainerKekRepairInaccessibleError } from "../../../../data/documents/shared/containerKek/containerKekCurrency";
-import { ContainerKekTargetUnreachableError } from "../../../../data/documents/shared/containerKek/containerKekPath";
+import {
+  ContainerKekRepairInaccessibleError,
+  ContainerKekTargetUnreachableError,
+} from "../../../../data/documents/shared/containerKek";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,

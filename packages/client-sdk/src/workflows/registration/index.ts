@@ -1,8 +1,10 @@
 export { bootstrapRootContainer } from "./bootstrapRootContainer";
-export { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
 export {
   buildInitialOrganizationPolicyRequest,
   type ProvisionedSystemContainerSpec,
+} from "./organizationProvisioning";
+export { persistRegistrationBootstrap } from "./persistRegistrationBootstrap";
+export {
   type RegisterIdentityInput,
   type RegistrationApi,
   registerIdentity,

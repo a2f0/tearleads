@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "../../data/documents/documentSummary";
-import type { ContainerContentsStoreRuntime } from "../container-contents/syncAgent";
+import type { ContainerContentsStoreRuntime } from "../container-contents";
 import type { ContainerNode } from "../container-contents/types";
 
 /**

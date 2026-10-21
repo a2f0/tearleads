@@ -1,7 +1,7 @@
+import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { CONTAINER_METADATA_APP_KIND } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { DOCUMENTS_APP_KIND } from "../../../data/persistence/documents/internal/constants";
 import {
   clearDocumentSyncFailure,
   resetDocumentPendingUpdateRekeyBudget,

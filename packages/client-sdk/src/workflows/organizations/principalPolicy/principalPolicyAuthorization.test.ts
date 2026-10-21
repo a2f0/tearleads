@@ -23,7 +23,7 @@ import type {
 } from "../../../client/organizations";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
-import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/organizationProvisioning";
 import { addOrganizationGroupUser, removeOrganizationGroupUser } from "./index";
 
 type OmitsProjectedAuthority<T> = "canAdministerOrganization" extends keyof T

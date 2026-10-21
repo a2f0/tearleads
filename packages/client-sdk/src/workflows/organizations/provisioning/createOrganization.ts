@@ -8,14 +8,14 @@ import type { CreateOrganizationResponse } from "@tearleads/validators/response"
 import type { DocumentProjectorRegistryInput } from "../../../data/documents/documentKinds";
 import type { ExecSqlClientLike } from "../../../data/sqlite/sqlSchema";
 import { createExecSql } from "../../../data/sqlite/sqlSchema";
-import type { ProvisionedPrincipalHistoryPrimer } from "../../registration/provisionedPrincipalHistory";
 import {
   buildOrganizationProvisioningArtifacts,
   type OrganizationProvisioningArtifacts,
   type OrganizationProvisioningArtifactsInput,
   type ProvisionedSystemContainerSpec,
   persistOrganizationProvisioningState,
-} from "../../registration/registerIdentity";
+} from "../../registration/organizationProvisioning";
+import type { ProvisionedPrincipalHistoryPrimer } from "../../registration/provisionedPrincipalHistory";
 import {
   makeOrganizationProvisioningAttemptDurable,
   removeNativeSubscriptionRestoreProvisioningAttempt,

@@ -15,7 +15,7 @@ import {
 import { createTestTrustedUserIdentity } from "../../../test/helpers/trustedUserIdentity";
 import type { TrustedUserIdentity } from "../../data/trustedUserIdentity";
 
-import { buildInitialOrganizationPolicyRequest } from "../registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../registration/organizationProvisioning";
 import { loadOrganizationExternalAdminPolicy } from "./externalAdminPolicy";
 
 async function createExternalAdminFixture() {

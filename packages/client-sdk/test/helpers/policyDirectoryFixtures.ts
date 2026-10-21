@@ -8,7 +8,7 @@ import type {
   PrincipalPolicyBundleResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import {
   organizationPolicyBundleFromInitialRequest,
   principalPolicyHead,

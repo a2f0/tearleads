@@ -4,7 +4,7 @@ import {
   buildRootContainerCreatePlan,
   rootContainerWriterProjectionFromCreatePlan,
 } from "../../src/workflows/containers/root/create";
-import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../src/workflows/registration/organizationProvisioning";
 import { createAuthor, SIGNED_AT } from "./containerFixtures";
 import { buildInitialGroupPolicyRequest } from "./groupMetadata";
 import { createSuccessorGroupPolicyBundle } from "./groupPolicyFixtures";

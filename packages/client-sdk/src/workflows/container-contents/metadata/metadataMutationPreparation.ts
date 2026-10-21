@@ -4,10 +4,10 @@ import {
   exportUpdatesSince,
   importUpdates,
 } from "@tearleads/loro";
-import { documentSyncPullContinuationsEqual } from "../../../data/documents/shared/sync/syncPagination";
 import { canWriteEffectiveAccessLevel } from "../../../data/keying/accessLevel";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { documentSyncPullContinuationsEqual } from "../../documents";
 import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
 import {
   getDefaultContainerName,
