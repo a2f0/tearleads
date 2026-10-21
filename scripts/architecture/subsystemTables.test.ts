@@ -319,6 +319,27 @@ const useFixtures: Record<string, readonly string[]> = {
     "const { [name]: table } = appSchema;",
     "export const x = tx.insert(table);",
   ],
+  "/fixture/a/aliasCycle.ts": [
+    "let first = second;",
+    "let second = first;",
+    "const query = query;",
+    "export const x = [tx.delete(first), second, query.betaRows];",
+  ],
+  "/fixture/a/viaLongAliasChain.ts": [
+    'import { betaRows } from "../sqlite/schema";',
+    "const alias0 = betaRows;",
+    ...Array.from(
+      { length: 24 },
+      (_, index) => `const alias${index + 1} = alias${index};`,
+    ),
+    "export const x = tx.delete(alias24);",
+    "const query0 = db.query;",
+    ...Array.from(
+      { length: 24 },
+      (_, index) => `const query${index + 1} = query${index};`,
+    ),
+    "export const y = query24.extraRows.findMany();",
+  ],
   "/fixture/a/viaValues.ts": [
     'import { appSchema } from "../sqlite/schema";',
     "for (const table of Object.values(appSchema)) await tx.delete(table);",
@@ -392,6 +413,8 @@ const expectedViolations = [
   "/fixture/a/viaDynamicDestructure.ts writes betaLog, which Beta owns",
   "/fixture/a/viaDynamicNamespace.ts reads betaRows, which Beta does not expose for reading",
   "/fixture/a/viaImport.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaLongAliasChain.ts reads extraRows, which Beta does not expose for reading",
+  "/fixture/a/viaLongAliasChain.ts writes betaRows, which Beta owns",
   "/fixture/a/viaLoop.ts writes betaLog, which Beta owns",
   "/fixture/a/viaNamespace.ts reads betaRows, which Beta does not expose for reading",
   "/fixture/a/viaNamespaceQuery.ts reads betaRows, which Beta does not expose for reading",

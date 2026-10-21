@@ -3,8 +3,6 @@ import * as ts from "typescript";
 // Schema modules declare tables or gather them into table lists; they are the
 // SQLite Runtime's catalog, not users of another subsystem's data.
 const schemaDirectoryPattern = /\/sqlite\/schema\//;
-// Alias chains, re-exports, and property hops a table resolves through.
-const maxResolutionDepth = 16;
 
 function isExported(statement: ts.Statement): boolean {
   return (
@@ -97,10 +95,12 @@ export interface TableCatalog {
 /**
  * Resolves symbols to the `sqliteTable` declarations they stand for, with the
  * type checker: imports, re-exports, aliases, scopes, and cycles resolve the
- * way the compiler resolves them.
+ * way the compiler resolves them. Every step resolves a symbol at most once,
+ * so a chain of any length resolves and a cycle resolves to nothing.
  */
 export class TableResolver {
   private readonly memo = new Map<ts.Symbol, string | null>();
+  private readonly relationalMemo = new Map<ts.Symbol, boolean>();
 
   constructor(
     private readonly checker: ts.TypeChecker,
@@ -108,19 +108,15 @@ export class TableResolver {
   ) {}
 
   /** The table a symbol stands for, through aliases and properties. */
-  symbol(symbol: ts.Symbol | undefined, depth = 0): string | undefined {
-    if (symbol === undefined || depth > maxResolutionDepth) return undefined;
-    const target =
-      symbol.flags & ts.SymbolFlags.Alias
-        ? this.checker.getAliasedSymbol(symbol)
-        : symbol;
+  symbol(symbol: ts.Symbol | undefined): string | undefined {
+    if (symbol === undefined) return undefined;
+    const target = this.target(symbol);
     const table = this.tableBySymbol.get(target);
     if (table !== undefined) return table;
     if (this.memo.has(target)) return this.memo.get(target) ?? undefined;
     this.memo.set(target, null);
     const resolved = this.declaration(
       target.valueDeclaration ?? target.declarations?.[0],
-      depth + 1,
     );
     this.memo.set(target, resolved ?? null);
     return resolved;
@@ -130,28 +126,22 @@ export class TableResolver {
   property(
     owner: ts.Expression | ts.BindingPattern,
     key: string,
-    depth = 0,
   ): string | undefined {
-    return this.symbol(
-      this.checker.getTypeAtLocation(owner).getProperty(key),
-      depth,
-    );
+    return this.symbol(this.checker.getTypeAtLocation(owner).getProperty(key));
   }
 
   /** The table an expression evaluates to, through aliases and properties. */
-  expression(expression: ts.Expression, depth = 0): string | undefined {
+  expression(expression: ts.Expression): string | undefined {
     const node = unwrap(expression);
     if (ts.isIdentifier(node)) {
-      return this.symbol(this.checker.getSymbolAtLocation(node), depth);
+      return this.symbol(this.checker.getSymbolAtLocation(node));
     }
     if (ts.isPropertyAccessExpression(node)) {
-      return this.symbol(this.checker.getSymbolAtLocation(node.name), depth);
+      return this.symbol(this.checker.getSymbolAtLocation(node.name));
     }
     if (!ts.isElementAccessExpression(node)) return undefined;
     const key = elementKey(node.argumentExpression);
-    return key === undefined
-      ? undefined
-      : this.property(node.expression, key, depth);
+    return key === undefined ? undefined : this.property(node.expression, key);
   }
 
   /** The table a qualified name in a type, `schema.documents`, names. */
@@ -160,34 +150,27 @@ export class TableResolver {
   }
 
   /** Whether an expression is Drizzle's relational `db.query`, through aliases. */
-  isRelational(expression: ts.Expression, depth = 0): boolean {
+  isRelational(expression: ts.Expression): boolean {
     const node = unwrap(expression);
     if (ts.isPropertyAccessExpression(node)) return node.name.text === "query";
     if (ts.isElementAccessExpression(node)) {
       return elementKey(node.argumentExpression) === "query";
     }
-    if (!ts.isIdentifier(node) || depth > maxResolutionDepth) return false;
-    const symbol = this.checker.getSymbolAtLocation(node);
-    const declaration = (
-      symbol !== undefined && symbol.flags & ts.SymbolFlags.Alias
-        ? this.checker.getAliasedSymbol(symbol)
-        : symbol
-    )?.valueDeclaration;
-    if (declaration !== undefined && ts.isBindingElement(declaration)) {
-      return declaration.dotDotDotToken
-        ? this.isRelationalPattern(declaration.parent, depth + 1)
-        : literalKey(declaration.propertyName ?? declaration.name) === "query";
-    }
-    return (
-      declaration !== undefined &&
-      (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) &&
-      declaration.initializer !== undefined &&
-      this.isRelational(declaration.initializer, depth + 1)
-    );
+    const symbol = ts.isIdentifier(node)
+      ? this.checker.getSymbolAtLocation(node)
+      : undefined;
+    if (symbol === undefined) return false;
+    const target = this.target(symbol);
+    const known = this.relationalMemo.get(target);
+    if (known !== undefined) return known;
+    this.relationalMemo.set(target, false);
+    const relational = this.isRelationalDeclaration(target.valueDeclaration);
+    this.relationalMemo.set(target, relational);
+    return relational;
   }
 
   /** Whether a pattern destructures Drizzle's relational `db.query`. */
-  isRelationalPattern(pattern: ts.BindingPattern, depth = 0): boolean {
+  isRelationalPattern(pattern: ts.BindingPattern): boolean {
     const holder = pattern.parent;
     if (ts.isBindingElement(holder)) {
       return (
@@ -196,8 +179,7 @@ export class TableResolver {
       );
     }
     return (
-      holder.initializer !== undefined &&
-      this.isRelational(holder.initializer, depth)
+      holder.initializer !== undefined && this.isRelational(holder.initializer)
     );
   }
 
@@ -224,15 +206,35 @@ export class TableResolver {
     ];
   }
 
+  private target(symbol: ts.Symbol): ts.Symbol {
+    return symbol.flags & ts.SymbolFlags.Alias
+      ? this.checker.getAliasedSymbol(symbol)
+      : symbol;
+  }
+
+  private isRelationalDeclaration(
+    declaration: ts.Declaration | undefined,
+  ): boolean {
+    if (declaration !== undefined && ts.isBindingElement(declaration)) {
+      return declaration.dotDotDotToken
+        ? this.isRelationalPattern(declaration.parent)
+        : literalKey(declaration.propertyName ?? declaration.name) === "query";
+    }
+    return (
+      declaration !== undefined &&
+      (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) &&
+      declaration.initializer !== undefined &&
+      this.isRelational(declaration.initializer)
+    );
+  }
+
   private declaration(
     declaration: ts.Declaration | undefined,
-    depth: number,
   ): string | undefined {
     if (declaration === undefined) return undefined;
     if (ts.isShorthandPropertyAssignment(declaration)) {
       return this.symbol(
         this.checker.getShorthandAssignmentValueSymbol(declaration),
-        depth,
       );
     }
     if (
@@ -242,7 +244,7 @@ export class TableResolver {
     ) {
       return declaration.initializer === undefined
         ? undefined
-        : this.expression(declaration.initializer, depth);
+        : this.expression(declaration.initializer);
     }
     if (!ts.isBindingElement(declaration) || declaration.dotDotDotToken) {
       return undefined;
@@ -250,7 +252,7 @@ export class TableResolver {
     const key = literalKey(declaration.propertyName ?? declaration.name);
     return key === undefined
       ? undefined
-      : this.property(declaration.parent, key, depth);
+      : this.property(declaration.parent, key);
   }
 }
 
