@@ -31,6 +31,9 @@ html:root {
      only a step below the page. */
   --site-chrome-edge: transparent;
   --site-danger: #b00020;
+  /* The one accent: status dots and plan checkmarks, never text alone. */
+  --site-accent: #1f8a4c;
+  --site-accent-soft: rgb(31 138 76 / 12%);
   --site-focus: var(--site-ink);
 
   /* --- Type --- */
@@ -75,7 +78,20 @@ html:root {
   --site-gutter: 1rem;
   /* 44px minimum touch target. */
   --site-target: 2.75rem;
-  --site-radius: 0;
+  /* Controls (buttons, notes), cards, and large bands. */
+  --site-radius-sm: 0.625rem;
+  --site-radius: 1rem;
+  --site-radius-lg: 1.5rem;
+
+  /* --- Depth: soft shadows for cards and device frames --- */
+  --site-shadow-sm: 0 1px 2px rgb(20 20 20 / 6%), 0 1px 3px rgb(20 20 20 / 4%);
+  --site-shadow:
+    0 1px 2px rgb(20 20 20 / 5%), 0 8px 24px -6px rgb(20 20 20 / 12%);
+  --site-shadow-lg:
+    0 2px 6px rgb(20 20 20 / 6%), 0 24px 48px -12px rgb(20 20 20 / 22%);
+  /* Phone bezel around a device capture. */
+  --site-bezel: #1a1a1a;
+  --site-bezel-edge: #3a3a3a;
 
   /* --- Map @tearleads/ui frame and gallery roles onto site tokens --- */
   --tearleads-font-family: var(--site-font-mono);
@@ -128,6 +144,14 @@ html:root {
     --site-chrome-hover: rgb(255 255 255 / 9%);
     --site-chrome-edge: rgb(255 255 255 / 8%);
     --site-danger: #ec7a74;
+    --site-accent: #4fc282;
+    --site-accent-soft: rgb(79 194 130 / 16%);
+    --site-shadow-sm: 0 1px 2px rgb(0 0 0 / 30%);
+    --site-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px -6px rgb(0 0 0 / 45%);
+    --site-shadow-lg:
+      0 2px 6px rgb(0 0 0 / 30%), 0 24px 48px -12px rgb(0 0 0 / 60%);
+    --site-bezel: #0b0b0b;
+    --site-bezel-edge: #4a4a4a;
     /* Mirrors packages/ui dark: calm grey chips instead of near-white slabs. */
     --tearleads-action-hover-surface: #3a3a3a;
     --tearleads-action-hover-text: #f2f2f2;

@@ -1,160 +1,157 @@
 /*
- * Home, part 2: the security ledger, the plan table, the download list, and
+ * Home, part 2: the security cards, the plan cards, the download list, and
  * the closing band. Part 1 is home.css.
  */
 
-/* --- Security ledger: each protection beside its limit --- */
+/* --- Security cards --- */
 
-.site-ledger-assumptions {
-  margin-bottom: var(--site-space-6);
-}
-
-.site-ledger {
-  border-top: 1px solid var(--site-ink);
-}
-
-.site-ledger-row {
+.home-security {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--site-space-3);
-  margin: 0;
-  padding-block: var(--site-space-5);
-  border-bottom: 1px solid var(--site-line);
+  gap: var(--site-space-4);
 }
 
-.site-ledger-title {
-  font-size: var(--site-text-h3);
-}
-
-.site-ledger-row p {
+.home-security-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
   margin: 0;
+  padding: var(--site-space-5) var(--site-space-5) var(--site-space-2);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius);
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow-sm);
 }
 
-.site-ledger-label {
-  display: block;
-  margin-bottom: var(--site-space-1);
-  color: var(--site-ink-3);
-  font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
+.home-security-title {
+  margin-top: var(--site-space-4);
+  font-size: var(--site-text-h3);
+  line-height: 1.35;
 }
 
-.site-ledger-algorithms {
+.home-security-card p {
+  margin: var(--site-space-2) 0 0;
+  color: var(--site-ink-2);
+}
+
+.home-security-card > .site-link {
+  margin-top: auto;
+  padding-top: var(--site-space-2);
+}
+
+.home-security-algorithms {
   max-width: var(--site-measure);
-  margin-top: var(--site-space-5);
+  margin-top: var(--site-space-6);
   color: var(--site-ink-2);
   font-size: var(--site-text-small);
-  line-height: 1.6;
+  line-height: 1.7;
 }
 
-.site-ledger-algorithms .site-mono {
+.home-security-algorithms .site-mono {
   color: var(--site-ink);
   font-weight: 600;
   white-space: nowrap;
 }
 
+.home-security-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-right: var(--site-space-2);
+  padding: 0 var(--site-space-2);
+  border-radius: 999px;
+  background: var(--site-accent-soft);
+  color: var(--site-ink);
+  font: 600 var(--site-text-mono-sm) / 1.6 var(--site-font-mono);
+}
+
 @media (min-width: 700px) {
-  .site-ledger-row {
-    grid-template-columns: 10rem minmax(0, 1fr);
-    column-gap: var(--site-space-5);
-  }
-
-  .site-ledger-row p {
-    grid-column: 2;
-  }
-
-  .site-ledger-title {
-    grid-row: 1 / span 2;
+  .home-security {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--site-space-5);
   }
 }
 
-@media (min-width: 1024px) {
-  .site-ledger-row {
-    grid-template-columns: 10rem minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--site-space-6);
-  }
-
-  .site-ledger-row p {
-    grid-column: auto;
-  }
-
-  .site-ledger-title {
-    grid-row: auto;
+@media (min-width: 1200px) {
+  .home-security {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-/* --- Plans table ---
-   Overrides of .site-table carry both classes: Astro can emit this sheet
-   before the shared one, so equal specificity would lose. */
+/* --- Plan cards --- */
 
-.site-table.home-plans th[scope="row"] {
-  font-family: var(--site-font-mono);
-  font-size: var(--site-text-mono);
+.home-plans {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--site-space-4);
+}
+
+.home-plan {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  padding: var(--site-space-5);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius);
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow-sm);
+}
+
+.home-plan-name {
+  color: var(--site-ink-2);
+  font: 600 var(--site-text-mono) / 1.4 var(--site-font-mono);
 }
 
 .home-plan-price {
-  font-size: 1.25rem;
-  font-weight: 650;
+  margin: var(--site-space-3) 0 0;
+  color: var(--site-ink);
+  font: 650 2rem / 1.1 var(--site-font-sans);
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .home-plan-interval {
   color: var(--site-ink-3);
+  font: 400 var(--site-text-small) / 1.5 var(--site-font-sans);
+  letter-spacing: 0;
+}
+
+.home-plan-summary {
+  margin: var(--site-space-3) 0 0;
+  color: var(--site-ink-2);
   font-size: var(--site-text-small);
+  line-height: 1.5;
 }
 
 .home-plans-note {
   max-width: var(--site-measure);
-  margin-top: var(--site-space-4);
+  margin-top: var(--site-space-5);
   color: var(--site-ink-2);
   font-size: var(--site-text-small);
 }
 
 @media (min-width: 700px) {
-  .site-table.home-plans :is(th, td) {
-    padding-block: var(--site-space-4);
-    vertical-align: baseline;
-  }
-
-  .site-table.home-plans th[scope="row"] {
-    width: 30%;
-  }
-
-  .site-table.home-plans .site-table-num {
-    width: 10rem;
-    padding-right: var(--site-space-7);
+  .home-plans {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--site-space-5);
   }
 }
 
-@media (max-width: 699px) {
-  /* Stacked: the plan name and price share a line, with the summary below,
-     so the column labels are redundant. */
-  .site-table.home-plans tr {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: var(--site-space-1) var(--site-space-4);
-    padding-block: var(--site-space-4);
-  }
-
-  .site-table.home-plans tbody :is(th, td) + :is(th, td) {
-    margin-top: 0;
-  }
-
-  .site-table.home-plans td[data-label]::before {
-    content: none;
-  }
-
-  .site-table.home-plans td[data-label="Includes"] {
-    grid-column: 1 / -1;
-    color: var(--site-ink-2);
+@media (min-width: 1024px) {
+  .home-plans {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 /* --- Downloads --- */
 
 .site-downloads {
-  border-top: 1px solid var(--site-ink);
+  padding-inline: var(--site-space-6);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius);
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow-sm);
 }
 
 .site-download {
@@ -164,6 +161,10 @@
   margin: 0;
   padding-block: var(--site-space-5);
   border-bottom: 1px solid var(--site-line);
+}
+
+.site-downloads > .site-download:last-child {
+  border-bottom: 0;
 }
 
 .site-download-platform {
@@ -212,6 +213,10 @@
 }
 
 @media (max-width: 699px) {
+  .site-downloads {
+    padding-inline: var(--site-space-4);
+  }
+
   .site-download .site-button {
     width: 100%;
   }

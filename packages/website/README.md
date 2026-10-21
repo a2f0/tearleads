@@ -84,8 +84,11 @@ bun run --cwd packages/website preview
 `build:website` builds the SDK and SQLite prerequisites, creates an encrypted
 backup from the commit-pinned `@a2f0/continuity` development dependency, restores
 it through the app, and captures desktop, phone, and tablet in light and dark
-themes. Contacts include portraits; document details include the fictional
-driver's license, passport, credit card (front and back), and birth certificate.
+themes. Phone and tablet captures are saved as device screens, with the
+display's rounded corners transparent and without the in-app test banner; the
+home page frames phone captures in a device bezel. Contacts include portraits;
+document details include the fictional driver's license, passport, credit card
+(front and back), and birth certificate.
 Family photos, tools and appliances with multiple photos and purchase receipts,
 and populated weight and blood pressure charts are captured as well.
 Capture assertions use Continuity's expected names, note text, document titles,

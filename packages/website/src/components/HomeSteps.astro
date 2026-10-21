@@ -18,7 +18,7 @@ interface Step {
 const steps: readonly Step[] = [
   {
     title: "Open Tearleads",
-    text: "Use the web app in your browser, or install the desktop app for macOS or Linux. There is nothing to sign up for.",
+    text: "Use the web app in your browser, or install the desktop app for macOS or Linux. Your identity is ready the moment it opens.",
   },
   {
     title: "Work on your device",
@@ -37,7 +37,7 @@ const steps: readonly Step[] = [
     {steps.map((step, index) => (
       <li class="home-step">
         <span class="home-step-number" aria-hidden="true">
-          {String(index + 1).padStart(2, "0")}
+          {index + 1}
         </span>
         <h3 class="home-step-title">{step.title}</h3>
         <p>{step.text}</p>

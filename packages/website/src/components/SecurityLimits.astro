@@ -15,19 +15,19 @@ const limits = [
     body: "Each device pins the first identity bundle it accepts and rejects later changes. A server that substitutes a key on that first lookup can still establish a false identity. Matching a key to its fingerprint in signed state does not prove who controls it. The app shows signing-key fingerprints, but it has no step for confirming a key out of band before it pins that key.",
   },
   {
-    term: "Checkpoints only cover what a device has seen",
+    term: "Checkpoints cover what a device has seen",
     body: "A device with no checkpoint for a policy or folder (a new device, a folder or organization it is seeing for the first time, or a device whose local data was reset) can receive old but validly signed history. Signatures alone do not prove that a view is the newest or that all devices see the same view. Stronger split-view resistance needs independent witnessing or gossip.",
   },
   {
-    term: "Encryption does not ensure availability",
+    term: "Availability depends on the service",
     body: "The service can withhold ciphertext, policies, or key envelopes and refuse requests. When required verification material is missing, the operation cannot safely proceed, so it stops.",
   },
   {
-    term: "An unlocked device can read content",
+    term: "Unlocked devices are trusted",
     body: "Local encryption does not protect against malicious code running in an unlocked client or a compromised device. Anyone who obtains the recovery phrase, including its QR code, can recover that identity.",
   },
   {
-    term: "New members can read retained history",
+    term: "Members see a folder's retained history",
     body: "Access includes history: a member added to a container can read the history that container retains, not only changes made after they joined.",
   },
 ];
@@ -37,8 +37,8 @@ const limits = [
   <SectionHeader
     index="05"
     titleId="trust-title"
-    title="Limits"
-    lede="What the design does not detect, prevent, or promise, even under the assumptions above."
+    title="Scope"
+    lede="Where the guarantees above apply, and what sits outside them, under the same assumptions."
   />
   <dl class="site-spec security-limits">
     {limits.map((limit) => (

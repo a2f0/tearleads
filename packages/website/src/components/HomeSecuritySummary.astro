@@ -1,25 +1,27 @@
 ---
+import { ArrowsClockwiseIcon } from "@phosphor-icons/react/dist/ssr/ArrowsClockwise";
+import { FingerprintIcon } from "@phosphor-icons/react/dist/ssr/Fingerprint";
+import { LockKeyIcon } from "@phosphor-icons/react/dist/ssr/LockKey";
+import { ShieldCheckIcon } from "@phosphor-icons/react/dist/ssr/ShieldCheck";
 import { securitySummary } from "../securitySummary";
 import SectionHeader from "./SectionHeader.astro";
 
 /**
- * Home: the claim-and-limit ledger. Every protection is shown with its limit;
- * the rows and their sources live in src/securitySummary.ts. The algorithm
- * sentence follows docs/cipher-suites.md, scoped to the keying path.
+ * Home: the security highlights, one card per protection; the rows and their
+ * sources live in src/securitySummary.ts, and each card links the /security
+ * section that states its assumptions and scope. The algorithm sentence
+ * follows docs/cipher-suites.md, scoped to the keying protocol.
  */
+const icons: Record<string, typeof LockKeyIcon> = {
+  content: LockKeyIcon,
+  sharing: ShieldCheckIcon,
+  "removing-access": ArrowsClockwiseIcon,
+  "your-device": FingerprintIcon,
+};
 const rows = securitySummary.map((row) => {
-  if (!row.limitLink) return { row, before: row.limit, after: "" };
-  const at = row.limit.indexOf(row.limitLink.label);
-  if (at < 0) {
-    throw new Error(
-      `Limit link "${row.limitLink.label}" not found in ${row.id}`,
-    );
-  }
-  return {
-    row,
-    before: row.limit.slice(0, at),
-    after: row.limit.slice(at + row.limitLink.label.length),
-  };
+  const icon = icons[row.id];
+  if (!icon) throw new Error(`No icon for security summary row ${row.id}`);
+  return { row, Icon: icon };
 });
 ---
 
@@ -30,40 +32,34 @@ const rows = securitySummary.map((row) => {
 >
   <SectionHeader
     titleId="security-summary-title"
-    title="What's protected, and where it stops"
-    lede="Each protection is listed with its limit."
+    title="Private by design"
+    lede="Your content is encrypted before it leaves your device, and access is backed by signatures the app checks itself."
   >
     <a slot="action" class="site-link" href="/security">
       How the security model works<span aria-hidden="true"> →</span>
     </a>
   </SectionHeader>
-  <div class="site-note site-ledger-assumptions" role="note">
-    <strong class="site-note-label">Assumptions.</strong> These properties assume
-    an honest, uncompromised app on your device, uncompromised private keys,
-    authentic identity keys, and working cryptography. The server and its
-    storage may be compromised.
-  </div>
-  <ul class="site-ledger" role="list">
-    {rows.map(({ row, before, after }) => (
-      <li class="site-ledger-row">
-        <h3 class="site-ledger-title">{row.title}</h3>
-        <p>
-          <span class="site-ledger-label">Protection</span>{" "}
-          {row.protection}
-        </p>
-        <p>
-          <span class="site-ledger-label">Limit</span>{" "}
-          {before}{row.limitLink && <a href={row.limitLink.href}>{row.limitLink.label}</a>}{after}
-        </p>
+  <ul class="home-security" role="list">
+    {rows.map(({ row, Icon }) => (
+      <li class="home-security-card">
+        <span class="home-cell-icon" aria-hidden="true">
+          <Icon size={22} focusable="false" />
+        </span>
+        <h3 class="home-security-title">{row.title}</h3>
+        <p>{row.protection}</p>
+        <a class="site-link" href={row.href}>
+          Details<span class="visually-hidden">: {row.title}</span><span
+            aria-hidden="true"> →</span>
+        </a>
       </li>
     ))}
   </ul>
-  <p class="site-ledger-algorithms">
-    Public-key operations in the Tearleads client and API keying protocol use
-    only post-quantum algorithms: <span class="site-mono">ML-KEM-1024</span> for
-    key delivery and <span class="site-mono">ML-DSA-87</span> for signatures
-    (NIST FIPS 203 and 204). TLS connections and deployment tooling are outside
-    that statement. Synced document and file contents are encrypted with <span
+  <p class="home-security-algorithms">
+    <span class="home-security-badge">Post-quantum</span> Public-key
+    operations in the Tearleads keying protocol use <span
+      class="site-mono">ML-KEM-1024</span> for key delivery and <span
+      class="site-mono">ML-DSA-87</span> for signatures (NIST FIPS 203 and
+    204). Synced document and file contents are encrypted with <span
       class="site-mono">AES-256-GCM</span>.
   </p>
 </section>

@@ -7,7 +7,7 @@ import HomeSecuritySummary from "../components/HomeSecuritySummary.astro";
 import HomeSteps from "../components/HomeSteps.astro";
 import HomeZero from "../components/HomeZero.astro";
 import PageHeader from "../components/PageHeader.astro";
-import Screenshot from "../components/Screenshot.astro";
+import PhoneCarousel from "../components/PhoneCarousel.astro";
 import StatusNotice from "../components/StatusNotice.astro";
 import { appUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
@@ -27,14 +27,14 @@ const metaItems = [
 
 <Layout
   title={`Tearleads | ${tagline}`}
-  description="Notes, contacts, and files encrypted on your device. No signup, email, or password. Free locally; paid plans add end-to-end encrypted sync. macOS, Linux, web."
+  description="Notes, contacts, and files encrypted on your device. Start without a signup, email, or password. Free on your device; paid plans add end-to-end encrypted sync. macOS, Linux, web."
 >
   <div class="site-page home">
     <section class="home-hero" aria-labelledby="page-title">
       <PageHeader
         display
         title={tagline}
-        lede="Notes, contacts, and files, encrypted on your device before they sync. No email, no password, no signup form: open Tearleads and start working."
+        lede="Notes, contacts, files, and records, encrypted on your device before they sync. Open Tearleads and start working, with no email or password to set up."
       >
         <Fragment slot="title">
           {taglineLines.map((line, index) => (
@@ -55,15 +55,7 @@ const metaItems = [
         </ul>
         <StatusNotice />
       </PageHeader>
-      <Screenshot
-        name="explorer"
-        crop="2880 / 860"
-        phoneCrop="1170 / 1580"
-        tabletZoom
-        priority
-        caption="Explorer"
-        alt="Tearleads Explorer listing Contacts and Trash folders, a driver's license record, and three notes, with each item's type."
-      />
+      <PhoneCarousel />
     </section>
 
     <HomeZero />

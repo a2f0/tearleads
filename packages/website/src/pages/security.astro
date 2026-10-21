@@ -15,7 +15,7 @@ const contents = [
   { href: "#device-boundary", label: "Device and service" },
   { href: "#verified-sharing", label: "Verified sharing" },
   { href: "#cryptography", label: "Cryptography" },
-  { href: "#trust-boundaries", label: "Limits" },
+  { href: "#trust-boundaries", label: "Scope" },
   { href: "#documents", label: "Technical documents" },
 ];
 
@@ -51,7 +51,7 @@ const documents = [
 
 <Layout
   title="Security | Tearleads"
-  description="How Tearleads encrypts content on your device, how the app verifies signed access records, what the sync service can see, and where the guarantees stop."
+  description="How Tearleads encrypts content on your device, how the app verifies signed access records, what the sync service can see, and the scope of each guarantee."
 >
   <div class="site-page">
     <PageHeader
@@ -83,8 +83,8 @@ const documents = [
         These properties assume an honest, uncompromised client that runs its
         validation checks, uncompromised user private keys, authentic identity
         keys, and working cryptographic primitives. The API and its storage may
-        be compromised. Some behaviors still cannot be detected or prevented;
-        they are listed under <a href="#trust-boundaries">Limits</a>.
+        be compromised. What falls outside these guarantees is listed under
+        <a href="#trust-boundaries">Scope</a>.
       </p>
     </section>
 
@@ -169,7 +169,7 @@ const documents = [
             Removing group members rotates the group key and the affected
             container keys in one atomic update. Removing access cannot erase
             content or keys someone already received. Nested containers and
-            retained history have further limits, listed under <a href="#trust-boundaries">Limits</a>.
+            retained history are covered under <a href="#trust-boundaries">Scope</a>.
           </p>
         </div>
       </div>

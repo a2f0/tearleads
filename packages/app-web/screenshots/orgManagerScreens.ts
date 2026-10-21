@@ -1,6 +1,7 @@
 import * as path from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { disableAnimations, waitForBooted } from "./appShell";
+import { screenshotDeviceScreen } from "./deviceScreen";
 
 type ScreenshotOrgManagerView =
   | "menu"
@@ -192,9 +193,9 @@ export async function captureRoutedOrgManagerSections(
       }
     }
     await assertOrgManagerCaptureReady(page, screen.view);
-    await page.screenshot({
-      path: path.join(outputDir, `${screen.name}.png`),
-      fullPage: false,
-    });
+    await screenshotDeviceScreen(
+      page,
+      path.join(outputDir, `${screen.name}.png`),
+    );
   }
 }

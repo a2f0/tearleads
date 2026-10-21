@@ -1,0 +1,118 @@
+/*
+ * Home hero's phone row (PhoneCarousel.astro): device frames that scroll
+ * sideways and snap to each phone. The row bleeds into the page gutters so a
+ * cut-off phone at the edge signals that it scrolls. The frame itself is
+ * .site-phone in content.css.
+ */
+
+.phone-carousel {
+  margin-top: var(--site-space-8);
+}
+
+.phone-carousel-track {
+  margin-inline: calc(-1 * var(--site-gutter));
+  padding: var(--site-space-3) var(--site-gutter) var(--site-space-6);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--site-gutter);
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.phone-carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.phone-carousel-track:focus-visible {
+  outline-offset: -2px;
+}
+
+.phone-carousel-list {
+  display: flex;
+  gap: var(--site-space-5);
+  width: max-content;
+}
+
+.phone-carousel-slide {
+  width: clamp(13.5rem, 60vw, 16.5rem);
+  margin: 0;
+  scroll-snap-align: start;
+}
+
+.phone-carousel-slide figcaption {
+  margin-top: var(--site-space-4);
+  color: var(--site-ink-2);
+  font: 500 var(--site-text-mono-sm) / 1.4 var(--site-font-mono);
+  text-align: center;
+}
+
+.phone-carousel-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--site-space-3);
+}
+
+.phone-carousel-steps {
+  display: flex;
+  gap: var(--site-space-2);
+}
+
+.phone-carousel-steps[hidden] {
+  display: none;
+}
+
+.phone-carousel-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--site-target);
+  height: var(--site-target);
+  padding: 0;
+  border: 1px solid var(--site-line-strong);
+  border-radius: 999px;
+  background: var(--site-surface);
+  color: var(--site-ink);
+  cursor: pointer;
+}
+
+.phone-carousel-step svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.phone-carousel-step:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+@media (hover: hover) {
+  .phone-carousel-step:not(:disabled):hover {
+    border-color: var(--site-ink);
+    background: var(--site-surface-muted);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .phone-carousel-step {
+    transition:
+      background-color 120ms,
+      border-color 120ms;
+  }
+}
+
+@media (max-width: 699px) {
+  .phone-carousel {
+    margin-top: var(--site-space-7);
+  }
+
+  .phone-carousel-list {
+    gap: var(--site-space-4);
+  }
+}

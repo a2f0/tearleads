@@ -1,9 +1,10 @@
 ---
 /**
- * Home: what each half of the tagline means, side by side at 1024px and up.
- * Each column carries its own honest qualifier: "zero knowledge" is about
- * content (never a zero-knowledge proof, never hidden metadata), and "zero
- * onboarding" still leaves a recovery phrase to back up.
+ * Home: what each half of the tagline means, as two cards side by side at
+ * 1024px and up. Each card keeps its scope in plain terms: "zero knowledge" is
+ * about content (never a zero-knowledge proof, never hidden metadata, which
+ * /security#device-boundary lists), and "zero onboarding" still leaves a
+ * recovery phrase to back up.
  *
  * Sources: docs/keying-design.md "Design Properties" and "Boundaries";
  * docs/security-guarantees.md (organization and custom group names are encrypted);
@@ -26,7 +27,7 @@ const knowledgeFacts: readonly Fact[] = [
 ];
 
 const onboardingFacts: readonly Fact[] = [
-  { key: "Sign-up", value: "No email, no password" },
+  { key: "Sign-up", value: "Instant, no email or password" },
   { key: "Identity", value: "Created on your device" },
   { key: "Recovery", value: "24-word recovery phrase" },
 ];
@@ -49,12 +50,8 @@ const onboardingFacts: readonly Fact[] = [
         </div>
       ))}
     </dl>
-    <p class="home-zero-note">
-      The service still sees built-in group roles, membership, and
-      structure such as identifiers, sizes, access relationships, and timing.
-    </p>
     <a class="site-link" href="/security#device-boundary">
-      What the service can see<span aria-hidden="true"> →</span>
+      What's encrypted, in detail<span aria-hidden="true"> →</span>
     </a>
   </section>
 
@@ -63,8 +60,8 @@ const onboardingFacts: readonly Fact[] = [
     <p class="home-zero-lede">
       The first time you open Tearleads, it creates your identity keys on your
       device and, once you're online, registers their public keys with the
-      service. Those keys sign you in instead of a password, so there is no
-      account form to fill in and you can start working right away.
+      service. Those keys sign you in, so you skip the account form and start
+      working right away.
     </p>
     <dl class="home-facts">
       {onboardingFacts.map((fact) => (
@@ -75,9 +72,9 @@ const onboardingFacts: readonly Fact[] = [
       ))}
     </dl>
     <p class="home-zero-note">
-      Back up your recovery phrase in Identity Manager when you're ready, and
-      keep it private: anyone who has it can restore your identity. A paid web
-      plan asks for a billing email at checkout.
+      Save your 24-word recovery phrase from Identity Manager whenever you're
+      ready, and keep it somewhere private: it restores your identity on any
+      device. Paid plans on the web ask only for a billing email at checkout.
     </p>
     <a class="site-link" href="#how-it-works">
       How it works<span aria-hidden="true"> →</span>
