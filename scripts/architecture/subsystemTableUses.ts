@@ -1,15 +1,15 @@
-import { dirname, join, normalize } from "node:path";
 import * as ts from "typescript";
+import {
+  readSchemaCatalog,
+  resolveRelativeImport,
+  type SchemaCatalog,
+} from "./subsystemTableCatalog";
 
-// Schema modules declare tables or gather them into table lists; they are the
-// SQLite Runtime's catalog, not users of another subsystem's data.
-const schemaDirectoryPattern = /\/sqlite\/schema\//;
 // Raw SQL names a table after these keywords; the SDK writes them upper case,
 // so prose in strings and comments does not match.
 const rawSqlWritePattern =
   /\b(?:INSERT(?:\s+OR\s+[A-Z]+)?\s+INTO|REPLACE\s+INTO|UPDATE|DELETE\s+FROM)\s+["`]?([a-z][a-z0-9_]*)\b/g;
 const rawSqlReadPattern = /\b(?:FROM|JOIN)\s+["`]?([a-z][a-z0-9_]*)\b/g;
-const resolvableSuffixes = [".ts", ".tsx", "/index.ts", "/index.tsx"];
 // Drizzle calls that only read the table passed to them, or write it.
 const readCalls = new Set([
   "crossJoin",
@@ -67,58 +67,6 @@ export function referenceAccess(node: ts.Node): TableAccess {
   return "write";
 }
 
-function resolveRelativeImport(
-  from: string,
-  specifier: string,
-  files: ReadonlySet<string>,
-): string | undefined {
-  if (!specifier.startsWith(".")) {
-    return undefined;
-  }
-  const base = normalize(join(dirname(from), specifier.replace(/\.js$/, "")));
-  return [base, ...resolvableSuffixes.map((suffix) => `${base}${suffix}`)].find(
-    (candidate) => files.has(candidate),
-  );
-}
-
-/** Each `sqliteTable` export in the file, with the SQL name it declares. */
-function declaredTables(
-  source: ts.SourceFile,
-): { name: string; sqlName: string | undefined }[] {
-  return source.statements.flatMap((statement) => {
-    if (
-      !ts.isVariableStatement(statement) ||
-      !statement.modifiers?.some(
-        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
-      )
-    ) {
-      return [];
-    }
-    return statement.declarationList.declarations.flatMap((declaration) => {
-      const call = declaration.initializer;
-      if (
-        !ts.isIdentifier(declaration.name) ||
-        call === undefined ||
-        !ts.isCallExpression(call) ||
-        !ts.isIdentifier(call.expression) ||
-        call.expression.text !== "sqliteTable"
-      ) {
-        return [];
-      }
-      const [sqlName] = call.arguments;
-      return [
-        {
-          name: declaration.name.text,
-          sqlName:
-            sqlName !== undefined && ts.isStringLiteral(sqlName)
-              ? sqlName.text
-              : undefined,
-        },
-      ];
-    });
-  });
-}
-
 /** The tables raw SQL in the file's strings and templates reads or writes. */
 export function rawSqlTableAccess(
   source: ts.SourceFile,
@@ -148,48 +96,6 @@ export function rawSqlTableAccess(
   };
   visit(source);
   return access;
-}
-
-/** The exported object literals in a schema module whose values are tables. */
-function schemaObjectTableKeys(
-  source: ts.SourceFile,
-  tables: ReadonlySet<string>,
-): { key: string; object: string; table: string }[] {
-  return source.statements.flatMap((statement) => {
-    if (
-      !ts.isVariableStatement(statement) ||
-      !statement.modifiers?.some(
-        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
-      )
-    ) {
-      return [];
-    }
-    return statement.declarationList.declarations.flatMap((declaration) => {
-      const literal = declaration.initializer;
-      if (
-        !ts.isIdentifier(declaration.name) ||
-        literal === undefined ||
-        !ts.isObjectLiteralExpression(literal)
-      ) {
-        return [];
-      }
-      const object = declaration.name.text;
-      return literal.properties.flatMap((property) => {
-        const value = ts.isShorthandPropertyAssignment(property)
-          ? property.name
-          : ts.isPropertyAssignment(property)
-            ? property.initializer
-            : undefined;
-        return value !== undefined &&
-          ts.isIdentifier(value) &&
-          tables.has(value.text) &&
-          property.name !== undefined &&
-          ts.isIdentifier(property.name)
-          ? [{ key: property.name.text, object, table: value.text }]
-          : [];
-      });
-    });
-  });
 }
 
 /** Identifiers a file binds to schema modules and to schema objects. */
@@ -286,63 +192,26 @@ export function schemaKeyAccessInSource(
   return access;
 }
 
-interface SchemaCatalog {
-  readonly isSchemaModule: (filePath: string) => boolean;
-  readonly schemaObjectNames: ReadonlySet<string>;
-  readonly tables: ReadonlySet<string>;
-  readonly tablesBySchemaKey: ReadonlyMap<string, string>;
-  readonly tablesBySqlName: ReadonlyMap<string, string>;
-}
-
-function readSchemaCatalog(
-  sources: ReadonlyMap<string, ts.SourceFile>,
-): SchemaCatalog {
-  const declarationsByFile = new Map(
-    [...sources]
-      .map(([filePath, source]) => [filePath, declaredTables(source)] as const)
-      .filter(([, declarations]) => declarations.length > 0),
-  );
-  const isSchemaModule = (filePath: string) =>
-    declarationsByFile.has(filePath) || schemaDirectoryPattern.test(filePath);
-  const declarations = [...declarationsByFile.values()].flat();
-  const tables = new Set(declarations.map(({ name }) => name));
-  const schemaObjectKeys = [...sources].flatMap(([filePath, source]) =>
-    isSchemaModule(filePath) ? schemaObjectTableKeys(source, tables) : [],
-  );
-  return {
-    isSchemaModule,
-    schemaObjectNames: new Set(schemaObjectKeys.map(({ object }) => object)),
-    tables,
-    tablesBySchemaKey: new Map(
-      schemaObjectKeys.map(({ key, table }) => [key, table]),
-    ),
-    tablesBySqlName: new Map(
-      declarations.flatMap(({ name, sqlName }) =>
-        sqlName === undefined ? [] : [[sqlName, name] as const],
-      ),
-    ),
-  };
-}
-
-function targetsSchemaModule(
+/** The schema module an import or export statement names, if any. */
+function schemaModuleTarget(
   statement: ts.Statement,
   from: string,
   catalog: SchemaCatalog,
   knownFiles: ReadonlySet<string>,
-): statement is ts.ImportDeclaration | ts.ExportDeclaration {
+): string | undefined {
   if (
     !(ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) ||
     statement.moduleSpecifier === undefined ||
     !ts.isStringLiteral(statement.moduleSpecifier)
   ) {
-    return false;
+    return undefined;
   }
   const to = resolveRelativeImport(
     from,
     statement.moduleSpecifier.text,
     knownFiles,
   );
-  return to !== undefined && catalog.isSchemaModule(to);
+  return to !== undefined && catalog.isSchemaModule(to) ? to : undefined;
 }
 
 function readNamedSchemaImports(
@@ -365,10 +234,14 @@ function readNamedSchemaImports(
 
 interface SchemaImports {
   /** Imported tables by local name; their references decide the access. */
-  readonly bindings: ReadonlyMap<string, string>;
-  /** Tables re-exported by name or by `export *`: written onward. */
-  readonly reexported: readonly string[];
-  readonly roots: SchemaRoots;
+  readonly bindings: Map<string, string>;
+  /** Tables re-exported, or reached by an import nothing tracks: written. */
+  readonly reexported: string[];
+  readonly roots: {
+    readonly namespaces: Set<string>;
+    readonly objects: Set<string>;
+    readonly schemaObjectNames: ReadonlySet<string>;
+  };
 }
 
 /**
@@ -387,7 +260,13 @@ function readSchemaImports(
   const objects = new Set<string>();
   const reexported: string[] = [];
   for (const statement of source.statements) {
-    if (!targetsSchemaModule(statement, from, catalog, knownFiles)) continue;
+    const to = schemaModuleTarget(statement, from, catalog, knownFiles);
+    if (
+      to === undefined ||
+      !(ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement))
+    ) {
+      continue;
+    }
     const named = ts.isImportDeclaration(statement)
       ? statement.importClause?.namedBindings
       : statement.exportClause;
@@ -396,7 +275,7 @@ function readSchemaImports(
       continue;
     }
     if (named === undefined || ts.isNamespaceExport(named)) {
-      reexported.push(...catalog.tables);
+      reexported.push(...catalog.exportedTables(to));
       continue;
     }
     const read = readNamedSchemaImports(named, catalog);
@@ -418,6 +297,71 @@ function readSchemaImports(
   };
 }
 
+/**
+ * Adds a file's dynamic schema imports. A bound namespace or destructured
+ * table or schema object is tracked like a static import; any other dynamic
+ * import writes every table the module exports.
+ */
+function readDynamicSchemaImports(
+  from: string,
+  source: ts.SourceFile,
+  catalog: SchemaCatalog,
+  knownFiles: ReadonlySet<string>,
+  imports: SchemaImports,
+): void {
+  const visit = (node: ts.Node): void => {
+    const [specifier] = ts.isCallExpression(node) ? node.arguments : [];
+    const to =
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      specifier !== undefined &&
+      ts.isStringLiteralLike(specifier)
+        ? resolveRelativeImport(from, specifier.text, knownFiles)
+        : undefined;
+    if (to !== undefined && catalog.isSchemaModule(to)) {
+      readDynamicImportBinding(node, to, catalog, imports);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+}
+
+function readDynamicImportBinding(
+  call: ts.Node,
+  to: string,
+  catalog: SchemaCatalog,
+  imports: SchemaImports,
+): void {
+  const value = ts.isAwaitExpression(call.parent) ? call.parent : call;
+  const declaration = value.parent;
+  if (
+    !ts.isVariableDeclaration(declaration) ||
+    declaration.initializer !== value
+  ) {
+    imports.reexported.push(...catalog.exportedTables(to));
+    return;
+  }
+  if (ts.isIdentifier(declaration.name)) {
+    imports.roots.namespaces.add(declaration.name.text);
+    return;
+  }
+  for (const element of ts.isObjectBindingPattern(declaration.name)
+    ? declaration.name.elements
+    : []) {
+    const key = element.propertyName ?? element.name;
+    if (element.dotDotDotToken || !ts.isIdentifier(element.name)) {
+      imports.reexported.push(...catalog.exportedTables(to));
+    } else if (ts.isIdentifier(key) && catalog.tables.has(key.text)) {
+      imports.bindings.set(element.name.text, key.text);
+    } else if (
+      ts.isIdentifier(key) &&
+      catalog.schemaObjectNames.has(key.text)
+    ) {
+      imports.roots.objects.add(element.name.text);
+    }
+  }
+}
+
 /** How the file uses each imported table binding; an unused import reads. */
 function importedTableAccess(
   source: ts.SourceFile,
@@ -428,9 +372,14 @@ function importedTableAccess(
   );
   const visit = (node: ts.Node): void => {
     const table = ts.isIdentifier(node) ? bindings.get(node.text) : undefined;
+    // Skip where the binding is declared or named as a property, not used.
     if (
       table !== undefined &&
       !ts.isImportSpecifier(node.parent) &&
+      !(
+        ts.isBindingElement(node.parent) &&
+        (node.parent.name === node || node.parent.propertyName === node)
+      ) &&
       !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
     ) {
       access.set(
@@ -454,6 +403,7 @@ export function findTableUsesInSources(
   for (const [from, source] of sources) {
     if (catalog.isSchemaModule(from)) continue;
     const imports = readSchemaImports(from, source, catalog, knownFiles);
+    readDynamicSchemaImports(from, source, catalog, knownFiles, imports);
     const access = importedTableAccess(source, imports.bindings);
     const add = (table: string | undefined, kind: TableAccess) => {
       if (table !== undefined) {

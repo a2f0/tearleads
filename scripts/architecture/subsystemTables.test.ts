@@ -187,6 +187,9 @@ test("every way of reaching another subsystem's table is classified and checked"
         'import { betaRows } from "./index";',
         "export const betaSchema = { betaRows };",
       ]),
+      parse("pkg/sqlite/schema/extra.ts", [
+        'export const extraRows = sqliteTable("extra_rows", {});',
+      ]),
       parse("pkg/sqlite/runtime.ts", [
         'import { appSchema } from "./schema";',
         "export const db = drizzle(execute, { schema: appSchema });",
@@ -224,11 +227,34 @@ test("every way of reaching another subsystem's table is classified and checked"
         'export const x = "UPDATE beta_log SET at = ?";',
       ]),
       parse("pkg/a/viaReexport.ts", ['export * from "../sqlite/schema";']),
+      parse("pkg/a/viaReexportOne.ts", [
+        'export * from "../sqlite/schema/extra";',
+      ]),
+      parse("pkg/a/readsDynamicExposed.ts", [
+        'const { betaLog } = await import("../sqlite/schema");',
+        "export const r = betaLog.at;",
+      ]),
+      parse("pkg/a/viaDynamicNamespace.ts", [
+        'const schema = await import("../sqlite/schema");',
+        "export const x = schema.betaRows.id;",
+      ]),
+      parse("pkg/a/viaDynamicDestructure.ts", [
+        'const { betaLog } = await import("../sqlite/schema");',
+        "export const y = tx.delete(betaLog);",
+      ]),
+      parse("pkg/a/viaDynamicThen.ts", [
+        'export const z = import("../sqlite/schema/extra").then((m) => m);',
+      ]),
     ].map((source) => [source.fileName, source] as const),
   );
   const registry = [
     subsystem("Alpha", ["pkg/a/"], ["alphaRows"]),
-    subsystem("Beta", ["pkg/b/"], ["betaRows", "betaLog"], ["betaLog"]),
+    subsystem(
+      "Beta",
+      ["pkg/b/"],
+      ["betaRows", "betaLog", "extraRows"],
+      ["betaLog"],
+    ),
     subsystem("Runtime", ["pkg/sqlite/"]),
   ];
 
@@ -239,12 +265,16 @@ test("every way of reaching another subsystem's table is classified and checked"
       registry,
     }),
   ).toEqual([
+    "pkg/a/viaDynamicDestructure.ts writes betaLog, which Beta owns",
+    "pkg/a/viaDynamicNamespace.ts reads betaRows, which Beta does not expose for reading",
+    "pkg/a/viaDynamicThen.ts writes extraRows, which Beta owns",
     "pkg/a/viaImport.ts reads betaRows, which Beta does not expose for reading",
     "pkg/a/viaLoop.ts writes betaLog, which Beta owns",
     "pkg/a/viaNamespace.ts reads betaRows, which Beta does not expose for reading",
     "pkg/a/viaRawSql.ts writes betaLog, which Beta owns",
     "pkg/a/viaReexport.ts writes betaLog, which Beta owns",
     "pkg/a/viaReexport.ts writes betaRows, which Beta owns",
+    "pkg/a/viaReexportOne.ts writes extraRows, which Beta owns",
     "pkg/a/viaRelationalIndex.ts reads betaRows, which Beta does not expose for reading",
     "pkg/a/viaSchemaObject.ts writes betaLog, which Beta owns",
   ]);

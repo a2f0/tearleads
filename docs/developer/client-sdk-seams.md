@@ -219,11 +219,11 @@ else goes through the owner's surface.
 
 `bun run lint:architecture` checks every way a file reaches a table:
 
-- importing it from a schema module;
+- importing it from a schema module, statically or with `import()`;
 - reading its key off a schema module namespace, a schema object such as
   `clientSQLiteSchema`, or Drizzle's `db.query`, by property, literal index, or
   destructuring;
-- re-exporting a schema module wholesale;
+- re-exporting a schema module wholesale, which counts every table it exports;
 - naming it in raw SQL in a string or template.
 
 A column reference, `.from(...)`, a join, `typeof`, `db.query`, and SQL
