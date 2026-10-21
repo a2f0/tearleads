@@ -253,12 +253,15 @@ function valueUses(
   }
   if (table !== undefined) return [[table, referenceAccess(outermost(node))]];
   if (!escapes(node)) return [];
-  // A query object passed along may read any table it serves.
+  // A query object passed along may read any table it serves, or any table at
+  // all when untyped; a typed `.query` serving no table, such as a search
+  // string, is not one.
   if (
     catalog.resolver.isRelational(node) &&
-    catalog.resolver
-      .propertyNames(node)
-      .some((key) => catalog.tablesByQueryKey.has(key))
+    (catalog.resolver.isUntyped(node) ||
+      catalog.resolver
+        .propertyNames(node)
+        .some((key) => catalog.tablesByQueryKey.has(key)))
   ) {
     return relationalUses(catalog, node, undefined);
   }

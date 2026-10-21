@@ -298,6 +298,14 @@ const useFixtures: Record<string, readonly string[]> = {
     "export const x = extraDb.query.extraRows.findMany();",
     "export const y = aliasedDb.query.rows.findMany();",
   ],
+  "/fixture/a/viaUntypedRelationalArgument.ts": [
+    "declare const opaque: { readonly query: unknown };",
+    "export const x = [listAll(db.query), listAll(opaque.query)];",
+  ],
+  "/fixture/a/readsSearchQuery.ts": [
+    "declare const input: { readonly query: string };",
+    "export const x = search(input.query);",
+  ],
   "/fixture/a/viaColumnDestructure.ts": [
     'import { betaRows } from "../sqlite/schema";',
     "const { id } = betaRows;",
@@ -433,6 +441,10 @@ const expectedViolations = [
   "/fixture/a/viaShadowedAlias.ts writes betaRows, which Beta owns",
   "/fixture/a/viaTypeName.ts reads betaRows, which Beta does not expose for reading",
   "/fixture/a/viaUnawaitedImport.ts writes extraRows, which Beta owns",
+  "/fixture/a/viaUntypedRelationalArgument.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaUntypedRelationalArgument.ts reads cycleARows, which Beta does not expose for reading",
+  "/fixture/a/viaUntypedRelationalArgument.ts reads cycleBRows, which Beta does not expose for reading",
+  "/fixture/a/viaUntypedRelationalArgument.ts reads extraRows, which Beta does not expose for reading",
   "/fixture/a/viaValues.ts writes betaLog, which Beta owns",
   "/fixture/a/viaValues.ts writes betaRows, which Beta owns",
 ];

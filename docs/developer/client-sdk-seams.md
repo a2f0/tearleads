@@ -241,11 +241,12 @@ passing the table to a helper or listing it for a loop, counts as a write, so an
 indirect write cannot pass as a read. A schema value used where its tables
 cannot be told apart, such as `Object.values(clientSQLiteSchema)`, a spread, or
 a computed index or destructuring key, counts as writing every table it holds;
-`db.query` passed along that way counts as reading every table it serves. Schema
-modules are exempt, and so is the schema SQLite Runtime passes to `drizzle`,
-whose `db.query` reads are checked where they happen. The surface check sees
-none of this: schema imports land in SQLite Runtime, which declares no surface,
-and raw SQL imports nothing. Older uses are listed by table in
+`db.query` passed along that way counts as reading every table it serves, or
+every table when its type is `any` or `unknown`. Schema modules are exempt, and
+so is the schema SQLite Runtime passes to `drizzle`, whose `db.query` reads are
+checked where they happen. The surface check sees none of this: schema imports
+land in SQLite Runtime, which declares no surface, and raw SQL imports nothing.
+Older uses are listed by table in
 `scripts/architecture/subsystemTableBaseline.json`, which only shrinks like the
 surface baseline.
 

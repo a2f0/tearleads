@@ -183,6 +183,15 @@ export class TableResolver {
     );
   }
 
+  /** Whether an expression's type is `any` or `unknown`, so any key may exist. */
+  isUntyped(expression: ts.Expression): boolean {
+    return (
+      (this.checker.getTypeAtLocation(expression).flags &
+        (ts.TypeFlags.Any | ts.TypeFlags.Unknown)) !==
+      0
+    );
+  }
+
   /** The property names of an expression's or pattern's type. */
   propertyNames(expression: ts.Expression | ts.BindingPattern): string[] {
     return this.checker
