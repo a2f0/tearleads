@@ -1,10 +1,8 @@
 import { createFileDocumentTypeApp } from "../shared/createDocumentTypeApp";
+import { DIMENSIONS_FIELD } from "../shared/fileDocumentReadFields";
 import { IMAGE_DOCUMENT_KIND } from "./imageDocumentDefinition";
 
 export const ImageDocumentApp = createFileDocumentTypeApp(IMAGE_DOCUMENT_KIND, {
-  extraFieldLabels: {
-    height: "Height",
-    width: "Width",
-  },
+  extraFields: [DIMENSIONS_FIELD],
   title: "Image",
 });

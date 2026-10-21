@@ -1,5 +1,6 @@
 import {
   MiniAppButton,
+  MiniAppStatus,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 
@@ -29,7 +30,6 @@ export function IdentityActionToolbar({
   canRegisterCurrentIdentity,
   generateKey,
   handleAuthenticate,
-  handleDestroyKeyPair,
   handleRegisterIdentity,
   hasSigningKeyPair,
   identityBusy,
@@ -57,14 +57,33 @@ export function IdentityActionToolbar({
           Login
         </MiniAppButton>
       )}
-      {hasSigningKeyPair && (
-        <MiniAppButton
-          disabled={identityBusy !== null}
-          onClick={handleDestroyKeyPair}
-        >
-          Destroy Key Pair
-        </MiniAppButton>
-      )}
     </MiniAppToolbar>
+  );
+}
+
+/**
+ * Destroying the key pair stands apart from the routine actions above it, in
+ * the danger color, with a line saying what it does.
+ */
+export function IdentityDestroyKeyPair({
+  disabled,
+  onDestroy,
+}: {
+  disabled: boolean;
+  onDestroy: () => void;
+}) {
+  return (
+    <div className="identity-manager-danger-zone">
+      <div className="identity-manager-danger-zone-copy">
+        <strong>Destroy this identity on this device</strong>
+        <MiniAppStatus as="span">
+          Removes its keys from this device. Only your recovery phrase can
+          restore it.
+        </MiniAppStatus>
+      </div>
+      <MiniAppButton disabled={disabled} onClick={onDestroy} variant="danger">
+        Destroy Key Pair
+      </MiniAppButton>
+    </div>
   );
 }

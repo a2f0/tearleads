@@ -108,7 +108,7 @@ export async function assertOrgManagerCaptureReady(
     case "grants":
       await expect(
         scope.getByRole("table", {
-          name: "Group container links",
+          name: "Folders shared with groups",
           exact: true,
         }),
       ).toBeVisible({ timeout: 60_000 });

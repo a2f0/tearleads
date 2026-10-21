@@ -238,7 +238,7 @@ test("read-only notes hide the upload and remove affordances", () => {
 
   expect(view.queryByRole("button", { name: "Upload" })).toBeNull();
   // The blob picker is suppressed too, even though one was supplied.
-  expect(view.queryByRole("button", { name: "Select Blob" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Attach Existing" })).toBeNull();
   expect(
     view.queryByRole("button", { name: "Remove attachment diagram.png" }),
   ).toBeNull();
@@ -268,7 +268,7 @@ test("the upload button opens the shared file input", () => {
 test("hides the select blob button when no blob picker is available", () => {
   const view = renderNoteEditorFields();
 
-  expect(view.queryByRole("button", { name: "Select Blob" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Attach Existing" })).toBeNull();
   // Upload is always available on an interactive note.
   expect(view.getByRole("button", { name: "Upload" })).toBeTruthy();
 });
@@ -281,7 +281,7 @@ test("shows the select blob button and forwards its clicks", () => {
     },
   });
 
-  fireEvent.click(view.getByRole("button", { name: "Select Blob" }));
+  fireEvent.click(view.getByRole("button", { name: "Attach Existing" }));
 
   expect(picks).toBe(1);
 });

@@ -51,15 +51,42 @@
   font-size: var(--font-size-sm);
 }
 
+/* Every row is as tall as one with a copy button, so the rows keep an even
+   rhythm whether or not they carry one. */
+.identity-manager-details dt,
+.identity-manager-details dd {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+}
+
 .identity-manager-details dt {
   opacity: var(--opacity-muted);
 }
 
 .identity-manager-details dd {
-  display: flex;
-  align-items: center;
   gap: var(--space-xs);
   margin: 0;
+  min-width: 0;
+}
+
+.identity-manager-danger-zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  max-width: var(--form-measure);
+  margin-top: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border: var(--border-width) solid
+    color-mix(in srgb, var(--color-danger) 35%, transparent);
+  border-radius: var(--app-radius-control);
+}
+
+.identity-manager-danger-zone-copy {
+  display: grid;
+  gap: var(--space-2xs);
   min-width: 0;
 }
 

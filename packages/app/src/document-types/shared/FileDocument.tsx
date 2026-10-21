@@ -22,7 +22,6 @@ import {
   useDocument,
   useDocumentReadOnly,
 } from "../../stores/documents/DocumentsProvider";
-import { formatByteLength } from "../../utils/formatByteLength";
 import "./FileDocument.css";
 import {
   type FileDocumentPdfPreview,
@@ -35,6 +34,11 @@ import {
   useFileDocumentMediaPreview,
 } from "./FileDocumentPreview";
 import {
+  type FileDocumentExtraField,
+  type FileDocumentField,
+  useFileDocumentReadFields,
+} from "./fileDocumentReadFields";
+import {
   downloadResolvedAttachment,
   resolveDownloadableAttachment,
 } from "./fileDownload";
@@ -45,22 +49,7 @@ import {
 } from "./StructuredDocument";
 
 const FILE_DOCUMENT_EMPTY_VALUE = "—";
-
-interface FileDocumentField {
-  label: string;
-  value: string;
-}
-
-function formatStoredByteLength(value: string): string {
-  if (value.trim().length === 0) {
-    return value;
-  }
-
-  const byteLength = Number(value);
-  return Number.isFinite(byteLength) && byteLength >= 0
-    ? formatByteLength(byteLength)
-    : value;
-}
+const NO_EXTRA_FIELDS: ReadonlyArray<FileDocumentExtraField> = [];
 
 // A metadata field is rendered, never an input: size, MIME type, and the like
 // are derived from the uploaded bytes and are not user-editable.
@@ -273,31 +262,6 @@ export function resolveFileDocumentAttachmentNotice(input: {
   return null;
 }
 
-function useFileDocumentReadFields(params: {
-  extraFieldLabels: Readonly<Record<string, string>>;
-  structuredFields: Readonly<Record<string, string>>;
-}): FileDocumentField[] {
-  const { extraFieldLabels, structuredFields } = params;
-  return useMemo<FileDocumentField[]>(() => {
-    const {
-      byteLength = "",
-      mimeType = "",
-      sourceLastModified = "",
-    } = structuredFields;
-    const output: FileDocumentField[] = [
-      { label: "MIME Type", value: mimeType },
-      { label: "Size", value: formatStoredByteLength(byteLength) },
-      { label: "Source Modified", value: sourceLastModified },
-    ];
-
-    for (const [field, label] of Object.entries(extraFieldLabels)) {
-      output.push({ label, value: structuredFields[field] ?? "" });
-    }
-
-    return output;
-  }, [extraFieldLabels, structuredFields]);
-}
-
 // The held file (latest slot with local bytes) drives both the download
 // handler and the differs notice.
 function useFileDocumentAttachmentState(input: {
@@ -331,11 +295,11 @@ function useFileDocumentAttachmentState(input: {
 // the read-only metadata rows, the rename commit, the download handler, and the
 // edit/download enablement. Kept as a hook so the component stays a thin shell.
 function useFileDocument(params: {
-  extraFieldLabels: Readonly<Record<string, string>>;
+  extraFields: ReadonlyArray<FileDocumentExtraField>;
   initialEditing?: boolean | undefined;
   title: string;
 }) {
-  const { extraFieldLabels, initialEditing, title } = params;
+  const { extraFields, initialEditing, title } = params;
   const { infra, util } = useTearleadsRuntime();
   const fileSaver = useFileSaver();
   const fileViewer = useFileViewer();
@@ -357,7 +321,7 @@ function useFileDocument(params: {
 
   const { fileName = "" } = structuredFields;
   const readFields = useFileDocumentReadFields({
-    extraFieldLabels,
+    extraFields,
     structuredFields,
   });
 
@@ -438,12 +402,12 @@ function useFileDocument(params: {
 }
 
 export function FileDocument(params: {
-  extraFieldLabels?: Readonly<Record<string, string>> | undefined;
+  extraFields?: ReadonlyArray<FileDocumentExtraField> | undefined;
   initialEditing?: boolean | undefined;
   title: string;
 }) {
-  const { extraFieldLabels = {}, initialEditing, title } = params;
-  const model = useFileDocument({ extraFieldLabels, initialEditing, title });
+  const { extraFields = NO_EXTRA_FIELDS, initialEditing, title } = params;
+  const model = useFileDocument({ extraFields, initialEditing, title });
   const readOnly = useDocumentReadOnly();
 
   return (

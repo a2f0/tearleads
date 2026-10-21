@@ -112,7 +112,7 @@ export const HOUSEHOLD_SCREENS = [
     { name: "appliance-receipt", expected: seedExpectations.appliances[0] },
   ].map(({ name, expected }) => {
     if (!expected) throw new Error(`Missing receipt capture fixture: ${name}`);
-    return { name, open: openDocumentImage(expected, "Receipt Image") };
+    return { name, open: openDocumentImage(expected, "Receipt") };
   }),
   {
     name: "weight-detail",

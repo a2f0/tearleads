@@ -28,7 +28,7 @@ type BackupRestoreState = ReturnType<typeof useBackupRestoreState>;
 function formatSummary(summary: BackupSummary): string {
   const missingBlobText =
     summary.missingBlobCount > 0
-      ? `, ${summary.missingBlobCount} missing blobs`
+      ? `, ${summary.missingBlobCount} missing files`
       : "";
 
   return `${summary.rowCount} rows, ${summary.blobCount} blobs${missingBlobText}`;

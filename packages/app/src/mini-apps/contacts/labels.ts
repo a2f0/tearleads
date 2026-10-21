@@ -15,6 +15,7 @@ export const CONTACTS_LABELS = {
   nicknameField: "Nickname",
   removeContactAction: "Move to Trash",
   selectState: "Select a contact.",
+  unnamedContact: "Unnamed contact",
   unauthenticatedImportState:
     "Sign in to verify this identity link and add the contact.",
   userIdField: "Tearleads user ID",
