@@ -17,7 +17,7 @@ export function Notes({
 }) {
   const { requestSync } = useDocument();
   // The optional container/local ids wire the note editor's blob picker to the
-  // active note; the standalone list home omits them and the "Select Blob"
+  // active note; the standalone list home omits them and the "Attach Existing"
   // control stays hidden.
   const model = useNoteEditorFields({
     containerId,

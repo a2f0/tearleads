@@ -42,9 +42,9 @@ function ToolbarProbe() {
 }
 
 const readFields = [
-  { label: "MIME Type", value: "image/png" },
+  { label: "File Type", value: "image/png" },
   { label: "Size", value: "1.2 kB" },
-  { label: "Source Modified", value: "" },
+  { label: "Last Modified", value: "" },
 ];
 const pngAttachment: DocumentAttachment = {
   contentSha256: "1".repeat(64),
@@ -155,7 +155,7 @@ test("edit mode exposes only the file name as an editable input", () => {
   const nameInput = view.getByLabelText("File Name") as HTMLInputElement;
   expect(nameInput.value).toBe("report.png");
   // Metadata fields stay read-only text even while editing the name.
-  expect(view.queryByLabelText("MIME Type")).toBeNull();
+  expect(view.queryByLabelText("File Type")).toBeNull();
   expect(view.queryByLabelText("Size")).toBeNull();
   expect(view.getByText("image/png")).toBeTruthy();
 });

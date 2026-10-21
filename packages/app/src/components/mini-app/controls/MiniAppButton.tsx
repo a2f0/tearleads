@@ -13,7 +13,8 @@ import "./MiniAppButton.css";
 import type { DiagnosticAction } from "../../../host/AppDiagnostics";
 import { useDiagnosticBreadcrumb } from "../../../providers/logging/useDiagnosticBreadcrumb";
 
-type MiniAppButtonVariant = "default" | "ghost";
+/** "danger" marks a destructive action, such as destroying a key pair. */
+type MiniAppButtonVariant = "default" | "danger" | "ghost";
 
 type MiniAppButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   block?: boolean | undefined;

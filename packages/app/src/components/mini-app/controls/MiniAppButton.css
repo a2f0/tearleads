@@ -59,6 +59,16 @@
   gap: var(--space-xs);
 }
 
+.mini-app-button--danger {
+  border-color: color-mix(in srgb, var(--color-danger) 55%, transparent);
+  color: var(--color-danger);
+}
+
+.mini-app-button--danger:hover:not(:disabled),
+.mini-app-button--danger:focus-visible:not(:disabled) {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+}
+
 .mini-app-button--ghost {
   border-color: transparent;
   padding-inline: var(--space-sm);

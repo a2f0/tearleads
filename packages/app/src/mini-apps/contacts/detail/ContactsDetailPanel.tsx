@@ -9,6 +9,7 @@ import {
   useWindowTitleBarAction,
 } from "@tearleads/windowing";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { ShareIdentityLink } from "../../../components/identity/ShareIdentityLink";
 import {
   MiniAppField,
   MiniAppFormPanel,
@@ -147,6 +148,7 @@ function ContactsSelectionState({
         }}
         values={toContactFieldValues(selectedEntry)}
       />
+      {selectedEntry.isSelf && <ShareIdentityLink />}
     </MiniAppPanel>
   );
 }

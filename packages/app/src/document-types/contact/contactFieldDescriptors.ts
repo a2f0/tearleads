@@ -39,7 +39,7 @@ export const CONTACT_FIELD_LABELS = {
   firstName: "First name",
   lastName: "Last name",
   nickname: "Nickname",
-  none: "None",
+  noDetails: "No details yet.",
   userId: "Tearleads user ID",
 } as const;
 

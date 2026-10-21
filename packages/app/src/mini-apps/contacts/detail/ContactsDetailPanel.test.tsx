@@ -204,7 +204,9 @@ test("contacts selected detail opens read-only before entering edit mode", () =>
     selectedContactId: contactEntry.id,
   });
 
-  expect(view.getByText("Countess")).toBeTruthy();
+  // The display name heads the card; the nickname row repeats it as a field.
+  expect(view.getByRole("heading", { name: "Countess" })).toBeTruthy();
+  expect(view.getByText("Nickname")).toBeTruthy();
   expect(view.queryByLabelText("Nickname")).toBeNull();
 
   fireEvent.click(view.getByRole("button", { name: "Edit" }));
@@ -421,7 +423,7 @@ test("contacts detail does not open the area context menu from contact rows", ()
     selectedContactId: contactEntry.id,
   });
 
-  fireEvent.contextMenu(view.getByText("Countess"));
+  fireEvent.contextMenu(view.getByText("Nickname"));
 
   expect(areaContextMenuCount).toBe(0);
 });

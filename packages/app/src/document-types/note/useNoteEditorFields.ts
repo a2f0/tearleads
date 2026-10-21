@@ -64,7 +64,7 @@ interface NoteEditorFieldsModel {
   handleRemoveAttachment: (slotId: string) => void;
   // Opens the host's blob picker to attach an existing blob. `undefined` when no
   // blob picker is available (no host mounted, or the container has no blobs) so
-  // the "Select Blob" control stays hidden — mirrors the structured-document
+  // the "Attach Existing" control stays hidden — mirrors the structured-document
   // "Choose Blob" affordance.
   handleSelectBlob: (() => void) | undefined;
   handleSelectedFiles: (fileList: FileList | null) => void;
@@ -211,7 +211,7 @@ function useNoteAttachmentActions({
 // mounted or the container is empty. The note has no fixed slots, so the picked
 // blob is appended as a new attachment (via attachFiles) rather than bound to a
 // slot; the routing slot id is inert. Returns `undefined` when picking is
-// unavailable so the "Select Blob" button stays hidden.
+// unavailable so the "Attach Existing" button stays hidden.
 function useNoteBlobPickAttachment(params: {
   attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) => void;
   blobStore: BlobStore;
@@ -250,7 +250,7 @@ function useNoteBlobPickAttachment(params: {
 // and the explorer's note document renderer build on this so the editor and
 // attachment behavior stay identical across the two surfaces. The optional
 // container/local ids let the explorer surface wire the blob picker; the
-// standalone mini-app omits them and the "Select Blob" control stays hidden.
+// standalone mini-app omits them and the "Attach Existing" control stays hidden.
 export function useNoteEditorFields(
   params: { containerId?: string | null; localId?: string | undefined } = {},
 ): NoteEditorFieldsModel {
@@ -315,7 +315,7 @@ export function useNoteEditorFields(
     handleDownloadAttachment,
     handleRemoveAttachment,
     // A read-only note can't attach, so suppress the blob picker even if a host
-    // is mounted with pickable blobs — keeps "Select Blob" in lockstep with the
+    // is mounted with pickable blobs — keeps "Attach Existing" in lockstep with the
     // upload control's interactivity gate.
     handleSelectBlob: canAttach && canWrite ? handleSelectBlob : undefined,
     handleSelectedFiles,

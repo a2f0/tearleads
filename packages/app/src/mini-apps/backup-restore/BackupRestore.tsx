@@ -36,12 +36,12 @@ const BACKUP_RESTORE_TABS_LABEL = "Backup and restore sections";
 
 function formatProgress(progress: BackupProgress): string {
   const labels: Record<BackupProgress["phase"], string> = {
-    blobs: "OPFS blobs",
-    database: "SQLite rows",
+    blobs: "Files",
+    database: "Database rows",
     decrypting: "Decrypting backup",
     encrypting: "Encrypting backup",
     preparing: "Preparing data",
-    restoring: "Restoring SQLite",
+    restoring: "Restoring database",
   };
   const count =
     progress.total > 0 ? ` ${progress.current}/${progress.total}` : "";
@@ -63,11 +63,11 @@ function BackupSummaryDetails({
       <dd>{lastSummary.tableCount}</dd>
       <dt>Rows</dt>
       <dd>{lastSummary.rowCount}</dd>
-      <dt>OPFS blobs</dt>
+      <dt>Files</dt>
       <dd>{lastSummary.blobCount}</dd>
-      <dt>Blob bytes</dt>
+      <dt>File data</dt>
       <dd>{formatByteSize(lastSummary.blobBytes)}</dd>
-      <dt>Missing blobs</dt>
+      <dt>Missing files</dt>
       <dd>{lastSummary.missingBlobCount}</dd>
     </dl>
   );

@@ -3,7 +3,7 @@ import { MiniAppButton } from "../../components/mini-app/MiniAppLayout";
 
 // The shared "attach something" control used across document attachment
 // surfaces: the structured-document image slots (Upload / Choose Blob / Clear)
-// and the note attachments panel (Upload / Select Blob). Centralizing the
+// and the note attachments panel (Upload / Attach Existing). Centralizing the
 // chrome here keeps every attach affordance visually and behaviorally identical
 // no matter which document type renders it. Callers supply the label plus an
 // optional leading icon via `children`; `ariaLabel` overrides the accessible
