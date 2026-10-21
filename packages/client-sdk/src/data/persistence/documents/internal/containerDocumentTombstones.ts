@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   documentContainerProjection,
@@ -10,6 +10,10 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
+import {
+  deleteDocumentPlacementRowInTransaction,
+  deleteUnlinkedDocumentPlacementRowsInTransaction,
+} from "../../container-contents/documentContainerProjectionPersistence";
 import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
 import { getLatestTimestamp } from "../../latestTimestamp";
 import type { ContainerDocumentTombstoneInput } from "../types";
@@ -90,28 +94,14 @@ async function deleteContainerDocumentTombstoneRows(
   >,
 ): Promise<void> {
   for (const tombstone of uniqueTombstones) {
-    await tx
-      .delete(documentContainerProjection)
-      .where(
-        and(
-          eq(documentContainerProjection.documentId, tombstone.documentId),
-          eq(documentContainerProjection.containerId, tombstone.containerId),
-        ),
-      )
-      .run();
+    await deleteDocumentPlacementRowInTransaction(tx, tombstone);
   }
   for (const [documentId, linked] of verifiedLinkedContainerIdsByDocumentId) {
-    await tx
-      .delete(documentContainerProjection)
-      .where(
-        linked.size === 0
-          ? eq(documentContainerProjection.documentId, documentId)
-          : and(
-              eq(documentContainerProjection.documentId, documentId),
-              notInArray(documentContainerProjection.containerId, [...linked]),
-            ),
-      )
-      .run();
+    await deleteUnlinkedDocumentPlacementRowsInTransaction(
+      tx,
+      documentId,
+      linked,
+    );
   }
 }
 

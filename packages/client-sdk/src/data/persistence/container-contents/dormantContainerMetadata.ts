@@ -1,11 +1,7 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
-import {
-  documentHistoryCheckpoints,
-  documentHistoryUpdates,
-  documents,
-  dormantContainerMetadata,
-} from "../../sqlite/schema";
+import { inArray, sql } from "drizzle-orm";
+import { dormantContainerMetadata } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
+import { deleteDocumentScopeRowsInTransaction } from "../documents/records/documentRowsInTransaction";
 
 export const CONTAINER_METADATA_APP_KIND = "container-metadata";
 
@@ -58,32 +54,10 @@ export async function deleteContainerMetadataDocumentRowsInTransaction(
   if (ids.length === 0) {
     return;
   }
-  await tx
-    .delete(documents)
-    .where(
-      and(
-        eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documents.localId, ids),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentHistoryCheckpoints)
-    .where(
-      and(
-        eq(documentHistoryCheckpoints.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documentHistoryCheckpoints.localId, ids),
-      ),
-    )
-    .run();
-  await tx
-    .delete(documentHistoryUpdates)
-    .where(
-      and(
-        eq(documentHistoryUpdates.appKind, CONTAINER_METADATA_APP_KIND),
-        inArray(documentHistoryUpdates.localId, ids),
-      ),
-    )
-    .run();
+  await deleteDocumentScopeRowsInTransaction(
+    tx,
+    CONTAINER_METADATA_APP_KIND,
+    ids,
+  );
   await clearDormantContainerMetadataInTransaction(tx, ids);
 }

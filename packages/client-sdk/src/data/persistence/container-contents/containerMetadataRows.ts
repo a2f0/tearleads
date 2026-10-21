@@ -12,6 +12,10 @@ import {
   documentRecordSelection,
   mapSelectedDocumentRecord,
 } from "../documents/records";
+import {
+  upsertDocumentHistoryCheckpointInTransaction,
+  upsertDocumentRowInTransaction,
+} from "../documents/records/documentRowsInTransaction";
 import type {
   ContainerCreateIntentInput,
   ContainerMetadataRecord,
@@ -80,14 +84,7 @@ async function saveContainerMetadataRecord(input: {
     updatedAt,
   };
 
-  await tx
-    .insert(documents)
-    .values(nextRow)
-    .onConflictDoUpdate({
-      target: [documents.appKind, documents.localId],
-      set: nextRow,
-    })
-    .run();
+  await upsertDocumentRowInTransaction(tx, nextRow);
 
   // The metadata document's content lives in the shared history-checkpoint
   // table, like every other document kind. The whole updates export IS the
@@ -101,17 +98,7 @@ async function saveContainerMetadataRecord(input: {
     revision: updatedAt,
     updatedAt,
   };
-  await tx
-    .insert(documentHistoryCheckpoints)
-    .values(checkpointRow)
-    .onConflictDoUpdate({
-      target: [
-        documentHistoryCheckpoints.appKind,
-        documentHistoryCheckpoints.localId,
-      ],
-      set: checkpointRow,
-    })
-    .run();
+  await upsertDocumentHistoryCheckpointInTransaction(tx, checkpointRow);
 }
 
 export async function saveContainerContentsContainerRows(input: {

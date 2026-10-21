@@ -70,12 +70,14 @@ export const keyingVerificationTables = [
 export const securityIncidentTables = ["securityIncidents"];
 
 // Container Contents is a read model over documents and their placements; its
-// listing, pending-write, and priming queries join the document tables. Keying
+// listing, pending-write, and priming queries join the document tables, and it
+// loads each folder's metadata document from its history checkpoint. Keying
 // reads discovery evidence to choose which verified bundles a request cites.
 export const documentStoreReadableTables = [
   "containerDocumentTombstoneHolds",
   "documentAttachmentBlobProjection",
   "documentDiscoveryHeads",
+  "documentHistoryCheckpoints",
   "documentHistoryUpdates",
   "documentPendingAttachments",
   "documentProjection",
