@@ -86,7 +86,17 @@ Bundle builds and mocked Terraform tests validate code only.
 
 Terraform provider updates require reviewed plans and lockfiles for Linux amd64
 and macOS arm64. SQLite archive updates require a verified checksum and a rebuilt
-wasm artifact. Native updates require their platform builds in addition to the
+wasm artifact. Preserve encrypted databases across SQLite runtime updates:
+`packages/sqlite-worker/tests/cipherUpgrade.test.ts` opens historical encrypted
+bytes through the production loader, checks the wrong-key boundary, and verifies
+reads and writes after reopening. Keep that fixture when upgrading. ChaCha20's
+[2.5.1](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.5.1/src/cipher_chacha20.c#L14-L48)
+and [2.6.1](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.6.1/src/cipher_chacha20.c#L14-L48)
+parameter tables retain legacy mode 0 and 64007 key-derivation iterations; revisit
+those defaults and persisted-file compatibility before changing the cipher.
+The memory OPFS shim exercises the real codec; browser OPFS checks remain
+necessary for changes to the browser storage integration.
+Native updates require their platform builds in addition to the
 workspace checks. Deployments use the reviewed source and lockfiles; dependency
 updates do not implicitly reset application databases.
 
