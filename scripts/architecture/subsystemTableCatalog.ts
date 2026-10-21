@@ -201,8 +201,8 @@ export class TableResolver {
     );
   }
 
-  /** The property names of an expression's type. */
-  propertyNames(expression: ts.Expression): string[] {
+  /** The property names of an expression's or pattern's type. */
+  propertyNames(expression: ts.Expression | ts.BindingPattern): string[] {
     return this.checker
       .getTypeAtLocation(expression)
       .getProperties()
@@ -276,31 +276,68 @@ function readTableSymbols(
   return { declaringFiles, tableBySymbol, tablesBySqlName };
 }
 
-/** The keys of every exported schema object, as Drizzle's `db.query` sees them. */
-function readQueryKeys(
-  checker: ts.TypeChecker,
-  schemaSources: readonly ts.SourceFile[],
-  resolver: TableResolver,
-): Map<string, string> {
-  const tablesByQueryKey = new Map<string, string>();
-  for (const statement of schemaSources.flatMap(
-    (source) => source.statements,
-  )) {
-    if (!ts.isVariableStatement(statement) || !isExported(statement)) continue;
-    for (const declaration of statement.declarationList.declarations) {
-      const initializer = declaration.initializer;
-      if (
-        initializer === undefined ||
-        !ts.isObjectLiteralExpression(unwrap(initializer))
-      ) {
+/** Drizzle's `schema` option builds the database `db.query` reads through. */
+export function isDrizzleSchemaOption(node: ts.Expression): boolean {
+  const option = node.parent;
+  const call = option.parent?.parent;
+  return (
+    ts.isPropertyAssignment(option) &&
+    option.initializer === node &&
+    literalKey(option.name) === "schema" &&
+    call !== undefined &&
+    ts.isCallExpression(call) &&
+    ts.isIdentifier(call.expression) &&
+    call.expression.text === "drizzle"
+  );
+}
+
+/** Schema values: exported schema objects and whatever reaches `drizzle`. */
+function schemaValues(
+  sources: readonly (readonly [string, ts.SourceFile])[],
+  isSchemaModule: (filePath: string) => boolean,
+): ts.Node[] {
+  const values: ts.Node[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isExpression(node) && isDrizzleSchemaOption(node)) values.push(node);
+    ts.forEachChild(node, visit);
+  };
+  for (const [filePath, source] of sources) {
+    visit(source);
+    if (!isSchemaModule(filePath)) continue;
+    for (const statement of source.statements) {
+      if (!ts.isVariableStatement(statement) || !isExported(statement)) {
         continue;
       }
-      for (const property of checker
-        .getTypeAtLocation(declaration.name)
-        .getProperties()) {
-        const table = resolver.symbol(property);
-        if (table !== undefined) tablesByQueryKey.set(property.name, table);
+      for (const declaration of statement.declarationList.declarations) {
+        const initializer = declaration.initializer;
+        if (
+          initializer !== undefined &&
+          ts.isObjectLiteralExpression(unwrap(initializer))
+        ) {
+          values.push(declaration.name);
+        }
       }
+    }
+  }
+  return values;
+}
+
+/**
+ * The keys Drizzle's `db.query` serves tables under: each table's export name,
+ * as a schema module namespace keys it, and every key of a schema value.
+ */
+function readQueryKeys(
+  checker: ts.TypeChecker,
+  schemaNodes: readonly ts.Node[],
+  resolver: TableResolver,
+  tableNames: Iterable<string>,
+): Map<string, string> {
+  const tablesByQueryKey = new Map<string, string>();
+  for (const table of tableNames) tablesByQueryKey.set(table, table);
+  for (const node of schemaNodes) {
+    for (const property of checker.getTypeAtLocation(node).getProperties()) {
+      const table = resolver.symbol(property);
+      if (table !== undefined) tablesByQueryKey.set(property.name, table);
     }
   }
   return tablesByQueryKey;
@@ -328,10 +365,9 @@ export function readTableCatalog(
     resolver,
     tablesByQueryKey: readQueryKeys(
       checker,
-      sources
-        .filter(([filePath]) => isSchemaModule(filePath))
-        .map(([, source]) => source),
+      schemaValues(sources, isSchemaModule),
       resolver,
+      tableBySymbol.values(),
     ),
     tablesBySqlName,
   };

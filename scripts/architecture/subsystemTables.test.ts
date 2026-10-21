@@ -202,6 +202,12 @@ const schemaFixtures: Record<string, readonly string[]> = {
     'export * from "./cycleA";',
     'export const cycleBRows = sqliteTable("cycle_b_rows", {});',
   ],
+  "/fixture/sqlite/namespaceRuntime.ts": [
+    'import * as extraTables from "./schema/extra";',
+    'import * as aliasedTables from "./schema/alias";',
+    "export const extraDb = drizzle(execute, { schema: extraTables });",
+    "export const aliasedDb = drizzle(execute, { schema: aliasedTables });",
+  ],
   "/fixture/sqlite/runtime.ts": [
     "declare function drizzle<S>(",
     "  execute: unknown,",
@@ -277,6 +283,11 @@ const useFixtures: Record<string, readonly string[]> = {
   "/fixture/a/viaRelationalArgument.ts": [
     'import { db } from "../sqlite/runtime";',
     "export const x = listAll(db.query);",
+  ],
+  "/fixture/a/viaNamespaceQuery.ts": [
+    'import { aliasedDb, extraDb } from "../sqlite/namespaceRuntime";',
+    "export const x = extraDb.query.extraRows.findMany();",
+    "export const y = aliasedDb.query.rows.findMany();",
   ],
   "/fixture/a/viaColumnDestructure.ts": [
     'import { betaRows } from "../sqlite/schema";',
@@ -374,6 +385,8 @@ const expectedViolations = [
   "/fixture/a/viaImport.ts reads betaRows, which Beta does not expose for reading",
   "/fixture/a/viaLoop.ts writes betaLog, which Beta owns",
   "/fixture/a/viaNamespace.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaNamespaceQuery.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaNamespaceQuery.ts reads extraRows, which Beta does not expose for reading",
   "/fixture/a/viaParameterDefault.ts writes betaRows, which Beta owns",
   "/fixture/a/viaQuotedKey.ts writes betaRows, which Beta owns",
   "/fixture/a/viaRawSql.ts writes betaLog, which Beta owns",

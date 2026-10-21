@@ -229,6 +229,10 @@ table is checked where it is read or written. A file reaches a table by:
   destructured key of `db.query`;
 - naming it in raw SQL in a string or template.
 
+`db.query` serves each table under its export name, as a schema module
+namespace keys it, and under every key of an exported schema object or of
+whatever reaches `drizzle`'s `schema` option.
+
 A column reference, destructured columns, `.from(...)`, a join, `typeof`,
 `db.query`, and SQL `FROM`/`JOIN` read a table; `insert`, `update`, `delete`,
 and SQL `INSERT`, `UPDATE`, and `DELETE` write it. Any other use, such as

@@ -1,6 +1,7 @@
 import * as ts from "typescript";
 import {
   elementKey,
+  isDrizzleSchemaOption,
   literalKey,
   readTableCatalog,
   type TableCatalog,
@@ -151,18 +152,27 @@ function isDestructuredSource(node: ts.Node): boolean {
 }
 
 /**
- * Drizzle's relational API only reads: one table by key, or every table it
- * serves when the key is computed or the query object is passed along.
+ * Drizzle's relational API only reads: one table by key, or, when the key is
+ * computed or the query object is passed along, every table its type serves,
+ * or every table at all when its type is unknown.
  */
 function relationalUses(
   catalog: TableCatalog,
+  owner: ts.Expression | ts.BindingPattern,
   key: string | undefined,
 ): [string, TableAccess][] {
-  const tables =
-    key === undefined
-      ? [...new Set(catalog.tablesByQueryKey.values())]
-      : [catalog.tablesByQueryKey.get(key)];
-  return tables.flatMap((table) =>
+  const served = catalog.resolver
+    .propertyNames(owner)
+    .filter((name) => catalog.tablesByQueryKey.has(name));
+  const keys =
+    key !== undefined
+      ? [key]
+      : served.length > 0
+        ? served
+        : [...catalog.tablesByQueryKey.keys()];
+  return [
+    ...new Set(keys.map((name) => catalog.tablesByQueryKey.get(name))),
+  ].flatMap((table) =>
     table === undefined ? [] : [[table, "read"] as [string, TableAccess]],
   );
 }
@@ -174,6 +184,7 @@ function accessUses(
   if (catalog.resolver.isRelational(node.expression)) {
     return relationalUses(
       catalog,
+      node.expression,
       ts.isPropertyAccessExpression(node)
         ? node.name.text
         : elementKey(node.argumentExpression),
@@ -189,20 +200,6 @@ function accessUses(
       .map((table) => [table, "write"] as [string, TableAccess]);
   }
   return isAliasInitializer(node) ? [] : valueUses(catalog, node);
-}
-
-/** Drizzle's `schema` option builds the database `db.query` reads through. */
-function isDrizzleSchemaOption(node: ts.Expression): boolean {
-  const option = node.parent;
-  const call = option.parent?.parent;
-  return (
-    ts.isPropertyAssignment(option) &&
-    literalKey(option.name) === "schema" &&
-    call !== undefined &&
-    ts.isCallExpression(call) &&
-    ts.isIdentifier(call.expression) &&
-    call.expression.text === "drizzle"
-  );
 }
 
 /**
@@ -247,7 +244,7 @@ function valueUses(
       .propertyNames(node)
       .some((key) => catalog.tablesByQueryKey.has(key))
   ) {
-    return relationalUses(catalog, undefined);
+    return relationalUses(catalog, node, undefined);
   }
   return catalog.resolver
     .typeTables(node)
@@ -267,7 +264,7 @@ function bindingUses(
   if (node.dotDotDotToken || !ts.isObjectBindingPattern(pattern)) return [];
   const key = literalKey(node.propertyName ?? node.name);
   if (catalog.resolver.isRelationalPattern(pattern)) {
-    return relationalUses(catalog, key);
+    return relationalUses(catalog, pattern, key);
   }
   if (key === undefined) {
     return catalog.resolver
