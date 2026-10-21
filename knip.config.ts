@@ -69,10 +69,13 @@ const baseConfig = {
       project: ["src/**/*.ts", "scripts/**/*.ts"],
     },
     "packages/app": {
-      // The `screenshots:seed` CLI (test/screenshot-seed/buildScreenshotSeed.ts)
-      // is auto-detected from the root package.json script; its sibling test is
-      // declared here so knip does not flag it (it lives under test/, not src/).
-      entry: ["src/**/*.test.{ts,tsx}", "test/screenshot-seed/**/*.test.ts"],
+      // The root screenshots:seed script crosses into this workspace; Knip
+      // 6.42 needs its CLI and the tests outside src declared explicitly.
+      entry: [
+        "src/**/*.test.{ts,tsx}",
+        "test/screenshot-seed/buildScreenshotSeed.ts",
+        "test/screenshot-seed/**/*.test.ts",
+      ],
       project: ["src/**/*.{ts,tsx}", "test/**/*.{ts,tsx}"],
       includeEntryExports: true,
     },

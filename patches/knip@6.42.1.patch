@@ -1,5 +1,5 @@
 diff --git a/dist/WorkspaceWorker.js b/dist/WorkspaceWorker.js
-index a7f3f47cf6627610711651dd4e146e9a1dd65971..37586c0c2f804f707b34098874296ff3a90797f8 100644
+index 21859241f8c2a9f1f50ecf961348b05eef1153c6..f707c4a7c5596a4130ed7d35f7e4a7dc6508abf7 100644
 --- a/dist/WorkspaceWorker.js
 +++ b/dist/WorkspaceWorker.js
 @@ -265,7 +265,7 @@ export class WorkspaceWorker {

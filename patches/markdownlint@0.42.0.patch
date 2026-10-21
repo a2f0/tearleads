@@ -1,8 +1,8 @@
 diff --git a/lib/markdownlint.mjs b/lib/markdownlint.mjs
-index db3d89d0fb131fcd206ef3e285ab79f8b48e01f1..b2741ba7da92a487d71728cea375fccb6f10d844 100644
+index 8183749c459a925a9fea39c2e567d792b1b82534..27f43f0855b7a94cd90ba4d5ecc181253c158762 100644
 --- a/lib/markdownlint.mjs
 +++ b/lib/markdownlint.mjs
-@@ -233,7 +233,8 @@ function getEffectiveConfig(ruleList, config, aliasToRuleNames) {
+@@ -235,7 +235,8 @@ function getEffectiveConfig(ruleList, config, aliasToRuleNames) {
      let severity = "error";
      let effectiveValue = {};
      if (value) {
@@ -11,4 +11,4 @@ index db3d89d0fb131fcd206ef3e285ab79f8b48e01f1..b2741ba7da92a487d71728cea375fccb
 +          ((typeof value === "object") && (Object.getPrototypeOf(value) === null))) {
          /** @type {{ enabled?: boolean, severity?: "error" | "warning" }} */
          const valueObject = value;
-         enabled = (valueObject.enabled === undefined) ? true : !!valueObject.enabled;
+         enabled = (valueObject.enabled === undefined) || !!valueObject.enabled;

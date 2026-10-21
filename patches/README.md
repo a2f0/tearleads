@@ -9,9 +9,9 @@ compiler, so synchronized iOS builds fail before compiling the app. The string
 form keeps the iOS 18 floor without raising the Swift tools version. Remove the
 patch when Capacitor generates compatible manifests upstream.
 
-## Knip 6.40.0
+## Knip 6.42.1
 
-`knip@6.40.0.patch` preserves the production flag on entries discovered from
+`knip@6.42.1.patch` preserves the production flag on entries discovered from
 production package scripts, such as `start`. Without it, Knip classifies
 `bun src/index.ts` as a development entry and excludes it even when the
 configuration explicitly marks `src/index.ts!` as a production root.
@@ -25,9 +25,9 @@ passes `bun run test:knip:production` without the patch. That regression also
 requires modules reachable only through tests to remain unused, and preserves
 public SDK source exports whose manifest targets generated `dist` files.
 
-## Markdownlint 0.41.1
+## Markdownlint 0.42.0
 
-`markdownlint@0.41.1.patch` accepts null-prototype nested rule options produced
+`markdownlint@0.42.0.patch` accepts null-prototype nested rule options produced
 by the security-fixed Smol-TOML 1.9 parser. Otherwise the normalizer silently
 discards those options, changing custom line-length limits and disabled rules.
 The patch preserves its existing ordinary-object behavior.

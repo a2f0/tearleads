@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import wasm from "vite-plugin-wasm";
 
-import { sentryAssetsPlugin } from "./scripts/sentryAssetsPlugin";
+import { sentryAssetsPlugin } from "./scripts/sentryAssetsPlugin.ts";
 
 // Build identity for the System Monitor's Environment tab and support report.
 // The web and electrobun targets get these from scripts/lib/withBuildInfoEnv.sh,

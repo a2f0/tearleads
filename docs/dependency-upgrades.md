@@ -19,10 +19,13 @@ and [#2474](https://github.com/a2f0/tearleads/pull/2474); those PRs retain migra
 and validation history. Revisit these constraints when updating their owning
 package or runtime, and remove them when the stated checks pass without the pin.
 
+- Biome stays on 2.5.15 until [grid-cell counting](https://github.com/biomejs/biome/issues/12502)
+  is fixed: 2.6.2 compares CSS grid row text lengths and rejects valid layouts.
+  Revisit with `bun run lint:biome`; keep the layout rules enabled.
 - TypeScript stays on 6.0.3 while the lint scripts use its JavaScript compiler
   API. Move beyond that line only after those consumers and the static gates
   work with the replacement API; a passing compiler alone is insufficient.
-- MSW stays on 2.15.0: 3.0.2 bypasses request handlers under pinned Bun 1.4.2.
+- MSW stays on 2.15.0: 3.0.3 bypasses request handlers under pinned Bun 1.4.3.
   Revisit when MSW/Bun changes, proving interception and strict unhandled-request
   rejection under the pinned Bun runtime, not only Node.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
@@ -33,12 +36,12 @@ package or runtime, and remove them when the stated checks pass without the pin.
 - RevenueCat native SDK pins follow the Capacitor purchase bridge's dependency
   chain, including the direct Xcode package pin. Align those pins before
   rebuilding both native platforms; do not update transitive SDKs independently.
-- Android uses AGP 9's built-in Kotlin support, compile SDK 36, AndroidX Core
-  1.18.0, and the Capacitor template's Cordova 14.0.1. The biometric plugin's
-  `FingerprintManager` dependency prevents SDK 37 and therefore Core 1.19.
-  Revisit together when the plugin supports SDK 37 and native builds pass.
-- Java 25 LTS supports the pinned Gradle 9.8.0; Java 27 does not. Change the
-  pair only after upstream compatibility and the Android build are verified.
+- Android uses AGP 9's built-in Kotlin support, compile SDK 37, AndroidX Core
+  1.19.1, and the Capacitor template's Cordova 14.0.1. Biometric 8.9.1 supports
+  the hidden `FingerprintManager` API through reflection. Keep target SDK 36
+  until a separate Android behavior migration validates a higher target.
+- Java 25 LTS remains the supported Android runtime with Gradle 9.8.2. Change
+  the pair only after upstream compatibility and the Android build are verified.
 - LocalStack 4.14.0 supports the local workflow without account credentials.
   Preserve that workflow when considering a newer release.
 - CI uses PostgreSQL 18.6; staging uses distribution-managed PostgreSQL 16.

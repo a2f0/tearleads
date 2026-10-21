@@ -1,6 +1,6 @@
 ---
 name: update-dependencies
-description: Update a repository's dependency manifests, lockfiles, runtimes, tools, and CI pins with upstream migrations, compatibility checks, and non-destructive infrastructure previews.
+description: Update repository dependencies, runtimes, tools, and CI pins with compatibility checks and safe infrastructure previews, then ship through review, CI, merge, and release verification unless a narrower scope is requested.
 ---
 
 # Update Dependencies
@@ -10,10 +10,14 @@ README, existing dependency-maintenance notes, linked setup/release documents,
 and repository-owned upgrade skills before editing. Follow their hooks, version
 policy, checks, and requested stopping point.
 Update applicable dependencies throughout the repository, including workspaces
-and examples. This skill does not authorize deploying, merging, publishing, or
-changing global tools; use existing user authorization and `ship-pr` when shipping
-is requested. Default dependency-update merge subject: `chore: update dependencies`,
-subject to repository title policy and any explicit user subject.
+and examples. When asked to perform dependency updates, invoke the installed
+[`ship-pr`](../ship-pr/SKILL.md) to complete review, PR, CI, and merge, then verify
+the repository's normal merge-triggered publication or deployment. An explicit
+narrower scope, such as inventory-only, local changes, or open-PR-only, takes
+precedence. This default does not authorize standalone infrastructure applies,
+deployments, or global tool changes. Default dependency-update merge subject:
+`chore: update dependencies`, subject to repository title policy and any explicit
+user subject.
 
 Run noisy installs, checks, tests, and builds with
 `agent-tool run --label <check> -- <command> [args...]` to retain full private
@@ -243,8 +247,12 @@ scope and commit the ownership manifest; never edit generated managed skill copi
 When changes depend on another repository's release, ship the producer first and
 confirm publishing and registry availability before pinning the consumer; include
 its exact version/commit and API migration notes. Independent groups may proceed.
-Use the installed `ship-pr` for authorized shipping and independently review every
-changed HEAD. Check deployment safety again before its push/open/merge operations.
+Complete the installed `ship-pr` workflow within the requested scope, including
+independent review of every changed HEAD, required CI and review feedback, merge,
+and verification of the merge's normal publication or deployment. Do not stop at
+an open PR unless the user requested that stopping point or a concrete blocker
+prevents continuing. Check deployment safety again before push/open/merge;
+shipping defaults do not waive the preview gates above.
 
 ## Report
 
@@ -253,8 +261,8 @@ inventory and old/selected versions, completed migrations, validation and warnin
 baseline/final audits and coverage limits, preview environment/commit/tool versions
 and safe action summary, and skipped/constrained dependencies with reasons. Include
 security overrides, their rationale and removal condition, and unresolved advisories.
-If no PR is requested, provide this ledger in the task report; reporting does not
-authorize opening a PR or issue. For a sweep, keep one entry per repository,
+If the user requested a scope that stops before a PR, provide this ledger in the
+task report and honor that limit. For a sweep, keep one entry per repository,
 including unready and unchanged checkouts, and use an existing tracking issue only
 when explicitly requested. Never create an issue merely to store upgrade evidence.
 

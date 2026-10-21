@@ -17,8 +17,8 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@sentry/browser": "11.5.0",
-    "@sentry/core": "11.5.0"
+    "@sentry/browser": "11.8.0",
+    "@sentry/core": "11.8.0"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

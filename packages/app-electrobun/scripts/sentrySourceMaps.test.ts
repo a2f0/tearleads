@@ -9,7 +9,7 @@ import {
   rm,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolveElectrobunMainSentryConfig } from "../src/diagnostics/mainSentryConfig";
 import {
@@ -126,35 +126,54 @@ const mainMap = {
   names: [],
 };
 
-test("main-process map sources resolve against the package root", async () => {
-  await withRoot(async (root) => {
-    const packageRoot = join(root, "packages/app-electrobun");
-    await Bun.write(join(packageRoot, "src/bun/index.ts"), "export {};\n");
-    const appDir = join(root, "build/stable/Resources/app");
-    await writeMainBundle(
-      appDir,
-      `const release = "${commit}", target = "linux-x64";\n`,
-      mainMap,
-    );
-    const stagingDir = join(root, "sentry-sourcemaps");
-    await prepareSourceMapStaging({ stagingDir, buildDir: appDir });
-    await stageMainProcessSourceMap({
-      appDir,
-      stagingDir,
-      commit,
-      target: "linux-x64",
-      repoRoot: root,
-      packageRoot,
+test.each([false, true])(
+  "main-process map sources resolve with mixed bases: %s",
+  async (mixed) => {
+    await withRoot(async (root) => {
+      const packageRoot = join(root, "packages/app-electrobun");
+      await Bun.write(join(packageRoot, "src/bun/index.ts"), "export {};\n");
+      const appDir = join(root, "build/stable/Resources/app");
+      const dependency = join(root, "packages/diagnostics/src/index.ts");
+      await Bun.write(dependency, "export {};\n");
+      const map = mixed
+        ? {
+            ...mainMap,
+            sources: [
+              ...mainMap.sources,
+              relative(join(appDir, "bun"), dependency),
+            ],
+            sourcesContent: [...mainMap.sourcesContent, "export {};\n"],
+          }
+        : mainMap;
+      await writeMainBundle(
+        appDir,
+        `const release = "${commit}", target = "linux-x64";\n`,
+        map,
+      );
+      const stagingDir = join(root, "sentry-sourcemaps");
+      await prepareSourceMapStaging({ stagingDir, buildDir: appDir });
+      await stageMainProcessSourceMap({
+        appDir,
+        stagingDir,
+        commit,
+        target: "linux-x64",
+        repoRoot: root,
+        packageRoot,
+      });
+      expect(listFiles(stagingDir)).toEqual([
+        "bun/index.js",
+        "bun/index.js.map",
+      ]);
+      const staged = JSON.parse(
+        await readFile(join(stagingDir, "bun/index.js.map"), "utf8"),
+      );
+      expect(staged.sources).toEqual([
+        "packages/app-electrobun/src/bun/index.ts",
+        ...(mixed ? ["packages/diagnostics/src/index.ts"] : []),
+      ]);
     });
-    expect(listFiles(stagingDir)).toEqual(["bun/index.js", "bun/index.js.map"]);
-    const staged = JSON.parse(
-      await readFile(join(stagingDir, "bun/index.js.map"), "utf8"),
-    );
-    expect(staged.sources).toEqual([
-      "packages/app-electrobun/src/bun/index.ts",
-    ]);
-  });
-});
+  },
+);
 
 test("a release build fails, writing nothing, when Electrobun ignored the main-process sourcemap or define, or defined another target", async () => {
   await withRoot(async (root) => {

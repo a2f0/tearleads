@@ -3,7 +3,8 @@
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
     "composite": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "allowImportingTsExtensions": true
   },
   "include": [
     "src",

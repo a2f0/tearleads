@@ -256,7 +256,9 @@ test("Android registers a bounded RevenueCat purchase plugin", async () => {
     .map((match) => match[1])
     .sort();
   const capacitorReplacementModes = installedCapacitorReplacementModes();
-  const nativePurchasesVersionByHybridCommon = new Map([["19.5.0", "10.24.0"]]);
+  const nativePurchasesVersionByHybridCommon = new Map([
+    ["19.12.0", "10.27.0"],
+  ]);
   const expectedPurchasesVersion =
     nativePurchasesVersionByHybridCommon.get(hybridCommonVersion) ??
     `unsupported hybrid common version: ${hybridCommonVersion}`;
