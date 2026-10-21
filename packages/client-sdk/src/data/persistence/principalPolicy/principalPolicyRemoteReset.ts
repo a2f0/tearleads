@@ -3,7 +3,6 @@ import {
   principalPolicies,
   principalPolicyBundleHistory,
   principalPolicyBundleReferences,
-  principalPolicyCheckpoints,
   principalPolicyOrganizations,
 } from "../../sqlite/schema";
 import {
@@ -19,6 +18,7 @@ import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistor
 import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
 import { remoteResetBatches } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
+import { listPrincipalPolicyCheckpointPrincipals } from "../keyingCheckpoints/keyingCheckpointPersistence";
 
 export interface RemoteResetPrincipalKey {
   readonly principalId: string;
@@ -45,17 +45,18 @@ export async function loadRemoteResetPrincipalScope(
         type: principalPolicies.principalType,
       })
       .from(principalPolicies),
-    Promise.all(
-      [
-        principalPolicyBundleHistory,
-        principalPolicyBundleReferences,
-        principalPolicyCheckpoints,
-      ].map((table) =>
-        tx
-          .selectDistinct({ id: table.principalId, type: table.principalType })
-          .from(table),
+    Promise.all([
+      ...[principalPolicyBundleHistory, principalPolicyBundleReferences].map(
+        (table) =>
+          tx
+            .selectDistinct({
+              id: table.principalId,
+              type: table.principalType,
+            })
+            .from(table),
       ),
-    ),
+      listPrincipalPolicyCheckpointPrincipals(tx),
+    ]),
     tx
       .select({
         organizationId: principalPolicyOrganizations.organizationId,

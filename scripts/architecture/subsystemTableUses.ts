@@ -48,7 +48,13 @@ export function referenceAccess(node: ts.Node): TableAccess {
   if (ts.isPropertyAccessExpression(parent) && parent.expression === node) {
     return "read";
   }
-  if (ts.isTypeQueryNode(parent)) return "read";
+  // `typeof table` and `typeof table.$inferSelect` are types, not data access.
+  if (
+    ts.isTypeQueryNode(parent) ||
+    (ts.isQualifiedName(parent) && parent.left === node)
+  ) {
+    return "read";
+  }
   if (
     ts.isCallExpression(parent) &&
     parent.arguments.some((argument) => argument === node) &&

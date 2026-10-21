@@ -16,6 +16,7 @@ import {
   syncEngineSurface,
 } from "./clientSdkSurfaces";
 import {
+  containerContentsReadableTables,
   containerContentsTables,
   documentStoreReadableTables,
   documentStoreTables,
@@ -63,6 +64,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     ],
     surface: containerContentsSurface,
     tables: containerContentsTables,
+    readableTables: containerContentsReadableTables,
   },
   {
     name: "Container Data",

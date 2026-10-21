@@ -1,22 +1,10 @@
 {
-  "accessManifestCheckpoints": [
-    "packages/client-sdk/src/data/persistence/documents/documentDiscoveryEvidencePersistence.ts"
-  ],
   "containerDocumentTombstoneHolds": [
     "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts"
   ],
-  "containers": [
-    "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts",
-    "packages/client-sdk/src/stores/documents/documentStore/sync/syncShared.ts"
-  ],
   "documentContainerProjection": [
-    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstoneHolds.ts",
     "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",
-    "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts",
-    "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts"
-  ],
-  "documentDiscoveryHeads": [
-    "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts"
+    "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
   ],
   "documentHistoryCheckpoints": [
     "packages/client-sdk/src/data/persistence/container-contents/containerMetadataRows.ts",
@@ -32,24 +20,12 @@
     "packages/client-sdk/src/data/persistence/container-contents/containerDocumentReassignment.ts",
     "packages/client-sdk/src/data/persistence/container-contents/containerStructuralRepair.ts"
   ],
-  "documentPurgeCheckpoints": [
-    "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts"
-  ],
   "documents": [
     "packages/client-sdk/src/data/persistence/container-contents/containerMetadataRows.ts",
     "packages/client-sdk/src/data/persistence/container-contents/containerRebindPersistence.ts",
     "packages/client-sdk/src/data/persistence/container-contents/dormantContainerMetadata.ts"
   ],
   "localIntents": [
-    "packages/client-sdk/src/data/persistence/documents/internal/discardDocument.ts",
-    "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts",
-    "packages/client-sdk/src/data/persistence/documents/records/documentSyncFailurePersistence.ts"
-  ],
-  "pendingDocumentDiscoveries": [
-    "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts"
-  ],
-  "principalPolicyCheckpoints": [
-    "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyPersistence.ts",
-    "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyRemoteReset.ts"
+    "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
   ]
 }

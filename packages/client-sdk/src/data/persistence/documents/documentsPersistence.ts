@@ -9,16 +9,13 @@ import {
   type DocumentSummary,
   HIDDEN_DOCUMENT_SUMMARY_KINDS,
 } from "../../documents/documentSummary";
-import {
-  documentProjection,
-  documentPurgeCheckpoints,
-  documents,
-} from "../../sqlite/schema";
+import { documentProjection, documents } from "../../sqlite/schema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import { hasDocumentPurgeCheckpointInTransaction } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
 import { applyContainerDocumentTombstonesWithExec } from "./internal/containerDocumentTombstones";
 import { createStoredDocumentWithHistoryCheckpoint } from "./internal/createDocumentWithHistoryCheckpoint";
 import { discardStoredDocumentToShell } from "./internal/discardDocument";
@@ -100,12 +97,7 @@ async function upsertDiscoveredDocumentWithExec(
   pendingCreates: ReadonlyMap<string, string>,
   tx: ClientSQLiteTransactionScope,
 ): Promise<DocumentSummary> {
-  const [purgeCheckpoint] = await tx
-    .select({ documentId: documentPurgeCheckpoints.documentId })
-    .from(documentPurgeCheckpoints)
-    .where(eq(documentPurgeCheckpoints.documentId, input.documentId))
-    .limit(1);
-  if (purgeCheckpoint) {
+  if (await hasDocumentPurgeCheckpointInTransaction(tx, input.documentId)) {
     throw new KeyingVerificationError(
       "rollback",
       "Document discovery targets a permanently purged document",

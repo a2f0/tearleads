@@ -199,6 +199,7 @@ test("every way of reaching another subsystem's table is classified and checked"
         'import { betaLog } from "../sqlite/schema";',
         "export const x = tx.select({ at: betaLog.at }).from(betaLog);",
         'export const y = "SELECT at FROM beta_log";',
+        "export type Row = typeof betaLog.$inferSelect;",
       ]),
       parse("pkg/a/viaImport.ts", [
         'import { betaRows as rows } from "../sqlite/schema";',

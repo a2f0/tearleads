@@ -1,10 +1,7 @@
 import { and, asc, eq, inArray, lte, min, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
 import { readStringArray } from "../../shared/recordReaders";
-import {
-  accessManifestCheckpoints,
-  documentContainerProjectionTables,
-} from "../../sqlite/schema";
+import { documentContainerProjectionTables } from "../../sqlite/schema";
 import {
   documentDiscoveryHeads,
   documentDiscoverySequence,
@@ -17,6 +14,7 @@ import {
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
 import { loadDocumentPurgeCheckpoint } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
+import { loadAccessManifestCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import { heldTombstoneRetryDelayMs } from "./containerDocumentTombstoneHoldsPersistence";
 
 import {
@@ -293,21 +291,15 @@ class SqlDocumentDiscoveryEvidenceStore
     // signed checkpoint without updating documents.accessEpoch or this cache.
     // Old-organization pins survive recovery; only the cached signed head's
     // organization can authorize reuse. Missing pins require full verification.
-    const checkpoints = await db
-      .select()
-      .from(accessManifestCheckpoints)
-      .where(
-        and(
-          eq(accessManifestCheckpoints.objectKind, "document"),
-          eq(accessManifestCheckpoints.objectId, documentId),
-          eq(accessManifestCheckpoints.organizationId, row.organizationId),
-        ),
-      )
-      .limit(1);
+    const checkpoint = await loadAccessManifestCheckpoint(
+      this.execSql,
+      "document",
+      row.organizationId,
+      documentId,
+    );
     if (
-      checkpoints.length !== 1 ||
-      checkpoints[0]?.manifestHash !== row.manifestHash ||
-      checkpoints[0]?.epoch !== row.accessEpoch
+      checkpoint?.manifestHash !== row.manifestHash ||
+      checkpoint.epoch !== row.accessEpoch
     )
       return null;
     return {
