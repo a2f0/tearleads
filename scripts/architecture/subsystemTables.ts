@@ -7,7 +7,7 @@ import {
   subsystems,
 } from "./subsystems";
 import {
-  findTableUsesInSources,
+  findTableUsesInProgram,
   type SubsystemTableUse,
 } from "./subsystemTableUses";
 
@@ -114,7 +114,14 @@ export function findTableViolations(params: {
   ];
 }
 
-async function readTableSources(): Promise<Map<string, ts.SourceFile>> {
+/**
+ * The table uses in each package whose subsystems own tables, read with a
+ * type-checked program over the package's production files and tsconfig.
+ */
+async function readTableUses(): Promise<{
+  declaredTables: string[];
+  uses: SubsystemTableUse[];
+}> {
   const tablePackages = new Set(
     subsystems
       .filter((subsystem) => subsystem.tables !== undefined)
@@ -126,30 +133,26 @@ async function readTableSources(): Promise<Map<string, ts.SourceFile>> {
     )
   )
     .flat()
-    .filter((filePath) => {
-      const owner = ownerOfFile(subsystems, filePath);
-      return (
-        owner !== undefined &&
-        tablePackages.has(owner.package) &&
-        !testSupportFilePattern.test(filePath)
-      );
+    .filter((filePath) => !testSupportFilePattern.test(filePath));
+  const results = [...tablePackages].map((tablePackage) => {
+    const packageFiles = files.filter(
+      (filePath) => ownerOfFile(subsystems, filePath)?.package === tablePackage,
+    );
+    const config = ts.getParsedCommandLineOfConfigFile(
+      `packages/${tablePackage}/tsconfig.json`,
+      {},
+      { ...ts.sys, onUnRecoverableConfigFileDiagnostic: () => {} },
+    );
+    const program = ts.createProgram(packageFiles, {
+      ...config?.options,
+      noEmit: true,
     });
-  return new Map(
-    await Promise.all(
-      files.map(
-        async (filePath) =>
-          [
-            filePath,
-            ts.createSourceFile(
-              filePath,
-              await readFile(filePath, "utf8"),
-              ts.ScriptTarget.Latest,
-              true,
-            ),
-          ] as const,
-      ),
-    ),
-  );
+    return findTableUsesInProgram(program, packageFiles);
+  });
+  return {
+    declaredTables: results.flatMap((result) => result.declaredTables),
+    uses: results.flatMap((result) => result.uses),
+  };
 }
 
 export async function findSubsystemTableViolations(): Promise<string[]> {
@@ -158,7 +161,7 @@ export async function findSubsystemTableViolations(): Promise<string[]> {
   ) as SubsystemTableBaseline;
   return findTableViolations({
     baseline,
-    ...findTableUsesInSources(await readTableSources()),
+    ...(await readTableUses()),
     registry: subsystems,
   });
 }
