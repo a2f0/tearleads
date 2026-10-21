@@ -108,9 +108,10 @@ function isDeclaredName(node: ts.Identifier): boolean {
     ts.isImportClause(parent) ||
     ts.isNamespaceImport(parent) ||
     ts.isNamespaceExport(parent) ||
-    ts.isBindingElement(parent) ||
-    ts.isParameter(parent) ||
+    (ts.isBindingElement(parent) && parent.propertyName === node) ||
     ((ts.isVariableDeclaration(parent) ||
+      ts.isParameter(parent) ||
+      ts.isBindingElement(parent) ||
       ts.isFunctionDeclaration(parent) ||
       ts.isClassDeclaration(parent) ||
       ts.isTypeAliasDeclaration(parent) ||
@@ -127,44 +128,57 @@ function isDeclaredName(node: ts.Identifier): boolean {
 }
 
 /**
- * A declaration's initializer only names what the declared binding stands
- * for; the binding's references are the uses.
+ * A declaration of one name, a variable or a parameter's default, only says
+ * what the name stands for; the name's references are the uses.
  */
-function isBoundInitializer(node: ts.Node): boolean {
+function isAliasInitializer(node: ts.Node): boolean {
+  const parent = node.parent;
   return (
-    ts.isVariableDeclaration(node.parent) && node.parent.initializer === node
+    (ts.isVariableDeclaration(parent) || ts.isParameter(parent)) &&
+    parent.initializer === node &&
+    ts.isIdentifier(parent.name)
   );
 }
 
-/** Drizzle's relational API, `db.query.documents`, only reads. */
-function relationalKey(node: ts.Node): string | undefined {
-  if (
-    !(ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node))
-  ) {
-    return undefined;
-  }
-  const owner = node.expression;
-  const ownerKey = ts.isPropertyAccessExpression(owner)
-    ? owner.name.text
-    : ts.isElementAccessExpression(owner)
-      ? elementKey(owner.argumentExpression)
-      : undefined;
-  if (ownerKey !== "query") return undefined;
-  return ts.isPropertyAccessExpression(node)
-    ? node.name.text
-    : elementKey(node.argumentExpression);
+/** The value a declaration destructures, as in `const { id } = documents`. */
+function isDestructuredSource(node: ts.Node): boolean {
+  const parent = node.parent;
+  return (
+    (ts.isVariableDeclaration(parent) || ts.isParameter(parent)) &&
+    parent.initializer === node &&
+    !ts.isIdentifier(parent.name)
+  );
+}
+
+/**
+ * Drizzle's relational API only reads: one table by key, or every table it
+ * serves when the key is computed or the query object is passed along.
+ */
+function relationalUses(
+  catalog: TableCatalog,
+  key: string | undefined,
+): [string, TableAccess][] {
+  const tables =
+    key === undefined
+      ? [...new Set(catalog.tablesByQueryKey.values())]
+      : [catalog.tablesByQueryKey.get(key)];
+  return tables.flatMap((table) =>
+    table === undefined ? [] : [[table, "read"] as [string, TableAccess]],
+  );
 }
 
 function accessUses(
   catalog: TableCatalog,
   node: ts.PropertyAccessExpression | ts.ElementAccessExpression,
 ): [string, TableAccess][] {
-  const relational = relationalKey(node);
-  const relationalTable =
-    relational === undefined
-      ? undefined
-      : catalog.tablesByQueryKey.get(relational);
-  if (relationalTable !== undefined) return [[relationalTable, "read"]];
+  if (catalog.resolver.isRelational(node.expression)) {
+    return relationalUses(
+      catalog,
+      ts.isPropertyAccessExpression(node)
+        ? node.name.text
+        : elementKey(node.argumentExpression),
+    );
+  }
   if (
     ts.isElementAccessExpression(node) &&
     elementKey(node.argumentExpression) === undefined
@@ -174,7 +188,7 @@ function accessUses(
       .typeTables(node.expression)
       .map((table) => [table, "write"] as [string, TableAccess]);
   }
-  return isBoundInitializer(node) ? [] : valueUses(catalog, node);
+  return isAliasInitializer(node) ? [] : valueUses(catalog, node);
 }
 
 /** Drizzle's `schema` option builds the database `db.query` reads through. */
@@ -204,25 +218,66 @@ function escapes(node: ts.Expression): boolean {
       parent.expression === node) ||
     (ts.isQualifiedName(parent) && parent.left === node) ||
     ts.isPartOfTypeNode(node) ||
-    isBoundInitializer(node) ||
+    isAliasInitializer(node) ||
     ts.isTypeQueryNode(parent) ||
     ts.isExportAssignment(parent) ||
     isDrizzleSchemaOption(node)
   );
 }
 
-/** A table, or a schema value whose tables all escape and may be written. */
+/**
+ * A table, or a schema value whose tables all escape and may be written. A
+ * destructured table has its columns read; a destructured schema value's
+ * bindings are checked where they are used.
+ */
 function valueUses(
   catalog: TableCatalog,
   node: ts.Expression,
 ): [string, TableAccess][] {
   const table = catalog.resolver.expression(node);
+  if (isDestructuredSource(node)) {
+    return table === undefined ? [] : [[table, "read"]];
+  }
   if (table !== undefined) return [[table, referenceAccess(node)]];
-  return escapes(node)
-    ? catalog.resolver
-        .typeTables(node)
-        .map((held) => [held, "write"] as [string, TableAccess])
-    : [];
+  if (!escapes(node)) return [];
+  // A query object passed along may read any table it serves.
+  if (
+    catalog.resolver.isRelational(node) &&
+    catalog.resolver
+      .propertyNames(node)
+      .some((key) => catalog.tablesByQueryKey.has(key))
+  ) {
+    return relationalUses(catalog, undefined);
+  }
+  return catalog.resolver
+    .typeTables(node)
+    .map((held) => [held, "write"] as [string, TableAccess]);
+}
+
+/**
+ * A key destructured from `db.query` reads its table, and one destructured by a
+ * computed key may be any table of its source. A nested pattern reads the
+ * columns of the table it destructures; a bound name is checked where used.
+ */
+function bindingUses(
+  catalog: TableCatalog,
+  node: ts.BindingElement,
+): [string, TableAccess][] {
+  const pattern = node.parent;
+  if (node.dotDotDotToken || !ts.isObjectBindingPattern(pattern)) return [];
+  const key = literalKey(node.propertyName ?? node.name);
+  if (catalog.resolver.isRelationalPattern(pattern)) {
+    return relationalUses(catalog, key);
+  }
+  if (key === undefined) {
+    return catalog.resolver
+      .typeTables(pattern)
+      .map((held) => [held, "write"] as [string, TableAccess]);
+  }
+  const table = ts.isObjectBindingPattern(node.name)
+    ? catalog.resolver.property(pattern, key)
+    : undefined;
+  return table === undefined ? [] : [[table, "read"]];
 }
 
 function nodeUses(
@@ -232,7 +287,7 @@ function nodeUses(
   if (
     ts.isIdentifier(node) &&
     !isDeclaredName(node) &&
-    !isBoundInitializer(node)
+    !isAliasInitializer(node)
   ) {
     return valueUses(catalog, node);
   }
@@ -247,20 +302,7 @@ function nodeUses(
     const table = catalog.resolver.qualifiedName(node);
     return table === undefined ? [] : [[table, "read"]];
   }
-  // `const { documents: { id } } = schema` reads the table it destructures.
-  if (
-    ts.isBindingElement(node) &&
-    ts.isObjectBindingPattern(node.name) &&
-    !node.dotDotDotToken
-  ) {
-    const key = literalKey(node.propertyName ?? node.name);
-    const table =
-      key === undefined
-        ? undefined
-        : catalog.resolver.property(node.parent, key);
-    return table === undefined ? [] : [[table, "read"]];
-  }
-  return [];
+  return ts.isBindingElement(node) ? bindingUses(catalog, node) : [];
 }
 
 /**

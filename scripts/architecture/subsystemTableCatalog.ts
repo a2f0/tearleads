@@ -159,8 +159,58 @@ export class TableResolver {
     return this.symbol(this.checker.getSymbolAtLocation(name.right));
   }
 
+  /** Whether an expression is Drizzle's relational `db.query`, through aliases. */
+  isRelational(expression: ts.Expression, depth = 0): boolean {
+    const node = unwrap(expression);
+    if (ts.isPropertyAccessExpression(node)) return node.name.text === "query";
+    if (ts.isElementAccessExpression(node)) {
+      return elementKey(node.argumentExpression) === "query";
+    }
+    if (!ts.isIdentifier(node) || depth > maxResolutionDepth) return false;
+    const symbol = this.checker.getSymbolAtLocation(node);
+    const declaration = (
+      symbol !== undefined && symbol.flags & ts.SymbolFlags.Alias
+        ? this.checker.getAliasedSymbol(symbol)
+        : symbol
+    )?.valueDeclaration;
+    if (declaration !== undefined && ts.isBindingElement(declaration)) {
+      return declaration.dotDotDotToken
+        ? this.isRelationalPattern(declaration.parent, depth + 1)
+        : literalKey(declaration.propertyName ?? declaration.name) === "query";
+    }
+    return (
+      declaration !== undefined &&
+      (ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) &&
+      declaration.initializer !== undefined &&
+      this.isRelational(declaration.initializer, depth + 1)
+    );
+  }
+
+  /** Whether a pattern destructures Drizzle's relational `db.query`. */
+  isRelationalPattern(pattern: ts.BindingPattern, depth = 0): boolean {
+    const holder = pattern.parent;
+    if (ts.isBindingElement(holder)) {
+      return (
+        !holder.dotDotDotToken &&
+        literalKey(holder.propertyName ?? holder.name) === "query"
+      );
+    }
+    return (
+      holder.initializer !== undefined &&
+      this.isRelational(holder.initializer, depth)
+    );
+  }
+
+  /** The property names of an expression's type. */
+  propertyNames(expression: ts.Expression): string[] {
+    return this.checker
+      .getTypeAtLocation(expression)
+      .getProperties()
+      .map((property) => property.name);
+  }
+
   /** Every table an expression's type exposes as a property. */
-  typeTables(expression: ts.Expression): string[] {
+  typeTables(expression: ts.Expression | ts.BindingPattern): string[] {
     return [
       ...new Set(
         this.checker
@@ -187,7 +237,7 @@ export class TableResolver {
     }
     if (
       ts.isPropertyAssignment(declaration) ||
-      (ts.isVariableDeclaration(declaration) &&
+      ((ts.isVariableDeclaration(declaration) || ts.isParameter(declaration)) &&
         ts.isIdentifier(declaration.name))
     ) {
       return declaration.initializer === undefined

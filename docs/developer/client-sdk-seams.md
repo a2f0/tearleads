@@ -225,21 +225,24 @@ table is checked where it is read or written. A file reaches a table by:
 
 - naming it, directly or through any of those;
 - reading it off a schema module namespace, a schema object such as
-  `clientSQLiteSchema`, or Drizzle's `db.query`;
+  `clientSQLiteSchema`, or Drizzle's `db.query`, including an alias or a
+  destructured key of `db.query`;
 - naming it in raw SQL in a string or template.
 
-A column reference, `.from(...)`, a join, `typeof`, `db.query`, and SQL
-`FROM`/`JOIN` read a table; `insert`, `update`, `delete`, and SQL `INSERT`,
-`UPDATE`, and `DELETE` write it. Any other use, such as passing the table to a
-helper or listing it for a loop, counts as a write, so an indirect write cannot
-pass as a read. A schema value used where its tables cannot be told apart, such
-as `Object.values(clientSQLiteSchema)`, a spread, or a computed index, counts as
-writing every table it holds. Schema modules are exempt, and so is the schema
-SQLite Runtime passes to `drizzle`, whose `db.query` reads are checked where
-they happen. The surface check sees none of this: schema imports land in SQLite
-Runtime, which declares no surface, and raw SQL imports nothing. Older uses are
-listed by table in `scripts/architecture/subsystemTableBaseline.json`, which
-only shrinks like the surface baseline.
+A column reference, destructured columns, `.from(...)`, a join, `typeof`,
+`db.query`, and SQL `FROM`/`JOIN` read a table; `insert`, `update`, `delete`,
+and SQL `INSERT`, `UPDATE`, and `DELETE` write it. Any other use, such as
+passing the table to a helper or listing it for a loop, counts as a write, so an
+indirect write cannot pass as a read. A schema value used where its tables
+cannot be told apart, such as `Object.values(clientSQLiteSchema)`, a spread, or
+a computed index or destructuring key, counts as writing every table it holds;
+`db.query` passed along that way counts as reading every table it serves. Schema
+modules are exempt, and so is the schema SQLite Runtime passes to `drizzle`,
+whose `db.query` reads are checked where they happen. The surface check sees
+none of this: schema imports land in SQLite Runtime, which declares no surface,
+and raw SQL imports nothing. Older uses are listed by table in
+`scripts/architecture/subsystemTableBaseline.json`, which only shrinks like the
+surface baseline.
 
 ## Enforcing a boundary
 

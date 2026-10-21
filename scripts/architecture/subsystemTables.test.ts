@@ -203,6 +203,10 @@ const schemaFixtures: Record<string, readonly string[]> = {
     'export const cycleBRows = sqliteTable("cycle_b_rows", {});',
   ],
   "/fixture/sqlite/runtime.ts": [
+    "declare function drizzle<S>(",
+    "  execute: unknown,",
+    "  options: { schema: S },",
+    "): { query: { [K in keyof S]: { findMany(): unknown[] } } };",
     'import { appSchema } from "./schema";',
     "export const db = drizzle(execute, { schema: appSchema });",
     'export { appSchema } from "./schema";',
@@ -260,6 +264,40 @@ const useFixtures: Record<string, readonly string[]> = {
   "/fixture/a/viaTypeName.ts": [
     'import * as schema from "../sqlite/schema";',
     "export type Row = typeof schema.betaRows.$inferSelect;",
+  ],
+  "/fixture/a/viaRelationalDestructure.ts": [
+    "const { betaRows } = db.query;",
+    "export const x = betaRows.findMany();",
+  ],
+  "/fixture/a/viaRelationalAlias.ts": [
+    "const { query } = db;",
+    "const { betaLog, ...rest } = query;",
+    "export const x = [betaLog.findMany(), rest.betaRows.findMany()];",
+  ],
+  "/fixture/a/viaRelationalArgument.ts": [
+    'import { db } from "../sqlite/runtime";',
+    "export const x = listAll(db.query);",
+  ],
+  "/fixture/a/viaColumnDestructure.ts": [
+    'import { betaRows } from "../sqlite/schema";',
+    "const { id } = betaRows;",
+    "export const x = id;",
+  ],
+  "/fixture/a/viaParameterDefault.ts": [
+    'import { betaRows } from "../sqlite/schema";',
+    "export function clear(table = betaRows) {",
+    "  return tx.delete(table);",
+    "}",
+  ],
+  "/fixture/a/viaBindingDefault.ts": [
+    'import { appSchema, betaLog } from "../sqlite/schema";',
+    "const { alphaRows: table = betaLog } = appSchema;",
+    "export const x = tx.insert(table);",
+  ],
+  "/fixture/a/viaComputedDestructure.ts": [
+    'import { appSchema } from "../sqlite/schema";',
+    "const { [name]: table } = appSchema;",
+    "export const x = tx.insert(table);",
   ],
   "/fixture/a/viaValues.ts": [
     'import { appSchema } from "../sqlite/schema";',
@@ -322,7 +360,11 @@ const useFixtures: Record<string, readonly string[]> = {
 
 const expectedViolations = [
   "/fixture/a/viaAlias.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaBindingDefault.ts writes betaLog, which Beta owns",
   "/fixture/a/viaChainedAlias.ts writes betaRows, which Beta owns",
+  "/fixture/a/viaColumnDestructure.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaComputedDestructure.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaComputedDestructure.ts writes betaRows, which Beta owns",
   "/fixture/a/viaComputedKey.ts writes betaLog, which Beta owns",
   "/fixture/a/viaComputedKey.ts writes betaRows, which Beta owns",
   "/fixture/a/viaCycleA.ts writes cycleBRows, which Beta owns",
@@ -332,10 +374,14 @@ const expectedViolations = [
   "/fixture/a/viaImport.ts reads betaRows, which Beta does not expose for reading",
   "/fixture/a/viaLoop.ts writes betaLog, which Beta owns",
   "/fixture/a/viaNamespace.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaParameterDefault.ts writes betaRows, which Beta owns",
   "/fixture/a/viaQuotedKey.ts writes betaRows, which Beta owns",
   "/fixture/a/viaRawSql.ts writes betaLog, which Beta owns",
   "/fixture/a/viaReexport.ts writes betaRows, which Beta owns",
   "/fixture/a/viaReexport.ts writes extraRows, which Beta owns",
+  "/fixture/a/viaRelationalAlias.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaRelationalArgument.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaRelationalDestructure.ts reads betaRows, which Beta does not expose for reading",
   "/fixture/a/viaRelationalIndex.ts reads betaRows, which Beta does not expose for reading",
   "/fixture/a/viaRuntimeReexport.ts writes betaLog, which Beta owns",
   "/fixture/a/viaSchemaObject.ts writes betaLog, which Beta owns",
