@@ -1,7 +1,7 @@
 import { and, eq, inArray, or } from "drizzle-orm";
-import { containerSyncWatermarks } from "../../data/sqlite/schema";
-import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
-import { remoteResetBatches } from "./remoteResetBatches";
+import { containerSyncWatermarks } from "../../../data/sqlite/schema";
+import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
+import type { ClientSQLiteTransactionScope } from "../../../data/sqlite/sqlitePersistenceRuntime";
 
 const CONTAINER_DOCUMENTS_LANE = "container_documents";
 const CONTAINER_PARENT_LANE = "container_parent";

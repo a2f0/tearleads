@@ -1,8 +1,8 @@
 import { inArray } from "drizzle-orm";
-import { queueDocumentAttachmentStorageKeys } from "../../data/persistence/documents/internal/orphanSideRows";
-import { documentPendingAttachments } from "../../data/sqlite/schema";
-import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
-import { remoteResetBatches } from "./remoteResetBatches";
+import { queueDocumentAttachmentStorageKeys } from "../../../data/persistence/documents/internal/orphanSideRows";
+import { documentPendingAttachments } from "../../../data/sqlite/schema";
+import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
+import type { ClientSQLiteTransactionScope } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ResetAttachmentUpload } from "./remoteResetPlans";
 
 /** Delete reset-scoped pending rows without abandoning dropped local bytes. */

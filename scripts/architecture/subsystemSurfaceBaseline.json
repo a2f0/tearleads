@@ -1,17 +1,1 @@
-{
-  "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
-    "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/container-contents/supersededContainerBindings.ts": [
-    "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/documents/documentDiscoveryReset.ts": [
-    "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/documents/internal/orphanSideRows.ts": [
-    "packages/client-sdk/src/workflows/sync/remoteResetAttachments.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/readModel/organizationPresentationAccessState.ts": [
-    "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ]
-}
+{}

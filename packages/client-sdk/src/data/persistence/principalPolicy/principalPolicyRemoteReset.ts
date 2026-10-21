@@ -5,20 +5,20 @@ import {
   principalPolicyBundleReferences,
   principalPolicyCheckpoints,
   principalPolicyOrganizations,
-} from "../../data/sqlite/schema";
+} from "../../sqlite/schema";
 import {
   principalHistoryEntries,
   principalHistoryNodes,
   principalHistoryPrefixes,
-} from "../../data/sqlite/schema/principalHistoryEvidenceSchema";
+} from "../../sqlite/schema/principalHistoryEvidenceSchema";
 import {
   principalHistoryNodeReferences,
   principalHistoryRootOwners,
-} from "../../data/sqlite/schema/principalHistoryNodeRetentionSchema";
-import { principalKeyEnvelopeArchive } from "../../data/sqlite/schema/principalHistoryRetentionSchema";
-import { principalHistoryStages } from "../../data/sqlite/schema/principalHistoryStageSchema";
-import type { ClientSQLiteTransactionScope } from "../../data/sqlite/sqlitePersistenceRuntime";
-import { remoteResetBatches } from "./remoteResetBatches";
+} from "../../sqlite/schema/principalHistoryNodeRetentionSchema";
+import { principalKeyEnvelopeArchive } from "../../sqlite/schema/principalHistoryRetentionSchema";
+import { principalHistoryStages } from "../../sqlite/schema/principalHistoryStageSchema";
+import { remoteResetBatches } from "../../sqlite/sqliteBindBudget";
+import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 
 export interface RemoteResetPrincipalKey {
   readonly principalId: string;

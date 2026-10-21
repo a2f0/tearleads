@@ -399,3 +399,14 @@ export function createVerifiedManifestCitations(
     },
   };
 }
+
+/** Drops an organization's verified bundles when a remote reset forgets it. */
+export async function deleteVerifiedManifestBundlesForOrganization(
+  tx: ClientSQLiteTransactionScope,
+  organizationId: string,
+): Promise<void> {
+  await tx
+    .delete(bundles)
+    .where(eq(bundles.organizationId, organizationId))
+    .run();
+}
