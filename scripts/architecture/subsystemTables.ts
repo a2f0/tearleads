@@ -39,11 +39,17 @@ function tableOwnershipViolations(
   declaredTables: readonly string[],
 ): string[] {
   const declared = new Set(declaredTables);
-  const unknown = registry.flatMap((subsystem) =>
-    (subsystem.tables ?? [])
+  const unknown = registry.flatMap((subsystem) => [
+    ...(subsystem.tables ?? [])
       .filter((table) => !declared.has(table))
       .map((table) => `${subsystem.name}: table ${table} is not declared`),
-  );
+    ...(subsystem.readableTables ?? [])
+      .filter((table) => !subsystem.tables?.includes(table))
+      .map(
+        (table) =>
+          `${subsystem.name}: readable table ${table} is not one of its tables`,
+      ),
+  ]);
   const owners = declaredTables.flatMap((table) => {
     const owning = registry.filter((subsystem) =>
       subsystem.tables?.includes(table),
@@ -59,8 +65,9 @@ function tableOwnershipViolations(
 }
 
 /**
- * Uses of another subsystem's table that are not in the baseline, baseline
- * entries that no longer occur, and tables owned by no subsystem or several.
+ * Writes to another subsystem's table and reads of one it does not expose
+ * that are not in the baseline, baseline entries that no longer occur, and
+ * tables owned by no subsystem or several.
  */
 export function findTableViolations(params: {
   baseline: SubsystemTableBaseline;
@@ -70,17 +77,26 @@ export function findTableViolations(params: {
 }): string[] {
   const crossUses = new Set<string>();
   const violations: string[] = [];
-  for (const { from, table } of params.uses) {
+  for (const { access, from, table } of params.uses) {
     const owner = params.registry.find((subsystem) =>
       subsystem.tables?.includes(table),
     );
     const importer = ownerOfFile(params.registry, from);
-    if (owner === undefined || importer === undefined || importer === owner) {
+    if (
+      owner === undefined ||
+      importer === undefined ||
+      importer === owner ||
+      (access === "read" && owner.readableTables?.includes(table))
+    ) {
       continue;
     }
     crossUses.add(`${from} -> ${table}`);
     if (!params.baseline[table]?.includes(from)) {
-      violations.push(`${from} uses ${table}, which ${owner.name} owns`);
+      violations.push(
+        access === "write"
+          ? `${from} writes ${table}, which ${owner.name} owns`
+          : `${from} reads ${table}, which ${owner.name} does not expose for reading`,
+      );
     }
   }
   for (const [table, importers] of Object.entries(params.baseline)) {

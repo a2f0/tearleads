@@ -1,18 +1,13 @@
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../../documents/documentConstants";
 import {
   documentAttachmentBlobProjection,
-  documentContainerProjection,
   documentPendingAttachments,
   documentPlacementIntentTables,
   documentProjection,
   documentProjectionText,
   documents,
-  inLocalIntentLane,
-  LOCAL_INTENT_LANES,
-  localIntents,
 } from "../../../sqlite/schema";
-import { documentIntentLinkTargets } from "../../../sqlite/schema/documentPlacementIntentSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -23,13 +18,16 @@ import {
   runSerializedSqlMutation,
 } from "../../../sqlite/sqlSchema";
 import {
+  deleteDocumentPlacementIntentsInTransaction,
+  deleteDocumentPlacementRowsByDocumentIds,
+} from "../../container-contents/documentContainerProjectionPersistence";
+import {
   clearDocumentSyncFailure,
   deleteDocumentRecord,
   loadDocumentRecord,
 } from "../records";
 import { deleteDocumentHistory } from "../records/documentHistoryPersistence";
 import type { StoredDocumentRecord } from "../types";
-import { deleteContainerDocumentTombstoneHoldsForDocuments } from "./containerDocumentTombstoneHolds";
 import { sameCanonicalDocumentSecurityIdentity } from "./documentRecordIdentity";
 import { getDocumentScope } from "./documentRows";
 import { queueDocumentAttachmentBlobReclaims } from "./orphanSideRows";
@@ -63,30 +61,9 @@ async function deleteStoredDocumentRows(input: {
     .where(eq(documentAttachmentBlobProjection.localId, localId))
     .run();
   if (existingDocumentId) {
-    await tx
-      .delete(documentContainerProjection)
-      .where(eq(documentContainerProjection.documentId, existingDocumentId))
-      .run();
-    await deleteContainerDocumentTombstoneHoldsForDocuments(tx, [
-      existingDocumentId,
-    ]);
-    const placementIntent = and(
-      inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
-      eq(localIntents.subjectId, existingDocumentId),
-    );
-    await tx
-      .delete(documentIntentLinkTargets)
-      .where(
-        inArray(
-          documentIntentLinkTargets.intentId,
-          tx
-            .select({ id: localIntents.id })
-            .from(localIntents)
-            .where(placementIntent),
-        ),
-      )
-      .run();
-    await tx.delete(localIntents).where(placementIntent).run();
+    // Placement rows and their tombstone holds, then queued placement intents.
+    await deleteDocumentPlacementRowsByDocumentIds(tx, [existingDocumentId]);
+    await deleteDocumentPlacementIntentsInTransaction(tx, existingDocumentId);
   }
   const scope = getDocumentScope(localId);
   await deleteDocumentHistory(lockedExecSql, scope);

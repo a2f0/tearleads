@@ -4,14 +4,15 @@ import type { Subsystem } from "./subsystems";
 import { findTableViolations } from "./subsystemTables";
 import {
   findTableUsesInSources,
-  rawSqlTableNames,
-  schemaKeysReadInSource,
+  rawSqlTableAccess,
+  schemaKeyAccessInSource,
 } from "./subsystemTableUses";
 
 function subsystem(
   name: string,
   paths: readonly string[],
   tables?: readonly string[],
+  readableTables?: readonly string[],
 ): Subsystem {
   return {
     name,
@@ -20,46 +21,51 @@ function subsystem(
     responsibility: name,
     seam: name,
     ...(tables ? { tables } : {}),
+    ...(readableTables ? { readableTables } : {}),
   };
 }
 
 const registry = [
   subsystem("Alpha", ["pkg/a/"], ["alphaRows"]),
-  subsystem("Beta", ["pkg/b/"], ["betaRows", "betaLog"]),
+  subsystem("Beta", ["pkg/b/"], ["betaRows", "betaLog"], ["betaLog"]),
   subsystem("Runtime", ["pkg/runtime/"]),
 ];
 const declaredTables = ["alphaRows", "betaLog", "betaRows"];
 
-test("a subsystem using its own tables passes", () => {
+test("a subsystem using its own tables, or reading an exposed one, passes", () => {
   expect(
     findTableViolations({
       baseline: {},
       declaredTables,
       registry,
       uses: [
-        { from: "pkg/a/store.ts", table: "alphaRows" },
-        { from: "pkg/b/log.ts", table: "betaLog" },
+        { access: "write", from: "pkg/a/store.ts", table: "alphaRows" },
+        { access: "write", from: "pkg/b/log.ts", table: "betaLog" },
+        { access: "read", from: "pkg/a/history.ts", table: "betaLog" },
       ],
     }),
   ).toEqual([]);
 });
 
-test("another subsystem's table fails unless the use is baselined", () => {
+test("writes and unexposed reads fail unless the use is baselined", () => {
   const uses = [
-    { from: "pkg/a/store.ts", table: "betaRows" },
-    { from: "pkg/runtime/exec.ts", table: "alphaRows" },
-  ];
+    { access: "write", from: "pkg/a/history.ts", table: "betaLog" },
+    { access: "read", from: "pkg/a/store.ts", table: "betaRows" },
+    { access: "write", from: "pkg/runtime/exec.ts", table: "alphaRows" },
+  ] as const;
 
   expect(
     findTableViolations({ baseline: {}, declaredTables, registry, uses }),
   ).toEqual([
-    "pkg/a/store.ts uses betaRows, which Beta owns",
-    "pkg/runtime/exec.ts uses alphaRows, which Alpha owns",
+    "pkg/a/history.ts writes betaLog, which Beta owns",
+    "pkg/a/store.ts reads betaRows, which Beta does not expose for reading",
+    "pkg/runtime/exec.ts writes alphaRows, which Alpha owns",
   ]);
   expect(
     findTableViolations({
       baseline: {
         alphaRows: ["pkg/runtime/exec.ts"],
+        betaLog: ["pkg/a/history.ts"],
         betaRows: ["pkg/a/store.ts"],
       },
       declaredTables,
@@ -72,13 +78,13 @@ test("another subsystem's table fails unless the use is baselined", () => {
 test("a baseline entry that no longer occurs fails", () => {
   expect(
     findTableViolations({
-      baseline: { betaRows: ["pkg/a/store.ts"] },
+      baseline: { betaLog: ["pkg/a/history.ts"] },
       declaredTables,
       registry,
-      uses: [{ from: "pkg/b/store.ts", table: "betaRows" }],
+      uses: [{ access: "read", from: "pkg/a/history.ts", table: "betaLog" }],
     }),
   ).toEqual([
-    "pkg/a/store.ts -> betaRows no longer occurs; delete it from scripts/architecture/subsystemTableBaseline.json",
+    "pkg/a/history.ts -> betaLog no longer occurs; delete it from scripts/architecture/subsystemTableBaseline.json",
   ]);
 });
 
@@ -88,37 +94,21 @@ test("every declared table has exactly one owner", () => {
       baseline: {},
       declaredTables: ["alphaRows", "orphanRows", "sharedRows"],
       registry: [
-        subsystem("Alpha", ["pkg/a/"], ["alphaRows", "sharedRows", "ghost"]),
+        subsystem(
+          "Alpha",
+          ["pkg/a/"],
+          ["alphaRows", "sharedRows", "ghost"],
+          ["orphanRows"],
+        ),
         subsystem("Beta", ["pkg/b/"], ["sharedRows"]),
       ],
       uses: [],
     }),
   ).toEqual([
     "Alpha: table ghost is not declared",
+    "Alpha: readable table orphanRows is not one of its tables",
     "table orphanRows is owned by no subsystem",
     "table sharedRows is owned by several subsystems (Alpha, Beta)",
-  ]);
-});
-
-test("raw SQL in strings and templates names its tables; prose and comments do not", () => {
-  const source = ts.createSourceFile(
-    "fixture.ts",
-    [
-      'const read = "SELECT id FROM containers WHERE id = ?";',
-      `const join = \`SELECT * FROM documents d LEFT JOIN document_projection p ON \${on}\`;`,
-      `const write = sql\`INSERT INTO "local_intents" (id) VALUES (\${id})\`;`,
-      'const prose = "removed from documents and update containers";',
-      "// SELECT * FROM principal_policies",
-    ].join("\n"),
-    ts.ScriptTarget.Latest,
-    true,
-  );
-
-  expect([...rawSqlTableNames(source)].sort()).toEqual([
-    "containers",
-    "document_projection",
-    "documents",
-    "local_intents",
   ]);
 });
 
@@ -131,14 +121,31 @@ function parse(fileName: string, lines: readonly string[]): ts.SourceFile {
   );
 }
 
-test("keys read off schema roots name tables; passing a root along does not", () => {
+test("raw SQL reads and writes its tables; prose and comments name none", () => {
   const source = parse("fixture.ts", [
-    "const a = schema.documents;",
-    'const b = schema["containers"];',
-    "const { localIntents, documentProjection: projection } = schema;",
-    "const c = all.principalPolicies;",
+    'const read = "SELECT id FROM containers WHERE id = ?";',
+    `const join = \`SELECT * FROM documents d LEFT JOIN document_projection p ON \${on}\`;`,
+    `const write = sql\`INSERT OR IGNORE INTO "local_intents" (id) VALUES (\${id})\`;`,
+    'const clear = "DELETE FROM documents WHERE id = ?";',
+    'const prose = "removed from documents and update containers";',
+    "// UPDATE principal_policies SET version = 1",
+  ]);
+
+  expect(Object.fromEntries(rawSqlTableAccess(source))).toEqual({
+    containers: "read",
+    document_projection: "read",
+    documents: "write",
+    local_intents: "write",
+  });
+});
+
+test("keys reached through schema roots carry how they are used", () => {
+  const source = parse("fixture.ts", [
+    "const a = tx.select().from(schema.documents);",
+    'await tx.delete(schema["containers"]).run();',
+    "const { localIntents } = schema;",
+    "const c = all.principalPolicies.version;",
     "const d = all.clientSQLiteSchema.securityIncidents;",
-    'const e = all["clientSQLiteSchema"]["trustedUserIdentityPins"];',
     "await db.query.documentHistoryUpdates.findMany();",
     'await db.query["documentPendingAttachments"].findMany();',
     "const { verifiedAccessManifestBundles } = tx.query;",
@@ -147,35 +154,34 @@ test("keys read off schema roots name tables; passing a root along does not", ()
   ]);
 
   expect(
-    [
-      ...schemaKeysReadInSource(source, {
+    Object.fromEntries(
+      schemaKeyAccessInSource(source, {
         namespaces: new Set(["all"]),
         objects: new Set(["schema"]),
         schemaObjectNames: new Set(["clientSQLiteSchema"]),
       }),
-    ].sort(),
-  ).toEqual([
-    "clientSQLiteSchema",
-    "containers",
-    "documentHistoryUpdates",
-    "documentPendingAttachments",
-    "documentProjection",
-    "documents",
-    "localIntents",
-    "principalPolicies",
-    "securityIncidents",
-    "trustedUserIdentityPins",
-    "verifiedAccessManifestBundles",
-  ]);
+    ),
+  ).toEqual({
+    clientSQLiteSchema: "read",
+    containers: "write",
+    documentHistoryUpdates: "read",
+    documentPendingAttachments: "read",
+    documents: "read",
+    localIntents: "write",
+    principalPolicies: "read",
+    securityIncidents: "write",
+    verifiedAccessManifestBundles: "read",
+  });
 });
 
-test("every way of reaching another subsystem's table is rejected", () => {
+test("every way of reaching another subsystem's table is classified and checked", () => {
   const sources = new Map(
     [
       parse("pkg/sqlite/schema/index.ts", [
         'export const alphaRows = sqliteTable("alpha_rows", {});',
         'export const betaRows = sqliteTable("beta_rows", {});',
-        "export const appSchema = { alphaRows, betaRows };",
+        'export const betaLog = sqliteTable("beta_log", {});',
+        "export const appSchema = { alphaRows, betaLog, betaRows };",
       ]),
       parse("pkg/sqlite/schema/registry.ts", [
         'import { betaRows } from "./index";',
@@ -187,32 +193,42 @@ test("every way of reaching another subsystem's table is rejected", () => {
       ]),
       parse("pkg/a/own.ts", [
         'import { alphaRows } from "../sqlite/schema";',
-        "export const own = [alphaRows, db.query.alphaRows];",
+        "export const own = tx.insert(alphaRows).values(row);",
+      ]),
+      parse("pkg/a/readsExposed.ts", [
+        'import { betaLog } from "../sqlite/schema";',
+        "export const x = tx.select({ at: betaLog.at }).from(betaLog);",
+        'export const y = "SELECT at FROM beta_log";',
+        "export type Row = typeof betaLog.$inferSelect;",
       ]),
       parse("pkg/a/viaImport.ts", [
         'import { betaRows as rows } from "../sqlite/schema";',
-        "export const x = rows;",
+        "export const x = tx.select().from(rows);",
+      ]),
+      parse("pkg/a/viaLoop.ts", [
+        'import { betaLog } from "../sqlite/schema";',
+        "for (const table of [betaLog]) await tx.delete(table).run();",
       ]),
       parse("pkg/a/viaSchemaObject.ts", [
         'import { appSchema } from "../sqlite/schema";',
-        "export const x = appSchema.betaRows;",
+        "export const x = tx.update(appSchema.betaLog).set(row);",
       ]),
       parse("pkg/a/viaNamespace.ts", [
         'import * as registry from "../sqlite/schema/registry";',
-        "export const x = registry.betaSchema.betaRows;",
+        "export const x = registry.betaSchema.betaRows.id;",
       ]),
       parse("pkg/a/viaRelationalIndex.ts", [
         'export const x = db.query["betaRows"].findMany();',
       ]),
       parse("pkg/a/viaRawSql.ts", [
-        'export const x = "SELECT id FROM beta_rows";',
+        'export const x = "UPDATE beta_log SET at = ?";',
       ]),
       parse("pkg/a/viaReexport.ts", ['export * from "../sqlite/schema";']),
     ].map((source) => [source.fileName, source] as const),
   );
   const registry = [
     subsystem("Alpha", ["pkg/a/"], ["alphaRows"]),
-    subsystem("Beta", ["pkg/b/"], ["betaRows"]),
+    subsystem("Beta", ["pkg/b/"], ["betaRows", "betaLog"], ["betaLog"]),
     subsystem("Runtime", ["pkg/sqlite/"]),
   ];
 
@@ -222,14 +238,14 @@ test("every way of reaching another subsystem's table is rejected", () => {
       ...findTableUsesInSources(sources),
       registry,
     }),
-  ).toEqual(
-    [
-      "viaImport",
-      "viaNamespace",
-      "viaRawSql",
-      "viaReexport",
-      "viaRelationalIndex",
-      "viaSchemaObject",
-    ].map((file) => `pkg/a/${file}.ts uses betaRows, which Beta owns`),
-  );
+  ).toEqual([
+    "pkg/a/viaImport.ts reads betaRows, which Beta does not expose for reading",
+    "pkg/a/viaLoop.ts writes betaLog, which Beta owns",
+    "pkg/a/viaNamespace.ts reads betaRows, which Beta does not expose for reading",
+    "pkg/a/viaRawSql.ts writes betaLog, which Beta owns",
+    "pkg/a/viaReexport.ts writes betaLog, which Beta owns",
+    "pkg/a/viaReexport.ts writes betaRows, which Beta owns",
+    "pkg/a/viaRelationalIndex.ts reads betaRows, which Beta does not expose for reading",
+    "pkg/a/viaSchemaObject.ts writes betaLog, which Beta owns",
+  ]);
 });

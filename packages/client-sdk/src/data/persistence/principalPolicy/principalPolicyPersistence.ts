@@ -9,7 +9,6 @@ import {
   keyingCheckpointTables,
   principalPolicies,
   principalPolicyBundleHistory,
-  principalPolicyCheckpoints,
   principalPolicyTables,
 } from "../../sqlite/schema";
 import {
@@ -17,6 +16,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
+import { loadStoredPrincipalPolicyCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
 import { assertSameHeadPrincipalPolicyBundle } from "./principalPolicyBundleIntegrity";
 import {
   recordPrincipalPolicyBundleOrganizationInTransaction,
@@ -301,19 +301,10 @@ async function writePrincipalPolicyBundle(
     .from(principalPolicies)
     .where(wherePrincipal)
     .limit(1);
-  const [durableCheckpoint] = await tx
-    .select({
-      stateHash: principalPolicyCheckpoints.stateHash,
-      version: principalPolicyCheckpoints.version,
-    })
-    .from(principalPolicyCheckpoints)
-    .where(
-      and(
-        eq(principalPolicyCheckpoints.principalType, nextRow.principalType),
-        eq(principalPolicyCheckpoints.principalId, nextRow.principalId),
-      ),
-    )
-    .limit(1);
+  const durableCheckpoint = await loadStoredPrincipalPolicyCheckpoint(
+    tx,
+    nextRow,
+  );
   const storedHead = storedPolicy
     ? parseStoredPrincipalPolicyHead(storedPolicy.currentStateJson)
     : null;

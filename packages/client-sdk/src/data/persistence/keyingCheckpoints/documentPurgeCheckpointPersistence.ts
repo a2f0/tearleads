@@ -33,6 +33,19 @@ export async function loadDocumentPurgeCheckpoint(
   return row ?? null;
 }
 
+/** Whether the document was permanently purged, read in the caller's transaction. */
+export async function hasDocumentPurgeCheckpointInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  documentId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ documentId: documentPurgeCheckpoints.documentId })
+    .from(documentPurgeCheckpoints)
+    .where(eq(documentPurgeCheckpoints.documentId, documentId))
+    .limit(1);
+  return row !== undefined;
+}
+
 export async function storeDocumentPurgeCheckpointInTransaction(
   tx: ClientSQLiteTransactionScope,
   checkpoint: DocumentPurgeCheckpoint,

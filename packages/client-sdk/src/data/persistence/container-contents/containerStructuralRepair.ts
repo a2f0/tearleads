@@ -10,6 +10,7 @@ import {
 } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { deleteContainerDocumentTombstoneHoldsForContainers } from "../documents/containerDocumentTombstoneHoldsPersistence";
+import { setDocumentProjectionContainerInTransaction } from "../documents/documentProjectionContainers";
 import { getLatestTimestamp } from "../latestTimestamp";
 import type {
   ContainerRemoval,
@@ -127,25 +128,18 @@ export async function repairDocumentsForRemovedContainersInTransaction(input: {
       const removedOrganizationId = row.containerId
         ? organizationIdByContainerId.get(row.containerId)
         : undefined;
-      await tx
-        .update(documentProjection)
-        .set({
-          containerId: row.documentId
-            ? (firstRemainingContainerIdByDocumentId.get(row.documentId) ??
-              null)
-            : null,
-          ...(removedOrganizationId
-            ? { organizationId: removedOrganizationId }
-            : {}),
-          updatedAt: getLatestTimestamp(
-            row.updatedAt,
-            row.containerId
-              ? (updatedAtByContainerId.get(row.containerId) ?? row.updatedAt)
-              : row.updatedAt,
-          ),
-        })
-        .where(eq(documentProjection.localId, row.localId))
-        .run();
+      await setDocumentProjectionContainerInTransaction(tx, row.localId, {
+        containerId: row.documentId
+          ? (firstRemainingContainerIdByDocumentId.get(row.documentId) ?? null)
+          : null,
+        organizationId: removedOrganizationId,
+        updatedAt: getLatestTimestamp(
+          row.updatedAt,
+          row.containerId
+            ? (updatedAtByContainerId.get(row.containerId) ?? row.updatedAt)
+            : row.updatedAt,
+        ),
+      });
     }
   }
 }

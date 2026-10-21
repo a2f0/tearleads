@@ -1,6 +1,6 @@
 // The SQLite tables each client SDK subsystem owns, by the name of their
-// `sqliteTable` export. Only the owner imports a table from the schema; see
-// `subsystem-uses-own-tables` in subsystemTables.ts.
+// `sqliteTable` export, and the ones it lets other subsystems read. Only the
+// owner writes a table; see `subsystem-uses-own-tables` in subsystemTables.ts.
 
 export const documentStoreTables = [
   "containerDocumentTombstoneHolds",
@@ -68,3 +68,28 @@ export const keyingVerificationTables = [
 ];
 
 export const securityIncidentTables = ["securityIncidents"];
+
+// Container Contents is a read model over documents and their placements; its
+// listing, pending-write, and priming queries join the document tables, and it
+// loads each folder's metadata document from its history checkpoint. Keying
+// reads discovery evidence to choose which verified bundles a request cites.
+export const documentStoreReadableTables = [
+  "containerDocumentTombstoneHolds",
+  "documentAttachmentBlobProjection",
+  "documentDiscoveryHeads",
+  "documentHistoryCheckpoints",
+  "documentHistoryUpdates",
+  "documentPendingAttachments",
+  "documentProjection",
+  "documents",
+  "pendingDocumentDiscoveries",
+];
+
+// The folder tree, document placements, and queued intents: Document Store
+// reads them to delete and report on documents, and Keying to walk a folder's
+// lineage when choosing which verified bundles to cite.
+export const containerContentsReadableTables = [
+  "containers",
+  "documentContainerProjection",
+  "localIntents",
+];

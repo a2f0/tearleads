@@ -1,11 +1,14 @@
-import { asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, notInArray } from "drizzle-orm";
 import {
-  containerDocumentTombstoneHolds,
   documentContainerProjection,
   documentContainerProjectionTables,
   documentPlacementIntentTables,
   documentTables,
+  inLocalIntentLane,
+  LOCAL_INTENT_LANES,
+  localIntents,
 } from "../../sqlite/schema";
+import { documentIntentLinkTargets } from "../../sqlite/schema/documentPlacementIntentSchema";
 import {
   type ClientSQLiteTransactionScope,
   getClientSQLitePersistenceRuntime,
@@ -13,6 +16,7 @@ import {
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import {
   deleteContainerDocumentTombstoneHoldRowsForLinks,
+  deleteContainerDocumentTombstoneHoldsForContainers,
   deleteContainerDocumentTombstoneHoldsForDocuments,
 } from "../documents/containerDocumentTombstoneHoldsPersistence";
 
@@ -58,10 +62,7 @@ export async function deleteDocumentPlacementRowsByContainerIds(
     .delete(documentContainerProjection)
     .where(inArray(documentContainerProjection.containerId, containerIds))
     .run();
-  await tx
-    .delete(containerDocumentTombstoneHolds)
-    .where(inArray(containerDocumentTombstoneHolds.containerId, containerIds))
-    .run();
+  await deleteContainerDocumentTombstoneHoldsForContainers(tx, containerIds);
 }
 
 export async function deleteDocumentPlacementRowsByDocumentIds(
@@ -72,10 +73,68 @@ export async function deleteDocumentPlacementRowsByDocumentIds(
     .delete(documentContainerProjection)
     .where(inArray(documentContainerProjection.documentId, documentIds))
     .run();
+  await deleteContainerDocumentTombstoneHoldsForDocuments(tx, documentIds);
+}
+
+/** Removes one placement a verified tombstone retired. */
+export async function deleteDocumentPlacementRowInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  placement: { readonly containerId: string; readonly documentId: string },
+): Promise<void> {
   await tx
-    .delete(containerDocumentTombstoneHolds)
-    .where(inArray(containerDocumentTombstoneHolds.documentId, documentIds))
+    .delete(documentContainerProjection)
+    .where(
+      and(
+        eq(documentContainerProjection.documentId, placement.documentId),
+        eq(documentContainerProjection.containerId, placement.containerId),
+      ),
+    )
     .run();
+}
+
+/** Removes a document's placements outside the containers its head links. */
+export async function deleteUnlinkedDocumentPlacementRowsInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  documentId: string,
+  linkedContainerIds: ReadonlySet<string>,
+): Promise<void> {
+  await tx
+    .delete(documentContainerProjection)
+    .where(
+      linkedContainerIds.size === 0
+        ? eq(documentContainerProjection.documentId, documentId)
+        : and(
+            eq(documentContainerProjection.documentId, documentId),
+            notInArray(documentContainerProjection.containerId, [
+              ...linkedContainerIds,
+            ]),
+          ),
+    )
+    .run();
+}
+
+/** Removes a deleted document's queued placement intents and link targets. */
+export async function deleteDocumentPlacementIntentsInTransaction(
+  tx: ClientSQLiteTransactionScope,
+  documentId: string,
+): Promise<void> {
+  const placementIntent = and(
+    inLocalIntentLane(LOCAL_INTENT_LANES.documentPlacement),
+    eq(localIntents.subjectId, documentId),
+  );
+  await tx
+    .delete(documentIntentLinkTargets)
+    .where(
+      inArray(
+        documentIntentLinkTargets.intentId,
+        tx
+          .select({ id: localIntents.id })
+          .from(localIntents)
+          .where(placementIntent),
+      ),
+    )
+    .run();
+  await tx.delete(localIntents).where(placementIntent).run();
 }
 
 export const sqlDocumentContainerProjectionPersistence: DocumentContainerProjectionPersistence =

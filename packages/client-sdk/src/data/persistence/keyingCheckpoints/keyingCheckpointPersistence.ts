@@ -115,6 +115,18 @@ export async function loadStoredPrincipalPolicyCheckpoint(
     : null;
 }
 
+/** Every principal with a durable policy checkpoint. */
+export function listPrincipalPolicyCheckpointPrincipals(
+  handle: CheckpointHandle,
+): Promise<{ id: string; type: string }[]> {
+  return handle
+    .selectDistinct({
+      id: principalPolicyCheckpoints.principalId,
+      type: principalPolicyCheckpoints.principalType,
+    })
+    .from(principalPolicyCheckpoints);
+}
+
 export async function upsertAccessManifestCheckpointInTransaction(
   tx: ClientSQLiteTransactionScope,
   checkpoint: AccessManifestCheckpoint,

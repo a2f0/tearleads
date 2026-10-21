@@ -2,7 +2,6 @@ import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
 import {
   documentContainerProjection,
-  documentProjection,
   inLocalIntentLane,
   LOCAL_INTENT_LANES,
   localIntents,
@@ -13,6 +12,7 @@ import {
   deleteContainerDocumentTombstoneHoldRowsForLinks,
   deleteContainerDocumentTombstoneHoldsForContainers,
 } from "../documents/containerDocumentTombstoneHoldsPersistence";
+import { reassignDocumentProjectionContainerInTransaction } from "../documents/documentProjectionContainers";
 import {
   DOCUMENT_LINK_INTENT_TYPE,
   DOCUMENT_MOVE_INTENT_TYPE,
@@ -80,14 +80,11 @@ async function reassignPrimaryDocumentsForContainer(
   input: ContainerDocumentReassignmentInput,
 ): Promise<void> {
   const { fromContainerId, toContainerId, tx, updatedAt } = input;
-  await tx
-    .update(documentProjection)
-    .set({
-      containerId: toContainerId,
-      updatedAt: sql`max(${documentProjection.updatedAt}, ${updatedAt})`,
-    })
-    .where(eq(documentProjection.containerId, fromContainerId))
-    .run();
+  await reassignDocumentProjectionContainerInTransaction(tx, {
+    fromContainerId,
+    toContainerId,
+    updatedAt,
+  });
 }
 
 async function reassignDocumentMoveIntentsForContainer(

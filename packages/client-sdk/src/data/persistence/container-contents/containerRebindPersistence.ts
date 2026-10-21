@@ -1,11 +1,8 @@
-import { and, eq } from "drizzle-orm";
-import {
-  containers,
-  documents,
-  dormantContainerMetadata,
-} from "../../sqlite/schema";
+import { eq } from "drizzle-orm";
+import { containers, dormantContainerMetadata } from "../../sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, runSerializedSqlMutation } from "../../sqlite/sqlSchema";
+import { rebindDocumentRowInTransaction } from "../documents/records/documentRowsInTransaction";
 import type { HeldContainerBinding } from "./containerBinding";
 import { loadStoredHeldContainerBinding } from "./containerHydrationPersistence";
 import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
@@ -82,26 +79,11 @@ export async function rebindStoredHeldContainer(
           .set({ organizationId })
           .where(eq(dormantContainerMetadata.containerId, input.containerId))
           .run();
-        await tx
-          .update(documents)
-          .set({
-            accessEpoch: 1,
-            accessStateHash: null,
-            contentKeyBundle: null,
-            documentId: metadataDocumentId,
-            documentKekTargets: null,
-            documentManifestBundle: null,
-            lastCommitLsn: null,
-            pullContinuation: null,
-            updatedAt: supersededAt,
-          })
-          .where(
-            and(
-              eq(documents.appKind, CONTAINER_METADATA_APP_KIND),
-              eq(documents.localId, input.containerId),
-            ),
-          )
-          .run();
+        await rebindDocumentRowInTransaction(
+          tx,
+          { appKind: CONTAINER_METADATA_APP_KIND, localId: input.containerId },
+          { documentId: metadataDocumentId, updatedAt: supersededAt },
+        );
         return true;
       },
       () => !input.stillCurrent || input.stillCurrent(),
