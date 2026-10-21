@@ -17,7 +17,7 @@ import type {
   ReferencedPrincipalPolicyWarmer,
 } from "../../../data/keyingProjectionVerification";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { loadContainers } from "../../../data/persistence/containers/containerPersistence";
+import { loadContainers } from "../../../data/persistence/container-contents/containerPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { GroupPolicyNameReader } from "../principalPolicy/principalPolicyRequest";
 import { withMetadataRootReload } from "./groupMetadataErrors";

@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   type ContainerMoveIntentRecord,
   defaultContainerContentsPersistence,
 } from "../../containerPersistence";
+import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import { createTestContainerState } from "../containerState.testFixtures";
 import type { ContainerMoveIntentSyncState } from "../types";
 import { persistAcceptedMoveIntent } from "./moveIntentSync";

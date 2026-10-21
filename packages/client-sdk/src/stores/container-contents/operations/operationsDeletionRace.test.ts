@@ -3,17 +3,17 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
-import {
-  createContainerMetadataDocument,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
 import type { DomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../../workflows/container-contents/containerPersistence";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "../../../workflows/container-contents/metadata/containerMetadataDocument";
 import type { ContainerState } from "../../../workflows/container-contents/remoteHydration";
 import { captureContainerWriteGeneration } from "../remoteWrites/writeGeneration";
 import { createContainerContentsTestRuntime } from "../runtime.testFixtures";

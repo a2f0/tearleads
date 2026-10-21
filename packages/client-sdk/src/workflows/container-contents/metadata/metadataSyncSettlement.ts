@@ -1,8 +1,8 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { importUpdates } from "@tearleads/loro";
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { DocumentSyncPullContinuation } from "../../../data/documents/shared/sync/syncPagination";
 import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
+import { createContainerMetadataDocument } from "./containerMetadataDocument";
 import type { ContainerMetadataState } from "./metadataTypes";
 
 export interface ExpectedContainerMetadataSyncState {

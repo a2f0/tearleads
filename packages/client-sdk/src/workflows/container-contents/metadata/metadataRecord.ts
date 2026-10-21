@@ -1,6 +1,6 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
-import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
+import type { ContainerRecord } from "../../../data/persistence/container-contents/containerPersistence";
 import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
 import {
   currentMetadataPullContinuation,

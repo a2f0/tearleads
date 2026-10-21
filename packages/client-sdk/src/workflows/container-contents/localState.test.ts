@@ -2,12 +2,6 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import {
-  createContainerMetadataDocument,
-  getDefaultContainerName,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../data/containers/containerMetadataDocument";
 import type {
   ContainerContentsPersistence,
   ContainerMetadataRecord,
@@ -16,6 +10,12 @@ import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "./containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "./documentQueries";
 import { loadLocalContainerStates } from "./localState";
+import {
+  createContainerMetadataDocument,
+  getDefaultContainerName,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "./metadata/containerMetadataDocument";
 import {
   createContainerContentsPersistence,
   createContainerRecord,

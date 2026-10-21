@@ -1,5 +1,4 @@
 import type { AccessManifestCheckpoint } from "@tearleads/crypto";
-import type { HeldContainerBinding } from "../../containers/containerBinding";
 import type { DocumentSyncPullContinuation } from "../../documents/shared/sync/pullContinuation";
 import type {
   DocumentRecord,
@@ -7,7 +6,8 @@ import type {
   PendingUpdateRecord,
 } from "../../sqlite/documentPersistence";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import type { ContainerRecord } from "../containers/containerPersistence";
+import type { HeldContainerBinding } from "./containerBinding";
+import type { ContainerRecord } from "./containerPersistence";
 import type { DormantMetadataSweepPersistence } from "./dormantMetadataSweep";
 
 export const CONTAINER_CREATE_INTENT_TYPE = "container.create";

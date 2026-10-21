@@ -1,5 +1,5 @@
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   containerDocumentPlacementKey,
   listContainerDocumentTombstoneHoldsForDocuments,

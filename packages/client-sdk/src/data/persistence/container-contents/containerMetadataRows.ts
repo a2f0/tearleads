@@ -12,10 +12,6 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import {
-  type ContainerRecord,
-  saveContainerRows,
-} from "../containers/containerPersistence";
 import type {
   ContainerCreateIntentInput,
   ContainerMetadataRecord,
@@ -23,6 +19,10 @@ import type {
 } from "./containerContentsPersistenceTypes";
 import { saveContainerCreateIntent } from "./containerIntentPersistence";
 import { saveContainerMoveIntent } from "./containerMoveIntentRows";
+import {
+  type ContainerRecord,
+  saveContainerRows,
+} from "./containerPersistence";
 import {
   CONTAINER_METADATA_APP_KIND,
   clearDormantContainerMetadataInTransaction,

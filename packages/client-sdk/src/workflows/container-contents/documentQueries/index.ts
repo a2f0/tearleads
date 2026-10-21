@@ -4,16 +4,16 @@ import type {
   DiscoveredDocumentInput,
   DocumentSummary,
 } from "../../../data/documents/documentSummary";
+import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import {
   hasRetainedContainerMetadata,
   listRecoveryFolderMoveIds,
 } from "../../../data/persistence/container-contents/containerRecoveryPersistence";
-import { ensureContainerTables } from "../../../data/persistence/containers/containerPersistence";
 import {
   containerContentsSyncLane,
   sqlContainerSyncWatermarkPersistence,
-} from "../../../data/persistence/containers/containerSyncWatermarkPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+} from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   applyContainerDocumentTombstones as applyPersistedContainerDocumentTombstones,
   sqlDocumentsPersistence,

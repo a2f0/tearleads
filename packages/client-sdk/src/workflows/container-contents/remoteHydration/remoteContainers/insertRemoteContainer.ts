@@ -2,12 +2,12 @@ import type { AccessManifestCheckpoint } from "@tearleads/crypto";
 import {
   assertHeldContainerBinding,
   heldContainerBinding,
-} from "../../../../data/containers/containerBinding";
+} from "../../../../data/persistence/container-contents/containerBinding";
+import type { ContainerHydrationTombstone } from "../../containerPersistence";
 import {
   createContainerMetadataDocument,
   getDefaultContainerName,
-} from "../../../../data/containers/containerMetadataDocument";
-import type { ContainerHydrationTombstone } from "../../containerPersistence";
+} from "../../metadata/containerMetadataDocument";
 import { materializeStoredContainerStateReadOnly } from "../../storedContainerState";
 import { addIndexedContainerChild } from "../lanes/childIndex";
 import { reattachDormantContainerMetadata } from "../reattachMetadata";

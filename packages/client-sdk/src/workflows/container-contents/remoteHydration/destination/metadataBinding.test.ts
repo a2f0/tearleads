@@ -4,12 +4,12 @@ import { exportAllUpdates } from "@tearleads/loro";
 import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { createMetadataBindingFixture } from "../../../../../test/helpers/containerMetadataBinding";
 import { insertQueuedUpdateRows } from "../../../../../test/helpers/queuedUpdateRows";
+import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
+import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
-} from "../../../../data/containers/containerMetadataDocument";
-import { sqlContainerContentsPersistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
-import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+} from "../../metadata/containerMetadataDocument";
 import { renameContainerMetadataStateFromRuntime } from "../../metadata/metadataPersistence";
 import { verifyRemoteContainerDestination } from "./verifiedDestination";
 

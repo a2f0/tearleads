@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ListContainersResponse } from "@tearleads/validators/response";
-import { sqlContainerSyncWatermarkPersistence } from "../../../../data/persistence/containers/containerSyncWatermarkPersistence";
+import { sqlContainerSyncWatermarkPersistence } from "../../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
 import {
   createContainerParentSyncLane,

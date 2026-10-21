@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
-} from "../../data/containers/containerMetadataDocument";
+} from "../../workflows/container-contents/metadata/containerMetadataDocument";
 import type { ContainerState } from "./syncAgent";
 import { toContainerNode } from "./utils";
 

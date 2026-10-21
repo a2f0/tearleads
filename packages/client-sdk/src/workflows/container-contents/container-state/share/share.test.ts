@@ -14,8 +14,8 @@ import {
   createShareTestRuntime,
   runGroupShareScenario,
 } from "../../../../../test/helpers/groupShareScenario";
-import { createInitializedContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
+import { createInitializedContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
 import { shareContainerState } from "./index";
 import { withDirectUserGrant } from "./share.testFixtures";

@@ -4,10 +4,6 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import {
-  type HeldContainerBinding,
-  listingRepeatsHeldOrdinaryBinding,
-} from "../../../../data/containers/containerBinding";
 import { verifiedContainerCreateManifest } from "../../../../data/keyingProjectionVerification/container/containerCreateManifest";
 import { verifyContainerDestinationProjection } from "../../../../data/keyingProjectionVerification/container/containerDestinationVerification";
 import { verifyContainerWriterProjection } from "../../../../data/keyingProjectionVerification/container/containerProjectionVerification";
@@ -16,6 +12,10 @@ import {
   reportKeyingVerificationErrorInCauseChain,
   runWithSecurityIncidentReporting,
 } from "../../../../data/keyingProjectionVerification/error";
+import {
+  type HeldContainerBinding,
+  listingRepeatsHeldOrdinaryBinding,
+} from "../../../../data/persistence/container-contents/containerBinding";
 import { verifyRuntimeGroupMetadataAuthority } from "../../../organizations/groupMetadata/runtimeGroupMetadataAuthority";
 import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
 import type {

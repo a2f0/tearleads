@@ -9,7 +9,6 @@ import type {
   ListContainersResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import type { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import type { PrincipalPolicyHistoryReader } from "../../principals/principalPolicyHistoryReader";
 import type {
@@ -20,6 +19,7 @@ import type {
   createContainerParentSyncLane,
 } from "../containerPersistence";
 import type { ContainerMetadataPatch } from "../metadata";
+import type { createContainerMetadataDocument } from "../metadata/containerMetadataDocument";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
 export type ListedRemoteContainerPageItem =

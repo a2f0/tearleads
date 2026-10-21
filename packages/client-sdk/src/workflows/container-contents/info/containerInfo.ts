@@ -8,14 +8,14 @@ import {
   getTargetContainerContext,
   readContainerState,
 } from "../../../data/containers/shared/projection";
-import { ensureContainerTables } from "../../../data/persistence/containers/containerPersistence";
+import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import {
   type ContainerSyncWatermarkLane,
   containerContentsSyncLane,
   containerParentSyncLane,
   containerSyncWatermarkLaneKey,
   sqlContainerSyncWatermarkPersistence,
-} from "../../../data/persistence/containers/containerSyncWatermarkPersistence";
+} from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { containers } from "../../../data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";

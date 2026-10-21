@@ -23,13 +23,13 @@ import {
   runOncePerConnection,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
+import { getLatestTimestamp } from "../latestTimestamp";
 import {
   ensureContainerTables,
   loadContainerById,
   loadContainers as loadContainerRecords,
-} from "../containers/containerPersistence";
-import { sqlContainerSyncWatermarkPersistence } from "../containers/containerSyncWatermarkPersistence";
-import { getLatestTimestamp } from "../latestTimestamp";
+} from "./containerPersistence";
+import { sqlContainerSyncWatermarkPersistence } from "./containerSyncWatermarkPersistence";
 import {
   claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,

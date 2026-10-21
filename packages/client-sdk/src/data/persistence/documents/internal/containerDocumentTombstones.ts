@@ -9,7 +9,7 @@ import {
   getClientSQLitePersistenceRuntime,
 } from "../../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../sqlite/sqlSchema";
-import { filterWritableDocumentPlacements } from "../../containers/documentPlacement";
+import { filterWritableDocumentPlacements } from "../../container-contents/documentPlacement";
 import { getLatestTimestamp } from "../../latestTimestamp";
 import type { ContainerDocumentTombstoneInput } from "../types";
 import { DOCUMENTS_APP_KIND } from "./constants";

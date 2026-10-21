@@ -10,7 +10,6 @@ import {
 } from "../../../../../test/helpers/containerFixtures";
 import { createResponseFromRequest } from "../../../../../test/helpers/documentFixtures";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
-import { createInitializedContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { defaultDocumentProjectorRegistry } from "../../../../data/documents/documentKinds";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { createDomainScope } from "../../../../data/shared/domainScope";
@@ -20,6 +19,7 @@ import {
   type ContainerCreateIntentRecord,
   defaultContainerContentsPersistence,
 } from "../../containerPersistence";
+import { createInitializedContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import { listContainerMetadataDocumentUpdateIds } from "../../metadata/metadataEvents";
 import { createContainerContentsWorkflowRuntime } from "../../runtime";
 import { createTestContainerState } from "../containerState.testFixtures";

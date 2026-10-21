@@ -13,8 +13,8 @@ import type {
 } from "@tearleads/validators/response";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { readLinkedContainerIdsFromDocumentManifest } from "../../src/data/documents/shared/projection/projectionTargets";
+import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../src/data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../src/data/persistence/containers/documentContainerProjectionPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import type { ExecSql } from "../../src/data/sqlite/sqlSchema";
 import { syncPendingDocumentMoveIntents } from "../../src/workflows/container-contents/documentMove/documentMoveIntentSync";

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
 import type { ContainerState } from "../../remoteHydration";

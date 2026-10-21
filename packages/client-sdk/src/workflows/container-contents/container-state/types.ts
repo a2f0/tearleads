@@ -4,7 +4,6 @@ import type {
   ContainerWriterProjectionResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
-import type { createInitializedContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import type { DocumentRecord } from "../../../data/sqlite/documentPersistence";
 import type {
@@ -21,6 +20,7 @@ import type {
   ContainerCreateIntentRecord,
   ContainerMoveIntentRecord,
 } from "../containerPersistence";
+import type { createInitializedContainerMetadataDocument } from "../metadata/containerMetadataDocument";
 import type {
   ContainerState,
   RemoteContainer as HydratedRemoteContainer,

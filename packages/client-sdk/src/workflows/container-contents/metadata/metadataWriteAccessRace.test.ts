@@ -4,15 +4,15 @@ import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { execDatabaseStatement } from "@tearleads/sqlite-worker/load-sqlite3";
 import { initTestSqliteDatabase } from "@tearleads/test-utils";
 import {
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
-import {
   type ContainerContentsPersistence,
   sqlContainerContentsPersistence,
 } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { createClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { SqlArrayRow, SqlRow } from "../../../data/sqlite/sqlSchema";
+import {
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "./containerMetadataDocument";
 import {
   createContainerRecord,
   createDocumentRecord,

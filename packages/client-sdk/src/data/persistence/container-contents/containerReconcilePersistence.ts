@@ -9,15 +9,15 @@ import {
   ensureSqlTables,
   runSerializedSqlMutation,
 } from "../../sqlite/sqlSchema";
-import { ensureContainerTables } from "../containers/containerPersistence";
-import { sqlContainerSyncWatermarkPersistence } from "../containers/containerSyncWatermarkPersistence";
 import type { ContainerContentsPersistence } from "./containerContentsPersistenceTypes";
 import { reassignContainerDocumentsInTransaction } from "./containerDocumentReassignment";
+import { ensureContainerTables } from "./containerPersistence";
 import {
   deleteLocalContainerRows,
   reparentLocalContainerChildren,
   updateReparentedDescendantContainers,
 } from "./containerStructuralRepair";
+import { sqlContainerSyncWatermarkPersistence } from "./containerSyncWatermarkPersistence";
 
 type ContainerReconcilePersistence = Pick<
   ContainerContentsPersistence,

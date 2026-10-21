@@ -1,8 +1,8 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import type { CreateOrganizationGroupRequest } from "@tearleads/validators/request";
-import { createInitializedContainerMetadataDocument } from "../../data/containers/containerMetadataDocument";
 import { deriveStableDocumentId } from "../../data/documents/shared/stableDocumentId";
+import { createInitializedContainerMetadataDocument } from "../container-contents/metadata/containerMetadataDocument";
 import {
   type ContainerSystemSlotDefinition,
   deriveContainerSystemSlot,

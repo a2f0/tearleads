@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { holdContainerDocumentTombstones } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import { defaultContainerContentsPersistence } from "../containerPersistence";

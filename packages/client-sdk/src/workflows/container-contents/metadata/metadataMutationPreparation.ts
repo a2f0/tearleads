@@ -4,16 +4,16 @@ import {
   exportUpdatesSince,
   importUpdates,
 } from "@tearleads/loro";
-import {
-  getDefaultContainerName,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
 import { documentSyncPullContinuationsEqual } from "../../../data/documents/shared/sync/syncPagination";
 import { canWriteEffectiveAccessLevel } from "../../../data/keying/accessLevel";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
+import {
+  getDefaultContainerName,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "./containerMetadataDocument";
 import {
   type ExpectedContainerMetadataSyncState,
   metadataSyncSecurityContextMatches,

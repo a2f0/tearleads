@@ -1,18 +1,18 @@
 import { expect, test } from "bun:test";
-import {
-  createContainerMetadataDocument,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
 import type {
   ContainerContentsPersistence,
   ContainerMetadataRecord as ContainerDocumentRecord,
 } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
+import type { ContainerRecord } from "../../../data/persistence/container-contents/containerPersistence";
 import {
   type ExecSql,
   resolveCanonicalExecSql,
 } from "../../../data/sqlite/sqlSchema";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "./containerMetadataDocument";
 import {
   cleanupContainerMetadataRegistrationsOnFailure,
   hasContainerMetadataDocumentUpdateEvent,

@@ -1,11 +1,5 @@
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates, importUpdates } from "@tearleads/loro";
-import {
-  createContainerMetadataDocument,
-  getDefaultContainerName,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../data/containers/containerMetadataDocument";
 import type { ExecSql } from "../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
@@ -13,6 +7,12 @@ import {
   enqueuePendingContainerUpdate,
   type StoredContainerState,
 } from "./containerPersistence";
+import {
+  createContainerMetadataDocument,
+  getDefaultContainerName,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "./metadata/containerMetadataDocument";
 import type { ContainerState } from "./remoteHydration/types";
 
 type SaveContainerOptions = Parameters<

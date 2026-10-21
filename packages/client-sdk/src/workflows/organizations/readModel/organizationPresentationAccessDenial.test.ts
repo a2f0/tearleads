@@ -20,7 +20,7 @@ import {
   organizationReadModelUserId,
 } from "../../../../test/helpers/organizationReadModelProjectionFixtures";
 import { createRejectingExecSql } from "../../../../test/helpers/rejectingExecSql";
-import { ensureContainerTables } from "../../../data/persistence/containers/containerPersistence";
+import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import { loadOrganizationDataUsageProjection } from "../../../data/persistence/organizations/organizationDataUsagePersistence";
 import {
   applyOrganizationReadModelResponse,

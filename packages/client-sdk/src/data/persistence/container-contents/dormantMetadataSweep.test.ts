@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { ensureContainerTables } from "../containers/containerPersistence";
+import { ensureContainerTables } from "./containerPersistence";
 import {
   claimDormantMetadataSweepAttempt,
   completeDormantMetadataSweepRequest,

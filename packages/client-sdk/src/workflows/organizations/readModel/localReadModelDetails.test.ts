@@ -10,7 +10,7 @@ import { principalPolicy } from "../../../../test/helpers/organizationReadModelF
 import {
   ensureContainerTables,
   saveContainer,
-} from "../../../data/persistence/containers/containerPersistence";
+} from "../../../data/persistence/container-contents/containerPersistence";
 import { applyOrganizationReadModelResponse } from "../../../data/persistence/organizations/organizationReadModelPersistence";
 import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {

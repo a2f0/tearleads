@@ -8,7 +8,7 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { ensureDocumentAttachmentStructure } from "../../src/data/documents/documentContent";
 import { defaultDocumentProjectorRegistry } from "../../src/data/documents/documentKinds";
 import { ensureDocumentRowsStructure } from "../../src/data/documents/documentRowList";
-import { ensureContainerTables } from "../../src/data/persistence/containers/containerPersistence";
+import { ensureContainerTables } from "../../src/data/persistence/container-contents/containerPersistence";
 import { sqlDocumentsPersistence } from "../../src/data/persistence/documents/documentsPersistence";
 import { createDomainScope } from "../../src/data/shared/domainScope";
 import { noopDocumentStorePersistenceEffects } from "../../src/stores/documents/documentStore/documentStore.testFixtures";

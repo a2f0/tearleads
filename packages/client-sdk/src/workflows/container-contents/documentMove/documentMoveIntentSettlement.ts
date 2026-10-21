@@ -1,9 +1,9 @@
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import {
   type DocumentMoveIntentRecord,
   sqlDocumentMoveIntentPersistence,
 } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
-import { loadDocumentMovePlacement } from "../../../data/persistence/containers/documentPlacement";
+import { loadDocumentMovePlacement } from "../../../data/persistence/container-contents/documentPlacement";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 

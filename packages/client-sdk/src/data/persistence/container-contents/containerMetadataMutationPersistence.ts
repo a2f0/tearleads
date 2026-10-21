@@ -1,8 +1,4 @@
 import { and, eq, or } from "drizzle-orm";
-import {
-  assertHeldContainerBinding,
-  heldContainerBinding,
-} from "../../containers/containerBinding";
 import { documentSyncPullContinuationsEqual } from "../../documents/shared/sync/pullContinuation";
 import {
   enqueueDocumentPendingUpdate,
@@ -24,9 +20,9 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { runSerializedSqlMutation } from "../../sqlite/sqlSchema";
 import {
-  type ContainerRecord,
-  loadContainerById,
-} from "../containers/containerPersistence";
+  assertHeldContainerBinding,
+  heldContainerBinding,
+} from "./containerBinding";
 import type {
   ContainerContentsPersistence,
   ContainerMetadataRecord,
@@ -42,6 +38,10 @@ import {
   saveContainerContentsContainerRows,
   selectContainerMetadataRecord,
 } from "./containerMetadataRows";
+import {
+  type ContainerRecord,
+  loadContainerById,
+} from "./containerPersistence";
 import { CONTAINER_METADATA_APP_KIND } from "./dormantContainerMetadata";
 
 function sameNullableValue(

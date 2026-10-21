@@ -7,7 +7,7 @@ import {
 import { persistedDocumentCreateStateFromWriterProjection } from "../../../data/documents/shared/responses";
 import type { ProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { reportAndRethrowKeyingVerificationError } from "../../../data/keyingProjectionVerification/error";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { errorMessage } from "../../../data/shared/errorMessage";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { isDatabaseUnavailableError } from "../../../data/sync/databaseUnavailable";

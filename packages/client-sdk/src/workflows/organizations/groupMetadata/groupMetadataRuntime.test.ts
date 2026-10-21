@@ -4,7 +4,7 @@ import { createCurrentOrganizationRuntimeFixture } from "../../../../test/helper
 import {
   ensureContainerTables,
   saveContainer,
-} from "../../../data/persistence/containers/containerPersistence";
+} from "../../../data/persistence/container-contents/containerPersistence";
 import { inheritPrincipalHistoryProtection } from "../../../data/principals/principalHistoryRuntime";
 import { createRuntimePrincipalPolicyCurrentResolver } from "../../principals/runtimePolicyRecovery";
 import { loadCurrentOrganizationAuthority } from "../currentOrganizationAuthority";

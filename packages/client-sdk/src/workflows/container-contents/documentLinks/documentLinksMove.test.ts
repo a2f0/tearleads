@@ -15,7 +15,7 @@ import {
 } from "../../../../test/helpers/documentFixtures";
 import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
 import { defaultDocumentProjectorRegistry } from "../../../data/documents/documentKinds";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { buildMaterializedDocumentCreatePlan } from "../../documents/create";
 import { moveRemoteContainerDocument } from "./index";
 

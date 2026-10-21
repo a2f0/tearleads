@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { createContainerMetadataDocument } from "../../../data/containers/containerMetadataDocument";
 import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   type ContainerContentsPersistence,
   defaultContainerContentsPersistence,
 } from "../../../workflows/container-contents/containerPersistence";
+import { createContainerMetadataDocument } from "../../../workflows/container-contents/metadata/containerMetadataDocument";
 import { createDetachedContainerMetadataState } from "../../../workflows/container-contents/metadata/metadataStateIsolation";
 import type { ContainerState } from "../../../workflows/container-contents/remoteHydration";
 import { createContainerContentsTestRuntime } from "../runtime.testFixtures";

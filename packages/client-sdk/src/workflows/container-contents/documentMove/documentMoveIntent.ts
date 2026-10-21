@@ -1,8 +1,8 @@
 import { DEFAULT_DOCUMENT_ACCESS_EPOCH } from "../../../data/documents/documentConstants";
 import type { DocumentSummary } from "../../../data/documents/documentSummary";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
+import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { sqlDocumentMoveIntentPersistence } from "../../../data/persistence/container-contents/documentMoveIntentPersistence";
-import { sqlDocumentContainerProjectionPersistence } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
 import { defaultDocumentsPersistence } from "../../documents";
 import { listDocumentLinkedContainerIds } from "../documentLinks";
 import { relinkContainerDocumentLocally } from "../documentLinks/documentLocalRelink";

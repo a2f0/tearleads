@@ -3,11 +3,11 @@ import { bytesToBase64 } from "@tearleads/encoding";
 import { exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { insertQueuedUpdateRows } from "../../../../test/helpers/queuedUpdateRows";
+import { defaultContainerContentsPersistence } from "../containerPersistence";
 import {
   createContainerMetadataDocument,
   writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
-import { defaultContainerContentsPersistence } from "../containerPersistence";
+} from "../metadata/containerMetadataDocument";
 import { reattachDormantContainerMetadata } from "../remoteHydration/reattachMetadata";
 
 const T1 = "2026-01-01T00:00:01.000Z";

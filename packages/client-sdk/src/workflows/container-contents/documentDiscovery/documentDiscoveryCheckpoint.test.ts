@@ -6,7 +6,7 @@ import {
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
 import { createWorkflowInputFixture } from "../../../../test/helpers/internalRuntimeFixtures";
 import { createQueuedDocumentMoveRemote } from "../../../../test/helpers/queuedDocumentMoveRemote";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { loadLocalDocumentAccessEpoch } from "../../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import {

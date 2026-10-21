@@ -26,17 +26,6 @@
   "packages/client-sdk/src/client/session/sessionRootAuthority.ts": [
     "packages/client-sdk/src/client/runtime/workflowRuntime.ts"
   ],
-  "packages/client-sdk/src/data/containers/containerBinding.ts": [
-    "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistenceTypes.ts",
-    "packages/client-sdk/src/data/persistence/container-contents/containerHydrationPersistence.ts",
-    "packages/client-sdk/src/data/persistence/container-contents/containerMetadataMutationPersistence.ts",
-    "packages/client-sdk/src/data/persistence/container-contents/containerRebindPersistence.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/replacementBinding.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/verifiedDestination.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/heldContainerRebind.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/remoteContainers/insertRemoteContainer.ts",
-    "packages/client-sdk/src/workflows/container-contents/remoteHydration/remoteContainers/remoteContainerState.ts"
-  ],
   "packages/client-sdk/src/data/containers/shared/authorAccess.ts": [
     "packages/client-sdk/src/workflows/documents/authorAccessFailure.ts",
     "packages/client-sdk/src/workflows/documents/create/index.ts",
@@ -245,8 +234,16 @@
     "packages/client-sdk/src/workflows/organizations/containerGrantRevocation.ts",
     "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataRuntime.ts"
   ],
+  "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts": [
+    "packages/client-sdk/src/workflows/sync/remoteReset.ts"
+  ],
   "packages/client-sdk/src/data/persistence/container-contents/documentMoveIntentPersistence.ts": [
     "packages/client-sdk/src/client/organizations/organizationAccessRestoration.ts"
+  ],
+  "packages/client-sdk/src/data/persistence/container-contents/documentPlacement.ts": [
+    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstoneHolds.ts",
+    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",
+    "packages/client-sdk/src/data/persistence/documents/internal/discoveredDocumentPlacement.ts"
   ],
   "packages/client-sdk/src/data/persistence/container-contents/dormantMetadataSweep.ts": [
     "packages/client-sdk/src/client/organizations/organizationAccessRestoration.ts"
@@ -257,36 +254,11 @@
   "packages/client-sdk/src/data/persistence/container-contents/supersededContainerBindings.ts": [
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"
   ],
-  "packages/client-sdk/src/data/persistence/containers/containerSyncWatermarkPersistence.ts": [
-    "packages/client-sdk/src/data/persistence/container-contents/containerContentsPersistence.ts",
-    "packages/client-sdk/src/data/persistence/container-contents/containerDeletionPersistence.ts",
-    "packages/client-sdk/src/data/persistence/container-contents/containerReconcilePersistence.ts",
-    "packages/client-sdk/src/data/persistence/container-contents/containerStructuralRepair.ts",
-    "packages/client-sdk/src/workflows/container-contents/containerPersistence.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentQueries/index.ts",
-    "packages/client-sdk/src/workflows/container-contents/info/containerInfo.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/containers/documentContainerProjectionPersistence.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/purge/purgeTree.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentLinks/documentLinkIntent.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentLinks/index.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentMove/documentMoveIntent.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentMove/documentMoveIntentSettlement.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentQueries/documentSubtreeQueries.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentQueries/index.ts",
-    "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/containers/documentPlacement.ts": [
-    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstoneHolds.ts",
-    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",
-    "packages/client-sdk/src/data/persistence/documents/internal/discoveredDocumentPlacement.ts",
-    "packages/client-sdk/src/workflows/container-contents/documentMove/documentMoveIntentSettlement.ts"
-  ],
   "packages/client-sdk/src/data/persistence/documents/containerDocumentTombstoneHoldsPersistence.ts": [
     "packages/client-sdk/src/client/containerContents/documentDiscovery.ts",
     "packages/client-sdk/src/data/persistence/container-contents/containerDocumentReassignment.ts",
     "packages/client-sdk/src/data/persistence/container-contents/containerStructuralRepair.ts",
-    "packages/client-sdk/src/data/persistence/containers/documentContainerProjectionPersistence.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts",
     "packages/client-sdk/src/workflows/container-contents/documentQueries/documentSubtreeQueries.ts",
     "packages/client-sdk/src/workflows/container-contents/tombstones/documentTombstoneGate.ts"
   ],
@@ -303,7 +275,7 @@
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"
   ],
   "packages/client-sdk/src/data/persistence/documents/internal/constants.ts": [
-    "packages/client-sdk/src/data/persistence/containers/documentPlacement.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/documentPlacement.ts",
     "packages/client-sdk/src/workflows/container-contents/pendingWrites/index.ts"
   ],
   "packages/client-sdk/src/data/persistence/documents/internal/orphanSideRows.ts": [
@@ -458,7 +430,7 @@
     "packages/client-sdk/src/data/documents/shared/containerKek/keyringRebuild.ts"
   ],
   "packages/client-sdk/src/data/sync/crdtPeerSeed.ts": [
-    "packages/client-sdk/src/data/containers/containerMetadataDocument.ts",
+    "packages/client-sdk/src/workflows/container-contents/metadata/containerMetadataDocument.ts",
     "packages/client-sdk/src/workflows/documents/historyContent.ts",
     "packages/client-sdk/src/workflows/organizations/organizationProfile.ts",
     "packages/client-sdk/src/workflows/organizations/rosterProfileContainer.ts",

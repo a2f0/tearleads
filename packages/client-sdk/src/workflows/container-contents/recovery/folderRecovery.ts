@@ -1,15 +1,15 @@
 import { base64ToBytes } from "@tearleads/encoding";
 import { importUpdates } from "@tearleads/loro";
 import {
-  createContainerMetadataDocument,
-  readContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
-import {
   discardRetainedContainerMetadata,
   listRecoveryFolderMoveIds,
   listRetainedContainerMetadata,
 } from "../../../data/persistence/container-contents/containerRecoveryPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import {
+  createContainerMetadataDocument,
+  readContainerMetadataValue,
+} from "../metadata/containerMetadataDocument";
 
 export interface RecoveryFolder {
   containerId: string;

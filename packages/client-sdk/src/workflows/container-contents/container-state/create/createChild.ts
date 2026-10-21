@@ -1,6 +1,5 @@
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { ContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
-import { createInitializedContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { createPendingUpdateFields } from "../../../../data/documents/documentSync";
 import { deriveStableUuidV4Shaped } from "../../../../data/keying/stableUuid";
 import type { ProjectionUserKeyResolver } from "../../../../data/keyingProjectionVerification";
@@ -9,6 +8,7 @@ import type {
   ContainerDocumentRecord as DocumentRecord,
 } from "../../containerPersistence";
 import { defaultContainerContentsPersistence } from "../../containerPersistence";
+import { createInitializedContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
 import { loadContainerWriterProjectionForState } from "../projectionCache";
 import { createRemoteContainer } from "../remote";

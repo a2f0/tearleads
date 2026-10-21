@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createDocument, exportAllUpdates } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
-import { writeContainerMetadataValue } from "../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
+import { writeContainerMetadataValue } from "./containerMetadataDocument";
 import {
   createContainerRecord,
   createDocumentRecord,

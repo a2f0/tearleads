@@ -1,18 +1,18 @@
 import { encodeVersionVector, exportUpdatesSince } from "@tearleads/loro";
-import {
-  getDefaultContainerName,
-  readContainerMetadataValue,
-  writeContainerMetadataValue,
-} from "../../../data/containers/containerMetadataDocument";
 import { createPendingUpdateFields } from "../../../data/documents/documentSync";
 import type { ContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
-import type { ContainerRecord } from "../../../data/persistence/containers/containerPersistence";
+import type { ContainerRecord } from "../../../data/persistence/container-contents/containerPersistence";
 import {
   type ExecSql,
   runSerializedSqlMutation,
 } from "../../../data/sqlite/sqlSchema";
 import type { ContainerDocumentRecord as DocumentRecord } from "../containerPersistence";
 import type { ContainerContentsWorkflowSqlRuntime } from "../runtime";
+import {
+  getDefaultContainerName,
+  readContainerMetadataValue,
+  writeContainerMetadataValue,
+} from "./containerMetadataDocument";
 import {
   currentMetadataPullContinuation,
   loadAuthoritativeContainerMetadataState,

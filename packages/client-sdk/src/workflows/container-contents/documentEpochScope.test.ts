@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { sqlContainerContentsPersistence as metadata } from "../../data/persistence/container-contents/containerContentsPersistence";
-import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/containers/documentContainerProjectionPersistence";
+import { sqlDocumentContainerProjectionPersistence as links } from "../../data/persistence/container-contents/documentContainerProjectionPersistence";
 import { loadLocalDocumentAccessEpoch } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 
 import { hydrateStoredContainerState } from "./storedContainerState";

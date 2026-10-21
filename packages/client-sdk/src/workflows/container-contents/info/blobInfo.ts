@@ -10,7 +10,7 @@ import {
   sql,
 } from "drizzle-orm";
 import { unionAll } from "drizzle-orm/sqlite-core";
-import { ensureContainerTables } from "../../../data/persistence/containers/containerPersistence";
+import { ensureContainerTables } from "../../../data/persistence/container-contents/containerPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import {
   containers,

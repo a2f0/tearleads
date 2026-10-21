@@ -2,7 +2,7 @@ import {
   ensureContainerTables,
   loadContainers,
   saveContainer,
-} from "../../data/persistence/containers/containerPersistence";
+} from "../../data/persistence/container-contents/containerPersistence";
 import {
   createExecSql,
   type ExecSql,

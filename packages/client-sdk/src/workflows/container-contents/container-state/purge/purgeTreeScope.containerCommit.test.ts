@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
-import { createContainerMetadataDocument } from "../../../../data/containers/containerMetadataDocument";
 import { sqlContainerContentsPersistence as persistence } from "../../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../../data/persistence/documents/documentsPersistence";
+import { createContainerMetadataDocument } from "../../metadata/containerMetadataDocument";
 import type { ContainerState } from "../../remoteHydration";
 import type { ContainerContentsWorkflowRuntime } from "../../runtime";
 import { purgeContainerTree } from "./purgeTree";

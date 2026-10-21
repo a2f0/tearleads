@@ -72,26 +72,22 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/workflows/container-contents/index.ts`,
       `${sdk}/stores/container-contents/types.ts`,
       `${sdk}/data/persistence/container-contents/containerContentsPersistence.ts`,
+      `${sdk}/data/persistence/container-contents/containerPersistence.ts`,
+      `${sdk}/workflows/container-contents/metadata/containerMetadataDocument.ts`,
     ],
   },
   {
     name: "Container Data",
     package: "client-sdk",
     responsibility:
-      "Client-side container CRUD/share workflow operations, principal-container rematerialization, and the local container persistence shape.",
+      "Client-side container CRUD/share workflow operations and principal-container rematerialization.",
     seam: "workflows/containers",
-    paths: [
-      `${sdk}/workflows/containers/`,
-      `${sdk}/data/containers/`,
-      `${sdk}/data/persistence/containers/`,
-    ],
+    paths: [`${sdk}/workflows/containers/`, `${sdk}/data/containers/`],
     surface: [
       `${sdk}/workflows/containers/index.ts`,
       `${sdk}/workflows/containers/rematerialization/index.ts`,
-      `${sdk}/data/containers/containerMetadataDocument.ts`,
       `${sdk}/data/containers/shared/mutationFailures.ts`,
       `${sdk}/data/containers/shared/types.ts`,
-      `${sdk}/data/persistence/containers/containerPersistence.ts`,
     ],
   },
   {

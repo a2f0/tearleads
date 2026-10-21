@@ -5,7 +5,7 @@ import type { DiscoveredDocumentInput } from "../../../data/documents/documentSu
 import {
   containerContentsSyncLane,
   sqlContainerSyncWatermarkPersistence,
-} from "../../../data/persistence/containers/containerSyncWatermarkPersistence";
+} from "../../../data/persistence/container-contents/containerSyncWatermarkPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../../../data/persistence/documents/documentDiscoveryEvidencePersistence";
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../../../data/persistence/documents/documentDiscoveryReset";
 import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";

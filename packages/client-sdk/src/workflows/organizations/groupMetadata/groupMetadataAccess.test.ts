@@ -12,7 +12,7 @@ import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedU
 import {
   ensureContainerTables,
   saveContainer,
-} from "../../../data/persistence/containers/containerPersistence";
+} from "../../../data/persistence/container-contents/containerPersistence";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import { containerWriterProjectionFromRekeyPlan } from "../../containers/child/rekey/rekeyProjection";
 import { buildInitialGroupPolicyRequest } from "../principalPolicy/principalPolicyRequest";
