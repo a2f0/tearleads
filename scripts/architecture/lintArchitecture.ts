@@ -29,6 +29,10 @@ import {
   findSubsystemDocsViolations,
   miniAppNames,
 } from "./subsystems";
+import {
+  findSubsystemTableViolations,
+  subsystemTableBaselinePath,
+} from "./subsystemTables";
 import { findWorkspaceRegistryViolations } from "./workspaceRegistryContract";
 
 const appSrc = packageSourcePath.app;
@@ -416,6 +420,12 @@ const architectureChecks: ArchitectureCheck[] = [
     formatItem: (violation) => violation,
     message: `Other subsystems import only the files in a subsystem's declared surface. Import through its facade, or add a deliberate contract module to the surface. Older deep imports are listed in ${subsystemSurfaceBaselinePath}, which only shrinks.`,
     name: "subsystem-imports-use-declared-surface",
+  }),
+  createListCheck({
+    findItems: findSubsystemTableViolations,
+    formatItem: (violation) => violation,
+    message: `Only the subsystem that owns a SQLite table imports it from the schema or names it in raw SQL. Reach another subsystem's data through its surface. Older uses are listed in ${subsystemTableBaselinePath}, which only shrinks.`,
+    name: "subsystem-uses-own-tables",
   }),
 ];
 
