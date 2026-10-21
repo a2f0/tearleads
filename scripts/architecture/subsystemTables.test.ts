@@ -3,7 +3,7 @@ import * as ts from "typescript";
 import type { Subsystem } from "./subsystems";
 import { findTableViolations } from "./subsystemTables";
 import {
-  findTableUsesInSources,
+  findTableUsesInProgram,
   rawSqlTableAccess,
 } from "./subsystemTableUses";
 
@@ -138,147 +138,233 @@ test("raw SQL reads and writes its tables; prose and comments name none", () => 
   });
 });
 
-test("every way of reaching another subsystem's table is classified and checked", () => {
-  const sources = new Map(
-    [
-      parse("pkg/sqlite/schema/index.ts", [
-        'export const alphaRows = sqliteTable("alpha_rows", {});',
-        'export const betaRows = sqliteTable("beta_rows", {});',
-        'export const betaLog = sqliteTable("beta_log", {});',
-        "export const appSchema = { alphaRows, betaLog, betaRows };",
-      ]),
-      parse("pkg/sqlite/schema/registry.ts", [
-        'import { betaRows } from "./index";',
-        "export const betaSchema = { betaRows };",
-      ]),
-      parse("pkg/sqlite/schema/extra.ts", [
-        'export const extraRows = sqliteTable("extra_rows", {});',
-      ]),
-      parse("pkg/sqlite/schema/alias.ts", [
-        'export { betaRows as rows } from "./index";',
-      ]),
-      parse("pkg/sqlite/schema/aliasAgain.ts", [
-        'export { rows } from "./alias";',
-      ]),
-      parse("pkg/sqlite/runtime.ts", [
-        'import { appSchema } from "./schema";',
-        "export const db = drizzle(execute, { schema: appSchema });",
-        'export { appSchema } from "./schema";',
-      ]),
-      parse("pkg/a/own.ts", [
-        'import { alphaRows } from "../sqlite/schema";',
-        "export const own = tx.insert(alphaRows).values(row);",
-      ]),
-      parse("pkg/a/readsExposed.ts", [
-        'import { betaLog } from "../sqlite/schema";',
-        "export const x = tx.select({ at: betaLog.at }).from(betaLog);",
-        'export const y = "SELECT at FROM beta_log";',
-        "export type Row = typeof betaLog.$inferSelect;",
-        "export const z = db.query.betaLog.findMany();",
-      ]),
-      parse("pkg/a/readsDynamicExposed.ts", [
-        'const { betaLog } = await import("../sqlite/schema");',
-        "export const r = betaLog.at;",
-      ]),
-      parse("pkg/a/viaImport.ts", [
-        'import { betaRows as rows } from "../sqlite/schema";',
-        "export const x = tx.select().from(rows);",
-      ]),
-      parse("pkg/a/viaLoop.ts", [
-        'import { betaLog } from "../sqlite/schema";',
-        "for (const table of [betaLog]) await tx.delete(table).run();",
-      ]),
-      parse("pkg/a/viaSchemaObject.ts", [
-        'import { appSchema } from "../sqlite/schema";',
-        "export const x = tx.update(appSchema.betaLog).set(row);",
-      ]),
-      parse("pkg/a/viaRuntimeReexport.ts", [
-        'import { appSchema } from "../sqlite/runtime";',
-        "export const x = tx.delete(appSchema.betaLog);",
-      ]),
-      parse("pkg/a/viaAlias.ts", [
-        'import { appSchema } from "../sqlite/schema";',
-        "const schema = appSchema;",
-        "export const x = tx.update(schema.betaLog).set(row);",
-      ]),
-      parse("pkg/a/viaComputedKey.ts", [
-        'import { appSchema } from "../sqlite/schema";',
-        "export const x = appSchema[name];",
-      ]),
-      parse("pkg/a/viaNamespace.ts", [
-        'import * as registry from "../sqlite/schema/registry";',
-        "export const x = registry.betaSchema.betaRows.id;",
-      ]),
-      parse("pkg/a/viaChainedAlias.ts", [
-        'import { rows } from "../sqlite/schema/aliasAgain";',
-        "export const x = tx.delete(rows);",
-      ]),
-      parse("pkg/a/viaRelationalIndex.ts", [
-        'export const x = db.query["betaRows"].findMany();',
-      ]),
-      parse("pkg/a/viaRawSql.ts", [
-        'export const x = "UPDATE beta_log SET at = ?";',
-      ]),
-      parse("pkg/a/reexports.ts", [
-        'export * from "../sqlite/schema";',
-        'export * from "../sqlite/schema/extra";',
-      ]),
-      parse("pkg/a/viaReexport.ts", [
-        'import { betaRows, extraRows } from "./reexports";',
-        "export const x = [tx.delete(betaRows), tx.update(extraRows)];",
-      ]),
-      parse("pkg/a/viaDynamicNamespace.ts", [
-        'const schema = await import("../sqlite/schema");',
-        "export const x = schema.betaRows.id;",
-      ]),
-      parse("pkg/a/viaDynamicDestructure.ts", [
-        'const { betaLog } = await import("../sqlite/schema");',
-        "export const y = tx.delete(betaLog);",
-      ]),
-      parse("pkg/a/viaQuotedKey.ts", [
-        'const { "betaRows": rows } = await import("../sqlite/schema");',
-        "export const x = tx.delete(rows);",
-      ]),
-      parse("pkg/a/viaUnawaitedImport.ts", [
-        'const pending = import("../sqlite/schema/extra");',
-        "export const x = pending.then((m) => tx.delete(m.extraRows));",
-      ]),
-    ].map((source) => [source.fileName, source] as const),
-  );
-  const registry = [
-    subsystem("Alpha", ["pkg/a/"], ["alphaRows"]),
-    subsystem(
-      "Beta",
-      ["pkg/b/"],
-      ["betaRows", "betaLog", "extraRows"],
-      ["betaLog"],
-    ),
-    subsystem("Runtime", ["pkg/sqlite/"]),
-  ];
+/** Type-checks fixture files in memory, with the real default library. */
+function fixtureUses(files: Readonly<Record<string, readonly string[]>>) {
+  const options: ts.CompilerOptions = {
+    module: ts.ModuleKind.ESNext,
+    moduleResolution: ts.ModuleResolutionKind.Bundler,
+    noEmit: true,
+    skipLibCheck: true,
+    target: ts.ScriptTarget.ES2022,
+  };
+  const host = ts.createCompilerHost(options);
+  const readHostFile = host.getSourceFile.bind(host);
+  const hostFileExists = host.fileExists.bind(host);
+  host.getSourceFile = (fileName, languageVersion) => {
+    const lines = files[fileName];
+    return lines === undefined
+      ? readHostFile(fileName, languageVersion)
+      : ts.createSourceFile(fileName, lines.join("\n"), languageVersion, true);
+  };
+  host.fileExists = (fileName) => fileName in files || hostFileExists(fileName);
+  const names = Object.keys(files);
+  const hostDirectoryExists = host.directoryExists?.bind(host);
+  host.directoryExists = (directory) =>
+    names.some((fileName) => fileName.startsWith(`${directory}/`)) ||
+    (hostDirectoryExists?.(directory) ?? false);
+  return findTableUsesInProgram(ts.createProgram(names, options, host), names);
+}
 
+const fixtureRegistry = [
+  subsystem("Alpha", ["/fixture/a/"], ["alphaRows"]),
+  subsystem(
+    "Beta",
+    ["/fixture/b/"],
+    ["betaLog", "betaRows", "cycleARows", "cycleBRows", "extraRows"],
+    ["betaLog"],
+  ),
+  subsystem("Runtime", ["/fixture/sqlite/"]),
+];
+
+const schemaFixtures: Record<string, readonly string[]> = {
+  "/fixture/sqlite/schema/index.ts": [
+    'export const alphaRows = sqliteTable("alpha_rows", {});',
+    'export const betaRows = sqliteTable("beta_rows", {});',
+    'export const betaLog = sqliteTable("beta_log", {});',
+    "export const appSchema = { alphaRows, betaLog, betaRows };",
+  ],
+  "/fixture/sqlite/schema/registry.ts": [
+    'import { betaRows } from "./index";',
+    "export const betaSchema = { betaRows };",
+  ],
+  "/fixture/sqlite/schema/extra.ts": [
+    'export const extraRows = sqliteTable("extra_rows", {});',
+  ],
+  "/fixture/sqlite/schema/alias.ts": [
+    'export { betaRows as rows } from "./index";',
+  ],
+  "/fixture/sqlite/schema/aliasAgain.ts": ['export { rows } from "./alias";'],
+  "/fixture/sqlite/schema/cycleA.ts": [
+    'export * from "./cycleB";',
+    'export const cycleARows = sqliteTable("cycle_a_rows", {});',
+  ],
+  "/fixture/sqlite/schema/cycleB.ts": [
+    'export * from "./cycleA";',
+    'export const cycleBRows = sqliteTable("cycle_b_rows", {});',
+  ],
+  "/fixture/sqlite/runtime.ts": [
+    'import { appSchema } from "./schema";',
+    "export const db = drizzle(execute, { schema: appSchema });",
+    'export { appSchema } from "./schema";',
+  ],
+};
+
+const useFixtures: Record<string, readonly string[]> = {
+  "/fixture/a/own.ts": [
+    'import { alphaRows } from "../sqlite/schema";',
+    "export const own = tx.insert(alphaRows).values(row);",
+  ],
+  "/fixture/a/readsExposed.ts": [
+    'import { betaLog } from "../sqlite/schema";',
+    "export const x = tx.select({ at: betaLog.at }).from(betaLog);",
+    'export const y = "SELECT at FROM beta_log";',
+    "export type Row = typeof betaLog.$inferSelect;",
+    "export const z = db.query.betaLog.findMany();",
+  ],
+  "/fixture/a/readsDynamicExposed.ts": [
+    'const { betaLog } = await import("../sqlite/schema");',
+    "export const r = betaLog.at;",
+  ],
+  "/fixture/a/viaImport.ts": [
+    'import { betaRows as rows } from "../sqlite/schema";',
+    "export const x = tx.select().from(rows);",
+  ],
+  "/fixture/a/viaLoop.ts": [
+    'import { betaLog } from "../sqlite/schema";',
+    "for (const table of [betaLog]) await tx.delete(table).run();",
+  ],
+  "/fixture/a/viaShadowedAlias.ts": [
+    'import { alphaRows, appSchema } from "../sqlite/schema";',
+    "export function replaceBeta() {",
+    "  const table = appSchema.betaRows;",
+    "  const addAlpha = () => {",
+    "    const table = alphaRows;",
+    "    return tx.insert(table);",
+    "  };",
+    "  return [addAlpha(), tx.delete(table)];",
+    "}",
+  ],
+  "/fixture/a/viaSchemaObject.ts": [
+    'import { appSchema } from "../sqlite/schema";',
+    "export const x = tx.update(appSchema.betaLog).set(row);",
+  ],
+  "/fixture/a/viaRuntimeReexport.ts": [
+    'import { appSchema } from "../sqlite/runtime";',
+    "export const x = tx.delete(appSchema.betaLog);",
+  ],
+  "/fixture/a/typesOnly.ts": [
+    'import type { appSchema } from "../sqlite/schema";',
+    "export type Schema = typeof appSchema;",
+    "export interface Holder { readonly schema: Schema }",
+  ],
+  "/fixture/a/viaTypeName.ts": [
+    'import * as schema from "../sqlite/schema";',
+    "export type Row = typeof schema.betaRows.$inferSelect;",
+  ],
+  "/fixture/a/viaValues.ts": [
+    'import { appSchema } from "../sqlite/schema";',
+    "for (const table of Object.values(appSchema)) await tx.delete(table);",
+  ],
+  "/fixture/a/viaAlias.ts": [
+    'import { appSchema } from "../sqlite/schema";',
+    "const schema = appSchema;",
+    "export const x = tx.update(schema.betaLog).set(row);",
+  ],
+  "/fixture/a/viaComputedKey.ts": [
+    'import { appSchema } from "../sqlite/schema";',
+    "export const x = appSchema[name];",
+  ],
+  "/fixture/a/viaNamespace.ts": [
+    'import * as registry from "../sqlite/schema/registry";',
+    "export const x = registry.betaSchema.betaRows.id;",
+  ],
+  "/fixture/a/viaChainedAlias.ts": [
+    'import { rows } from "../sqlite/schema/aliasAgain";',
+    "export const x = tx.delete(rows);",
+  ],
+  "/fixture/a/viaCycleA.ts": [
+    'import { cycleBRows } from "../sqlite/schema/cycleA";',
+    "export const x = tx.delete(cycleBRows);",
+  ],
+  "/fixture/a/viaCycleB.ts": [
+    'import { cycleARows } from "../sqlite/schema/cycleB";',
+    "export const x = tx.delete(cycleARows);",
+  ],
+  "/fixture/a/viaRelationalIndex.ts": [
+    'export const x = db.query["betaRows"].findMany();',
+  ],
+  "/fixture/a/viaRawSql.ts": ['export const x = "UPDATE beta_log SET at = ?";'],
+  "/fixture/a/reexports.ts": [
+    'export * from "../sqlite/schema";',
+    'export * from "../sqlite/schema/extra";',
+  ],
+  "/fixture/a/viaReexport.ts": [
+    'import { betaRows, extraRows } from "./reexports";',
+    "export const x = [tx.delete(betaRows), tx.update(extraRows)];",
+  ],
+  "/fixture/a/viaDynamicNamespace.ts": [
+    'const schema = await import("../sqlite/schema");',
+    "export const x = schema.betaRows.id;",
+  ],
+  "/fixture/a/viaDynamicDestructure.ts": [
+    'const { betaLog } = await import("../sqlite/schema");',
+    "export const y = tx.delete(betaLog);",
+  ],
+  "/fixture/a/viaQuotedKey.ts": [
+    'const { "betaRows": rows } = await import("../sqlite/schema");',
+    "export const x = tx.delete(rows);",
+  ],
+  "/fixture/a/viaUnawaitedImport.ts": [
+    'const pending = import("../sqlite/schema/extra");',
+    "export const x = pending.then((m) => tx.delete(m.extraRows));",
+  ],
+};
+
+const expectedViolations = [
+  "/fixture/a/viaAlias.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaChainedAlias.ts writes betaRows, which Beta owns",
+  "/fixture/a/viaComputedKey.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaComputedKey.ts writes betaRows, which Beta owns",
+  "/fixture/a/viaCycleA.ts writes cycleBRows, which Beta owns",
+  "/fixture/a/viaCycleB.ts writes cycleARows, which Beta owns",
+  "/fixture/a/viaDynamicDestructure.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaDynamicNamespace.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaImport.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaLoop.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaNamespace.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaQuotedKey.ts writes betaRows, which Beta owns",
+  "/fixture/a/viaRawSql.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaReexport.ts writes betaRows, which Beta owns",
+  "/fixture/a/viaReexport.ts writes extraRows, which Beta owns",
+  "/fixture/a/viaRelationalIndex.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaRuntimeReexport.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaSchemaObject.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaShadowedAlias.ts writes betaRows, which Beta owns",
+  "/fixture/a/viaTypeName.ts reads betaRows, which Beta does not expose for reading",
+  "/fixture/a/viaUnawaitedImport.ts writes extraRows, which Beta owns",
+  "/fixture/a/viaValues.ts writes betaLog, which Beta owns",
+  "/fixture/a/viaValues.ts writes betaRows, which Beta owns",
+];
+
+test("every way of reaching another subsystem's table is classified and checked", () => {
   expect(
     findTableViolations({
       baseline: {},
-      ...findTableUsesInSources(sources),
-      registry,
+      ...fixtureUses({ ...schemaFixtures, ...useFixtures }),
+      registry: fixtureRegistry,
     }),
-  ).toEqual([
-    "pkg/a/viaAlias.ts writes betaLog, which Beta owns",
-    "pkg/a/viaChainedAlias.ts writes betaRows, which Beta owns",
-    "pkg/a/viaComputedKey.ts writes betaLog, which Beta owns",
-    "pkg/a/viaComputedKey.ts writes betaRows, which Beta owns",
-    "pkg/a/viaDynamicDestructure.ts writes betaLog, which Beta owns",
-    "pkg/a/viaDynamicNamespace.ts reads betaRows, which Beta does not expose for reading",
-    "pkg/a/viaImport.ts reads betaRows, which Beta does not expose for reading",
-    "pkg/a/viaLoop.ts writes betaLog, which Beta owns",
-    "pkg/a/viaNamespace.ts reads betaRows, which Beta does not expose for reading",
-    "pkg/a/viaQuotedKey.ts writes betaRows, which Beta owns",
-    "pkg/a/viaRawSql.ts writes betaLog, which Beta owns",
-    "pkg/a/viaReexport.ts writes betaRows, which Beta owns",
-    "pkg/a/viaReexport.ts writes extraRows, which Beta owns",
-    "pkg/a/viaRelationalIndex.ts reads betaRows, which Beta does not expose for reading",
-    "pkg/a/viaRuntimeReexport.ts writes betaLog, which Beta owns",
-    "pkg/a/viaSchemaObject.ts writes betaLog, which Beta owns",
-    "pkg/a/viaUnawaitedImport.ts writes extraRows, which Beta owns",
-  ]);
+  ).toEqual(expectedViolations);
+});
+
+test("resolution does not depend on the order files are read", () => {
+  const reversed = Object.fromEntries(
+    Object.entries({ ...schemaFixtures, ...useFixtures }).reverse(),
+  );
+  expect(
+    findTableViolations({
+      baseline: {},
+      ...fixtureUses(reversed),
+      registry: fixtureRegistry,
+    }),
+  ).toEqual(expectedViolations);
 });
