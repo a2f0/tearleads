@@ -1,3 +1,12 @@
+import {
+  containerContentsTables,
+  documentStoreTables,
+  identityTables,
+  keyingVerificationTables,
+  organizationReadModelTables,
+  principalPolicyTables,
+  securityIncidentTables,
+} from "./clientSdkTables";
 import { packageSourcePath } from "./dependencySourceRoots";
 import type { Subsystem } from "./subsystems";
 
@@ -92,6 +101,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/workflows/documents/sync/reportDocumentSyncQuarantine.ts`,
       `${sdk}/workflows/documents/syncFailures/syncFailureClassification.ts`,
     ],
+    tables: documentStoreTables,
   },
   {
     name: "Container Contents",
@@ -123,6 +133,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/workflows/container-contents/remoteReset/containerRemoteReset.ts`,
       `${sdk}/workflows/container-contents/syncLane.ts`,
     ],
+    tables: containerContentsTables,
   },
   {
     name: "Container Data",
@@ -197,6 +208,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/workflows/organizations/readModel/organizationRemoteReset.ts`,
       `${sdk}/workflows/organizations/rosterProfileContainer.ts`,
     ],
+    tables: organizationReadModelTables,
   },
   {
     name: "Root Console Client",
@@ -237,6 +249,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence.ts`,
       ...principalsDataSurface,
     ],
+    tables: principalPolicyTables,
   },
   {
     name: "Client Registration",
@@ -300,6 +313,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/client/session/sessionRootAuthority.ts`,
       `${sdk}/client/session/sessionTypes.ts`,
     ],
+    tables: identityTables,
   },
   {
     name: "Local Keyring",
@@ -364,6 +378,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/persistence/organizationFounderPersistence.ts`,
       `${sdk}/data/persistence/verifiedManifestBundlePersistence.ts`,
     ],
+    tables: keyingVerificationTables,
   },
   {
     name: "Security Incident Detection",
@@ -380,6 +395,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/client/securityIncidents/index.ts`,
       `${sdk}/data/shared/securityIncidents.ts`,
     ],
+    tables: securityIncidentTables,
   },
   {
     name: "SDK Shared Utilities",

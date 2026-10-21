@@ -1,0 +1,102 @@
+{
+  "accessManifestCheckpoints": [
+    "packages/client-sdk/src/data/persistence/documents/documentDiscoveryEvidencePersistence.ts"
+  ],
+  "containerDocumentTombstoneHolds": [
+    "packages/client-sdk/src/data/persistence/container-contents/documentContainerProjectionPersistence.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/orphanedDocumentSql.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/sql.ts"
+  ],
+  "containers": [
+    "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts",
+    "packages/client-sdk/src/stores/documents/documentStore/sync/syncShared.ts"
+  ],
+  "documentAttachmentBlobProjection": [
+    "packages/client-sdk/src/workflows/container-contents/info/blobInfo.ts",
+    "packages/client-sdk/src/workflows/container-contents/info/documentInfo.ts"
+  ],
+  "documentContainerProjection": [
+    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstoneHolds.ts",
+    "packages/client-sdk/src/data/persistence/documents/internal/containerDocumentTombstones.ts",
+    "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts",
+    "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts"
+  ],
+  "documentDiscoveryHeads": [
+    "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts"
+  ],
+  "documentHistoryCheckpoints": [
+    "packages/client-sdk/src/data/persistence/container-contents/containerMetadataRows.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/dormantContainerMetadata.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/documentHistoryPersistence.ts"
+  ],
+  "documentHistoryUpdates": [
+    "packages/client-sdk/src/data/persistence/container-contents/dormantContainerMetadata.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/documentHistoryPersistence.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/documentPendingUpdatePersistence.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/documentRecordPersistence.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentPriming/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/sql.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/deferredTails.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/sources.ts"
+  ],
+  "documentIntentLinkTargets": [
+    "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts"
+  ],
+  "documentPendingAttachments": [
+    "packages/client-sdk/src/workflows/container-contents/documentPriming/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/sql.ts",
+    "packages/client-sdk/src/workflows/container-contents/info/blobInfo.ts",
+    "packages/client-sdk/src/workflows/container-contents/info/documentInfo.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/sources.ts"
+  ],
+  "documentProjection": [
+    "packages/client-sdk/src/data/persistence/container-contents/containerDocumentReassignment.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/containerStructuralRepair.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/documentMoveIntentPersistence.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentPriming/documentHydrationProbe.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentPriming/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/pendingDownloads.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/sql.ts",
+    "packages/client-sdk/src/workflows/container-contents/info/blobInfo.ts",
+    "packages/client-sdk/src/workflows/container-contents/info/documentInfo.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/deferredTails.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/sources.ts"
+  ],
+  "documentPurgeCheckpoints": [
+    "packages/client-sdk/src/data/persistence/documents/documentsPersistence.ts"
+  ],
+  "documents": [
+    "packages/client-sdk/src/data/persistence/container-contents/containerMetadataRows.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/containerPendingUpdatePersistence.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/containerRebindPersistence.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/documentPlacement.ts",
+    "packages/client-sdk/src/data/persistence/container-contents/dormantContainerMetadata.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/documentPendingUpdatePersistence.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/documentRecordPersistence.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/documentSyncFailurePersistence.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentPriming/documentHydrationProbe.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentPriming/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/hydrationSql.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/documentQueries/pendingDownloads.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/deferredTails.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/index.ts",
+    "packages/client-sdk/src/workflows/container-contents/pendingWrites/sources.ts"
+  ],
+  "localIntents": [
+    "packages/client-sdk/src/data/persistence/documents/internal/discardDocument.ts",
+    "packages/client-sdk/src/data/persistence/documents/internal/documentDeletionPersistence.ts",
+    "packages/client-sdk/src/data/sqlite/documentPersistence/documentSyncFailurePersistence.ts"
+  ],
+  "pendingDocumentDiscoveries": [
+    "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts"
+  ],
+  "principalPolicyCheckpoints": [
+    "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyPersistence.ts",
+    "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyRemoteReset.ts"
+  ]
+}

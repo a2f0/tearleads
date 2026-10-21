@@ -42,6 +42,13 @@ export interface Subsystem {
    * imported, as for platform subsystems such as SQLite Runtime.
    */
   readonly surface?: readonly string[];
+  /**
+   * The SQLite tables the subsystem owns, by the name of their `sqliteTable`
+   * export. Only the owner imports a table from the schema; others reach its
+   * data through the owner's surface. Enforced by `subsystem-uses-own-tables`,
+   * with older uses listed in `subsystemTableBaseline.json`.
+   */
+  readonly tables?: readonly string[];
 }
 
 const api = packageSourcePath.api;

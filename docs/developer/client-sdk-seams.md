@@ -208,6 +208,29 @@ entry that no longer occurs, so the list only shrinks.
   baseline entry to land new code.
 - When you move a file the baseline names, rename its entries.
 
+### Table ownership
+
+Each SQLite table belongs to one subsystem, listed by its `sqliteTable` export
+name in the subsystem's `tables` (`scripts/architecture/clientSdkTables.ts`).
+Only the owner imports a table from the schema; other subsystems reach that data
+through the owner's surface. `bun run lint:architecture` fails when another
+subsystem's file reaches a table by:
+
+- importing it from a schema module;
+- reading its key off a schema module namespace, a schema object such as
+  `clientSQLiteSchema`, or Drizzle's `db.query`, by property, literal index, or
+  destructuring;
+- re-exporting a schema module wholesale;
+- naming it in raw SQL in a string or template, after `FROM`, `JOIN`, `INTO`, or
+  `UPDATE`.
+
+The surface check sees none of these: schema imports land in SQLite Runtime,
+which declares no surface, and raw SQL imports nothing. Schema modules are
+exempt, and passing a whole schema object along, as SQLite Runtime does to
+build the Drizzle database, names no table. Older uses are listed by table in
+`scripts/architecture/subsystemTableBaseline.json`, which only shrinks like the
+surface baseline.
+
 ## Enforcing a boundary
 
 Client SDK dependency rules live in
