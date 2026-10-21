@@ -4,7 +4,7 @@ import { documentWithStaleAncestors } from "../../../../test/helpers/staleAncest
 import {
   verifiedBlobWrapTargetsFromDocumentProjection,
   wrapBlobContentKey,
-} from "../../../data/documents/blob/shared/projection";
+} from "../../../data/blobs/attachments/projection";
 import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
 import { buildMaterializedDocumentSyncPlan } from "./syncPlanMaterial";
 

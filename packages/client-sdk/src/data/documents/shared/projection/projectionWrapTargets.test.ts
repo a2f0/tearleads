@@ -5,7 +5,7 @@ import {
 } from "@tearleads/crypto";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
 import { createStaleBundleSyncFixture } from "../../../../../test/helpers/staleBundleSyncFixture";
-import { verifiedBlobWrapTargetsFromDocumentProjection } from "../../blob/shared/projection";
+import { verifiedBlobWrapTargetsFromDocumentProjection } from "../../../blobs/attachments/projection";
 import { targetEnvelopeReference, uniqueSortedStrings } from "../readers";
 import {
   assertDocumentWriterProjectionConsistent,

@@ -19,8 +19,8 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import type { BlobContentKeyBundleRequest } from "@tearleads/validators/request";
-import type { BlobByteSource, BlobBytes } from "../../../blobs/blobContracts";
-import { importContentKeyMaterial } from "../../shared/contentRecordKeys";
+import { importContentKeyMaterial } from "../../documents/shared/contentRecordKeys";
+import type { BlobByteSource, BlobBytes } from "../blobContracts";
 import {
   contentRecordAdditionalDataBytes,
   deriveBlobBaseIv,

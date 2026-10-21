@@ -1,9 +1,9 @@
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import { readDocumentManifestIdentity } from "../../../data/documents/blob/shared/readers";
+import { readDocumentManifestIdentity } from "../../../data/blobs/attachments/readers";
 import type {
   BlobAttachmentApi,
   DocumentManifestIdentity,
-} from "../../../data/documents/blob/shared/types";
+} from "../../../data/blobs/attachments/types";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import {
   type ProjectionVerificationOptions,

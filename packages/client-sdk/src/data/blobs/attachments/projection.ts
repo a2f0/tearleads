@@ -9,23 +9,23 @@ import type {
   BlobContentKeyBundleResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { documentContainerProjections } from "../../../keyingProjectionVerification/document/documentContainerProjections";
-import type { ExecSql } from "../../../sqlite/sqlSchema";
-import { assertDocumentKekPathsCurrent } from "../../shared/containerKek/containerKekCurrency";
+import { assertDocumentKekPathsCurrent } from "../../documents/shared/containerKek/containerKekCurrency";
 import {
   readLinkedContainerIdsFromDocumentManifest,
   unwrapContainerKekPath,
   verifiedDocumentWrapTargets,
-} from "../../shared/projection";
-import { unwrapContentKeyTargetForKind } from "../../shared/projection/projectionContentKeys";
+} from "../../documents/shared/projection";
+import { unwrapContentKeyTargetForKind } from "../../documents/shared/projection/projectionContentKeys";
 import {
   assertEqualBytes,
   normalizeDocumentKekTargetResponse,
-} from "../../shared/readers";
+} from "../../documents/shared/readers";
 import {
   type ProjectionVerificationOptions,
   projectionVerificationOptions,
-} from "../../shared/types";
+} from "../../documents/shared/types";
+import { documentContainerProjections } from "../../keyingProjectionVerification/document/documentContainerProjections";
+import type { ExecSql } from "../../sqlite/sqlSchema";
 import { sortBlobTargets } from "./readers";
 import type { BlobContentKeyTarget, BlobEncryptedBytesHeader } from "./types";
 

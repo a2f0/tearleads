@@ -12,9 +12,9 @@ import {
   type WriteHeader,
 } from "@tearleads/crypto";
 import type { ContainerManifestRef } from "@tearleads/validators/request";
-import { readCanonicalJson } from "../../../keying/canonicalJson";
-import { uniqueSortedStrings } from "../../shared/readers";
-import type { DocumentCreateAuthor } from "../../shared/types";
+import { uniqueSortedStrings } from "../../documents/shared/readers";
+import type { DocumentCreateAuthor } from "../../documents/shared/types";
+import { readCanonicalJson } from "../../keying/canonicalJson";
 import type { BlobEncryptionPlan, DocumentManifestIdentity } from "./types";
 
 async function signBlobAttachmentBodyEvent<

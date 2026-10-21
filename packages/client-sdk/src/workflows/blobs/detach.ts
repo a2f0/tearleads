@@ -1,10 +1,10 @@
 import type { BlobAttachmentDetachRequest } from "@tearleads/validators/request";
-import { signBlobAttachmentDetachEvent } from "../../data/documents/blob/shared/events";
-import { assertBlobAttachmentDetachResponse } from "../../data/documents/blob/shared/responses";
+import { signBlobAttachmentDetachEvent } from "../../data/blobs/attachments/events";
+import { assertBlobAttachmentDetachResponse } from "../../data/blobs/attachments/responses";
 import type {
   DetachDocumentAttachmentInput,
   DetachDocumentAttachmentResult,
-} from "../../data/documents/blob/shared/types";
+} from "../../data/blobs/attachments/types";
 import { authorizingContainerPathRefs } from "../../data/documents/shared/projection";
 import { readCanonicalRecord } from "../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../data/keyingProjectionVerification";

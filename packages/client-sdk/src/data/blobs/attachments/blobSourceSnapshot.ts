@@ -5,8 +5,8 @@ import {
   createIncrementalSha256,
   normalizeBlobChunkSize,
 } from "@tearleads/crypto";
-import type { BlobByteSource, BlobBytes } from "../../../blobs/blobContracts";
-import { asWebCryptoBytes } from "../../shared/readers";
+import { asWebCryptoBytes } from "../../documents/shared/readers";
+import type { BlobByteSource, BlobBytes } from "../blobContracts";
 import type { BlobSourceSnapshot } from "./types";
 
 export type { BlobSourceSnapshot } from "./types";

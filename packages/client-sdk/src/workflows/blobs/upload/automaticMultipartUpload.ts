@@ -1,5 +1,5 @@
-import { DEFAULT_BLOB_CHUNK_SIZE_BYTES } from "../../../data/documents/blob/shared/crypto";
-import type { UploadDocumentAttachmentInput } from "../../../data/documents/blob/shared/types";
+import { DEFAULT_BLOB_CHUNK_SIZE_BYTES } from "../../../data/blobs/attachments/crypto";
+import type { UploadDocumentAttachmentInput } from "../../../data/blobs/attachments/types";
 
 export function resolveMultipartUploadOptions(
   multipart: UploadDocumentAttachmentInput["multipart"],

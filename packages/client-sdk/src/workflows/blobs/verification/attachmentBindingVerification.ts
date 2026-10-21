@@ -2,7 +2,7 @@ import {
   KeyingVerificationError,
   verifyAttachmentBindingEvent,
 } from "@tearleads/crypto";
-import type { DecryptDocumentAttachmentBlobInput } from "../../../data/documents/blob/shared/types";
+import type { DecryptDocumentAttachmentBlobInput } from "../../../data/blobs/attachments/types";
 import {
   readCanonicalJson,
   readCanonicalRecord,

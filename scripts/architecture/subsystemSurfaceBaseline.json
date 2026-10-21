@@ -56,39 +56,6 @@
   "packages/client-sdk/src/data/documents/attachmentContentIdentity.ts": [
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.ts"
   ],
-  "packages/client-sdk/src/data/documents/blob/shared/blobEnvelopeStream.ts": [
-    "packages/client-sdk/src/workflows/blobs/verification/attachmentKeyAuthenticator.ts"
-  ],
-  "packages/client-sdk/src/data/documents/blob/shared/blobSourceSnapshot.ts": [
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts"
-  ],
-  "packages/client-sdk/src/data/documents/blob/shared/crypto.ts": [
-    "packages/client-sdk/src/workflows/blobs/hydration/blobChunkDecryption.ts",
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/automaticMultipartUpload.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/multipartFirstParts.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/multipartStageResolution.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/multipartUpload.ts"
-  ],
-  "packages/client-sdk/src/data/documents/blob/shared/events.ts": [
-    "packages/client-sdk/src/workflows/blobs/detach.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts"
-  ],
-  "packages/client-sdk/src/data/documents/blob/shared/projection.ts": [
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts"
-  ],
-  "packages/client-sdk/src/data/documents/blob/shared/readers.ts": [
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts",
-    "packages/client-sdk/src/workflows/blobs/verification/writerProjection.ts"
-  ],
-  "packages/client-sdk/src/data/documents/blob/shared/responses.ts": [
-    "packages/client-sdk/src/workflows/blobs/detach.ts",
-    "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts",
-    "packages/client-sdk/src/workflows/blobs/upload/index.ts",
-    "packages/client-sdk/src/workflows/blobs/verification/retainedAttachmentVerification.ts"
-  ],
   "packages/client-sdk/src/data/documents/documentContent.ts": [
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.ts",
     "packages/client-sdk/src/workflows/sync/remoteResetPlans.ts"
@@ -112,6 +79,7 @@
     "packages/client-sdk/src/workflows/container-contents/info/documentInfoTypes.ts"
   ],
   "packages/client-sdk/src/data/documents/shared/containerKek/containerKekCurrency.ts": [
+    "packages/client-sdk/src/data/blobs/attachments/projection.ts",
     "packages/client-sdk/src/workflows/containers/child/create/index.ts",
     "packages/client-sdk/src/workflows/containers/child/move/moveWraps.ts",
     "packages/client-sdk/src/workflows/containers/child/rotation/rotationContext.ts",
@@ -133,9 +101,11 @@
     "packages/client-sdk/src/workflows/containers/index.ts"
   ],
   "packages/client-sdk/src/data/documents/shared/contentRecordKeys.ts": [
+    "packages/client-sdk/src/data/blobs/attachments/chunkedBlobCrypto.ts",
     "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts"
   ],
   "packages/client-sdk/src/data/documents/shared/projection/index.ts": [
+    "packages/client-sdk/src/data/blobs/attachments/projection.ts",
     "packages/client-sdk/src/workflows/blobs/detach.ts",
     "packages/client-sdk/src/workflows/blobs/hydration/decrypt.ts",
     "packages/client-sdk/src/workflows/blobs/upload/index.ts",
@@ -150,6 +120,9 @@
     "packages/client-sdk/src/workflows/containers/child/move/index.ts",
     "packages/client-sdk/src/workflows/containers/child/rotation/rotationContext.ts",
     "packages/client-sdk/src/workflows/containers/child/share/shareMaterialization.ts"
+  ],
+  "packages/client-sdk/src/data/documents/shared/projection/projectionContentKeys.ts": [
+    "packages/client-sdk/src/data/blobs/attachments/projection.ts"
   ],
   "packages/client-sdk/src/data/documents/shared/stableDocumentId.ts": [
     "packages/client-sdk/src/workflows/container-contents/documentLinks/deferredDocumentLinks.ts",
@@ -189,7 +162,7 @@
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/verifiedDestination.ts"
   ],
   "packages/client-sdk/src/data/keyingProjectionVerification/document/documentContainerProjections.ts": [
-    "packages/client-sdk/src/data/documents/blob/shared/projection.ts",
+    "packages/client-sdk/src/data/blobs/attachments/projection.ts",
     "packages/client-sdk/src/data/documents/shared/projection/projectionContentKeys.ts",
     "packages/client-sdk/src/workflows/documents/linkSet/linkSetAuthority.ts",
     "packages/client-sdk/src/workflows/documents/linkSet/linkSetBlobRewraps.ts",

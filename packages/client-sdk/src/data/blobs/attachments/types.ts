@@ -24,16 +24,13 @@ import type {
   MultipartBlobStageStatusResponse,
   UploadMultipartBlobPartResponse,
 } from "@tearleads/validators/response";
-import type {
-  BlobByteSourceInput,
-  BlobBytes,
-} from "../../../blobs/blobContracts";
+import type { DocumentCreateAuthor } from "../../documents/shared/types";
 import type {
   ProjectionUserKeyResolver,
   ReferencedPrincipalPolicyWarmer,
-} from "../../../keyingProjectionVerification";
-import type { ExecSql } from "../../../sqlite/sqlSchema";
-import type { DocumentCreateAuthor } from "../../shared/types";
+} from "../../keyingProjectionVerification";
+import type { ExecSql } from "../../sqlite/sqlSchema";
+import type { BlobByteSourceInput, BlobBytes } from "../blobContracts";
 
 export const BLOB_CONTENT_RECORD_KEY_INFO_DOMAIN =
   "tearleads.blob.content-record-key-info";

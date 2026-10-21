@@ -12,21 +12,17 @@ import type {
   BlobContentKeyBundleRequest,
 } from "@tearleads/validators/request";
 import type { BlobAttachmentBindResponse } from "@tearleads/validators/response";
-import {
-  type BlobByteSource,
-  createBlobByteSource,
-} from "../../../data/blobs/blobContracts";
-import type { BlobSourceSnapshot } from "../../../data/documents/blob/shared/blobSourceSnapshot";
-import { prepareBlobEncryption } from "../../../data/documents/blob/shared/crypto";
+import type { BlobSourceSnapshot } from "../../../data/blobs/attachments/blobSourceSnapshot";
+import { prepareBlobEncryption } from "../../../data/blobs/attachments/crypto";
 import {
   signBlobAttachmentEvent,
   signBlobAttachmentWriteHeader,
-} from "../../../data/documents/blob/shared/events";
+} from "../../../data/blobs/attachments/events";
 import {
   verifiedBlobWrapTargetsFromDocumentProjection,
   wrapBlobContentKey,
-} from "../../../data/documents/blob/shared/projection";
-import { assertBlobAttachmentBindResponse } from "../../../data/documents/blob/shared/responses";
+} from "../../../data/blobs/attachments/projection";
+import { assertBlobAttachmentBindResponse } from "../../../data/blobs/attachments/responses";
 import type {
   BlobAttachmentApi,
   BlobAttachmentMaterial,
@@ -34,7 +30,11 @@ import type {
   MultipartUploadProgressListener,
   UploadDocumentAttachmentInput,
   UploadDocumentAttachmentResult,
-} from "../../../data/documents/blob/shared/types";
+} from "../../../data/blobs/attachments/types";
+import {
+  type BlobByteSource,
+  createBlobByteSource,
+} from "../../../data/blobs/blobContracts";
 import { authorizingContainerPathRefs } from "../../../data/documents/shared/projection";
 import { uniqueSortedStrings } from "../../../data/documents/shared/readers";
 import {

@@ -50,7 +50,6 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/data/documents/shared/readers.ts`,
       `${sdk}/data/documents/shared/responses.ts`,
       `${sdk}/data/documents/shared/types.ts`,
-      `${sdk}/data/documents/blob/shared/types.ts`,
       `${sdk}/data/persistence/documents/documentsPersistence.ts`,
     ],
   },
@@ -94,7 +93,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Client Blob Storage",
     package: "client-sdk",
     responsibility:
-      "Active blob store selection (ephemeral vs identity-namespaced), OPFS/memory byte stores, encrypted envelopes, and blob workflow operations.",
+      "Active blob store selection (ephemeral vs identity-namespaced), OPFS/memory byte stores, encrypted envelopes, attachment content crypto and events, and blob workflow operations.",
     seam: "tearleads.blobs facade; workflows/blobs; blobContracts",
     paths: [
       `${sdk}/workflows/blobs/`,

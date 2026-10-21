@@ -9,20 +9,20 @@ import {
   verifyWriteHeader,
 } from "@tearleads/crypto";
 import type { BlobKekTargetsResponse } from "@tearleads/validators/response";
-import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { deriveBlobContentRecordKey } from "../../../data/documents/blob/shared/crypto";
-import { unwrapBlobContentKey } from "../../../data/documents/blob/shared/projection";
+import { deriveBlobContentRecordKey } from "../../../data/blobs/attachments/crypto";
+import { unwrapBlobContentKey } from "../../../data/blobs/attachments/projection";
 import {
   parseBlobEncryptedBytes,
   readBlobKekTarget,
   readDocumentManifestIdentity,
   sortBlobTargets,
-} from "../../../data/documents/blob/shared/readers";
-import { assertBlobContentKeyBundleTargetHash } from "../../../data/documents/blob/shared/responses";
+} from "../../../data/blobs/attachments/readers";
+import { assertBlobContentKeyBundleTargetHash } from "../../../data/blobs/attachments/responses";
 import type {
   BlobEncryptedBytesHeader,
   DecryptDocumentAttachmentBlobInput,
-} from "../../../data/documents/blob/shared/types";
+} from "../../../data/blobs/attachments/types";
+import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { importContentKeyMaterial } from "../../../data/documents/shared/contentRecordKeys";
 import { assertDocumentWriterProjectionConsistent } from "../../../data/documents/shared/projection";
 import {

@@ -2,11 +2,11 @@ import type {
   InitiateMultipartBlobStageResponse,
   MultipartBlobStageStatusResponse,
 } from "@tearleads/validators/response";
-import type { BlobEncryptionPlan } from "../../../data/documents/blob/shared/crypto";
+import type { BlobEncryptionPlan } from "../../../data/blobs/attachments/crypto";
 import type {
   BlobAttachmentApi,
   UploadDocumentAttachmentInput,
-} from "../../../data/documents/blob/shared/types";
+} from "../../../data/blobs/attachments/types";
 import {
   type MultipartFirstParts,
   type MultipartPartSources,

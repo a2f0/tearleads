@@ -173,7 +173,7 @@ Client paths are under `packages/client-sdk/src` and API paths are under
 | `documents` | `data/documents`, `workflows/documents`, `stores/documents`, `packages/loro` | `workflows/documents`, `documents`, `routes/documents`, `services/documents` |
 | `containers` | `data/keyingProjectionVerification`, `data/containers`, `workflows/containers`, `workflows/container-contents/container-state` | `workflows/containers`, `routes/containers`, `services/containers`, `access` |
 | `principals` | `data/principals`, `workflows/principals`, `workflows/organizations`, `client/organizations` | `workflows/principals`, `workflows/organizations`, matching routes and services |
-| `blobs` | `data/blobs`, `data/documents/blob`, `workflows/blobs`, attachment hydration in `stores/documents` | `workflows/blobs`, `routes/blobs`, `services/blobs`, `adapters` |
+| `blobs` | `data/blobs`, `workflows/blobs`, attachment hydration in `stores/documents` | `workflows/blobs`, `routes/blobs`, `services/blobs`, `adapters` |
 | `sync-placement` | `workflows/container-contents` (except `container-state`), `stores/container-contents`, `stores/local-projection` | listing and feed routes, `access/read` |
 | `sync-runtime` | `sync`, `data/sync`, `workflows/sync`, `data/persistence`, outbox and pending-write paths in `stores/documents` | `realtime` |
 | `crypto` | `packages/crypto/src/keying` (except transparency), `packages/crypto/src/signing`, `packages/crypto/src/encapsulation`, `packages/encoding`, `packages/validators` | how both sides call the shared verifiers |

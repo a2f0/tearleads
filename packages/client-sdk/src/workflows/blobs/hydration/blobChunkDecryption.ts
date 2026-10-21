@@ -1,11 +1,11 @@
 import { deriveBlobChunkIv } from "@tearleads/crypto";
-import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { contentRecordAdditionalDataBytes } from "../../../data/documents/blob/shared/crypto";
+import { contentRecordAdditionalDataBytes } from "../../../data/blobs/attachments/crypto";
 import type {
   BlobEncryptedBytesHeader,
   BlobEncryptedBytesRecord,
   BlobEncryptedChunk,
-} from "../../../data/documents/blob/shared/types";
+} from "../../../data/blobs/attachments/types";
+import type { BlobBytes } from "../../../data/blobs/blobContracts";
 import { asWebCryptoBytes } from "../../../data/documents/shared/readers";
 
 interface BlobChunkDecryption {

@@ -20,7 +20,7 @@ import {
   createUploadedAttachmentFixture,
 } from "../../../../test/helpers/blobHydration";
 import { createLinkSetResponseFromRequest } from "../../../../test/helpers/documentFixtures";
-import { contentKeyTargetReference } from "../../../data/documents/blob/shared/readers";
+import { contentKeyTargetReference } from "../../../data/blobs/attachments/readers";
 import { deriveDocumentTargetFromProjection } from "../../../data/documents/shared/projection";
 import {
   readCanonicalJson,

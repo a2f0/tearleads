@@ -6,7 +6,7 @@ import {
   readRecordPositiveInteger,
   readRecordString,
   sortTargets,
-} from "../../shared/readers";
+} from "../../documents/shared/readers";
 import type {
   BlobContentKeyTarget,
   BlobEncryptedBytesRecord,

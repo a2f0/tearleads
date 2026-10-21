@@ -5,9 +5,9 @@ import {
   createMultipartBlobStageFixture,
 } from "../../../../test/helpers/blobUploadFixtures";
 import { createMaterializedSyncFixture } from "../../../../test/helpers/documentFixtures";
+import { parseBlobEncryptedBytes } from "../../../data/blobs/attachments/readers";
+import type { MultipartUploadProgress } from "../../../data/blobs/attachments/types";
 import type { BlobBytes } from "../../../data/blobs/blobContracts";
-import { parseBlobEncryptedBytes } from "../../../data/documents/blob/shared/readers";
-import type { MultipartUploadProgress } from "../../../data/documents/blob/shared/types";
 import { uploadDocumentAttachment } from "./index";
 
 const DEFAULT_CHUNK_SIZE = 5 * 1024 * 1024;
