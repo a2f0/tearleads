@@ -1,5 +1,5 @@
 /*
- * /pricing: the plan grid and the billing spec list. Shared pieces (page
+ * /pricing: the plan cards and the billing spec list. Shared pieces (page
  * header, notes, CTA row, spec list) come from components.css and content.css.
  */
 
@@ -7,18 +7,14 @@
   margin-top: var(--site-space-7);
 }
 
-/* --- Plan grid ---
-   Cells share 1px hairlines: the list's background shows through a 1px gap
-   between opaque cells, inside a 1px ink frame. */
+/* --- Plan cards --- */
 
 .pricing-plans {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1px;
+  gap: var(--site-space-4);
   margin: 0;
   padding: 0;
-  border: 1px solid var(--site-ink);
-  background: var(--site-line);
   list-style: none;
 }
 
@@ -28,8 +24,11 @@
   gap: var(--site-space-3);
   min-width: 0;
   margin: 0;
-  padding: var(--site-space-5);
+  padding: var(--site-space-6) var(--site-space-5);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius-lg);
   background: var(--site-surface);
+  box-shadow: var(--site-shadow-sm);
 }
 
 /* The default `li + li` flow spacing doesn't apply inside the grid. */
@@ -38,8 +37,8 @@
 }
 
 .pricing-plan-name {
-  color: var(--site-ink);
-  font: 600 1rem / 1.4 var(--site-font-mono);
+  color: var(--site-ink-2);
+  font: 600 var(--site-text-mono) / 1.4 var(--site-font-mono);
   text-wrap: balance;
 }
 
@@ -48,11 +47,11 @@
   flex-wrap: wrap;
   align-items: baseline;
   column-gap: var(--site-space-2);
-  margin: var(--site-space-2) 0 0;
+  margin: 0;
   color: var(--site-ink);
-  font: 650 clamp(2rem, 1.6rem + 1vw, 2.5rem) / 1 var(--site-font-sans);
+  font: 650 clamp(2.25rem, 1.8rem + 1vw, 2.75rem) / 1 var(--site-font-sans);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .pricing-plan-interval {
@@ -62,9 +61,12 @@
 }
 
 .pricing-plan-capacity {
-  margin: var(--site-space-2) 0 0;
-  padding-top: var(--site-space-3);
-  border-top: 1px solid var(--site-line);
+  align-self: start;
+  justify-self: start;
+  margin: 0;
+  padding: var(--site-space-1) var(--site-space-3);
+  border-radius: 999px;
+  background: var(--site-surface-muted);
   color: var(--site-ink);
   font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
 }
@@ -73,8 +75,9 @@
   display: grid;
   align-content: start;
   gap: var(--site-space-2);
-  margin: 0;
-  padding: 0;
+  margin: var(--site-space-2) 0 0;
+  padding: var(--site-space-4) 0 0;
+  border-top: 1px solid var(--site-line);
   color: var(--site-ink-2);
   font-size: var(--site-text-small);
   line-height: 1.5;
@@ -84,25 +87,26 @@
 .pricing-plan-features > li {
   position: relative;
   margin: 0;
-  padding-left: 1.5em;
+  padding-left: 1.75em;
 }
 
+/* A check drawn in the accent color; the list itself carries the meaning. */
 .pricing-plan-features > li::before {
   position: absolute;
-  left: 0;
-  color: var(--site-ink-3);
-  content: "—" / "";
-}
-
-@supports not (content: "—" / "") {
-  .pricing-plan-features > li::before {
-    content: "—";
-  }
+  top: 0.3em;
+  left: 0.15em;
+  width: 0.45em;
+  height: 0.8em;
+  border: solid var(--site-accent);
+  border-width: 0 2px 2px 0;
+  content: "";
+  transform: rotate(45deg);
 }
 
 @media (min-width: 700px) {
   .pricing-plans {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--site-space-5);
   }
 }
 
@@ -113,7 +117,7 @@
 }
 
 /* Side by side, align each row (name, price, capacity, features) across the
-   cells, so a capacity that wraps doesn't push one list out of line. */
+   cards, so a capacity that wraps doesn't push one list out of line. */
 @supports (grid-template-rows: subgrid) {
   @media (min-width: 700px) {
     .pricing-plan {

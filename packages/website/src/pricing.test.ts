@@ -30,8 +30,8 @@ test("the pricing page maps every canonical tier and the local free plan", () =>
     name: "Free Forever",
     price: "$0",
     interval: "",
-    capacity: "Local only, no sync",
-    summary: "Your device only, no sync",
+    capacity: "On your device",
+    summary: "Encrypted storage on your device",
   });
   for (const [index, tier] of SYNC_BILLING_TIERS.entries()) {
     expect(tiers[index + 1]).toMatchObject({
@@ -39,9 +39,7 @@ test("the pricing page maps every canonical tier and the local free plan", () =>
       price: formatUsdCents(tier.monthlyPriceUsdCents),
       interval: "/ month",
       capacity:
-        tier.seatLimit === 1
-          ? "1 organization member"
-          : `Up to ${tier.seatLimit} organization members`,
+        tier.seatLimit === 1 ? "1 member" : `Up to ${tier.seatLimit} members`,
       summary:
         tier.seatLimit === 1
           ? "Encrypted sync for 1 member"

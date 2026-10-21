@@ -94,8 +94,8 @@ for (const environment of ["production", "staging", undefined]) {
       ).text();
       expect(features).toContain('id="sync-and-sharing"');
       expect(features).toContain('id="document-authorship"');
-      // Pages whose figures crop phone captures above the in-app test banner
-      // carry the release notice while it is set.
+      // Pages that show phone captures, which leave out the in-app test
+      // banner, carry the release notice while it is set.
       if (releaseNotice !== null) {
         for (const html of [index, features]) {
           expect(html).toContain(releaseNotice);

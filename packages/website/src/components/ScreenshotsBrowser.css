@@ -2,8 +2,9 @@
  * Screenshot gallery, shaped like an app window: a toolbar (screen label,
  * layout toggle, theme), the stage, step controls, and a filmstrip. Colors,
  * type, and spacing come from the site tokens (src/styles/tokens.css), so the
- * gallery follows the visitor's color scheme. Square corners, 1px edges, 44px
- * controls, no shadows.
+ * gallery follows the visitor's color scheme. Rounded corners, 1px edges, 44px
+ * controls. Phone and tablet captures are device screens with transparent
+ * rounded corners, so they sit on the stage without a frame box.
  */
 .screenshots-browser {
   display: flex;
@@ -16,6 +17,7 @@
   contain: inline-size;
   overflow: hidden;
   border: 1px solid var(--site-line-strong);
+  border-radius: var(--site-radius);
   background: var(--site-bg);
   color: var(--site-ink);
 }
@@ -40,6 +42,7 @@
   height: 100%;
   margin: 0;
   border: 0;
+  border-radius: 0;
 }
 
 /* --- Shared controls --- */
@@ -51,7 +54,7 @@
 .screenshots-browser__lightbox-close {
   appearance: none;
   margin: 0;
-  border-radius: var(--site-radius);
+  border-radius: var(--site-radius-sm);
   color: inherit;
   cursor: pointer;
 }
@@ -131,7 +134,9 @@
   min-width: 0;
   margin: 0;
   padding: 0;
+  overflow: hidden;
   border: 1px solid var(--site-line-strong);
+  border-radius: var(--site-radius-sm);
 }
 
 .screenshots-browser__toggle-button {
@@ -142,6 +147,7 @@
   min-height: var(--site-target);
   padding: 0 var(--site-space-3);
   border: 0;
+  border-radius: 0;
   background: transparent;
   font: 500 var(--site-text-mono-sm) / 1 var(--site-font-mono);
   white-space: nowrap;
@@ -189,6 +195,22 @@
   overflow: hidden;
   border: 1px solid var(--site-line-strong);
   background: var(--site-surface);
+}
+
+/* Device screens: no box behind the transparent corners, and a shadow that
+ * follows the screen's shape. */
+.screenshots-browser__zoom:is(
+  [data-project="mobile"],
+  [data-project="tablet"]
+) {
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+
+.screenshots-browser__zoom:is([data-project="mobile"], [data-project="tablet"])
+  .screenshots-browser__image {
+  filter: drop-shadow(0 10px 24px rgb(0 0 0 / 22%));
 }
 
 /* Applied with __frame when the frame is the click-to-enlarge button. */

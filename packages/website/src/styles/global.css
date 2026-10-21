@@ -45,7 +45,7 @@ html body {
 .site-section {
   margin-top: var(--site-space-8);
   padding-top: var(--site-space-7);
-  border-top: 1px solid var(--site-ink);
+  border-top: 1px solid var(--site-line);
   scroll-margin-top: var(--site-space-5);
 }
 

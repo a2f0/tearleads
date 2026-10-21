@@ -13,7 +13,7 @@
   min-height: var(--site-target);
   padding: 0 1.25rem;
   border: 1px solid;
-  border-radius: 0;
+  border-radius: var(--site-radius-sm);
   font: 600 0.9375rem / 1.2 var(--site-font-mono);
   text-align: center;
   text-decoration: none;
@@ -34,8 +34,8 @@
 }
 
 .site-button--secondary {
-  border-color: var(--site-ink);
-  background: transparent;
+  border-color: var(--site-line-strong);
+  background: var(--site-surface);
   color: var(--site-ink);
 }
 
@@ -46,6 +46,7 @@
   }
 
   .site-button--secondary:hover {
+    border-color: var(--site-ink);
     background: var(--site-surface-muted);
   }
 }
@@ -74,6 +75,7 @@
 .site-chrome-band {
   --site-focus: var(--site-chrome-ink);
   border: 1px solid var(--site-chrome-edge);
+  border-radius: var(--site-radius-lg);
   background: var(--site-chrome);
   color: var(--site-chrome-ink);
 }
@@ -267,7 +269,8 @@
 .site-note {
   max-width: var(--site-measure);
   padding: var(--site-space-3) var(--site-space-4);
-  border-left: 2px solid var(--site-ink);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius-sm);
   background: var(--site-surface-muted);
   color: var(--site-ink);
   font-size: var(--site-text-small);
@@ -279,16 +282,50 @@
   font-weight: 600;
 }
 
-/* The release notice: the same calm note, marked with a small danger square
-   before its text label (color is never the only signal). */
-.site-note--status .site-note-label::before {
-  display: inline-block;
+/* --- Release status (StatusNotice.astro) ---
+   A rounded chip: a badge with a live dot, then the notice. The badge's text
+   carries the meaning; the dot only marks it. */
+.site-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--site-space-2) var(--site-space-3);
+  max-width: var(--site-measure);
+  padding: var(--site-space-2) var(--site-space-4) var(--site-space-2)
+    var(--site-space-2);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius-lg);
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow-sm);
+  color: var(--site-ink-2);
+  font-size: var(--site-text-small);
+  line-height: 1.45;
+}
+
+.site-status > span {
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding-left: var(--site-space-1);
+}
+
+.site-status-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--site-space-2);
+  padding: var(--site-space-1) var(--site-space-3);
+  border-radius: 999px;
+  background: var(--site-accent-soft);
+  color: var(--site-ink);
+  font: 600 var(--site-text-mono-sm) / 1.4 var(--site-font-mono);
+}
+
+.site-status-badge::before {
   width: 0.5rem;
   height: 0.5rem;
-  margin-right: 0.5rem;
-  background: var(--site-danger);
+  border-radius: 50%;
+  background: var(--site-accent);
   content: "";
-  vertical-align: 0.05em;
 }
 
 /* --- CTA row --- */
@@ -300,8 +337,17 @@
   justify-content: space-between;
   gap: var(--site-space-4);
   margin-top: var(--site-space-7);
-  padding-top: var(--site-space-5);
-  border-top: 1px solid var(--site-line);
+  padding: var(--site-space-5) var(--site-space-6);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius);
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow-sm);
+}
+
+@media (max-width: 699px) {
+  .site-cta {
+    padding: var(--site-space-5);
+  }
 }
 
 .site-cta > p {

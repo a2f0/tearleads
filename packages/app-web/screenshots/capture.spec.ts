@@ -13,6 +13,7 @@ import {
 } from "./appShell";
 import { seedExpectations, seedIdentity } from "./continuity";
 import { DETAIL_SCREENS, openContactDetail } from "./detailScreens";
+import { screenshotDeviceScreen } from "./deviceScreen";
 import {
   assertOrgManagerCaptureReady,
   assertRoutedOrgManagerBaseCaptureReady,
@@ -188,10 +189,10 @@ async function captureRouted(page: Page, outputDir: string): Promise<void> {
       // even when the auto-provisioned You contact has no profile fields.
       await openContactDetail(page);
     }
-    await page.screenshot({
-      path: path.join(outputDir, `${screen.name}.png`),
-      fullPage: false,
-    });
+    await screenshotDeviceScreen(
+      page,
+      path.join(outputDir, `${screen.name}.png`),
+    );
   }
 }
 
@@ -274,10 +275,10 @@ async function captureRoutedDetails(
     // iteration and before the interaction.
     await disableAnimations(page);
     await screen.open(page);
-    await page.screenshot({
-      path: path.join(outputDir, `${screen.name}.png`),
-      fullPage: false,
-    });
+    await screenshotDeviceScreen(
+      page,
+      path.join(outputDir, `${screen.name}.png`),
+    );
   }
 }
 

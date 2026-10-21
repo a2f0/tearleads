@@ -74,27 +74,25 @@
   margin-top: var(--site-space-6);
 }
 
-.home-hero .site-shot {
-  margin-top: var(--site-space-7);
-}
-
-/* --- The two zeros --- */
+/* --- The two zeros: two cards --- */
 
 .home-zero {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  gap: var(--site-space-5);
   margin-top: var(--site-space-9);
-  border-top: 1px solid var(--site-ink);
 }
 
 .home-zero-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   min-width: 0;
-  padding-top: var(--site-space-7);
-}
-
-.home-zero-column + .home-zero-column {
-  margin-top: var(--site-space-7);
-  border-top: 1px solid var(--site-line);
+  padding: var(--site-space-7) var(--site-space-6) var(--site-space-5);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius-lg);
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow-sm);
 }
 
 .home-zero-title {
@@ -114,9 +112,9 @@
 }
 
 .home-facts {
-  max-width: 34rem;
+  align-self: stretch;
   margin-top: var(--site-space-6);
-  border-top: 1px solid var(--site-ink);
+  border-top: 1px solid var(--site-line);
 }
 
 .home-facts > div {
@@ -148,39 +146,14 @@
 }
 
 .home-zero-column > .site-link {
-  margin-top: var(--site-space-2);
+  margin-top: auto;
+  padding-top: var(--site-space-3);
 }
 
 @media (min-width: 1024px) {
   .home-zero {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .home-zero-column {
-    padding-bottom: var(--site-space-2);
-  }
-
-  .home-zero-column:first-child {
-    padding-right: var(--site-space-7);
-  }
-
-  .home-zero-column + .home-zero-column {
-    margin-top: 0;
-    padding-left: var(--site-space-7);
-    border-top: 0;
-    border-left: 1px solid var(--site-line);
-  }
-}
-
-@media (min-width: 700px) and (max-width: 1023px) {
-  /* Stacked on tablets: the fact lists span the column. */
-  .home-zero-lede,
-  .home-zero-note {
-    max-width: 40rem;
-  }
-
-  .home-facts {
-    max-width: none;
+    gap: var(--site-space-6);
   }
 }
 
@@ -190,11 +163,8 @@
   }
 
   .home-zero-column {
-    padding-top: var(--site-space-6);
-  }
-
-  .home-zero-column + .home-zero-column {
-    margin-top: var(--site-space-6);
+    padding: var(--site-space-6) var(--site-space-5) var(--site-space-4);
+    border-radius: var(--site-radius);
   }
 
   .home-facts > div {
@@ -211,25 +181,39 @@
   }
 }
 
-/* --- Capability grid: square cells with shared hairlines --- */
+/* --- Capability grid: cards with an icon --- */
 
 .home-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1px;
-  border: 1px solid var(--site-line);
-  background: var(--site-line);
+  gap: var(--site-space-4);
 }
 
 .home-cell {
   min-width: 0;
   margin: 0;
   padding: var(--site-space-5);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius);
   background: var(--site-surface);
+  box-shadow: var(--site-shadow-sm);
+}
+
+.home-cell-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--site-radius-sm);
+  background: var(--site-surface-muted);
+  color: var(--site-ink);
 }
 
 .home-cell-title {
-  font: 600 var(--site-text-mono) / 1.4 var(--site-font-mono);
+  margin-top: var(--site-space-4);
+  font-size: var(--site-text-h3);
+  line-height: 1.35;
 }
 
 .home-cell p {
@@ -240,16 +224,7 @@
 @media (min-width: 700px) {
   .home-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .home-cell {
-    padding: var(--site-space-6) var(--site-space-5);
-  }
-}
-
-@media (min-width: 1024px) {
-  .home-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--site-space-5);
   }
 
   .home-cell {
@@ -257,25 +232,38 @@
   }
 }
 
-/* --- How it works --- */
+@media (min-width: 1024px) {
+  .home-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* --- How it works: numbered badges joined by a rule --- */
 
 .home-steps {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--site-space-5);
+  gap: var(--site-space-6);
 }
 
 .home-step {
+  position: relative;
   min-width: 0;
   margin: 0;
-  padding-top: var(--site-space-5);
-  border-top: 1px solid var(--site-ink);
 }
 
 .home-step-number {
-  display: block;
-  color: var(--site-ink-3);
-  font: 500 1.25rem / 1 var(--site-font-mono);
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: var(--site-ink);
+  color: var(--site-bg);
+  font: 600 1rem / 1 var(--site-font-mono);
 }
 
 .home-step-title {
@@ -293,14 +281,16 @@
 @media (min-width: 1024px) {
   .home-steps {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: var(--site-space-6);
+    gap: var(--site-space-7);
   }
-}
 
-@media (max-width: 1023px) {
-  /* Stacked, the steps read as one list: an ink rule on top, hairlines
-     between. */
-  .home-step + .home-step {
-    border-top-color: var(--site-line);
+  /* A hairline from each badge to the next. */
+  .home-step:not(:last-child)::after {
+    position: absolute;
+    top: 1.375rem;
+    left: 3.75rem;
+    right: calc(-1 * var(--site-space-7) + var(--site-space-4));
+    border-top: 1px solid var(--site-line-strong);
+    content: "";
   }
 }

@@ -1,41 +1,54 @@
 ---
+import { AddressBookIcon } from "@phosphor-icons/react/dist/ssr/AddressBook";
+import { ArchiveIcon } from "@phosphor-icons/react/dist/ssr/Archive";
+import { CloudCheckIcon } from "@phosphor-icons/react/dist/ssr/CloudCheck";
+import { FolderOpenIcon } from "@phosphor-icons/react/dist/ssr/FolderOpen";
+import { IdentificationCardIcon } from "@phosphor-icons/react/dist/ssr/IdentificationCard";
+import { NotePencilIcon } from "@phosphor-icons/react/dist/ssr/NotePencil";
 import Screenshot from "./Screenshot.astro";
 import SectionHeader from "./SectionHeader.astro";
 
 /**
- * Home: what the app does, as a grid of square cells with shared hairlines,
- * followed by the driver's license record capture. Copy is the verified spec
- * E.1 table (records: document-types/registry.ts; backups: backup-restore).
+ * Home: what the app does, as a grid of cards, followed by the driver's license
+ * record capture. Copy is the verified spec E.1 table (records:
+ * document-types/registry.ts; backups: backup-restore).
  */
 interface Capability {
   readonly title: string;
   readonly text: string;
+  readonly icon: typeof NotePencilIcon;
 }
 
 const capabilities: readonly Capability[] = [
   {
     title: "Notes",
     text: "Plain-text notes with attached files and image previews.",
+    icon: NotePencilIcon,
   },
   {
     title: "Contacts",
     text: "Names, nicknames, and profile photos. Add a Tearleads user ID to link a contact to that person's identity.",
+    icon: AddressBookIcon,
   },
   {
     title: "Files",
-    text: "Import images, PDFs, audio, and video into nested folders, download them again, and recover removed items from Trash.",
+    text: "Import images, PDFs, audio, and video into nested folders, download them again, and recover items from Trash.",
+    icon: FolderOpenIcon,
   },
   {
     title: "Records",
     text: "Structured records such as driver's licenses and passports, each with its own fields and images.",
+    icon: IdentificationCardIcon,
   },
   {
-    title: "Offline",
-    text: "Edits save on your device first and sync when you reconnect. Sharing and other online actions need a connection.",
+    title: "Offline first",
+    text: "Edits save on your device first and sync as soon as you're back online.",
+    icon: CloudCheckIcon,
   },
   {
     title: "Backups",
     text: "Export a password-protected backup file and restore from it.",
+    icon: ArchiveIcon,
   },
 ];
 ---
@@ -51,17 +64,22 @@ const capabilities: readonly Capability[] = [
     </a>
   </SectionHeader>
   <ul class="home-grid" role="list">
-    {capabilities.map((capability) => (
-      <li class="home-cell">
-        <h3 class="home-cell-title">{capability.title}</h3>
-        <p>{capability.text}</p>
-      </li>
-    ))}
+    {capabilities.map((capability) => {
+      const Icon = capability.icon;
+      return (
+        <li class="home-cell">
+          <span class="home-cell-icon" aria-hidden="true">
+            <Icon size={22} focusable="false" />
+          </span>
+          <h3 class="home-cell-title">{capability.title}</h3>
+          <p>{capability.text}</p>
+        </li>
+      );
+    })}
   </ul>
   <Screenshot
     name="drivers-license-detail"
     crop="2880 / 1470"
-    phoneCrop="1170 / 1740"
     caption="Explorer, driver's license record"
     alt="A driver's license record in Explorer with its license number, expiration date, and front and back images of a specimen card."
   />

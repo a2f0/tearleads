@@ -25,7 +25,7 @@ const largestCapacity = getLargestSyncBillingTier().seatLimit;
   <div class="site-page">
     <PageHeader
       title="Pricing"
-      lede="Tearleads is free on your device. Paid plans add end-to-end encrypted sync for one organization and are priced by member capacity, not per member."
+      lede="Tearleads is free on your device. Paid plans add end-to-end encrypted sync for one organization, priced by member capacity rather than per member."
     >
       <StatusNotice />
     </PageHeader>
@@ -34,14 +34,14 @@ const largestCapacity = getLargestSyncBillingTier().seatLimit;
       <h2 id="plans-title" class="visually-hidden">Plans</h2>
       <PricingTiers tiers={pricingTiers} />
       <p class="pricing-note">
-        Monthly list prices in US dollars. Each paid plan covers one
-        organization with the member capacity shown; it is not a per-member
-        price. Checkout shows the final price and any taxes.
+        Monthly prices in US dollars. Each paid plan covers one organization at
+        the capacity shown, one flat price for the whole roster. Checkout shows
+        the final price, including any taxes.
       </p>
       <div class="site-cta">
         <p>
-          Subscribe in the web app: open Org Manager, choose your organization,
-          and go to Billing. The desktop apps can't take payment.
+          Subscribe from the web app: open Org Manager, choose your
+          organization, and go to Billing.
         </p>
         <div class="site-actions">
           <a class="site-button site-button--primary" href={appUrl}>Open web app</a>
@@ -68,8 +68,8 @@ const largestCapacity = getLargestSyncBillingTier().seatLimit;
         <div>
           <dt>Who counts as a member</dt>
           <dd>
-            Anyone on your organization's active roster, including admins. Your
-            devices don't count. Plans cover a fixed capacity of
+            Everyone on your organization's active roster, admins included.
+            Devices are never counted. Plans cover
             {" "}{syncMemberCapacities} members, which the app's Billing view
             calls seats.
           </dd>
@@ -77,16 +77,15 @@ const largestCapacity = getLargestSyncBillingTier().seatLimit;
         <div>
           <dt>Which plan you get</dt>
           <dd>
-            On the web, checkout picks the smallest plan that covers your roster
-            when you subscribe. Checkout isn't available for a roster of more
-            than {largestCapacity} members.
+            When you subscribe on the web, checkout picks the smallest plan that
+            covers your roster, for rosters of up to {largestCapacity} members.
           </dd>
         </div>
         <div>
-          <dt>When the roster grows</dt>
+          <dt>Seats</dt>
           <dd>
-            A plan's capacity doesn't grow with the roster. Once every seat is in
-            use, a new member can't sync until someone leaves the roster.
+            Each plan has a fixed number of seats. When every seat is taken, a
+            new member starts syncing as soon as a seat frees up.
           </dd>
         </div>
         <div>
@@ -95,19 +94,18 @@ const largestCapacity = getLargestSyncBillingTier().seatLimit;
             <p>
               Admins can cancel in Org Manager → Billing, and sync continues
               until the paid period ends. You can also manage a web subscription
-              through Stripe with your billing email, even without your
-              Tearleads keys.
+              through Stripe with just your billing email.
             </p>
             <a class="site-link" href="/manage-subscription">Manage a web subscription<span aria-hidden="true"> →</span></a>
           </dd>
         </div>
         <div>
-          <dt>If a trial or subscription ends</dt>
+          <dt>When a plan ends</dt>
           <dd>
-            Sync stops accepting changes, and synced data can still be
-            downloaded during a grace period. After that, the service
-            permanently deletes the organization's synced documents and files.
-            Data on your devices stays.
+            Everything on your devices stays yours. Sync becomes read-only, and
+            synced data stays available to download during a grace period;
+            after that, the service deletes the organization's synced documents
+            and files.
           </dd>
         </div>
       </dl>

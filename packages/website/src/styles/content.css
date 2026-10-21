@@ -1,6 +1,6 @@
 /*
- * Shared content blocks: spec lists, tables, code blocks, numbered steps, and
- * screenshot figures.
+ * Shared content blocks: spec lists, tables, code blocks, numbered steps,
+ * screenshot figures, and the phone frame.
  */
 
 /* --- Spec list: <dl class="site-spec"><div><dt>…</dt><dd>…</dd></div></dl> --- */
@@ -9,7 +9,7 @@
    already zeroes it, so container rules such as .site-page-header > * + *
    can still space the list. The same holds for .site-steps. */
 .site-spec {
-  border-top: 1px solid var(--site-ink);
+  border-top: 1px solid var(--site-line-strong);
 }
 
 .site-spec > div {
@@ -153,6 +153,7 @@
   margin: var(--site-space-3) 0 0;
   padding: var(--site-space-3) var(--site-space-4);
   border: 1px solid var(--site-line-strong);
+  border-radius: var(--site-radius-sm);
   background: var(--site-surface);
   color: var(--site-ink);
   font: 400 0.8125rem / 1.6 var(--site-font-mono);
@@ -221,8 +222,10 @@
 
 .site-shot-frame {
   overflow: hidden;
-  border: 1px solid var(--site-line-strong);
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius-sm);
   background: var(--site-surface);
+  box-shadow: var(--site-shadow);
 }
 
 .site-shot picture {
@@ -245,7 +248,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0 var(--site-space-4);
-  margin-top: var(--site-space-1);
+  margin-top: var(--site-space-2);
   color: var(--site-ink-3);
   font: 500 var(--site-text-mono-sm) / 1.45 var(--site-font-mono);
 }
@@ -267,14 +270,98 @@
   }
 }
 
+/* --- Phone frame ---
+   A device bezel around a whole phone capture. Sizes follow the frame's own
+   width (container query units), so the bezel and the screen's corners keep
+   their proportions: the iPhone 13 display's corner radius is 47.33pt of its
+   390pt width. The captures already have those corners cut out; rounding the
+   image too keeps the shape when a capture predates that. */
+
+.site-phone,
+.site-shot[data-phone] .site-shot-frame {
+  --site-phone-pad: 3.25cqi;
+  --site-phone-screen-radius: calc(
+    (100cqi - 2 * var(--site-phone-pad)) *
+    0.1214
+  );
+}
+
+.site-phone {
+  display: block;
+  container-type: inline-size;
+  color: inherit;
+}
+
+.site-phone picture {
+  display: block;
+  padding: var(--site-phone-pad);
+  border-radius: calc(var(--site-phone-screen-radius) + var(--site-phone-pad));
+  background: var(--site-bezel);
+  box-shadow:
+    inset 0 0 0 1px var(--site-bezel-edge),
+    var(--site-shadow-lg);
+}
+
+.site-phone img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--site-phone-screen-radius);
+}
+
+a.site-phone:focus-visible {
+  outline: none;
+}
+
+a.site-phone:focus-visible picture {
+  outline: 2px solid var(--site-focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a.site-phone picture {
+    transition: transform 200ms ease;
+  }
+
+  @media (hover: hover) {
+    a.site-phone:hover picture {
+      transform: translateY(-4px);
+    }
+  }
+}
+
+/* Below 700px a figure serves the whole phone capture in the same frame. */
 @media (max-width: 699px) {
-  .site-shot[data-phone] .site-shot-frame,
-  .site-shot[data-phone] figcaption {
-    max-width: 20rem;
+  .site-shot[data-phone] .site-shot-frame {
+    width: min(100%, 17rem);
     margin-inline: auto;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    container-type: inline-size;
+  }
+
+  .site-shot[data-phone] picture {
+    padding: var(--site-phone-pad);
+    border-radius: calc(
+      var(--site-phone-screen-radius) +
+      var(--site-phone-pad)
+    );
+    background: var(--site-bezel);
+    box-shadow:
+      inset 0 0 0 1px var(--site-bezel-edge),
+      var(--site-shadow-lg);
   }
 
   .site-shot[data-phone] img {
-    aspect-ratio: var(--shot-phone-crop);
+    aspect-ratio: auto;
+    border-radius: var(--site-phone-screen-radius);
+  }
+
+  .site-shot[data-phone] figcaption {
+    max-width: 17rem;
+    margin: var(--site-space-4) auto 0;
   }
 }
