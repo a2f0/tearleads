@@ -394,7 +394,6 @@ export {
   containerWriterProjectionFromRekeyPlan,
   createRemoteContainer,
   fetchContainerKekLog,
-  GroupShareNameMismatchError,
   HistoricalWrapUnavailableError,
   type HistoricalWrapUnavailableReason,
   isProjectionVerificationCancelledError,
@@ -405,7 +404,6 @@ export {
   revokeRemoteContainer,
   rootContainerWriterProjectionFromCreatePlan,
   shareRemoteContainer,
-  shareRemoteContainerWithGroup,
 } from "./workflows/containers";
 export type {
   DocumentRecord,
@@ -475,6 +473,7 @@ export {
   deriveOrganizationRosterProfileContainerSystemSlot,
   discardUnreadableJournaledPrincipalMutation,
   GroupMembershipNameMismatchError,
+  GroupShareNameMismatchError,
   getOrganizationProfileDocumentLocalId,
   getRosterProfileDocumentLocalId,
   importOrganizationUser,
@@ -498,6 +497,7 @@ export {
   resolveOrganizationBillingView,
   retainAcknowledgedPrincipalCurrents,
   revokeOrganizationContainerGrant,
+  shareRemoteContainerWithGroup,
   startOrganizationTrial,
   submitJournaledPrincipalMutation,
   subscribeOrganizationReadModelInvalidation,

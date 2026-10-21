@@ -15,20 +15,20 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
-} from "../../../../../test/helpers/containerFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../../../test/helpers/groupMetadata";
-import { createTestGroupMetadataProjection } from "../../../../../test/helpers/groupMetadataProjection";
+} from "../../../../test/helpers/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
+import { createTestGroupMetadataProjection } from "../../../../test/helpers/groupMetadataProjection";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleAfterMutation,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
+} from "../../../../test/helpers/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 
-import { buildInitialOrganizationPolicyRequest } from "../../../registration/registerIdentity";
-import { shareRemoteContainerWithGroup } from "./index";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
+import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 test("shareRemoteContainerWithGroup grants a managed principal with the selected access", async () => {
   const parent = await createParentProjection();

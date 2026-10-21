@@ -115,7 +115,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Organization Read Models",
     package: "client-sdk",
     responsibility:
-      "Org directory/groups/grants/usage/user-detail read models and their SQLite persistence, and roster/profile mutations for the client.",
+      "Org directory/groups/grants/usage/user-detail read models and their SQLite persistence, roster/profile mutations, and group container shares for the client.",
     seam: "tearleads.organizations facade; workflows/organizations",
     paths: [
       `${sdk}/workflows/organizations/`,
@@ -125,6 +125,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     surface: [
       `${sdk}/client/organizations/index.ts`,
       `${sdk}/workflows/organizations/index.ts`,
+      `${sdk}/workflows/organizations/groupShare/index.ts`,
     ],
   },
   {

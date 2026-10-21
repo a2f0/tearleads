@@ -221,9 +221,9 @@
     "packages/client-sdk/src/workflows/container-contents/documentDiscovery/index.ts",
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/principalPolicyCache.ts",
     "packages/client-sdk/src/workflows/containers/child/rotation/replacementPrincipalPolicyReferences.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/index.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/runtimeCurrentGroupShare.ts",
     "packages/client-sdk/src/workflows/containers/rematerialization/principalContainerRematerializationTargets.ts",
+    "packages/client-sdk/src/workflows/organizations/groupShare/runtimeCurrentGroupShare.ts",
+    "packages/client-sdk/src/workflows/organizations/groupShare/shareWithGroup.ts",
     "packages/client-sdk/src/workflows/principals/policyCache/index.ts",
     "packages/client-sdk/src/workflows/principals/policyRepair.ts"
   ],
@@ -314,12 +314,12 @@
     "packages/client-sdk/src/workflows/container-contents/tombstones/documentTombstoneEvidence.ts"
   ],
   "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/sharePrincipalPolicy.ts",
     "packages/client-sdk/src/workflows/organizations/currentOrganizationAuthority.ts",
     "packages/client-sdk/src/workflows/organizations/groupNames/currentOrganizationGroupNames.ts",
     "packages/client-sdk/src/workflows/organizations/groupPolicy/currentGroupPolicyMutationContext.ts",
     "packages/client-sdk/src/workflows/organizations/groupPolicy/groupPolicyMutationContext.ts",
+    "packages/client-sdk/src/workflows/organizations/groupShare/currentSharePrincipalPolicy.ts",
+    "packages/client-sdk/src/workflows/organizations/groupShare/sharePrincipalPolicy.ts",
     "packages/client-sdk/src/workflows/organizations/groups/createCurrentOrganizationGroup.ts",
     "packages/client-sdk/src/workflows/organizations/principalMutations/runtimeCurrentOrganizationMutation.ts",
     "packages/client-sdk/src/workflows/principals/externalAdminPolicy.ts",
@@ -369,9 +369,9 @@
   "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyReferencePersistence.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
     "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/sharePrincipalPolicy.ts",
     "packages/client-sdk/src/workflows/organizations/groupNames/groupNameUniqueness.ts",
-    "packages/client-sdk/src/workflows/organizations/groupNames/organizationGroupNamePolicies.ts"
+    "packages/client-sdk/src/workflows/organizations/groupNames/organizationGroupNamePolicies.ts",
+    "packages/client-sdk/src/workflows/organizations/groupShare/sharePrincipalPolicy.ts"
   ],
   "packages/client-sdk/src/data/persistence/principalPolicy/verifiedPrincipalPolicyBundle.ts": [
     "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts",
@@ -382,8 +382,8 @@
     "packages/client-sdk/src/workflows/organizations/groupPolicy/groupPolicyMutationEvidence.ts"
   ],
   "packages/client-sdk/src/data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/sharePrincipalPolicy.ts",
-    "packages/client-sdk/src/workflows/organizations/groupNames/groupNameUniqueness.ts"
+    "packages/client-sdk/src/workflows/organizations/groupNames/groupNameUniqueness.ts",
+    "packages/client-sdk/src/workflows/organizations/groupShare/sharePrincipalPolicy.ts"
   ],
   "packages/client-sdk/src/data/persistence/verifiedManifestBundlePersistence.ts": [
     "packages/client-sdk/src/Tearleads.ts"
@@ -408,8 +408,8 @@
   "packages/client-sdk/src/data/principals/principalHistoryRuntime.ts": [
     "packages/client-sdk/src/client/containerContents/index.ts",
     "packages/client-sdk/src/workflows/container-contents/runtime.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/runtimeCurrentGroupShare.ts",
     "packages/client-sdk/src/workflows/documents/runtime.ts",
+    "packages/client-sdk/src/workflows/organizations/groupShare/runtimeCurrentGroupShare.ts",
     "packages/client-sdk/src/workflows/organizations/principalMutations/currentPrincipalMutationLease.ts"
   ],
   "packages/client-sdk/src/data/principals/principalHistoryScopeProtection.ts": [
@@ -434,11 +434,11 @@
   ],
   "packages/client-sdk/src/data/principals/principalPolicyAdminSigners.ts": [
     "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/sharePrincipalPolicy.ts",
     "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataContainerAuthority.ts",
     "packages/client-sdk/src/workflows/organizations/groupNames/groupNameUniqueness.ts",
     "packages/client-sdk/src/workflows/organizations/groupNames/organizationGroupNamePolicies.ts",
     "packages/client-sdk/src/workflows/organizations/groupPolicy/groupPolicyVerification.ts",
+    "packages/client-sdk/src/workflows/organizations/groupShare/sharePrincipalPolicy.ts",
     "packages/client-sdk/src/workflows/organizations/groups/createCurrentOrganizationGroup.ts",
     "packages/client-sdk/src/workflows/organizations/principalMutations/currentOrganizationMutationAuthority.ts",
     "packages/client-sdk/src/workflows/organizations/principalMutations/currentOrganizationMutationRetention.ts",
@@ -551,13 +551,6 @@
   "packages/client-sdk/src/workflows/containers/child/rekey/index.ts": [
     "packages/client-sdk/src/workflows/documents/syncRekeys/syncAutomaticContainerRekeys.ts"
   ],
-  "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/share/groupGrantVerification.ts",
-    "packages/client-sdk/src/workflows/container-contents/container-state/share/groupShareEpoch.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/child/share/runtimeCurrentGroupShare.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/remote.ts"
-  ],
   "packages/client-sdk/src/workflows/containers/root/create.ts": [
     "packages/client-sdk/src/workflows/registration/organizationProvisioningArtifacts.ts",
     "packages/client-sdk/src/workflows/registration/provisioningBootstrapBuilders.ts"
@@ -600,41 +593,17 @@
   "packages/client-sdk/src/workflows/organizations/billing.ts": [
     "packages/client-sdk/src/client/session/sessionPurgeRecovery.ts"
   ],
-  "packages/client-sdk/src/workflows/organizations/currentOrganizationAuthority.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/groupMetadata/currentGroupMetadataAuthority.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataAccess.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/index.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataBinding.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/sharePrincipalPolicy.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataContainerAuthority.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/index.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataErrors.ts": [
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/destinationRootReload.ts"
   ],
   "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataRuntime.ts": [
-    "packages/client-sdk/src/workflows/container-contents/container-state/remote.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/currentShareGrantMutation.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts"
+    "packages/client-sdk/src/workflows/container-contents/container-state/remote.ts"
   ],
   "packages/client-sdk/src/workflows/organizations/groupMetadata/runtimeGroupMetadataAuthority.ts": [
     "packages/client-sdk/src/workflows/container-contents/remoteHydration/destination/verifiedDestination.ts"
   ],
-  "packages/client-sdk/src/workflows/organizations/groupPolicy/commitCurrentGroupPolicyMutation.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentShareGrantMutation.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/groupPolicy/groupPolicyMutationHead.ts": [
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/groupPolicy/groupPolicyRequests.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentShareGrantMutation.ts"
   ],
   "packages/client-sdk/src/workflows/organizations/organizationProfile.ts": [
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts",
@@ -642,12 +611,8 @@
     "packages/client-sdk/src/workflows/registration/provisionedProfileDocument.ts",
     "packages/client-sdk/src/workflows/registration/provisioningBootstrapBuilders.ts"
   ],
-  "packages/client-sdk/src/workflows/organizations/principalMutations/currentPrincipalMutationLease.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/principalMutations/principalMutationJournalManagement.ts": [
-    "packages/client-sdk/src/client/runtime/principalMutationApi.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts"
+    "packages/client-sdk/src/client/runtime/principalMutationApi.ts"
   ],
   "packages/client-sdk/src/workflows/organizations/principalMutations/principalMutationJournalSession.ts": [
     "packages/client-sdk/src/client/runtime/principalMutationApi.ts",
@@ -656,19 +621,8 @@
   "packages/client-sdk/src/workflows/organizations/principalMutations/principalOperationReceipt.ts": [
     "packages/client-sdk/src/client/runtime/principalMutationDispatch.ts"
   ],
-  "packages/client-sdk/src/workflows/organizations/principalMutations/runtimeCurrentGroupMutation.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentShareGrantMutation.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/runtimeCurrentGroupShare.ts"
-  ],
   "packages/client-sdk/src/workflows/organizations/principalPolicy/index.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/index.ts",
     "packages/client-sdk/src/workflows/registration/registerIdentity.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/principalPolicy/principalPolicyRequest.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentShareGrantMutation.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/index.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/sharePrincipalPolicy.ts"
   ],
   "packages/client-sdk/src/workflows/organizations/provisioning/createOrganization.ts": [
     "packages/client-sdk/src/client/session/index.ts",

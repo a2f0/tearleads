@@ -11,7 +11,7 @@ import {
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { principalPolicyCacheForVerifiedPolicies } from "../../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import { referencedPrincipalHeadFromPolicy } from "../../../containers";
-import { createRuntimeCurrentSharePrincipalPolicy } from "../../../containers/child/share/currentSharePrincipalPolicy";
+import { createRuntimeCurrentSharePrincipalPolicy } from "../../../organizations/groupShare";
 import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
 import type { ContainerState } from "../../remoteHydration";
 import { loadContainerWriterProjectionForState } from "../projectionCache";

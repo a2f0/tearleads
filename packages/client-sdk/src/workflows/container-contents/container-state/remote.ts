@@ -14,9 +14,9 @@ import {
   replayRemoteContainerMove,
   shareRemoteContainer as shareRemoteContainerMutation,
 } from "../../containers";
-import { createRuntimeCurrentGroupShare } from "../../containers/child/share/runtimeCurrentGroupShare";
 import { resolveDocumentCreateAuthor } from "../../documents";
 import { createRuntimeGroupMetadataAccess } from "../../organizations/groupMetadata/groupMetadataRuntime";
+import { createRuntimeCurrentGroupShare } from "../../organizations/groupShare";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import {
   type ContainerAlreadyCommitted,

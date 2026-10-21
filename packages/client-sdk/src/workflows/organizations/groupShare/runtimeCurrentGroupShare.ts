@@ -1,23 +1,23 @@
 import {
   nullOnProjectionVerificationCancellation,
   requireProjectionUserKeyResolver,
-} from "../../../../data/keyingProjectionVerification";
-import { principalPolicyCacheForVerifiedPolicies } from "../../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
-import { inheritPrincipalHistoryProtection } from "../../../../data/principals/principalHistoryRuntime";
-import { createRuntimeCurrentGroupMutation } from "../../../organizations/principalMutations/runtimeCurrentGroupMutation";
+} from "../../../data/keyingProjectionVerification";
+import { principalPolicyCacheForVerifiedPolicies } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
+import { inheritPrincipalHistoryProtection } from "../../../data/principals/principalHistoryRuntime";
+import {
+  buildMaterializedContainerSharePlan,
+  resolveShareProjection,
+  submitAcknowledgedContainerMutation,
+  submitPlainContainerMutation,
+} from "../../containers";
 import {
   apiPrincipalPolicyPageReader,
   apiProjectionPolicyHistoryReader,
-} from "../../../principals/principalPolicyHistoryReader";
-import {
-  submitAcknowledgedContainerMutation,
-  submitPlainContainerMutation,
-} from "../mutationSubmit";
+} from "../../principals/principalPolicyHistoryReader";
+import { createRuntimeCurrentGroupMutation } from "../principalMutations/runtimeCurrentGroupMutation";
 import { commitCurrentShareGrant } from "./currentShareGrantMutation";
 import { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
-import type { shareRemoteContainerWithGroup } from "./index";
-import { buildMaterializedContainerSharePlan } from "./shareMaterialization";
-import { resolveShareProjection } from "./shareProjection";
+import type { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 /** Current evidence covers planning, any compound grant mint, and acknowledgement. */
 export function createRuntimeCurrentGroupShare(

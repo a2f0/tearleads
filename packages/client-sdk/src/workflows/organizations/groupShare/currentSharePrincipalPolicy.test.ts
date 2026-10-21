@@ -1,14 +1,14 @@
 import { beforeAll, expect, test } from "bun:test";
-import { readTestGroupName } from "../../../../../test/helpers/groupMetadata";
-import { createLocalAuthorityRecoveryFixture } from "../../../../../test/helpers/principalAuthorityLocal";
-import { signedAuthorityRecoveryHistory } from "../../../../../test/helpers/principalAuthorityRecovery";
-import { principalPolicyHead } from "../../../../../test/helpers/principalPolicyFixtures";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import type { PrincipalHistoryProtectionLease } from "../../../../data/principals/principalHistoryProtection";
+import { readTestGroupName } from "../../../../test/helpers/groupMetadata";
+import { createLocalAuthorityRecoveryFixture } from "../../../../test/helpers/principalAuthorityLocal";
+import { signedAuthorityRecoveryHistory } from "../../../../test/helpers/principalAuthorityRecovery";
+import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import type { PrincipalHistoryProtectionLease } from "../../../data/principals/principalHistoryProtection";
 import {
   principalPolicies,
   principalPolicyCheckpoints,
-} from "../../../../data/sqlite/schema/principalPolicySchema";
+} from "../../../data/sqlite/schema/principalPolicySchema";
 import { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
 
 let history: Awaited<ReturnType<typeof signedAuthorityRecoveryHistory>>;

@@ -11,30 +11,30 @@ import {
   ORGANIZATION_ID,
   ROOT_CONTAINER_ID,
   setUpAdminGroupRoot,
-} from "../../../../../test/helpers/adminGroupRoot";
-import { createMutationResponseFromRequest } from "../../../../../test/helpers/containerFixtures";
-import { principalPolicyHead } from "../../../../../test/helpers/principalPolicyFixtures";
+} from "../../../../test/helpers/adminGroupRoot";
+import { createMutationResponseFromRequest } from "../../../../test/helpers/containerFixtures";
+import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
 import {
   repairPolicyPages,
   repairProtectionLease,
-} from "../../../../../test/helpers/principalPolicyRepair";
+} from "../../../../test/helpers/principalPolicyRepair";
 import {
   projectionHistoryPages,
   projectionPolicyWarmer,
-} from "../../../../../test/helpers/projectionPolicyHistory";
-import { heldContainerSnapshot } from "../../../../data/containers/shared/heldContainerHeads";
-import { unwrapContainerKekPath } from "../../../../data/documents/shared/containerKek/containerKekPath";
+} from "../../../../test/helpers/projectionPolicyHistory";
+import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
+import { unwrapContainerKekPath } from "../../../data/documents/shared/containerKek/containerKekPath";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "../../../../data/persistence/principalPolicy/principalPolicyPersistence";
-import { containerStateHasCurrentGroupGrant } from "../../../container-contents/container-state/share/groupGrantVerification";
-import type { ContainerWorkflowRuntime } from "../../../container-contents/container-state/types";
-import type { ContainerState } from "../../../container-contents/remoteHydration";
+} from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { containerStateHasCurrentGroupGrant } from "../../container-contents/container-state/share/groupGrantVerification";
+import type { ContainerWorkflowRuntime } from "../../container-contents/container-state/types";
+import type { ContainerState } from "../../container-contents/remoteHydration";
 
-import { buildMaterializedContainerRekeyPlan } from "../rekey";
-import { shareRemoteContainerWithGroup } from "./index";
+import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
+import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 test("current group grant verification returns false when projection verification expires", async () => {
   const {

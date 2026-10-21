@@ -10,38 +10,38 @@ import type {
   CommitOrganizationGroupPolicyResponse,
   PrincipalPolicyBundleResponse,
 } from "@tearleads/validators/response";
-import type { ContainerShareApi } from "../../../../data/containers/shared/types";
-import { throwKeyingVerificationErrorWithContext } from "../../../../data/keyingProjectionVerification/error";
-import { advanceKeyingCheckpointsAtomically } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { savePrincipalPolicyBundle } from "../../../../data/persistence/principalPolicy/principalPolicyPersistence";
-import { loadPrincipalPolicyBundleForReference } from "../../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
-import { retainVerifiedPrincipalPolicyBundle } from "../../../../data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
+import type { ContainerShareApi } from "../../../data/containers/shared/types";
+import { throwKeyingVerificationErrorWithContext } from "../../../data/keyingProjectionVerification/error";
+import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import { loadPrincipalPolicyBundleForReference } from "../../../data/persistence/principalPolicy/principalPolicyReferencePersistence";
+import { retainVerifiedPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyRetentionPersistence";
 import {
   principalHeadMatchesReference,
   requireOrganizationGroupHead,
-} from "../../../../data/principals/organizationAuthorityDescriptor";
+} from "../../../data/principals/organizationAuthorityDescriptor";
 import {
   principalPolicyReferenceFromBundle,
   verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
-} from "../../../../data/principals/principalPolicyAdminSigners";
-import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
-import type { TrustedUserIdentityResolver } from "../../../../data/trustedUserIdentity";
-import { assertGroupMetadataBinding } from "../../../organizations/groupMetadata/groupMetadataBinding";
-import {
-  type GroupPolicyNameReader,
-  groupPolicyNameMismatch,
-} from "../../../organizations/principalPolicy/principalPolicyRequest";
-import type { CurrentPrincipalPolicyReader } from "../../../principals/currentPrincipalPolicyReader";
+} from "../../../data/principals/principalPolicyAdminSigners";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
+import type { CurrentPrincipalPolicyReader } from "../../principals/currentPrincipalPolicyReader";
 import {
   externalAdminPolicyPersistenceEntries,
   loadOrganizationExternalAdminPolicy,
   type VerifiedExternalAdminPolicy,
-} from "../../../principals/externalAdminPolicy";
+} from "../../principals/externalAdminPolicy";
 import {
   collectPrincipalPolicySignerPublicKeys,
   type PrincipalPolicySignerPublicKeyLoadErrorCode,
-} from "../../../principals/policyVerification";
+} from "../../principals/policyVerification";
+import { assertGroupMetadataBinding } from "../groupMetadata/groupMetadataBinding";
+import {
+  type GroupPolicyNameReader,
+  groupPolicyNameMismatch,
+} from "../principalPolicy/principalPolicyRequest";
 
 export interface ContainerManagedPrincipalShareApi
   extends ContainerShareApi,

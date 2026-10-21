@@ -4,18 +4,18 @@ import {
   createParentProjection,
   createParentProjectionUserKeyResolver,
   SIGNED_AT,
-} from "../../../../../test/helpers/containerFixtures";
-import { buildInitialGroupPolicyRequest } from "../../../../../test/helpers/groupMetadata";
+} from "../../../../test/helpers/containerFixtures";
+import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { withTestExecSql } from "../../../../../test/helpers/withTestExecSql";
+} from "../../../../test/helpers/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { withTestExecSql } from "../../../../test/helpers/withTestExecSql";
 
-import { buildInitialOrganizationPolicyRequest } from "../../../registration/registerIdentity";
-import { shareRemoteContainerWithGroup } from "./index";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
+import { shareRemoteContainerWithGroup } from "./shareWithGroup";
 
 // Only a re-wrap of an existing signed grant may run without the chosen group
 // name. A share that would mint a grant is the operation the name binding

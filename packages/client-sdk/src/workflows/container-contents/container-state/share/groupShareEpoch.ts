@@ -1,5 +1,5 @@
 import { ProjectionDependencyUnavailableError } from "../../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { createRuntimeCurrentSharePrincipalPolicy } from "../../../containers/child/share/currentSharePrincipalPolicy";
+import { createRuntimeCurrentSharePrincipalPolicy } from "../../../organizations/groupShare";
 import type { ContainerWorkflowRuntime } from "../types";
 
 export async function resolveCurrentGroupKeyEpoch(input: {

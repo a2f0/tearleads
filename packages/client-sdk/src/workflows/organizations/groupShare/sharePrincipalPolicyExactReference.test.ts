@@ -2,23 +2,23 @@ import { expect, test } from "bun:test";
 import { generateKemSeedAndKeyPair } from "@tearleads/crypto";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
-import { createAuthor } from "../../../../../test/helpers/containerFixtures";
+import { createAuthor } from "../../../../test/helpers/containerFixtures";
 import {
   buildInitialGroupPolicyRequest,
   readTestGroupName,
-} from "../../../../../test/helpers/groupMetadata";
-import { createSuccessorGroupPolicyBundle } from "../../../../../test/helpers/groupPolicyFixtures";
+} from "../../../../test/helpers/groupMetadata";
+import { createSuccessorGroupPolicyBundle } from "../../../../test/helpers/groupPolicyFixtures";
 import {
   organizationPolicyBundleFromInitialRequest,
   policyBundleFromInitialRequest,
   principalPolicyHead,
-} from "../../../../../test/helpers/principalPolicyFixtures";
-import { createTestTrustedUserIdentity } from "../../../../../test/helpers/trustedUserIdentity";
-import { loadPrincipalPolicyCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { savePrincipalPolicyBundle } from "../../../../data/persistence/principalPolicy/principalPolicyPersistence";
-import type { ExecSql } from "../../../../data/sqlite/sqlSchema";
+} from "../../../../test/helpers/principalPolicyFixtures";
+import { createTestTrustedUserIdentity } from "../../../../test/helpers/trustedUserIdentity";
+import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { savePrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 
-import { buildInitialOrganizationPolicyRequest } from "../../../registration/registerIdentity";
+import { buildInitialOrganizationPolicyRequest } from "../../registration/registerIdentity";
 import {
   GroupShareNameMismatchError,
   loadVerifiedGroupSharePrincipalPolicy,

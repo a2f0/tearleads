@@ -5,7 +5,7 @@ import {
   generateSigningSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
-import { shareRemoteContainerWithGroup } from "../../containers/child/share";
+import { shareRemoteContainerWithGroup } from "../groupShare";
 import { deleteOrganizationGroup } from "../groups/deleteOrganizationGroup";
 import { createOrganizationGroup } from "../groups/groupCreation";
 
