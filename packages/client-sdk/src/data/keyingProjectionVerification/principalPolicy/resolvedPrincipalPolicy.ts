@@ -4,7 +4,6 @@ import {
   type VerifiedPrincipalPolicyCurrent,
 } from "@tearleads/crypto";
 import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../persistence/principalPolicy/principalPolicyCheckpointSelection";
 import {
   observePrincipalPolicy,
   type ProjectionCheckpointContext,
@@ -20,6 +19,7 @@ import {
   referencedPrincipalPolicyKey,
   verifiedPrincipalPolicyContainsReference,
 } from "./principalPolicyCache";
+import { verifiedPrincipalPolicyMeetsCheckpoint } from "./principalPolicyCheckpointSelection";
 
 // Scoped evidence is always resolved through the warmer: its operation memo is
 // the only reuse of recovered directory and Admins evidence, with one set of

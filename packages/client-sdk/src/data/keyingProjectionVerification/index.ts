@@ -47,4 +47,5 @@ export {
   verifyDocumentPurgeProofBaseline,
 } from "./documentPurge/documentPurgeProofVerification";
 export { mergeProjectionPolicyEvidence } from "./principalPolicy/mergeProjectionPolicyEvidence";
+export { principalPolicyHeadMeetsCheckpoint } from "./principalPolicy/principalPolicyCheckpointSelection";
 export { isPrincipalPolicyNotCachedError } from "./principalPolicy/principalPolicyVerification";

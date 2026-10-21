@@ -20,24 +20,6 @@
   "packages/client-sdk/src/data/persistence/documents/internal/orphanSideRows.ts": [
     "packages/client-sdk/src/workflows/sync/remoteResetAttachments.ts"
   ],
-  "packages/client-sdk/src/data/persistence/principalKeys/principalGrantRetirementPersistence.ts": [
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts",
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence.ts",
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyCheckpointSelection.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyCache.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/principalPolicyVerification.ts",
-    "packages/client-sdk/src/data/keyingProjectionVerification/principalPolicy/resolvedPrincipalPolicy.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/principalPolicy/principalPolicyOrganizationPersistence.ts": [
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointPersistence.ts",
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/organizationReplacementCheckpointPersistence.ts"
-  ],
-  "packages/client-sdk/src/data/persistence/principalPolicy/verifiedPrincipalPolicyBundle.ts": [
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence.ts",
-    "packages/client-sdk/src/data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence.ts"
-  ],
   "packages/client-sdk/src/stores/documents/documentStore/internalRelink.ts": [
     "packages/client-sdk/src/client/containerContents/index.ts",
     "packages/client-sdk/src/stores/container-contents/syncAgent/syncLaneIteration.ts"

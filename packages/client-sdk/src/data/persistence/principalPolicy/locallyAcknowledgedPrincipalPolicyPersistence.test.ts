@@ -11,16 +11,16 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { buildInitialGroupPolicyRequest } from "../../../../test/helpers/groupMetadata";
 import { policyBundleFromInitialRequest } from "../../../../test/helpers/principalPolicyFixtures";
+import { loadPrincipalPolicyCheckpoint } from "../keyingCheckpoints/keyingCheckpointPersistence";
+import {
+  persistLocallyAcknowledgedPrincipalPolicyBundle,
+  persistLocallyAcknowledgedPrincipalPolicyBundles,
+} from "./locallyAcknowledgedPrincipalPolicyPersistence";
 import {
   ensurePrincipalPolicyTables,
   loadPrincipalPolicyBundle,
   savePrincipalPolicyBundle,
-} from "../principalPolicy/principalPolicyPersistence";
-import { loadPrincipalPolicyCheckpoint } from "./keyingCheckpointPersistence";
-import {
-  persistLocallyAcknowledgedPrincipalPolicyBundle,
-  persistLocallyAcknowledgedPrincipalPolicyBundles,
-} from "./locallyAcknowledgedCheckpointPersistence";
+} from "./principalPolicyPersistence";
 
 async function policyFixture(principalId = crypto.randomUUID()) {
   const signer = generateSigningSeedAndKeyPair();

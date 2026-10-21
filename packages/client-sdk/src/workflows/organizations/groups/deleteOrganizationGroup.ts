@@ -2,7 +2,7 @@ import type { SigningKeyPair } from "@tearleads/crypto";
 import type { DeleteOrganizationGroupRequest } from "@tearleads/validators/request";
 import type { DeleteOrganizationGroupResponse } from "@tearleads/validators/response";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
-import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/keyingCheckpoints/locallyAcknowledgedCheckpointPersistence";
+import { persistLocallyAcknowledgedPrincipalPolicyBundles } from "../../../data/persistence/principalPolicy/locallyAcknowledgedPrincipalPolicyPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import { loadOrganizationExternalAdminPolicy } from "../../principals/externalAdminPolicy";
