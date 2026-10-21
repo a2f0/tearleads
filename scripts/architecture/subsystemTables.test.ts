@@ -187,6 +187,10 @@ const schemaFixtures: Record<string, readonly string[]> = {
     'import { betaRows } from "./index";',
     "export const betaSchema = { betaRows };",
   ],
+  "/fixture/sqlite/schema/other.ts": [
+    'import { alphaRows } from "./index";',
+    "export const otherSchema = { rows: alphaRows };",
+  ],
   "/fixture/sqlite/schema/extra.ts": [
     'export const extraRows = sqliteTable("extra_rows", {});',
   ],
@@ -230,6 +234,11 @@ const useFixtures: Record<string, readonly string[]> = {
     'export const y = "SELECT at FROM beta_log";',
     "export type Row = typeof betaLog.$inferSelect;",
     "export const z = db.query.betaLog.findMany();",
+  ],
+  "/fixture/a/readsParenthesized.ts": [
+    'import { appSchema } from "../sqlite/schema";',
+    "const schema = (appSchema);",
+    "export const x = tx.select().from((schema).betaLog as never);",
   ],
   "/fixture/a/readsDynamicExposed.ts": [
     'const { betaLog } = await import("../sqlite/schema");',

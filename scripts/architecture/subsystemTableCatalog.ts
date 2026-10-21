@@ -90,7 +90,7 @@ export interface TableCatalog {
   readonly isSchemaModule: (filePath: string) => boolean;
   readonly resolver: TableResolver;
   /** Every schema object key, for Drizzle's `db.query`. */
-  readonly tablesByQueryKey: ReadonlyMap<string, string>;
+  readonly tablesByQueryKey: ReadonlyMap<string, ReadonlySet<string>>;
   readonly tablesBySqlName: ReadonlyMap<string, string>;
 }
 
@@ -324,20 +324,26 @@ function schemaValues(
 
 /**
  * The keys Drizzle's `db.query` serves tables under: each table's export name,
- * as a schema module namespace keys it, and every key of a schema value.
+ * as a schema module namespace keys it, and every key of a schema value. Two
+ * schemas may serve different tables under one key, so a key reads them all.
  */
 function readQueryKeys(
   checker: ts.TypeChecker,
   schemaNodes: readonly ts.Node[],
   resolver: TableResolver,
   tableNames: Iterable<string>,
-): Map<string, string> {
-  const tablesByQueryKey = new Map<string, string>();
-  for (const table of tableNames) tablesByQueryKey.set(table, table);
+): Map<string, Set<string>> {
+  const tablesByQueryKey = new Map<string, Set<string>>();
+  const serve = (key: string, table: string) =>
+    tablesByQueryKey.set(
+      key,
+      (tablesByQueryKey.get(key) ?? new Set()).add(table),
+    );
+  for (const table of tableNames) serve(table, table);
   for (const node of schemaNodes) {
     for (const property of checker.getTypeAtLocation(node).getProperties()) {
       const table = resolver.symbol(property);
-      if (table !== undefined) tablesByQueryKey.set(property.name, table);
+      if (table !== undefined) serve(property.name, table);
     }
   }
   return tablesByQueryKey;

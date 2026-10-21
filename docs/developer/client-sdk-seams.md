@@ -231,7 +231,8 @@ table is checked where it is read or written. A file reaches a table by:
 
 `db.query` serves each table under its export name, as a schema module
 namespace keys it, and under every key of an exported schema object or of
-whatever reaches `drizzle`'s `schema` option.
+whatever reaches `drizzle`'s `schema` option. A key two schemas share reads
+every table either serves under it.
 
 A column reference, destructured columns, `.from(...)`, a join, `typeof`,
 `db.query`, and SQL `FROM`/`JOIN` read a table; `insert`, `update`, `delete`,

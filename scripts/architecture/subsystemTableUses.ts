@@ -128,11 +128,25 @@ function isDeclaredName(node: ts.Identifier): boolean {
   );
 }
 
+/** The expression a value stands in, past parentheses and type assertions. */
+function outermost(node: ts.Expression): ts.Expression {
+  const parent = node.parent;
+  return (ts.isParenthesizedExpression(parent) ||
+    ts.isAsExpression(parent) ||
+    ts.isSatisfiesExpression(parent) ||
+    ts.isNonNullExpression(parent) ||
+    ts.isTypeAssertionExpression(parent)) &&
+    parent.expression === node
+    ? outermost(parent)
+    : node;
+}
+
 /**
  * A declaration of one name, a variable or a parameter's default, only says
  * what the name stands for; the name's references are the uses.
  */
-function isAliasInitializer(node: ts.Node): boolean {
+function isAliasInitializer(value: ts.Expression): boolean {
+  const node = outermost(value);
   const parent = node.parent;
   return (
     (ts.isVariableDeclaration(parent) || ts.isParameter(parent)) &&
@@ -142,7 +156,8 @@ function isAliasInitializer(node: ts.Node): boolean {
 }
 
 /** The value a declaration destructures, as in `const { id } = documents`. */
-function isDestructuredSource(node: ts.Node): boolean {
+function isDestructuredSource(value: ts.Expression): boolean {
+  const node = outermost(value);
   const parent = node.parent;
   return (
     (ts.isVariableDeclaration(parent) || ts.isParameter(parent)) &&
@@ -171,10 +186,10 @@ function relationalUses(
         ? served
         : [...catalog.tablesByQueryKey.keys()];
   return [
-    ...new Set(keys.map((name) => catalog.tablesByQueryKey.get(name))),
-  ].flatMap((table) =>
-    table === undefined ? [] : [[table, "read"] as [string, TableAccess]],
-  );
+    ...new Set(
+      keys.flatMap((name) => [...(catalog.tablesByQueryKey.get(name) ?? [])]),
+    ),
+  ].map((table) => [table, "read"] as [string, TableAccess]);
 }
 
 function accessUses(
@@ -207,14 +222,15 @@ function accessUses(
  * listed, or spread, rather than read by key, aliased, re-exported, or named
  * in a type.
  */
-function escapes(node: ts.Expression): boolean {
+function escapes(value: ts.Expression): boolean {
+  const node = outermost(value);
   const parent = node.parent;
   return !(
     ((ts.isPropertyAccessExpression(parent) ||
       ts.isElementAccessExpression(parent)) &&
       parent.expression === node) ||
     (ts.isQualifiedName(parent) && parent.left === node) ||
-    ts.isPartOfTypeNode(node) ||
+    ts.isPartOfTypeNode(value) ||
     isAliasInitializer(node) ||
     ts.isTypeQueryNode(parent) ||
     ts.isExportAssignment(parent) ||
@@ -235,7 +251,7 @@ function valueUses(
   if (isDestructuredSource(node)) {
     return table === undefined ? [] : [[table, "read"]];
   }
-  if (table !== undefined) return [[table, referenceAccess(node)]];
+  if (table !== undefined) return [[table, referenceAccess(outermost(node))]];
   if (!escapes(node)) return [];
   // A query object passed along may read any table it serves.
   if (
