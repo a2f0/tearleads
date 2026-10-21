@@ -38,8 +38,8 @@ const freeTier: PricingTier = {
   name: "Free Forever",
   price: formatUsdCents(0),
   interval: "",
-  capacity: "Local only, no sync",
-  summary: "Your device only, no sync",
+  capacity: "On your device",
+  summary: "Encrypted storage on your device",
   features: [
     "Notes, contacts, files, and records",
     "Encrypted storage on your device",
@@ -75,7 +75,7 @@ export function createPricingTiers(): readonly PricingTier[] {
               name: tier.title,
               price: formatUsdCents(tier.monthlyPriceUsdCents),
               interval: "/ month",
-              capacity: "1 organization member",
+              capacity: "1 member",
               summary: "Encrypted sync for 1 member",
               features: soloFeatures,
             }
@@ -83,7 +83,7 @@ export function createPricingTiers(): readonly PricingTier[] {
               name: tier.title,
               price: formatUsdCents(tier.monthlyPriceUsdCents),
               interval: "/ month",
-              capacity: `Up to ${tier.seatLimit} organization members`,
+              capacity: `Up to ${tier.seatLimit} members`,
               summary: `Encrypted sync and sharing for up to ${tier.seatLimit} members`,
               features: teamFeatures,
             },

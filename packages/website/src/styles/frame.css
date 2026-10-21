@@ -70,17 +70,19 @@
   display: inline-flex;
   align-items: center;
   min-height: var(--site-target);
-  padding-inline: var(--site-space-3);
-  border: 1px solid var(--site-chrome-ink-2);
-  color: inherit;
+  padding-inline: var(--site-space-4);
+  border: 1px solid var(--site-chrome-ink);
+  border-radius: var(--site-radius-sm);
+  background: var(--site-chrome-ink);
+  color: var(--site-chrome);
   font: 600 0.9375rem / 1 var(--site-font-mono);
   white-space: nowrap;
   text-decoration: none;
 }
 
 .site-app-button:focus-visible {
-  background: var(--tearleads-action-hover-surface);
-  color: var(--tearleads-action-hover-text);
+  border-color: var(--site-chrome-ink-2);
+  background: var(--site-chrome-ink-2);
 }
 
 /* --- Primary navigation --- */
@@ -132,8 +134,8 @@
 
 @media (hover: hover) {
   .site-app-button:hover {
-    background: var(--tearleads-action-hover-surface);
-    color: var(--tearleads-action-hover-text);
+    border-color: var(--site-chrome-ink-2);
+    background: var(--site-chrome-ink-2);
   }
 
   .site-nav-link:not([aria-current]):hover {
@@ -173,6 +175,7 @@
     height: var(--site-target);
     padding: 0;
     border: 1px solid var(--site-chrome-ink-2);
+    border-radius: var(--site-radius-sm);
     background: transparent;
     color: inherit;
     /* Before hydration the toggle is a link to the footer navigation. */

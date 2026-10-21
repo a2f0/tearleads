@@ -186,7 +186,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.14",
+      "version": "0.1.15",
       "dependencies": {
         "@stripe/stripe-js": "10.0.0",
         "@tearleads/client-sdk": "workspace:*",
@@ -334,7 +334,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.18",
+      "version": "0.1.19",
       "dependencies": {
         "@astrojs/react": "7.0.1",
         "@phosphor-icons/react": "2.1.10",

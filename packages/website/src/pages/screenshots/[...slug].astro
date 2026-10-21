@@ -2,6 +2,7 @@
 import { publicDir } from "astro:config/server";
 import PageHeader from "../../components/PageHeader.astro";
 import { ScreenshotsBrowser } from "../../components/ScreenshotsBrowser";
+import StatusNotice from "../../components/StatusNotice.astro";
 import {
   projectLabel,
   screenLabel,
@@ -37,7 +38,9 @@ const title =
     <PageHeader
       title="Screenshots"
       lede="Every captured screen in desktop, phone, and tablet layouts, in light and dark themes."
-    />
+    >
+      <StatusNotice />
+    </PageHeader>
     <ScreenshotsBrowser client:load initialScreen={initialScreen} initialPlatform={initialPlatform} />
     <noscript>
       <p class="site-note screenshots-noscript">The screenshot gallery needs JavaScript.</p>

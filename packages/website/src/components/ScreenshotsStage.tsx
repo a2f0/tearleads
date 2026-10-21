@@ -100,6 +100,7 @@ export function Stage({
           ref={zoomRef}
           type="button"
           className="screenshots-browser__frame screenshots-browser__zoom"
+          data-project={project}
           onClick={() => setExpanded(true)}
           aria-label={`View full size: ${alt}`}
         >

@@ -12,7 +12,7 @@ import "../styles/features.css";
 const tools = [
   {
     name: "Explorer",
-    text: "Organize notes, contacts, files, and structured records such as driver's licenses and passports in nested folders. Import files, download them again, and move removed items to Trash.",
+    text: "Organize notes, contacts, files, and structured records such as driver's licenses and passports in nested folders. Import files, download them again, and move items to Trash, where you can recover them.",
   },
   {
     name: "Notes",
@@ -68,10 +68,9 @@ const tools = [
       <Screenshot
         name="explorer"
         crop="2880 / 860"
-        phoneCrop="1170 / 1580"
         tabletZoom
         caption="Explorer, root folder"
-        alt="Explorer showing the root folder: Contacts and Trash folders, a driver's license record, and three notes, each with its type."
+        alt="Explorer showing the root folder: the Contacts and Trash folders, then a credit card, notes, a birth certificate, and a tool, each with its type."
       />
     </section>
 
@@ -80,7 +79,7 @@ const tools = [
         <SectionHeader
           titleId="device-title"
           title="On your device"
-          lede="Content stored on your device is encrypted, and you can read and edit it offline. Edits save locally and sync when you reconnect; sharing and other remote actions need a connection."
+          lede="Content on your device is encrypted, and you can read and edit it offline. Edits save locally and sync as soon as you're back online."
         />
         <div class="features-split-body">
           <dl class="site-spec">
@@ -88,8 +87,8 @@ const tools = [
               <dt>Encrypted storage</dt>
               <dd>
                 The app reads and writes through an encrypted database and file
-                store. How strongly the local key is protected depends on the
-                platform: <a href="/security#local-storage">Local storage and PIN protection</a>.
+                store, and you can add a PIN lock. See how each platform keeps
+                the local key: <a href="/security#local-storage">Local storage and PIN protection</a>.
               </dd>
             </div>
             <div>
@@ -102,8 +101,8 @@ const tools = [
           </dl>
           <div class="site-note" role="note">
             <strong class="site-note-label">Recovery phrase.</strong> Your 24-word
-            recovery phrase, or its QR code, restores your identity for anyone who
-            has it. Keep it private.
+            recovery phrase, or its QR code, restores your identity on a new
+            device. Keep it somewhere safe and private.
           </div>
         </div>
       </div>
@@ -114,7 +113,7 @@ const tools = [
         <SectionHeader
           titleId="sharing-title"
           title="Sync and sharing"
-          lede="After a 7-day free trial, sync needs a paid plan, and sharing with other people needs a Team plan."
+          lede="Start with a 7-day free sync trial. Paid plans keep your devices in sync, and Team plans add sharing."
         />
         <div class="features-split-body">
           <div class="features-pair">
@@ -145,7 +144,6 @@ const tools = [
       <Screenshot
         name="org-manager-grants"
         crop="2880 / 700"
-        phoneCrop="1170 / 1200"
         caption="Org Manager, Grants"
         alt="Org Manager's Grants view: the Members group has read access to Organization Metadata, and the Admins group has admin access to the root folder."
       />
@@ -164,7 +162,6 @@ const tools = [
       <Screenshot
         name="note-blame"
         crop="1440 / 1280"
-        phoneCrop="1170 / 1740"
         size="narrow"
         caption="Document Info, authorship"
         alt="Document Info for a note: edit and character counts for two contributors, and the note's text highlighted in each author's color."

@@ -1,0 +1,137 @@
+---
+import { publicDir } from "astro:config/server";
+import { loadScreenshotManifest } from "../screenshots";
+import "../styles/phoneCarousel.css";
+import {
+  type PhoneCarouselScreen,
+  phoneCarouselSlides,
+} from "./phoneCarouselSlides";
+import { screenshotPath } from "./screenshotsManifest";
+
+/**
+ * Home hero: phone captures in device frames, in a row that scrolls sideways
+ * and snaps to each phone. The captures already have the display's rounded
+ * corners cut out (packages/app-web/screenshots/deviceScreen.ts); the frame
+ * adds the bezel. Screens without a light capture are skipped, and the row
+ * renders nothing without at least two (phoneCarouselSlides.ts), so the hero
+ * must read well without it. The step buttons are phoneCarouselSteps.ts.
+ */
+const screens: readonly PhoneCarouselScreen[] = [
+  {
+    name: "explorer",
+    caption: "Explorer",
+    alt: "Explorer on a phone, listing folders, notes, and records such as a credit card, a birth certificate, and tools.",
+  },
+  {
+    name: "contacts",
+    caption: "Contacts",
+    alt: "Contacts on a phone: a list of people with their profile photos.",
+  },
+  {
+    name: "family-photo-1",
+    caption: "Photos",
+    alt: "A family photo, Sunday dinner at Mom's, opened on a phone with its file details.",
+  },
+  {
+    name: "blood-pressure-detail",
+    caption: "Health tracking",
+    alt: "A blood pressure tracker on a phone, charting systolic and diastolic readings and pulse over time.",
+  },
+  {
+    name: "drivers-license-detail",
+    caption: "Driver's license",
+    alt: "A driver's license record on a phone, with its license number, expiration date, and front image.",
+  },
+  {
+    name: "notes",
+    caption: "Notes",
+    alt: "Notes on a phone: a list of notes with the time each was modified.",
+  },
+  {
+    name: "tool-detail-1",
+    caption: "Belongings",
+    alt: "A drill's record on a phone, with its make, model, serial number, and equipment photos.",
+  },
+  {
+    name: "contact-detail",
+    caption: "Contact",
+    alt: "A contact on a phone, with a profile photo, nickname, and name fields.",
+  },
+  {
+    name: "passport-detail",
+    caption: "Passport",
+    alt: "A passport record on a phone, with the holder's name, passport number, issuing country, and passport image.",
+  },
+  {
+    name: "note-blame",
+    caption: "Authorship",
+    alt: "Document Info for a shared note on a phone, with each contributor's text highlighted in their color.",
+  },
+];
+
+const shown = phoneCarouselSlides(
+  await loadScreenshotManifest(publicDir),
+  screens,
+);
+---
+
+{shown.length > 0 && (
+  <div class="phone-carousel" data-phone-carousel>
+    <div class="phone-carousel-track" role="region" aria-label="Tearleads on a phone" tabindex="0" data-track>
+      <ul class="phone-carousel-list" role="list">
+        {shown.map((slide, index) => (
+          <li class="phone-carousel-slide">
+            <figure>
+              <a class="site-phone" href={screenshotPath("mobile", slide.name)}>
+                <picture>
+                  {slide.dark && (
+                    <source
+                      media="(prefers-color-scheme: dark)"
+                      srcset={slide.dark.src}
+                      width={slide.dark.width}
+                      height={slide.dark.height}
+                    />
+                  )}
+                  <img
+                    src={slide.light.src}
+                    alt={slide.alt}
+                    width={slide.light.width}
+                    height={slide.light.height}
+                    loading={index < 5 ? "eager" : "lazy"}
+                    fetchpriority={index === 0 ? "high" : "auto"}
+                    decoding="async"
+                  />
+                </picture>
+              </a>
+              <figcaption>{slide.caption}</figcaption>
+            </figure>
+          </li>
+        ))}
+      </ul>
+    </div>
+    <div class="phone-carousel-controls">
+      <a class="site-link" href={screenshotPath("mobile", shown[0]?.name ?? "")}>
+        All screenshots<span aria-hidden="true"> →</span>
+      </a>
+      <div class="phone-carousel-steps" hidden data-steps>
+        <button type="button" class="phone-carousel-step" data-step="-1" aria-label="Previous screens">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M15 5l-7 7 7 7" /></svg>
+        </button>
+        <button type="button" class="phone-carousel-step" data-step="1" aria-label="Next screens">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 5l7 7-7 7" /></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+<script>
+  import { initPhoneCarouselSteps } from "./phoneCarouselSteps";
+
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  for (const carousel of document.querySelectorAll<HTMLElement>(
+    "[data-phone-carousel]",
+  )) {
+    initPhoneCarouselSteps(carousel, () => reducedMotion.matches);
+  }
+</script>

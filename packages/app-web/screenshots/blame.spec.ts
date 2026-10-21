@@ -7,6 +7,7 @@ import {
   disableAnimations,
   waitForBooted,
 } from "./appShell";
+import { screenshotDeviceScreen } from "./deviceScreen";
 
 const REPO_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -426,7 +427,7 @@ async function screenshotOpenBlame(
   if (layout === "web") {
     await scope.screenshot({ path: screenshotPath });
   } else {
-    await page.screenshot({ path: screenshotPath, fullPage: false });
+    await screenshotDeviceScreen(page, screenshotPath);
   }
 }
 
