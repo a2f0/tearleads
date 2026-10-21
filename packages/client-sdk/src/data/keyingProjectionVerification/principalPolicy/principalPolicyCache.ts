@@ -1,7 +1,6 @@
 import type { ReferencedPrincipalHead } from "@tearleads/crypto";
 import { KeyingVerificationError } from "@tearleads/crypto";
 import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../persistence/principalPolicy/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicy/principalPolicyReferencePersistence";
 import {
   type PrincipalPolicyCurrentEvidence,
@@ -9,6 +8,7 @@ import {
 } from "../../principals/principalPolicyEvidence";
 import { principalStateMatchesReference } from "../../principals/principalPolicyStates";
 import type { ExecSql } from "../../sqlite/sqlSchema";
+import { verifiedPrincipalPolicyMeetsCheckpoint } from "./principalPolicyCheckpointSelection";
 
 /**
  * Cache key for a referenced principal policy. The in-memory principal-policy

@@ -3,7 +3,7 @@ import type {
   PrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
 import { verifyPrincipalPolicyCheckpoint } from "@tearleads/crypto";
-import { assertPrincipalPolicyCheckpointShape } from "../keyingCheckpoints/keyingCheckpointPersistence";
+import { assertPrincipalPolicyCheckpointShape } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
 
 export function principalPolicyHeadMeetsCheckpoint(
   head: { readonly stateHash: string; readonly version: number },

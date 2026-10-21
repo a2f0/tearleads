@@ -3,13 +3,11 @@ import {
   type AnyVerifiedPrincipalPolicy,
   KeyingVerificationError,
   type VerifiedAccessManifestCheckpointEvidence,
-  type VerifiedPrincipalPolicy,
   type VerifiedPrincipalPolicyCurrent,
   type VerifiedPrincipalPolicySelection,
   verifyAccessManifestLocalCheckpoint,
   verifyPrincipalPolicyCheckpoint,
 } from "@tearleads/crypto";
-import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import {
   keyingCheckpointTables,
   principalPolicyTables,
@@ -21,11 +19,6 @@ import {
 } from "../../sqlite/sqlitePersistenceRuntime";
 import { type ExecSql, ensureSqlTables } from "../../sqlite/sqlSchema";
 import { assertContainerNotRetired } from "../principalKeys/principalGrantRetirementPersistence";
-import {
-  assertPrincipalPolicyBundleStoredInTransaction,
-  writePrincipalPolicyBundleInTransaction,
-} from "../principalPolicy/principalPolicyPersistence";
-import { assertBundleMatchesVerifiedPolicy } from "../principalPolicy/verifiedPrincipalPolicyBundle";
 import {
   type VerifiedManifestBundle,
   type VerifiedManifestBundleRow,
@@ -69,11 +62,6 @@ interface KeyingCheckpointValidationInput {
    * the same transaction, so they commit only with the batch they verified.
    */
   readonly verifiedBundles?: readonly VerifiedManifestBundle[] | undefined;
-}
-
-interface VerifiedPrincipalPolicyBundleEntry {
-  readonly bundle: PrincipalPolicyBundleResponse;
-  readonly policy: VerifiedPrincipalPolicy;
 }
 
 interface PendingAccessCheckpoint {
@@ -164,7 +152,12 @@ function extendsObservedPolicy(
   );
 }
 
-async function validatePolicyAdvances(
+/**
+ * Checks, inside the caller's transaction, that each principal's newest policy
+ * extends every other candidate and its durable checkpoint. Returns the heads
+ * to pin, keyed by principal.
+ */
+export async function validatePrincipalPolicyCheckpointAdvances(
   tx: ClientSQLiteTransactionScope,
   policies: readonly CheckpointPolicy[],
 ): Promise<Map<string, CheckpointPolicy>> {
@@ -230,7 +223,8 @@ async function writeAccessCheckpoints(
   }
 }
 
-async function writePolicyCheckpoints(
+/** Pins the heads `validatePrincipalPolicyCheckpointAdvances` returned. */
+export async function writePrincipalPolicyCheckpoints(
   tx: ClientSQLiteTransactionScope,
   pending: ReadonlyMap<string, CheckpointPolicy>,
   updatedAt: string,
@@ -278,7 +272,7 @@ export async function validateKeyingCheckpointsAtomically(
   const verifiedAt = new Date().toISOString();
   const validate = async (tx: ClientSQLiteTransactionScope) => {
     await validateAccessAdvances(tx, input.access);
-    await validatePolicyAdvances(tx, input.policies);
+    await validatePrincipalPolicyCheckpointAdvances(tx, input.policies);
     await validatePrincipalAuthorizationCheckpoints(
       tx,
       input.authorizationPolicies ?? [],
@@ -313,14 +307,22 @@ export async function advanceKeyingCheckpointsAtomically(
   const runtime = getClientSQLitePersistenceRuntime(input.execSql);
   const advance = async (tx: ClientSQLiteTransactionScope) => {
     const access = await validateAccessAdvances(tx, input.access);
-    const policies = await validatePolicyAdvances(tx, input.policies);
+    const policies = await validatePrincipalPolicyCheckpointAdvances(
+      tx,
+      input.policies,
+    );
     await validatePrincipalAuthorizationCheckpoints(
       tx,
       input.authorizationPolicies ?? [],
     );
 
     await writeAccessCheckpoints(tx, access, updatedAt);
-    await writePolicyCheckpoints(tx, policies, updatedAt, input.organizationId);
+    await writePrincipalPolicyCheckpoints(
+      tx,
+      policies,
+      updatedAt,
+      input.organizationId,
+    );
     if (input.documentPurgeCheckpoint) {
       await storeDocumentPurgeCheckpointInTransaction(
         tx,
@@ -337,78 +339,4 @@ export async function advanceKeyingCheckpointsAtomically(
     return;
   }
   await runtime.transaction(advance, { behavior: "immediate" });
-}
-
-/**
- * Persists each verified full policy bundle together with its durable head.
- * This prevents a crash or bundle-write failure from leaving a checkpoint
- * without the exact same-head payload and member-envelope evidence.
- */
-export async function persistVerifiedPrincipalPolicyBundlesAtomically(input: {
-  readonly entries: readonly VerifiedPrincipalPolicyBundleEntry[];
-  readonly execSql: ExecSql;
-  readonly organizationId?: string | undefined;
-  readonly stillCurrent?: (() => boolean) | undefined;
-  readonly updatedAt: string;
-}): Promise<void> {
-  const seen = new Set<string>();
-  for (const entry of input.entries) {
-    const key = principalPolicyKey(entry.policy);
-    if (seen.has(key)) {
-      throw new KeyingVerificationError(
-        "duplicate_entry",
-        `verified policy bundle batch repeats ${key}`,
-      );
-    }
-    seen.add(key);
-  }
-  await Promise.all(
-    input.entries.map((entry) => assertBundleMatchesVerifiedPolicy(entry)),
-  );
-  await ensureSqlTables(input.execSql, [
-    ...principalPolicyTables,
-    ...keyingCheckpointTables,
-  ]);
-
-  const runtime = getClientSQLitePersistenceRuntime(input.execSql);
-  const persist = async (tx: ClientSQLiteTransactionScope) => {
-    const policies = await validatePolicyAdvances(
-      tx,
-      input.entries.map((entry) => entry.policy),
-    );
-    for (const entry of input.entries) {
-      await writePrincipalPolicyBundleInTransaction(
-        tx,
-        entry.bundle,
-        input.updatedAt,
-        input.organizationId,
-      );
-      await assertPrincipalPolicyBundleStoredInTransaction(tx, entry.bundle);
-    }
-    await writePolicyCheckpoints(
-      tx,
-      policies,
-      input.updatedAt,
-      input.organizationId,
-    );
-    for (const policy of policies.values()) {
-      const checkpoint = await loadStoredPrincipalPolicyCheckpoint(tx, policy);
-      if (
-        !checkpoint ||
-        checkpoint.version !== policy.version ||
-        checkpoint.stateHash !== policy.stateHash
-      ) {
-        throw new Error(
-          "Verified principal policy checkpoint was not persisted",
-        );
-      }
-    }
-  };
-  if (input.stillCurrent) {
-    await runtime.guardedTransaction(persist, input.stillCurrent, {
-      behavior: "immediate",
-    });
-    return;
-  }
-  await runtime.transaction(persist, { behavior: "immediate" });
 }

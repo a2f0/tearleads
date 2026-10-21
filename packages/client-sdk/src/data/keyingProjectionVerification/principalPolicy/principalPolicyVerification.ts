@@ -8,10 +8,6 @@ import {
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { loadPrincipalPolicyCheckpoint } from "../../persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import {
-  principalPolicyHeadMeetsCheckpoint,
-  verifiedPrincipalPolicyMeetsCheckpoint,
-} from "../../persistence/principalPolicy/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../../persistence/principalPolicy/principalPolicyPersistence";
 import { loadPrincipalPolicyBundleForReference } from "../../persistence/principalPolicy/principalPolicyReferencePersistence";
 import {
@@ -47,6 +43,10 @@ import {
   referencedPrincipalPolicyKey,
   verifiedPrincipalPolicyContainsReference,
 } from "./principalPolicyCache";
+import {
+  principalPolicyHeadMeetsCheckpoint,
+  verifiedPrincipalPolicyMeetsCheckpoint,
+} from "./principalPolicyCheckpointSelection";
 import { resolveReferencedPrincipalPolicy } from "./resolvedPrincipalPolicy";
 
 function principalPolicyReferenceLabel(

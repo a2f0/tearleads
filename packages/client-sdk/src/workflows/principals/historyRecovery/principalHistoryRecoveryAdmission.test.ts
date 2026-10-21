@@ -4,9 +4,9 @@ import {
   signedRecoveryHistory,
 } from "../../../../test/helpers/principalHistoryRecovery";
 import { principalPolicyHead } from "../../../../test/helpers/principalPolicyFixtures";
+import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCheckpointSelection";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { verifiedPrincipalPolicyMeetsCheckpoint } from "../../../data/persistence/principalPolicy/principalPolicyCheckpointSelection";
 import { principalPolicyCheckpoints } from "../../../data/sqlite/schema/principalPolicySchema";
 import { recoverPrincipalPolicyHistory } from "./recoverPrincipalPolicyHistory";
 

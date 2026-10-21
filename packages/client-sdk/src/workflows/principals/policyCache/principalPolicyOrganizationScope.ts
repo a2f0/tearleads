@@ -4,8 +4,8 @@ import {
   type VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
+import { principalPolicyHeadMeetsCheckpoint } from "../../../data/keyingProjectionVerification";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { principalPolicyHeadMeetsCheckpoint } from "../../../data/persistence/principalPolicy/principalPolicyCheckpointSelection";
 import { loadPrincipalPolicyBundle } from "../../../data/persistence/principalPolicy/principalPolicyPersistence";
 import {
   type OrganizationAuthorityDescriptor,

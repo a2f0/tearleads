@@ -1,5 +1,5 @@
 import { KeyingVerificationError } from "@tearleads/crypto";
-import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
+import { persistVerifiedPrincipalPolicyBundlesAtomically } from "../../../data/persistence/principalPolicy/verifiedPrincipalPolicyBundlePersistence";
 
 class PolicyCacheAdvanceRace extends Error {
   constructor(readonly verificationError: KeyingVerificationError) {
