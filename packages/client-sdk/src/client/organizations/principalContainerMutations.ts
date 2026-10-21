@@ -1,12 +1,12 @@
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import type { CurrentPolicyReferenceResolver } from "../../data/principals/currentPolicyReferenceResolver";
 import type { PrincipalPolicyCurrentEvidence } from "../../data/principals/principalPolicyEvidence";
-import { resolveDocumentCreateAuthor } from "../../workflows/documents";
 import {
   type PreparedPrincipalContainerRematerializationBatch,
+  type PrincipalRematerializationPredecessor,
   preparePrincipalContainerRematerializationBatch,
-} from "../../workflows/organizations/rematerialization/principalContainerRematerialization";
-import type { PrincipalRematerializationPredecessor } from "../../workflows/organizations/rematerialization/principalContainerRematerializationPlanning";
+} from "../../workflows/containers/rematerialization";
+import { resolveDocumentCreateAuthor } from "../../workflows/documents";
 import { createRuntimePrincipalPolicyWarmer } from "../../workflows/principals/runtimePolicyWarmer";
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 

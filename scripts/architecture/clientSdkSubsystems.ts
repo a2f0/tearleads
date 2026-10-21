@@ -78,7 +78,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Container Data",
     package: "client-sdk",
     responsibility:
-      "Client-side container CRUD/share workflow operations and the local container persistence shape.",
+      "Client-side container CRUD/share workflow operations, principal-container rematerialization, and the local container persistence shape.",
     seam: "workflows/containers",
     paths: [
       `${sdk}/workflows/containers/`,
@@ -87,6 +87,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     ],
     surface: [
       `${sdk}/workflows/containers/index.ts`,
+      `${sdk}/workflows/containers/rematerialization/index.ts`,
       `${sdk}/data/containers/containerMetadataDocument.ts`,
       `${sdk}/data/containers/shared/mutationFailures.ts`,
       `${sdk}/data/containers/shared/types.ts`,
@@ -114,7 +115,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Organization Read Models",
     package: "client-sdk",
     responsibility:
-      "Org directory/groups/grants/usage/user-detail read models and their SQLite persistence, roster/profile mutations, and atomic principal-container rematerialization for the client.",
+      "Org directory/groups/grants/usage/user-detail read models and their SQLite persistence, and roster/profile mutations for the client.",
     seam: "tearleads.organizations facade; workflows/organizations",
     paths: [
       `${sdk}/workflows/organizations/`,

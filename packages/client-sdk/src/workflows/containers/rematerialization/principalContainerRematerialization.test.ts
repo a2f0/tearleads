@@ -10,8 +10,8 @@ import {
 import { heldContainerSnapshot } from "../../../data/containers/shared/heldContainerHeads";
 import { verifyContainerWriterProjection } from "../../../data/keyingProjectionVerification";
 import { advanceKeyingCheckpointsAtomically } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointAdvancePersistence";
-import { buildMaterializedContainerCreatePlan } from "../../containers/child/create";
-import { childContainerWriterProjectionFromCreatePlan } from "../../containers/child/create/createProjection";
+import { buildMaterializedContainerCreatePlan } from "../child/create";
+import { childContainerWriterProjectionFromCreatePlan } from "../child/create/createProjection";
 import {
   buildPrincipalContainerRematerializationBatch,
   preparePrincipalContainerRematerializationBatch,

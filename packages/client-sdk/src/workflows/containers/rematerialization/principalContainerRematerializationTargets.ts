@@ -11,7 +11,7 @@ import type {
 import type { PrincipalPolicyCache } from "../../../data/keyingProjectionVerification";
 import { referencedPrincipalPolicyKey } from "../../../data/keyingProjectionVerification/principalPolicy/principalPolicyCache";
 import type { PrincipalPolicyCurrentEvidence } from "../../../data/principals/principalPolicyEvidence";
-import type { SpeculativePath } from "../../containers/child/rekey/carriedDescendantRekeys";
+import type { SpeculativePath } from "../child/rekey/carriedDescendantRekeys";
 
 export type MaterializedPrincipalContainerMutationPlan =
   | MaterializedContainerRekeyPlan

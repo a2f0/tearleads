@@ -20,17 +20,17 @@ import {
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
-import { scheduleHeldDescendantRecitations } from "../../containers/child/recite";
-import { buildMaterializedContainerRekeyPlan } from "../../containers/child/rekey";
-import { rebaseOnDeepestAncestor } from "../../containers/child/rekey/carriedDescendantRekeys";
+import { scheduleHeldDescendantRecitations } from "../child/recite";
+import { buildMaterializedContainerRekeyPlan } from "../child/rekey";
+import { rebaseOnDeepestAncestor } from "../child/rekey/carriedDescendantRekeys";
 import {
   containerWriterProjectionFromRotationPlan,
   containerWriterProjectionFromSharePlan,
   isSpeculativeContainerWriterProjection,
-} from "../../containers/child/rekey/rekeyProjection";
-import { buildMaterializedContainerRevokePlan } from "../../containers/child/revoke";
-import { selectReplacementPrincipalPolicyReferences } from "../../containers/child/rotation/replacementPrincipalPolicyReferences";
-import { buildMaterializedContainerSharePlan } from "../../containers/child/share/shareMaterialization";
+} from "../child/rekey/rekeyProjection";
+import { buildMaterializedContainerRevokePlan } from "../child/revoke";
+import { selectReplacementPrincipalPolicyReferences } from "../child/rotation/replacementPrincipalPolicyReferences";
+import { buildMaterializedContainerSharePlan } from "../child/share/shareMaterialization";
 import { withPrecedingRematerialization } from "./precedingPrincipalRematerialization";
 import {
   addPlan,

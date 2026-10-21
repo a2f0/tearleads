@@ -11,7 +11,7 @@ import { groupPolicyNameMismatch } from "../../../organizations/principalPolicy/
 import {
   type PreparedPrincipalContainerRematerializationBatch,
   preparePrincipalContainerRematerializationBatch,
-} from "../../../organizations/rematerialization/principalContainerRematerialization";
+} from "../../rematerialization";
 import type { createRuntimeCurrentSharePrincipalPolicy } from "./currentSharePrincipalPolicy";
 import type { shareRemoteContainerWithGroup } from "./index";
 import { GroupShareNameMismatchError } from "./sharePrincipalPolicy";

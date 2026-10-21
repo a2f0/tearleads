@@ -33,7 +33,7 @@ import { createGroupMetadataAccess } from "../../../organizations/groupMetadata/
 import { createGroupMetadataContainerVerifier } from "../../../organizations/groupMetadata/groupMetadataContainerAuthority";
 import { setOrganizationGroupContainerGrant } from "../../../organizations/principalPolicy";
 import type { GroupPolicyNameReader } from "../../../organizations/principalPolicy/principalPolicyRequest";
-import { preparePrincipalContainerRematerializationBatch } from "../../../organizations/rematerialization/principalContainerRematerialization";
+import { preparePrincipalContainerRematerializationBatch } from "../../rematerialization";
 import {
   submitAcknowledgedContainerMutation,
   submitPlainContainerMutation,

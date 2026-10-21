@@ -11,7 +11,7 @@ import {
   ROOT_CONTAINER_ID,
 } from "../../../../test/helpers/principalReciteFixtures";
 import { loadPrincipalPolicyCheckpoint } from "../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
-import { resolveCurrentGroupMutationReferences } from "../principalMutations/currentGroupMutationReferences";
+import { resolveCurrentGroupMutationReferences } from "../../organizations/principalMutations/currentGroupMutationReferences";
 import { buildPrincipalContainerRematerializationBatch } from "./principalContainerRematerialization";
 
 test.each(["grant", "rekey", "revoke"] as const)(

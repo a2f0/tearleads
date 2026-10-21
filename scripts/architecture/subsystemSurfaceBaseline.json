@@ -51,24 +51,18 @@
     "packages/client-sdk/src/workflows/container-contents/container-state/move/moveIntentSync.ts"
   ],
   "packages/client-sdk/src/data/containers/shared/heldContainerHeads.ts": [
-    "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts"
+    "packages/client-sdk/src/data/keyingProjectionVerification/checkpoints/checkpointContext.ts"
   ],
   "packages/client-sdk/src/data/containers/shared/mutationAcknowledgement.ts": [
     "packages/client-sdk/src/workflows/container-contents/container-state/create/createWithMetadata.ts",
     "packages/client-sdk/src/workflows/documents/syncRekeys/syncContainerRekeyPreparation.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts",
     "packages/client-sdk/src/workflows/registration/provisioningAcknowledgement.ts"
   ],
   "packages/client-sdk/src/data/containers/shared/projection.ts": [
     "packages/client-sdk/src/workflows/container-contents/container-state/share/groupGrantVerification.ts",
     "packages/client-sdk/src/workflows/container-contents/container-state/share/index.ts",
     "packages/client-sdk/src/workflows/container-contents/info/containerInfo.ts",
-    "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataAccess.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts"
-  ],
-  "packages/client-sdk/src/data/containers/shared/reciteApi.ts": [
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerializationPlanning.ts"
+    "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataAccess.ts"
   ],
   "packages/client-sdk/src/data/documents/attachmentContentIdentity.ts": [
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.ts"
@@ -229,7 +223,7 @@
     "packages/client-sdk/src/workflows/containers/child/rotation/replacementPrincipalPolicyReferences.ts",
     "packages/client-sdk/src/workflows/containers/child/share/index.ts",
     "packages/client-sdk/src/workflows/containers/child/share/runtimeCurrentGroupShare.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerializationTargets.ts",
+    "packages/client-sdk/src/workflows/containers/rematerialization/principalContainerRematerializationTargets.ts",
     "packages/client-sdk/src/workflows/principals/policyCache/index.ts",
     "packages/client-sdk/src/workflows/principals/policyRepair.ts"
   ],
@@ -245,11 +239,11 @@
   "packages/client-sdk/src/data/keyingProjectionVerification/userKeyResolver.ts": [
     "packages/client-sdk/src/workflows/container-contents/projectionKeys.ts",
     "packages/client-sdk/src/workflows/container-contents/tombstones/documentTombstoneEvidence.ts",
+    "packages/client-sdk/src/workflows/containers/rematerialization/principalContainerRematerialization.ts",
+    "packages/client-sdk/src/workflows/containers/rematerialization/principalContainerRematerializationPlanning.ts",
     "packages/client-sdk/src/workflows/documents/projectionKeys.ts",
     "packages/client-sdk/src/workflows/organizations/containerGrantRevocation.ts",
-    "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataRuntime.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerializationPlanning.ts"
+    "packages/client-sdk/src/workflows/organizations/groupMetadata/groupMetadataRuntime.ts"
   ],
   "packages/client-sdk/src/data/persistence/container-contents/documentMoveIntentPersistence.ts": [
     "packages/client-sdk/src/client/organizations/organizationAccessRestoration.ts"
@@ -398,8 +392,8 @@
     "packages/client-sdk/src/client/organizations/principalContainerMutations.ts",
     "packages/client-sdk/src/workflows/containers/child/rekey/carriedDescendantRekeys.ts",
     "packages/client-sdk/src/workflows/containers/child/rotation/replacementPrincipalPolicyReferences.ts",
-    "packages/client-sdk/src/workflows/organizations/principalMutations/runtimeCurrentGroupMutation.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerializationPlanning.ts"
+    "packages/client-sdk/src/workflows/containers/rematerialization/principalContainerRematerializationPlanning.ts",
+    "packages/client-sdk/src/workflows/organizations/principalMutations/runtimeCurrentGroupMutation.ts"
   ],
   "packages/client-sdk/src/data/principals/organizationGroupRoles.ts": [
     "packages/client-sdk/src/workflows/organizations/readModel/localReadModelDetails.ts"
@@ -554,27 +548,8 @@
   "packages/client-sdk/src/workflows/containers/child/mutationSubmit.ts": [
     "packages/client-sdk/src/workflows/documents/syncRekeys/syncContainerRekeyPreparation.ts"
   ],
-  "packages/client-sdk/src/workflows/containers/child/recite.ts": [
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/child/rekey/carriedDescendantRekeys.ts": [
-    "packages/client-sdk/src/workflows/organizations/rematerialization/precedingPrincipalRematerialization.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerializationPlanning.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerializationTargets.ts"
-  ],
   "packages/client-sdk/src/workflows/containers/child/rekey/index.ts": [
-    "packages/client-sdk/src/workflows/documents/syncRekeys/syncAutomaticContainerRekeys.ts",
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/child/rekey/rekeyProjection.ts": [
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/child/revoke.ts": [
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/child/rotation/replacementPrincipalPolicyReferences.ts": [
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts"
+    "packages/client-sdk/src/workflows/documents/syncRekeys/syncAutomaticContainerRekeys.ts"
   ],
   "packages/client-sdk/src/workflows/containers/child/share/currentSharePrincipalPolicy.ts": [
     "packages/client-sdk/src/workflows/container-contents/container-state/share/groupGrantVerification.ts",
@@ -582,9 +557,6 @@
   ],
   "packages/client-sdk/src/workflows/containers/child/share/runtimeCurrentGroupShare.ts": [
     "packages/client-sdk/src/workflows/container-contents/container-state/remote.ts"
-  ],
-  "packages/client-sdk/src/workflows/containers/child/share/shareMaterialization.ts": [
-    "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts"
   ],
   "packages/client-sdk/src/workflows/containers/root/create.ts": [
     "packages/client-sdk/src/workflows/registration/organizationProvisioningArtifacts.ts",
@@ -713,10 +685,6 @@
   ],
   "packages/client-sdk/src/workflows/organizations/readModel/organizationPresentationAccessState.ts": [
     "packages/client-sdk/src/workflows/sync/remoteReset.ts"
-  ],
-  "packages/client-sdk/src/workflows/organizations/rematerialization/principalContainerRematerialization.ts": [
-    "packages/client-sdk/src/workflows/containers/child/share/currentShareGrantMutation.ts",
-    "packages/client-sdk/src/workflows/containers/child/share/index.ts"
   ],
   "packages/client-sdk/src/workflows/organizations/rosterProfileContainer.ts": [
     "packages/client-sdk/src/workflows/registration/persistRegistrationBootstrap.ts",
