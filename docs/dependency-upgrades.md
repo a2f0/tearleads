@@ -12,6 +12,12 @@ caching, and npm trusted publishing keeps `actions/setup-node`. Windows jobs
 keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since the mise
 lockfile currently covers macOS arm64 and Linux x64, not Windows.
 
+Astro's CLI uses Node even when Bun starts the website tests. Keep a supported
+Node on `PATH` for local website builds; Astro 7.4.2 requires at least 22.23.4.
+The CI build lane selects Node 24.22.1 LTS explicitly and includes its version
+in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
+build results. The uncached workflow reuses that same lane.
+
 ## Current constraints
 
 The compatibility decisions were last reconciled in

@@ -26,42 +26,57 @@ const fixtureGit = (cwd: string, ...args: string[]) =>
     { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   );
 
-test("desktop source-map publishing requires committed sources, including staged and untracked files", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "desktop-sentry-git-"));
-  const git = (...args: string[]) => fixtureGit(directory, ...args);
-  try {
-    git("init", "--quiet");
-    await Bun.write(join(directory, ".gitignore"), ".secrets/\nbuild/\n");
-    await Bun.write(join(directory, "source.ts"), "export const value = 1;\n");
-    git("add", ".");
-    git("commit", "--quiet", "-m", "Fixture");
-    const commit = git("rev-parse", "HEAD").trim();
-    expect(desktopSentryCommit(directory)).toBe(commit);
-    await Bun.write(join(directory, "source.ts"), "export const value = 2;\n");
-    expect(() => desktopSentryCommit(directory)).toThrow(/clean Git checkout/);
-    git("add", "source.ts");
-    expect(() => desktopSentryCommit(directory)).toThrow(/clean Git checkout/);
-    git("restore", "--staged", "--worktree", "source.ts");
-    await Bun.write(
-      join(directory, "newModule.ts"),
-      "export const value = 3;\n",
-    );
-    expect(() => desktopSentryCommit(directory)).toThrow(/clean Git checkout/);
-    await rm(join(directory, "newModule.ts"));
-    await Bun.write(
-      join(directory, ".secrets/fixture.env"),
-      "SYNTHETIC=ignored\n",
-    );
-    await Bun.write(
-      join(directory, "build/sentry-sourcemaps/fixture.js"),
-      "staged output",
-    );
-    git("checkout", "--quiet", "--detach");
-    expect(desktopSentryCommit(directory)).toBe(commit);
-  } finally {
-    await rm(directory, { recursive: true, force: true });
-  }
-});
+// Keep each Git state independent: process startup on Windows otherwise puts
+// several unrelated assertions together under one test's timeout.
+test.each(["clean", "unstaged", "staged", "untracked", "ignored", "detached"])(
+  "desktop source-map publishing checks a %s checkout",
+  async (state) => {
+    const directory = await mkdtemp(join(tmpdir(), "desktop-sentry-git-"));
+    const git = (...args: string[]) => fixtureGit(directory, ...args);
+    try {
+      git("init", "--quiet");
+      await Bun.write(join(directory, ".gitignore"), ".secrets/\nbuild/\n");
+      await Bun.write(
+        join(directory, "source.ts"),
+        "export const value = 1;\n",
+      );
+      git("add", ".");
+      git("commit", "--quiet", "-m", "Fixture");
+      const commit = git("rev-parse", "HEAD").trim();
+      if (state === "unstaged" || state === "staged") {
+        await Bun.write(
+          join(directory, "source.ts"),
+          "export const value = 2;\n",
+        );
+        if (state === "staged") git("add", "source.ts");
+      } else if (state === "untracked") {
+        await Bun.write(
+          join(directory, "newModule.ts"),
+          "export const value = 3;\n",
+        );
+      } else if (state === "ignored" || state === "detached") {
+        await Bun.write(
+          join(directory, ".secrets/fixture.env"),
+          "SYNTHETIC=ignored\n",
+        );
+        await Bun.write(
+          join(directory, "build/sentry-sourcemaps/fixture.js"),
+          "staged output",
+        );
+        if (state === "detached") git("checkout", "--quiet", "--detach");
+      }
+      if (state === "unstaged" || state === "staged" || state === "untracked") {
+        expect(() => desktopSentryCommit(directory)).toThrow(
+          /clean Git checkout/,
+        );
+      } else {
+        expect(desktopSentryCommit(directory)).toBe(commit);
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
 
 // Git looks above a root whose .git is no repository; a clean checkout there
 // must not stand in for it.

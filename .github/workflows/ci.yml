@@ -163,8 +163,15 @@ jobs:
           install_args: bun
           cache: true
 
+      # Astro's executable uses Node even when Bun starts the package tests.
+      - name: Set up Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.22.1
+          package-manager-cache: false
+
       - name: Key the Turbo cache to this runtime
-        run: echo "CI_TOOLCHAIN=bun-$(bun --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
+        run: echo "CI_TOOLCHAIN=bun-$(bun --version)-node-$(node --version)-${RUNNER_OS}-${RUNNER_ARCH}" >> "$GITHUB_ENV"
 
       - name: Serve the Turbo remote cache from the Actions cache
         uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
