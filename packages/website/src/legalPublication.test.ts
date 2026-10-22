@@ -94,10 +94,15 @@ for (const environment of ["production", "staging", undefined]) {
       ).text();
       expect(features).toContain('id="sync-and-sharing"');
       expect(features).toContain('id="document-authorship"');
+      const featureDetails = await Promise.all(
+        ["authorship", "sharing"].map((slug) =>
+          Bun.file(resolve(output, "features", slug, "index.html")).text(),
+        ),
+      );
       // Pages that show phone captures, which leave out the in-app test
       // banner, carry the release notice while it is set.
       if (releaseNotice !== null) {
-        for (const html of [index, features]) {
+        for (const html of [index, features, ...featureDetails]) {
           expect(html).toContain(releaseNotice);
         }
       }
