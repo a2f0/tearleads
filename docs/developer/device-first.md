@@ -316,6 +316,15 @@ Persisted-document notifications repaint an open Contacts store after late
 recovery. Root-set and organization-profile signals likewise refresh the open
 organization switcher.
 
+The Organizations dashboard reads the same shared container store. It lists
+every organization present in the local tree, not only the workspaces the
+switcher can activate: each Members recipient holds the organization's
+metadata root, and a folder shared from beneath a root the user cannot reach
+arrives with its organization attached. A card's folders are the containers
+whose parent is not local, the same rule Explorer uses for its top-level rows.
+Both read names from `listLocalOrganizations`, which reports a null
+`rootContainerId` for an organization reached without its root.
+
 ## Why first paint is device-first (trace)
 
 Already-registered user opens Explorer:

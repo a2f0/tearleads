@@ -47,8 +47,8 @@
       "bytes": 54498
     },
     "docs/developer/device-first.md": {
-      "lines": 366,
-      "bytes": 20185
+      "lines": 375,
+      "bytes": 20771
     },
     "docs/developer/revenuecat-native-stores.md": {
       "lines": 361,
@@ -81,6 +81,10 @@
     "docs/security-guarantees.md": {
       "lines": 842,
       "bytes": 48870
+    },
+    "docs/subsystems.md": {
+      "lines": 114,
+      "bytes": 20178
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -335,8 +339,8 @@
       "bytes": 20435
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 617,
-      "bytes": 23313
+      "lines": 625,
+      "bytes": 23637
     }
   },
   "suppressions": {

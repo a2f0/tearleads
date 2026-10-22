@@ -1,0 +1,56 @@
+.organizations {
+  min-width: 24rem;
+  min-height: 18rem;
+}
+
+/* The routed (mobile/tablet) shell scrolls its main area, so the desktop
+   window floor would only force horizontal overflow there. */
+.routed-pane-main .organizations {
+  min-width: 0;
+  min-height: 0;
+}
+
+.organizations-list,
+.organizations-folders {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  min-width: 0;
+}
+
+.organizations-list {
+  max-width: var(--form-measure);
+}
+
+.organizations-card {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.organizations-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.organizations-card-header h3 {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organizations-badge {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  opacity: var(--opacity-subtle);
+}
+
+.organizations-folders .mini-app-row {
+  gap: var(--space-sm);
+}

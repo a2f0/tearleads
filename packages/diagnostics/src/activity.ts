@@ -8,6 +8,7 @@ const DIAGNOSTIC_AREAS = [
   "identity-manager",
   "notes",
   "org-manager",
+  "organizations",
   "root",
   "system-monitor",
 ] as const;

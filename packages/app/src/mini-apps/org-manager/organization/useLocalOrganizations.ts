@@ -1,7 +1,4 @@
-import type {
-  DomainScope,
-  LocalOrganizationSummary,
-} from "@tearleads/client-sdk";
+import type { DomainScope } from "@tearleads/client-sdk";
 import {
   type Dispatch,
   type SetStateAction,
@@ -13,16 +10,19 @@ import {
 } from "react";
 import { createBoundedRetrySchedule } from "../hooks/boundedRetry";
 import { ORG_MANAGER_LABELS } from "../labels";
-import type { LocalOrganizationsState } from "./orgSwitcherTypes";
+import type {
+  LocalOrganizationsState,
+  OrganizationWorkspace,
+} from "./orgSwitcherTypes";
 
 type OrganizationsSetter = Dispatch<
-  SetStateAction<readonly LocalOrganizationSummary[]>
+  SetStateAction<readonly OrganizationWorkspace[]>
 >;
 
 function retainOrganizationSummary(
-  organizations: readonly LocalOrganizationSummary[],
-  organization: LocalOrganizationSummary,
-): readonly LocalOrganizationSummary[] {
+  organizations: readonly OrganizationWorkspace[],
+  organization: OrganizationWorkspace,
+): readonly OrganizationWorkspace[] {
   const existingIndex = organizations.findIndex(
     (candidate) => candidate.organizationId === organization.organizationId,
   );
@@ -47,9 +47,9 @@ function retainOrganizationSummary(
 }
 
 function reconcileRetainedOrganizations(
-  nextOrganizations: readonly LocalOrganizationSummary[],
-  retainedOrganizations: Map<string, LocalOrganizationSummary>,
-): readonly LocalOrganizationSummary[] {
+  nextOrganizations: readonly OrganizationWorkspace[],
+  retainedOrganizations: Map<string, OrganizationWorkspace>,
+): readonly OrganizationWorkspace[] {
   let reconciledOrganizations = nextOrganizations;
   for (const [organizationId, retained] of retainedOrganizations) {
     const persisted = nextOrganizations.find(
@@ -79,11 +79,11 @@ interface OrganizationReloadOptions {
   databaseReady: boolean;
   enabled: boolean;
   latestRequestIdRef: { current: number };
-  listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  listLocalOrganizations: () => Promise<OrganizationWorkspace[]>;
   mountedRef: { current: boolean };
-  organizationsRef: { current: readonly LocalOrganizationSummary[] };
+  organizationsRef: { current: readonly OrganizationWorkspace[] };
   retainedOrganizationsRef: {
-    current: Map<string, LocalOrganizationSummary>;
+    current: Map<string, OrganizationWorkspace>;
   };
   setOrganizations: OrganizationsSetter;
   setOrganizationsError: Dispatch<SetStateAction<string | null>>;
@@ -165,7 +165,7 @@ interface OrganizationListLifecycleOptions {
   reload: () => Promise<boolean>;
   refreshKey: string;
   retainedOrganizationsRef: {
-    current: Map<string, LocalOrganizationSummary>;
+    current: Map<string, OrganizationWorkspace>;
   };
   scopeKey: DomainScope;
   setOrganizations: OrganizationsSetter;
@@ -251,13 +251,13 @@ function useOrganizationListLifecycle(input: OrganizationListLifecycleOptions) {
  * legitimately have no name.
  */
 function useOrganizationIndexCatchUpRetry(input: {
-  activeOrganization: LocalOrganizationSummary | null;
+  activeOrganization: OrganizationWorkspace | null;
   databaseReady: boolean;
   enabled: boolean;
-  organizations: readonly LocalOrganizationSummary[];
+  organizations: readonly OrganizationWorkspace[];
   reload: () => Promise<boolean>;
   retainedOrganizationsRef: {
-    current: Map<string, LocalOrganizationSummary>;
+    current: Map<string, OrganizationWorkspace>;
   };
   setOrganizationsError: Dispatch<SetStateAction<string | null>>;
 }) {
@@ -313,11 +313,11 @@ function useOrganizationIndexCatchUpRetry(input: {
 
 function useRetainOrganization(
   retainedOrganizationsRef: {
-    current: Map<string, LocalOrganizationSummary>;
+    current: Map<string, OrganizationWorkspace>;
   },
   setOrganizations: OrganizationsSetter,
 ) {
-  return useCallback((organization: LocalOrganizationSummary) => {
+  return useCallback((organization: OrganizationWorkspace) => {
     const retained = retainedOrganizationsRef.current.get(
       organization.organizationId,
     );
@@ -336,15 +336,15 @@ function useRetainOrganization(
 }
 
 export function useLocalOrganizations(input: {
-  activeOrganization: LocalOrganizationSummary | null;
+  activeOrganization: OrganizationWorkspace | null;
   databaseReady: boolean;
   enabled: boolean;
-  listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  listLocalOrganizations: () => Promise<OrganizationWorkspace[]>;
   refreshKey: string;
   scopeKey: DomainScope;
 }): LocalOrganizationsState {
   const [organizations, setOrganizations] = useState<
-    readonly LocalOrganizationSummary[]
+    readonly OrganizationWorkspace[]
   >([]);
   const [organizationsError, setOrganizationsError] = useState<string | null>(
     null,
@@ -358,9 +358,9 @@ export function useLocalOrganizations(input: {
   organizationsRef.current = organizations;
   const latestRequestIdRef = useRef(0);
   const mountedRef = useRef(true);
-  const retainedOrganizationsRef = useRef<
-    Map<string, LocalOrganizationSummary>
-  >(new Map());
+  const retainedOrganizationsRef = useRef<Map<string, OrganizationWorkspace>>(
+    new Map(),
+  );
   const committedScopeKeyRef = useRef(input.scopeKey);
   useLayoutEffect(() => {
     if (committedScopeKeyRef.current === input.scopeKey) {

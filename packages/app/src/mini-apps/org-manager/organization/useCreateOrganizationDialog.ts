@@ -1,10 +1,10 @@
-import type {
-  LocalOrganizationSummary,
-  SessionCreateOrganizationResult,
-} from "@tearleads/client-sdk";
+import type { SessionCreateOrganizationResult } from "@tearleads/client-sdk";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ORG_MANAGER_LABELS } from "../labels";
-import type { CreateOrganizationDialogState } from "./orgSwitcherTypes";
+import type {
+  CreateOrganizationDialogState,
+  OrganizationWorkspace,
+} from "./orgSwitcherTypes";
 
 interface CreateOrganizationDialogOptions {
   interactionDisabled: boolean;
@@ -14,7 +14,7 @@ interface CreateOrganizationDialogOptions {
     organizationProfileName: string,
   ) => Promise<SessionCreateOrganizationResult | null>;
   reload: () => Promise<boolean>;
-  retainOrganization: (organization: LocalOrganizationSummary) => void;
+  retainOrganization: (organization: OrganizationWorkspace) => void;
   scopeGeneration: object;
   selectCreatedOrganization: (result: SessionCreateOrganizationResult) => void;
 }

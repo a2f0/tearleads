@@ -52,7 +52,7 @@ function explorerSectionHeadings(pane: HTMLElement): string[] {
 // reconciler pulling + decrypting the Members-granted metadata container's
 // organization_profile document (a system-container document synced on every
 // reconcile — see isSystemContainerNode), the reader's metadata-container name
-// fallback resolving it, and useExplorerOrganizationNames re-resolving once the
+// fallback resolving it, and useOrganizationNames re-resolving once the
 // body lands to surface it as a per-org heading.
 test(
   "a new roster member keeps its personal org primary above the decrypted founder org",
@@ -88,7 +88,7 @@ test(
     await addPeerToAdminsGroup(founderPane, getPaneUserId(peerPane));
 
     // A full-crawl refresh pulls the newly Members-granted metadata container and
-    // its organization_profile document; `useExplorerOrganizationNames` then fills
+    // its organization_profile document; `useOrganizationNames` then fills
     // the org-name map asynchronously and re-labels the founder roots from "Shared
     // with me" to the org name. Poll with refreshUntil because the heading lands a
     // beat after the container/doc sync.

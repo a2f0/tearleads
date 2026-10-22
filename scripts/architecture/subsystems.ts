@@ -343,6 +343,14 @@ export const subsystems: readonly Subsystem[] = [
     paths: [`${app}/mini-apps/system-monitor/`],
   },
   {
+    name: "Organizations Dashboard",
+    package: "app",
+    responsibility:
+      "The organizations mini-app: every organization the user belongs to and the folders they can reach in each, independent of the active workspace.",
+    seam: "mini-apps/organizations",
+    paths: [`${app}/mini-apps/organizations/`],
+  },
+  {
     name: "Backup & Restore",
     package: "app",
     responsibility:
