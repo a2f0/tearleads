@@ -24,7 +24,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.55",
+      "version": "0.1.56",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1155.0",
         "@aws-sdk/s3-request-presigner": "3.1155.0",
@@ -51,7 +51,7 @@
     },
     "packages/api-cli": {
       "name": "@tearleads/api-cli",
-      "version": "0.1.11",
+      "version": "0.1.12",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1155.0",
         "@tearleads/api-shared": "workspace:*",
@@ -77,7 +77,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "dependencies": {
         "@electric-sql/pglite": "0.5.11",
         "@libsql/client": "0.18.0",
@@ -94,7 +94,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.64",
+      "version": "0.1.65",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -218,7 +218,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.89",
+      "version": "0.1.90",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -322,7 +322,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.29",
+      "version": "0.1.30",
       "dependencies": {
         "zod": "catalog:",
       },
