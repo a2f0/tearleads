@@ -2,6 +2,7 @@
 
 require 'json'
 require 'shellwords'
+require 'supply'
 require_relative '../lib/capacitor_release_config'
 require_relative '../lib/lane_options'
 require_relative '../lib/native_release_target'
@@ -110,11 +111,32 @@ def google_play_version_codes_by_track(tracks)
   end
 end
 
+# Play rejects a version code it has seen anywhere, including a bundle that was
+# uploaded but never released to a track, so read the app's uploads too.
+def google_play_supply_client
+  Supply.config = FastlaneCore::Configuration.create(
+    Supply::Options.available_options,
+    package_name: NATIVE_APP_IDENTIFIER,
+    json_key: require_existing_file!(google_play_json_key_path, 'Google Play JSON key')
+  )
+  Supply::Client.make_from_config
+end
+
+def google_play_uploaded_version_codes
+  client = google_play_supply_client
+  client.begin_edit(package_name: NATIVE_APP_IDENTIFIER)
+  begin
+    client.aab_version_codes + client.apks_version_codes
+  ensure
+    client.abort_current_edit
+  end
+end
+
 def latest_google_play_build_number(tracks)
   version_codes_by_track = google_play_version_codes_by_track(tracks)
-  version_codes = version_codes_by_track.values.flatten
+  version_codes = version_codes_by_track.values.flatten + google_play_uploaded_version_codes
 
-  [version_codes_by_track, version_codes.max]
+  [version_codes_by_track, version_codes.map(&:to_i).max]
 end
 
 def latest_app_store_build_number(options)

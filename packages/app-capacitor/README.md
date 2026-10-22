@@ -151,8 +151,9 @@ By default, each store build number is the latest PR merged today, discovered
 with `gh` first and from local squash-merge commit subjects like `(#1365)` as a
 fallback. When the store's credentials are available, the lane also checks the
 store and uses the larger of the merged PR number and the store's next number:
-the configured Google Play tracks for Android, and the latest TestFlight build
-for the target app version on iOS.
+on Android, the configured Google Play tracks and every bundle uploaded to the
+app, since Play rejects a version code it has seen even outside a track; on iOS,
+the latest TestFlight build for the target app version.
 
 | Setting | Android | iOS |
 | --- | --- | --- |
@@ -173,7 +174,9 @@ native config is fully bundled, renders the icon and splash images, and builds
 `ios/App/output/Tearleads.ipa` (staging: `ios/App/output/staging/`). It
 installs the App Store certificate and profile read-only from match into a
 throwaway keychain, deleted whether the build succeeds or fails, and signs the
-App target manually. Signing needs a team ID from `team_id:`, `IOS_TEAM_ID`,
+App target manually. The keychain is the default while the build runs, and the
+previous default comes back afterwards, even when the throwaway keychain is
+already gone. Signing needs a team ID from `team_id:`, `IOS_TEAM_ID`,
 `APPLE_TEAM_ID`, `DEVELOPMENT_TEAM`, `FASTLANE_TEAM_ID`, or `TEAM_ID`.
 
 The archive resolves Swift packages only from `Package.resolved`
@@ -185,14 +188,17 @@ cache can otherwise upgrade pins within the manifests' version ranges.
 `ios upload_release` uploads with the App Store Connect API key
 (`APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, and the `.p8` in the
 secrets folder, or the path in `APP_STORE_CONNECT_API_KEY_KEY_FILEPATH` or
-`APP_STORE_CONNECT_KEY_FILEPATH`). It uploads only by default:
-`TESTFLIGHT_SKIP_SUBMISSION=true` and
-`TESTFLIGHT_SKIP_WAITING_FOR_BUILD_PROCESSING=true`. Override either with the
-matching variable or option. Set `TESTFLIGHT_CHANGELOG` or `changelog:` to
-provide "What to Test". External distribution is off by default; enable it with
-`TESTFLIGHT_DISTRIBUTE_EXTERNAL=true` or `distribute_external:true` and provide
-comma-separated `TESTFLIGHT_GROUPS` or `groups:`. External distribution submits
-for review unless `TESTFLIGHT_SKIP_SUBMISSION=true` is set explicitly.
+`APP_STORE_CONNECT_KEY_FILEPATH`). It uploads only by default, without waiting
+for build processing or submitting for review. Set `TESTFLIGHT_CHANGELOG` or
+`changelog:` to provide "What to Test". External distribution is off by
+default; enable it with `TESTFLIGHT_DISTRIBUTE_EXTERNAL=true` or
+`distribute_external:true` and provide comma-separated `TESTFLIGHT_GROUPS` or
+`groups:`. External distribution waits for processing, since TestFlight
+distributes only a processed build, and submits for review.
+`TESTFLIGHT_SKIP_WAITING_FOR_BUILD_PROCESSING` or
+`skip_waiting_for_build_processing:`, and `TESTFLIGHT_SKIP_SUBMISSION` or
+`skip_submission:`, override either default; skipping the wait distributes
+nothing.
 
 `ios profiles` creates the tier's App Store profile in the match repository
 with the API key, reusing the team's distribution certificate there, or renews
@@ -246,10 +252,11 @@ bun run store:build-numbers
 The lane uses the secrets folder's Google Play service account and App Store
 Connect key; missing credentials or one store API failure do not block the
 other lookup. It queries the standard Play tracks (`production`, `beta`,
-`alpha`, and `internal`) and reports the highest version code. Narrow them with
-`google_tracks:internal,beta` or `GOOGLE_PLAY_TRACKS`, or one track with
-`track:` or `GOOGLE_PLAY_TRACK`. Query TestFlight state instead of the live
-version with `apple_live:false` or `APP_STORE_LIVE=false`, and skip a store with
+`alpha`, and `internal`) and the app's uploaded bundles, and reports the highest
+version code. Narrow the tracks with `google_tracks:internal,beta` or
+`GOOGLE_PLAY_TRACKS`, or one track with `track:` or `GOOGLE_PLAY_TRACK`. Query
+TestFlight state instead of the live version with `apple_live:false` or
+`APP_STORE_LIVE=false`, and skip a store with
 `skip_google:true` (`SKIP_GOOGLE_PLAY`) or `skip_apple:true` (`SKIP_APP_STORE`).
 `scripts/getCurrentAppStoreBuildNumbers.sh` wraps it for the App Store builds of
 both tiers.

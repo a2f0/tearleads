@@ -9,12 +9,14 @@ def testflight_changelog(options)
   lane_option(options, :changelog, 'TESTFLIGHT_CHANGELOG')
 end
 
+# Pilot distributes a build only after processing, so external distribution
+# waits by default.
 def testflight_skip_waiting_for_build_processing?(options)
   lane_boolean_option(
     options,
     :skip_waiting_for_build_processing,
     'TESTFLIGHT_SKIP_WAITING_FOR_BUILD_PROCESSING',
-    true
+    !testflight_distribute_external?(options)
   )
 end
 

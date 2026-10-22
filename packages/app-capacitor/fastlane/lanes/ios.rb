@@ -50,9 +50,19 @@ def create_ios_signing_keychain(name, password)
   create_keychain(name: name, password: password, **IOS_SIGNING_KEYCHAIN_OPTIONS)
 end
 
+# create_keychain records the default keychain it replaces, and delete_keychain
+# restores it. When the temporary keychain is already gone, restore it the same
+# way: `security default-keychain` prints the path already quoted.
+def cleanup_ios_signing_keychain(name)
+  return delete_keychain(name: name) if ios_signing_keychain_exists?(name)
+
+  original = lane_context[SharedValues::ORIGINAL_DEFAULT_KEYCHAIN]
+  Actions.sh("security default-keychain -s #{original}", log: false) unless original.to_s.empty?
+end
+
 def with_ios_signing_keychain(&)
   setup = method(:create_ios_signing_keychain)
-  cleanup = proc { |name| delete_keychain(name: name) if ios_signing_keychain_exists?(name) }
+  cleanup = method(:cleanup_ios_signing_keychain)
   IosSigningKeychain.with_temporary(environment: ENV, setup: setup, cleanup: cleanup, &)
 end
 

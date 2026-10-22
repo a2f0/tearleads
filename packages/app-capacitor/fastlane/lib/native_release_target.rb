@@ -218,7 +218,8 @@ def ensure_native_release_service_urls!
     next if problem.nil?
 
     message = "#{env_name} #{problem}."
-    defined?(UI) ? UI.user_error!(message) : raise(message)
+    # Fastlane defines no top-level UI; tests load this file without fastlane.
+    defined?(FastlaneCore::UI) ? FastlaneCore::UI.user_error!(message) : raise(message)
   end
 end
 
