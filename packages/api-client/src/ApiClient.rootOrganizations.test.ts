@@ -100,6 +100,7 @@ testApiClient(
         requests += 1;
         return HttpResponse.json({
           organization,
+          overview,
           billing: { status: "active" },
           stripe: null,
           history: [],
