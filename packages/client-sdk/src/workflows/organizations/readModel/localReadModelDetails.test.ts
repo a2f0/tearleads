@@ -103,6 +103,7 @@ function snapshot(): OrganizationReadModelSnapshotResponse {
           status: "active" as const,
           profileDocumentId: `profile-${userId}`,
           joinedAt: CREATED_AT,
+          leaveRequest: null,
           updatedAt: CREATED_AT,
           disabledAt: null,
           disabledByUserId: null,

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4524cc10-0bd9-4f46-b7b7-dbefc7eb29f7",
+  "id": "e6d63d94-1139-4405-8b00-4812b8cf5f15",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -3797,6 +3797,13 @@
         "sync_paused_at": {
           "name": "sync_paused_at",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "leave_request": {
+          "name": "leave_request",
+          "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false

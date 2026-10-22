@@ -1,5 +1,5 @@
 {
-  "id": "ca0f4add-b3b7-4346-990d-5724d210db6d",
+  "id": "a3bd5c3e-6414-41af-98ac-941591d60cfc",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -5031,6 +5031,12 @@
         "sync_paused_at": {
           "name": "sync_paused_at",
           "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "leave_request": {
+          "name": "leave_request",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },

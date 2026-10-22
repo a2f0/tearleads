@@ -66,6 +66,11 @@ export {
   parseKnownManifestHints,
 } from "./knownManifestWire";
 export {
+  isOrganizationLeaveRequest,
+  type OrganizationLeaveRequest,
+  OrganizationLeaveRequestSchema,
+} from "./organizationLeaveRequest";
+export {
   isOrganizationReplacementAuthorization,
   type OrganizationReplacementAuthorization,
   OrganizationReplacementAuthorizationSchema,

@@ -13,12 +13,20 @@ export interface OrganizationDashboardCard {
   /** The organization the session is currently working in. */
   readonly active: boolean;
   /**
+   * The user can ask this organization's administrators to remove them. A
+   * personal organization cannot be left, and an organization the server has
+   * not yet listed as a membership offers nothing.
+   */
+  readonly canAskToLeave: boolean;
+  /**
    * Sync can be paused or resumed here. A personal organization never can,
    * and the active organization, whose root the session writes to, can only
    * be resumed if another device paused it.
    */
   readonly canChangeSync: boolean;
   readonly folders: ReadonlyArray<OrganizationDashboardFolder>;
+  /** The user asked to leave and an administrator has not acted on it yet. */
+  readonly leaveRequested: boolean;
   readonly name: string | null;
   readonly organizationId: string;
   /** The user paused this organization's content syncing to their devices. */
@@ -74,6 +82,9 @@ function compareCards(
  */
 export function buildOrganizationDashboardCards(input: {
   activeOrganizationId: string | null;
+  /** Memberships the server listed that are not the user's personal one. */
+  leavableOrganizationIds: ReadonlySet<string>;
+  leaveRequestedOrganizationIds: ReadonlySet<string>;
   namesById: ReadonlyMap<string, string>;
   nodes: ReadonlyArray<ContainerNode>;
   pausedOrganizationIds: ReadonlySet<string>;
@@ -100,6 +111,7 @@ export function buildOrganizationDashboardCards(input: {
   return [...foldersByOrganizationId]
     .map(([organizationId, folders]) => ({
       active: organizationId === input.activeOrganizationId,
+      canAskToLeave: input.leavableOrganizationIds.has(organizationId),
       canChangeSync:
         !input.personalOrganizationIds.has(organizationId) &&
         (organizationId !== input.activeOrganizationId ||
@@ -110,6 +122,7 @@ export function buildOrganizationDashboardCards(input: {
           compareNames(left.name, right.name) ||
           left.id.localeCompare(right.id),
       ),
+      leaveRequested: input.leaveRequestedOrganizationIds.has(organizationId),
       name: input.namesById.get(organizationId) ?? null,
       organizationId,
       syncPaused: input.pausedOrganizationIds.has(organizationId),

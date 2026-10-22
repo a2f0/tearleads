@@ -1,8 +1,9 @@
 import type {
+  OrganizationLeaveRequestResult,
   OrganizationMembership,
   OrganizationSyncPauseResult,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -14,18 +15,19 @@ const EMPTY_IDS: ReadonlySet<string> = new Set();
 export interface OrganizationSyncChoices {
   readonly changingOrganizationId: string | null;
   readonly error: string | null;
+  /** The user's memberships as the server last reported them, or null. */
+  readonly memberships: ReadonlyMap<string, OrganizationMembership> | null;
   readonly pausedOrganizationIds: ReadonlySet<string>;
   readonly personalOrganizationIds: ReadonlySet<string>;
+  setLeaveRequested(organizationId: string, requested: boolean): Promise<void>;
   setSyncPaused(organizationId: string, paused: boolean): Promise<void>;
 }
 
-function personalIds(
+function byOrganizationId(
   memberships: readonly OrganizationMembership[],
-): ReadonlySet<string> {
-  return new Set(
-    memberships.flatMap((membership) =>
-      membership.isPersonalOrganizationOwner ? [membership.organizationId] : [],
-    ),
+): ReadonlyMap<string, OrganizationMembership> {
+  return new Map(
+    memberships.map((membership) => [membership.organizationId, membership]),
   );
 }
 
@@ -40,66 +42,168 @@ function pauseErrorMessage(result: OrganizationSyncPauseResult): string | null {
   }
 }
 
-/**
- * The user's own sync choices for each organization: the paused set read from
- * this device (so it works offline), the personal organizations the server
- * reports, and the pause/resume action.
- */
-export function useOrganizationSyncChoices(): OrganizationSyncChoices {
+function leaveErrorMessage(
+  result: OrganizationLeaveRequestResult,
+): string | null {
+  return result.status === "updated"
+    ? null
+    : result.message || ORGANIZATIONS_LABELS.leaveRequestFailed;
+}
+
+/** The paused set on this device and the memberships the server reports. */
+function useMembershipState() {
   const tearleads = useTearleads();
   const scopeKey = useTearleadsRuntime().state.domainScope;
   const [pausedOrganizationIds, setPausedOrganizationIds] =
     useState<ReadonlySet<string>>(EMPTY_IDS);
-  const [personalOrganizationIds, setPersonalOrganizationIds] =
-    useState<ReadonlySet<string>>(EMPTY_IDS);
+  const [memberships, setMemberships] = useState<ReadonlyMap<
+    string,
+    OrganizationMembership
+  > | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const membershipConduit = tearleads.organizations.memberships;
+    const reloadPaused = () => {
+      void membershipConduit.loadPausedOrganizationIds().then((ids) => {
+        if (active) setPausedOrganizationIds(new Set(ids));
+      });
+    };
+    const unsubscribe = membershipConduit.subscribeToSyncPauses(reloadPaused);
+    // Every refresh, including one a memberships hint triggers after a change
+    // on another device, replaces the list shown here.
+    const unsubscribeMemberships = membershipConduit.subscribeToMemberships(
+      (list) => {
+        if (active) setMemberships(byOrganizationId(list));
+      },
+    );
+    reloadPaused();
+    setMemberships(null);
+    void membershipConduit.refresh();
+    return () => {
+      active = false;
+      unsubscribe();
+      unsubscribeMemberships();
+    };
+  }, [scopeKey, tearleads]);
+
+  return {
+    memberships,
+    pausedOrganizationIds,
+    scopeKey,
+    setMemberships,
+    tearleads,
+  };
+}
+
+/**
+ * Runs one membership change at a time. A change that settles after the
+ * session switched identities belongs to the old identity and must not touch
+ * what this one shows.
+ */
+function useScopedChange(scopeKey: unknown) {
   const [changingOrganizationId, setChangingOrganizationId] = useState<
     string | null
   >(null);
   const [error, setError] = useState<string | null>(null);
-
+  const scopeRef = useRef(scopeKey);
   useEffect(() => {
-    let active = true;
-    const memberships = tearleads.organizations.memberships;
-    const reloadPaused = () => {
-      void memberships.loadPausedOrganizationIds().then((ids) => {
-        if (active) setPausedOrganizationIds(new Set(ids));
-      });
-    };
-    const unsubscribe = memberships.subscribeToSyncPauses(reloadPaused);
-    reloadPaused();
-    void memberships.refresh().then((list) => {
-      if (active && list) setPersonalOrganizationIds(personalIds(list));
-    });
-    return () => {
-      active = false;
-      unsubscribe();
-    };
-  }, [scopeKey, tearleads]);
+    scopeRef.current = scopeKey;
+    setChangingOrganizationId(null);
+    setError(null);
+  }, [scopeKey]);
 
-  const setSyncPaused = useCallback(
-    async (organizationId: string, paused: boolean) => {
+  const runChange = useCallback(
+    async (
+      organizationId: string,
+      change: (isCurrent: () => boolean) => Promise<string | null>,
+    ) => {
+      const startedIn = scopeRef.current;
+      const isCurrent = () => scopeRef.current === startedIn;
       setChangingOrganizationId(organizationId);
       setError(null);
+      let message: string | null;
       try {
-        const result = await tearleads.organizations.memberships.setSyncPaused(
-          organizationId,
-          paused,
-        );
-        setError(pauseErrorMessage(result));
+        message = await change(isCurrent);
       } catch {
-        setError(ORGANIZATIONS_LABELS.syncChangeFailed);
-      } finally {
-        setChangingOrganizationId(null);
+        message = ORGANIZATIONS_LABELS.syncChangeFailed;
       }
+      if (!isCurrent()) return;
+      setError(message);
+      setChangingOrganizationId(null);
     },
-    [tearleads],
+    [],
+  );
+
+  return { changingOrganizationId, error, runChange };
+}
+
+/**
+ * The user's own choices for each organization: the paused set read from this
+ * device (so it works offline), the memberships the server reports, and the
+ * pause/resume and leave-request actions. One change runs at a time.
+ */
+export function useOrganizationSyncChoices(): OrganizationSyncChoices {
+  const {
+    memberships,
+    pausedOrganizationIds,
+    scopeKey,
+    setMemberships,
+    tearleads,
+  } = useMembershipState();
+  const { changingOrganizationId, error, runChange } =
+    useScopedChange(scopeKey);
+
+  const setSyncPaused = useCallback(
+    (organizationId: string, paused: boolean) =>
+      runChange(organizationId, async () =>
+        pauseErrorMessage(
+          await tearleads.organizations.memberships.setSyncPaused(
+            organizationId,
+            paused,
+          ),
+        ),
+      ),
+    [runChange, tearleads],
+  );
+
+  const setLeaveRequested = useCallback(
+    (organizationId: string, requested: boolean) =>
+      runChange(organizationId, async (isCurrent) => {
+        const result =
+          await tearleads.organizations.memberships.setLeaveRequested(
+            organizationId,
+            requested,
+          );
+        if (result.status === "updated" && isCurrent()) {
+          setMemberships((current) =>
+            new Map(current).set(organizationId, result.membership),
+          );
+        }
+        return leaveErrorMessage(result);
+      }),
+    [runChange, setMemberships, tearleads],
+  );
+
+  const personalOrganizationIds = useMemo(
+    () =>
+      new Set(
+        [...(memberships?.values() ?? [])].flatMap((membership) =>
+          membership.isPersonalOrganizationOwner
+            ? [membership.organizationId]
+            : [],
+        ),
+      ),
+    [memberships],
   );
 
   return {
     changingOrganizationId,
     error,
+    memberships,
     pausedOrganizationIds,
     personalOrganizationIds,
+    setLeaveRequested,
     setSyncPaused,
   };
 }

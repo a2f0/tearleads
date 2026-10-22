@@ -53,6 +53,7 @@ import {
   reciteContainerOperation,
   registerOperation,
   rekeyContainerOperation,
+  requestOrganizationLeaveOperation,
   revokeContainerOperation,
   shareContainerOperation,
   startOrganizationTrialOperation,
@@ -62,6 +63,7 @@ import {
   updateOrganizationRosterEntryOperation,
   userIdentityOperation,
   verifyOperation,
+  withdrawOrganizationLeaveRequestOperation,
 } from "@tearleads/validators/operation";
 import type {
   BlobAttachmentBindRequest,
@@ -113,6 +115,7 @@ import type {
   RootOrganizationsResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
+import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
 import { BoundedCache } from "./ApiCache";
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { ApiRequestRuntime } from "./apiRequestRuntime";
@@ -182,6 +185,8 @@ import { organizationBilling } from "./routes/organizations/billing";
 import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
 import { listOrganizationGroupMembers as groupMembers } from "./routes/organizations/groupMembers";
 import {
+  withdrawOrganizationLeaveRequest as leaveRequestDelete,
+  requestOrganizationLeave as leaveRequestPut,
   listOrganizationMemberships as membershipsList,
   updateOrganizationMembership as membershipUpdate,
 } from "./routes/organizations/memberships";
@@ -993,6 +998,30 @@ export class ApiClient {
       { reportErrors: false },
       updateOrganizationMembershipOperation,
     );
+  }
+
+  /** Files the user's signed request to leave, or withdraws it (null). */
+  setOrganizationLeaveRequest(
+    organizationId: string,
+    request: OrganizationLeaveRequest | null,
+  ): Promise<RequestResult<OrganizationMembershipResponse>> {
+    return request
+      ? this.requestResult(
+          leaveRequestPut.path(organizationId),
+          leaveRequestPut.isResponse,
+          leaveRequestPut.method,
+          JSON.stringify(request),
+          { reportErrors: false },
+          requestOrganizationLeaveOperation,
+        )
+      : this.requestResult(
+          leaveRequestDelete.path(organizationId),
+          leaveRequestDelete.isResponse,
+          leaveRequestDelete.method,
+          undefined,
+          { reportErrors: false },
+          withdrawOrganizationLeaveRequestOperation,
+        );
   }
 
   updateOrganizationProfile(

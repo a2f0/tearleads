@@ -1,7 +1,9 @@
 import {
   listOrganizationMembershipsOperation,
   operationRoutePath,
+  requestOrganizationLeaveOperation,
   updateOrganizationMembershipOperation,
+  withdrawOrganizationLeaveRequestOperation,
 } from "@tearleads/validators/operation";
 import type {
   OrganizationMembershipResponse,
@@ -13,7 +15,9 @@ import type { SessionEnv } from "../../middleware/session";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import {
   listOrganizationMemberships,
+  requestOrganizationLeave,
   updateOrganizationMembership,
+  withdrawOrganizationLeaveRequest,
 } from "../../services/organizations/memberships";
 import type { ApiServiceRuntime } from "../../services/runtime";
 import { publishBestEffort } from "../../utils/publishBestEffort";
@@ -64,28 +68,81 @@ export function createOrganizationMembershipsRoute({
     async (c) => {
       const { organizationId } = c.req.valid("param");
       const userId = c.get("session").userId;
-      try {
-        const membership = await updateOrganizationMembership(
+      return respondWithMembership(publish, userId, () =>
+        updateOrganizationMembership(
           runtime,
           organizationId,
           userId,
           c.req.valid("json"),
-        );
-        await publishBestEffort(
-          publish,
-          { type: "organization_memberships_changed", userId },
-          "organization memberships notification",
-        );
-        return c.json<OrganizationMembershipResponse>(membership);
-      } catch (error) {
-        const response = toOrganizationManagerErrorResponse(error);
-        if (response) {
-          return response;
-        }
-        throw error;
-      }
+        ),
+      );
+    },
+  );
+
+  route.on(
+    requestOrganizationLeaveOperation.method,
+    operationRoutePath(requestOrganizationLeaveOperation),
+    requireAuth,
+    jsonRequestValidator(requestOrganizationLeaveOperation.body),
+    pathParamsValidator(
+      requestOrganizationLeaveOperation.params,
+      "Invalid organization leave request route",
+    ),
+    async (c) => {
+      const { organizationId } = c.req.valid("param");
+      const userId = c.get("session").userId;
+      return respondWithMembership(publish, userId, () =>
+        requestOrganizationLeave(
+          runtime,
+          organizationId,
+          userId,
+          c.req.valid("json"),
+        ),
+      );
+    },
+  );
+
+  route.on(
+    withdrawOrganizationLeaveRequestOperation.method,
+    operationRoutePath(withdrawOrganizationLeaveRequestOperation),
+    requireAuth,
+    pathParamsValidator(
+      withdrawOrganizationLeaveRequestOperation.params,
+      "Invalid organization leave request route",
+    ),
+    async (c) => {
+      const { organizationId } = c.req.valid("param");
+      const userId = c.get("session").userId;
+      return respondWithMembership(publish, userId, () =>
+        withdrawOrganizationLeaveRequest(runtime, organizationId, userId),
+      );
     },
   );
 
   return route;
+}
+
+// Runs one change to the caller's own membership, then wakes their other
+// clients. The change is committed before publishing, so a broker failure
+// cannot fail the request.
+async function respondWithMembership(
+  publish: OrganizationMembershipsRouteDeps["publish"],
+  userId: string,
+  change: () => Promise<OrganizationMembershipResponse>,
+): Promise<Response> {
+  try {
+    const membership = await change();
+    await publishBestEffort(
+      publish,
+      { type: "organization_memberships_changed", userId },
+      "organization memberships notification",
+    );
+    return Response.json(membership satisfies OrganizationMembershipResponse);
+  } catch (error) {
+    const response = toOrganizationManagerErrorResponse(error);
+    if (response) {
+      return response;
+    }
+    throw error;
+  }
 }

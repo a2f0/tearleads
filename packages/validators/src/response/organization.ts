@@ -7,6 +7,7 @@ import {
   nonNegativeIntegerSchema,
   positiveIntegerSchema,
 } from "../schema";
+import { OrganizationLeaveRequestSchema } from "../util/organizationLeaveRequest";
 import { PrincipalPolicyMutationResponseSchema } from "./principal";
 
 const OrganizationRoleSchema = z.literal(["member", "admin"]);
@@ -41,6 +42,11 @@ export const OrganizationDirectoryUserResponseShape = {
   isPersonalOrganizationOwner: z.boolean(),
   isSelf: z.boolean(),
   joinedAt: z.string(),
+  /**
+   * The member's pending signed request to leave, which an administrator
+   * verifies against `signingPublicKey` before acting on it.
+   */
+  leaveRequest: OrganizationLeaveRequestSchema.nullable(),
   profileDocumentId: z.string().nullable(),
   signingKeyFingerprint: z.string(),
   signingPublicKey: z.string(),

@@ -26,6 +26,7 @@ function rosterUser(): OrganizationDirectoryUser {
     isPersonalOrganizationOwner: false,
     isSelf: false,
     joinedAt: "2026-05-20T12:00:00.000Z",
+    leaveRequest: null,
     profileDocumentId: PROFILE_ID,
     signingKeyFingerprint: "signing-fingerprint",
     signingPublicKey: "signing-key",

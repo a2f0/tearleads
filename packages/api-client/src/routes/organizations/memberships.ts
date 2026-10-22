@@ -1,10 +1,13 @@
 import {
   isListOrganizationMembershipsOperationResponse,
+  isRequestOrganizationLeaveOperationRequest,
   isUpdateOrganizationMembershipOperationRequest,
   isUpdateOrganizationMembershipOperationResponse,
   listOrganizationMembershipsOperation,
   operationRequestPath,
+  requestOrganizationLeaveOperation,
   updateOrganizationMembershipOperation,
+  withdrawOrganizationLeaveRequestOperation,
 } from "@tearleads/validators/operation";
 
 export const listOrganizationMemberships = {
@@ -19,6 +22,27 @@ export const updateOrganizationMembership = {
   method: updateOrganizationMembershipOperation.method,
   path(organizationId: string) {
     return operationRequestPath(updateOrganizationMembershipOperation, {
+      organizationId,
+    });
+  },
+};
+
+export const requestOrganizationLeave = {
+  isRequest: isRequestOrganizationLeaveOperationRequest,
+  isResponse: isUpdateOrganizationMembershipOperationResponse,
+  method: requestOrganizationLeaveOperation.method,
+  path(organizationId: string) {
+    return operationRequestPath(requestOrganizationLeaveOperation, {
+      organizationId,
+    });
+  },
+};
+
+export const withdrawOrganizationLeaveRequest = {
+  isResponse: isUpdateOrganizationMembershipOperationResponse,
+  method: withdrawOrganizationLeaveRequestOperation.method,
+  path(organizationId: string) {
+    return operationRequestPath(withdrawOrganizationLeaveRequestOperation, {
       organizationId,
     });
   },

@@ -40,6 +40,7 @@ function rosterUser(
     isPersonalOrganizationOwner: false,
     isSelf: false,
     joinedAt: "2026-05-20T12:00:00.000Z",
+    leaveRequest: null,
     profileDocumentId: `profile-${index}`,
     signingKeyFingerprint: `signing-${userId}`,
     signingPublicKey: `signing-key-${userId}`,
