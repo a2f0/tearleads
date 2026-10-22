@@ -40,6 +40,7 @@ function createStore(
     discardLocalState: async () => onDiscard(),
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,
+    hasPendingLocalWrites: () => false,
     removeAttachment: () => undefined,
     removeRow: async () => undefined,
     replaceAttachment: () => Promise.resolve(),

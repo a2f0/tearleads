@@ -150,12 +150,21 @@ async function applySyncPauseChoice(
   pauses: OrganizationSyncPauses,
 ): Promise<OrganizationSyncPauseResult> {
   const { host, organizationId, paused } = input;
+  const scopeEnded = {
+    httpStatus: null,
+    message: "The session changed before sync could be changed.",
+    status: "failed",
+  } as const;
+  // Queued behind other membership work, the session may have switched
+  // identity; the shared API client would then act for the new identity.
+  if (!input.isCurrent()) return scopeEnded;
   if (paused) {
     await host.flushWrites();
     if (await host.hasUnsyncedOrganizationWrites(organizationId)) {
       return { status: "unsynced-writes" };
     }
   }
+  if (!input.isCurrent()) return scopeEnded;
   const result = await input.apiClient.updateOrganizationMembership(
     organizationId,
     { syncPaused: paused },

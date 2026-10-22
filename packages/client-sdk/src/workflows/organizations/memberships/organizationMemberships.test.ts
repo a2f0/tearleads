@@ -397,3 +397,25 @@ test("a membership read that finishes after the scope ended changes nothing", as
     ).toBe(false);
   });
 });
+
+test("a pause queued past an identity switch never reaches the server", async () => {
+  await withDatabase(async (execSql) => {
+    const domainScope = createDomainScope();
+    const { calls, host } = createHost();
+    const { apiClient, updates } = createApi([]);
+
+    const result = await setOrganizationSyncPaused({
+      apiClient,
+      domainScope,
+      execSql,
+      host,
+      isCurrent: () => false,
+      organizationId: "org-a",
+      paused: false,
+    });
+
+    expect(result.status).toBe("failed");
+    expect(updates).toEqual([]);
+    expect(calls).toEqual([]);
+  });
+});

@@ -68,15 +68,25 @@ async function withPausedFolder(
   }
 }
 
-function remove(execSql: ExecSql, deletedContainers: string[]) {
+function remove(
+  execSql: ExecSql,
+  deletedContainers: string[],
+  options: {
+    containersCurrent?: boolean;
+    pendingLocalWrites?: ReadonlySet<string>;
+  } = {},
+) {
   return removeOrganizationContentUnlessPending({
     containerIds: ["folder"],
     deleteContainers: async (_lockedExecSql, removals) => {
+      if (options.containersCurrent === false) return [];
       deletedContainers.push(...removals.map((removal) => removal.containerId));
       return removals.map((removal) => removal.containerId);
     },
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql,
+    hasPendingLocalWrites: (localId) =>
+      options.pendingLocalWrites?.has(localId) ?? false,
     organizationId: "org-paused",
   });
 }
@@ -121,5 +131,42 @@ test("an organization with nothing pending is removed with its documents", async
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "synced"),
     ).toBeNull();
+  });
+});
+
+test("an edit still queued in an open document store blocks the removal", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    await placedDocument(execSql, {
+      localId: "open-edit",
+      snapshotEndVersion: synced,
+    });
+    const deletedContainers: string[] = [];
+
+    expect(
+      await remove(execSql, deletedContainers, {
+        pendingLocalWrites: new Set(["open-edit"]),
+      }),
+    ).toBeNull();
+    expect(deletedContainers).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "open-edit"),
+    ).not.toBeNull();
+  });
+});
+
+test("documents stay when the containers' removal is no longer current", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    await placedDocument(execSql, {
+      localId: "kept",
+      snapshotEndVersion: synced,
+    });
+
+    expect(await remove(execSql, [], { containersCurrent: false })).toEqual({
+      deletedContainerIds: [],
+      deletedLocalIds: [],
+    });
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "kept"),
+    ).not.toBeNull();
   });
 });

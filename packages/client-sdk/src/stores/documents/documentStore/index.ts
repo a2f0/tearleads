@@ -48,6 +48,7 @@ import {
 import {
   createDocumentStoreState,
   type DocumentStoreState,
+  readBackingDocumentStore,
   refreshAttachabilitySnapshot,
   resetDocumentStore,
   subscribeToDocumentStore,
@@ -367,7 +368,7 @@ function createBackingDocumentStore(
       ),
     ensureInitialized: () =>
       withLiveSyncLane(() => ensureDocumentStoreReady(state, scheduleSync)),
-    getSnapshot: () => state.snapshot,
+    ...readBackingDocumentStore(state),
     removeAttachment: (slotId: string) =>
       withLiveSyncLane(() =>
         removeAttachmentFromDocumentStore(state, scheduleSync, slotId),

@@ -62,11 +62,14 @@ Removal waits for the organization's local writes to upload. Pausing from a
 device first asks every sync lane to upload and is refused while any pending
 write for the organization remains. The removal itself scans every kind of
 pending write (queued updates, deferred history tails, intents, attachment
-uploads) and deletes under the same SQLite mutation lock, so no edit can land
-between the check and the deletion and the copy it removes holds nothing the
-server lacks. A device that still has pending writes keeps them syncing out
-and retries the removal each time its sync lanes go idle. Resuming re-lists
-the whole tree with fresh lane watermarks so the organization downloads again.
+uploads) and every edit still queued in an open document store, and deletes
+under the same SQLite mutation lock, so no edit can persist between the check
+and the deletion and the copy it removes holds nothing the server lacks. It
+deletes the containers first and documents only after them; a document that
+gains an edit meanwhile stays to upload it. A device that still has pending
+writes keeps them syncing out and retries the removal each time its sync lanes
+go idle. Resuming re-lists the whole tree with fresh lane watermarks so the
+organization downloads again.
 
 A personal organization cannot be paused: every device keeps its owner's root,
 Contacts, and Trash there. The session's active organization is never skipped

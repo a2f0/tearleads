@@ -137,6 +137,19 @@ export function registerDocumentStoreIdentity(
   registry.storesByKey.delete(localStoreKey);
 }
 
+/**
+ * Whether the scope's open store for a document holds a local edit that has
+ * not reached SQLite yet, which no persisted-write scan can see.
+ */
+export function hasRegisteredDocumentPendingLocalWrites(
+  domainScope: DomainScope,
+  localId: string,
+): boolean {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  const storeKey = registry?.storeKeysByLocalId.get(localId) ?? localId;
+  return registry?.storesByKey.get(storeKey)?.hasPendingLocalWrites() ?? false;
+}
+
 export function requestDocumentStoreSync(state: {
   syncLane: {
     requestSync: () => void;
@@ -250,6 +263,7 @@ export function createDocumentStoreFacade(
       targetStore.discardLocalState(expectedDocumentId),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
+    hasPendingLocalWrites: () => targetStore.hasPendingLocalWrites(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
     removeRow: (id) => targetStore.removeRow(id),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>

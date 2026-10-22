@@ -1,7 +1,10 @@
 import { removeOrganizationContentUnlessPending } from "../../../workflows/container-contents/syncPause/documentRemoval";
 import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import { isRetainedWhileSyncPaused } from "../../../workflows/sync";
-import { emitPersistedDocumentDeletion } from "../../documents/registry";
+import {
+  emitPersistedDocumentDeletion,
+  hasRegisteredDocumentPendingLocalWrites,
+} from "../../documents/registry";
 import type { ContainerWriteGuard } from "../remoteWrites/writeGeneration";
 import { updateContainerContentsSnapshot } from "../state";
 import type { ContainerContentsStoreState } from "../types";
@@ -45,20 +48,26 @@ async function forgetOrganizationContent(
   );
   if (containerIds.length === 0) return true;
   const { documentProjectors, execSql } = state.runtime.infra;
+  const { domainScope } = state.runtime.state;
+  // Switching into the organization mid-removal stops it before any deletion.
+  const stillCurrent = () =>
+    isCurrent() && state.runtime.auth.organizationId !== organizationId;
   await state.persistence.ensureSchema(execSql);
   const removal = await removeOrganizationContentUnlessPending({
     containerIds,
     deleteContainers: (lockedExecSql, removals) =>
       state.persistence.deleteContainers(lockedExecSql, removals, {
-        stillCurrent: isCurrent,
+        stillCurrent,
       }),
     documentProjectors,
     execSql,
+    hasPendingLocalWrites: (localId) =>
+      hasRegisteredDocumentPendingLocalWrites(domainScope, localId),
     organizationId,
   });
   if (!removal) return false;
   for (const localId of removal.deletedLocalIds) {
-    emitPersistedDocumentDeletion(state.runtime.state.domainScope, localId);
+    emitPersistedDocumentDeletion(domainScope, localId);
   }
   if (removal.deletedLocalIds.length > 0) {
     void reclaimDocumentOrphanBlobs(state.runtime);
