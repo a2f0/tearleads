@@ -14,12 +14,17 @@ import {
   type OrganizationPolicyHistory,
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
+  withVerifiedLeaveRequests,
+  withVerifiedUserLeaveRequest,
 } from "../../workflows/organizations";
 import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
 } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
-import type { InternalRuntime } from "../runtime/workflowRuntime";
+import type {
+  InternalRuntime,
+  InternalWorkflowRuntimeInput,
+} from "../runtime/workflowRuntime";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 import { loadBoundedOrganizationHistory } from "./organizationHistory";
@@ -33,6 +38,20 @@ const coordinatorsByRuntime = new WeakMap<
   InternalRuntime,
   OrganizationReadModelCoordinator
 >();
+
+/**
+ * Resolves the identity a leave request is checked against: the device's
+ * durable pin first, so a request already stored still verifies offline,
+ * then a trusted remote resolution for a member not pinned yet.
+ */
+export function leaveRequestSignerResolver(
+  runtimeService: InternalRuntime,
+  runtime: InternalWorkflowRuntimeInput,
+): InternalWorkflowRuntimeInput["resolveTrustedUserIdentity"] {
+  return async (userId) =>
+    (await runtimeService.identityLinks.resolvePinned(userId)) ??
+    runtime.resolveTrustedUserIdentity(userId);
+}
 
 export interface OrganizationReadModelCoordinator {
   loadLocal(
@@ -105,11 +124,14 @@ class OrganizationReadModelCoordinatorImpl
     if (!active) {
       return null;
     }
-    return loadLocalOrganizationDirectoryAndGroups({
-      currentUserId: active.userId,
-      execSql: active.runtime.infra.execSql,
-      organizationId: active.organizationId,
-    });
+    return withVerifiedLeaveRequests(
+      await loadLocalOrganizationDirectoryAndGroups({
+        currentUserId: active.userId,
+        execSql: active.runtime.infra.execSql,
+        organizationId: active.organizationId,
+      }),
+      leaveRequestSignerResolver(this.runtimeService, active.runtime),
+    );
   }
 
   async loadLocalGrants(organizationId?: string) {
@@ -215,12 +237,16 @@ class OrganizationReadModelCoordinatorImpl
     if (!active || userId.length === 0) {
       return null;
     }
-    return loadLocalOrganizationUserDetail({
-      currentUserId: active.userId,
-      execSql: active.runtime.infra.execSql,
-      organizationId: active.organizationId,
-      userId,
-    });
+    return withVerifiedUserLeaveRequest(
+      await loadLocalOrganizationUserDetail({
+        currentUserId: active.userId,
+        execSql: active.runtime.infra.execSql,
+        organizationId: active.organizationId,
+        userId,
+      }),
+      active.organizationId,
+      leaveRequestSignerResolver(this.runtimeService, active.runtime),
+    );
   }
 
   reconcile(
@@ -291,11 +317,14 @@ class OrganizationReadModelCoordinatorImpl
             userId: active.userId,
           });
         if (!stillCurrent()) return null;
-        return hydrateOrganizationGroupNamesForRuntime(
-          this.runtimeService,
-          active,
-          domainScope,
-          directoryAndGroups,
+        return withVerifiedLeaveRequests(
+          await hydrateOrganizationGroupNamesForRuntime(
+            this.runtimeService,
+            active,
+            domainScope,
+            directoryAndGroups,
+          ),
+          leaveRequestSignerResolver(this.runtimeService, active.runtime),
         );
       })
       .finally(() => {

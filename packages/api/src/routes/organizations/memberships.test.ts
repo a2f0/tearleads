@@ -91,11 +91,13 @@ test("lists the session user's active memberships, marking the personal organiza
     [
       {
         isPersonalOrganizationOwner: true,
+        leaveRequestedAt: null,
         organizationId: personalOrganizationId,
         syncPaused: false,
       },
       {
         isPersonalOrganizationOwner: false,
+        leaveRequestedAt: null,
         organizationId: memberOrganizationId,
         syncPaused: false,
       },

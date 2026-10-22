@@ -210,12 +210,15 @@ export {
 } from "./organizationBilling";
 export {
   isListOrganizationMembershipsOperationResponse,
+  isRequestOrganizationLeaveOperationRequest,
   isUpdateOrganizationMembershipOperationRequest,
   isUpdateOrganizationMembershipOperationResponse,
   listOrganizationMembershipsOperation,
   type OrganizationMembershipPathParams,
   OrganizationMembershipPathParamsSchema,
+  requestOrganizationLeaveOperation,
   updateOrganizationMembershipOperation,
+  withdrawOrganizationLeaveRequestOperation,
 } from "./organizationMemberships";
 export { getOrganizationPolicyHistoryOperation } from "./organizationPolicyHistory";
 export {

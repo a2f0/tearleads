@@ -346,6 +346,11 @@ export {
   verifyWriteHeader,
 } from "./keying";
 export {
+  isValidOrganizationLeaveRequest,
+  organizationLeaveRequestSigningBytes,
+  signOrganizationLeaveRequest,
+} from "./organizationLeaveRequest";
+export {
   organizationReplacementAuthorizationPayload,
   organizationReplacementSigningBytes,
   signOrganizationReplacementAuthorization,
