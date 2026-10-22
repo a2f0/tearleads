@@ -6,6 +6,8 @@ import { buildOrganizationDashboardCards } from "./organizationDashboard";
 const METADATA_SLOT = `sys_v1_${"m".repeat(43)}`;
 const TRASH_SLOT = `sys_v1_${"t".repeat(43)}`;
 const NO_SYNC_CHOICES = {
+  leavableOrganizationIds: new Set<string>(),
+  leaveRequestedOrganizationIds: new Set<string>(),
   pausedOrganizationIds: new Set<string>(),
   personalOrganizationIds: new Set<string>(),
 };
@@ -74,6 +76,7 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
   expect(cards).toEqual([
     {
       active: true,
+      canAskToLeave: false,
       canChangeSync: false,
       folders: [
         {
@@ -83,6 +86,7 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
           workspaceRoot: true,
         },
       ],
+      leaveRequested: false,
       name: "Personal Org",
       organizationId: "personal",
       syncPaused: false,
@@ -90,6 +94,7 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
     },
     {
       active: false,
+      canAskToLeave: false,
       canChangeSync: true,
       folders: [
         {
@@ -100,6 +105,7 @@ test("lists the root of a workspace and the topmost shared folders elsewhere", (
         },
         { id: "acme-team", name: "Team", readOnly: true, workspaceRoot: false },
       ],
+      leaveRequested: false,
       name: "Acme",
       organizationId: "acme",
       syncPaused: false,
@@ -126,8 +132,10 @@ test("keeps an organization known only through its metadata root", () => {
   expect(cards).toEqual([
     {
       active: false,
+      canAskToLeave: false,
       canChangeSync: true,
       folders: [],
+      leaveRequested: false,
       name: null,
       organizationId: "members-only",
       syncPaused: false,
@@ -178,6 +186,7 @@ test("marks paused organizations and keeps personal organizations unpausable", (
         systemSlot: METADATA_SLOT,
       }),
     ],
+    ...NO_SYNC_CHOICES,
     pausedOrganizationIds: new Set(["paused"]),
     personalOrganizationIds: new Set(["personal"]),
   });
@@ -201,8 +210,8 @@ test("offers only Resume for an active organization another device paused", () =
       activeOrganizationId: "active",
       namesById: new Map(),
       nodes: [node({ id: "active", organizationId: "active", parentId: null })],
+      ...NO_SYNC_CHOICES,
       pausedOrganizationIds: new Set(paused),
-      personalOrganizationIds: new Set(),
     })[0];
 
   expect(build([])?.canChangeSync).toBe(false);
@@ -210,4 +219,37 @@ test("offers only Resume for an active organization another device paused", () =
     canChangeSync: true,
     syncPaused: true,
   });
+});
+
+test("offers a leave request only for listed, non-personal memberships", () => {
+  const cards = buildOrganizationDashboardCards({
+    activeOrganizationId: "personal",
+    ...NO_SYNC_CHOICES,
+    leavableOrganizationIds: new Set(["acme", "asked"]),
+    leaveRequestedOrganizationIds: new Set(["asked"]),
+    namesById: new Map([
+      ["acme", "Acme"],
+      ["asked", "Asked"],
+      ["unlisted", "Unlisted"],
+    ]),
+    nodes: [
+      node({ id: "personal", organizationId: "personal", parentId: null }),
+      node({ id: "acme", organizationId: "acme", parentId: null }),
+      node({ id: "asked", organizationId: "asked", parentId: null }),
+      node({ id: "unlisted", organizationId: "unlisted", parentId: null }),
+    ],
+  });
+
+  expect(
+    cards.map(({ canAskToLeave, leaveRequested, organizationId }) => ({
+      canAskToLeave,
+      leaveRequested,
+      organizationId,
+    })),
+  ).toEqual([
+    { canAskToLeave: false, leaveRequested: false, organizationId: "personal" },
+    { canAskToLeave: true, leaveRequested: false, organizationId: "acme" },
+    { canAskToLeave: true, leaveRequested: true, organizationId: "asked" },
+    { canAskToLeave: false, leaveRequested: false, organizationId: "unlisted" },
+  ]);
 });

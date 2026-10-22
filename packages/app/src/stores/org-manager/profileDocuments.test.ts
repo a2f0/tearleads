@@ -16,6 +16,7 @@ const user: OrganizationDirectoryUser = {
   isPersonalOrganizationOwner: false,
   isSelf: true,
   joinedAt: "2026-05-20T12:00:00.000Z",
+  leaveRequest: null,
   profileDocumentId: null,
   signingKeyFingerprint: "signing-fingerprint",
   signingPublicKey: "signing-public-key",

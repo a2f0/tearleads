@@ -112,3 +112,33 @@ and Organizations offers to resume it meanwhile. Membership work runs one
 operation at a time per scope and is bound to the scope it started in, so a
 stale membership read cannot undo a newer choice or reach another identity's
 data.
+
+## Asking to leave
+
+A member cannot remove themselves, so leaving is a request an administrator
+acts on. The member signs `{organizationId, userId, requestedAt}` under the
+`tearleads.organization-leave-request.v1` domain with their identity signing
+key and files it with `PUT
+/organization-memberships/{organizationId}/leave-request`; `DELETE` withdraws
+it. The API checks that the request names the caller and the path's
+organization, was signed within ten minutes, and verifies against the caller's
+registered signing key; the window bounds how long a captured signature could
+re-file a withdrawn request. It refuses a personal organization and a member
+who is the organization's only administrator, since no one else could approve
+the removal. Organizations offers to ask on every listed membership except the
+personal one, and to withdraw once asked.
+
+The request is stored on the member's roster row and reaches administrators in
+the organization read model's `directory` lane, which the filing stamps. Each
+administrator's client stores the request only if it names the organization
+and member, and shows it only if it verifies against the member's trusted,
+pinned identity, never the signing key served beside it, so a server cannot
+present a request the member never made. Directory users a roster update
+returns pass the same check, and a pinned identity verifies offline. Org
+Manager shows the member as having asked to leave and offers to approve the
+request.
+
+Approving is the ordinary removal: the administrator signs the member out of
+each group and then out of `Members`, rotating keys as any removal does.
+Deactivating the roster entry clears the request along with the member's other
+choices. Until then the member remains a full member and can withdraw.

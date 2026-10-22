@@ -27,6 +27,7 @@ export function organizationReadModelDirectoryUser(
     status: "active",
     profileDocumentId: `profile-${userId}`,
     joinedAt: CREATED_AT,
+    leaveRequest: null,
     updatedAt: CREATED_AT,
     disabledAt: null,
     disabledByUserId: null,

@@ -168,6 +168,37 @@ function UserGroups({
   );
 }
 
+function UserDetailStatuses({
+  syncSeatAssigned,
+  user,
+}: {
+  syncSeatAssigned: boolean | null;
+  user: OrganizationUserDetail["user"];
+}) {
+  return (
+    <>
+      <span className="org-manager-detail-status" title={user.joinedAt}>
+        {user.status === "disabled"
+          ? ORG_MANAGER_LABELS.disabled
+          : formatMiniAppDate(user.joinedAt)}
+      </span>
+      {user.status === "active" && user.leaveRequest && (
+        <span
+          className="org-manager-detail-status"
+          title={user.leaveRequest.requestedAt}
+        >
+          {ORG_MANAGER_LABELS.leaveRequested}
+        </span>
+      )}
+      {user.status === "active" && syncSeatAssigned === false && (
+        <span className="org-manager-detail-status">
+          {ORG_MANAGER_LABELS.syncSeatUnavailable}
+        </span>
+      )}
+    </>
+  );
+}
+
 export function UserDetailView({
   canEditRosterProfile,
   canRevokeGrants,
@@ -279,19 +310,10 @@ export function UserDetailView({
           </span>
         </MiniAppHeaderCopy>
         <MiniAppActions className="org-manager-detail-actions">
-          <span
-            className="org-manager-detail-status"
-            title={detail.user.joinedAt}
-          >
-            {detail.user.status === "disabled"
-              ? ORG_MANAGER_LABELS.disabled
-              : formatMiniAppDate(detail.user.joinedAt)}
-          </span>
-          {detail.user.status === "active" && syncSeatAssigned === false && (
-            <span className="org-manager-detail-status">
-              {ORG_MANAGER_LABELS.syncSeatUnavailable}
-            </span>
-          )}
+          <UserDetailStatuses
+            syncSeatAssigned={syncSeatAssigned}
+            user={detail.user}
+          />
         </MiniAppActions>
       </MiniAppHeader>
       <MiniAppTabList

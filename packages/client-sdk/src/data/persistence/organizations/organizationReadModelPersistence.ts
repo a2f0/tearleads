@@ -60,6 +60,23 @@ interface CurrentOrganizationReadModelState {
   readonly profileDocumentId: string | null;
 }
 
+/**
+ * The member's leave request as stored JSON, kept only when it names this
+ * organization and member. Its signature is checked when read, against the
+ * member's trusted identity rather than the key served beside it.
+ */
+function storedLeaveRequestJson(
+  organizationId: string,
+  user: OrganizationReadModelDirectoryResponse["users"][number],
+): string | null {
+  const request = user.leaveRequest;
+  return request &&
+    request.organizationId === organizationId &&
+    request.userId === user.userId
+    ? JSON.stringify(request)
+    : null;
+}
+
 async function replaceDirectoryLane(input: {
   readonly directory: OrganizationReadModelDirectoryResponse;
   readonly organizationId: string;
@@ -91,6 +108,7 @@ async function replaceDirectoryLane(input: {
     updatedAt: user.updatedAt,
     disabledAt: user.disabledAt,
     disabledByUserId: user.disabledByUserId,
+    leaveRequest: storedLeaveRequestJson(input.organizationId, user),
   }));
   for (
     let index = 0;

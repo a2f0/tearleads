@@ -43,6 +43,7 @@ function getDirectoryUserStatusLabel(
   syncSeatUserIds: ReadonlySet<string> | null,
 ): string {
   if (user.status === "disabled") return ORG_MANAGER_LABELS.disabled;
+  if (user.leaveRequest) return ORG_MANAGER_LABELS.leaveRequested;
   if (syncSeatUserIds !== null && !syncSeatUserIds.has(user.userId)) {
     return ORG_MANAGER_LABELS.syncSeatUnavailable;
   }

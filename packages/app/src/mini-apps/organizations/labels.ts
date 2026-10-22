@@ -1,7 +1,12 @@
 export const ORGANIZATIONS_LABELS = {
   activeBadge: "Active",
+  askToLeave: "Ask to leave",
+  askingToLeave: "Asking...",
   empty: "You don't belong to any organizations on this device yet.",
   foldersIn: (organizationName: string) => `Folders in ${organizationName}`,
+  leaveRequestFailed: "Your request to leave could not be changed.",
+  leaveRequestedStatus:
+    "You asked to leave. An administrator of this organization can approve it.",
   loading: "Loading organizations...",
   memberBadge: "Member",
   noFolders: "Nothing in this organization is shared with you yet.",
@@ -18,6 +23,8 @@ export const ORGANIZATIONS_LABELS = {
   readOnlyBadge: "Read only",
   title: "Organizations",
   unnamedOrganization: "Untitled organization",
+  withdrawLeaveRequest: "Withdraw request",
+  withdrawingLeaveRequest: "Withdrawing...",
   workspaceBadge: "Workspace",
   workspaceRoot: "All files",
 } as const;

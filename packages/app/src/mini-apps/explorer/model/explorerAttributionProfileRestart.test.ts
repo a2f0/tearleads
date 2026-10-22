@@ -35,6 +35,7 @@ function attributionProjection(): OrganizationDirectoryAndGroups {
           isPersonalOrganizationOwner: false,
           isSelf: false,
           joinedAt: "2026-08-25T12:00:00.000Z",
+          leaveRequest: null,
           profileDocumentId: PROFILE_DOCUMENT_ID,
           signingKeyFingerprint: "signing-fingerprint",
           signingPublicKey: "signing-public-key",

@@ -63,6 +63,8 @@ export const organizationReadModelDirectoryUsers = sqliteTable(
     updatedAt: text("updated_at").notNull(),
     disabledAt: text("disabled_at"),
     disabledByUserId: text("disabled_by_user_id"),
+    /** A pending leave request, as JSON, kept only once its signature verified. */
+    leaveRequest: text("leave_request"),
   },
   (table) => [primaryKey({ columns: [table.organizationId, table.userId] })],
 );

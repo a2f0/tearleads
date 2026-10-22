@@ -121,7 +121,8 @@ deleted with it.
 
 Protocol version 6 includes these lanes:
 
-- `directory`: roster and profile-binding rows;
+- `directory`: roster and profile-binding rows, plus each member's pending
+  signed leave request (see [organization memberships](organization-memberships.md));
 - `groups`: visible group catalog rows and state-head summaries;
 - `groupMemberships`: state-hash-bound membership projections for individual
   groups, including the reserved `Members` group that is hidden from the group

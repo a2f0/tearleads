@@ -75,6 +75,10 @@ function useRosterActionPermissions(
     [authUserId, directory?.currentUser.isOrgAdmin],
   );
   const contextMenuUserId = contextMenuRosterUserId(contextMenu);
+  const contextMenuUser =
+    directory?.users.find(
+      (directoryUser) => directoryUser.userId === contextMenuUserId,
+    ) ?? null;
 
   return {
     canDisableContextMenuRosterUser: Boolean(
@@ -82,11 +86,11 @@ function useRosterActionPermissions(
         canDisableRosterUser({
           authUserId,
           canDisableRosterUsers,
-          targetUser:
-            directory?.users.find(
-              (directoryUser) => directoryUser.userId === contextMenuUserId,
-            ) ?? null,
+          targetUser: contextMenuUser,
         }),
+    ),
+    contextMenuRosterUserAskedToLeave: Boolean(
+      contextMenuUser?.status === "active" && contextMenuUser.leaveRequest,
     ),
     canEditContextMenuRosterUser: Boolean(
       contextMenuUserId &&
@@ -123,6 +127,7 @@ export function useOrgManagerRosterActions(
     canEditContextMenuRosterUser,
     canUpdateRosterUser,
     canUpdateSelectedRosterEntry,
+    contextMenuRosterUserAskedToLeave,
   } = useRosterActionPermissions({
     authUserId,
     canDisableRosterUsers,
@@ -180,6 +185,7 @@ export function useOrgManagerRosterActions(
     canDisableContextMenuRosterUser,
     canEditContextMenuRosterUser,
     canUpdateSelectedRosterEntry,
+    contextMenuRosterUserAskedToLeave,
     canUpdateRosterUser,
     clearRosterProfileEditRequest,
     importRosterUserIntoContacts,
