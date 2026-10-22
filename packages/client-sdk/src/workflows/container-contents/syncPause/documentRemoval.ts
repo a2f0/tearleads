@@ -1,7 +1,4 @@
-import {
-  listDetachedOrganizationDocumentLocalIds,
-  listDocumentLocalIdsPlacedOnlyIn,
-} from "../../../data/persistence/container-contents/exclusiveDocumentPlacements";
+import { listDocumentLocalIdsPlacedOnlyIn } from "../../../data/persistence/container-contents/exclusiveDocumentPlacements";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -16,7 +13,7 @@ export interface OrganizationContentRemoval {
    * `removed` when every targeted container and document is gone.
    * `pending-writes` and `open-documents` refused before deleting anything.
    * `interrupted` stopped part way: the removal stopped being current, or a
-   * store opened on a document while it ran.
+   * store opened on a document while it ran and that document stayed.
    */
   readonly status:
     | "removed"
@@ -92,8 +89,9 @@ async function deleteContainersInBatches(
  * open, leaving the organization's content whole and syncing. The containers
  * go first, under `stillCurrent`; documents are deleted only after every
  * container was, each re-checked right before its rows go. A document whose
- * store opened mid-removal stays, detached but still attributed to the
- * organization, and a later pass finds it by organization.
+ * store opened mid-removal stays as a detached local copy, like any document
+ * whose container this device lost. Documents that were already detached are
+ * never touched: they may be the only copy of work a recovery still needs.
  */
 export async function removeOrganizationContentUnlessPending(input: {
   readonly containerIds: readonly string[];
@@ -109,18 +107,10 @@ export async function removeOrganizationContentUnlessPending(input: {
 }): Promise<OrganizationContentRemoval> {
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
     const containerIds = new Set(input.containerIds);
-    const localIds = [
-      ...new Set([
-        ...(await listDocumentLocalIdsPlacedOnlyIn(
-          lockedExecSql,
-          input.containerIds,
-        )),
-        ...(await listDetachedOrganizationDocumentLocalIds(
-          lockedExecSql,
-          input.organizationId,
-        )),
-      ]),
-    ];
+    const localIds = await listDocumentLocalIdsPlacedOnlyIn(
+      lockedExecSql,
+      input.containerIds,
+    );
     if (containerIds.size === 0 && localIds.length === 0) {
       return {
         deletedContainerIds: [],

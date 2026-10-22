@@ -73,12 +73,15 @@ may carry edits that have not reached SQLite, and stores stay registered for
 the session, so the removal also refuses while any of the organization's
 documents was opened this session. It deletes the containers first and
 documents only after them, re-checking each document right before its rows
-go; one whose store opened mid-removal stays, detached but still attributed
-to the organization, for a later pass. A device that still has pending writes
+go; one whose store opened mid-removal stays as a detached local copy, like
+any document whose container the device lost. Documents already detached
+before the pause are never removed, since one may be the only copy a recovery
+still needs. A device that still has pending writes
 keeps them syncing out and retries the removal each time its sync lanes go
 idle. One with an open document leaves the organization whole and syncing
 until the next session's membership refresh removes it. Containers go in
-batches that stay within SQLite's bind limit, all under the one lock. Resuming
+batches, and each batch reads its documents in batches, so every statement
+stays within SQLite's bind limit, all under the one lock. Resuming
 re-lists the whole tree with fresh lane watermarks so the organization
 downloads again.
 

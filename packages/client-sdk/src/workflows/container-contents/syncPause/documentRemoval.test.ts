@@ -22,18 +22,20 @@ const UPDATED_AT = "2026-01-01T00:00:00.000Z";
 async function placedDocument(
   execSql: ExecSql,
   input: {
+    containerId?: string;
     localId: string;
     pendingBaseVersion?: string;
     snapshotEndVersion: string;
   },
 ): Promise<void> {
   const documentId = `${input.localId}-remote`;
+  const containerId = input.containerId ?? "folder";
   await sqlDocumentsPersistence.saveDocument(
     execSql,
     {
       accessEpoch: 1,
       accessStateHash: null,
-      containerId: "folder",
+      containerId,
       documentId,
       documentKind: "note",
       id: input.localId,
@@ -48,8 +50,29 @@ async function placedDocument(
   );
   await execSql(
     "INSERT INTO document_container_projection (document_id, container_id, updated_at) VALUES (?, ?, ?)",
-    [documentId, "folder", UPDATED_AT],
+    [documentId, containerId, UPDATED_AT],
   );
+}
+
+/** Fails any statement binding more values than SQLite's default limit. */
+function bindBudgetedExecSql(execSql: ExecSql): ExecSql & {
+  readonly maxBinds: () => number;
+} {
+  let maxBinds = 0;
+  const bounded = new Proxy(execSql, {
+    apply(target, thisArg, args) {
+      const bind = args[1];
+      const binds = Array.isArray(bind)
+        ? bind.length
+        : bind && typeof bind === "object"
+          ? Object.keys(bind).length
+          : 0;
+      maxBinds = Math.max(maxBinds, binds);
+      if (binds > 999) throw new Error(`SQLite bind limit exceeded: ${binds}`);
+      return Reflect.apply(target, thisArg, args);
+    },
+  });
+  return Object.assign(bounded, { maxBinds: () => maxBinds });
 }
 
 async function withPausedFolder(
@@ -188,49 +211,105 @@ test("documents stay when the containers' removal is no longer current", async (
   });
 });
 
-test("a document opened during removal is removed on a later pass", async () => {
+function removeWithRealDeletion(
+  execSql: ExecSql,
+  containerIds: readonly string[],
+  isDocumentOpen: (localId: string) => boolean = () => false,
+) {
+  return removeOrganizationContentUnlessPending({
+    containerIds,
+    deleteContainers: (lockedExecSql, removals) =>
+      sqlContainerContentsPersistence.deleteContainers(lockedExecSql, removals),
+    documentProjectors: createDocumentProjectorRegistry([]),
+    execSql,
+    isDocumentOpen,
+    organizationId: "org-paused",
+  });
+}
+
+test("a document whose store opens mid-removal stays as a detached copy", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
     await placedDocument(execSql, {
       localId: "late-edit",
       snapshotEndVersion: synced,
     });
-    const run = (
-      containerIds: readonly string[],
-      isDocumentOpen: (localId: string) => boolean,
-    ) =>
-      removeOrganizationContentUnlessPending({
-        containerIds,
-        deleteContainers: (lockedExecSql, removals) =>
-          sqlContainerContentsPersistence.deleteContainers(
-            lockedExecSql,
-            removals,
-          ),
-        documentProjectors: createDocumentProjectorRegistry([]),
-        execSql,
-        isDocumentOpen,
-        organizationId: "org-paused",
-      });
     // A store opens on the document after the removal checked it, while the
     // containers are being removed.
     let checks = 0;
-    expect(await run(["folder"], () => checks++ > 0)).toEqual({
+    expect(
+      await removeWithRealDeletion(execSql, ["folder"], () => checks++ > 0),
+    ).toEqual({
       deletedContainerIds: ["folder"],
       deletedLocalIds: [],
       status: "interrupted",
     });
-    expect(
-      await sqlDocumentsPersistence.loadDocument(execSql, "late-edit"),
-    ).not.toBeNull();
 
-    // Once no store holds it, the next pass still finds it by organization.
-    expect(await run([], () => false)).toEqual({
+    // A later pass leaves it like any document whose container was lost.
+    expect(await removeWithRealDeletion(execSql, [])).toEqual({
       deletedContainerIds: [],
-      deletedLocalIds: ["late-edit"],
+      deletedLocalIds: [],
       status: "removed",
     });
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "late-edit"),
-    ).toBeNull();
+    ).not.toBeNull();
+  });
+});
+
+test("documents already detached before the pause survive its removal", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    // A folder this device lost earlier left its document detached but still
+    // attributed to the organization: possibly a copy a recovery still needs.
+    await saveTestSyncedContainer({
+      execSql,
+      id: "lost-folder",
+      name: "Lost",
+      organizationId: "org-paused",
+      timestamp: UPDATED_AT,
+    });
+    await placedDocument(execSql, {
+      containerId: "lost-folder",
+      localId: "recovery-copy",
+      snapshotEndVersion: synced,
+    });
+    await sqlContainerContentsPersistence.deleteContainers(execSql, [
+      {
+        containerId: "lost-folder",
+        reason: "access_revoked",
+        updatedAt: UPDATED_AT,
+      },
+    ]);
+    await placedDocument(execSql, {
+      localId: "synced",
+      snapshotEndVersion: synced,
+    });
+
+    expect(await removeWithRealDeletion(execSql, ["folder"])).toEqual({
+      deletedContainerIds: ["folder"],
+      deletedLocalIds: ["synced"],
+      status: "removed",
+    });
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "recovery-copy"),
+    ).not.toBeNull();
+  });
+});
+
+test("a folder with more documents than SQLite binds is removed", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    const localIds = Array.from(
+      { length: 1_001 },
+      (_, index) => `bulk-${index}`,
+    );
+    for (const localId of localIds) {
+      await placedDocument(execSql, { localId, snapshotEndVersion: synced });
+    }
+    const boundedExecSql = bindBudgetedExecSql(execSql);
+
+    const removal = await removeWithRealDeletion(boundedExecSql, ["folder"]);
+
+    expect(removal.status).toBe("removed");
+    expect(removal.deletedLocalIds).toHaveLength(localIds.length);
   });
 });
 
@@ -267,21 +346,7 @@ test("a large organization is removed within SQLite's bind budget", async () => 
         })),
       );
     }
-    let maxBinds = 0;
-    const boundedExecSql: ExecSql = new Proxy(execSql, {
-      apply(target, thisArg, args) {
-        const bind = args[1];
-        const binds = Array.isArray(bind)
-          ? bind.length
-          : bind && typeof bind === "object"
-            ? Object.keys(bind).length
-            : 0;
-        maxBinds = Math.max(maxBinds, binds);
-        if (binds > 999)
-          throw new Error(`SQLite bind limit exceeded: ${binds}`);
-        return Reflect.apply(target, thisArg, args);
-      },
-    });
+    const boundedExecSql = bindBudgetedExecSql(execSql);
 
     const removal = await removeOrganizationContentUnlessPending({
       containerIds,
@@ -298,7 +363,7 @@ test("a large organization is removed within SQLite's bind budget", async () => 
 
     expect(removal.status).toBe("removed");
     expect(removal.deletedContainerIds).toHaveLength(containerIds.length);
-    expect(maxBinds).toBeLessThanOrEqual(999);
+    expect(boundedExecSql.maxBinds()).toBeLessThanOrEqual(999);
     expect(await db.select().from(containers)).toEqual([]);
   } finally {
     close();
