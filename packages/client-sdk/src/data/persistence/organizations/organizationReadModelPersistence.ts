@@ -1,5 +1,3 @@
-import { isValidOrganizationLeaveRequest } from "@tearleads/crypto";
-import { base64ToBytes } from "@tearleads/encoding";
 import type {
   ListOrganizationGroupsResponse,
   OrganizationGroupCurrentStateResponse,
@@ -64,27 +62,19 @@ interface CurrentOrganizationReadModelState {
 
 /**
  * The member's leave request as stored JSON, kept only when it names this
- * organization and member and verifies against the member's published signing
- * key. An honest server never serves anything else, so dropping it only hides
- * a request the server could have forged.
+ * organization and member. Its signature is checked when read, against the
+ * member's trusted identity rather than the key served beside it.
  */
-function verifiedLeaveRequestJson(
+function storedLeaveRequestJson(
   organizationId: string,
   user: OrganizationReadModelDirectoryResponse["users"][number],
 ): string | null {
   const request = user.leaveRequest;
-  if (
-    !request ||
-    request.organizationId !== organizationId ||
-    request.userId !== user.userId ||
-    !isValidOrganizationLeaveRequest(
-      request,
-      base64ToBytes(user.signingPublicKey),
-    )
-  ) {
-    return null;
-  }
-  return JSON.stringify(request);
+  return request &&
+    request.organizationId === organizationId &&
+    request.userId === user.userId
+    ? JSON.stringify(request)
+    : null;
 }
 
 async function replaceDirectoryLane(input: {
@@ -118,7 +108,7 @@ async function replaceDirectoryLane(input: {
     updatedAt: user.updatedAt,
     disabledAt: user.disabledAt,
     disabledByUserId: user.disabledByUserId,
-    leaveRequest: verifiedLeaveRequestJson(input.organizationId, user),
+    leaveRequest: storedLeaveRequestJson(input.organizationId, user),
   }));
   for (
     let index = 0;

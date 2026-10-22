@@ -41,6 +41,10 @@ export {
   setOrganizationLeaveRequested,
 } from "./memberships/leaveRequest";
 export {
+  withVerifiedLeaveRequests,
+  withVerifiedUserLeaveRequest,
+} from "./memberships/leaveRequestVerification";
+export {
   forgetPausedOrganizationContent,
   type OrganizationContentHost,
   type OrganizationMembership,

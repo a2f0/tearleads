@@ -52,7 +52,23 @@ export interface OrganizationMemberships {
   loadPausedOrganizationIds(): Promise<ReadonlySet<string>>;
   /** Notifies when the paused set for the current scope changes. */
   subscribeToSyncPauses(listener: () => void): () => void;
+  /**
+   * Hands each membership list a refresh reads for the current scope, so a
+   * choice made on another device reaches every view of it.
+   */
+  subscribeToMemberships(
+    listener: (memberships: readonly OrganizationMembership[]) => void,
+  ): () => void;
 }
+
+type MembershipsListener = (
+  memberships: readonly OrganizationMembership[],
+) => void;
+
+const membershipListenersByScope = new WeakMap<
+  DomainScope,
+  Set<MembershipsListener>
+>();
 
 /**
  * The scope's document reconciler. Containers it reconciled before a pause
@@ -190,7 +206,16 @@ export function createOrganizationMemberships(
     async refresh() {
       const runtime = runtimeService.workflowInput();
       if (!canReachServer(runtime)) return null;
-      return refreshOrganizationMemberships(membershipInput(runtime));
+      const memberships = await refreshOrganizationMemberships(
+        membershipInput(runtime),
+      );
+      const listeners = membershipListenersByScope.get(
+        runtime.state.domainScope,
+      );
+      if (memberships && listeners) {
+        for (const listener of [...listeners]) listener(memberships);
+      }
+      return memberships;
     },
     async setSyncPaused(organizationId, paused) {
       const runtime = runtimeService.workflowInput();
@@ -238,6 +263,16 @@ export function createOrganizationMemberships(
       return getOrCreateOrganizationSyncPauses(
         runtimeService.workflowInput().state.domainScope,
       ).subscribe(listener);
+    },
+    subscribeToMemberships(listener) {
+      const { domainScope } = runtimeService.workflowInput().state;
+      const listeners =
+        membershipListenersByScope.get(domainScope) ?? new Set();
+      membershipListenersByScope.set(domainScope, listeners);
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
   };
 }

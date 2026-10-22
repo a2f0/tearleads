@@ -32,7 +32,7 @@ function leaveRequest(userId: string, keys: SigningKeyPair) {
   );
 }
 
-test("a directory keeps only leave requests the named member signed", async () => {
+test("a directory keeps only leave requests addressed to their row", async () => {
   const { close, execSql } = await createTestExecSql(
     "organization-read-model-leave-requests",
   );
@@ -41,6 +41,7 @@ test("a directory keeps only leave requests the named member signed", async () =
     const server = generateSigningSeedAndKeyPair();
     const publishedKey = bytesToBase64(member.signingPublicKey);
     const genuine = leaveRequest(MEMBER_ID, member);
+    const forged = leaveRequest(FORGED_ID, server);
     const base = snapshot(ORGANIZATION_ID, "cursor-1");
     await applyOrganizationReadModelResponse({
       currentUserId: "user-1",
@@ -57,9 +58,10 @@ test("a directory keeps only leave requests the named member signed", async () =
                 leaveRequest: genuine,
                 signingPublicKey: publishedKey,
               }),
-              // Signed by a key other than the one the member published.
+              // Its signature is checked when read, against the member's
+              // trusted identity, so storing it trusts nothing.
               directoryUser(FORGED_ID, {
-                leaveRequest: leaveRequest(FORGED_ID, server),
+                leaveRequest: forged,
                 signingPublicKey: publishedKey,
               }),
               // The member's genuine request, served on another member's row.
@@ -85,7 +87,7 @@ test("a directory keeps only leave requests the named member signed", async () =
       ]),
     );
     expect(leaveRequests.get(MEMBER_ID)).toEqual(genuine);
-    expect(leaveRequests.get(FORGED_ID)).toBeNull();
+    expect(leaveRequests.get(FORGED_ID)).toEqual(forged);
     expect(leaveRequests.get(MISADDRESSED_ID)).toBeNull();
   } finally {
     close();

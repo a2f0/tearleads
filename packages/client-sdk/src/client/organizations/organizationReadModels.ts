@@ -14,6 +14,8 @@ import {
   type OrganizationPolicyHistory,
   type OrganizationUserDetail,
   reconcileOrganizationDirectoryAndGroups,
+  withVerifiedLeaveRequests,
+  withVerifiedUserLeaveRequest,
 } from "../../workflows/organizations";
 import {
   organizationAccessScopeKey,
@@ -105,11 +107,14 @@ class OrganizationReadModelCoordinatorImpl
     if (!active) {
       return null;
     }
-    return loadLocalOrganizationDirectoryAndGroups({
-      currentUserId: active.userId,
-      execSql: active.runtime.infra.execSql,
-      organizationId: active.organizationId,
-    });
+    return withVerifiedLeaveRequests(
+      await loadLocalOrganizationDirectoryAndGroups({
+        currentUserId: active.userId,
+        execSql: active.runtime.infra.execSql,
+        organizationId: active.organizationId,
+      }),
+      active.runtime.resolveTrustedUserIdentity,
+    );
   }
 
   async loadLocalGrants(organizationId?: string) {
@@ -215,12 +220,16 @@ class OrganizationReadModelCoordinatorImpl
     if (!active || userId.length === 0) {
       return null;
     }
-    return loadLocalOrganizationUserDetail({
-      currentUserId: active.userId,
-      execSql: active.runtime.infra.execSql,
-      organizationId: active.organizationId,
-      userId,
-    });
+    return withVerifiedUserLeaveRequest(
+      await loadLocalOrganizationUserDetail({
+        currentUserId: active.userId,
+        execSql: active.runtime.infra.execSql,
+        organizationId: active.organizationId,
+        userId,
+      }),
+      active.organizationId,
+      active.runtime.resolveTrustedUserIdentity,
+    );
   }
 
   reconcile(
@@ -291,11 +300,14 @@ class OrganizationReadModelCoordinatorImpl
             userId: active.userId,
           });
         if (!stillCurrent()) return null;
-        return hydrateOrganizationGroupNamesForRuntime(
-          this.runtimeService,
-          active,
-          domainScope,
-          directoryAndGroups,
+        return withVerifiedLeaveRequests(
+          await hydrateOrganizationGroupNamesForRuntime(
+            this.runtimeService,
+            active,
+            domainScope,
+            directoryAndGroups,
+          ),
+          active.runtime.resolveTrustedUserIdentity,
         );
       })
       .finally(() => {

@@ -19,7 +19,10 @@ import { and, asc, eq } from "drizzle-orm";
 import { OrganizationManagerError } from "./errors";
 import { readStoredLeaveRequest } from "./leaveRequest";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
-import { appendOrganizationReadModelChangeInTransaction } from "./readModelChanges";
+import {
+  appendOrganizationReadModelChangeInTransaction,
+  lockOrganizationReadModelHeadForUpdateInTransaction,
+} from "./readModelChanges";
 
 // A signed request is accepted only near the moment it was signed, so a
 // withdrawn request cannot be filed again by replaying its old signature.
@@ -99,6 +102,22 @@ export async function runListOrganizationMembershipsWorkflow(
       toMembership(row, row.personalOrganizationId),
     ),
   };
+}
+
+// Roster mutations lock the organization's read-model head before the roster
+// row, so a leave request and a concurrent profile change cannot deadlock.
+async function lockOrganizationHead(
+  tx: DatabaseTransaction,
+  organizationId: string,
+): Promise<void> {
+  if (
+    !(await lockOrganizationReadModelHeadForUpdateInTransaction(
+      tx,
+      organizationId,
+    ))
+  ) {
+    throw new OrganizationManagerError("Membership not found", 404);
+  }
 }
 
 async function updateActiveMembership(
@@ -236,6 +255,7 @@ export async function runRequestOrganizationLeaveWorkflow(
       signingPublicKey: user.signingPublicKey,
       userId: input.userId,
     });
+    await lockOrganizationHead(tx, input.organizationId);
     await assertAnotherAdministrator(tx, input.organizationId, input.userId);
     const row = await updateActiveMembership(tx, {
       organizationId: input.organizationId,
@@ -257,6 +277,7 @@ export async function runWithdrawOrganizationLeaveRequestWorkflow(
 ): Promise<OrganizationMembershipResponse> {
   return db.transaction(async (tx) => {
     const user = await loadMemberUser(tx, input.userId);
+    await lockOrganizationHead(tx, input.organizationId);
     const row = await updateActiveMembership(tx, {
       organizationId: input.organizationId,
       userId: input.userId,

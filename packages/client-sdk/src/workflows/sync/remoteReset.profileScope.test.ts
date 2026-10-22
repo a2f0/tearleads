@@ -96,6 +96,7 @@ for (const pointer of ["organization", "roster"] as const) {
           status: "active",
           profileDocumentId: "other-document",
           joinedAt: NOW,
+          leaveRequest: null,
           updatedAt: NOW,
           disabledAt: null,
           disabledByUserId: null,

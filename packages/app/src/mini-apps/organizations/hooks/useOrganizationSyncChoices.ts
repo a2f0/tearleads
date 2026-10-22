@@ -70,14 +70,20 @@ function useMembershipState() {
       });
     };
     const unsubscribe = membershipConduit.subscribeToSyncPauses(reloadPaused);
+    // Every refresh, including one a memberships hint triggers after a change
+    // on another device, replaces the list shown here.
+    const unsubscribeMemberships = membershipConduit.subscribeToMemberships(
+      (list) => {
+        if (active) setMemberships(byOrganizationId(list));
+      },
+    );
     reloadPaused();
     setMemberships(null);
-    void membershipConduit.refresh().then((list) => {
-      if (active && list) setMemberships(byOrganizationId(list));
-    });
+    void membershipConduit.refresh();
     return () => {
       active = false;
       unsubscribe();
+      unsubscribeMemberships();
     };
   }, [scopeKey, tearleads]);
 

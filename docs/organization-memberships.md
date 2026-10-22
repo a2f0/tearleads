@@ -130,10 +130,11 @@ personal one, and to withdraw once asked.
 
 The request is stored on the member's roster row and reaches administrators in
 the organization read model's `directory` lane, which the filing stamps. Each
-administrator's client keeps the request only if it names the organization and
-member and verifies against the member's published signing key, so a server
-cannot present a request the member never made. Org Manager shows the member
-as having asked to leave and offers to approve the request.
+administrator's client stores the request only if it names the organization
+and member, and shows it only if it verifies against the member's trusted,
+pinned identity, never the signing key served beside it, so a server cannot
+present a request the member never made. Org Manager shows the member as
+having asked to leave and offers to approve the request.
 
 Approving is the ordinary removal: the administrator signs the member out of
 each group and then out of `Members`, rotating keys as any removal does.
