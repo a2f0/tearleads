@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/diagnostics",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -17,8 +17,8 @@
     "test": "bun test src"
   },
   "dependencies": {
-    "@sentry/browser": "11.5.0",
-    "@sentry/core": "11.5.0"
+    "@sentry/browser": "11.8.0",
+    "@sentry/core": "11.8.0"
   },
   "devDependencies": {
     "@types/bun": "catalog:"

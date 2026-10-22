@@ -65,7 +65,7 @@ requests. Shipping is separate: use `ship-pr` only when requested. Read
    waiting out a timeout, often after a race; repeat such runs before comparing.
    Search CI logs for timeout diagnostics such as `App runtime settle timed out`,
    and look for wait helpers whose timeout result is discarded. `bun test`
-   ignores `--cpu-prof` in Bun 1.4.2; time phases with `performance.now()` marks
+   ignores `--cpu-prof` in Bun 1.4.3; time phases with `performance.now()` marks
    in an untracked probe copy of the test, and delete the probe afterward.
 
 Use the longest tests first, then repeated setup that makes a whole file or

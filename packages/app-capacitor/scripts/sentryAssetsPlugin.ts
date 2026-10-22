@@ -1,5 +1,6 @@
 import type { Plugin } from "vite";
-import { isNativeSentryAssetPath } from "../src/diagnostics/sentryConfig";
+// Vite loads this config chain natively, requiring explicit TypeScript extensions.
+import { isNativeSentryAssetPath } from "../src/diagnostics/sentryConfig.ts";
 
 // This packaged manifest is the exact allowlist of generated JavaScript paths.
 // A filename pattern alone could mistake an entity ID in a URL for a code asset.

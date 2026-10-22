@@ -1,6 +1,6 @@
 {
   "name": "app-electrobun",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
@@ -36,12 +36,12 @@
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/diagnostics": "workspace:*",
     "app": "workspace:*",
-    "electrobun": "2.0.2",
+    "electrobun": "2.0.4",
     "pdfjs-dist": "6.4.299",
     "react-dom": "catalog:react"
   },
   "devDependencies": {
-    "@sentry/cli": "3.8.0",
+    "@sentry/cli": "3.8.1",
     "@tearleads/loro": "workspace:*",
     "@types/bun": "catalog:",
     "@types/react-dom": "catalog:react"

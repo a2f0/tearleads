@@ -74,10 +74,10 @@ function parseSourceMap(text: string, name: string) {
   return { map, sources };
 }
 
-// Bun writes renderer sources relative to the map, while Hutch writes the main
-// bundle's relative to its working directory, which the release harness runs
-// from a temporary root. Accept the first base under which every source is a
-// real repository file, so no machine path or foreign source reaches Sentry.
+// Bun writes renderer sources relative to the map. Hutch main bundles can mix
+// working-directory paths with package-relative devkit paths.
+// Resolve each source to a real repository file so no machine path or foreign
+// source reaches Sentry, including builds from the temporary release harness.
 async function rewriteMapSources(
   mapPath: string,
   repoRoot: string,
@@ -88,17 +88,26 @@ async function rewriteMapSources(
     await readFile(mapPath, "utf8"),
     name,
   );
-  for (const base of [dirname(mapPath), process.cwd(), packageRoot]) {
-    const paths = sources.map((source) => resolve(base, source));
-    if (paths.every((path) => isInside(repoRoot, path) && existsSync(path)))
-      return JSON.stringify({
-        ...map,
-        sources: paths.map((path) =>
-          relative(repoRoot, path).split(sep).join("/"),
-        ),
-      });
-  }
-  throw new Error(`Source map ${name} has sources outside the repository`);
+  const bases = [dirname(mapPath), process.cwd(), packageRoot];
+  const paths = sources.map((source) => {
+    const candidates = [
+      ...new Set(
+        bases
+          .map((base) => resolve(base, source))
+          .filter((path) => isInside(repoRoot, path) && existsSync(path)),
+      ),
+    ];
+    const [path] = candidates;
+    if (!path)
+      throw new Error(`Source map ${name} has sources outside the repository`);
+    if (candidates.length !== 1)
+      throw new Error(`Source map ${name} has ambiguous sources`);
+    return relative(repoRoot, path).split(sep).join("/");
+  });
+  return JSON.stringify({
+    ...map,
+    sources: paths,
+  });
 }
 
 // The packaging hook stages a release under its dist: the tier the wrapper

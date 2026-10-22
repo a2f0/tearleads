@@ -242,8 +242,9 @@ fresh app test run before claiming it.
 - Nineteen other call sites wrap `waitForAppTestRuntimeToSettle` in one act
   scope. A stall at any of them would show up as `App runtime settle timed out`
   in the app log.
-- `bun test` ignores `--cpu-prof` in Bun 1.4.2. Use `performance.now()` phase
-  marks in an untracked probe copy of a test, and compare wall time with user
+- `bun test` ignores `--cpu-prof` in Bun 1.4.3 (rechecked with a bounded probe).
+  Use `performance.now()` phase marks in an untracked probe copy of a test,
+  and compare wall time with user
   CPU time to separate idle waits from compute.
 - The API and SDK leads from the second pass were not re-measured here.
 

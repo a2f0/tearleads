@@ -12,8 +12,8 @@
  *   const sqlite3 = await sqlite3InitModule();
  */
 
-export const SQLITE3MC_VERSION = "2.3.2";
-export const SQLITE_VERSION = "3.51.3";
+export const SQLITE3MC_VERSION = "2.6.1";
+export const SQLITE_VERSION = "3.54.0";
 
 export type {
   Database,

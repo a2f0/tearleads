@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/loro",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@tearleads/encoding": "workspace:*",
-    "drizzle-orm": "0.45.3",
+    "drizzle-orm": "0.45.4",
     "loro-crdt": "catalog:"
   },
   "devDependencies": {

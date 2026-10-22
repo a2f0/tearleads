@@ -1,6 +1,6 @@
 {
   "name": "app",
-  "version": "0.1.60",
+  "version": "0.1.61",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -22,7 +22,7 @@
     "@tearleads/ui": "workspace:*",
     "@tearleads/validators": "workspace:*",
     "@tearleads/windowing": "workspace:*",
-    "drizzle-orm": "0.45.3",
+    "drizzle-orm": "0.45.4",
     "pdfjs-dist": "6.4.299",
     "qr": "0.7.2",
     "react": "catalog:react",

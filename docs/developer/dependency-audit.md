@@ -31,7 +31,7 @@ exit nonzero; that output must be compared with this record, not ignored.
 ## Current record
 
 The active overrides and exceptions below were last reconciled in
-[#2474](https://github.com/a2f0/tearleads/pull/2474). That PR and the earlier
+[#2615](https://github.com/a2f0/tearleads/pull/2615). That PR and the earlier
 [triage issue #1441](https://github.com/a2f0/tearleads/issues/1441) retain completed
 fixes and historical evidence. Advisory counts and clean-audit claims belong
 in the upgrade PR because they describe a particular lockfile and advisory
@@ -56,7 +56,6 @@ existing lockfile when changing an override.
 
 | Parent/version | Override | Advisory rationale and validation |
 | --- | --- | --- |
-| `markdownlint-cli2@0.23.3` | `smol-toml: 1.9.0` | Fixes [malformed TOML exhaustion](https://github.com/advisories/GHSA-r4xh-jqrq-34v2); run the actual Markdown linter and the TOML compatibility fixture when updating it. |
 | `miniflare@5.20260811.1-alpha` | `sharp: 0.35.5` | Fixes [librsvg memory corruption](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). Check Wrangler-resolved Sharp's librsvg against the advisory, then exercise native SVG resize and the local Miniflare IMAGES binding with decoded pixel assertions. |
 | `miniflare@5.20260811.1-alpha` | `undici: 7.29.1` | Updates the pinned 7.29.0 copy for [unbounded decompression](https://github.com/nodejs/undici/security/advisories/GHSA-3xpg-4rpp-hhhm) and [WebSocket subprotocol denial of service](https://github.com/nodejs/undici/security/advisories/GHSA-rfgv-xxqx-mfg5); exercise local Miniflare requests and both Wrangler environment bundles against the retained HTTP API when changing this override. |
 
@@ -65,14 +64,15 @@ resource safety without deployment credentials and account identity. Revisit
 when complete authenticated previews establish resource safety. Local Miniflare
 override checks do not establish live binding, route, or migration safety.
 
-Smol-TOML 1.9 returns null-prototype objects. Markdownlint 0.41.1 otherwise
+Smol-TOML 1.9 returns null-prototype objects. Markdownlint 0.42.0 otherwise
 discards nested rule options, silently changing line-length limits and enabling
-disabled rules. `patches/markdownlint@0.41.1.patch` accepts those objects while
+disabled rules. `patches/markdownlint@0.42.0.patch` accepts those objects while
 preserving its previous handling of ordinary objects. The actual CLI regression
 in `scripts/checks/staticAnalysis/markdownlintToml.test.ts` failed without the
 patch and passes with it; it also checks glob ignores and malformed configuration.
 Remove the patch when upstream preserves null-prototype rule options and those
-regressions pass without it. Review it with the parser override by 2026-11-07.
+regressions pass without it. Markdownlint CLI now supplies the fixed parser
+without an override. Review the patch again by 2026-11-07.
 
 ## Stripe client and server compatibility
 
@@ -127,7 +127,7 @@ without re-triage.
   when changing this tooling.
 - **`katex@0.16.47`, low,
   [GHSA-238p-pmpm-9mq7](https://github.com/advisories/GHSA-238p-pmpm-9mq7).**
-  Path: `markdownlint@0.41.1` → `micromark-extension-math@3.1.0`. Lint reads
+  Path: `markdownlint@0.42.0` → `micromark-extension-math@3.1.0`. Lint reads
   repository Markdown; application rendering does not import this dependency.
   The advisory requires existing prototype pollution. Keep the owner's 0.16
   API constraint; remove when it supports KaTeX >=0.18.2 or drops the renderer.

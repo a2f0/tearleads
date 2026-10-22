@@ -5,7 +5,7 @@ const { ELECTROBUN_BUILD_DIR: buildDir } = process.env;
 if (!buildDir)
   throw new Error("Electrobun did not provide its build directory");
 
-// Hutch runs hooks with Cottontail. The renderer packager needs Bun's bundler.
+// Use the project's Bun for renderer bundling, independent of Hutch's runner.
 // Run before Electrobun signs the app and creates DMG/update archives.
 execFileSync(
   "bun",

@@ -9,13 +9,13 @@ include ':capacitor-app'
 project(':capacitor-app').projectDir = new File('../../../node_modules/.bun/@capacitor+app@8.1.2+9cf34ba37901b220/node_modules/@capacitor/app/android')
 
 include ':capacitor-camera'
-project(':capacitor-camera').projectDir = new File('../../../node_modules/.bun/@capacitor+camera@8.2.5+9cf34ba37901b220/node_modules/@capacitor/camera/android')
+project(':capacitor-camera').projectDir = new File('../../../node_modules/.bun/@capacitor+camera@8.2.6+9cf34ba37901b220/node_modules/@capacitor/camera/android')
 
 include ':capacitor-file-viewer'
 project(':capacitor-file-viewer').projectDir = new File('../../../node_modules/.bun/@capacitor+file-viewer@2.0.4+9cf34ba37901b220/node_modules/@capacitor/file-viewer/android')
 
 include ':capacitor-filesystem'
-project(':capacitor-filesystem').projectDir = new File('../../../node_modules/.bun/@capacitor+filesystem@8.1.4+9cf34ba37901b220/node_modules/@capacitor/filesystem/android')
+project(':capacitor-filesystem').projectDir = new File('../../../node_modules/.bun/@capacitor+filesystem@8.1.5+9cf34ba37901b220/node_modules/@capacitor/filesystem/android')
 
 include ':capacitor-keyboard'
 project(':capacitor-keyboard').projectDir = new File('../../../node_modules/.bun/@capacitor+keyboard@8.0.6+9cf34ba37901b220/node_modules/@capacitor/keyboard/android')
@@ -30,10 +30,10 @@ include ':capacitor-status-bar'
 project(':capacitor-status-bar').projectDir = new File('../../../node_modules/.bun/@capacitor+status-bar@8.0.4+9cf34ba37901b220/node_modules/@capacitor/status-bar/android')
 
 include ':capawesome-capacitor-file-picker'
-project(':capawesome-capacitor-file-picker').projectDir = new File('../../../node_modules/.bun/@capawesome+capacitor-file-picker@8.1.0+9cf34ba37901b220/node_modules/@capawesome/capacitor-file-picker/android')
+project(':capawesome-capacitor-file-picker').projectDir = new File('../../../node_modules/.bun/@capawesome+capacitor-file-picker@8.1.1+9cf34ba37901b220/node_modules/@capawesome/capacitor-file-picker/android')
 
 include ':capgo-capacitor-native-biometric'
-project(':capgo-capacitor-native-biometric').projectDir = new File('../../../node_modules/.bun/@capgo+capacitor-native-biometric@8.7.0+9cf34ba37901b220/node_modules/@capgo/capacitor-native-biometric/android')
+project(':capgo-capacitor-native-biometric').projectDir = new File('../../../node_modules/.bun/@capgo+capacitor-native-biometric@8.9.1+9cf34ba37901b220/node_modules/@capgo/capacitor-native-biometric/android')
 
 include ':revenuecat-purchases-capacitor'
-project(':revenuecat-purchases-capacitor').projectDir = new File('../../../node_modules/.bun/@revenuecat+purchases-capacitor@13.7.0+9cf34ba37901b220/node_modules/@revenuecat/purchases-capacitor/android')
+project(':revenuecat-purchases-capacitor').projectDir = new File('../../../node_modules/.bun/@revenuecat+purchases-capacitor@13.7.4+9cf34ba37901b220/node_modules/@revenuecat/purchases-capacitor/android')

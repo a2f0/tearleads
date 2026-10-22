@@ -1,14 +1,14 @@
 [tools]
-rust = "1.99.0"
-bun = "1.4.2"
+rust = "1.99.1"
+bun = "1.4.3"
 java = "temurin-25.0.4+101.0.LTS"
 ruby = "4.0.7"
-gradle = "9.8.0"
+gradle = "9.8.2"
 shellcheck = "0.11.0"
 "aqua:jqlang/jq" = "1.8.2"
 "aqua:rustwasm/wasm-pack" = "0.15.0"
 "aqua:WebAssembly/binaryen" = "133"
-"github:oasdiff/oasdiff" = "1.33.0"
+"github:oasdiff/oasdiff" = "1.34.1"
 "github:tlaplus/tlaplus" = { version = "1.7.4", asset_pattern = "tla2tools.jar" }
 terraform = "1.16.1"
 tflint = "0.64.0"

@@ -12,17 +12,28 @@ caching, and npm trusted publishing keeps `actions/setup-node`. Windows jobs
 keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since the mise
 lockfile currently covers macOS arm64 and Linux x64, not Windows.
 
+Astro's CLI uses Node even when Bun starts the website tests. Keep a supported
+Node on `PATH` for local website builds; Astro 7.4.2 requires at least 22.23.4.
+The CI build lane selects Node 24.22.1 LTS explicitly and includes its version
+in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
+build results. The uncached workflow reuses that same lane.
+
 ## Current constraints
 
-The compatibility decisions come from [#2225](https://github.com/a2f0/tearleads/pull/2225)
-and [#2474](https://github.com/a2f0/tearleads/pull/2474); those PRs retain migration
-and validation history. Revisit these constraints when updating their owning
-package or runtime, and remove them when the stated checks pass without the pin.
+The compatibility decisions were last reconciled in
+[#2615](https://github.com/a2f0/tearleads/pull/2615). That PR and the earlier
+[#2225](https://github.com/a2f0/tearleads/pull/2225) and
+[#2474](https://github.com/a2f0/tearleads/pull/2474) retain migration and validation
+history. Revisit these constraints when updating their owning package or runtime,
+and remove them when the stated checks pass without the pin.
 
+- Biome stays on 2.5.15 until [grid-cell counting](https://github.com/biomejs/biome/issues/12502)
+  is fixed: 2.6.2 compares CSS grid row text lengths and rejects valid layouts.
+  Revisit with `bun run lint:biome`; keep the layout rules enabled.
 - TypeScript stays on 6.0.3 while the lint scripts use its JavaScript compiler
   API. Move beyond that line only after those consumers and the static gates
   work with the replacement API; a passing compiler alone is insufficient.
-- MSW stays on 2.15.0: 3.0.2 bypasses request handlers under pinned Bun 1.4.2.
+- MSW stays on 2.15.0: 3.0.3 bypasses request handlers under pinned Bun 1.4.3.
   Revisit when MSW/Bun changes, proving interception and strict unhandled-request
   rejection under the pinned Bun runtime, not only Node.
 - Electrobun consumes its generated Hutch SDK and TypeScript configuration.
@@ -33,12 +44,12 @@ package or runtime, and remove them when the stated checks pass without the pin.
 - RevenueCat native SDK pins follow the Capacitor purchase bridge's dependency
   chain, including the direct Xcode package pin. Align those pins before
   rebuilding both native platforms; do not update transitive SDKs independently.
-- Android uses AGP 9's built-in Kotlin support, compile SDK 36, AndroidX Core
-  1.18.0, and the Capacitor template's Cordova 14.0.1. The biometric plugin's
-  `FingerprintManager` dependency prevents SDK 37 and therefore Core 1.19.
-  Revisit together when the plugin supports SDK 37 and native builds pass.
-- Java 25 LTS supports the pinned Gradle 9.8.0; Java 27 does not. Change the
-  pair only after upstream compatibility and the Android build are verified.
+- Android uses AGP 9's built-in Kotlin support, compile SDK 37, AndroidX Core
+  1.19.1, and the Capacitor template's Cordova 14.0.1. Biometric 8.9.1 supports
+  the hidden `FingerprintManager` API through reflection. Keep target SDK 36
+  until a separate Android behavior migration validates a higher target.
+- Java 25 LTS remains the supported Android runtime with Gradle 9.8.2. Change
+  the pair only after upstream compatibility and the Android build are verified.
 - LocalStack 4.14.0 supports the local workflow without account credentials.
   Preserve that workflow when considering a newer release.
 - CI uses PostgreSQL 18.6; staging uses distribution-managed PostgreSQL 16.
@@ -83,7 +94,17 @@ Bundle builds and mocked Terraform tests validate code only.
 
 Terraform provider updates require reviewed plans and lockfiles for Linux amd64
 and macOS arm64. SQLite archive updates require a verified checksum and a rebuilt
-wasm artifact. Native updates require their platform builds in addition to the
+wasm artifact. Preserve encrypted databases across SQLite runtime updates:
+`packages/sqlite-worker/tests/cipherUpgrade.test.ts` opens historical encrypted
+bytes through the production loader, checks the wrong-key boundary, and verifies
+reads and writes after reopening. Keep that fixture when upgrading. ChaCha20's
+[2.5.1](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.5.1/src/cipher_chacha20.c#L14-L48)
+and [2.6.1](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.6.1/src/cipher_chacha20.c#L14-L48)
+parameter tables retain legacy mode 0 and 64007 key-derivation iterations; revisit
+those defaults and persisted-file compatibility before changing the cipher.
+The memory OPFS shim exercises the real codec; browser OPFS checks remain
+necessary for changes to the browser storage integration.
+Native updates require their platform builds in addition to the
 workspace checks. Deployments use the reviewed source and lockfiles; dependency
 updates do not implicitly reset application databases.
 
