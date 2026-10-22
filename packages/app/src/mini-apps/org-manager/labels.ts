@@ -143,6 +143,8 @@ export const ORG_MANAGER_LABELS = {
   disabledAt: "Disabled at",
   disabledBy: "Disabled by",
   disableRosterEntryAction: "Disable User",
+  approveLeaveRequestAction: "Approve Leave Request",
+  leaveRequested: "Asked to leave",
   deleteGroupAction: "Delete Group",
   done: "Done",
   edit: "Edit",

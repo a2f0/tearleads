@@ -5,6 +5,7 @@ const user = {
   userId: "owner",
   createdAt: "2026-09-10T00:00:00.000Z",
   joinedAt: "2026-09-10T00:00:00.000Z",
+  leaveRequest: null,
   updatedAt: "2026-09-10T00:00:00.000Z",
   disabledAt: null,
   disabledByUserId: null,

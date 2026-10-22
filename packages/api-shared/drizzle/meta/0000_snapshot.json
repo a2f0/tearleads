@@ -1,5 +1,5 @@
 {
-  "id": "377a0d7a-eba6-4e33-bf68-ca877ff7fd12",
+  "id": "6926e01c-ed5d-40a9-b2f4-4a4266cbc54f",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -5034,6 +5034,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "leave_request": {
+          "name": "leave_request",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -6656,7 +6662,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"users\".\"is_root\" = true",
+          "where": "\"users\".\"is_root\"",
           "concurrently": false,
           "method": "btree",
           "with": {}

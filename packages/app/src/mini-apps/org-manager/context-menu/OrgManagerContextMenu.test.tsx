@@ -15,6 +15,7 @@ function ContextMenuLayerHarness(params: {
   canCreateGroup?: boolean | undefined;
   canImportRosterUser?: boolean | undefined;
   contextMenu: OrgManagerContextMenuState;
+  contextMenuRosterUserAskedToLeave?: boolean | undefined;
   disableRosterUser?: ((userId: string) => void) | undefined;
   importRosterUserIntoContacts?: ((userId: string) => void) | undefined;
   openCreateGroupDialog?: (() => void) | undefined;
@@ -35,6 +36,9 @@ function ContextMenuLayerHarness(params: {
       canImportRosterUser={params.canImportRosterUser ?? true}
       closeContextMenu={() => setContextMenu(null)}
       contextMenu={contextMenu}
+      contextMenuRosterUserAskedToLeave={
+        params.contextMenuRosterUserAskedToLeave ?? false
+      }
       disableRosterUser={params.disableRosterUser ?? (() => undefined)}
       importRosterUserIntoContacts={
         params.importRosterUserIntoContacts ?? (() => undefined)
@@ -229,4 +233,32 @@ test("org manager roster row context menu disables the disable action when unava
   expect(disableButton.disabled).toBe(true);
   fireEvent.click(disableButton);
   expect(disabledUserIds).toEqual([]);
+});
+
+test("a member who asked to leave is removed by approving the request", () => {
+  const disabledUserIds: string[] = [];
+  const view = render(
+    <ContextMenuLayerHarness
+      contextMenu={{
+        id: { kind: "directory-user", userId: "user-1" },
+        position: { x: 12, y: 34 },
+      }}
+      contextMenuRosterUserAskedToLeave
+      disableRosterUser={(userId) => {
+        disabledUserIds.push(userId);
+      }}
+    />,
+  );
+
+  expect(
+    view.queryByRole("button", {
+      name: ORG_MANAGER_LABELS.disableRosterEntryAction,
+    }),
+  ).toBeNull();
+  fireEvent.click(
+    view.getByRole("button", {
+      name: ORG_MANAGER_LABELS.approveLeaveRequestAction,
+    }),
+  );
+  expect(disabledUserIds).toEqual(["user-1"]);
 });

@@ -516,6 +516,7 @@ CREATE TABLE "organization_roster_entries" (
 	"disabled_at" timestamp,
 	"disabled_by_user_id" uuid,
 	"sync_paused_at" timestamp,
+	"leave_request" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -814,5 +815,5 @@ CREATE INDEX "revenuecat_webhook_events_org_idx" ON "revenuecat_webhook_events" 
 CREATE INDEX "revenuecat_webhook_events_source_org_idx" ON "revenuecat_webhook_events" USING btree ("source_organization_id");--> statement-breakpoint
 CREATE INDEX "revenuecat_webhook_events_native_route_idx" ON "revenuecat_webhook_events" USING btree ("app_user_id","original_transaction_id","store","outcome");--> statement-breakpoint
 CREATE INDEX "users_created_at_id_idx" ON "users" USING btree ("created_at","id");--> statement-breakpoint
-CREATE INDEX "users_root_created_at_id_idx" ON "users" USING btree ("created_at","id") WHERE "users"."is_root" = true;--> statement-breakpoint
+CREATE INDEX "users_root_created_at_id_idx" ON "users" USING btree ("created_at","id") WHERE "users"."is_root";--> statement-breakpoint
 CREATE INDEX "users_default_organization_id_idx" ON "users" USING btree ("default_organization_id");

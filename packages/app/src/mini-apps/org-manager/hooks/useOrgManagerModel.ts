@@ -460,6 +460,8 @@ export function useOrgManagerModel() {
     canDisableContextMenuRosterUser:
       rosterActions.canDisableContextMenuRosterUser,
     canEditContextMenuRosterUser: rosterActions.canEditContextMenuRosterUser,
+    contextMenuRosterUserAskedToLeave:
+      rosterActions.contextMenuRosterUserAskedToLeave,
     canImportRosterUser,
     canLoadAuthenticatedOrgData,
     canMutateSelectedGroup,

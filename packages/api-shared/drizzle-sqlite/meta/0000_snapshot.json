@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "580acc8b-c923-42be-9df7-5b4dbb0fff73",
+  "id": "3179e31d-afe7-412f-946e-1859e328af7c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -3801,6 +3801,13 @@
           "notNull": false,
           "autoincrement": false
         },
+        "leave_request": {
+          "name": "leave_request",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "integer",
@@ -5076,7 +5083,7 @@
           "name": "users_root_created_at_id_idx",
           "columns": ["created_at", "id"],
           "isUnique": false,
-          "where": "\"users\".\"is_root\" = true"
+          "where": "\"users\".\"is_root\""
         },
         "users_default_organization_id_idx": {
           "name": "users_default_organization_id_idx",

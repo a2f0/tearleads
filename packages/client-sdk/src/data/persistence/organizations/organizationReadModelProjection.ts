@@ -7,6 +7,10 @@ import type {
   OrganizationGroupCurrentStateResponse,
   OrganizationRosterStatus,
 } from "@tearleads/validators/response";
+import {
+  isOrganizationLeaveRequest,
+  type OrganizationLeaveRequest,
+} from "@tearleads/validators/util";
 import { and, asc, eq } from "drizzle-orm";
 import {
   organizationReadModelDirectoryUsers,
@@ -68,6 +72,7 @@ interface SelectedDirectoryUser {
   readonly encapsulationPublicKey: string;
   readonly isPersonalOrganizationOwner: boolean;
   readonly joinedAt: string;
+  readonly leaveRequest: string | null;
   readonly profileDocumentId: string | null;
   readonly signingKeyFingerprint: string;
   readonly signingPublicKey: string;
@@ -125,10 +130,24 @@ function toDirectoryUser(
     status: row.status,
     profileDocumentId: row.profileDocumentId,
     joinedAt: row.joinedAt,
+    leaveRequest: readStoredLeaveRequest(row.leaveRequest),
     updatedAt: row.updatedAt,
     disabledAt: row.disabledAt,
     disabledByUserId: row.disabledByUserId,
   };
+}
+
+function readStoredLeaveRequest(
+  stored: string | null,
+): OrganizationLeaveRequest | null {
+  if (stored === null) return null;
+  const parsed: unknown = JSON.parse(stored);
+  if (!isOrganizationLeaveRequest(parsed)) {
+    throw new OrganizationReadModelIntegrityError(
+      "Stored organization leave request is invalid",
+    );
+  }
+  return parsed;
 }
 
 function isValidPolicyHead(head: StoredPolicyHead): boolean {
@@ -243,6 +262,7 @@ async function loadDirectoryRows(
       encapsulationPublicKey:
         organizationReadModelDirectoryUsers.encapsulationPublicKey,
       joinedAt: organizationReadModelDirectoryUsers.joinedAt,
+      leaveRequest: organizationReadModelDirectoryUsers.leaveRequest,
       isPersonalOrganizationOwner:
         organizationReadModelDirectoryUsers.isPersonalOrganizationOwner,
       profileDocumentId: organizationReadModelDirectoryUsers.profileDocumentId,

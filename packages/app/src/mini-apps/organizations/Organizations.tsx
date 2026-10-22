@@ -88,6 +88,41 @@ function OrganizationSyncButton({
   );
 }
 
+function leaveButtonLabel(card: OrganizationDashboardCard, busy: boolean) {
+  if (card.leaveRequested) {
+    return busy
+      ? ORGANIZATIONS_LABELS.withdrawingLeaveRequest
+      : ORGANIZATIONS_LABELS.withdrawLeaveRequest;
+  }
+  return busy
+    ? ORGANIZATIONS_LABELS.askingToLeave
+    : ORGANIZATIONS_LABELS.askToLeave;
+}
+
+function OrganizationLeaveButton({
+  card,
+  syncChoices,
+}: {
+  card: OrganizationDashboardCard;
+  syncChoices: OrganizationSyncChoices;
+}) {
+  if (!card.canAskToLeave) return null;
+  const busy = syncChoices.changingOrganizationId === card.organizationId;
+  return (
+    <MiniAppButton
+      disabled={syncChoices.changingOrganizationId !== null}
+      onClick={() =>
+        void syncChoices.setLeaveRequested(
+          card.organizationId,
+          !card.leaveRequested,
+        )
+      }
+    >
+      {leaveButtonLabel(card, busy)}
+    </MiniAppButton>
+  );
+}
+
 function OrganizationFolders({
   card,
   name,
@@ -149,7 +184,15 @@ function OrganizationCard({
           name={name}
           onOpenFolder={onOpenFolder}
         />
-        <OrganizationSyncButton card={card} syncChoices={syncChoices} />
+        {card.leaveRequested ? (
+          <MiniAppStatus>
+            {ORGANIZATIONS_LABELS.leaveRequestedStatus}
+          </MiniAppStatus>
+        ) : null}
+        <div className="organizations-card-actions">
+          <OrganizationSyncButton card={card} syncChoices={syncChoices} />
+          <OrganizationLeaveButton card={card} syncChoices={syncChoices} />
+        </div>
       </MiniAppPanel>
     </li>
   );
