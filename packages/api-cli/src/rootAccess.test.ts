@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { createDefaultManagedApiDatabase } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
-import { eq } from "drizzle-orm";
+import { rootAuditEvents, users } from "@tearleads/api-shared/schema";
+import { asc, eq } from "drizzle-orm";
 import {
   formatRootAccessOutcome,
   parseRootAccessArgs,
@@ -75,6 +75,29 @@ test("root access flips is_root for the fingerprint's identity and is idempotent
     });
     expect(revoked).toEqual({ changed: true, userId: inserted.id });
     await expect(readIsRoot()).resolves.toBe(false);
+
+    // Only the two changes are recorded, each with no actor; the repeated
+    // grant changed nothing and left no row.
+    const audit = await managed.db
+      .select({
+        action: rootAuditEvents.action,
+        actorUserId: rootAuditEvents.actorUserId,
+        targetUserId: rootAuditEvents.targetUserId,
+      })
+      .from(rootAuditEvents)
+      .orderBy(asc(rootAuditEvents.occurredAt), asc(rootAuditEvents.action));
+    expect(audit).toEqual([
+      {
+        action: "root.access.grant",
+        actorUserId: null,
+        targetUserId: inserted.id,
+      },
+      {
+        action: "root.access.revoke",
+        actorUserId: null,
+        targetUserId: inserted.id,
+      },
+    ]);
 
     await expect(
       setIdentityRootAccess(managed.db, {

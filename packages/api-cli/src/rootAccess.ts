@@ -1,5 +1,5 @@
-import type { DatabaseSession } from "@tearleads/api-shared/postgres";
-import { users } from "@tearleads/api-shared/schema";
+import type { ApiDatabase } from "@tearleads/api-shared/postgres";
+import { rootAuditEvents, users } from "@tearleads/api-shared/schema";
 import { eq } from "drizzle-orm";
 
 const FINGERPRINT_PATTERN = /^[0-9a-f]{64}$/u;
@@ -32,10 +32,11 @@ export function parseRootAccessArgs(args: readonly string[]): RootAccessArgs {
 
 /**
  * Sets `users.is_root` for the identity registered with `fingerprint`. The
- * flag admits the identity to the API's `/root` operator routes.
+ * flag admits the identity to the API's `/root` operator routes. A change is
+ * recorded in the root audit trail, with no actor, in the same transaction.
  */
 export async function setIdentityRootAccess(
-  executor: DatabaseSession,
+  executor: ApiDatabase,
   input: { readonly fingerprint: string; readonly isRoot: boolean },
 ): Promise<RootAccessResult> {
   const [user] = await executor
@@ -52,10 +53,17 @@ export async function setIdentityRootAccess(
     return { changed: false, userId: user.id };
   }
 
-  await executor
-    .update(users)
-    .set({ isRoot: input.isRoot })
-    .where(eq(users.id, user.id));
+  await executor.transaction(async (tx) => {
+    await tx
+      .update(users)
+      .set({ isRoot: input.isRoot })
+      .where(eq(users.id, user.id));
+    await tx.insert(rootAuditEvents).values({
+      action: input.isRoot ? "root.access.grant" : "root.access.revoke",
+      actorUserId: null,
+      targetUserId: user.id,
+    });
+  });
 
   return { changed: true, userId: user.id };
 }

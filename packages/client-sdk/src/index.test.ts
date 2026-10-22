@@ -220,6 +220,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "isSystemContainerNode",
   "listBlobInfo",
   "listDocumentLinkedContainerIds",
+  "listRootAuditEvents",
   "listRootDataUsageReport",
   "listRootIdentities",
   "listRootIdentityOrganizations",

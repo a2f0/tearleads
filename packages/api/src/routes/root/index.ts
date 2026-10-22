@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
+import { createRootAuditRoute } from "./audit";
 import { createRootDataUsageRoute } from "./dataUsage";
 import { createRootIdentitiesRoute } from "./identities";
 import { createRootOrganizationsRoute } from "./organizations";
@@ -9,7 +10,8 @@ import type { RootRouterDeps } from "./shared";
  * Platform-operator surface for staff and technical support. Every route is
  * gated by `requireAuth` then `requireRoot`; the operations are registered in
  * the protocol registry so the root console reaches them through the typed
- * client, but access is enforced here, never by the client.
+ * client, but access is enforced here, never by the client. Every handler
+ * records a root audit event before it reads anything.
  */
 export function createRootRouter(deps: RootRouterDeps) {
   const rootRouter = new Hono<SessionEnv>();
@@ -19,6 +21,8 @@ export function createRootRouter(deps: RootRouterDeps) {
   rootRouter.route("/", createRootOrganizationsRoute(deps));
 
   rootRouter.route("/", createRootDataUsageRoute(deps));
+
+  rootRouter.route("/", createRootAuditRoute(deps));
 
   return rootRouter;
 }

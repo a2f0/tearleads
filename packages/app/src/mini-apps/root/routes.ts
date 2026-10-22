@@ -6,10 +6,16 @@ export const ROOT_ORGANIZATION_TABS = [
   { id: "data-usage", label: "Data Usage" },
 ] as const;
 export type RootOrganizationTab = (typeof ROOT_ORGANIZATION_TABS)[number]["id"];
-export type RootView = "menu" | "identities" | "organizations" | "reports";
+export type RootView =
+  | "menu"
+  | "identities"
+  | "organizations"
+  | "reports"
+  | "audit";
 export type RootRoute =
   | { readonly view: "menu" }
   | { readonly view: "reports" }
+  | { readonly subjectId: string | null; readonly view: "audit" }
   | {
       readonly userId: string | null;
       readonly view: "identities";
@@ -31,6 +37,7 @@ export const ORGANIZATIONS_ROOT_ROUTE: RootRoute = {
   organizationId: null,
   view: "organizations",
 };
+export const AUDIT_ROOT_ROUTE: RootRoute = { subjectId: null, view: "audit" };
 
 export function parseRootRouteSegments(
   pathSegments: ReadonlyArray<string>,
@@ -50,6 +57,7 @@ export function parseRootRouteSegments(
         : {}),
     };
   if (view === "reports") return { view };
+  if (view === "audit") return { subjectId: id || null, view };
   if (view === "organizations") {
     const tab = ROOT_ORGANIZATION_TABS.find((tab) => tab.id === returnView)?.id;
     return {
@@ -68,6 +76,10 @@ export function formatRootRouteSegments(
 ): ReadonlyArray<string> {
   if (route.view === "menu") return [];
   if (route.view === "reports") return [route.view];
+  if (route.view === "audit")
+    return route.subjectId === null
+      ? [route.view]
+      : [route.view, route.subjectId];
   if (route.view === "organizations")
     return route.organizationId === null
       ? [route.view]
@@ -92,6 +104,7 @@ export function formatRootRouteSegments(
 }
 export function rootRouteForView(view: RootView): RootRoute {
   if (view === "reports") return { view };
+  if (view === "audit") return AUDIT_ROOT_ROUTE;
   if (view === "organizations") return ORGANIZATIONS_ROOT_ROUTE;
   return view === "identities" ? IDENTITIES_ROOT_ROUTE : MENU_ROOT_ROUTE;
 }

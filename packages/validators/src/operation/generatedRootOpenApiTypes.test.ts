@@ -1,6 +1,7 @@
 import { test } from "bun:test";
 import type {
   OrganizationDataUsageResponse,
+  RootAuditEventsResponse,
   RootDataUsageReportResponse,
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
@@ -148,6 +149,23 @@ test("generated Root usage operations preserve the detailed usage contract", () 
         operations["root.organizations.dataUsage.get"]["responses"][200]["content"]["application/json"]
       >,
       NormalizeWireType<OrganizationDataUsageResponse>
+    >
+  >();
+});
+
+test("generated root audit operation matches its wire contract", () => {
+  assertType<
+    IsEqual<
+      paths["/root/audit-events"]["get"],
+      operations["root.auditEvents.list"]
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<
+        operations["root.auditEvents.list"]["responses"][200]["content"]["application/json"]
+      >,
+      NormalizeWireType<RootAuditEventsResponse>
     >
   >();
 });

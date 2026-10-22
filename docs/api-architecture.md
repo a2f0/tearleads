@@ -118,6 +118,7 @@ generated OpenAPI contract):
 | Search and page platform organizations by name or exact ID | `GET /root/organizations` |
 | Read an organization's persisted billing, Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
 | Page an organization's roster identities, including disabled entries | `GET /root/organizations/:organizationId/identities` |
+| Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
 
 These routes run `requireAuth` then `requireRoot`, which admits only identities
 whose `users.is_root` flag is set. The flag is an operational boolean for
@@ -125,6 +126,14 @@ internal staff and technical support, granted and revoked with the API CLI's
 `make-admin` / `revoke-admin` commands; it carries no access-plane keys.
 `users.last_active_at` is written by the session middleware's throttled
 activity path so operators can see when an identity was last seen.
+
+Every root handler records a `root_audit_events` row — actor, operation id,
+target identity or organization, applied filters, and request IP — before it
+reads anything. A request whose row cannot be written fails with a 500 instead
+of being answered unrecorded; requests refused by `requireAuth` or
+`requireRoot` record nothing. The CLI's `make-admin` / `revoke-admin` record
+each change to `users.is_root` in the same table, with no actor, in the
+transaction that changes the flag.
 
 ## Code Layers
 

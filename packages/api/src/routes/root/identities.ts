@@ -21,7 +21,7 @@ import {
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { respondToStatusError } from "../errorResponse";
-import type { RootRouterDeps } from "./shared";
+import { auditRootRequest, type RootRouterDeps } from "./shared";
 
 function toSessionResponse(
   session: UserSessionSummary,
@@ -53,6 +53,10 @@ export function createRootIdentitiesRoute({
     async (c) => {
       try {
         const { cursor, fingerprint, limit } = c.req.valid("query");
+        await auditRootRequest(c, runtime, {
+          action: listRootIdentitiesOperation.id,
+          filters: { fingerprint },
+        });
         return c.json<RootIdentitiesResponse>(
           await listIdentities(runtime, {
             cursor,
@@ -75,6 +79,10 @@ export function createRootIdentitiesRoute({
     async (c) => {
       const { userId } = c.req.valid("param");
       try {
+        await auditRootRequest(c, runtime, {
+          action: getRootIdentityOperation.id,
+          targetUserId: userId,
+        });
         const identity = await getIdentity(runtime, userId);
         // No token belongs to the operator here, so no session is "current".
         const sessions = await listUserSessions({ currentToken: "", userId });
@@ -100,6 +108,10 @@ export function createRootIdentitiesRoute({
     async (c) => {
       const { userId } = c.req.valid("param");
       try {
+        await auditRootRequest(c, runtime, {
+          action: listRootIdentityOrganizationsOperation.id,
+          targetUserId: userId,
+        });
         return c.json<RootIdentityOrganizationsResponse>({
           organizations: await getIdentityOrganizations(runtime, userId),
         });

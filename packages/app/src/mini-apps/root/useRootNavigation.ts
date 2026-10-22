@@ -64,7 +64,13 @@ export function useRootNavigation(
     [route, setRoute],
   );
 
+  const openAudit = useCallback(
+    (subjectId: string) => setRoute({ subjectId, view: "audit" }),
+    [setRoute],
+  );
+
   return {
+    openAudit,
     setView,
     openIdentity,
     closeIdentity,

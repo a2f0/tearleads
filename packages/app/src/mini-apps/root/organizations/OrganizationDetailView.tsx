@@ -28,12 +28,14 @@ export function OrganizationDetailView({
   onTabChange,
   onBack,
   onSelectIdentity,
+  onShowAudit,
 }: {
   organizationId: string;
   activeTab: RootOrganizationTab;
   onTabChange: (tab: RootOrganizationTab) => void;
   onBack: () => void;
   onSelectIdentity: (userId: string) => void;
+  onShowAudit: (subjectId: string) => void;
 }) {
   const tearleads = useTearleads();
   const idPrefix = useId();
@@ -74,6 +76,9 @@ export function OrganizationDetailView({
             {loading ? "Loading..." : "Refresh"}
           </MiniAppButton>
         )}
+        <MiniAppButton onClick={() => onShowAudit(organizationId)}>
+          Audit activity
+        </MiniAppButton>
       </MiniAppToolbar>
       <MiniAppTabList
         activeTab={activeTab}

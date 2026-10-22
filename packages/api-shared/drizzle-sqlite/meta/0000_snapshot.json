@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "4524cc10-0bd9-4f46-b7b7-dbefc7eb29f7",
+  "id": "d3cfa3a8-320b-4504-bbac-585dcc89a5fe",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -4977,6 +4977,94 @@
             "store",
             "outcome"
           ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "root_audit_events": {
+      "name": "root_audit_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_user_id": {
+          "name": "target_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "target_organization_id": {
+          "name": "target_organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "filter": {
+          "name": "filter",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source_ip_address": {
+          "name": "source_ip_address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(cast((julianday('now') - 2440587.5)*86400000 as integer))"
+        }
+      },
+      "indexes": {
+        "root_audit_events_occurred_at_id_idx": {
+          "name": "root_audit_events_occurred_at_id_idx",
+          "columns": ["occurred_at", "id"],
+          "isUnique": false
+        },
+        "root_audit_events_actor_idx": {
+          "name": "root_audit_events_actor_idx",
+          "columns": ["actor_user_id", "occurred_at", "id"],
+          "isUnique": false
+        },
+        "root_audit_events_target_user_idx": {
+          "name": "root_audit_events_target_user_idx",
+          "columns": ["target_user_id", "occurred_at", "id"],
+          "isUnique": false
+        },
+        "root_audit_events_target_organization_idx": {
+          "name": "root_audit_events_target_organization_idx",
+          "columns": ["target_organization_id", "occurred_at", "id"],
           "isUnique": false
         }
       },

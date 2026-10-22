@@ -4,6 +4,7 @@ import type {
   RootIdentityOrganizationsResponse,
 } from "@tearleads/validators/response";
 import { HttpResponse, http } from "msw";
+import { rootAuditHandlers } from "./rootAuditHandlers";
 import { ROOT_TEST_IDENTITIES } from "./rootConsoleFixtures";
 import { rootOrganizationHandlers } from "./rootOrganizationHandlers";
 
@@ -80,4 +81,5 @@ export const rootConsoleHandlers = [
     },
   ),
   ...rootOrganizationHandlers,
+  ...rootAuditHandlers,
 ];

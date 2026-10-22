@@ -284,6 +284,10 @@ export {
   RootIdentityPathParamsSchema,
 } from "./root";
 export {
+  listRootAuditEventsOperation,
+  type RootAuditEventsQuery,
+} from "./rootAudit";
+export {
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
   listRootDataUsageReportOperation,

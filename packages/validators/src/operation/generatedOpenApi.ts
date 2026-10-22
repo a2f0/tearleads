@@ -1057,6 +1057,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/root/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["root.auditEvents.list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/root/identities": {
         parameters: {
             query?: never;
@@ -22645,6 +22661,115 @@ export interface operations {
             };
             /** @description Failure JSON response */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "root.auditEvents.list": {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                subjectId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        events: ({
+                            /** @enum {string} */
+                            action: "root.access.grant" | "root.access.revoke" | "root.auditEvents.list" | "root.identities.get" | "root.identities.list" | "root.identities.organizations.list" | "root.organizations.dataUsage.get" | "root.organizations.get" | "root.organizations.identities.list" | "root.organizations.list" | "root.reports.dataUsage.list";
+                            actorSigningKeyFingerprint: string | null;
+                            actorUserId: string | null;
+                            filter: string | null;
+                            id: string;
+                            occurredAt: string;
+                            sourceIpAddress: string | null;
+                            targetOrganizationId: string | null;
+                            targetUserId: string | null;
+                        } & {
+                            [key: string]: unknown;
+                        })[];
+                        nextCursor: string | null;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
                 headers: {
                     [name: string]: unknown;
                 };

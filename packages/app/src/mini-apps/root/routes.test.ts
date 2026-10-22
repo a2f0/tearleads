@@ -72,3 +72,21 @@ test("identity routes retain Reports only with an organization return path", () 
     userId: "user-1",
   });
 });
+
+test("audit routes keep their subject through URL round trips", () => {
+  expect(parseRootRouteSegments(["audit"])).toEqual({
+    subjectId: null,
+    view: "audit",
+  });
+  expect(parseRootRouteSegments(["audit", "user-1"])).toEqual({
+    subjectId: "user-1",
+    view: "audit",
+  });
+  expect(formatRootRouteSegments({ subjectId: null, view: "audit" })).toEqual([
+    "audit",
+  ]);
+  expect(
+    formatRootRouteSegments({ subjectId: "user-1", view: "audit" }),
+  ).toEqual(["audit", "user-1"]);
+  expect(rootRouteForView("audit")).toEqual({ subjectId: null, view: "audit" });
+});

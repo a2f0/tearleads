@@ -132,7 +132,7 @@ Client capabilities:
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, server-authoritative billing eligibility, and the user's own memberships with per-organization sync pauses (`memberships`; see [organization memberships](../organization-memberships.md)) |
-| `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, detailed billing and the latest 50 billing events), offered only when the session is root |
+| `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, detailed billing and the latest 50 billing events) and the root audit trail, offered only when the session is root |
 | `tearleads.userIdentities` | TOFU `resolve`; `resolvePinned`; identity-link `createLink` / `verifyLink` |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
@@ -153,6 +153,12 @@ and blob breakdown, and `listDataUsageReport({ search, cursor, limit })` for
 paginated usage by organization. Both enforce the same session lifecycle gate
 as other Root lookups. Report rows include zero-usage organizations; each page
 is read on demand and does not represent a frozen platform-wide snapshot.
+
+Root also exposes `listAuditEvents({ subjectId, cursor, limit })`: every
+recorded root lookup and root access change, newest first, optionally only
+those an identity or organization acted in or was the target of. The server
+records each Root request, including this listing, before answering it; an
+event with a null actor came from the API CLI.
 
 Prefer instance services so document and container stores share the active
 database, identity, sync, and subscription scope. Product code should use the
