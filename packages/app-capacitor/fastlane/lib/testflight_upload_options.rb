@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
-require_relative '../lib/native_release_target'
+require_relative 'lane_options'
+
+# TestFlight distribution options for `ios upload_release`. The App Store
+# Connect API key and the upload itself stay in lanes/ios.rb.
 
 def testflight_changelog(options)
   lane_option(options, :changelog, 'TESTFLIGHT_CHANGELOG')
@@ -55,19 +58,7 @@ end
 def require_testflight_distribution_options!(options)
   return unless testflight_distribute_external?(options) && testflight_groups(options).nil?
 
-  UI.user_error!('External TestFlight distribution requires TESTFLIGHT_GROUPS or groups:<name,name>.')
-end
-
-def base_upload_ios_testflight_options(options, release_result)
-  {
-    api_key: app_store_connect_api_key(app_store_connect_api_key_options),
-    app_identifier: NATIVE_APP_IDENTIFIER,
-    distribute_external: testflight_distribute_external?(options),
-    ipa: release_result.fetch(:ipa),
-    skip_submission: testflight_skip_submission?(options),
-    skip_waiting_for_build_processing: testflight_skip_waiting_for_build_processing?(options),
-    uses_non_exempt_encryption: false
-  }
+  FastlaneCore::UI.user_error!('External TestFlight distribution requires TESTFLIGHT_GROUPS or groups:<name,name>.')
 end
 
 def add_optional_testflight_upload_options!(upload_options, options)
@@ -81,12 +72,6 @@ def add_optional_testflight_upload_options!(upload_options, options)
   upload_options
 end
 
-def upload_ios_testflight_options(options, release_result)
-  require_testflight_distribution_options!(options)
-  upload_options = base_upload_ios_testflight_options(options, release_result)
-  add_optional_testflight_upload_options!(upload_options, options)
-end
-
 def upload_ios_testflight_release_result(options, release_result)
   release_result.merge(
     distribute_external: testflight_distribute_external?(options),
@@ -96,19 +81,9 @@ def upload_ios_testflight_release_result(options, release_result)
 end
 
 def record_ios_release_build_number(build_number)
-  UI.success("iOS release build number: #{build_number}")
+  FastlaneCore::UI.success("iOS release build number: #{build_number}")
   output_path = ENV.fetch('IOS_RELEASE_BUILD_NUMBER_FILE', nil)
   return if output_path.to_s.empty?
 
   File.write(output_path, "#{build_number}\n")
-end
-
-platform :ios do
-  desc 'Build signed iOS IPA and upload it to TestFlight'
-  lane :upload_testflight_release do |options|
-    release_result = build_testflight_release(options)
-    upload_to_testflight(upload_ios_testflight_options(options, release_result))
-    record_ios_release_build_number(release_result.fetch(:build_number))
-    upload_ios_testflight_release_result(options, release_result)
-  end
 end

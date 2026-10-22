@@ -8,7 +8,7 @@
 # the "webpage at 10.0.1.10:8085 is not available" failure into the installed
 # app. The `:-` defaults in the callers intentionally keep an explicitly-exported
 # public URL but must not pass a dev one through. A LAN-pointed release for local
-# testing belongs in `android:sideload:release`, not a store release; the dev
+# testing belongs in `android:install-release`, not a store release; the dev
 # run-on-device scripts (runAndroid.sh, runIos.sh) deliberately do not source
 # this and keep their emulator/localhost defaults.
 reject_dev_only_url() {

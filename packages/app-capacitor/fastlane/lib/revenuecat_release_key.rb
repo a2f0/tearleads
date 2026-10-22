@@ -52,5 +52,5 @@ def ensure_revenuecat_store_key!(
   )
   return if problem.nil?
 
-  UI.user_error!(revenuecat_store_key_error_message(env_name, problem))
+  FastlaneCore::UI.user_error!(revenuecat_store_key_error_message(env_name, problem))
 end

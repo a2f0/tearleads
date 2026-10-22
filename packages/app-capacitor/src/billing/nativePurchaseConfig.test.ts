@@ -232,7 +232,10 @@ test("Android staging inherits the production release signing variant", async ()
   // The keystore comes from the selected tier's secrets folder.
   expect(gradle).toContain('[production: "prod", staging: "staging"][tier]');
   expect(gradle).toMatch(
-    /rootProject\.file\("\.\.\/\.\.\/\.\.\/\.secrets\/\$\{secretsTier\}\/tearleads-release\.keystore"\)/,
+    /rootProject\.file\("\.\.\/\.\.\/\.\.\/\.secrets\/\$\{secretsTier\}"\)/,
+  );
+  expect(gradle).toContain(
+    'new File(releaseSecretsDir(), "tearleads-upload.keystore")',
   );
   expect(effectiveAndroidApplicationId(gradle, "debug")).toBe(
     "com.tearleads.app",
@@ -389,26 +392,28 @@ test("Fastlane selects store identities from one shared release target", async (
     expect(scripts[scriptName]).toContain("NATIVE_RELEASE_TIER=production");
   }
   for (const scriptName of [
-    "android:build:debug",
-    "android:build:google-play",
-    "android:build:release",
+    "android:build-debug-apk",
+    "android:build-release",
+    "android:build-release-apk",
+    "android:install-debug",
+    "android:install-release",
     "android:sideload",
-    "android:sideload:debug",
-    "android:sideload:release",
-    "android:upload:google-play",
-    "ios:build:testflight",
-    "ios:fetch:appstore-profile",
-    "ios:upload:testflight",
+    "android:upload-release",
+    "ios:build-release",
+    "ios:fetch-profiles",
+    "ios:profiles",
+    "ios:upload-release",
     "store:build-numbers",
   ]) {
     expect(scripts[scriptName]).toContain("NATIVE_RELEASE_TIER=production");
   }
   for (const scriptName of [
-    "android:build:google-play:staging",
-    "android:upload:google-play:staging",
-    "ios:build:testflight:staging",
-    "ios:fetch:appstore-profile:staging",
-    "ios:upload:testflight:staging",
+    "android:build-release:staging",
+    "android:upload-release:staging",
+    "ios:build-release:staging",
+    "ios:fetch-profiles:staging",
+    "ios:profiles:staging",
+    "ios:upload-release:staging",
     "store:build-numbers:staging",
   ]) {
     expect(scripts[scriptName]).toContain("NATIVE_RELEASE_TIER=staging");

@@ -2,8 +2,11 @@
 
 require 'shellwords'
 require_relative '../lib/ios_signing_keychain'
+require_relative '../lib/lane_options'
+require_relative '../lib/merged_release_pr'
 require_relative '../lib/native_release_target'
 require_relative '../lib/swift_package_pins'
+require_relative '../lib/testflight_upload_options'
 
 IOS_PACKAGE_DIR = File.expand_path('../..', __dir__)
 IOS_DIR = File.expand_path('../../ios', __dir__)
@@ -60,7 +63,7 @@ end
 
 def explicit_ios_release_build_number(options)
   value = lane_option(options, :build_number, 'IOS_BUILD_NUMBER')
-  value ||= lane_option(options, :apple_build_number, 'APPLE_BUILD_NUMBER')
+  value ||= env_option('APPLE_BUILD_NUMBER')
   return nil if value.nil?
 
   positive_release_integer(value, 'iOS release build number')
@@ -71,8 +74,7 @@ def next_testflight_build_number_requested?(options)
 end
 
 def explicit_ios_release_version(options)
-  lane_option(options, :version, 'IOS_VERSION') ||
-    lane_option(options, :apple_version, 'APP_STORE_VERSION')
+  lane_option(options, :version, 'IOS_VERSION') || env_option('APP_STORE_VERSION')
 end
 
 def ios_release_version(options)
@@ -179,7 +181,7 @@ def next_ios_release_build_number(options)
   next_testflight_requested = next_testflight_build_number_requested?(options)
 
   if !explicit_build_number.nil? && next_testflight_requested
-    UI.user_error!('Use either build_number/apple_build_number or next_testflight:true, not both.')
+    UI.user_error!('Use either build_number or next_testflight:true, not both.')
   end
 
   return ios_release_build_hash(explicit_build_number, nil, nil, version) unless explicit_build_number.nil?
@@ -194,10 +196,10 @@ end
 # ships.
 def ios_team_id(options)
   lane_option(options, :team_id, 'IOS_TEAM_ID') ||
-    lane_option(options, :apple_team_id, 'APPLE_TEAM_ID') ||
-    lane_option(options, :development_team, 'DEVELOPMENT_TEAM') ||
-    lane_option(options, :fastlane_team_id, 'FASTLANE_TEAM_ID') ||
-    lane_option(options, :root_team_id, 'TEAM_ID')
+    env_option('APPLE_TEAM_ID') ||
+    env_option('DEVELOPMENT_TEAM') ||
+    env_option('FASTLANE_TEAM_ID') ||
+    env_option('TEAM_ID')
 end
 
 def require_ios_team_id!(options)
@@ -252,10 +254,9 @@ def configure_ios_manual_signing!(profile_name, team_id)
 end
 
 # Install the App Store distribution certificate and provisioning profile from
-# the match git repo. readonly: true so it only fetches existing assets and
-# never creates or mutates portal state (the App Store Connect API key is a
-# Developer-role key without cloud-signing permission). Returns the installed
-# profile name to pin manual signing to.
+# the match git repo. readonly: true so a build only fetches existing assets and
+# never creates or mutates portal state; the profiles lane makes them. Returns
+# the installed profile name to pin manual signing to.
 def install_ios_appstore_signing_assets!
   match(
     type: 'appstore',
@@ -317,17 +318,54 @@ def ios_testflight_release_result(release_build, ipa_path, assets)
   }
 end
 
+def base_upload_ios_testflight_options(options, release_result)
+  {
+    api_key: app_store_connect_api_key(app_store_connect_api_key_options),
+    app_identifier: NATIVE_APP_IDENTIFIER,
+    distribute_external: testflight_distribute_external?(options),
+    ipa: release_result.fetch(:ipa),
+    skip_submission: testflight_skip_submission?(options),
+    skip_waiting_for_build_processing: testflight_skip_waiting_for_build_processing?(options),
+    uses_non_exempt_encryption: false
+  }
+end
+
+def upload_ios_testflight_options(options, release_result)
+  require_testflight_distribution_options!(options)
+  upload_options = base_upload_ios_testflight_options(options, release_result)
+  add_optional_testflight_upload_options!(upload_options, options)
+end
+
 platform :ios do
-  desc 'Install the App Store distribution cert and provisioning profile via match'
-  lane :fetch_appstore_profile do
+  desc 'Install the match App Store profiles read-only'
+  lane :fetch_profiles do
     load_ios_release_secrets_env
     profile_name = install_ios_appstore_signing_assets!
     UI.success("Installed App Store provisioning profile: #{profile_name}")
     profile_name
   end
 
-  desc 'Build signed iOS IPA for TestFlight'
-  lane :build_testflight_release do |options|
+  # Creates the tier's App Store profile in the match repo with the App Store
+  # Connect API key, reusing the team's distribution certificate there, or
+  # renews one that is missing or no longer valid. force:true regenerates it,
+  # as after the bundle ID's capabilities or the certificate change.
+  desc 'Create or renew the match App Store profiles (force:true regenerates them)'
+  lane :profiles do |options|
+    load_ios_release_secrets_env
+    with_ios_signing_keychain do
+      # readonly: false overrides the MATCH_READONLY the signing keychain sets.
+      match(
+        type: 'appstore',
+        app_identifier: NATIVE_APP_IDENTIFIER,
+        api_key: app_store_connect_api_key(app_store_connect_api_key_options),
+        readonly: false,
+        force: lane_boolean_option(options, :force, 'MATCH_FORCE', false)
+      )
+    end
+  end
+
+  desc 'Build a signed App Store IPA without uploading it (build_number:)'
+  lane :build_release do |options|
     load_ios_release_secrets_env
     ensure_revenuecat_store_key!(
       'VITE_REVENUECAT_IOS_API_KEY',
@@ -372,5 +410,13 @@ platform :ios do
     assets = require_ios_testflight_assets!(ipa_path)
     print_ios_testflight_assets(assets)
     ios_testflight_release_result(release_build, ipa_path, assets)
+  end
+
+  desc 'Run build_release, then upload to TestFlight (build_number:)'
+  lane :upload_release do |options|
+    release_result = build_release(options)
+    upload_to_testflight(upload_ios_testflight_options(options, release_result))
+    record_ios_release_build_number(release_result.fetch(:build_number))
+    upload_ios_testflight_release_result(options, release_result)
   end
 end

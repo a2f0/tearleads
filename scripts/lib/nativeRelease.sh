@@ -31,10 +31,10 @@ Environment:
   VITE_API_BASE_URL  API URL inlined into the Capacitor bundle.
                      Defaults to ${native_default_api}.
 
-Store credentials and signing values are loaded by Fastlane from the tier's
-secrets folder (.secrets/prod or .secrets/staging): its shared.env, plus only
-the native RevenueCat client keys from staging's app.env. Explicitly exported
-environment variables take precedence.
+Fastlane loads the tier's secrets folder (.secrets/prod or .secrets/staging, or
+NATIVE_RELEASE_SECRETS_DIR): shared.env, then app.env, importing only store
+credentials, signing passwords, and the tier's allowlisted Vite client
+settings. Explicitly exported environment variables take precedence.
 
 When the platform/tier Sentry DSN is configured, the build uploads JavaScript
 source maps before native packaging. Maps and the private SENTRY_AUTH_TOKEN are
@@ -63,9 +63,8 @@ EOF
     cat <<'EOF'
 
 Android options:
-  version_code:<number>       Alias for an explicit build number.
   next_google_play:true       Use the latest Play version code plus one.
-  google_track:<track>        Upload track; defaults to internal.
+  track:<track>               Upload track; defaults to internal.
   release_status:<status>     Upload release status; defaults to completed.
   validate_only:true          Validate the upload without publishing.
 
@@ -76,7 +75,6 @@ EOF
     cat <<'EOF'
 
 iOS options:
-  apple_build_number:<number> Alias for an explicit build number.
   next_testflight:true        Use the latest TestFlight build number plus one.
   changelog:<text>            Set the TestFlight What to Test notes.
   distribute_external:true    Distribute to external testers.
@@ -200,8 +198,8 @@ native_release_build_number_chosen() {
 
   for native_arg in "$@"; do
     case "$native_platform:$native_arg" in
-      android:build_number:* | android:version_code:* | android:next_google_play:* | android:merged_pr_number:* | android:pr_number:* | android:merged_date:* | \
-        ios:build_number:* | ios:apple_build_number:* | ios:next_testflight:* | ios:merged_pr_number:* | ios:pr_number:* | ios:merged_date:*)
+      android:build_number:* | android:next_google_play:* | android:merged_pr_number:* | android:merged_date:* | \
+        ios:build_number:* | ios:next_testflight:* | ios:merged_pr_number:* | ios:merged_date:*)
         return 0
         ;;
     esac
@@ -219,19 +217,16 @@ native_release_bun_command() {
     native_command_suffix=":staging"
   fi
 
-  if [ "$native_platform" = android ]; then
-    if [ "$native_action" = upload ]; then
-      printf '%s%s\n' android:upload:google-play "$native_command_suffix"
-    else
-      printf '%s%s\n' android:build:google-play "$native_command_suffix"
-    fi
-  else
-    if [ "$native_action" = upload ]; then
-      printf '%s%s\n' ios:upload:testflight "$native_command_suffix"
-    else
-      printf '%s%s\n' ios:build:testflight "$native_command_suffix"
-    fi
-  fi
+  # Package scripts are named <platform>:<lane in kebab case>[:staging].
+  case "$native_platform:$native_action" in
+    android:build | android:upload | ios:build | ios:upload)
+      printf '%s:%s-release%s\n' "$native_platform" "$native_action" "$native_command_suffix"
+      ;;
+    *)
+      echo "Error: invalid native release target $native_platform:$native_action" >&2
+      return 1
+      ;;
+  esac
 }
 
 native_release_run_upload() {
