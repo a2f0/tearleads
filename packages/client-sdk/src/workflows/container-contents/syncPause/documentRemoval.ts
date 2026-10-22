@@ -78,19 +78,23 @@ async function deleteContainersInBatches(
   return deleted;
 }
 
-class DocumentEditedDuringRemoval extends Error {}
+class DocumentRemovalNotCurrent extends Error {}
 
 /**
- * Deletes one document unless a store queues a write for it before the
- * deletion commits. The check runs as a commit guard, in the same synchronous
- * slice as the COMMIT, so an edit queued while the rows were being deleted
- * rolls the deletion back instead of persisting into a missing row.
+ * Deletes one document unless the removal stopped being current or a store
+ * queued a write for it. The check runs as a commit guard, in the same
+ * synchronous slice as the COMMIT, so an edit queued while the rows were being
+ * deleted rolls the deletion back. When it passes, the document's store is
+ * retired in that same slice, so an open editor turns read-only before the
+ * deletion commits and no later edit can be accepted and lost.
  */
 async function deleteDocumentUnlessEdited(input: {
   readonly documentProjectors: ContainerContentsWorkflowRuntimeInfra["documentProjectors"];
   readonly execSql: ExecSql;
   readonly hasQueuedWrites: (localId: string) => boolean;
   readonly localId: string;
+  readonly retireDocument: (localId: string) => void;
+  readonly stillCurrent: () => boolean;
 }): Promise<boolean> {
   const expectedRecord = await defaultDocumentsPersistence.loadDocument(
     input.execSql,
@@ -101,9 +105,10 @@ async function deleteDocumentUnlessEdited(input: {
     return await deletePersistedDocument({
       beforeDeleteInTransaction: async (transactionExecSql) => {
         registerClientSQLiteCommitGuard(transactionExecSql, () => {
-          if (input.hasQueuedWrites(input.localId)) {
-            throw new DocumentEditedDuringRemoval();
+          if (!input.stillCurrent() || input.hasQueuedWrites(input.localId)) {
+            throw new DocumentRemovalNotCurrent();
           }
+          input.retireDocument(input.localId);
         });
       },
       documentProjectors: input.documentProjectors,
@@ -113,7 +118,7 @@ async function deleteDocumentUnlessEdited(input: {
       persistence: defaultDocumentsPersistence,
     });
   } catch (error) {
-    if (error instanceof DocumentEditedDuringRemoval) return false;
+    if (error instanceof DocumentRemovalNotCurrent) return false;
     throw error;
   }
 }
@@ -130,7 +135,7 @@ async function deleteDocumentUnlessEdited(input: {
  * persist as pending writes and upload, and a later pass removes the rest.
  * The containers go first, under `stillCurrent`; documents are deleted only
  * after every container was, each under a commit guard against an edit
- * queued meanwhile. A document edited mid-removal stays as a detached local
+ * queued meanwhile or the removal no longer applying. A document edited mid-removal stays as a detached local
  * copy, like any document whose container this device lost. Documents that
  * were already detached are never touched: they may be the only copy of work
  * a recovery still needs.
@@ -146,6 +151,10 @@ export async function removeOrganizationContentUnlessPending(input: {
   /** Whether an open store holds writes for the document not yet in SQLite. */
   readonly hasQueuedWrites: (localId: string) => boolean;
   readonly organizationId: string;
+  /** Retires a deleted document's store; see deleteDocumentUnlessEdited. */
+  readonly retireDocument: (localId: string) => void;
+  /** Whether the removal still applies, e.g. the session did not switch in. */
+  readonly stillCurrent: () => boolean;
 }): Promise<OrganizationContentRemoval> {
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
     const containerIds = new Set(input.containerIds);
@@ -184,12 +193,15 @@ export async function removeOrganizationContentUnlessPending(input: {
       return { deletedContainerIds, deletedLocalIds, status: "interrupted" };
     }
     for (const localId of localIds) {
+      if (!input.stillCurrent()) break;
       if (
         await deleteDocumentUnlessEdited({
           documentProjectors: input.documentProjectors,
           execSql: lockedExecSql,
           hasQueuedWrites: input.hasQueuedWrites,
           localId,
+          retireDocument: input.retireDocument,
+          stillCurrent: input.stillCurrent,
         })
       ) {
         deletedLocalIds.push(localId);

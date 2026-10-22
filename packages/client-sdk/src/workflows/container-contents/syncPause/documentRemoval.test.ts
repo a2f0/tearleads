@@ -119,6 +119,8 @@ function remove(
     execSql,
     hasQueuedWrites: (localId) => options.queuedEdits?.has(localId) ?? false,
     organizationId: "org-paused",
+    retireDocument: () => undefined,
+    stillCurrent: () => true,
   });
 }
 
@@ -216,6 +218,10 @@ function removeWithRealDeletion(
   execSql: ExecSql,
   containerIds: readonly string[],
   hasQueuedWrites: (localId: string) => boolean = () => false,
+  session: {
+    readonly retireDocument?: (localId: string) => void;
+    readonly stillCurrent?: () => boolean;
+  } = {},
 ) {
   return removeOrganizationContentUnlessPending({
     containerIds,
@@ -225,8 +231,76 @@ function removeWithRealDeletion(
     execSql,
     hasQueuedWrites,
     organizationId: "org-paused",
+    retireDocument: session.retireDocument ?? (() => undefined),
+    stillCurrent: session.stillCurrent ?? (() => true),
   });
 }
+
+test("each document's store retires as its deletion commits, before the next", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    for (const localId of ["first", "second"]) {
+      await placedDocument(execSql, { localId, snapshotEndVersion: synced });
+    }
+    const events: string[] = [];
+
+    const removal = await removeWithRealDeletion(
+      execSql,
+      ["folder"],
+      (localId) => {
+        events.push(`check:${localId}`);
+        return false;
+      },
+      { retireDocument: (localId) => events.push(`retire:${localId}`) },
+    );
+
+    expect(removal.status).toBe("removed");
+    // After the up-front scan, each document is checked and its store retired
+    // at guard registration and again at its COMMIT, before the next starts:
+    // an open editor turns read-only before its document's deletion commits.
+    expect(events.slice(2)).toEqual([
+      "check:first",
+      "retire:first",
+      "check:first",
+      "retire:first",
+      "check:second",
+      "retire:second",
+      "check:second",
+      "retire:second",
+    ]);
+  });
+});
+
+test("switching into the organization mid-removal keeps its documents", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    await placedDocument(execSql, {
+      localId: "workspace-note",
+      snapshotEndVersion: synced,
+    });
+    let current = true;
+    const retired: string[] = [];
+
+    const removal = await removeWithRealDeletion(
+      execSql,
+      ["folder"],
+      () => false,
+      {
+        retireDocument: (localId) => retired.push(localId),
+        // The session switches into the organization once the containers go.
+        stillCurrent: () => {
+          const wasCurrent = current;
+          current = false;
+          return wasCurrent;
+        },
+      },
+    );
+
+    expect(removal.status).toBe("interrupted");
+    expect(retired).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "workspace-note"),
+    ).not.toBeNull();
+  });
+});
 
 test("an edit queued while a document's rows are deleted rolls the deletion back", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
@@ -360,6 +434,8 @@ test("a large organization is removed within SQLite's bind budget", async () => 
       execSql: boundedExecSql,
       hasQueuedWrites: () => false,
       organizationId: "org-paused",
+      retireDocument: () => undefined,
+      stillCurrent: () => true,
     });
 
     expect(removal.status).toBe("removed");

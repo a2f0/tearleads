@@ -74,14 +74,17 @@ field, row, attachment, and rotation write from the call until it persists,
 and the removal refuses while any of the organization's documents has one.
 
 The removal deletes the containers first and documents only after them. Each
-document's deletion carries a commit guard that re-checks its store in the
-same synchronous slice as the COMMIT, so an edit queued while the rows were
-being deleted rolls that deletion back; the document stays as a detached
-local copy, like any document whose container the device lost. Documents
+document's deletion carries a commit guard that runs in the same synchronous
+slice as its COMMIT: an edit queued while the rows were being deleted, or the
+session switching into the organization, rolls that deletion back, and the
+document stays as a detached local copy, like any document whose container
+the device lost. When the guard passes, it retires the document's store in
+that same slice, so an open editor turns read-only before the deletion
+commits. Documents
 already detached before the pause are never removed, since one may be the
-only copy a recovery still needs. A store whose document was removed is
-retired: its sync lane stops and an editor holding it sees a read-only
-stand-in, so nothing recreates or downloads the document. Reopening keeps the
+only copy a recovery still needs. A retired store's sync lane stops and an
+editor holding it sees a read-only stand-in, so nothing recreates or
+downloads the document. Reopening keeps the
 stand-in while the organization stays paused; after a resume, the next open
 rebinds it to a fresh backing store that loads whatever SQLite holds. A device
 with pending or queued writes keeps them syncing out and retries the removal

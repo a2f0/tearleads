@@ -57,6 +57,7 @@ async function forgetOrganizationContent(
   const stillCurrent = () =>
     isCurrent() && state.runtime.auth.organizationId !== organizationId;
   await state.persistence.ensureSchema(execSql);
+  const pauses = getOrCreateOrganizationSyncPauses(domainScope);
   const removal = await removeOrganizationContentUnlessPending({
     containerIds,
     deleteContainers: (lockedExecSql, removals) =>
@@ -68,12 +69,13 @@ async function forgetOrganizationContent(
     hasQueuedWrites: (localId) =>
       hasQueuedDocumentStoreWrites(domainScope, localId),
     organizationId,
+    retireDocument: (localId) =>
+      retireDocumentStore(domainScope, localId, () =>
+        pauses.isOrganizationPaused(organizationId),
+      ),
+    stillCurrent,
   });
-  const pauses = getOrCreateOrganizationSyncPauses(domainScope);
   for (const localId of removal.deletedLocalIds) {
-    retireDocumentStore(domainScope, localId, () =>
-      pauses.isOrganizationPaused(organizationId),
-    );
     emitPersistedDocumentDeletion(domainScope, localId);
   }
   if (removal.deletedLocalIds.length > 0) {

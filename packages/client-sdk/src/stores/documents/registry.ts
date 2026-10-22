@@ -376,7 +376,7 @@ export function retireDocumentStore(
   const registry = documentStoreRegistriesByScope.get(domainScope);
   const storeKey = registry?.storeKeysByLocalId.get(localId) ?? localId;
   const store = registry?.storesByKey.get(storeKey);
-  if (!registry || !store) return;
+  if (!registry || !store || registry.retiredStores.has(storeKey)) return;
   registry.retireHandlersByLocalId.get(localId)?.();
   store.rebindTo(createRemovedDocumentStore(store.getSnapshot()));
   registry.retiredStores.set(storeKey, stillRemoved);
