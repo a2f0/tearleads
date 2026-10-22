@@ -22690,6 +22690,8 @@ export interface operations {
                 cursor?: string;
                 fingerprint?: string;
                 limit?: number;
+                rootOnly?: boolean;
+                userId?: string;
             };
             header?: never;
             path?: never;

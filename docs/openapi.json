@@ -63697,7 +63697,7 @@
             "required": false,
             "schema": {
               "maxLength": 64,
-              "minLength": 64,
+              "minLength": 8,
               "pattern": "^[0-9a-f]+$",
               "type": "string"
             },
@@ -63712,6 +63712,27 @@
               "maximum": 200,
               "minimum": 1,
               "type": "integer"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "rootOnly",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "userId",
+            "required": false,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
             },
             "style": "form"
           }

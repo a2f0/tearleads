@@ -145,6 +145,70 @@ test("the root console lists identities and opens their detail", async () => {
   }
 });
 
+test("identity search takes a user ID or fingerprint prefix and a root-only toggle", async () => {
+  const { restore, view } = await renderRootWithSession(true);
+  try {
+    fireEvent.click(view.getByRole("button", { name: "Identities" }));
+    const table = await waitFor(() =>
+      view.getByRole("table", { name: "Identities" }),
+    );
+    const body = table.querySelector("tbody");
+    if (!body) throw new Error("Expected an identities table body.");
+    const rowCount = () => within(body).getAllByRole("row").length;
+    await waitFor(() => expect(rowCount()).toBe(2));
+    const [rootIdentity, memberIdentity] = ROOT_TEST_IDENTITIES;
+    if (!rootIdentity || !memberIdentity) {
+      throw new Error("Expected root test identities.");
+    }
+    const search = (value: string) => {
+      fireEvent.change(
+        view.getByRole("textbox", { name: "Search identities" }),
+        {
+          target: { value },
+        },
+      );
+      fireEvent.click(view.getByRole("button", { name: "Search" }));
+    };
+
+    // A loading listing also renders one placeholder row, so each search
+    // waits for the expected identities rather than for a row count.
+    const expectOnly = async (expected: ReadonlyArray<string>) => {
+      await waitFor(() => {
+        for (const identity of ROOT_TEST_IDENTITIES) {
+          const row = within(body).queryByTitle(identity.signingKeyFingerprint);
+          expect(row === null).toBe(
+            !expected.includes(identity.signingKeyFingerprint),
+          );
+        }
+      });
+    };
+
+    // Too short to be a prefix: the listing stays put and a hint explains why.
+    search("bbbb");
+    expect(view.getByText(/at least 8 hex characters/)).toBeTruthy();
+    expect(rowCount()).toBe(2);
+
+    search(
+      ` ${memberIdentity.signingKeyFingerprint.slice(0, 8).toUpperCase()} `,
+    );
+    await expectOnly([memberIdentity.signingKeyFingerprint]);
+    expect(view.queryByText(/at least 8 hex characters/)).toBeNull();
+
+    search(rootIdentity.userId);
+    await expectOnly([rootIdentity.signingKeyFingerprint]);
+
+    search("");
+    await expectOnly([
+      rootIdentity.signingKeyFingerprint,
+      memberIdentity.signingKeyFingerprint,
+    ]);
+    fireEvent.click(view.getByRole("checkbox", { name: "Root only" }));
+    await expectOnly([rootIdentity.signingKeyFingerprint]);
+  } finally {
+    restore();
+  }
+});
+
 test("operators browse organizations, inspect invoices, and traverse both directions", async () => {
   const { restore, view } = await renderRootWithSession(true);
   try {

@@ -1,6 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
-import { and, desc, eq, type SQL, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, type SQL, sql } from "drizzle-orm";
 import {
   type RootIdentitySummary,
   rootIdentitySelection,
@@ -10,8 +10,11 @@ import {
 interface ListRootIdentitiesInput {
   /** Return identities registered strictly before this user, newest first. */
   readonly afterUserId?: string | undefined;
-  readonly fingerprint?: string | undefined;
+  /** Lowercase hex; the full fingerprint matches exactly one identity. */
+  readonly fingerprintPrefix?: string | undefined;
   readonly limit: number;
+  readonly rootOnly: boolean;
+  readonly userId?: string | undefined;
 }
 
 interface ListRootIdentitiesResult {
@@ -28,13 +31,30 @@ function afterUserCondition(afterUserId: string): SQL {
   return sql`(${users.createdAt} < ${cursorCreatedAt} or (${users.createdAt} = ${cursorCreatedAt} and ${users.id} < ${afterUserId}))`;
 }
 
+// Fingerprints are lowercase hex, and "g" sorts after every hex digit, so the
+// half-open range [prefix, prefix + "g") holds exactly the fingerprints that
+// start with the prefix. Unlike LIKE, a range scan can use the fingerprint's
+// unique btree under any collation.
+function fingerprintPrefixConditions(prefix: string): SQL[] {
+  return [gte(users.fingerprint, prefix), lt(users.fingerprint, `${prefix}g`)];
+}
+
 export async function listRootIdentities(
   executor: DatabaseSession,
   input: ListRootIdentitiesInput,
 ): Promise<ListRootIdentitiesResult> {
   const conditions: SQL[] = [];
-  if (input.fingerprint !== undefined) {
-    conditions.push(eq(users.fingerprint, input.fingerprint));
+  if (input.fingerprintPrefix !== undefined) {
+    conditions.push(...fingerprintPrefixConditions(input.fingerprintPrefix));
+  }
+  if (input.userId !== undefined) {
+    conditions.push(eq(users.id, input.userId));
+  }
+  if (input.rootOnly) {
+    // The bare column repeats the partial index predicate of
+    // `users_root_created_at_id_idx` exactly. SQLite matches partial index
+    // predicates syntactically, so `is_root = ?` would not select it.
+    conditions.push(sql`${users.isRoot}`);
   }
   if (input.afterUserId !== undefined) {
     conditions.push(afterUserCondition(input.afterUserId));
