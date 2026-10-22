@@ -421,9 +421,9 @@ export function createReconciliationService(
         listContainerIds: host.listAutomaticRootCatchupContainerIds,
         scope: "root",
       }),
-    reconcileNow: () =>
+    reconcileNow: (options) =>
       requestContainerRefresh({
-        freshListing: false,
+        freshListing: options?.freshListing === true,
         host,
         state,
         refreshTree: host.refreshTree,

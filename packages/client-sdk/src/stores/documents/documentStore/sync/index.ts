@@ -7,7 +7,10 @@ import {
   registerDocumentSyncLane,
   resolveDocumentCreateAuthor,
 } from "../../../../workflows/documents";
-import { requestDocumentStoreSync } from "../../registry";
+import {
+  onDocumentStoreRetired,
+  requestDocumentStoreSync,
+} from "../../registry";
 import { awaitInitializationForSync } from "../initialization";
 import { listPendingUpdates } from "../persistence";
 import {
@@ -36,6 +39,7 @@ import {
   captureDocumentStoreSyncGeneration,
   type DocumentStoreSyncGeneration,
   type DocumentStoreSyncLaneGeneration,
+  invalidateDocumentStoreSyncLane,
   isDocumentStoreRemoteSyncBlocked,
   isDocumentStoreSyncGenerationCurrent,
   isDocumentStoreSyncLaneGenerationCurrent,
@@ -445,6 +449,11 @@ export function registerDocumentStoreSyncLane(
   state: DocumentStoreState,
   getSyncLaneGeneration: () => DocumentStoreSyncLaneGeneration | null,
 ): DocumentSyncLane {
+  // Retiring the store (its document removed under it) ends this lane's
+  // current and in-flight work; a replacement store registers its own.
+  onDocumentStoreRetired(state.runtime.state.domainScope, state.localId, () =>
+    invalidateDocumentStoreSyncLane(state),
+  );
   return registerDocumentSyncLane({
     domainScope: state.runtime.state.domainScope,
     localId: state.localId,

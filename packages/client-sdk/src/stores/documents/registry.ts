@@ -3,6 +3,7 @@ import {
   registerInternalDocumentRelink,
   relinkDocumentStoreWithCommitSideEffect,
 } from "./documentStore/internalRelink";
+import { createRemovedDocumentStore } from "./removedDocumentStore";
 import type {
   DocumentAttachmentUpload,
   DocumentStore,
@@ -12,8 +13,13 @@ import type {
 } from "./types";
 
 interface DocumentStoreRegistry {
-  /** Stores whose document was removed under them; see retireDocumentStore. */
-  retiredStoreKeys: Set<string>;
+  /** Each backing store's way to stop its sync lane, by local id. */
+  retireHandlersByLocalId: Map<string, () => void>;
+  /**
+   * Stores whose document was removed under them, each with whether its
+   * removal still holds; see retireDocumentStore.
+   */
+  retiredStores: Map<string, () => boolean>;
   storeKeysByDocumentId: Map<string, string>;
   storeKeysByLocalId: Map<string, string>;
   storesByKey: Map<string, DocumentStoreFacade>;
@@ -74,7 +80,8 @@ export function getOrCreateDocumentStoreRegistry(
   }
 
   const nextRegistry: DocumentStoreRegistry = {
-    retiredStoreKeys: new Set(),
+    retireHandlersByLocalId: new Map(),
+    retiredStores: new Map(),
     storeKeysByDocumentId: new Map(),
     storeKeysByLocalId: new Map(),
     storesByKey: new Map(),
@@ -173,7 +180,7 @@ export function requestRegisteredDocumentRemoteSync(
 
   const storeKey = resolveDocumentStoreKey(registry, localId, documentId);
   const store = registry.storesByKey.get(storeKey);
-  if (!store || registry.retiredStoreKeys.has(storeKey)) {
+  if (!store || registry.retiredStores.has(storeKey)) {
     return false;
   }
 
@@ -337,35 +344,54 @@ export function requestDomainDocumentSync(domainScope: DomainScope): void {
   }
 
   for (const [storeKey, store] of registry.storesByKey) {
-    if (!registry.retiredStoreKeys.has(storeKey)) store.requestSync();
+    if (!registry.retiredStores.has(storeKey)) store.requestSync();
   }
 }
 
+/** Lets the backing store for `localId` stop its sync lane when retired. */
+export function onDocumentStoreRetired(
+  domainScope: DomainScope,
+  localId: string,
+  stopSyncLane: () => void,
+): void {
+  getOrCreateDocumentStoreRegistry(domainScope).retireHandlersByLocalId.set(
+    localId,
+    stopSyncLane,
+  );
+}
+
 /**
- * Marks a store whose document a paused organization's cleanup removed. The
- * store stays registered, holding the removed copy in memory, so registry
- * syncs skip it and the next open rebinds it to a fresh backing store that
+ * Retires the store of a document a paused organization's cleanup removed.
+ * Its backing store's sync lane stops and the facade an editor may hold
+ * switches to a read-only stand-in, so nothing recreates or downloads the
+ * document. While `stillRemoved()` holds, reopening returns the stand-in;
+ * after that, the next open rebinds the facade to a fresh backing store that
  * loads whatever SQLite holds by then, such as a copy rediscovered on resume.
  */
 export function retireDocumentStore(
   domainScope: DomainScope,
   localId: string,
+  stillRemoved: () => boolean,
 ): void {
   const registry = documentStoreRegistriesByScope.get(domainScope);
   const storeKey = registry?.storeKeysByLocalId.get(localId) ?? localId;
-  if (registry?.storesByKey.has(storeKey)) {
-    registry.retiredStoreKeys.add(storeKey);
-  }
+  const store = registry?.storesByKey.get(storeKey);
+  if (!registry || !store) return;
+  registry.retireHandlersByLocalId.get(localId)?.();
+  store.rebindTo(createRemovedDocumentStore(store.getSnapshot()));
+  registry.retiredStores.set(storeKey, stillRemoved);
 }
 
-/** The registered store for a key, rebound to `createFresh()` if retired. */
+/** The registered store for a key, rebound once its removal has lifted. */
 export function takeRegisteredDocumentStore(
   registry: DocumentStoreRegistry,
   storeKey: string,
   createFresh: () => DocumentStore,
 ): DocumentStoreFacade | undefined {
   const store = registry.storesByKey.get(storeKey);
-  if (store && registry.retiredStoreKeys.delete(storeKey)) {
+  const stillRemoved = registry.retiredStores.get(storeKey);
+  if (store && stillRemoved && !stillRemoved()) {
+    registry.retiredStores.delete(storeKey);
     store.rebindTo(createFresh());
   }
   return store;

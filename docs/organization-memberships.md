@@ -79,9 +79,11 @@ same synchronous slice as the COMMIT, so an edit queued while the rows were
 being deleted rolls that deletion back; the document stays as a detached
 local copy, like any document whose container the device lost. Documents
 already detached before the pause are never removed, since one may be the
-only copy a recovery still needs. A store whose document was removed stays
-registered but retired: registry syncs skip it, and the next open rebinds it
-to a fresh backing store that loads whatever SQLite holds by then. A device
+only copy a recovery still needs. A store whose document was removed is
+retired: its sync lane stops and an editor holding it sees a read-only
+stand-in, so nothing recreates or downloads the document. Reopening keeps the
+stand-in while the organization stays paused; after a resume, the next open
+rebinds it to a fresh backing store that loads whatever SQLite holds. A device
 with pending or queued writes keeps them syncing out and retries the removal
 each time its sync lanes go idle. Containers go in batches, and each batch
 reads its documents in batches, so every statement stays within SQLite's bind
@@ -89,7 +91,9 @@ limit, all under the one lock.
 
 Resuming forgets which containers the device had already listed, then
 re-lists the whole tree and every container's documents, so the
-organization's folders and documents download again.
+organization's folders and documents download again. That listing queues
+behind any sweep that started while the organization was paused rather than
+joining it.
 
 A personal organization cannot be paused: every device keeps its owner's root,
 Contacts, and Trash there. The session's active organization is never skipped

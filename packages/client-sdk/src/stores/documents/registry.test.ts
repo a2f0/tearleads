@@ -4,6 +4,7 @@ import {
   createDocumentStoreFacade,
   discardRegisteredDocumentLocalState,
   getOrCreateDocumentStoreRegistry,
+  onDocumentStoreRetired,
   registerDocumentStore,
   registerDocumentStoreIdentity,
   requestRegisteredDocumentRemoteSync,
@@ -234,19 +235,26 @@ test("discard refuses when the two identifiers resolve differently", async () =>
   expect(otherDiscards).toBe(0);
 });
 
-test("a retired store stops syncing and is rebound to a fresh one on open", () => {
+test("a retired store stays a read-only stand-in until its pause lifts", () => {
   const domainScope = {} as DomainScope;
   let staleSyncs = 0;
   let freshSyncs = 0;
+  let laneStopped = false;
   const facade = createDocumentStoreFacade(
     createStore(() => {
       staleSyncs += 1;
     }),
   );
   registerDocumentStore(domainScope, "removed", facade, "remote-removed");
+  onDocumentStoreRetired(domainScope, "removed", () => {
+    laneStopped = true;
+  });
 
   // A paused organization's cleanup removed the document under the store.
-  retireDocumentStore(domainScope, "removed");
+  let paused = true;
+  retireDocumentStore(domainScope, "removed", () => paused);
+  expect(laneStopped).toBe(true);
+  expect(facade.getSnapshot().canWrite).toBe(false);
   expect(
     requestRegisteredDocumentRemoteSync(
       domainScope,
@@ -255,14 +263,24 @@ test("a retired store stops syncing and is rebound to a fresh one on open", () =
     ),
   ).toBe(false);
 
+  // An editor reopening it while paused gets the stand-in, not a new store
+  // that would recreate and download the document.
   const registry = getOrCreateDocumentStoreRegistry(domainScope);
-  const reopened = takeRegisteredDocumentStore(registry, "removed", () =>
+  const freshStore = () =>
     createStore(() => {
       freshSyncs += 1;
-    }),
+    });
+  expect(takeRegisteredDocumentStore(registry, "removed", freshStore)).toBe(
+    facade,
+  );
+  expect(facade.getSnapshot().canWrite).toBe(false);
+
+  paused = false;
+  expect(takeRegisteredDocumentStore(registry, "removed", freshStore)).toBe(
+    facade,
   );
   // Holders of the same facade now reach the fresh store, which syncs again.
-  expect(reopened).toBe(facade);
+  expect(facade.getSnapshot().canWrite).toBe(true);
   expect(
     requestRegisteredDocumentRemoteSync(
       domainScope,

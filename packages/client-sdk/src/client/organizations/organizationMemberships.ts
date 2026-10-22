@@ -46,7 +46,7 @@ export interface OrganizationMemberships {
  */
 export interface OrganizationContentReconciler {
   resetDiscovered(): void;
-  reconcileNow(): Promise<void>;
+  reconcileNow(options: { readonly freshListing: true }): Promise<void>;
 }
 
 interface SettleRetry {
@@ -129,9 +129,11 @@ function createOrganizationContentHost(
       // Re-lists the whole tree and every container's documents. The resumed
       // organization's folders were listed before the pause, and a hydration
       // may already have restored them, so they must be forgotten explicitly.
+      // A sweep that started listing while paused would miss them, so this
+      // one queues behind it rather than joining it.
       const reconciler = openReconciler();
       reconciler.resetDiscovered();
-      await reconciler.reconcileNow();
+      await reconciler.reconcileNow({ freshListing: true });
     },
     retryWhenWritesSettle: (retry) => retryWhenWritesSettle(domainScope, retry),
   };
