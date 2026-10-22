@@ -1,6 +1,1 @@
-# #2619 follow-up, signed leave requests (greenfield flag day): organization
-# directory users gain a nullable `leaveRequest`, so the read-model response's
-# snapshot and delta subschemas both change. Clients and the API deploy
-# together on a fresh-data reset, and clients ignore unknown response fields.
-# Remove this exact diagnostic once main contains this contract.
-GET /organizations/{organizationId}/read-model added `subschema #1, subschema #2` to the response body `oneOf` list for the response status `200`
+# No temporary OpenAPI compatibility exceptions.
