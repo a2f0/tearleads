@@ -13,7 +13,10 @@ import {
   subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "../../workflows/sync";
-import type { ContainerContents } from "../containerContents";
+import {
+  type ContainerContents,
+  carriesLocalWrites,
+} from "../containerContents";
 import type {
   InternalRuntime,
   InternalWorkflowRuntimeInput,
@@ -116,7 +119,10 @@ function createOrganizationContentHost(
       const pending = await containerContents
         .documentQueries()
         .listPendingWrites();
-      return pending.some((item) => item.organizationId === organizationId);
+      return pending.some(
+        (item) =>
+          item.organizationId === organizationId && carriesLocalWrites(item),
+      );
     },
     async flushWrites() {
       requestAllDomainSyncLanes(domainScope);

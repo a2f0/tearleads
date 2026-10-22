@@ -68,10 +68,12 @@ device first asks every sync lane to upload and is refused while any pending
 write for the organization remains. The removal itself scans every kind of
 pending write (queued updates, deferred history tails, intents, attachment
 uploads) and deletes under the same SQLite mutation lock, so no persisted write
-can land between the check and the deletion. An open document store may also
-hold edits that have not reached SQLite yet: each store counts every text,
-field, row, attachment, and rotation write from the call until it persists,
-and the removal refuses while any of the organization's documents has one.
+can land between the check and the deletion. A recorded read failure with
+nothing to upload is not pending work and never blocks it. An open document
+store may also hold edits that have not reached SQLite yet: each store counts
+every text, field, row, attachment, and rotation write from the call until it
+persists, and the removal refuses while any of the organization's documents
+has one.
 
 The removal deletes the containers first and documents only after them. Each
 document's deletion carries a commit guard that runs in the same synchronous

@@ -12,7 +12,11 @@ import {
   insertTestPendingUpdate,
   saveTestSyncedContainer,
 } from "../documentQueries/documentQueries.testFixtures";
-import { listPendingWrites, resetPendingWriteRetryState } from "./index";
+import {
+  carriesLocalWrites,
+  listPendingWrites,
+  resetPendingWriteRetryState,
+} from "./index";
 
 const T0 = "2026-01-01T00:00:00.000Z";
 const T1 = "2026-01-01T00:00:01.000Z";
@@ -138,6 +142,9 @@ test("a failure with no pending work surfaces as its own queue item", async () =
         lastError: "Remote revalidation failed: container unavailable (409)",
       }),
     ]);
+    // It reports a failed read only; nothing local waits to upload, so it
+    // never blocks pausing the document's organization.
+    expect(failureItems.some(carriesLocalWrites)).toBe(false);
 
     // Real pending work absorbs the failure instead of duplicating the item.
     await insertTestPendingUpdate({
@@ -158,6 +165,7 @@ test("a failure with no pending work surfaces as its own queue item", async () =
       kind: "update",
       lastError: "Remote revalidation failed: container unavailable (409)",
     });
+    expect(combined.every(carriesLocalWrites)).toBe(true);
 
     // A later clean pass clears the row and the failure-only item with it.
     await clearDocumentSyncFailure(execSql, DOCUMENT_SCOPE);

@@ -309,3 +309,20 @@ test("a retirement whose deletion did not commit restores a writable store", () 
   expect(facade.getSnapshot().canWrite).toBe(true);
   expect(registry.retiredStores.has("survivor")).toBe(false);
 });
+
+test("a store keeps its factory and retirement when its identity registers", () => {
+  const domainScope = {} as DomainScope;
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const facade = createDocumentStoreFacade(createStore(() => undefined));
+  registerDocumentStore(domainScope, "local-created", facade, null);
+  takeRegisteredDocumentStore(registry, "local-created", () =>
+    createStore(() => undefined),
+  );
+  // The first sync assigns the document id, re-keying the store.
+  registerDocumentStoreIdentity(domainScope, "local-created", "remote-created");
+
+  retireDocumentStore(domainScope, "local-created", () => true);
+  restoreDocumentStore(domainScope, "local-created");
+
+  expect(facade.getSnapshot().canWrite).toBe(true);
+});

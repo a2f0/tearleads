@@ -329,3 +329,24 @@ test("a deletion that fails to commit after retiring restores the store", async 
     ).not.toBeNull();
   });
 });
+
+test("a failed read with nothing to upload does not block the removal", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    await placedDocument(execSql, {
+      localId: "unread",
+      snapshotEndVersion: synced,
+    });
+    // A remote read failed; the queue reports it, but it holds no local work.
+    await execSql(
+      "UPDATE documents SET sync_failure_message = ?, sync_failure_attempted_at = ? WHERE local_id = ?",
+      ["Remote revalidation failed", UPDATED_AT, "unread"],
+    );
+    expect(
+      (await listPendingWrites(execSql)).flatMap((item) =>
+        item.operations.map((operation) => operation.kind),
+      ),
+    ).toEqual(["revalidation"]);
+
+    expect((await remove(execSql, [])).status).toBe("removed");
+  });
+});

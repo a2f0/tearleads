@@ -146,8 +146,25 @@ export function registerDocumentStoreIdentity(
   if (localStore) {
     documentStore?.rebindTo(localStore);
     registry.storesByKey.set(documentStoreKey, localStore);
+    // The store's retirement and how to rebuild it move with it.
+    moveKeyedEntry(
+      registry.freshStoreFactories,
+      localStoreKey,
+      documentStoreKey,
+    );
+    moveKeyedEntry(registry.retiredStores, localStoreKey, documentStoreKey);
   }
   registry.storesByKey.delete(localStoreKey);
+}
+
+function moveKeyedEntry<Value>(
+  entries: Map<string, Value>,
+  fromKey: string,
+  toKey: string,
+): void {
+  const value = entries.get(fromKey);
+  entries.delete(fromKey);
+  if (value !== undefined) entries.set(toKey, value);
 }
 
 /**

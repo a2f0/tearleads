@@ -7,7 +7,7 @@ import {
   deletePersistedDocument,
 } from "../../documents";
 import { recordPauseRemovedDocument } from "../../sync";
-import { listPendingWrites } from "../pendingWrites";
+import { carriesLocalWrites, listPendingWrites } from "../pendingWrites";
 import type { ContainerContentsWorkflowRuntimeInfra } from "../runtime";
 
 export interface OrganizationContentRemoval {
@@ -195,9 +195,10 @@ export async function removeOrganizationContentUnlessPending(input: {
     if (
       pending.some(
         (item) =>
-          item.organizationId === input.organizationId ||
-          (item.containerId !== null && containerIds.has(item.containerId)) ||
-          documentIds.has(item.localId),
+          carriesLocalWrites(item) &&
+          (item.organizationId === input.organizationId ||
+            (item.containerId !== null && containerIds.has(item.containerId)) ||
+            documentIds.has(item.localId)),
       )
     ) {
       return refused("pending-writes");
