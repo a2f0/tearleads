@@ -21,7 +21,10 @@ import {
   organizationAccessScopeKey,
   wasOrganizationPresentationAccessDeniedByServer,
 } from "../../workflows/organizations/readModel/organizationPresentationAccessState";
-import type { InternalRuntime } from "../runtime/workflowRuntime";
+import type {
+  InternalRuntime,
+  InternalWorkflowRuntimeInput,
+} from "../runtime/workflowRuntime";
 import { loadBoundedOrganizationGroupHistory } from "./organizationGroupHistory";
 import { hydrateOrganizationGroupNamesForRuntime } from "./organizationGroupNameHydration";
 import { loadBoundedOrganizationHistory } from "./organizationHistory";
@@ -35,6 +38,20 @@ const coordinatorsByRuntime = new WeakMap<
   InternalRuntime,
   OrganizationReadModelCoordinator
 >();
+
+/**
+ * Resolves the identity a leave request is checked against: the device's
+ * durable pin first, so a request already stored still verifies offline,
+ * then a trusted remote resolution for a member not pinned yet.
+ */
+export function leaveRequestSignerResolver(
+  runtimeService: InternalRuntime,
+  runtime: InternalWorkflowRuntimeInput,
+): InternalWorkflowRuntimeInput["resolveTrustedUserIdentity"] {
+  return async (userId) =>
+    (await runtimeService.identityLinks.resolvePinned(userId)) ??
+    runtime.resolveTrustedUserIdentity(userId);
+}
 
 export interface OrganizationReadModelCoordinator {
   loadLocal(
@@ -113,7 +130,7 @@ class OrganizationReadModelCoordinatorImpl
         execSql: active.runtime.infra.execSql,
         organizationId: active.organizationId,
       }),
-      active.runtime.resolveTrustedUserIdentity,
+      leaveRequestSignerResolver(this.runtimeService, active.runtime),
     );
   }
 
@@ -228,7 +245,7 @@ class OrganizationReadModelCoordinatorImpl
         userId,
       }),
       active.organizationId,
-      active.runtime.resolveTrustedUserIdentity,
+      leaveRequestSignerResolver(this.runtimeService, active.runtime),
     );
   }
 
@@ -307,7 +324,7 @@ class OrganizationReadModelCoordinatorImpl
             domainScope,
             directoryAndGroups,
           ),
-          active.runtime.resolveTrustedUserIdentity,
+          leaveRequestSignerResolver(this.runtimeService, active.runtime),
         );
       })
       .finally(() => {

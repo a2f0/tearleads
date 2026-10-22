@@ -6,7 +6,12 @@ import type {
   OrganizationUserDetail,
 } from "../readModel";
 
-async function verifiedUser(
+/**
+ * The user as shown, with its leave request kept only when the member signed
+ * it. Every directory user a client presents passes through here, whether a
+ * read model or a mutation response carried it.
+ */
+export async function withVerifiedDirectoryUser(
   organizationId: string,
   user: OrganizationDirectoryUser,
   resolveTrustedUserIdentity: TrustedUserIdentityResolver,
@@ -46,7 +51,11 @@ export async function withVerifiedLeaveRequests<
       ...result.directory,
       users: await Promise.all(
         result.directory.users.map((user) =>
-          verifiedUser(organizationId, user, resolveTrustedUserIdentity),
+          withVerifiedDirectoryUser(
+            organizationId,
+            user,
+            resolveTrustedUserIdentity,
+          ),
         ),
       ),
     },
@@ -62,7 +71,7 @@ export async function withVerifiedUserLeaveRequest(
   if (!detail?.user.leaveRequest) return detail;
   return {
     ...detail,
-    user: await verifiedUser(
+    user: await withVerifiedDirectoryUser(
       organizationId,
       detail.user,
       resolveTrustedUserIdentity,

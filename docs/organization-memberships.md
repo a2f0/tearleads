@@ -133,8 +133,10 @@ the organization read model's `directory` lane, which the filing stamps. Each
 administrator's client stores the request only if it names the organization
 and member, and shows it only if it verifies against the member's trusted,
 pinned identity, never the signing key served beside it, so a server cannot
-present a request the member never made. Org Manager shows the member as
-having asked to leave and offers to approve the request.
+present a request the member never made. Directory users a roster update
+returns pass the same check, and a pinned identity verifies offline. Org
+Manager shows the member as having asked to leave and offers to approve the
+request.
 
 Approving is the ordinary removal: the administrator signs the member out of
 each group and then out of `Members`, rotating keys as any removal does.

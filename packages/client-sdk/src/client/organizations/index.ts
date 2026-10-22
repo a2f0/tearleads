@@ -15,6 +15,7 @@ import {
   startOrganizationTrial,
   updateOrganizationProfile,
   updateOrganizationRosterEntry,
+  withVerifiedDirectoryUser,
 } from "../../workflows/organizations";
 import type { ContainerContents } from "../containerContents";
 import type { InternalRuntime } from "../runtime/workflowRuntime";
@@ -30,6 +31,7 @@ import {
 } from "./organizationMemberships";
 import {
   createOrganizationReadModelCoordinator,
+  leaveRequestSignerResolver,
   type OrganizationReadModelCoordinator,
 } from "./organizationReadModels";
 import type { Organizations } from "./organizationsTypes";
@@ -386,19 +388,29 @@ class OrganizationsService implements Organizations {
     return this.readModelCoordinator.loadLocalUserDetail(userId);
   }
 
-  updateRosterEntry(userId: string, profileDocumentId: string | null) {
+  async updateRosterEntry(userId: string, profileDocumentId: string | null) {
     const runtime = this.runtimeService.workflowInput();
     const organizationId = authenticatedOrganizationId(runtime);
     if (!organizationId || userId.length === 0) {
-      return Promise.resolve(null);
+      return null;
     }
 
-    return updateOrganizationRosterEntry({
+    const user = await updateOrganizationRosterEntry({
       apiClient: runtime.apiClient,
       organizationId,
       profileDocumentId,
       userId,
     });
+    // Callers store this response as directory state, so its leave request
+    // passes the same check as one read from the read model.
+    return (
+      user &&
+      withVerifiedDirectoryUser(
+        organizationId,
+        user,
+        leaveRequestSignerResolver(this.runtimeService, runtime),
+      )
+    );
   }
 
   updateProfile(profileDocumentId: string | null) {

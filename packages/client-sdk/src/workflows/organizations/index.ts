@@ -41,6 +41,7 @@ export {
   setOrganizationLeaveRequested,
 } from "./memberships/leaveRequest";
 export {
+  withVerifiedDirectoryUser,
   withVerifiedLeaveRequests,
   withVerifiedUserLeaveRequest,
 } from "./memberships/leaveRequestVerification";

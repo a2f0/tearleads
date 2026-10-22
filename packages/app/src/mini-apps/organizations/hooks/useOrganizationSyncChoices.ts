@@ -3,7 +3,7 @@ import type {
   OrganizationMembership,
   OrganizationSyncPauseResult,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -87,7 +87,55 @@ function useMembershipState() {
     };
   }, [scopeKey, tearleads]);
 
-  return { memberships, pausedOrganizationIds, setMemberships, tearleads };
+  return {
+    memberships,
+    pausedOrganizationIds,
+    scopeKey,
+    setMemberships,
+    tearleads,
+  };
+}
+
+/**
+ * Runs one membership change at a time. A change that settles after the
+ * session switched identities belongs to the old identity and must not touch
+ * what this one shows.
+ */
+function useScopedChange(scopeKey: unknown) {
+  const [changingOrganizationId, setChangingOrganizationId] = useState<
+    string | null
+  >(null);
+  const [error, setError] = useState<string | null>(null);
+  const scopeRef = useRef(scopeKey);
+  useEffect(() => {
+    scopeRef.current = scopeKey;
+    setChangingOrganizationId(null);
+    setError(null);
+  }, [scopeKey]);
+
+  const runChange = useCallback(
+    async (
+      organizationId: string,
+      change: (isCurrent: () => boolean) => Promise<string | null>,
+    ) => {
+      const startedIn = scopeRef.current;
+      const isCurrent = () => scopeRef.current === startedIn;
+      setChangingOrganizationId(organizationId);
+      setError(null);
+      let message: string | null;
+      try {
+        message = await change(isCurrent);
+      } catch {
+        message = ORGANIZATIONS_LABELS.syncChangeFailed;
+      }
+      if (!isCurrent()) return;
+      setError(message);
+      setChangingOrganizationId(null);
+    },
+    [],
+  );
+
+  return { changingOrganizationId, error, runChange };
 }
 
 /**
@@ -96,27 +144,15 @@ function useMembershipState() {
  * pause/resume and leave-request actions. One change runs at a time.
  */
 export function useOrganizationSyncChoices(): OrganizationSyncChoices {
-  const { memberships, pausedOrganizationIds, setMemberships, tearleads } =
-    useMembershipState();
-  const [changingOrganizationId, setChangingOrganizationId] = useState<
-    string | null
-  >(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const runChange = useCallback(
-    async (organizationId: string, change: () => Promise<string | null>) => {
-      setChangingOrganizationId(organizationId);
-      setError(null);
-      try {
-        setError(await change());
-      } catch {
-        setError(ORGANIZATIONS_LABELS.syncChangeFailed);
-      } finally {
-        setChangingOrganizationId(null);
-      }
-    },
-    [],
-  );
+  const {
+    memberships,
+    pausedOrganizationIds,
+    scopeKey,
+    setMemberships,
+    tearleads,
+  } = useMembershipState();
+  const { changingOrganizationId, error, runChange } =
+    useScopedChange(scopeKey);
 
   const setSyncPaused = useCallback(
     (organizationId: string, paused: boolean) =>
@@ -133,13 +169,13 @@ export function useOrganizationSyncChoices(): OrganizationSyncChoices {
 
   const setLeaveRequested = useCallback(
     (organizationId: string, requested: boolean) =>
-      runChange(organizationId, async () => {
+      runChange(organizationId, async (isCurrent) => {
         const result =
           await tearleads.organizations.memberships.setLeaveRequested(
             organizationId,
             requested,
           );
-        if (result.status === "updated") {
+        if (result.status === "updated" && isCurrent()) {
           setMemberships((current) =>
             new Map(current).set(organizationId, result.membership),
           );
