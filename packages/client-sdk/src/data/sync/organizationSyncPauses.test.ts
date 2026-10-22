@@ -99,25 +99,3 @@ test("notifies subscribers only when the set changes", async () => {
     close();
   }
 });
-
-test("held documents are released when removed or when their organization resumes", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "organization-sync-pauses-held",
-  );
-  try {
-    const pauses = getOrCreateOrganizationSyncPauses(createDomainScope());
-    await pauses.replace(execSql, ["org-a", "org-b"]);
-    pauses.holdDocuments("org-a", ["doc-a"]);
-    pauses.holdDocuments("org-b", ["doc-b", "doc-c"]);
-    pauses.releaseDocuments(["doc-c"]);
-
-    expect(pauses.isDocumentHeld("doc-a")).toBe(true);
-    expect(pauses.isDocumentHeld("doc-c")).toBe(false);
-
-    await pauses.replace(execSql, ["org-b"]);
-    expect(pauses.isDocumentHeld("doc-a")).toBe(false);
-    expect(pauses.isDocumentHeld("doc-b")).toBe(true);
-  } finally {
-    close();
-  }
-});

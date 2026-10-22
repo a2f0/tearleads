@@ -1,16 +1,16 @@
 import { removeOrganizationContentUnlessPending } from "../../../workflows/container-contents/syncPause/documentRemoval";
 import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
-import {
-  getOrCreateOrganizationSyncPauses,
-  isRetainedWhileSyncPaused,
-} from "../../../workflows/sync";
+import { isRetainedWhileSyncPaused } from "../../../workflows/sync";
 import {
   emitPersistedDocumentDeletion,
   hasRegisteredDocumentStore,
 } from "../../documents/registry";
 import type { ContainerWriteGuard } from "../remoteWrites/writeGeneration";
 import { updateContainerContentsSnapshot } from "../state";
-import type { ContainerContentsStoreState } from "../types";
+import type {
+  ContainerContentsStoreState,
+  OrganizationContentForgetOutcome,
+} from "../types";
 
 /** The local containers forgetting an organization's content removes. */
 function listForgettableOrganizationContainerIds(
@@ -32,19 +32,19 @@ function listForgettableOrganizationContainerIds(
  * resuming downloads it again.
  *
  * Unsynced work is never removed: the removal refuses while any pending write
- * touches the organization, checked under the same lock as the deletions. It
- * also refuses the session's active organization, whose root the session still
- * writes to. A refusal returns false and the caller retries later.
+ * touches the organization, checked under the same lock as the deletions, and
+ * while any of its documents is open this session. It also refuses the
+ * session's active organization, whose root the session still writes to.
  */
 async function forgetOrganizationContent(
   state: ContainerContentsStoreState,
   organizationId: string,
   isCurrent: ContainerWriteGuard,
-): Promise<boolean> {
+): Promise<OrganizationContentForgetOutcome> {
   if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
-    return false;
+    return "retry";
   }
-  if (state.runtime.auth.organizationId === organizationId) return false;
+  if (state.runtime.auth.organizationId === organizationId) return "retry";
   const containerIds = listForgettableOrganizationContainerIds(
     state,
     organizationId,
@@ -67,10 +67,6 @@ async function forgetOrganizationContent(
       hasRegisteredDocumentStore(domainScope, localId),
     organizationId,
   });
-  if (!removal) return false;
-  const pauses = getOrCreateOrganizationSyncPauses(domainScope);
-  pauses.releaseDocuments(removal.deletedLocalIds);
-  pauses.holdDocuments(organizationId, removal.keptLocalIds);
   for (const localId of removal.deletedLocalIds) {
     emitPersistedDocumentDeletion(domainScope, localId);
   }
@@ -83,7 +79,17 @@ async function forgetOrganizationContent(
   if (removal.deletedContainerIds.length > 0 && state.initialized) {
     updateContainerContentsSnapshot(state);
   }
-  return removal.complete;
+  switch (removal.status) {
+    case "removed":
+      return "removed";
+    // Stores stay registered for the session, so retrying cannot succeed
+    // before the next session.
+    case "open-documents":
+      return "next-session";
+    case "pending-writes":
+    case "interrupted":
+      return "retry";
+  }
 }
 
 type ContainerWriteChain = (
@@ -96,13 +102,13 @@ type ContainerWriteChain = (
 export function createForgetOrganizationContentMethod(
   state: ContainerContentsStoreState,
   chainContainerWrite: ContainerWriteChain,
-): (organizationId: string) => Promise<boolean> {
+): (organizationId: string) => Promise<OrganizationContentForgetOutcome> {
   return async (organizationId) => {
-    let forgotten = false;
+    let outcome: OrganizationContentForgetOutcome = "retry";
     await chainContainerWrite(
       state,
       async (isCurrent) => {
-        forgotten = await forgetOrganizationContent(
+        outcome = await forgetOrganizationContent(
           state,
           organizationId,
           isCurrent,
@@ -111,6 +117,6 @@ export function createForgetOrganizationContentMethod(
       },
       listForgettableOrganizationContainerIds(state, organizationId),
     );
-    return forgotten;
+    return outcome;
   };
 }

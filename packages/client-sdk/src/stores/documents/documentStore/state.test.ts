@@ -8,7 +8,6 @@ import {
   type DocumentsPersistence,
   type DocumentsWorkflowRuntimeInput,
 } from "../../../workflows/documents";
-import { getOrCreateOrganizationSyncPauses } from "../../../workflows/sync";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
 import {
   createDocumentStoreState,
@@ -16,10 +15,6 @@ import {
   setDocumentSnapshot,
   subscribeToDocumentStore,
 } from "./state";
-import {
-  hasNothingToUpload,
-  isHeldForPausedOrganization,
-} from "./sync/pausedDocumentGate";
 import {
   hasPendingIndependentDocumentStoreRemoteSync,
   invalidateDocumentStoreRemoteSync,
@@ -138,29 +133,4 @@ test("independent remote ownership spans every pull continuation page", () => {
 
   state.pullContinuation = null;
   expect(hasPendingIndependentDocumentStoreRemoteSync(state)).toBe(false);
-});
-
-test("a held document of a paused organization syncs only to upload", async () => {
-  const runtime = createTestRuntime();
-  const pending: string[] = [];
-  const state = createDocumentStoreState(
-    "held-document",
-    runtime,
-    {
-      listPendingUpdates: async () => pending.map((id) => ({ id })),
-    } as unknown as DocumentsPersistence,
-    noopDocumentStorePersistenceEffects,
-    null,
-  );
-  expect(isHeldForPausedOrganization(state)).toBe(false);
-
-  getOrCreateOrganizationSyncPauses(runtime.state.domainScope).holdDocuments(
-    "paused-organization",
-    ["held-document"],
-  );
-  expect(isHeldForPausedOrganization(state)).toBe(true);
-  expect(await hasNothingToUpload(state)).toBe(true);
-
-  pending.push("queued-update");
-  expect(await hasNothingToUpload(state)).toBe(false);
 });

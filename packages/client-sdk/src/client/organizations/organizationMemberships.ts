@@ -97,7 +97,9 @@ function createOrganizationContentHost(
   const tree = containerContents.openTree();
   return {
     async forgetOrganizationContent(organizationId) {
-      return isCurrent() && tree.forgetOrganizationContent(organizationId);
+      // A scope that ended has nothing left to retry.
+      if (!isCurrent()) return "next-session";
+      return tree.forgetOrganizationContent(organizationId);
     },
     async hasUnsyncedOrganizationWrites(organizationId) {
       if (!isCurrent()) return true;

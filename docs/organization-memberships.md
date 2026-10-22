@@ -66,14 +66,16 @@ device first asks every sync lane to upload and is refused while any pending
 write for the organization remains. The removal itself scans every kind of
 pending write (queued updates, deferred history tails, intents, attachment
 uploads) and deletes under the same SQLite mutation lock, so no persisted write
-can land between the check and the deletion. It deletes the containers first
-and documents only after them. A document an open store holds this session may
-carry edits that have not reached SQLite, so it is never deleted: it stays
-detached, still attributed to the organization, until a later pass finds no
-store holding it. Meanwhile its store only syncs to upload what it still
-holds, never to pull the paused organization's changes. A device that still
-has pending writes keeps them syncing out and retries the removal each time
-its sync lanes go idle. Resuming
+can land between the check and the deletion. A document an open store holds
+may carry edits that have not reached SQLite, and stores stay registered for
+the session, so the removal also refuses while any of the organization's
+documents was opened this session. It deletes the containers first and
+documents only after them, re-checking each document right before its rows
+go; one whose store opened mid-removal stays, detached but still attributed
+to the organization, for a later pass. A device that still has pending writes
+keeps them syncing out and retries the removal each time its sync lanes go
+idle. One with an open document leaves the organization whole and syncing
+until the next session's membership refresh removes it. Resuming
 re-lists the whole tree with fresh lane watermarks so the organization
 downloads again.
 

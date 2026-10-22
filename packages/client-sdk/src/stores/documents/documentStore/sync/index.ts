@@ -17,10 +17,6 @@ import {
   type EncapsulationKeyPair,
   setDocumentSyncing,
 } from "../state";
-import {
-  hasNothingToUpload,
-  isHeldForPausedOrganization,
-} from "./pausedDocumentGate";
 import { logRevalidationUnavailable as logUnavailable } from "./remoteRevalidationTelemetry";
 import {
   getActiveDocumentRemoteWork,
@@ -464,15 +460,9 @@ export function registerDocumentStoreSyncLane(
       // be async, and the lane reporter only catches a rejection it is handed.
       return logError ? logError(message, error) : log(message);
     },
-    run: async () => {
+    run: () => {
       const syncLaneGeneration = getSyncLaneGeneration();
-      if (!syncLaneGeneration) return;
-      if (
-        isHeldForPausedOrganization(state) &&
-        (await hasNothingToUpload(state))
-      ) {
-        return;
-      }
+      if (!syncLaneGeneration) return Promise.resolve();
       const activeWork = getActiveDocumentRemoteWork(state);
       if (activeWork) {
         // Re-arm on settlement, not immediately: immediate re-requests would
@@ -484,7 +474,7 @@ export function registerDocumentStoreSyncLane(
             requestDocumentStoreSync(state);
           }
         });
-        return;
+        return Promise.resolve();
       }
       return runDocumentRemoteWork(state, () =>
         isDocumentStoreSyncLaneGenerationCurrent(state, syncLaneGeneration)

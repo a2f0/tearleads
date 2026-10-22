@@ -12,13 +12,28 @@ import { listPendingWrites } from "../pendingWrites";
 import type { ContainerContentsWorkflowRuntimeInfra } from "../runtime";
 
 export interface OrganizationContentRemoval {
-  /** Every targeted container and document is gone. */
-  readonly complete: boolean;
+  /**
+   * `removed` when every targeted container and document is gone.
+   * `pending-writes` and `open-documents` refused before deleting anything.
+   * `interrupted` stopped part way: the removal stopped being current, or a
+   * store opened on a document while it ran.
+   */
+  readonly status:
+    | "removed"
+    | "pending-writes"
+    | "open-documents"
+    | "interrupted";
   readonly deletedContainerIds: readonly string[];
   readonly deletedLocalIds: readonly string[];
-  /** Documents an open store held, kept on the device. */
-  readonly keptLocalIds: readonly string[];
 }
+
+const refused = (
+  status: "pending-writes" | "open-documents",
+): OrganizationContentRemoval => ({
+  deletedContainerIds: [],
+  deletedLocalIds: [],
+  status,
+});
 
 interface ContainerRemoval {
   readonly containerId: string;
@@ -33,11 +48,13 @@ interface ContainerRemoval {
  * containers, or those documents. The scan and every deletion hold one SQLite
  * mutation lock, so no persisted write can land between them.
  *
- * The containers go first, under `stillCurrent`; documents are deleted only
- * after every container was. A document an open store holds this session may
- * carry edits that have not reached SQLite, so it is never deleted: it stays,
- * detached but still attributed to the organization, and a later pass removes
- * it once no store holds it. Returns null when the removal refused.
+ * A document an open store holds this session may carry edits that have not
+ * reached SQLite, so the removal also refuses while any targeted document is
+ * open, leaving the organization's content whole and syncing. The containers
+ * go first, under `stillCurrent`; documents are deleted only after every
+ * container was, each re-checked right before its rows go. A document whose
+ * store opened mid-removal stays, detached but still attributed to the
+ * organization, and a later pass finds it by organization.
  */
 export async function removeOrganizationContentUnlessPending(input: {
   readonly containerIds: readonly string[];
@@ -50,7 +67,7 @@ export async function removeOrganizationContentUnlessPending(input: {
   /** Whether an open document store holds the document this session. */
   readonly isDocumentOpen: (localId: string) => boolean;
   readonly organizationId: string;
-}): Promise<OrganizationContentRemoval | null> {
+}): Promise<OrganizationContentRemoval> {
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
     const containerIds = new Set(input.containerIds);
     const localIds = [
@@ -67,10 +84,9 @@ export async function removeOrganizationContentUnlessPending(input: {
     ];
     if (containerIds.size === 0 && localIds.length === 0) {
       return {
-        complete: true,
         deletedContainerIds: [],
         deletedLocalIds: [],
-        keptLocalIds: [],
+        status: "removed",
       };
     }
     const documentIds = new Set(localIds);
@@ -83,8 +99,9 @@ export async function removeOrganizationContentUnlessPending(input: {
           documentIds.has(item.localId),
       )
     ) {
-      return null;
+      return refused("pending-writes");
     }
+    if (localIds.some(input.isDocumentOpen)) return refused("open-documents");
 
     const removedAt = new Date().toISOString();
     const deletedContainerIds =
@@ -100,12 +117,7 @@ export async function removeOrganizationContentUnlessPending(input: {
           );
     const deletedLocalIds: string[] = [];
     if (deletedContainerIds.length !== containerIds.size) {
-      return {
-        complete: false,
-        deletedContainerIds,
-        deletedLocalIds,
-        keptLocalIds: [],
-      };
+      return { deletedContainerIds, deletedLocalIds, status: "interrupted" };
     }
     for (const localId of localIds) {
       if (
@@ -121,12 +133,11 @@ export async function removeOrganizationContentUnlessPending(input: {
         deletedLocalIds.push(localId);
       }
     }
-    const deleted = new Set(deletedLocalIds);
     return {
-      complete: deleted.size === localIds.length,
       deletedContainerIds,
       deletedLocalIds,
-      keptLocalIds: localIds.filter((localId) => !deleted.has(localId)),
+      status:
+        deletedLocalIds.length === localIds.length ? "removed" : "interrupted",
     };
   });
 }

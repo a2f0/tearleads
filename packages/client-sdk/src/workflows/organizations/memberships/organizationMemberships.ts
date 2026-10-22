@@ -23,16 +23,25 @@ export interface OrganizationMembershipApi {
 }
 
 /**
+ * How removing an organization's content ended. `retry`: unsynced writes or
+ * the active workspace blocked it until the sync lanes settle.
+ * `next-session`: a document of the organization is open this session, so the
+ * next session's membership refresh removes it.
+ */
+type OrganizationContentRemovalOutcome = "removed" | "retry" | "next-session";
+
+/**
  * What applying a pause needs from the device's content. Wired by the
  * composition root to the container tree and the document sync lanes.
  */
 export interface OrganizationContentHost {
   /**
-   * Removes an organization's content, keeping its metadata root. Refuses,
-   * returning false, while any of its writes is unsynced, and removes each
-   * document only if it is unchanged since that check.
+   * Removes an organization's content, keeping its metadata root. Refuses
+   * while any of its writes is unsynced or any of its documents is open.
    */
-  forgetOrganizationContent(organizationId: string): Promise<boolean>;
+  forgetOrganizationContent(
+    organizationId: string,
+  ): Promise<OrganizationContentRemovalOutcome>;
   /** Whether any local write for the organization has not uploaded yet. */
   hasUnsyncedOrganizationWrites(organizationId: string): Promise<boolean>;
   /** Asks every sync lane to upload now and waits briefly for them to idle. */
@@ -68,24 +77,29 @@ export type OrganizationSyncPauseResult =
       readonly message: string;
     };
 
+/** Whether no paused organization is left that a later retry could remove. */
 async function forgetEveryPausedOrganization(input: {
   readonly host: OrganizationContentHost;
   readonly pauses: OrganizationSyncPauses;
 }): Promise<boolean> {
-  let complete = true;
+  let settled = true;
   for (const organizationId of [...input.pauses.pausedOrganizationIds()]) {
-    if (!(await input.host.forgetOrganizationContent(organizationId))) {
-      complete = false;
+    if (
+      (await input.host.forgetOrganizationContent(organizationId)) === "retry"
+    ) {
+      settled = false;
     }
   }
-  return complete;
+  return settled;
 }
 
 /**
  * Removes the content of every paused organization that has nothing left to
- * upload. An organization with pending writes keeps syncing those out and is
- * retried once the sync lanes go idle, so pausing never discards unsynced work
- * and a removal does not wait for the next membership read.
+ * upload and none of its documents open. An organization with pending writes
+ * keeps syncing those out and is retried once the sync lanes go idle, so
+ * pausing never discards unsynced work and a removal does not wait for the
+ * next membership read. One with an open document keeps syncing until the
+ * next session's membership read removes it.
  */
 export async function forgetPausedOrganizationContent(input: {
   readonly host: OrganizationContentHost;

@@ -55,15 +55,6 @@ export interface OrganizationSyncPauses {
     activeOrganizationId: string | null,
   ): boolean;
   pausedOrganizationIds(): ReadonlySet<string>;
-  /**
-   * Records documents of a paused organization that cleanup kept because an
-   * open store held them. Their stores stop pulling remote changes and only
-   * upload what they still hold; resuming the organization releases them.
-   */
-  holdDocuments(organizationId: string, localIds: readonly string[]): void;
-  /** Forgets held documents that cleanup has since removed. */
-  releaseDocuments(localIds: readonly string[]): void;
-  isDocumentHeld(localId: string): boolean;
   /** Persists exactly this set and reports which organizations changed. */
   replace(
     execSql: ExecSql,
@@ -113,7 +104,6 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
   let replacing: Promise<void> = Promise.resolve();
   let exclusive: Promise<void> = Promise.resolve();
   const listeners = new Set<() => void>();
-  const heldOrganizationByDocument = new Map<string, string>();
   const notify = () => {
     for (const listener of listeners) listener();
   };
@@ -139,16 +129,6 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
       container.organizationId !== activeOrganizationId &&
       !isRetainedWhileSyncPaused(container),
     pausedOrganizationIds: () => paused,
-    holdDocuments(organizationId, localIds) {
-      for (const localId of localIds) {
-        heldOrganizationByDocument.set(localId, organizationId);
-      }
-    },
-    releaseDocuments(localIds) {
-      for (const localId of localIds)
-        heldOrganizationByDocument.delete(localId);
-    },
-    isDocumentHeld: (localId) => heldOrganizationByDocument.has(localId),
     replace(execSql, organizationIds) {
       const next = new Set(organizationIds);
       // Serialize replacements so each one diffs against the set the previous
@@ -164,11 +144,6 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
         }
         await writePausedOrganizationIds(execSql, next);
         paused = next;
-        for (const [localId, organizationId] of heldOrganizationByDocument) {
-          if (!next.has(organizationId)) {
-            heldOrganizationByDocument.delete(localId);
-          }
-        }
         notify();
         return change;
       });

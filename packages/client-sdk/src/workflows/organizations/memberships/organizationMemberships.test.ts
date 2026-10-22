@@ -23,6 +23,7 @@ function createHost(
   session: { activeOrganizationId: string | null } = {
     activeOrganizationId: null,
   },
+  open: ReadonlySet<string> = new Set(),
 ) {
   const calls: string[] = [];
   const retries: Array<() => Promise<boolean>> = [];
@@ -32,10 +33,13 @@ function createHost(
     },
     async forgetOrganizationContent(organizationId) {
       calls.push(`forget:${organizationId}`);
-      return (
-        !unsynced.has(organizationId) &&
-        organizationId !== session.activeOrganizationId
-      );
+      if (
+        unsynced.has(organizationId) ||
+        organizationId === session.activeOrganizationId
+      ) {
+        return "retry";
+      }
+      return open.has(organizationId) ? "next-session" : "removed";
     },
     async hasUnsyncedOrganizationWrites(organizationId) {
       return unsynced.has(organizationId);
@@ -124,6 +128,31 @@ test("a refresh applies pauses from other devices and keeps unsynced work", asyn
     unsynced.clear();
     expect(await retries[0]?.()).toBe(true);
     expect(calls.slice(2)).toEqual(["forget:org-a", "forget:org-busy"]);
+  });
+});
+
+test("an organization with an open document waits for the next session", async () => {
+  await withDatabase(async (execSql) => {
+    const domainScope = createDomainScope();
+    // Its store stays registered for the session, so a retry on every idle
+    // could only fail again.
+    const { calls, host, retries } = createHost(
+      new Set(),
+      { activeOrganizationId: null },
+      new Set(["org-open"]),
+    );
+    const { apiClient } = createApi([membership("org-open", true)]);
+
+    await refreshOrganizationMemberships({
+      apiClient,
+      domainScope,
+      execSql,
+      host,
+      isCurrent: () => true,
+    });
+
+    expect(calls).toEqual(["forget:org-open"]);
+    expect(retries).toHaveLength(0);
   });
 });
 

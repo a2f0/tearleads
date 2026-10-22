@@ -107,7 +107,9 @@ test("an edit kept only in the local history tail blocks the removal", async () 
     ).toBe(true);
     const deletedContainers: string[] = [];
 
-    expect(await remove(execSql, deletedContainers)).toBeNull();
+    expect((await remove(execSql, deletedContainers)).status).toBe(
+      "pending-writes",
+    );
     expect(deletedContainers).toEqual([]);
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "deferred-edit"),
@@ -124,10 +126,9 @@ test("an organization with nothing pending is removed with its documents", async
     const deletedContainers: string[] = [];
 
     expect(await remove(execSql, deletedContainers)).toEqual({
-      complete: true,
       deletedContainerIds: ["folder"],
       deletedLocalIds: ["synced"],
-      keptLocalIds: [],
+      status: "removed",
     });
     expect(deletedContainers).toEqual(["folder"]);
     expect(
@@ -136,7 +137,7 @@ test("an organization with nothing pending is removed with its documents", async
   });
 });
 
-test("a document an open store holds is kept, detached, for a later pass", async () => {
+test("a document an open store holds keeps the whole organization", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
     await placedDocument(execSql, {
       localId: "open-document",
@@ -149,11 +150,12 @@ test("a document an open store holds is kept, detached, for a later pass", async
         openDocuments: new Set(["open-document"]),
       }),
     ).toEqual({
-      complete: false,
-      deletedContainerIds: ["folder"],
+      deletedContainerIds: [],
       deletedLocalIds: [],
-      keptLocalIds: ["open-document"],
+      status: "open-documents",
     });
+    // Nothing is detached: the folder and its document stay and keep syncing.
+    expect(deletedContainers).toEqual([]);
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "open-document"),
     ).not.toBeNull();
@@ -168,10 +170,9 @@ test("documents stay when the containers' removal is no longer current", async (
     });
 
     expect(await remove(execSql, [], { containersCurrent: false })).toEqual({
-      complete: false,
       deletedContainerIds: [],
       deletedLocalIds: [],
-      keptLocalIds: [],
+      status: "interrupted",
     });
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "kept"),
@@ -201,12 +202,13 @@ test("a document opened during removal is removed on a later pass", async () => 
         isDocumentOpen,
         organizationId: "org-paused",
       });
-    // A store opens on the document while the containers are being removed.
-    expect(await run(["folder"], () => true)).toEqual({
-      complete: false,
+    // A store opens on the document after the removal checked it, while the
+    // containers are being removed.
+    let checks = 0;
+    expect(await run(["folder"], () => checks++ > 0)).toEqual({
       deletedContainerIds: ["folder"],
       deletedLocalIds: [],
-      keptLocalIds: ["late-edit"],
+      status: "interrupted",
     });
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "late-edit"),
@@ -214,10 +216,9 @@ test("a document opened during removal is removed on a later pass", async () => 
 
     // Once no store holds it, the next pass still finds it by organization.
     expect(await run([], () => false)).toEqual({
-      complete: true,
       deletedContainerIds: [],
       deletedLocalIds: ["late-edit"],
-      keptLocalIds: [],
+      status: "removed",
     });
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "late-edit"),
