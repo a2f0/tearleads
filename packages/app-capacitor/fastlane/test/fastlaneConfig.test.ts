@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { resolve } from "node:path";
-import { requireRubyBundle } from "./requireRubyBundle";
+import { requireRubyBundle } from "./support/requireRubyBundle";
 
-const packageRoot = resolve(import.meta.dir, "..");
+const packageRoot = resolve(import.meta.dir, "../..");
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -91,7 +91,7 @@ const fastlanePathConstantNames = [
   "BRAND_IMAGES_SCRIPT",
   "NATIVE_SECRETS_DIR",
   "GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH",
-  "ANDROID_RELEASE_KEYSTORE_PATH",
+  "ANDROID_UPLOAD_KEYSTORE_PATH",
 ] as const;
 
 type FastlanePathConstantName = (typeof fastlanePathConstantNames)[number];
@@ -101,7 +101,7 @@ const fastlanePathConstantsScript = [
   'require "fastlane"',
   "Fastlane.load_actions",
   'Fastlane::FastFile.new("fastlane/Fastfile")',
-  "names = %w[ANDROID_DIR IOS_PACKAGE_DIR IOS_DIR BRAND_IMAGES_SCRIPT GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH ANDROID_RELEASE_KEYSTORE_PATH]",
+  "names = %w[ANDROID_DIR IOS_PACKAGE_DIR IOS_DIR BRAND_IMAGES_SCRIPT GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH ANDROID_UPLOAD_KEYSTORE_PATH]",
   "constants = names.to_h { |name| [name, Fastlane::FastFile.const_get(name)] }",
   'puts JSON.generate(constants.merge("NATIVE_SECRETS_DIR" => NATIVE_SECRETS_DIR))',
 ].join("; ");
@@ -126,14 +126,122 @@ function parseFastlanePathConstants(stdout: string) {
   return constants;
 }
 
+async function readFastlanePathConstants(
+  environment: Record<string, string | undefined>,
+) {
+  await requireRubyBundle();
+  const child = Bun.spawn(
+    ["bundle", "exec", "ruby", "-e", fastlanePathConstantsScript],
+    {
+      cwd: packageRoot,
+      env: {
+        ...process.env,
+        FASTLANE_OPT_OUT_USAGE: "1",
+        FASTLANE_SKIP_UPDATE_CHECK: "1",
+        NATIVE_RELEASE_SECRETS_DIR: "",
+        ...environment,
+      },
+      stderr: "pipe",
+      stdout: "pipe",
+    },
+  );
+  const [exitCode, stderr, stdout] = await Promise.all([
+    child.exited,
+    new Response(child.stderr).text(),
+    new Response(child.stdout).text(),
+  ]);
+  if (exitCode !== 0) {
+    throw new Error(`Fastlane path constants failed to load: ${stderr}`);
+  }
+  return parseFastlanePathConstants(stdout);
+}
+
+function expectedPathConstants(secretsDir: string) {
+  return {
+    ANDROID_DIR: resolve(packageRoot, "android"),
+    IOS_PACKAGE_DIR: packageRoot,
+    IOS_DIR: resolve(packageRoot, "ios"),
+    BRAND_IMAGES_SCRIPT: resolve(
+      packageRoot,
+      "../../scripts/lib/buildBrandImages.sh",
+    ),
+    NATIVE_SECRETS_DIR: secretsDir,
+    GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH: resolve(
+      secretsDir,
+      "google-play-service-account-admin.json",
+    ),
+    ANDROID_UPLOAD_KEYSTORE_PATH: resolve(
+      secretsDir,
+      "tearleads-upload.keystore",
+    ),
+  };
+}
+
 for (const [tier, secretsTier] of [
   ["production", "prod"],
   ["staging", "staging"],
 ] as const) {
   test(`Fastlane lane files resolve ${tier} paths outside their directory`, async () => {
+    await expect(
+      readFastlanePathConstants({ NATIVE_RELEASE_TIER: tier }),
+    ).resolves.toEqual(
+      expectedPathConstants(
+        resolve(packageRoot, "../../.secrets", secretsTier),
+      ),
+    );
+  });
+}
+
+test("NATIVE_RELEASE_SECRETS_DIR replaces the tier's secrets folder", async () => {
+  await expect(
+    readFastlanePathConstants({
+      NATIVE_RELEASE_SECRETS_DIR: "/tmp/tearleads-native-secrets",
+      NATIVE_RELEASE_TIER: "staging",
+    }),
+  ).resolves.toEqual(expectedPathConstants("/tmp/tearleads-native-secrets"));
+  // A relative folder resolves against the package, as Gradle resolves it.
+  await expect(
+    readFastlanePathConstants({
+      NATIVE_RELEASE_SECRETS_DIR: "fixtures/secrets",
+      NATIVE_RELEASE_TIER: "production",
+    }),
+  ).resolves.toEqual(
+    expectedPathConstants(resolve(packageRoot, "fixtures/secrets")),
+  );
+});
+
+// The lanes docs/fastlane.md in a2f0/matrix requires, plus the Android
+// development lanes this repository keeps.
+const expectedLanes = {
+  general: ["store_build_numbers"],
+  android: [
+    "build_debug_apk",
+    "build_release",
+    "build_release_apk",
+    "clean",
+    "install_debug",
+    "install_release",
+    "sideload",
+    "test",
+    "upload_release",
+  ],
+  ios: ["build_release", "fetch_profiles", "profiles", "upload_release"],
+};
+
+const fastlaneLanesScript = [
+  'require "json"',
+  'require "fastlane"',
+  "Fastlane.load_actions",
+  'fastfile = Fastlane::FastFile.new("fastlane/Fastfile")',
+  'lanes = fastfile.runner.lanes.to_h { |platform, platform_lanes| [(platform || "general").to_s, platform_lanes.keys.map(&:to_s).sort] }',
+  "puts JSON.generate(lanes)",
+].join("; ");
+
+for (const tier of ["production", "staging"]) {
+  test(`Fastlane declares the standard ${tier} lanes`, async () => {
     await requireRubyBundle();
     const child = Bun.spawn(
-      ["bundle", "exec", "ruby", "-e", fastlanePathConstantsScript],
+      ["bundle", "exec", "ruby", "-e", fastlaneLanesScript],
       {
         cwd: packageRoot,
         env: {
@@ -151,29 +259,10 @@ for (const [tier, secretsTier] of [
       new Response(child.stderr).text(),
       new Response(child.stdout).text(),
     ]);
-    if (exitCode !== 0) {
-      throw new Error(`Fastlane path constants failed to load: ${stderr}`);
-    }
-
-    const secretsDir = resolve(packageRoot, "../../.secrets", secretsTier);
-    expect(parseFastlanePathConstants(stdout)).toEqual({
-      ANDROID_DIR: resolve(packageRoot, "android"),
-      IOS_PACKAGE_DIR: packageRoot,
-      IOS_DIR: resolve(packageRoot, "ios"),
-      BRAND_IMAGES_SCRIPT: resolve(
-        packageRoot,
-        "../../scripts/lib/buildBrandImages.sh",
-      ),
-      NATIVE_SECRETS_DIR: secretsDir,
-      GOOGLE_PLAY_DEFAULT_JSON_KEY_PATH: resolve(
-        secretsDir,
-        "google-play-service-account-admin.json",
-      ),
-      ANDROID_RELEASE_KEYSTORE_PATH: resolve(
-        secretsDir,
-        "tearleads-release.keystore",
-      ),
-    });
+    expect(exitCode, stderr).toBe(0);
+    expect(JSON.parse(stdout.trim().split("\n").at(-1) ?? "null")).toEqual(
+      expectedLanes,
+    );
   });
 }
 

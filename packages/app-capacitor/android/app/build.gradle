@@ -62,15 +62,26 @@ tasks.named("preBuild") {
     dependsOn generateBrandImages
 }
 
-// The release keystore comes from the secrets folder of the tier the native
-// release wrappers select with NATIVE_RELEASE_TIER; without one, production.
-def releaseKeystoreFile() {
+// The upload keystore comes from the secrets folder of the tier the native
+// release lanes select with NATIVE_RELEASE_TIER (without one, production), or
+// from NATIVE_RELEASE_SECRETS_DIR, resolved against this package as the lanes
+// resolve it.
+def releaseSecretsDir() {
     def tier = (System.getenv("NATIVE_RELEASE_TIER") ?: "production").trim().toLowerCase()
     def secretsTier = [production: "prod", staging: "staging"][tier]
     if (secretsTier == null) {
         throw new GradleException("Unknown NATIVE_RELEASE_TIER '${tier}'. Expected production or staging.")
     }
-    return rootProject.file("../../../.secrets/${secretsTier}/tearleads-release.keystore")
+    def secretsDirOverride = System.getenv("NATIVE_RELEASE_SECRETS_DIR")?.trim()
+    if (!secretsDirOverride) {
+        return rootProject.file("../../../.secrets/${secretsTier}")
+    }
+    def secretsDir = new File(secretsDirOverride)
+    return secretsDir.absolute ? secretsDir : new File(rootProject.projectDir.parentFile, secretsDirOverride)
+}
+
+def releaseKeystoreFile() {
+    return new File(releaseSecretsDir(), "tearleads-upload.keystore")
 }
 
 def hasReleaseKeystore() {

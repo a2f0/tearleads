@@ -3,14 +3,6 @@ import { resolve } from "node:path";
 
 const repositoryRoot = resolve(import.meta.dir, "../../..");
 const guardPath = resolve(repositoryRoot, "scripts/lib/releaseGuards.sh");
-const fastlaneGuardPath = resolve(
-  repositoryRoot,
-  "packages/app-capacitor/fastlane/lib/revenuecat_release_key.rb",
-);
-const capacitorReleaseConfigPath = resolve(
-  repositoryRoot,
-  "packages/app-capacitor/fastlane/lib/capacitor_release_config.rb",
-);
 async function runStoreKeyGuard(key: string, expectedPrefix: string) {
   const process = Bun.spawn(
     [
@@ -29,66 +21,6 @@ async function runStoreKeyGuard(key: string, expectedPrefix: string) {
     new Response(process.stderr).text(),
   ]);
   return { exitCode, stderr };
-}
-
-async function readFastlaneKeyProblem(
-  key: string,
-  expectedPrefix: string,
-  productionValue = "",
-  releaseTier = "staging",
-) {
-  const process = Bun.spawn(
-    [
-      "ruby",
-      "-r",
-      fastlaneGuardPath,
-      "-e",
-      "print(revenuecat_store_key_problem(ARGV.fetch(0), ARGV.fetch(1), production_value: ARGV.fetch(2), release_tier: ARGV.fetch(3)) || 'ok')",
-      key,
-      expectedPrefix,
-      productionValue,
-      releaseTier,
-    ],
-    { stderr: "pipe", stdout: "pipe" },
-  );
-  const [exitCode, stderr, stdout] = await Promise.all([
-    process.exited,
-    new Response(process.stderr).text(),
-    new Response(process.stdout).text(),
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`Ruby key validation failed: ${stderr}`);
-  }
-  return stdout;
-}
-
-async function readCapacitorReleaseProblem(
-  appId: string,
-  expectedAppId: string,
-  serverUrl = "",
-) {
-  const process = Bun.spawn(
-    [
-      "ruby",
-      "-r",
-      capacitorReleaseConfigPath,
-      "-e",
-      "print(capacitor_release_problem({'appId' => ARGV.fetch(0), 'server' => {'url' => ARGV.fetch(2)}}, ARGV.fetch(1)) || 'ok')",
-      appId,
-      expectedAppId,
-      serverUrl,
-    ],
-    { stderr: "pipe", stdout: "pipe" },
-  );
-  const [exitCode, stderr, stdout] = await Promise.all([
-    process.exited,
-    new Response(process.stderr).text(),
-    new Response(process.stdout).text(),
-  ]);
-  if (exitCode !== 0) {
-    throw new Error(`Ruby Capacitor release validation failed: ${stderr}`);
-  }
-  return stdout;
 }
 
 async function buildNumberSelection(
@@ -197,68 +129,6 @@ describe("RevenueCat store-release safety", () => {
     });
   });
 
-  test("Fastlane rejects missing, prefix-only, and wrong-platform keys", async () => {
-    await expect(readFastlaneKeyProblem("", "appl_")).resolves.toBe(
-      "is missing",
-    );
-    await expect(readFastlaneKeyProblem("appl_", "appl_")).resolves.toBe(
-      "must start with appl_",
-    );
-    await expect(readFastlaneKeyProblem("goog_example", "appl_")).resolves.toBe(
-      "must start with appl_",
-    );
-    await expect(
-      readFastlaneKeyProblem(
-        "appl_example",
-        "appl_",
-        "appl_example",
-        "production",
-      ),
-    ).resolves.toBe("ok");
-    await expect(
-      readFastlaneKeyProblem("appl_production", "appl_", "appl_production"),
-    ).resolves.toContain("matches the production key");
-    await expect(
-      readFastlaneKeyProblem("appl_staging", "appl_"),
-    ).resolves.toContain("production key is unavailable");
-    await expect(
-      readFastlaneKeyProblem(
-        "appl_staging",
-        "appl_",
-        "appl_production",
-        "production",
-      ),
-    ).resolves.toContain("does not match the production key");
-    await expect(
-      readFastlaneKeyProblem("appl_production", "appl_", "", "production"),
-    ).resolves.toContain("independent baseline is unavailable");
-    await expect(
-      readFastlaneKeyProblem("appl_example", "appl_", "appl_root", "preview"),
-    ).resolves.toContain("unknown release tier");
-  });
-
-  test("Fastlane rejects a generated config for the wrong native target", async () => {
-    await expect(
-      readCapacitorReleaseProblem(
-        "com.tearleads.app",
-        "com.tearleads.staging.app",
-      ),
-    ).resolves.toContain('instead of "com.tearleads.staging.app"');
-    await expect(
-      readCapacitorReleaseProblem(
-        "com.tearleads.staging.app",
-        "com.tearleads.staging.app",
-      ),
-    ).resolves.toBe("ok");
-    await expect(
-      readCapacitorReleaseProblem(
-        "com.tearleads.staging.app",
-        "com.tearleads.staging.app",
-        "http://localhost:5173",
-      ),
-    ).resolves.toContain("server.url");
-  });
-
   const releaseScriptTargets = {
     "buildAndroidRelease.sh": "android build production",
     "buildAndroidStagingRelease.sh": "android build staging",
@@ -301,139 +171,35 @@ describe("RevenueCat store-release safety", () => {
   test("shared runner selects a tier-pinned Fastlane command", async () => {
     await expect(
       nativeBunCommand("android", "build", "production"),
-    ).resolves.toBe("android:build:google-play");
+    ).resolves.toBe("android:build-release");
     await expect(
       nativeBunCommand("android", "upload", "staging"),
-    ).resolves.toBe("android:upload:google-play:staging");
+    ).resolves.toBe("android:upload-release:staging");
     await expect(nativeBunCommand("ios", "build", "staging")).resolves.toBe(
-      "ios:build:testflight:staging",
+      "ios:build-release:staging",
     );
     await expect(nativeBunCommand("ios", "upload", "production")).resolves.toBe(
-      "ios:upload:testflight",
+      "ios:upload-release",
     );
   });
 
   test("build-number options are scoped to their store platform", async () => {
+    for (const platform of ["android", "ios"] as const) {
+      await expect(
+        buildNumberSelection(platform, "build_number:42"),
+      ).resolves.toBe("chosen");
+    }
     await expect(
-      buildNumberSelection("android", "version_code:42"),
+      buildNumberSelection("android", "next_google_play:true"),
     ).resolves.toBe("chosen");
     await expect(
       buildNumberSelection("android", "next_testflight:true"),
     ).resolves.toBe("unselected");
     await expect(
-      buildNumberSelection("ios", "apple_build_number:42"),
+      buildNumberSelection("ios", "next_testflight:true"),
     ).resolves.toBe("chosen");
     await expect(
       buildNumberSelection("ios", "next_google_play:true"),
     ).resolves.toBe("unselected");
-  });
-
-  test("Fastlane validates keys after loading release secrets", async () => {
-    const androidFastfile = await Bun.file(
-      resolve(
-        repositoryRoot,
-        "packages/app-capacitor/fastlane/lanes/android.rb",
-      ),
-    ).text();
-    const iosFastfile = await Bun.file(
-      resolve(repositoryRoot, "packages/app-capacitor/fastlane/lanes/ios.rb"),
-    ).text();
-    const androidLoadIndex = androidFastfile.indexOf(
-      "    load_android_release_secrets_env",
-    );
-    const androidGuardIndex = androidFastfile.indexOf(
-      "    ensure_revenuecat_store_key!(",
-    );
-    const iosLoadIndex = iosFastfile.indexOf(
-      "    load_ios_release_secrets_env",
-    );
-    const iosGuardIndex = iosFastfile.indexOf(
-      "    ensure_revenuecat_store_key!(",
-    );
-
-    expect(androidLoadIndex).toBeGreaterThan(-1);
-    expect(androidGuardIndex).toBeGreaterThan(androidLoadIndex);
-    expect(androidFastfile).toContain(
-      "native_release_production_store_key('VITE_REVENUECAT_ANDROID_API_KEY')",
-    );
-    expect(androidFastfile).toContain("production_value:");
-    expect(androidFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
-    expect(iosLoadIndex).toBeGreaterThan(-1);
-    expect(iosGuardIndex).toBeGreaterThan(iosLoadIndex);
-    expect(iosFastfile).toContain(
-      "native_release_production_store_key('VITE_REVENUECAT_IOS_API_KEY')",
-    );
-    expect(iosFastfile).toContain("production_value:");
-    expect(iosFastfile).toContain("release_tier: NATIVE_RELEASE_TIER");
-  });
-
-  test("iOS release signing uses an isolated Match keychain", async () => {
-    const iosFastfile = await Bun.file(
-      resolve(repositoryRoot, "packages/app-capacitor/fastlane/lanes/ios.rb"),
-    ).text();
-    const buildLaneIndex = iosFastfile.indexOf(
-      "lane :build_testflight_release",
-    );
-    const keychainIndex = iosFastfile.indexOf(
-      "      with_ios_signing_keychain do",
-      buildLaneIndex,
-    );
-    const buildMatchIndex = iosFastfile.indexOf(
-      "        profile_name = install_ios_appstore_signing_assets!",
-      keychainIndex,
-    );
-
-    expect(keychainIndex).toBeGreaterThan(buildLaneIndex);
-    expect(buildMatchIndex).toBeGreaterThan(keychainIndex);
-    expect(iosFastfile).toContain("with_ios_signing_keychain do");
-    expect(iosFastfile).toContain("create_keychain(");
-    expect(iosFastfile).toContain("password: password");
-    expect(iosFastfile).toContain("default_keychain: true");
-    expect(iosFastfile).toContain("delete_keychain(name: name)");
-    expect(iosFastfile).toContain("OTHER_CODE_SIGN_FLAGS");
-  });
-
-  test("iOS release archives only the committed Swift package pins", async () => {
-    const iosFastfile = await Bun.file(
-      resolve(repositoryRoot, "packages/app-capacitor/fastlane/lanes/ios.rb"),
-    ).text();
-    const buildLaneIndex = iosFastfile.indexOf(
-      "lane :build_testflight_release",
-    );
-    const pinsIndex = iosFastfile.indexOf(
-      "    ipa_path = SwiftPackagePins.verify_around(IOS_PACKAGE_RESOLVED_PATH) do",
-      buildLaneIndex,
-    );
-    const keychainIndex = iosFastfile.indexOf(
-      "      with_ios_signing_keychain do",
-      pinsIndex,
-    );
-    const strictIndex = iosFastfile.indexOf(
-      "            disable_package_automatic_updates: true,",
-      keychainIndex,
-    );
-    const assetsIndex = iosFastfile.indexOf(
-      "    assets = require_ios_testflight_assets!(ipa_path)",
-      strictIndex,
-    );
-
-    expect(pinsIndex).toBeGreaterThan(buildLaneIndex);
-    expect(keychainIndex).toBeGreaterThan(pinsIndex);
-    expect(strictIndex).toBeGreaterThan(keychainIndex);
-    expect(assetsIndex).toBeGreaterThan(strictIndex);
-    expect(iosFastfile).toContain(
-      "require_relative '../lib/swift_package_pins'",
-    );
-    expect(iosFastfile).toContain(
-      "IOS_PACKAGE_RESOLVED_PATH = File.join(IOS_PROJECT_PATH, 'project.xcworkspace/xcshareddata/swiftpm/Package.resolved')",
-    );
-    expect(
-      await Bun.file(
-        resolve(
-          repositoryRoot,
-          "packages/app-capacitor/ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved",
-        ),
-      ).exists(),
-    ).toBe(true);
   });
 });

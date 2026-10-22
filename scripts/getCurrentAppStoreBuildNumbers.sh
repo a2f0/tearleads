@@ -17,14 +17,13 @@ apple_version:<version> to select a specific version.
 The lane's apple_live option defaults to false here so the latest uploaded
 build is reported even while an app has no live App Store version (the staging
 app never does). Pass apple_live:true or export APP_STORE_LIVE=true to query
-the live version instead. An APP_STORE_LIVE set only in a tier's
-.secrets/<tier>/shared.env is loaded by Fastlane after this default is
-decided, so it must be exported in the environment to take effect here.
+the live version instead; Fastlane does not read APP_STORE_LIVE from the
+secrets files.
 
 App Store Connect authentication uses APP_STORE_CONNECT_KEY_ID and
 APP_STORE_CONNECT_ISSUER_ID, loaded by Fastlane from the tier's
-.secrets/<tier>/shared.env (prod for production, staging for staging). The
-private key defaults to .secrets/<tier>/AuthKey_<key-id>.p8.
+.secrets/<tier>/shared.env and app.env (prod for production, staging for
+staging). The private key defaults to .secrets/<tier>/AuthKey_<key-id>.p8.
 
 The Fastlane lane reports fetch failures without failing, so this wrapper
 exits nonzero when a queried app does not report a build number.

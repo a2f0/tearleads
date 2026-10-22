@@ -1,4 +1,6 @@
-const packageRoot = import.meta.dir.replace(/\/tests$/, "");
+import { resolve } from "node:path";
+
+const packageRoot = resolve(import.meta.dir, "../../..");
 const installHint =
   "Run `bundle install` in packages/app-capacitor before running native release checks.";
 

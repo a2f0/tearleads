@@ -32,18 +32,52 @@ NATIVE_RELEASE_TARGETS = {
 
 NATIVE_RELEASE_TIER = ENV.fetch('NATIVE_RELEASE_TIER', 'production').strip.downcase
 NATIVE_RELEASE_TARGET = NATIVE_RELEASE_TARGETS.fetch(NATIVE_RELEASE_TIER) do
-  raise "Unknown NATIVE_RELEASE_TIER=#{NATIVE_RELEASE_TIER.inspect}. Expected production or staging."
+  raise "Unknown NATIVE_RELEASE_TIER=#{NATIVE_RELEASE_TIER.inspect}. " \
+        "Expected #{NATIVE_RELEASE_TARGETS.keys.join(' or ')}."
 end
 NATIVE_APP_IDENTIFIER = NATIVE_RELEASE_TARGET.fetch(:app_identifier)
 NATIVE_CAPACITOR_SYNC_SCRIPT = NATIVE_RELEASE_TARGET.fetch(:capacitor_sync_script)
-NATIVE_REPO_ROOT = File.expand_path('../../../..', __dir__)
-# Each tier reads only its own `.secrets/<tier>/` folder: signing keys, store
-# credentials, and `shared.env` (the values shared with other projects), plus
-# the allowlisted native settings in staging's `app.env`.
-NATIVE_SECRETS_DIR = File.join(NATIVE_REPO_ROOT, '.secrets', NATIVE_RELEASE_TARGET.fetch(:secrets_tier))
+NATIVE_PACKAGE_DIR = File.expand_path('../..', __dir__)
+NATIVE_REPO_ROOT = File.expand_path('../..', NATIVE_PACKAGE_DIR)
+
+def native_release_tier_secrets_dir(tier)
+  File.join(NATIVE_REPO_ROOT, '.secrets', NATIVE_RELEASE_TARGETS.fetch(tier).fetch(:secrets_tier))
+end
+
+# Each tier reads only its own `.secrets/<secrets tier>/` folder: signing keys,
+# store credentials, `shared.env` (the values shared with other projects), and
+# `app.env` (this project's). NATIVE_RELEASE_SECRETS_DIR names another folder
+# instead; a relative path resolves against this package, as Gradle and the
+# native web build resolve it.
+NATIVE_RELEASE_SECRETS_DIR_OVERRIDE = ENV.fetch('NATIVE_RELEASE_SECRETS_DIR', '').strip
+NATIVE_SECRETS_DIR =
+  if NATIVE_RELEASE_SECRETS_DIR_OVERRIDE.empty?
+    native_release_tier_secrets_dir(NATIVE_RELEASE_TIER)
+  else
+    File.expand_path(NATIVE_RELEASE_SECRETS_DIR_OVERRIDE, NATIVE_PACKAGE_DIR)
+  end
 NATIVE_SHARED_ENV_PATH = File.join(NATIVE_SECRETS_DIR, 'shared.env')
-NATIVE_STAGING_APP_ENV_PATH = File.join(NATIVE_REPO_ROOT, '.secrets', 'staging', 'app.env')
-NATIVE_PRODUCTION_SHARED_ENV_PATH = File.join(NATIVE_REPO_ROOT, '.secrets', 'prod', 'shared.env')
+NATIVE_APP_ENV_PATH = File.join(NATIVE_SECRETS_DIR, 'app.env')
+# Production compares its RevenueCat keys with the shared.env it loads; staging
+# compares with production's.
+NATIVE_PRODUCTION_SHARED_ENV_PATH =
+  if NATIVE_RELEASE_TIER == 'production'
+    NATIVE_SHARED_ENV_PATH
+  else
+    File.join(native_release_tier_secrets_dir('production'), 'shared.env')
+  end
+# Store credentials and signing passwords, imported from either file. Values
+# copied from root.env stay in shared.env until they are rotated into app.env.
+NATIVE_STORE_ENV_NAMES = %w[
+  ANDROID_KEYSTORE_KEY_PASS
+  ANDROID_KEYSTORE_STORE_PASS
+  APP_STORE_CONNECT_ISSUER_ID
+  APP_STORE_CONNECT_KEY_ID
+  MATCH_GIT_BASIC_AUTHORIZATION
+  MATCH_GIT_URL
+  MATCH_PASSWORD
+  TEAM_ID
+].freeze
 NATIVE_SHARED_VITE_ENV_NAMES = %w[
   VITE_REVENUECAT_SYNC_ENTITLEMENT
 ].freeze
@@ -63,6 +97,9 @@ NATIVE_RELEASE_MANAGED_VITE_ENV_NAMES = %w[
 ].freeze
 NATIVE_STAGING_ENV_NAMES = (
   NATIVE_STAGING_PLATFORM_VITE_ENV_NAMES + NATIVE_SHARED_VITE_ENV_NAMES
+).freeze
+NATIVE_VITE_ENV_NAMES = (
+  NATIVE_SHARED_VITE_ENV_NAMES + NATIVE_STAGING_PLATFORM_VITE_ENV_NAMES + NATIVE_RELEASE_MANAGED_VITE_ENV_NAMES
 ).freeze
 
 def native_release_android_build_variant_task
@@ -89,52 +126,44 @@ def parsed_native_release_env(path)
   File.file?(path) ? Dotenv.parse(path) : {}
 end
 
-def warn_ignored_native_staging_vite_names(environment, source, allowed_names)
+# Vite client settings each file may provide for the selected tier. Production
+# reads them from its shared.env only, never the server-oriented prod/app.env.
+# Staging takes only explicitly shared settings from its shared.env and only the
+# native RevenueCat client settings from its app.env, so production keys and
+# unrelated deploy values cannot leak into a staging app.
+def native_release_vite_env_names(file_name)
+  if NATIVE_RELEASE_TIER == 'staging'
+    file_name == 'app.env' ? NATIVE_STAGING_ENV_NAMES : NATIVE_SHARED_VITE_ENV_NAMES
+  else
+    file_name == 'app.env' ? [] : NATIVE_VITE_ENV_NAMES
+  end
+end
+
+def warn_ignored_native_vite_names(environment, file_name, allowed_names)
   ignored_names = environment.keys.select do |name|
     name.start_with?('VITE_') && !allowed_names.include?(name)
   end
   return if ignored_names.empty?
 
-  warn "Ignoring #{source} Vite settings for staging: #{ignored_names.sort.join(', ')}"
+  source = "#{NATIVE_RELEASE_TARGET.fetch(:secrets_tier)}/#{file_name}"
+  warn "Ignoring #{source} Vite settings for #{NATIVE_RELEASE_TIER}: #{ignored_names.sort.join(', ')}"
 end
 
-def native_release_staging_shared_environment(shared_environment)
-  warn_ignored_native_staging_vite_names(
-    shared_environment,
-    'staging/shared.env',
-    NATIVE_SHARED_VITE_ENV_NAMES
-  )
-  shared_environment.delete_if do |name, _value|
-    name.start_with?('VITE_') && !NATIVE_SHARED_VITE_ENV_NAMES.include?(name)
-  end
+def native_release_env_file(file_name)
+  environment = parsed_native_release_env(File.join(NATIVE_SECRETS_DIR, file_name))
+  vite_names = native_release_vite_env_names(file_name)
+  warn_ignored_native_vite_names(environment, file_name, vite_names)
+  environment.slice(*NATIVE_STORE_ENV_NAMES, *vite_names)
 end
 
-def native_release_staging_app_environment
-  app_environment = parsed_native_release_env(NATIVE_STAGING_APP_ENV_PATH)
-  warn_ignored_native_staging_vite_names(
-    app_environment,
-    'staging/app.env',
-    NATIVE_STAGING_ENV_NAMES
-  )
-  app_environment.slice(*NATIVE_STAGING_ENV_NAMES)
-end
-
-# Production reads only its shared.env, never the server-oriented prod/app.env.
-# Staging keeps signing and store credentials from its shared.env, but only
-# explicitly shared Vite settings. Its server-oriented app.env may contain
-# unrelated deploy secrets, so import only native RevenueCat client settings.
+# Both files also hold server values no lane needs, so each contributes only
+# the allowlisted names; app.env wins over shared.env.
 def native_release_file_environment
-  shared_environment = parsed_native_release_env(NATIVE_SHARED_ENV_PATH)
-  return shared_environment unless NATIVE_RELEASE_TIER == 'staging'
-
-  native_release_staging_shared_environment(shared_environment).merge(
-    native_release_staging_app_environment
-  )
+  native_release_env_file('shared.env').merge(native_release_env_file('app.env'))
 end
 
 # Load release values while preserving every variable explicitly set by the
-# caller. Parsing first lets the tier-specific native allowlist override the
-# shared values.
+# caller. Parsing first lets app.env override shared.env.
 def load_native_release_secrets_env(validate_service_urls: true)
   process_environment = ENV.to_h
 
