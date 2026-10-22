@@ -5,7 +5,7 @@ import type {
 } from "@tearleads/client-sdk";
 import { syncedContainerDocumentObjectSyncState } from "@tearleads/client-sdk";
 import { cleanup, renderHook, waitFor } from "@testing-library/react";
-import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
+import { useOrganizationNames } from "./useOrganizationNames";
 
 afterEach(() => cleanup());
 
@@ -43,7 +43,7 @@ function createLoader(initial: LocalOrganizationSummary[]) {
   };
 }
 
-test("resolves names only for foreign organizations, ignoring the primary and null names", async () => {
+test("resolves names except for the excluded organization and null names", async () => {
   const { load } = createLoader([
     summary("org-primary", "My Org"),
     summary("org-acme", "Acme Corp"),
@@ -56,10 +56,10 @@ test("resolves names only for foreign organizations, ignoring the primary and nu
   ];
 
   const { result } = renderHook(() =>
-    useExplorerOrganizationNames({
+    useOrganizationNames({
       listLocalOrganizations: load,
       nodes,
-      primaryOrganizationId: "org-primary",
+      excludedOrganizationId: "org-primary",
       ready: true,
     }),
   );
@@ -72,14 +72,35 @@ test("resolves names only for foreign organizations, ignoring the primary and nu
   expect(result.current.has("org-pending")).toBe(false);
 });
 
+test("resolves every organization when none is excluded", async () => {
+  const { load } = createLoader([
+    summary("org-primary", "My Org"),
+    summary("org-acme", "Acme Corp"),
+  ]);
+  const nodes = [rootNode("org-primary"), rootNode("org-acme")];
+
+  const { result } = renderHook(() =>
+    useOrganizationNames({
+      excludedOrganizationId: null,
+      listLocalOrganizations: load,
+      nodes,
+      ready: true,
+    }),
+  );
+
+  await waitFor(() => expect(result.current.size).toBe(2));
+  expect(result.current.get("org-primary")).toBe("My Org");
+  expect(result.current.get("org-acme")).toBe("Acme Corp");
+});
+
 test("stays empty and never queries when there are no foreign organizations", () => {
   const { load } = createLoader([summary("org-primary", "My Org")]);
 
   const { result } = renderHook(() =>
-    useExplorerOrganizationNames({
+    useOrganizationNames({
       listLocalOrganizations: load,
       nodes: [rootNode("org-primary")],
-      primaryOrganizationId: "org-primary",
+      excludedOrganizationId: "org-primary",
       ready: true,
     }),
   );
@@ -96,10 +117,10 @@ test("does not resolve until ready", async () => {
 
   const { result, rerender } = renderHook(
     ({ ready }: { ready: boolean }) =>
-      useExplorerOrganizationNames({
+      useOrganizationNames({
         listLocalOrganizations: load,
         nodes,
-        primaryOrganizationId: "org-primary",
+        excludedOrganizationId: "org-primary",
         ready,
       }),
     { initialProps: { ready: false } },
@@ -123,10 +144,10 @@ test("picks up a name that only decrypts on a later container sync", async () =>
 
   const { result, rerender } = renderHook(
     ({ nodes }: { nodes: ContainerNode[] }) =>
-      useExplorerOrganizationNames({
+      useOrganizationNames({
         listLocalOrganizations: loader.load,
         nodes,
-        primaryOrganizationId: "org-primary",
+        excludedOrganizationId: "org-primary",
         ready: true,
       }),
     { initialProps: { nodes: nodesBefore } },
@@ -149,10 +170,10 @@ test("stops querying once every foreign organization is named and the set is sta
 
   const { result, rerender } = renderHook(
     ({ nodes }: { nodes: ContainerNode[] }) =>
-      useExplorerOrganizationNames({
+      useOrganizationNames({
         listLocalOrganizations: loader.load,
         nodes,
-        primaryOrganizationId: "org-primary",
+        excludedOrganizationId: "org-primary",
         ready: true,
       }),
     {
@@ -192,10 +213,10 @@ test("does not start a second lookup while one for the same orgs is in flight", 
 
   const { result, rerender } = renderHook(
     ({ nodes }: { nodes: ContainerNode[] }) =>
-      useExplorerOrganizationNames({
+      useOrganizationNames({
         listLocalOrganizations: load,
         nodes,
-        primaryOrganizationId: "org-primary",
+        excludedOrganizationId: "org-primary",
         ready: true,
       }),
     {
@@ -225,10 +246,10 @@ test("re-queries and prunes when a foreign organization is removed", async () =>
 
   const { result, rerender } = renderHook(
     ({ nodes }: { nodes: ContainerNode[] }) =>
-      useExplorerOrganizationNames({
+      useOrganizationNames({
         listLocalOrganizations: loader.load,
         nodes,
-        primaryOrganizationId: "org-primary",
+        excludedOrganizationId: "org-primary",
         ready: true,
       }),
     {
@@ -263,10 +284,10 @@ test("swallows loader failures and keeps the last resolved names", async () => {
 
   const { result, rerender } = renderHook(
     ({ nodes }: { nodes: ContainerNode[] }) =>
-      useExplorerOrganizationNames({
+      useOrganizationNames({
         listLocalOrganizations: load,
         nodes,
-        primaryOrganizationId: "org-primary",
+        excludedOrganizationId: "org-primary",
         ready: true,
       }),
     {
@@ -299,10 +320,10 @@ test("re-resolves a pending name after its profile syncs, without a container ch
   const nodes = [rootNode("org-primary"), rootNode("org-acme")];
 
   const { result } = renderHook(() =>
-    useExplorerOrganizationNames({
+    useOrganizationNames({
       listLocalOrganizations: load,
       nodes,
-      primaryOrganizationId: "org-primary",
+      excludedOrganizationId: "org-primary",
       ready: true,
     }),
   );

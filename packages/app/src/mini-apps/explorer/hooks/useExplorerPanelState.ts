@@ -27,6 +27,7 @@ import {
   useExplorerDroppedFileImport,
 } from "../../../stores/explorer/useExplorerDroppedFileImport";
 import { useBlobOrganizationNames } from "../../shared/blob-pick/blob-list/useBlobOrganizationNames";
+import { useOrganizationNames } from "../../shared/organizations/useOrganizationNames";
 import { useExplorerContextMenu } from "../context-menu/ExplorerContextMenu";
 import {
   EXPLORER_LABELS,
@@ -46,7 +47,6 @@ import {
   useExplorerContainerTrashActions,
 } from "./useExplorerContainerTrashActions";
 import { useExplorerDocumentModalState } from "./useExplorerDocumentModalState";
-import { useExplorerOrganizationNames } from "./useExplorerOrganizationNames";
 import { useExplorerRoute } from "./useExplorerRoute";
 import type { ExplorerSelectionState } from "./useExplorerSelection";
 import { useExplorerUploadManager } from "./useExplorerUploadManager";
@@ -176,11 +176,13 @@ export function useExplorerPanelState(params: {
     () => tearleads.organizations.listLocalOrganizations(),
     [tearleads],
   );
-  const sidebarOrganizationNamesById = useExplorerOrganizationNames({
+  // The primary organization's roots carry no heading, so its name is not
+  // resolved; until it is known, no heading renders either.
+  const sidebarOrganizationNamesById = useOrganizationNames({
+    excludedOrganizationId: primaryOrganizationId,
     listLocalOrganizations,
     nodes: explorer.nodes,
-    primaryOrganizationId,
-    ready: explorer.ready,
+    ready: explorer.ready && primaryOrganizationId !== null,
   });
   const localOrganizationNamesById = useBlobOrganizationNames({
     listLocalOrganizations,

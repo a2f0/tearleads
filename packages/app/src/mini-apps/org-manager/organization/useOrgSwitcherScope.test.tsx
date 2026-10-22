@@ -1,16 +1,16 @@
 import { afterEach, expect, mock, test } from "bun:test";
 import {
   createDomainScope,
-  type LocalOrganizationSummary,
   type SessionContext,
   type SessionCreateOrganizationResult,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
+import type { OrganizationWorkspace } from "./orgSwitcherTypes";
 import { useOrgSwitcherController } from "./useOrgSwitcherController";
 
 afterEach(() => cleanup());
 
-const ORGANIZATION_A: LocalOrganizationSummary = {
+const ORGANIZATION_A: OrganizationWorkspace = {
   name: "Acme",
   organizationId: "org-a",
   rootContainerId: "container-a",

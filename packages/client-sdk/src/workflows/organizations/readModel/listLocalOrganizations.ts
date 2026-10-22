@@ -22,14 +22,20 @@ interface LocalContainerForNameLookup {
 }
 
 /**
- * A locally-known organization the user belongs to, derived from its persisted
- * root container. `name` is the decrypted organization-profile display name when
+ * A locally-known organization: one the user holds at least one persisted
+ * container of. `name` is the decrypted organization-profile display name when
  * one is stored locally, or null when it has not synced yet.
+ *
+ * `rootContainerId` is the organization's workspace root when this user can
+ * reach it. It is null for an organization the user reaches only through its
+ * Members-granted metadata container or through folders shared from beneath a
+ * root the user cannot see; such an organization can be browsed but not made
+ * the active workspace.
  */
 export interface LocalOrganizationSummary {
   name: string | null;
   organizationId: string;
-  rootContainerId: string;
+  rootContainerId: string | null;
 }
 
 // Reads and decrypts the `name` field of the organization_profile document
@@ -142,11 +148,83 @@ async function readLocalOrganizationName(
   return null;
 }
 
+interface LocalOrganizationContainers {
+  readonly containers: LocalContainerForNameLookup[];
+  earliestLocalCreatedAt: string;
+  root: { readonly id: string; readonly localCreatedAt: string } | null;
+}
+
+type PersistedContainers = Awaited<
+  ReturnType<typeof sqlContainerContentsPersistence.loadContainers>
+>;
+
+// Groups every persisted container by organization, keeping the first
+// workspace root (a parentless, non-system container) and the earliest local
+// creation time. Name resolution reuses the grouped containers to locate an
+// organization's independent metadata root without a second DB scan.
+function indexLocalOrganizations(
+  containers: PersistedContainers,
+): Map<string, LocalOrganizationContainers> {
+  const organizations = new Map<string, LocalOrganizationContainers>();
+  for (const { container } of containers) {
+    const localCreatedAt = container.localCreatedAt ?? "";
+    let organization = organizations.get(container.organizationId);
+    if (!organization) {
+      organization = {
+        containers: [],
+        earliestLocalCreatedAt: localCreatedAt,
+        root: null,
+      };
+      organizations.set(container.organizationId, organization);
+    }
+    organization.containers.push({
+      id: container.id,
+      systemSlot: container.systemSlot ?? null,
+    });
+    if (localCreatedAt < organization.earliestLocalCreatedAt) {
+      organization.earliestLocalCreatedAt = localCreatedAt;
+    }
+    if (
+      organization.root === null &&
+      container.parentId === null &&
+      !container.systemSlot
+    ) {
+      organization.root = { id: container.id, localCreatedAt };
+    }
+  }
+  return organizations;
+}
+
+// Workspaces (organizations with a reachable root) come first in root
+// creation order, so the personal organization provisioned with this device
+// keeps its place. Organizations reached without a root follow in the order
+// their first container arrived locally.
+function compareLocalOrganizations(
+  [leftId, left]: [string, LocalOrganizationContainers],
+  [rightId, right]: [string, LocalOrganizationContainers],
+): number {
+  if (left.root && right.root) {
+    return (
+      left.root.localCreatedAt.localeCompare(right.root.localCreatedAt) ||
+      leftId.localeCompare(rightId) ||
+      left.root.id.localeCompare(right.root.id)
+    );
+  }
+  if (left.root || right.root) {
+    return left.root ? -1 : 1;
+  }
+  return (
+    left.earliestLocalCreatedAt.localeCompare(right.earliestLocalCreatedAt) ||
+    leftId.localeCompare(rightId)
+  );
+}
+
 /**
- * Enumerates the organizations the user can manage from local state: one per
- * persisted root container. This is intentionally offline — the Explorer already
- * resolves files across organizations by effective permission, so listing the
- * organizations to manage needs no server round-trip.
+ * Enumerates every organization the user holds a persisted container of, from
+ * local state alone. This is intentionally offline: membership is visible
+ * locally because every Members recipient can read the organization's metadata
+ * root, and shared folders arrive with their organization attached, so listing
+ * organizations needs no server round-trip.
  */
 export async function listLocalOrganizations(input: {
   execSql: ExecSql;
@@ -160,63 +238,23 @@ export async function listLocalOrganizations(input: {
     await loadOrganizationProfileDocumentIds(input.execSql).catch(
       () => new Map<string, string>(),
     );
-
-  // Group every persisted container by org so name resolution can locate an
-  // org's independent metadata root without a second DB scan.
-  const containersByOrganizationId = new Map<
-    string,
-    LocalContainerForNameLookup[]
-  >();
-  for (const { container } of containers) {
-    const entry: LocalContainerForNameLookup = {
-      id: container.id,
-      systemSlot: container.systemSlot ?? null,
-    };
-    const group = containersByOrganizationId.get(container.organizationId);
-    if (group) {
-      group.push(entry);
-    } else {
-      containersByOrganizationId.set(container.organizationId, [entry]);
-    }
-  }
-
-  const seen = new Set<string>();
-  const rootContainers = containers.filter(({ container }) => {
-    if (
-      container.parentId !== null ||
-      container.systemSlot ||
-      seen.has(container.organizationId)
-    ) {
-      return false;
-    }
-    seen.add(container.organizationId);
-    return true;
-  });
-  rootContainers.sort(
-    (left, right) =>
-      (left.container.localCreatedAt ?? "").localeCompare(
-        right.container.localCreatedAt ?? "",
-      ) ||
-      left.container.organizationId.localeCompare(
-        right.container.organizationId,
-      ) ||
-      left.container.id.localeCompare(right.container.id),
+  const organizations = [...indexLocalOrganizations(containers)].sort(
+    compareLocalOrganizations,
   );
 
   // Read each organization's profile name concurrently; readLocalOrganizationName
   // already falls back to null per organization, so a single corrupt profile
   // cannot reject the batch.
   return Promise.all(
-    rootContainers.map(async ({ container }) => ({
+    organizations.map(async ([organizationId, organization]) => ({
       name: await readLocalOrganizationName(
         input.execSql,
-        container.organizationId,
-        containersByOrganizationId.get(container.organizationId) ?? [],
-        profileDocumentIdsByOrganizationId.get(container.organizationId) ??
-          null,
+        organizationId,
+        organization.containers,
+        profileDocumentIdsByOrganizationId.get(organizationId) ?? null,
       ),
-      organizationId: container.organizationId,
-      rootContainerId: container.id,
+      organizationId,
+      rootContainerId: organization.root?.id ?? null,
     })),
   );
 }

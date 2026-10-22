@@ -94,7 +94,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.61",
+      "version": "0.1.62",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -218,7 +218,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.86",
+      "version": "0.1.87",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -250,7 +250,7 @@
     },
     "packages/diagnostics": {
       "name": "@tearleads/diagnostics",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "dependencies": {
         "@sentry/browser": "11.8.0",
         "@sentry/core": "11.8.0",
