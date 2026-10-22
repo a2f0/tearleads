@@ -10,6 +10,7 @@ import type { RootOrganizationDetailResponse } from "@tearleads/validators/respo
 import { eq } from "drizzle-orm";
 import { serializeOrganizationBillingHistory } from "../../billing/organizationBilling";
 import { loadOrganizationBillingHistory } from "../billing/organizationBillingHistory";
+import { loadRootOrganizationOverview } from "./organizationOverview";
 import { getRootOrganization } from "./organizations";
 
 async function loadBilling(executor: DatabaseSession, organizationId: string) {
@@ -29,6 +30,7 @@ async function loadBilling(executor: DatabaseSession, organizationId: string) {
     disabledAt: row.disabledAt?.toISOString() ?? null,
     purgeAfter: row.purgeAfter?.toISOString() ?? null,
     purgedAt: row.purgedAt?.toISOString() ?? null,
+    purgeStartedAt: row.purgeStartedAt?.toISOString() ?? null,
     providerCustomerId: row.providerCustomerId,
     providerSubscriptionId: row.providerSubscriptionId,
     providerProductId: row.providerProductId,
@@ -69,8 +71,11 @@ export function loadRootOrganizationDetail(
   return db.transaction(async (tx) => {
     const organization = await getRootOrganization(tx, organizationId);
     if (!organization) return null;
+    const overview = await loadRootOrganizationOverview(tx, organizationId);
+    if (!overview) return null;
     return {
       organization,
+      overview,
       billing: await loadBilling(tx, organizationId),
       stripe: await loadStripe(tx, organizationId),
       history: serializeOrganizationBillingHistory(

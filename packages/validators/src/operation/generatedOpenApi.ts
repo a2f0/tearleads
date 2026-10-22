@@ -22953,9 +22953,11 @@ export interface operations {
                             organizationId: string;
                             roster: {
                                 disabledAt: string | null;
+                                holdsSeat: boolean;
                                 joinedAt: string;
                                 /** @enum {string} */
                                 status: "active" | "disabled";
+                                syncPausedAt: string | null;
                             } & {
                                 [key: string]: unknown;
                             };
@@ -23195,6 +23197,7 @@ export interface operations {
                             providerTransactionId: string | null;
                             purgeAfter: string | null;
                             purgedAt: string | null;
+                            purgeStartedAt: string | null;
                             seatCount: number;
                             /** @enum {string} */
                             status: "local" | "trialing" | "active" | "disabled" | "deleting" | "purged";
@@ -23238,6 +23241,16 @@ export interface operations {
                             billingStatus: ("local" | "trialing" | "active" | "disabled" | "deleting" | "purged") | null;
                             createdAt: string;
                             organizationId: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        overview: {
+                            activeMemberCount: number;
+                            adminGroupId: string;
+                            disabledMemberCount: number;
+                            memberGroupId: string;
+                            openSeatAssignmentCount: number;
+                            syncPausedMemberCount: number;
                         } & {
                             [key: string]: unknown;
                         };
@@ -23501,9 +23514,11 @@ export interface operations {
                             };
                             roster: {
                                 disabledAt: string | null;
+                                holdsSeat: boolean;
                                 joinedAt: string;
                                 /** @enum {string} */
                                 status: "active" | "disabled";
+                                syncPausedAt: string | null;
                             } & {
                                 [key: string]: unknown;
                             };

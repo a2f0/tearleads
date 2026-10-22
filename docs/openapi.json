@@ -63243,6 +63243,9 @@
                                   }
                                 ]
                               },
+                              "holdsSeat": {
+                                "type": "boolean"
+                              },
                               "joinedAt": {
                                 "type": "string"
                               },
@@ -63252,12 +63255,24 @@
                                   "active",
                                   "disabled"
                                 ]
+                              },
+                              "syncPausedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
                               "disabledAt",
+                              "holdsSeat",
                               "joinedAt",
-                              "status"
+                              "status",
+                              "syncPausedAt"
                             ],
                             "additionalProperties": {}
                           }
@@ -64303,6 +64318,9 @@
                                   }
                                 ]
                               },
+                              "holdsSeat": {
+                                "type": "boolean"
+                              },
                               "joinedAt": {
                                 "type": "string"
                               },
@@ -64312,12 +64330,24 @@
                                   "active",
                                   "disabled"
                                 ]
+                              },
+                              "syncPausedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
                               "disabledAt",
+                              "holdsSeat",
                               "joinedAt",
-                              "status"
+                              "status",
+                              "syncPausedAt"
                             ],
                             "additionalProperties": {}
                           }
@@ -64536,6 +64566,48 @@
                       ],
                       "additionalProperties": {}
                     },
+                    "overview": {
+                      "type": "object",
+                      "properties": {
+                        "adminGroupId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "memberGroupId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "activeMemberCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "disabledMemberCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "syncPausedMemberCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "openSeatAssignmentCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "adminGroupId",
+                        "memberGroupId",
+                        "activeMemberCount",
+                        "disabledMemberCount",
+                        "syncPausedMemberCount",
+                        "openSeatAssignmentCount"
+                      ],
+                      "additionalProperties": {}
+                    },
                     "billing": {
                       "anyOf": [
                         {
@@ -64677,6 +64749,16 @@
                                 }
                               ]
                             },
+                            "purgeStartedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -64699,6 +64781,7 @@
                             "providerProductId",
                             "providerTransactionId",
                             "entitlementId",
+                            "purgeStartedAt",
                             "createdAt",
                             "updatedAt"
                           ],
@@ -65115,6 +65198,7 @@
                   },
                   "required": [
                     "organization",
+                    "overview",
                     "billing",
                     "stripe",
                     "history"

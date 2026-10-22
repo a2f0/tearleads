@@ -125,6 +125,8 @@ export const rootOrganizationHandlers = [
             status: "active",
             joinedAt: "2026-08-01T00:00:00.000Z",
             disabledAt: null,
+            syncPausedAt: identity.isRoot ? null : "2026-09-01T00:00:00.000Z",
+            holdsSeat: !identity.isRoot,
           },
         })),
         nextCursor: null,

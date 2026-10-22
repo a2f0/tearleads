@@ -15,6 +15,14 @@ const organization = {
   createdAt: "2026-08-01T00:00:00.000Z",
   billingStatus: null,
 };
+const overview = {
+  adminGroupId: "22222222-2222-4222-8222-222222222222",
+  memberGroupId: "33333333-3333-4333-8333-333333333333",
+  activeMemberCount: 2,
+  disabledMemberCount: 1,
+  syncPausedMemberCount: 1,
+  openSeatAssignmentCount: 2,
+};
 
 testApiClient(
   "root organization transport encodes filters and decodes detail and roster",
@@ -36,6 +44,7 @@ testApiClient(
           paths.push(new URL(request.url).pathname);
           return HttpResponse.json({
             organization,
+            overview,
             billing: null,
             stripe: null,
             history: [],
@@ -62,7 +71,13 @@ testApiClient(
     });
     expect(await client.getRootOrganizationResult(organizationId)).toEqual({
       ok: true,
-      data: { organization, billing: null, stripe: null, history: [] },
+      data: {
+        organization,
+        overview,
+        billing: null,
+        stripe: null,
+        history: [],
+      },
     });
     expect(
       await client.listRootOrganizationIdentitiesResult(organizationId, {
