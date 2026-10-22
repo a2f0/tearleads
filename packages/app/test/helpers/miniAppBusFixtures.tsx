@@ -34,6 +34,10 @@ export function createMiniApps(
       createComponent: () => orgManagerComponent,
       title: "Org Manager",
     },
+    organizations: {
+      createComponent: () => EmptyMiniApp,
+      title: "Organizations",
+    },
     root: { createComponent: () => () => null, title: "Root" },
     "system-monitor": {
       createComponent: () => EmptyMiniApp,

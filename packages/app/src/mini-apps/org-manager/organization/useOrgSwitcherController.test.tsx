@@ -2,22 +2,22 @@ import { afterEach, expect, mock, test } from "bun:test";
 import {
   createDomainScope,
   type DomainScope,
-  type LocalOrganizationSummary,
   type SessionContext,
   type SessionCreateOrganizationResult,
 } from "@tearleads/client-sdk";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { ORG_MANAGER_LABELS } from "../labels";
+import type { OrganizationWorkspace } from "./orgSwitcherTypes";
 import { useOrgSwitcherController } from "./useOrgSwitcherController";
 
 afterEach(() => cleanup());
 
-const ORGANIZATION_A: LocalOrganizationSummary = {
+const ORGANIZATION_A: OrganizationWorkspace = {
   name: "Acme",
   organizationId: "org-a",
   rootContainerId: "container-a",
 };
-const ORGANIZATION_B: LocalOrganizationSummary = {
+const ORGANIZATION_B: OrganizationWorkspace = {
   name: "Beta",
   organizationId: "org-b",
   rootContainerId: "container-b",
@@ -42,7 +42,7 @@ function renderSwitcher(input: {
   activeOrganizationId?: string | null | undefined;
   databaseReady: boolean;
   interactionDisabled?: boolean | undefined;
-  listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  listLocalOrganizations: () => Promise<OrganizationWorkspace[]>;
   logError?: (message: string | Error, cause?: unknown) => void;
   provisionOrganization?: (
     organizationProfileName: string,
@@ -176,8 +176,8 @@ test("keeps the prior organization list when a retry fails", async () => {
 });
 
 test("ignores a stale organization-list response", async () => {
-  const first = deferred<LocalOrganizationSummary[]>();
-  const second = deferred<LocalOrganizationSummary[]>();
+  const first = deferred<OrganizationWorkspace[]>();
+  const second = deferred<OrganizationWorkspace[]>();
   const responses = [first.promise, second.promise];
   const listLocalOrganizations = mock(() => {
     const response = responses.shift();
@@ -223,8 +223,8 @@ test("ignores a stale organization-list response", async () => {
 });
 
 test("drops an organization-list response from a previous database scope", async () => {
-  const oldScopeResponse = deferred<LocalOrganizationSummary[]>();
-  const newScopeResponse = deferred<LocalOrganizationSummary[]>();
+  const oldScopeResponse = deferred<OrganizationWorkspace[]>();
+  const newScopeResponse = deferred<OrganizationWorkspace[]>();
   const responses = [oldScopeResponse.promise, newScopeResponse.promise];
   const listLocalOrganizations = mock(() => {
     const response = responses.shift();

@@ -1,16 +1,30 @@
-import type { DomainScope, SessionContext } from "@tearleads/client-sdk";
+import type {
+  DomainScope,
+  LocalOrganizationSummary,
+  SessionContext,
+} from "@tearleads/client-sdk";
 import { useCallback } from "react";
 import { useLog } from "../../../providers/logging/LogProvider";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import type { OrgSwitcherState } from "./orgSwitcherTypes";
+import type {
+  OrganizationWorkspace,
+  OrgSwitcherState,
+} from "./orgSwitcherTypes";
 import { useOrganizationIndexRefreshKey } from "./useOrganizationIndexRefreshKey";
 import { useOrgSwitcherController } from "./useOrgSwitcherController";
 
+function isOrganizationWorkspace(
+  organization: LocalOrganizationSummary,
+): organization is OrganizationWorkspace {
+  return organization.rootContainerId !== null;
+}
+
 /**
- * Backs the org-manager organization switcher: enumerates the organizations the
- * user can manage locally and lets them pick which one is active or provision a
- * new one. Selecting an organization updates the single active organization;
- * Explorer resolves cross-organization files independently.
+ * Backs the org-manager organization switcher: enumerates the organization
+ * workspaces the user can reach locally and lets them pick which one is active
+ * or provision a new one. Selecting an organization updates the single active
+ * organization; Explorer and the Organizations dashboard show every
+ * organization independently.
  */
 export function useOrgSwitcher({
   activeContainerId,
@@ -36,7 +50,10 @@ export function useOrgSwitcher({
     tearleads,
   });
   const listLocalOrganizations = useCallback(
-    () => tearleads.organizations.listLocalOrganizations(),
+    async () =>
+      (await tearleads.organizations.listLocalOrganizations()).filter(
+        isOrganizationWorkspace,
+      ),
     [tearleads],
   );
   const provisionOrganization = useCallback(

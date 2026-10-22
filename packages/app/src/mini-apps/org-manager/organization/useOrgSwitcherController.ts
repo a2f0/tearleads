@@ -1,10 +1,10 @@
 import type {
-  LocalOrganizationSummary,
   SessionContext,
   SessionCreateOrganizationResult,
 } from "@tearleads/client-sdk";
 import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
 import type {
+  OrganizationWorkspace,
   OrgSwitcherControllerInput,
   OrgSwitcherState,
 } from "./orgSwitcherTypes";
@@ -12,7 +12,7 @@ import { useCreateOrganizationDialog } from "./useCreateOrganizationDialog";
 import { useLocalOrganizations } from "./useLocalOrganizations";
 
 export function resolveOrgSwitcherSessionContext(
-  organizations: readonly LocalOrganizationSummary[],
+  organizations: readonly OrganizationWorkspace[],
   organizationId: string,
 ): SessionContext | null {
   const organization = organizations.find(
@@ -31,7 +31,7 @@ export function resolveOrgSwitcherSessionContext(
 function useOrganizationSelection(input: {
   activeOrganizationId: string | null;
   interactionDisabled: boolean;
-  organizations: readonly LocalOrganizationSummary[];
+  organizations: readonly OrganizationWorkspace[];
   setSessionContext: (context: SessionContext) => void;
 }) {
   return useCallback(

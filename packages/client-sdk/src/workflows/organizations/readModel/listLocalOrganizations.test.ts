@@ -20,6 +20,7 @@ import { type ExecSql, ensureSqlTables } from "../../../data/sqlite/sqlSchema";
 import { loadPersistedDocumentContent } from "../../documents/historyContent";
 import { getOrganizationProfileDocumentLocalId } from "../organizationProfile";
 import { createOrganization } from "../provisioning/createOrganization";
+import { deriveOrganizationMetadataContainerSystemSlot } from "../rosterProfileContainer";
 import { listLocalOrganizations } from "./listLocalOrganizations";
 
 // Re-key the provisioner-written organization profile document under its
@@ -158,6 +159,68 @@ test("listLocalOrganizations returns root containers in creation order", async (
         (organization) => organization.organizationId,
       ),
     ).toEqual(["personal-org", "custom-org"]);
+  } finally {
+    close();
+  }
+});
+
+test("listLocalOrganizations lists organizations reached without a workspace root", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organizations-list-local-rootless-test",
+  );
+
+  try {
+    await sqlContainerContentsPersistence.ensureSchema(execSql);
+    const container = (input: {
+      id: string;
+      localCreatedAt: string;
+      organizationId: string;
+      parentId: string | null;
+      systemSlot: string | null;
+    }) =>
+      sqlContainerContentsPersistence.saveContainer(
+        execSql,
+        { ...input, icon: null, metadataDocumentId: null, name: input.id },
+        null,
+      );
+    // A Members-only organization: just its system-slot metadata root.
+    await container({
+      id: "members-metadata",
+      localCreatedAt: "2026-01-01T00:00:00.000Z",
+      organizationId: "members-org",
+      parentId: null,
+      systemSlot: await deriveOrganizationMetadataContainerSystemSlot({
+        organizationId: "members-org",
+      }),
+    });
+    // A folder shared from beneath a root this user cannot see.
+    await container({
+      id: "shared-folder",
+      localCreatedAt: "2026-01-02T00:00:00.000Z",
+      organizationId: "shared-org",
+      parentId: "unreachable-root",
+      systemSlot: null,
+    });
+    await container({
+      id: "personal-root",
+      localCreatedAt: "2026-01-03T00:00:00.000Z",
+      organizationId: "personal-org",
+      parentId: null,
+      systemSlot: null,
+    });
+
+    expect(
+      (await listLocalOrganizations({ execSql })).map(
+        ({ organizationId, rootContainerId }) => ({
+          organizationId,
+          rootContainerId,
+        }),
+      ),
+    ).toEqual([
+      { organizationId: "personal-org", rootContainerId: "personal-root" },
+      { organizationId: "members-org", rootContainerId: null },
+      { organizationId: "shared-org", rootContainerId: null },
+    ]);
   } finally {
     close();
   }

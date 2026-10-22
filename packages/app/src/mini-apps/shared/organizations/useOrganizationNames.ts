@@ -22,16 +22,13 @@ const EMPTY_ORGANIZATION_NAMES: ReadonlyMap<string, string> = new Map();
 const ORGANIZATION_NAME_RETRY_DELAY_MS = 500;
 const ORGANIZATION_NAME_RETRY_LIMIT = 40;
 
-function collectForeignOrganizationIds(
+function collectOrganizationIds(
   nodes: ReadonlyArray<ContainerNode>,
-  primaryOrganizationId: string | null,
+  excludedOrganizationId: string | null,
 ): Set<string> {
   const organizationIds = new Set<string>();
-  if (!primaryOrganizationId) {
-    return organizationIds;
-  }
   for (const node of nodes) {
-    if (node.organizationId && node.organizationId !== primaryOrganizationId) {
+    if (node.organizationId && node.organizationId !== excludedOrganizationId) {
       organizationIds.add(node.organizationId);
     }
   }
@@ -250,37 +247,37 @@ function runOrganizationNameResolution(input: {
 }
 
 /**
- * Resolves decrypted display names for the organizations whose containers are
- * shared into this user's Explorer from *other* organizations, so the sidebar
- * can head each foreign org's roots with its name instead of a single generic
- * "Shared with me" section.
+ * Resolves decrypted display names for the organizations whose containers this
+ * user holds, so Explorer can head each foreign org's roots with its name
+ * instead of a single generic "Shared with me" section, and the Organizations
+ * dashboard can title each organization. `excludedOrganizationId` leaves one
+ * organization out (Explorer's own primary organization needs no heading).
  *
  * Best-effort: names come from locally-synced org-profile documents, so a
- * newly-shared org shows the generic heading until its profile decrypts. The
- * container snapshot (`nodes`) changes as those containers sync in, which
- * re-runs the lookup and fills the name in shortly after it lands; once every
- * foreign org is named and the set is stable the lookup idles (see
- * `shouldResolveOrganizationNames`).
+ * newly-shared org stays unnamed until its profile decrypts. The container
+ * snapshot (`nodes`) changes as those containers sync in, which re-runs the
+ * lookup and fills the name in shortly after it lands; once every org is named
+ * and the set is stable the lookup idles (see `shouldResolveOrganizationNames`).
  *
  * `listLocalOrganizations` is injected (rather than read from `useTearleads`
  * inside the hook) so the async resolution can be unit-tested with a fake
- * loader — the sole caller passes a `useTearleads`-bound, memoized callback.
+ * loader; callers pass a `useTearleads`-bound, memoized callback.
  *
- * A sync burst re-runs the effect repeatedly with the *same* foreign-org set
- * while a name is still pending. Rather than cancel and restart the lookup each
- * time (redundant local queries, and — if churn outpaces the query — starvation
+ * A sync burst re-runs the effect repeatedly with the *same* org set while a
+ * name is still pending. Rather than cancel and restart the lookup each time
+ * (redundant local queries, and — if churn outpaces the query — starvation
  * where no result ever lands), an in-flight lookup for the same set is left to
  * finish; only a *change* to the set supersedes it.
  */
-export function useExplorerOrganizationNames(params: {
+export function useOrganizationNames(params: {
   listLocalOrganizations: () => Promise<
     ReadonlyArray<LocalOrganizationSummary>
   >;
   nodes: ReadonlyArray<ContainerNode>;
-  primaryOrganizationId: string | null;
+  excludedOrganizationId: string | null;
   ready: boolean;
 }): ReadonlyMap<string, string> {
-  const { listLocalOrganizations, nodes, primaryOrganizationId, ready } =
+  const { excludedOrganizationId, listLocalOrganizations, nodes, ready } =
     params;
   const [organizationNamesById, setOrganizationNamesById] = useState<
     ReadonlyMap<string, string>
@@ -297,8 +294,8 @@ export function useExplorerOrganizationNames(params: {
   // the resolution effect so neither re-traverses `nodes` on every render or
   // 500ms tick.
   const foreignOrganizationIds = useMemo(
-    () => collectForeignOrganizationIds(nodes, primaryOrganizationId),
-    [nodes, primaryOrganizationId],
+    () => collectOrganizationIds(nodes, excludedOrganizationId),
+    [excludedOrganizationId, nodes],
   );
   const resolveAttempt = useOrganizationNameResolutionTick({
     foreignOrganizationIds,
