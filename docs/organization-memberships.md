@@ -78,15 +78,19 @@ document's deletion carries a commit guard that runs in the same synchronous
 slice as its COMMIT: an edit queued while the rows were being deleted, or the
 session switching into the organization, rolls that deletion back, and the
 document stays as a detached local copy, like any document whose container
-the device lost. When the guard passes, it retires the document's store in
-that same slice, so an open editor turns read-only before the deletion
-commits. Documents
+the device lost. When the guard passes at the COMMIT, it retires the
+document's store in that same slice, so an open editor turns read-only before
+the deletion commits; a COMMIT that then fails restores the store. Documents
 already detached before the pause are never removed, since one may be the
 only copy a recovery still needs. A retired store's sync lane stops and an
 editor holding it sees a read-only stand-in, so nothing recreates or
 downloads the document. Reopening keeps the
 stand-in while the organization stays paused; after a resume, the next open
-rebinds it to a fresh backing store that loads whatever SQLite holds. A device
+rebinds it to a fresh backing store that loads whatever SQLite holds. Each
+deletion also records the document in `organization_sync_pause_removals`, in
+the same transaction, and a store never recreates a recorded document, so
+reopening one after a restart waits for the resume too; resuming the
+organization drops its records. A device
 with pending or queued writes keeps them syncing out and retries the removal
 each time its sync lanes go idle. Containers go in batches, and each batch
 reads its documents in batches, so every statement stays within SQLite's bind

@@ -7,6 +7,7 @@ import {
 import {
   emitPersistedDocumentDeletion,
   hasQueuedDocumentStoreWrites,
+  restoreDocumentStore,
   retireDocumentStore,
 } from "../../documents/registry";
 import type { ContainerWriteGuard } from "../remoteWrites/writeGeneration";
@@ -69,6 +70,7 @@ async function forgetOrganizationContent(
     hasQueuedWrites: (localId) =>
       hasQueuedDocumentStoreWrites(domainScope, localId),
     organizationId,
+    restoreDocument: (localId) => restoreDocumentStore(domainScope, localId),
     retireDocument: (localId) =>
       retireDocumentStore(domainScope, localId, () =>
         pauses.isOrganizationPaused(organizationId),

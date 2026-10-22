@@ -8,6 +8,7 @@ import {
   registerDocumentStore,
   registerDocumentStoreIdentity,
   requestRegisteredDocumentRemoteSync,
+  restoreDocumentStore,
   retireDocumentStore,
   subscribeToPersistedDocumentDeletions,
   takeRegisteredDocumentStore,
@@ -289,4 +290,22 @@ test("a retired store stays a read-only stand-in until its pause lifts", () => {
     ),
   ).toBe(true);
   expect({ freshSyncs, staleSyncs }).toEqual({ freshSyncs: 1, staleSyncs: 0 });
+});
+
+test("a retirement whose deletion did not commit restores a writable store", () => {
+  const domainScope = {} as DomainScope;
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const facade = createDocumentStoreFacade(createStore(() => undefined));
+  registerDocumentStore(domainScope, "survivor", facade, null);
+  // The last open recorded how to build the store.
+  takeRegisteredDocumentStore(registry, "survivor", () =>
+    createStore(() => undefined),
+  );
+
+  retireDocumentStore(domainScope, "survivor", () => true);
+  expect(facade.getSnapshot().canWrite).toBe(false);
+  restoreDocumentStore(domainScope, "survivor");
+
+  expect(facade.getSnapshot().canWrite).toBe(true);
+  expect(registry.retiredStores.has("survivor")).toBe(false);
 });

@@ -3,7 +3,9 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createDomainScope } from "../shared/domainScope";
 import {
   getOrCreateOrganizationSyncPauses,
+  isPauseRemovedDocument,
   isRetainedWhileSyncPaused,
+  recordPauseRemovedDocument,
 } from "./organizationSyncPauses";
 
 const METADATA_SLOT = `sys_v1_${"m".repeat(43)}`;
@@ -130,6 +132,31 @@ test("a pause set larger than SQLite binds persists whole", async () => {
     await reopened.load(execSql);
     expect(reopened.pausedOrganizationIds().size).toBe(organizationIds.length);
     expect(maxBinds).toBeLessThanOrEqual(999);
+  } finally {
+    close();
+  }
+});
+
+test("resuming an organization forgets only its removed documents", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-sync-pause-removals",
+  );
+  try {
+    const pauses = getOrCreateOrganizationSyncPauses(createDomainScope());
+    await pauses.replace(execSql, ["org-a", "org-b"]);
+    await recordPauseRemovedDocument(execSql, {
+      localId: "doc-a",
+      organizationId: "org-a",
+    });
+    await recordPauseRemovedDocument(execSql, {
+      localId: "doc-b",
+      organizationId: "org-b",
+    });
+
+    await pauses.replace(execSql, ["org-b"]);
+
+    expect(await isPauseRemovedDocument(execSql, "doc-a")).toBe(false);
+    expect(await isPauseRemovedDocument(execSql, "doc-b")).toBe(true);
   } finally {
     close();
   }

@@ -1,5 +1,7 @@
+import { eq, notInArray } from "drizzle-orm";
 import type { DomainScope } from "../shared/domainScope";
 import {
+  organizationSyncPauseRemovals,
   organizationSyncPauses,
   organizationSyncPauseTables,
 } from "../sqlite/schema/organizationSyncPauseSchema";
@@ -103,6 +105,20 @@ async function writePausedOrganizationIds(
             )
             .run();
         }
+        // A resumed organization's removed documents may be reopened again.
+        await tx
+          .delete(organizationSyncPauseRemovals)
+          .where(
+            notInArray(
+              organizationSyncPauseRemovals.organizationId,
+              tx
+                .select({
+                  organizationId: organizationSyncPauses.organizationId,
+                })
+                .from(organizationSyncPauses),
+            ),
+          )
+          .run();
       },
     );
   });
@@ -193,4 +209,37 @@ export function getOrCreateOrganizationSyncPauses(
     pausesByScope.set(domainScope, pauses);
   }
   return pauses;
+}
+
+/**
+ * Records, in the caller's transaction, that a pause's cleanup removed this
+ * document, so reopening it does not recreate it while the pause lasts.
+ */
+export async function recordPauseRemovedDocument(
+  execSql: ExecSql,
+  removal: { readonly localId: string; readonly organizationId: string },
+): Promise<void> {
+  await ensureSqlTables(execSql, organizationSyncPauseTables);
+  await getClientSQLitePersistenceRuntime(execSql)
+    .db.insert(organizationSyncPauseRemovals)
+    .values(removal)
+    .onConflictDoUpdate({
+      set: { organizationId: removal.organizationId },
+      target: organizationSyncPauseRemovals.localId,
+    })
+    .run();
+}
+
+/** Whether a pause's cleanup removed this document and the pause still holds. */
+export async function isPauseRemovedDocument(
+  execSql: ExecSql,
+  localId: string,
+): Promise<boolean> {
+  await ensureSqlTables(execSql, organizationSyncPauseTables);
+  const rows = await getClientSQLitePersistenceRuntime(execSql)
+    .db.select({ localId: organizationSyncPauseRemovals.localId })
+    .from(organizationSyncPauseRemovals)
+    .where(eq(organizationSyncPauseRemovals.localId, localId))
+    .limit(1);
+  return rows.length > 0;
 }

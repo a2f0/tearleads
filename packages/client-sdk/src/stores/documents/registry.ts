@@ -13,6 +13,8 @@ import type {
 } from "./types";
 
 interface DocumentStoreRegistry {
+  /** How the last open built each store's backing store, by store key. */
+  freshStoreFactories: Map<string, () => DocumentStore>;
   /** Each backing store's way to stop its sync lane, by local id. */
   retireHandlersByLocalId: Map<string, () => void>;
   /**
@@ -80,6 +82,7 @@ export function getOrCreateDocumentStoreRegistry(
   }
 
   const nextRegistry: DocumentStoreRegistry = {
+    freshStoreFactories: new Map(),
     retireHandlersByLocalId: new Map(),
     retiredStores: new Map(),
     storeKeysByDocumentId: new Map(),
@@ -382,12 +385,31 @@ export function retireDocumentStore(
   registry.retiredStores.set(storeKey, stillRemoved);
 }
 
+/**
+ * Undoes a retirement whose deletion did not commit: the document survives,
+ * so its facade gets a fresh backing store again.
+ */
+export function restoreDocumentStore(
+  domainScope: DomainScope,
+  localId: string,
+): void {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  const storeKey = registry?.storeKeysByLocalId.get(localId) ?? localId;
+  const store = registry?.storesByKey.get(storeKey);
+  if (!registry || !store || !registry.retiredStores.delete(storeKey)) return;
+  const createFresh = registry.freshStoreFactories.get(storeKey);
+  // Without a factory the next open rebinds it instead.
+  if (createFresh) store.rebindTo(createFresh());
+  else registry.retiredStores.set(storeKey, () => false);
+}
+
 /** The registered store for a key, rebound once its removal has lifted. */
 export function takeRegisteredDocumentStore(
   registry: DocumentStoreRegistry,
   storeKey: string,
   createFresh: () => DocumentStore,
 ): DocumentStoreFacade | undefined {
+  registry.freshStoreFactories.set(storeKey, createFresh);
   const store = registry.storesByKey.get(storeKey);
   const stillRemoved = registry.retiredStores.get(storeKey);
   if (store && stillRemoved && !stillRemoved()) {

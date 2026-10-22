@@ -6,6 +6,7 @@ import {
   defaultDocumentsPersistence,
   deletePersistedDocument,
 } from "../../documents";
+import { recordPauseRemovedDocument } from "../../sync";
 import { listPendingWrites } from "../pendingWrites";
 import type { ContainerContentsWorkflowRuntimeInfra } from "../runtime";
 
@@ -84,15 +85,18 @@ class DocumentRemovalNotCurrent extends Error {}
  * Deletes one document unless the removal stopped being current or a store
  * queued a write for it. The check runs as a commit guard, in the same
  * synchronous slice as the COMMIT, so an edit queued while the rows were being
- * deleted rolls the deletion back. When it passes, the document's store is
- * retired in that same slice, so an open editor turns read-only before the
- * deletion commits and no later edit can be accepted and lost.
+ * deleted rolls the deletion back. When the COMMIT-time check passes, the
+ * document's store is retired in that same slice, so an open editor turns
+ * read-only before the deletion commits and no later edit can be accepted and
+ * lost; a COMMIT that then fails restores it.
  */
 async function deleteDocumentUnlessEdited(input: {
   readonly documentProjectors: ContainerContentsWorkflowRuntimeInfra["documentProjectors"];
   readonly execSql: ExecSql;
   readonly hasQueuedWrites: (localId: string) => boolean;
   readonly localId: string;
+  readonly organizationId: string;
+  readonly restoreDocument: (localId: string) => void;
   readonly retireDocument: (localId: string) => void;
   readonly stillCurrent: () => boolean;
 }): Promise<boolean> {
@@ -101,14 +105,26 @@ async function deleteDocumentUnlessEdited(input: {
     input.localId,
   );
   if (!expectedRecord) return false;
+  // The guard runs once when registered and again right before the COMMIT;
+  // only that last run retires the store.
+  let guardRuns = 0;
+  let retired = false;
   try {
-    return await deletePersistedDocument({
+    const deleted = await deletePersistedDocument({
       beforeDeleteInTransaction: async (transactionExecSql) => {
+        await recordPauseRemovedDocument(transactionExecSql, {
+          localId: input.localId,
+          organizationId: input.organizationId,
+        });
         registerClientSQLiteCommitGuard(transactionExecSql, () => {
           if (!input.stillCurrent() || input.hasQueuedWrites(input.localId)) {
             throw new DocumentRemovalNotCurrent();
           }
-          input.retireDocument(input.localId);
+          guardRuns += 1;
+          if (guardRuns > 1) {
+            retired = true;
+            input.retireDocument(input.localId);
+          }
         });
       },
       documentProjectors: input.documentProjectors,
@@ -117,7 +133,10 @@ async function deleteDocumentUnlessEdited(input: {
       localId: input.localId,
       persistence: defaultDocumentsPersistence,
     });
+    if (!deleted && retired) input.restoreDocument(input.localId);
+    return deleted;
   } catch (error) {
+    if (retired) input.restoreDocument(input.localId);
     if (error instanceof DocumentRemovalNotCurrent) return false;
     throw error;
   }
@@ -151,6 +170,8 @@ export async function removeOrganizationContentUnlessPending(input: {
   /** Whether an open store holds writes for the document not yet in SQLite. */
   readonly hasQueuedWrites: (localId: string) => boolean;
   readonly organizationId: string;
+  /** Undoes retireDocument when the deletion did not commit. */
+  readonly restoreDocument: (localId: string) => void;
   /** Retires a deleted document's store; see deleteDocumentUnlessEdited. */
   readonly retireDocument: (localId: string) => void;
   /** Whether the removal still applies, e.g. the session did not switch in. */
@@ -200,6 +221,8 @@ export async function removeOrganizationContentUnlessPending(input: {
           execSql: lockedExecSql,
           hasQueuedWrites: input.hasQueuedWrites,
           localId,
+          organizationId: input.organizationId,
+          restoreDocument: input.restoreDocument,
           retireDocument: input.retireDocument,
           stillCurrent: input.stillCurrent,
         })

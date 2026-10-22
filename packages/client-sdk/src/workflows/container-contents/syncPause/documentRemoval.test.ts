@@ -1,100 +1,26 @@
 import { expect, test } from "bun:test";
-import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentProjectorRegistry } from "../../../data/documents";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import {
-  clientSqlTables,
-  containers,
-  documents,
-} from "../../../data/sqlite/schema";
-import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
-import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
-import { ensureSqlTables } from "../../../data/sqlite/sqlTableSchema";
+import { isPauseRemovedDocument } from "../../sync";
 import { saveTestSyncedContainer } from "../documentQueries/documentQueries.testFixtures";
 import { listPendingWrites } from "../pendingWrites";
 import { removeOrganizationContentUnlessPending } from "./documentRemoval";
-
-const UPDATED_AT = "2026-01-01T00:00:00.000Z";
-
-async function placedDocument(
-  execSql: ExecSql,
-  input: {
-    containerId?: string;
-    localId: string;
-    pendingBaseVersion?: string;
-    snapshotEndVersion: string;
-  },
-): Promise<void> {
-  const documentId = `${input.localId}-remote`;
-  const containerId = input.containerId ?? "folder";
-  await sqlDocumentsPersistence.saveDocument(
-    execSql,
-    {
-      accessEpoch: 1,
-      accessStateHash: null,
-      containerId,
-      documentId,
-      documentKind: "note",
-      id: input.localId,
-      ...(input.pendingBaseVersion === undefined
-        ? {}
-        : { pendingBaseVersion: input.pendingBaseVersion }),
-      snapshotEndVersion: input.snapshotEndVersion,
-      text: "",
-      title: input.localId,
-    },
-    { updatedAt: UPDATED_AT },
-  );
-  await execSql(
-    "INSERT INTO document_container_projection (document_id, container_id, updated_at) VALUES (?, ?, ?)",
-    [documentId, containerId, UPDATED_AT],
-  );
-}
-
-/** Fails any statement binding more values than SQLite's default limit. */
-function bindBudgetedExecSql(execSql: ExecSql): ExecSql & {
-  readonly maxBinds: () => number;
-} {
-  let maxBinds = 0;
-  const bounded = new Proxy(execSql, {
-    apply(target, thisArg, args) {
-      const bind = args[1];
-      const binds = Array.isArray(bind)
-        ? bind.length
-        : bind && typeof bind === "object"
-          ? Object.keys(bind).length
-          : 0;
-      maxBinds = Math.max(maxBinds, binds);
-      if (binds > 999) throw new Error(`SQLite bind limit exceeded: ${binds}`);
-      return Reflect.apply(target, thisArg, args);
-    },
-  });
-  return Object.assign(bounded, { maxBinds: () => maxBinds });
-}
+import {
+  placedDocument,
+  preparePausedFolder,
+  removeWithRealDeletion,
+  UPDATED_AT,
+} from "./documentRemoval.testFixtures";
 
 async function withPausedFolder(
   run: (execSql: ExecSql, versions: readonly [string, string]) => Promise<void>,
 ): Promise<void> {
   const { close, execSql } = await createTestExecSql("sync-pause-removal");
   try {
-    await listPendingWrites(execSql);
-    await saveTestSyncedContainer({
-      execSql,
-      id: "folder",
-      name: "Folder",
-      organizationId: "org-paused",
-      timestamp: UPDATED_AT,
-    });
-    const document = await createDocument("sync-pause-removal");
-    document.getText("text").update("first");
-    document.commit();
-    const first = encodeVersionVector(document);
-    document.getText("text").update("second");
-    document.commit();
-    await run(execSql, [first, encodeVersionVector(document)]);
+    await run(execSql, await preparePausedFolder(execSql));
   } finally {
     close();
   }
@@ -119,6 +45,7 @@ function remove(
     execSql,
     hasQueuedWrites: (localId) => options.queuedEdits?.has(localId) ?? false,
     organizationId: "org-paused",
+    restoreDocument: () => undefined,
     retireDocument: () => undefined,
     stillCurrent: () => true,
   });
@@ -167,6 +94,8 @@ test("an organization with nothing pending is removed with its documents", async
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "synced"),
     ).toBeNull();
+    // Reopening it stays refused while the pause lasts, even after a restart.
+    expect(await isPauseRemovedDocument(execSql, "synced")).toBe(true);
   });
 });
 
@@ -214,28 +143,6 @@ test("documents stay when the containers' removal is no longer current", async (
   });
 });
 
-function removeWithRealDeletion(
-  execSql: ExecSql,
-  containerIds: readonly string[],
-  hasQueuedWrites: (localId: string) => boolean = () => false,
-  session: {
-    readonly retireDocument?: (localId: string) => void;
-    readonly stillCurrent?: () => boolean;
-  } = {},
-) {
-  return removeOrganizationContentUnlessPending({
-    containerIds,
-    deleteContainers: (lockedExecSql, removals) =>
-      sqlContainerContentsPersistence.deleteContainers(lockedExecSql, removals),
-    documentProjectors: createDocumentProjectorRegistry([]),
-    execSql,
-    hasQueuedWrites,
-    organizationId: "org-paused",
-    retireDocument: session.retireDocument ?? (() => undefined),
-    stillCurrent: session.stillCurrent ?? (() => true),
-  });
-}
-
 test("each document's store retires as its deletion commits, before the next", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
     for (const localId of ["first", "second"]) {
@@ -254,16 +161,15 @@ test("each document's store retires as its deletion commits, before the next", a
     );
 
     expect(removal.status).toBe("removed");
-    // After the up-front scan, each document is checked and its store retired
-    // at guard registration and again at its COMMIT, before the next starts:
-    // an open editor turns read-only before its document's deletion commits.
+    // After the up-front scan, each document is checked when its guard
+    // registers and again at its COMMIT, which alone retires its store, all
+    // before the next document starts: an open editor turns read-only before
+    // its document's deletion commits.
     expect(events.slice(2)).toEqual([
       "check:first",
-      "retire:first",
       "check:first",
       "retire:first",
       "check:second",
-      "retire:second",
       "check:second",
       "retire:second",
     ]);
@@ -370,79 +276,56 @@ test("documents already detached before the pause survive its removal", async ()
   });
 });
 
-test("a folder with more documents than SQLite binds is removed", async () => {
+test("a session switch before a document's COMMIT leaves its store writable", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
-    const localIds = Array.from(
-      { length: 1_001 },
-      (_, index) => `bulk-${index}`,
+    await placedDocument(execSql, {
+      localId: "kept",
+      snapshotEndVersion: synced,
+    });
+    const retired: string[] = [];
+    // Current for the loop and the guard's registration, not at its COMMIT.
+    let calls = 0;
+
+    const removal = await removeWithRealDeletion(
+      execSql,
+      ["folder"],
+      () => false,
+      {
+        retireDocument: (localId) => retired.push(localId),
+        stillCurrent: () => ++calls <= 2,
+      },
     );
-    for (const localId of localIds) {
-      await placedDocument(execSql, { localId, snapshotEndVersion: synced });
-    }
-    const boundedExecSql = bindBudgetedExecSql(execSql);
 
-    const removal = await removeWithRealDeletion(boundedExecSql, ["folder"]);
-
-    expect(removal.status).toBe("removed");
-    expect(removal.deletedLocalIds).toHaveLength(localIds.length);
+    expect(removal.status).toBe("interrupted");
+    expect(retired).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "kept"),
+    ).not.toBeNull();
+    // The removal record rolled back with the deletion.
+    expect(await isPauseRemovedDocument(execSql, "kept")).toBe(false);
   });
 });
 
-test("a large organization is removed within SQLite's bind budget", async () => {
-  const { close, execSql } = await createTestExecSql("sync-pause-removal-bulk");
-  try {
-    await ensureSqlTables(execSql, clientSqlTables);
-    await listPendingWrites(execSql);
-    const containerIds = Array.from(
-      { length: 1_001 },
-      (_, index) => `bulk-folder-${index}`,
-    );
-    const { db } = getClientSQLitePersistenceRuntime(execSql);
-    for (const batch of remoteResetBatches(containerIds)) {
-      await db.insert(containers).values(
-        batch.map((id) => ({
-          id,
-          localCreatedAt: UPDATED_AT,
-          localUpdatedAt: UPDATED_AT,
-          metadataDocumentId: `metadata-${id}`,
-          organizationId: "org-paused",
-          parentId: null,
-          serverCreatedAt: UPDATED_AT,
-          serverUpdatedAt: UPDATED_AT,
-        })),
-      );
-      await db.insert(documents).values(
-        batch.map((id) => ({
-          appKind: "container-metadata",
-          documentId: `metadata-${id}`,
-          localId: id,
-          snapshotEndVersion: "",
-          updatedAt: UPDATED_AT,
-        })),
-      );
-    }
-    const boundedExecSql = bindBudgetedExecSql(execSql);
-
-    const removal = await removeOrganizationContentUnlessPending({
-      containerIds,
-      deleteContainers: (lockedExecSql, removals) =>
-        sqlContainerContentsPersistence.deleteContainers(
-          lockedExecSql,
-          removals,
-        ),
-      documentProjectors: createDocumentProjectorRegistry([]),
-      execSql: boundedExecSql,
-      hasQueuedWrites: () => false,
-      organizationId: "org-paused",
-      retireDocument: () => undefined,
-      stillCurrent: () => true,
+test("a deletion that fails to commit after retiring restores the store", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    await placedDocument(execSql, {
+      localId: "kept",
+      snapshotEndVersion: synced,
     });
+    const restored: string[] = [];
 
-    expect(removal.status).toBe("removed");
-    expect(removal.deletedContainerIds).toHaveLength(containerIds.length);
-    expect(boundedExecSql.maxBinds()).toBeLessThanOrEqual(999);
-    expect(await db.select().from(containers)).toEqual([]);
-  } finally {
-    close();
-  }
+    await expect(
+      removeWithRealDeletion(execSql, ["folder"], () => false, {
+        restoreDocument: (localId) => restored.push(localId),
+        retireDocument: () => {
+          throw new Error("commit lost");
+        },
+      }),
+    ).rejects.toThrow("commit lost");
+
+    expect(restored).toEqual(["kept"]);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "kept"),
+    ).not.toBeNull();
+  });
 });

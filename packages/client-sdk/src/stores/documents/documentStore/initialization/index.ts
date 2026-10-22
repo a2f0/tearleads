@@ -21,6 +21,7 @@ import {
   isDatabaseUnavailableError,
   loadPersistedDocumentStoreState,
 } from "../../../../workflows/documents";
+import { isPauseRemovedDocument } from "../../../../workflows/sync";
 import type { DocumentStoreRelinkInput } from "../../types";
 import { chainIdentityWrite } from "../identityWriteChain";
 import type { DocumentRelinkCommitSideEffect } from "../internalRelink";
@@ -180,7 +181,6 @@ async function restoreOrCreateInitialDocument(input: {
   if (persistedState.document) {
     return restoreLoadedInitialDocument(input);
   }
-
   const created = await createInitialDocumentRecord(state, input.nextDoc);
   if (!created || state.localWriteGeneration !== initializeGeneration) {
     return null;
@@ -251,6 +251,16 @@ async function initializeDocumentStore(
     persistence: state.persistence,
   });
   if (state.localWriteGeneration !== initializeGeneration) {
+    return;
+  }
+  // A paused organization's cleanup removed it; creating it again would
+  // download the organization's content while the pause lasts. A later open
+  // retries, so it loads once the organization resumes.
+  if (
+    !persistedState.document &&
+    (await isPauseRemovedDocument(state.runtime.infra.execSql, state.localId))
+  ) {
+    state.initializePromise = null;
     return;
   }
   const restored = await restoreOrCreateInitialDocument({

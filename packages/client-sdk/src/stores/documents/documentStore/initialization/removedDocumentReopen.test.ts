@@ -1,10 +1,16 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createMemoryBlobStore } from "../../../../data/blobs/memoryBlobStore";
+import { defaultDocumentProjectorRegistry } from "../../../../data/documents";
+import { createDomainScope } from "../../../../data/shared/domainScope";
 import {
   defaultDocumentsPersistence,
   deletePersistedDocument,
 } from "../../../../workflows/documents";
+import {
+  getOrCreateOrganizationSyncPauses,
+  recordPauseRemovedDocument,
+} from "../../../../workflows/sync";
 import { retireDocumentStore } from "../../registry";
 import { openDocumentStore } from "../index";
 import {
@@ -62,6 +68,64 @@ test("an editor reopening a removed document does not recreate it while paused",
     paused = false;
     expect(reopen()).toBe(editor);
     expect(await editor.ensureInitialized()).toBe(true);
+    expect(await loadRow()).not.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("after a restart, reopening a removed document waits for the resume", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "removed-document-restart",
+  );
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const openInNewSession = () => {
+      const runtime = offlineAttachRuntime({
+        blobStore: createMemoryBlobStore(),
+        canAttach: true,
+        execSql,
+      });
+      Object.assign(runtime.state, { domainScope: createDomainScope() });
+      return openDocumentStore(
+        runtime.state.domainScope,
+        LOCAL_ID,
+        runtime,
+        DOCUMENT_ID,
+        "",
+        "note",
+      );
+    };
+    const loadRow = () =>
+      defaultDocumentsPersistence.loadDocument(execSql, LOCAL_ID);
+    expect(await openInNewSession().ensureInitialized()).toBe(true);
+    const pauses = getOrCreateOrganizationSyncPauses(createDomainScope());
+    await pauses.replace(execSql, ["org-paused"]);
+
+    // The pause's cleanup removed the document and recorded why.
+    await deletePersistedDocument({
+      beforeDeleteInTransaction: (transactionExecSql) =>
+        recordPauseRemovedDocument(transactionExecSql, {
+          localId: LOCAL_ID,
+          organizationId: "org-paused",
+        }),
+      documentProjectors: defaultDocumentProjectorRegistry,
+      execSql,
+      expectedRecord: (await loadRow()) ?? undefined,
+      localId: LOCAL_ID,
+      persistence: defaultDocumentsPersistence,
+    });
+
+    // A restarted session has no retired store in memory to fall back on.
+    const reopened = openInNewSession();
+    await reopened.ensureInitialized();
+    expect(reopened.getSnapshot().ready).toBe(false);
+    expect(await loadRow()).toBeNull();
+
+    // Once resumed, the same store loads it on its next open.
+    await pauses.replace(execSql, []);
+    await reopened.ensureInitialized();
+    expect(reopened.getSnapshot().ready).toBe(true);
     expect(await loadRow()).not.toBeNull();
   } finally {
     close();
