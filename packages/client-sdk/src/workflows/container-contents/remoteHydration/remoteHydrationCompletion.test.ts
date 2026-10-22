@@ -4,6 +4,7 @@ import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
 } from "@tearleads/validators/response";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
 import type { ContainerState, RemoteContainerHydrationState } from "./types";
@@ -43,7 +44,7 @@ test("restoration cleanup callback runs only after a complete hydration", async 
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;

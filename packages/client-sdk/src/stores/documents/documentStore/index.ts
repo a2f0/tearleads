@@ -38,7 +38,6 @@ import {
 } from "./initialization";
 import { assertInitialContentFitsKind } from "./initialization/initialContent";
 import { registerInternalDocumentRelink } from "./internalRelink";
-import { readBackingDocumentStore } from "./localWrites";
 import { setDocumentStructuredFields, setDocumentText } from "./mutations";
 import { assertDocumentStoreCanRotateContentKey } from "./rotation";
 import {
@@ -368,7 +367,7 @@ function createBackingDocumentStore(
       ),
     ensureInitialized: () =>
       withLiveSyncLane(() => ensureDocumentStoreReady(state, scheduleSync)),
-    ...readBackingDocumentStore(state),
+    getSnapshot: () => state.snapshot,
     removeAttachment: (slotId: string) =>
       withLiveSyncLane(() =>
         removeAttachmentFromDocumentStore(state, scheduleSync, slotId),

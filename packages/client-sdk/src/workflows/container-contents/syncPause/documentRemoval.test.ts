@@ -74,7 +74,7 @@ function remove(
   deletedContainers: string[],
   options: {
     containersCurrent?: boolean;
-    pendingLocalWrites?: ReadonlySet<string>;
+    openDocuments?: ReadonlySet<string>;
   } = {},
 ) {
   return removeOrganizationContentUnlessPending({
@@ -86,8 +86,7 @@ function remove(
     },
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql,
-    hasPendingLocalWrites: (localId) =>
-      options.pendingLocalWrites?.has(localId) ?? false,
+    isDocumentOpen: (localId) => options.openDocuments?.has(localId) ?? false,
     organizationId: "org-paused",
   });
 }
@@ -136,22 +135,25 @@ test("an organization with nothing pending is removed with its documents", async
   });
 });
 
-test("an edit still queued in an open document store blocks the removal", async () => {
+test("a document an open store holds is kept, detached, for a later pass", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
     await placedDocument(execSql, {
-      localId: "open-edit",
+      localId: "open-document",
       snapshotEndVersion: synced,
     });
     const deletedContainers: string[] = [];
 
     expect(
       await remove(execSql, deletedContainers, {
-        pendingLocalWrites: new Set(["open-edit"]),
+        openDocuments: new Set(["open-document"]),
       }),
-    ).toBeNull();
-    expect(deletedContainers).toEqual([]);
+    ).toEqual({
+      complete: false,
+      deletedContainerIds: ["folder"],
+      deletedLocalIds: [],
+    });
     expect(
-      await sqlDocumentsPersistence.loadDocument(execSql, "open-edit"),
+      await sqlDocumentsPersistence.loadDocument(execSql, "open-document"),
     ).not.toBeNull();
   });
 });
@@ -174,7 +176,7 @@ test("documents stay when the containers' removal is no longer current", async (
   });
 });
 
-test("a document that gained an edit during removal is removed on a later pass", async () => {
+test("a document opened during removal is removed on a later pass", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
     await placedDocument(execSql, {
       localId: "late-edit",
@@ -182,7 +184,7 @@ test("a document that gained an edit during removal is removed on a later pass",
     });
     const run = (
       containerIds: readonly string[],
-      hasPendingLocalWrites: (localId: string) => boolean,
+      isDocumentOpen: (localId: string) => boolean,
     ) =>
       removeOrganizationContentUnlessPending({
         containerIds,
@@ -193,12 +195,11 @@ test("a document that gained an edit during removal is removed on a later pass",
           ),
         documentProjectors: createDocumentProjectorRegistry([]),
         execSql,
-        hasPendingLocalWrites,
+        isDocumentOpen,
         organizationId: "org-paused",
       });
-    // The edit lands after the scan, while the containers are being removed.
-    let checks = 0;
-    expect(await run(["folder"], () => checks++ > 0)).toEqual({
+    // A store opens on the document while the containers are being removed.
+    expect(await run(["folder"], () => true)).toEqual({
       complete: false,
       deletedContainerIds: ["folder"],
       deletedLocalIds: [],
@@ -207,7 +208,7 @@ test("a document that gained an edit during removal is removed on a later pass",
       await sqlDocumentsPersistence.loadDocument(execSql, "late-edit"),
     ).not.toBeNull();
 
-    // Once it uploads, the next pass still finds it by its organization.
+    // Once no store holds it, the next pass still finds it by organization.
     expect(await run([], () => false)).toEqual({
       complete: true,
       deletedContainerIds: [],

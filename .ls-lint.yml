@@ -197,7 +197,7 @@ ls:
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]*
 
   packages/client-sdk/src/stores/documents/documentStore:
-    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-16
+    .*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | regex:README | exists:0-15
     .*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-12
     .*.*.*: regex:[A-Za-z0-9][A-Za-z0-9._-]* | exists:0-0
 

@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { RemoteContainerHydrationHost } from "../../../workflows/container-contents/remoteHydration";
 import { resumeRemoteContainerRecoveryWork } from "../remoteEvents/remoteContainerIngestion";
 import {
@@ -79,7 +80,7 @@ function createRequestState(input: {
       },
       auth: { isAuthenticated: input.isAuthenticated ?? true },
       infra: { dbStatus: "ready", execSql: input.execSql },
-      state: { online: input.online ?? true },
+      state: { domainScope: createDomainScope(), online: input.online ?? true },
       util: { log: () => {} },
     },
     snapshot: { ready: true },

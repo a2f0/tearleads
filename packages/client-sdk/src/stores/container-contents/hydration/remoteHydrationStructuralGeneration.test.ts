@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createGenerationGuardedHydrationHost,
   type RemoteContainerHydrationHost,
@@ -100,7 +101,7 @@ test("structural replacement retries hydration in the current generation", async
         apiClient: { listContainerParentLanes },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
       snapshot: { ready: true },

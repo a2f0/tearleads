@@ -45,7 +45,6 @@ import {
   getAttachmentStatuses,
   getAttachmentStorageKeys,
 } from "./attachments/attachmentSnapshot";
-import { trackWriteChain } from "./localWrites";
 import { sameValidationIssues, shallowEqualRecord } from "./snapshotEquality";
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
@@ -224,7 +223,7 @@ export function createDocumentStoreState(
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
   scheduleStartupRemoteSync = true,
 ): DocumentStoreState {
-  return trackWriteChain({
+  return {
     attachmentBlobIdBySlotId: {},
     attachmentContentSha256BySlotId: {},
     attachmentStorageKeyBySlotId: {},
@@ -262,7 +261,7 @@ export function createDocumentStoreState(
     writeChain: Promise.resolve(),
     writerProjection: null,
     writerProjectionGeneration: 0,
-  });
+  };
 }
 
 function emitDocumentStore(state: DocumentStoreState) {

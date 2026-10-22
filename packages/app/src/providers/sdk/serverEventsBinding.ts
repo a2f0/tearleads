@@ -252,8 +252,12 @@ export function useServerEventsBinding(
             refreshOrganizationMemberships(tearleads, log),
           onResyncRequired: (containerIds) =>
             resyncDeclaredContainer(tearleads, interestHandle, containerIds),
-          onSharedWithYou: () =>
-            resyncSharedContainerInterest(tearleads, interestHandle),
+          onSharedWithYou: () => {
+            resyncSharedContainerInterest(tearleads, interestHandle);
+            // Joining (or rejoining) an organization arrives as a share; a
+            // rejoin starts with the member's earlier choices cleared.
+            refreshOrganizationMemberships(tearleads, log);
+          },
           onServerEvent: (data) => {
             tearleads.events.push({ ...data, id: String(nextEventId++) });
           },

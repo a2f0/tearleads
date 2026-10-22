@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { RemoteContainerHydrationHost } from "../../../workflows/container-contents/remoteHydration";
 import {
@@ -54,7 +55,7 @@ function createRequestState(
       },
       auth: { isAuthenticated: true },
       infra: { dbStatus: "ready", execSql },
-      state: { online: true },
+      state: { domainScope: createDomainScope(), online: true },
       util: { log: () => {} },
     },
     snapshot: { ready: true },

@@ -6,6 +6,7 @@ import type {
 } from "@tearleads/validators/response";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { createContainerDocumentQueriesFromRuntime } from "../documentQueries";
 import { insertTestPendingUpdate } from "../documentQueries/documentQueries.testFixtures";
@@ -104,7 +105,7 @@ function createState(
       },
       auth: { isAuthenticated: true, userId: "user-1" },
       infra: { dbStatus: "ready", execSql },
-      state: { online: true },
+      state: { domainScope: createDomainScope(), online: true },
       util: { log: () => {} },
     },
   } as unknown as RemoteContainerHydrationState;

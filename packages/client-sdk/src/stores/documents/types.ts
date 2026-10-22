@@ -116,8 +116,6 @@ export interface DocumentStore {
   discardLocalState: (expectedDocumentId: string) => Promise<boolean>;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => DocumentSnapshot;
-  /** Whether a local edit is still queued in memory, not yet persisted. */
-  hasPendingLocalWrites: () => boolean;
   removeAttachment: (slotId: string) => void;
   removeRow: RemoveDocumentRow;
   replaceAttachment: (

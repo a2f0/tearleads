@@ -4,6 +4,7 @@ import type { ListContainerParentLanesRequest } from "@tearleads/validators/requ
 import type { ListContainersResponse } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
 import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createContainerParentSyncLane,
   loadContainerSyncWatermark,
@@ -119,7 +120,7 @@ for (const failure of ["withheld", "tampered", "expired", "runtime"] as const) {
             },
             auth: { isAuthenticated: true },
             infra: { dbStatus: "ready", execSql },
-            state: { online: true },
+            state: { domainScope: createDomainScope(), online: true },
             util: {
               log: () => {},
               reportSecurityIncident: async (error: unknown) => {

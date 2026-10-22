@@ -3,7 +3,7 @@ import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import { isRetainedWhileSyncPaused } from "../../../workflows/sync";
 import {
   emitPersistedDocumentDeletion,
-  hasRegisteredDocumentPendingLocalWrites,
+  hasRegisteredDocumentStore,
 } from "../../documents/registry";
 import type { ContainerWriteGuard } from "../remoteWrites/writeGeneration";
 import { updateContainerContentsSnapshot } from "../state";
@@ -60,8 +60,8 @@ async function forgetOrganizationContent(
       }),
     documentProjectors,
     execSql,
-    hasPendingLocalWrites: (localId) =>
-      hasRegisteredDocumentPendingLocalWrites(domainScope, localId),
+    isDocumentOpen: (localId) =>
+      hasRegisteredDocumentStore(domainScope, localId),
     organizationId,
   });
   if (!removal) return false;

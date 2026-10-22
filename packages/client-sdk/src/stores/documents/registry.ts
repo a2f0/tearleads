@@ -138,16 +138,17 @@ export function registerDocumentStoreIdentity(
 }
 
 /**
- * Whether the scope's open store for a document holds a local edit that has
- * not reached SQLite yet, which no persisted-write scan can see.
+ * Whether this scope has opened a store for the document. Stores stay
+ * registered for the scope's lifetime and may hold edits that have not reached
+ * SQLite, which no persisted-write scan can see.
  */
-export function hasRegisteredDocumentPendingLocalWrites(
+export function hasRegisteredDocumentStore(
   domainScope: DomainScope,
   localId: string,
 ): boolean {
   const registry = documentStoreRegistriesByScope.get(domainScope);
   const storeKey = registry?.storeKeysByLocalId.get(localId) ?? localId;
-  return registry?.storesByKey.get(storeKey)?.hasPendingLocalWrites() ?? false;
+  return registry?.storesByKey.has(storeKey) ?? false;
 }
 
 export function requestDocumentStoreSync(state: {
@@ -263,7 +264,6 @@ export function createDocumentStoreFacade(
       targetStore.discardLocalState(expectedDocumentId),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
-    hasPendingLocalWrites: () => targetStore.hasPendingLocalWrites(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
     removeRow: (id) => targetStore.removeRow(id),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>

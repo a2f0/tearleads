@@ -157,10 +157,10 @@ async function upsertQueuedRemoteContainer(input: {
     return false;
   }
 
-  // A paused organization's container is acknowledged without being stored.
-  if ((await loadPausedContainerFilter(state))(queuedRemoteContainer)) {
-    return true;
-  }
+  // A paused organization's container is acknowledged without being stored,
+  // including when the pause lands while the commit is in flight.
+  const isPaused = await loadPausedContainerFilter(state);
+  if (isPaused(queuedRemoteContainer)) return true;
   const tombstones = await state.persistence.loadContainerHydrationTombstones(
     state.runtime.infra.execSql,
   );
@@ -172,7 +172,7 @@ async function upsertQueuedRemoteContainer(input: {
     containerIdsWithPendingMetadataUpdates,
     containerIdsWithPendingStructuralIntents,
     host,
-    isCurrent: input.isCurrent,
+    isCurrent: () => input.isCurrent() && !isPaused(queuedRemoteContainer),
     remoteContainer: queuedRemoteContainer,
     state,
   });

@@ -26,17 +26,16 @@ interface ContainerRemoval {
 
 /**
  * Removes a paused organization's containers and the documents placed only in
- * them, unless pending work touches the organization, those containers, or
- * those documents: a persisted pending write (a queued update, a deferred
- * tail, an intent, or an attachment upload) or an edit still queued in an open
- * document store. The scan and every deletion hold one SQLite mutation lock,
- * so no write can persist between them.
+ * them, unless a persisted pending write (a queued update, a deferred tail, an
+ * intent, or an attachment upload) touches the organization, those
+ * containers, or those documents. The scan and every deletion hold one SQLite
+ * mutation lock, so no persisted write can land between them.
  *
  * The containers go first, under `stillCurrent`; documents are deleted only
- * after every container was, and each only while no in-memory edit is queued
- * for it. A document that gained an edit stays to upload it, detached but
- * still attributed to the organization, and a later pass removes it. Returns
- * null when the removal refused.
+ * after every container was. A document an open store holds this session may
+ * carry edits that have not reached SQLite, so it is never deleted: it stays,
+ * detached but still attributed to the organization, and a later pass removes
+ * it once no store holds it. Returns null when the removal refused.
  */
 export async function removeOrganizationContentUnlessPending(input: {
   readonly containerIds: readonly string[];
@@ -46,7 +45,8 @@ export async function removeOrganizationContentUnlessPending(input: {
   ) => Promise<readonly string[]>;
   readonly documentProjectors: ContainerContentsWorkflowRuntimeInfra["documentProjectors"];
   readonly execSql: ExecSql;
-  readonly hasPendingLocalWrites: (localId: string) => boolean;
+  /** Whether an open document store holds the document this session. */
+  readonly isDocumentOpen: (localId: string) => boolean;
   readonly organizationId: string;
 }): Promise<OrganizationContentRemoval | null> {
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
@@ -79,8 +79,6 @@ export async function removeOrganizationContentUnlessPending(input: {
       return null;
     }
 
-    if (localIds.some(input.hasPendingLocalWrites)) return null;
-
     const removedAt = new Date().toISOString();
     const deletedContainerIds =
       containerIds.size === 0
@@ -98,9 +96,10 @@ export async function removeOrganizationContentUnlessPending(input: {
       return { complete: false, deletedContainerIds, deletedLocalIds };
     }
     for (const localId of localIds) {
-      if (input.hasPendingLocalWrites(localId)) continue;
       if (
         await deletePersistedDocument({
+          // Checked inside the claimed mutation, right before the rows go.
+          canStartDurableMutation: () => !input.isDocumentOpen(localId),
           documentProjectors: input.documentProjectors,
           execSql: lockedExecSql,
           localId,

@@ -5,6 +5,7 @@ import type {
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { hydrateRemoteContainers } from "./index";
@@ -122,7 +123,7 @@ function createState(input: {
       },
       auth: { isAuthenticated: true },
       infra: { dbStatus: "ready", execSql: input.execSql },
-      state: { online: true },
+      state: { domainScope: createDomainScope(), online: true },
       util: { log: () => {} },
     },
   } as unknown as RemoteContainerHydrationState;

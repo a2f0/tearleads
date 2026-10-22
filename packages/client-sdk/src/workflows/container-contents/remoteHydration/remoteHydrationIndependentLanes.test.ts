@@ -5,6 +5,7 @@ import type {
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createContainerParentSyncLane,
   loadContainerSyncWatermark,
@@ -110,7 +111,7 @@ test.each([false, true])(
           },
           auth: { isAuthenticated: true },
           infra: { dbStatus: "ready", execSql },
-          state: { online: true },
+          state: { domainScope: createDomainScope(), online: true },
           util: { log: () => {} },
         },
       } as unknown as RemoteContainerHydrationState;

@@ -35,9 +35,11 @@ choices, so rejoining starts with sync on.
 
 A change publishes `organization_memberships_changed`, a user-scoped
 realtime hint routed like `shared_with_you` to the user's own sockets. It
-carries no organization id. Clients re-read the list when the hint arrives
-and each time their events socket connects, so a choice made while a device
-was offline reaches it on reconnect.
+carries no organization id. Clients re-read the list when the hint arrives,
+each time their events socket connects, and on `shared_with_you`, which every
+`Members` enrollment publishes, so a choice made while a device was offline
+reaches it on reconnect and a rejoin clears a pause left from an earlier
+membership.
 
 ## Pausing sync
 
@@ -62,14 +64,15 @@ Removal waits for the organization's local writes to upload. Pausing from a
 device first asks every sync lane to upload and is refused while any pending
 write for the organization remains. The removal itself scans every kind of
 pending write (queued updates, deferred history tails, intents, attachment
-uploads) and every edit still queued in an open document store, and deletes
-under the same SQLite mutation lock, so no edit can persist between the check
-and the deletion and the copy it removes holds nothing the server lacks. It
-deletes the containers first and documents only after them; a document that
-gains an edit meanwhile stays to upload it. A device that still has pending
-writes keeps them syncing out and retries the removal each time its sync lanes
-go idle. Resuming re-lists the whole tree with fresh lane watermarks so the
-organization downloads again.
+uploads) and deletes under the same SQLite mutation lock, so no persisted write
+can land between the check and the deletion. It deletes the containers first
+and documents only after them. A document an open store holds this session may
+carry edits that have not reached SQLite, so it is never deleted: it stays
+detached, still attributed to the organization, until a later pass finds no
+store holding it. A device that still has pending writes keeps them syncing
+out and retries the removal each time its sync lanes go idle. Resuming
+re-lists the whole tree with fresh lane watermarks so the organization
+downloads again.
 
 A personal organization cannot be paused: every device keeps its owner's root,
 Contacts, and Trash there. The session's active organization is never skipped
