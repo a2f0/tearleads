@@ -55,6 +55,12 @@
   gap: var(--space-sm);
 }
 
-.organizations-card > .mini-app-button {
-  justify-self: start;
+.organizations-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.organizations-card-actions:empty {
+  display: none;
 }

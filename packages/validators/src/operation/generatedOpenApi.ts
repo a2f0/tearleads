@@ -689,6 +689,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/organization-memberships/{organizationId}/leave-request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["organizationMemberships.leaveRequest.put"];
+        post?: never;
+        delete: operations["organizationMemberships.leaveRequest.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations": {
         parameters: {
             query?: never;
@@ -13587,6 +13603,7 @@ export interface operations {
                     "application/json": {
                         memberships: ({
                             isPersonalOrganizationOwner: boolean;
+                            leaveRequestedAt: string | null;
                             organizationId: string;
                             syncPaused: boolean;
                         } & {
@@ -13665,6 +13682,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         isPersonalOrganizationOwner: boolean;
+                        leaveRequestedAt: string | null;
                         organizationId: string;
                         syncPaused: boolean;
                     } & {
@@ -13715,6 +13733,207 @@ export interface operations {
             };
             /** @description Failure JSON response */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizationMemberships.leaveRequest.put": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    organizationId: string;
+                    requestedAt: string;
+                    signature: string;
+                    userId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        isPersonalOrganizationOwner: boolean;
+                        leaveRequestedAt: string | null;
+                        organizationId: string;
+                        syncPaused: boolean;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "organizationMemberships.leaveRequest.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        isPersonalOrganizationOwner: boolean;
+                        leaveRequestedAt: string | null;
+                        organizationId: string;
+                        syncPaused: boolean;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -21282,6 +21501,12 @@ export interface operations {
                                     isPersonalOrganizationOwner: boolean;
                                     isSelf: boolean;
                                     joinedAt: string;
+                                    leaveRequest: {
+                                        organizationId: string;
+                                        requestedAt: string;
+                                        signature: string;
+                                        userId: string;
+                                    } | null;
                                     profileDocumentId: string | null;
                                     signingKeyFingerprint: string;
                                     signingPublicKey: string;
@@ -21379,6 +21604,12 @@ export interface operations {
                                     isPersonalOrganizationOwner: boolean;
                                     isSelf: boolean;
                                     joinedAt: string;
+                                    leaveRequest: {
+                                        organizationId: string;
+                                        requestedAt: string;
+                                        signature: string;
+                                        userId: string;
+                                    } | null;
                                     profileDocumentId: string | null;
                                     signingKeyFingerprint: string;
                                     signingPublicKey: string;
@@ -21583,6 +21814,12 @@ export interface operations {
                         isPersonalOrganizationOwner: boolean;
                         isSelf: boolean;
                         joinedAt: string;
+                        leaveRequest: {
+                            organizationId: string;
+                            requestedAt: string;
+                            signature: string;
+                            userId: string;
+                        } | null;
                         profileDocumentId: string | null;
                         signingKeyFingerprint: string;
                         signingPublicKey: string;

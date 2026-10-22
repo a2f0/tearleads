@@ -442,6 +442,9 @@ export function OrgManager() {
         canCreateGroup={model.canCreateGroup}
         canDisableContextMenuRosterUser={model.canDisableContextMenuRosterUser}
         canEditContextMenuRosterUser={model.canEditContextMenuRosterUser}
+        contextMenuRosterUserAskedToLeave={
+          model.contextMenuRosterUserAskedToLeave
+        }
         canImportRosterUser={model.canImportRosterUser}
         closeContextMenu={model.contextMenuState.closeContextMenu}
         contextMenu={model.contextMenuState.contextMenu}

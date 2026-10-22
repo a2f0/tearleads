@@ -56,6 +56,8 @@ interface OrgManagerContextMenuLayerProps {
   canDisableContextMenuRosterUser: boolean;
   canEditContextMenuRosterUser: boolean;
   canImportRosterUser: boolean;
+  /** The user filed a signed request to leave; disabling them approves it. */
+  contextMenuRosterUserAskedToLeave: boolean;
   closeContextMenu: () => void;
   contextMenu: OrgManagerContextMenuState | null;
   disableRosterUser: (userId: string) => void;
@@ -79,6 +81,7 @@ function RosterUserContextMenu(
     canEditContextMenuRosterUser,
     closeContextMenu,
     contextMenu,
+    contextMenuRosterUserAskedToLeave,
     disableRosterUser,
     importRosterUserIntoContacts,
     loading,
@@ -114,7 +117,11 @@ function RosterUserContextMenu(
       />
       <MenuItem
         icon={UserMinusIcon}
-        label={ORG_MANAGER_LABELS.disableRosterEntryAction}
+        label={
+          contextMenuRosterUserAskedToLeave
+            ? ORG_MANAGER_LABELS.approveLeaveRequestAction
+            : ORG_MANAGER_LABELS.disableRosterEntryAction
+        }
         disabled={!canDisableContextMenuRosterUser || loading || mutating}
         onClick={() => {
           closeContextMenu();

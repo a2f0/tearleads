@@ -289,6 +289,7 @@ test("clearRemoteSyncState keeps local content and requeues remote sync work", a
         status: "active",
         profileDocumentId: null,
         joinedAt: stale,
+        leaveRequest: null,
         updatedAt: stale,
         disabledAt: null,
         disabledByUserId: null,

@@ -66,7 +66,9 @@ import {
 } from "./organizationBilling";
 import {
   listOrganizationMembershipsOperation,
+  requestOrganizationLeaveOperation,
   updateOrganizationMembershipOperation,
+  withdrawOrganizationLeaveRequestOperation,
 } from "./organizationMemberships";
 import { getOrganizationPolicyHistoryOperation } from "./organizationPolicyHistory";
 import {
@@ -176,6 +178,8 @@ export const protocolOperations: readonly [
   typeof updateOrganizationRosterEntryOperation,
   typeof listOrganizationMembershipsOperation,
   typeof updateOrganizationMembershipOperation,
+  typeof requestOrganizationLeaveOperation,
+  typeof withdrawOrganizationLeaveRequestOperation,
   typeof getPrincipalPolicyOperation,
   typeof getProjectionPolicyHistoryOperation,
   typeof commitOrganizationGroupPolicyOperation,
@@ -254,6 +258,8 @@ export const protocolOperations: readonly [
   updateOrganizationRosterEntryOperation,
   listOrganizationMembershipsOperation,
   updateOrganizationMembershipOperation,
+  requestOrganizationLeaveOperation,
+  withdrawOrganizationLeaveRequestOperation,
   getPrincipalPolicyOperation,
   getProjectionPolicyHistoryOperation,
   commitOrganizationGroupPolicyOperation,

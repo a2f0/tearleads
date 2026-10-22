@@ -1,8 +1,10 @@
 import {
   type OrganizationContentHost,
+  type OrganizationLeaveRequestResult,
   type OrganizationMembership,
   type OrganizationSyncPauseResult,
   refreshOrganizationMemberships,
+  setOrganizationLeaveRequested,
   setOrganizationSyncPaused,
 } from "../../workflows/organizations";
 import {
@@ -37,11 +39,36 @@ export interface OrganizationMemberships {
     organizationId: string,
     paused: boolean,
   ): Promise<OrganizationSyncPauseResult>;
+  /**
+   * Asks the organization's administrators to remove the user, or withdraws
+   * that request. Signed with the user's identity key; an administrator still
+   * has to approve it.
+   */
+  setLeaveRequested(
+    organizationId: string,
+    requested: boolean,
+  ): Promise<OrganizationLeaveRequestResult>;
   /** The organizations paused on this device, read from local storage. */
   loadPausedOrganizationIds(): Promise<ReadonlySet<string>>;
   /** Notifies when the paused set for the current scope changes. */
   subscribeToSyncPauses(listener: () => void): () => void;
+  /**
+   * Hands each membership list a refresh reads for the current scope, so a
+   * choice made on another device reaches every view of it.
+   */
+  subscribeToMemberships(
+    listener: (memberships: readonly OrganizationMembership[]) => void,
+  ): () => void;
 }
+
+type MembershipsListener = (
+  memberships: readonly OrganizationMembership[],
+) => void;
+
+const membershipListenersByScope = new WeakMap<
+  DomainScope,
+  Set<MembershipsListener>
+>();
 
 /**
  * The scope's document reconciler. Containers it reconciled before a pause
@@ -179,7 +206,16 @@ export function createOrganizationMemberships(
     async refresh() {
       const runtime = runtimeService.workflowInput();
       if (!canReachServer(runtime)) return null;
-      return refreshOrganizationMemberships(membershipInput(runtime));
+      const memberships = await refreshOrganizationMemberships(
+        membershipInput(runtime),
+      );
+      const listeners = membershipListenersByScope.get(
+        runtime.state.domainScope,
+      );
+      if (memberships && listeners) {
+        for (const listener of [...listeners]) listener(memberships);
+      }
+      return memberships;
     },
     async setSyncPaused(organizationId, paused) {
       const runtime = runtimeService.workflowInput();
@@ -196,6 +232,24 @@ export function createOrganizationMemberships(
         paused,
       });
     },
+    async setLeaveRequested(organizationId, requested) {
+      const runtime = runtimeService.workflowInput();
+      const { userId } = runtime.auth;
+      const { signingKeyPair } = runtime.crypto;
+      if (!canReachServer(runtime) || !userId || !signingKeyPair) {
+        return {
+          httpStatus: null,
+          message: "Connect to ask to leave an organization.",
+          status: "failed",
+        };
+      }
+      return setOrganizationLeaveRequested({
+        apiClient: runtime.apiClient,
+        organizationId,
+        requested,
+        signer: { signingKeyPair, userId },
+      });
+    },
     async loadPausedOrganizationIds() {
       const runtime = runtimeService.workflowInput();
       if (runtime.infra.dbStatus !== "ready") return new Set<string>();
@@ -209,6 +263,16 @@ export function createOrganizationMemberships(
       return getOrCreateOrganizationSyncPauses(
         runtimeService.workflowInput().state.domainScope,
       ).subscribe(listener);
+    },
+    subscribeToMemberships(listener) {
+      const { domainScope } = runtimeService.workflowInput().state;
+      const listeners =
+        membershipListenersByScope.get(domainScope) ?? new Set();
+      membershipListenersByScope.set(domainScope, listeners);
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
     },
   };
 }

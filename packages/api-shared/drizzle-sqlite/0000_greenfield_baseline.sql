@@ -610,6 +610,7 @@ CREATE TABLE `organization_roster_entries` (
 	`disabled_at` integer,
 	`disabled_by_user_id` text,
 	`sync_paused_at` integer,
+	`leave_request` text,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL,
 	`updated_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );

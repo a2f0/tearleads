@@ -14,6 +14,27 @@ import {
   useOrganizationSyncChoices,
 } from "./useOrganizationSyncChoices";
 
+function leaveRequestIds(memberships: OrganizationSyncChoices["memberships"]): {
+  leavableOrganizationIds: ReadonlySet<string>;
+  leaveRequestedOrganizationIds: ReadonlySet<string>;
+} {
+  const listed = [...(memberships?.values() ?? [])];
+  return {
+    leavableOrganizationIds: new Set(
+      listed.flatMap((membership) =>
+        membership.isPersonalOrganizationOwner
+          ? []
+          : [membership.organizationId],
+      ),
+    ),
+    leaveRequestedOrganizationIds: new Set(
+      listed.flatMap((membership) =>
+        membership.leaveRequestedAt === null ? [] : [membership.organizationId],
+      ),
+    ),
+  };
+}
+
 export interface OrganizationDashboardModel {
   readonly cards: ReadonlyArray<OrganizationDashboardCard>;
   readonly ready: boolean;
@@ -46,12 +67,14 @@ export function useOrganizationDashboard(): OrganizationDashboardModel {
     ready: snapshot.ready,
   });
   const syncChoices = useOrganizationSyncChoices();
-  const { pausedOrganizationIds, personalOrganizationIds } = syncChoices;
+  const { memberships, pausedOrganizationIds, personalOrganizationIds } =
+    syncChoices;
   const activeOrganizationId = appData.auth.organizationId ?? null;
   const cards = useMemo(
     () =>
       buildOrganizationDashboardCards({
         activeOrganizationId,
+        ...leaveRequestIds(memberships),
         namesById,
         nodes: snapshot.nodes,
         pausedOrganizationIds,
@@ -59,6 +82,7 @@ export function useOrganizationDashboard(): OrganizationDashboardModel {
       }),
     [
       activeOrganizationId,
+      memberships,
       namesById,
       pausedOrganizationIds,
       personalOrganizationIds,
