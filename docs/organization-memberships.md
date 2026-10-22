@@ -54,8 +54,10 @@ While an organization is paused, a device:
 - skips its containers when applying listed container pages, after tombstones
   have seen the full page, so the lane still completes and its children are
   never fetched;
-- treats its stored containers as unlisted for document discovery, and drops
-  a listing whose organization was paused while it was in flight;
+- treats its stored containers as unlisted for document discovery; a listing
+  in flight when the organization pauses applies none of its documents,
+  links, or watermark, each write re-checking under the cleanup's lock, so a
+  resume lists the organization from scratch;
 - keeps only the organization's metadata root, a parentless system container,
   so the organization stays named and its membership visible;
 - removes the rest of its local copy: every other container of the
@@ -75,7 +77,8 @@ go; one whose store opened mid-removal stays, detached but still attributed
 to the organization, for a later pass. A device that still has pending writes
 keeps them syncing out and retries the removal each time its sync lanes go
 idle. One with an open document leaves the organization whole and syncing
-until the next session's membership refresh removes it. Resuming
+until the next session's membership refresh removes it. Containers go in
+batches that stay within SQLite's bind limit, all under the one lock. Resuming
 re-lists the whole tree with fresh lane watermarks so the organization
 downloads again.
 

@@ -4,7 +4,15 @@ import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentProjectorRegistry } from "../../../data/documents";
 import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
+import {
+  clientSqlTables,
+  containers,
+  documents,
+} from "../../../data/sqlite/schema";
+import { remoteResetBatches } from "../../../data/sqlite/sqliteBindBudget";
+import { getClientSQLitePersistenceRuntime } from "../../../data/sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { ensureSqlTables } from "../../../data/sqlite/sqlTableSchema";
 import { saveTestSyncedContainer } from "../documentQueries/documentQueries.testFixtures";
 import { listPendingWrites } from "../pendingWrites";
 import { removeOrganizationContentUnlessPending } from "./documentRemoval";
@@ -224,4 +232,75 @@ test("a document opened during removal is removed on a later pass", async () => 
       await sqlDocumentsPersistence.loadDocument(execSql, "late-edit"),
     ).toBeNull();
   });
+});
+
+test("a large organization is removed within SQLite's bind budget", async () => {
+  const { close, execSql } = await createTestExecSql("sync-pause-removal-bulk");
+  try {
+    await ensureSqlTables(execSql, clientSqlTables);
+    await listPendingWrites(execSql);
+    const containerIds = Array.from(
+      { length: 1_001 },
+      (_, index) => `bulk-folder-${index}`,
+    );
+    const { db } = getClientSQLitePersistenceRuntime(execSql);
+    for (const batch of remoteResetBatches(containerIds)) {
+      await db.insert(containers).values(
+        batch.map((id) => ({
+          id,
+          localCreatedAt: UPDATED_AT,
+          localUpdatedAt: UPDATED_AT,
+          metadataDocumentId: `metadata-${id}`,
+          organizationId: "org-paused",
+          parentId: null,
+          serverCreatedAt: UPDATED_AT,
+          serverUpdatedAt: UPDATED_AT,
+        })),
+      );
+      await db.insert(documents).values(
+        batch.map((id) => ({
+          appKind: "container-metadata",
+          documentId: `metadata-${id}`,
+          localId: id,
+          snapshotEndVersion: "",
+          updatedAt: UPDATED_AT,
+        })),
+      );
+    }
+    let maxBinds = 0;
+    const boundedExecSql: ExecSql = new Proxy(execSql, {
+      apply(target, thisArg, args) {
+        const bind = args[1];
+        const binds = Array.isArray(bind)
+          ? bind.length
+          : bind && typeof bind === "object"
+            ? Object.keys(bind).length
+            : 0;
+        maxBinds = Math.max(maxBinds, binds);
+        if (binds > 999)
+          throw new Error(`SQLite bind limit exceeded: ${binds}`);
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+
+    const removal = await removeOrganizationContentUnlessPending({
+      containerIds,
+      deleteContainers: (lockedExecSql, removals) =>
+        sqlContainerContentsPersistence.deleteContainers(
+          lockedExecSql,
+          removals,
+        ),
+      documentProjectors: createDocumentProjectorRegistry([]),
+      execSql: boundedExecSql,
+      isDocumentOpen: () => false,
+      organizationId: "org-paused",
+    });
+
+    expect(removal.status).toBe("removed");
+    expect(removal.deletedContainerIds).toHaveLength(containerIds.length);
+    expect(maxBinds).toBeLessThanOrEqual(999);
+    expect(await db.select().from(containers)).toEqual([]);
+  } finally {
+    close();
+  }
 });

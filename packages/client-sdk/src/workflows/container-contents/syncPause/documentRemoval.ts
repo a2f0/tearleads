@@ -27,6 +27,11 @@ export interface OrganizationContentRemoval {
   readonly deletedLocalIds: readonly string[];
 }
 
+// The deletion cascade binds several values per container across its
+// statements (its tombstone row alone binds a value per column), so a large
+// organization is removed in batches that stay within SQLite's bind budget.
+const CONTAINER_REMOVAL_BATCH_SIZE = 50;
+
 const refused = (
   status: "pending-writes" | "open-documents",
 ): OrganizationContentRemoval => ({
@@ -39,6 +44,40 @@ interface ContainerRemoval {
   readonly containerId: string;
   readonly reason: "access_revoked";
   readonly updatedAt: string;
+}
+
+/** Stops at the first batch that is no longer current. */
+async function deleteContainersInBatches(
+  lockedExecSql: ExecSql,
+  containerIds: readonly string[],
+  deleteContainers: (
+    lockedExecSql: ExecSql,
+    removals: readonly ContainerRemoval[],
+  ) => Promise<readonly string[]>,
+): Promise<string[]> {
+  const removedAt = new Date().toISOString();
+  const deleted: string[] = [];
+  for (
+    let index = 0;
+    index < containerIds.length;
+    index += CONTAINER_REMOVAL_BATCH_SIZE
+  ) {
+    const batch = containerIds.slice(
+      index,
+      index + CONTAINER_REMOVAL_BATCH_SIZE,
+    );
+    const removed = await deleteContainers(
+      lockedExecSql,
+      batch.map((containerId) => ({
+        containerId,
+        reason: "access_revoked",
+        updatedAt: removedAt,
+      })),
+    );
+    deleted.push(...removed);
+    if (removed.length !== batch.length) break;
+  }
+  return deleted;
 }
 
 /**
@@ -103,18 +142,11 @@ export async function removeOrganizationContentUnlessPending(input: {
     }
     if (localIds.some(input.isDocumentOpen)) return refused("open-documents");
 
-    const removedAt = new Date().toISOString();
-    const deletedContainerIds =
-      containerIds.size === 0
-        ? []
-        : await input.deleteContainers(
-            lockedExecSql,
-            input.containerIds.map((containerId) => ({
-              containerId,
-              reason: "access_revoked",
-              updatedAt: removedAt,
-            })),
-          );
+    const deletedContainerIds = await deleteContainersInBatches(
+      lockedExecSql,
+      [...containerIds],
+      input.deleteContainers,
+    );
     const deletedLocalIds: string[] = [];
     if (deletedContainerIds.length !== containerIds.size) {
       return { deletedContainerIds, deletedLocalIds, status: "interrupted" };

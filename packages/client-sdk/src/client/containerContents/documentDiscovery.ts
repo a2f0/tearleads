@@ -22,7 +22,7 @@ import {
   type ContainerContentsWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
-import { upsertDiscoveredDocumentsUnlessPaused } from "../../workflows/container-contents/syncPause/discoveryGuard";
+import { guardDiscoveryAgainstPause } from "../../workflows/container-contents/syncPause/discoveryGuard";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,
@@ -81,24 +81,22 @@ function createDiscoveryLane(input: {
     onFullListing: request.onFullListing,
     refuteContainerDocumentTombstoneHolds: (placements) =>
       refuteContainerDocumentTombstoneHolds(execSql, placements),
-    upsertDiscoveredDocuments: (inputs) =>
-      upsertDiscoveredDocumentsUnlessPaused({
-        execSql,
-        inputs,
-        isPaused: input.isContainerPaused,
-      }),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       containerOrganizationId,
       loadHead,
       loadEpoch,
     ),
-    verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
-      containerOrganizationId,
-      loadHead,
-      loadEpoch,
-      input.evidenceStore,
-      request.onPendingDiscovery,
-    ),
+    ...guardDiscoveryAgainstPause({
+      execSql,
+      isPaused: input.isContainerPaused,
+      verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+        containerOrganizationId,
+        loadHead,
+        loadEpoch,
+        input.evidenceStore,
+        request.onPendingDiscovery,
+      ),
+    }),
   };
 }
 
