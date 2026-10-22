@@ -1,8 +1,4 @@
-import { listPendingWrites } from "../../../workflows/container-contents/pendingWrites";
-import {
-  deleteDocumentUnlessQueued,
-  listDocumentLocalIdsPlacedOnlyIn,
-} from "../../../workflows/container-contents/syncPause/documentRemoval";
+import { removeOrganizationContentUnlessPending } from "../../../workflows/container-contents/syncPause/documentRemoval";
 import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import { isRetainedWhileSyncPaused } from "../../../workflows/sync";
 import { emitPersistedDocumentDeletion } from "../../documents/registry";
@@ -23,37 +19,16 @@ function listForgettableOrganizationContainerIds(
   );
 }
 
-// Deletes each document unless something is queued for it, so a write that
-// lands after the pending-write scan survives and stops the removal.
-async function removeUnqueuedDocuments(
-  state: ContainerContentsStoreState,
-  localIds: readonly string[],
-  isCurrent: ContainerWriteGuard,
-): Promise<boolean> {
-  const { documentProjectors, execSql } = state.runtime.infra;
-  for (const localId of localIds) {
-    if (!isCurrent()) return false;
-    const deleted = await deleteDocumentUnlessQueued({
-      documentProjectors,
-      execSql,
-      localId,
-    });
-    if (!deleted) return false;
-    emitPersistedDocumentDeletion(state.runtime.state.domainScope, localId);
-  }
-  return true;
-}
-
 /**
  * Removes one organization's content from this device after its sync was
  * paused: every container except its retained metadata root, and every
  * document placed only in those containers. Nothing changes on the server, so
  * resuming downloads it again.
  *
- * Unsynced work is never removed. The operation refuses while any pending
- * write names the organization, and deletes each document only while nothing
- * is queued for it; an edit in between stops the removal, keeping the
- * containers, and the caller retries once uploads settle.
+ * Unsynced work is never removed: the removal refuses while any pending write
+ * touches the organization, checked under the same lock as the deletions. It
+ * also refuses the session's active organization, whose root the session still
+ * writes to. A refusal returns false and the caller retries later.
  */
 async function forgetOrganizationContent(
   state: ContainerContentsStoreState,
@@ -63,43 +38,38 @@ async function forgetOrganizationContent(
   if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
     return false;
   }
+  if (state.runtime.auth.organizationId === organizationId) return false;
   const containerIds = listForgettableOrganizationContainerIds(
     state,
     organizationId,
   );
   if (containerIds.length === 0) return true;
-  const { execSql } = state.runtime.infra;
+  const { documentProjectors, execSql } = state.runtime.infra;
   await state.persistence.ensureSchema(execSql);
-  const pending = await listPendingWrites(execSql);
-  if (pending.some((item) => item.organizationId === organizationId)) {
-    return false;
-  }
-
-  const localIds = await listDocumentLocalIdsPlacedOnlyIn(
-    execSql,
+  const removal = await removeOrganizationContentUnlessPending({
     containerIds,
-  );
-  const removed = await removeUnqueuedDocuments(state, localIds, isCurrent);
-  if (localIds.length > 0) void reclaimDocumentOrphanBlobs(state.runtime);
-  if (!removed || !isCurrent()) return false;
-
-  const removedAt = new Date().toISOString();
-  const deletedContainerIds = await state.persistence.deleteContainers(
+    deleteContainers: (lockedExecSql, removals) =>
+      state.persistence.deleteContainers(lockedExecSql, removals, {
+        stillCurrent: isCurrent,
+      }),
+    documentProjectors,
     execSql,
-    containerIds.map((containerId) => ({
-      containerId,
-      reason: "access_revoked",
-      updatedAt: removedAt,
-    })),
-    { stillCurrent: isCurrent },
-  );
-  for (const containerId of deletedContainerIds) {
+    organizationId,
+  });
+  if (!removal) return false;
+  for (const localId of removal.deletedLocalIds) {
+    emitPersistedDocumentDeletion(state.runtime.state.domainScope, localId);
+  }
+  if (removal.deletedLocalIds.length > 0) {
+    void reclaimDocumentOrphanBlobs(state.runtime);
+  }
+  for (const containerId of removal.deletedContainerIds) {
     state.containersById.delete(containerId);
   }
-  if (deletedContainerIds.length > 0 && state.initialized) {
+  if (removal.deletedContainerIds.length > 0 && state.initialized) {
     updateContainerContentsSnapshot(state);
   }
-  return deletedContainerIds.length === containerIds.length;
+  return removal.deletedContainerIds.length === containerIds.length;
 }
 
 type ContainerWriteChain = (

@@ -1,4 +1,3 @@
-import { getOrCreateOrganizationSyncPauses } from "../../../../data/sync/organizationSyncPauses";
 import { createRuntimePrincipalPolicyWarmer } from "../../../principals/runtimePolicyWarmer";
 import { prefetchDestinationProjections } from "../destination/destinationPrefetch";
 import { cachedDestinationRole } from "../destination/destinationRoleCache";
@@ -20,6 +19,7 @@ import type {
   RemoteContainerHydrationState,
 } from "../types";
 import { containerStateMatchesFingerprint } from "./containerStateFingerprint";
+import { loadPausedContainerFilter } from "./organizationSyncPauseFilter";
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,
   listRemoteContainerIdsWithPendingStructuralIntents,
@@ -204,19 +204,14 @@ async function applyContainerParentLanePage(input: {
   // A paused organization's containers stay off the device. Skipping them
   // here, after tombstones saw the full page, still lets the lane complete
   // and its watermark advance; their children are never queued.
-  const syncPauses = getOrCreateOrganizationSyncPauses(
-    state.runtime.state.domainScope,
-  );
-  await syncPauses.load(state.runtime.infra.execSql);
+  const isPaused = await loadPausedContainerFilter(state);
   const appliedPage = await applyRemoteContainerPage({
     childIdsByParentId,
     expectedContainerStates,
     expectedHydrationTombstones,
     host,
     isCurrent: input.isCurrent,
-    items: remoteContainerItems.filter(
-      (item) => !syncPauses.isContainerPaused(item),
-    ),
+    items: remoteContainerItems.filter((item) => !isPaused(item)),
     queueParentLane,
     seenContainerIds,
     state,

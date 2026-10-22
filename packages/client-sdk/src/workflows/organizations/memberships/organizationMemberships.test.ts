@@ -18,7 +18,12 @@ function membership(
   return { isPersonalOrganizationOwner: false, organizationId, syncPaused };
 }
 
-function createHost(unsynced: Set<string> = new Set()) {
+function createHost(
+  unsynced: Set<string> = new Set(),
+  session: { activeOrganizationId: string | null } = {
+    activeOrganizationId: null,
+  },
+) {
   const calls: string[] = [];
   const retries: Array<() => Promise<boolean>> = [];
   const host: OrganizationContentHost = {
@@ -27,7 +32,10 @@ function createHost(unsynced: Set<string> = new Set()) {
     },
     async forgetOrganizationContent(organizationId) {
       calls.push(`forget:${organizationId}`);
-      return !unsynced.has(organizationId);
+      return (
+        !unsynced.has(organizationId) &&
+        organizationId !== session.activeOrganizationId
+      );
     },
     async hasUnsyncedOrganizationWrites(organizationId) {
       return unsynced.has(organizationId);
@@ -93,6 +101,7 @@ test("a refresh applies pauses from other devices and keeps unsynced work", asyn
       domainScope,
       execSql,
       host,
+      isCurrent: () => true,
     });
 
     expect(result?.map((row) => row.organizationId)).toEqual([
@@ -139,12 +148,14 @@ test("a membership read that started before a pause cannot undo it", async () =>
       domainScope,
       execSql,
       host,
+      isCurrent: () => true,
     });
     const pause = setOrganizationSyncPaused({
       apiClient,
       domainScope,
       execSql,
       host,
+      isCurrent: () => true,
       organizationId: "org-a",
       paused: true,
     });
@@ -182,6 +193,7 @@ test("a refresh that resumes an organization downloads it again", async () => {
       domainScope,
       execSql,
       host,
+      isCurrent: () => true,
     });
 
     expect(calls).toEqual(["refetch"]);
@@ -203,6 +215,7 @@ test("an unavailable list leaves the persisted pauses in force", async () => {
         domainScope,
         execSql,
         host,
+        isCurrent: () => true,
       }),
     ).toBeNull();
     expect(
@@ -225,6 +238,7 @@ test("pausing is refused while the organization has unsynced writes", async () =
       domainScope,
       execSql,
       host,
+      isCurrent: () => true,
       organizationId: "org-a",
       paused: true,
     });
@@ -251,6 +265,7 @@ test("pausing records the choice and then removes the local copy", async () => {
       domainScope,
       execSql,
       host,
+      isCurrent: () => true,
       organizationId: "org-a",
       paused: true,
     });
@@ -286,6 +301,7 @@ test("a rejected change leaves this device untouched", async () => {
       domainScope,
       execSql,
       host,
+      isCurrent: () => true,
       organizationId: "org-a",
       paused: true,
     });
@@ -321,12 +337,59 @@ test("resuming records the choice and downloads the organization again", async (
       domainScope,
       execSql,
       host,
+      isCurrent: () => true,
       organizationId: "org-a",
       paused: false,
     });
 
     expect(updates).toEqual([{ organizationId: "org-a", syncPaused: false }]);
     expect(calls).toEqual(["refetch"]);
+    expect(
+      getOrCreateOrganizationSyncPauses(domainScope).isOrganizationPaused(
+        "org-a",
+      ),
+    ).toBe(false);
+  });
+});
+
+test("a pause for the active workspace waits until the session leaves it", async () => {
+  await withDatabase(async (execSql) => {
+    const domainScope = createDomainScope();
+    const session = { activeOrganizationId: "org-a" as string | null };
+    const { calls, host, retries } = createHost(new Set(), session);
+    const { apiClient } = createApi([membership("org-a", true)]);
+
+    await refreshOrganizationMemberships({
+      apiClient,
+      domainScope,
+      execSql,
+      host,
+      isCurrent: () => true,
+    });
+    expect(calls).toEqual(["forget:org-a"]);
+    expect(retries).toHaveLength(1);
+
+    session.activeOrganizationId = "org-b";
+    expect(await retries[0]?.()).toBe(true);
+  });
+});
+
+test("a membership read that finishes after the scope ended changes nothing", async () => {
+  await withDatabase(async (execSql) => {
+    const domainScope = createDomainScope();
+    const { calls, host } = createHost();
+    const { apiClient } = createApi([membership("org-a", true)]);
+
+    expect(
+      await refreshOrganizationMemberships({
+        apiClient,
+        domainScope,
+        execSql,
+        host,
+        isCurrent: () => false,
+      }),
+    ).toBeNull();
+    expect(calls).toEqual([]);
     expect(
       getOrCreateOrganizationSyncPauses(domainScope).isOrganizationPaused(
         "org-a",

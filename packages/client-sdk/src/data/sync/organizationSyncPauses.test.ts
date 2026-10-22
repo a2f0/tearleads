@@ -53,20 +53,27 @@ test("skips a paused organization's containers except its metadata root", async 
     };
 
     expect(isRetainedWhileSyncPaused(metadataRoot)).toBe(true);
-    expect(pauses.isContainerPaused(metadataRoot)).toBe(false);
+    const pausedRoot = { organizationId: "paused", parentId: null };
+    expect(pauses.isContainerPaused(metadataRoot, null)).toBe(false);
+    expect(pauses.isContainerPaused(pausedRoot, null)).toBe(true);
     expect(
-      pauses.isContainerPaused({ organizationId: "paused", parentId: null }),
+      pauses.isContainerPaused(
+        {
+          organizationId: "paused",
+          parentId: "root",
+          systemSlot: METADATA_SLOT,
+        },
+        null,
+      ),
     ).toBe(true);
     expect(
-      pauses.isContainerPaused({
-        organizationId: "paused",
-        parentId: "root",
-        systemSlot: METADATA_SLOT,
-      }),
-    ).toBe(true);
-    expect(
-      pauses.isContainerPaused({ organizationId: "other", parentId: "root" }),
+      pauses.isContainerPaused(
+        { organizationId: "other", parentId: "root" },
+        null,
+      ),
     ).toBe(false);
+    // A pause from another device never skips the session's active workspace.
+    expect(pauses.isContainerPaused(pausedRoot, "paused")).toBe(false);
   } finally {
     close();
   }

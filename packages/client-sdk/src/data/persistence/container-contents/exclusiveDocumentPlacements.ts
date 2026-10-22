@@ -4,7 +4,6 @@ import { documentContainerProjection, documents } from "../../sqlite/schema";
 import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
-import { hasQueuedDocumentUpdates } from "../documents/records/documentPendingUpdatePersistence";
 
 // Leave room for the fixed binds each statement adds beside its id list.
 const ID_BATCH_SIZE = SQLITE_BOUND_VARIABLE_BUDGET - 8;
@@ -68,18 +67,4 @@ export async function listDocumentLocalIdsPlacedOnlyIn(
     for (const row of rows) localIds.push(row.localId);
   }
   return localIds.sort();
-}
-
-/** Whether a local document has writes queued for upload. */
-export function hasQueuedLocalDocumentUpdates(
-  execSql: ExecSql,
-  localId: string,
-): Promise<boolean> {
-  return hasQueuedDocumentUpdates(
-    getClientSQLitePersistenceRuntime(execSql).db,
-    {
-      appKind: DOCUMENTS_APP_KIND,
-      localId,
-    },
-  );
 }

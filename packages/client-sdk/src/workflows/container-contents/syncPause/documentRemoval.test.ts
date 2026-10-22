@@ -1,68 +1,125 @@
 import { expect, test } from "bun:test";
+import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentProjectorRegistry } from "../../../data/documents";
-import { DOCUMENTS_APP_KIND } from "../../../data/documents/documentConstants";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
-import { enqueueDocumentPendingUpdate } from "../../../data/persistence/documents/records";
-import { deleteDocumentUnlessQueued } from "./documentRemoval";
+import type { ExecSql } from "../../../data/sqlite/sqlSchema";
+import { saveTestSyncedContainer } from "../documentQueries/documentQueries.testFixtures";
+import { listPendingWrites } from "../pendingWrites";
+import { removeOrganizationContentUnlessPending } from "./documentRemoval";
 
-function storedDocument(localId: string) {
-  return {
-    accessEpoch: 1,
-    containerId: "container",
-    documentId: `${localId}-remote`,
-    id: localId,
-    snapshotEndVersion: "frontier",
-    text: localId,
-  };
+const UPDATED_AT = "2026-01-01T00:00:00.000Z";
+
+async function placedDocument(
+  execSql: ExecSql,
+  input: {
+    localId: string;
+    pendingBaseVersion?: string;
+    snapshotEndVersion: string;
+  },
+): Promise<void> {
+  const documentId = `${input.localId}-remote`;
+  await sqlDocumentsPersistence.saveDocument(
+    execSql,
+    {
+      accessEpoch: 1,
+      accessStateHash: null,
+      containerId: "folder",
+      documentId,
+      documentKind: "note",
+      id: input.localId,
+      ...(input.pendingBaseVersion === undefined
+        ? {}
+        : { pendingBaseVersion: input.pendingBaseVersion }),
+      snapshotEndVersion: input.snapshotEndVersion,
+      text: "",
+      title: input.localId,
+    },
+    { updatedAt: UPDATED_AT },
+  );
+  await execSql(
+    "INSERT INTO document_container_projection (document_id, container_id, updated_at) VALUES (?, ?, ?)",
+    [documentId, "folder", UPDATED_AT],
+  );
 }
 
-test("a document with a write queued for upload is never deleted", async () => {
-  const { close, execSql } = await createTestExecSql(
-    "delete-document-unless-queued",
-  );
+async function withPausedFolder(
+  run: (execSql: ExecSql, versions: readonly [string, string]) => Promise<void>,
+): Promise<void> {
+  const { close, execSql } = await createTestExecSql("sync-pause-removal");
   try {
-    await sqlDocumentsPersistence.ensureSchema(execSql);
-    await sqlDocumentsPersistence.saveDocument(
+    await listPendingWrites(execSql);
+    await saveTestSyncedContainer({
       execSql,
-      storedDocument("edited"),
-    );
-    await sqlDocumentsPersistence.saveDocument(
-      execSql,
-      storedDocument("synced"),
-    );
-    await enqueueDocumentPendingUpdate(
-      execSql,
-      { appKind: DOCUMENTS_APP_KIND, localId: "edited" },
-      {
-        partialEndVersionVector: "end",
-        partialStartVersionVector: "start",
-        updateData: "edit",
-      },
-    );
-    const documentProjectors = createDocumentProjectorRegistry([]);
-
-    expect(
-      await deleteDocumentUnlessQueued({
-        documentProjectors,
-        execSql,
-        localId: "edited",
-      }),
-    ).toBe(false);
-    expect(
-      await deleteDocumentUnlessQueued({
-        documentProjectors,
-        execSql,
-        localId: "synced",
-      }),
-    ).toBe(true);
-    expect(
-      await sqlDocumentsPersistence.loadDocument(execSql, "edited"),
-    ).not.toBeNull();
-    expect(
-      await sqlDocumentsPersistence.loadDocument(execSql, "synced"),
-    ).toBeNull();
+      id: "folder",
+      name: "Folder",
+      organizationId: "org-paused",
+      timestamp: UPDATED_AT,
+    });
+    const document = await createDocument("sync-pause-removal");
+    document.getText("text").update("first");
+    document.commit();
+    const first = encodeVersionVector(document);
+    document.getText("text").update("second");
+    document.commit();
+    await run(execSql, [first, encodeVersionVector(document)]);
   } finally {
     close();
   }
+}
+
+function remove(execSql: ExecSql, deletedContainers: string[]) {
+  return removeOrganizationContentUnlessPending({
+    containerIds: ["folder"],
+    deleteContainers: async (_lockedExecSql, removals) => {
+      deletedContainers.push(...removals.map((removal) => removal.containerId));
+      return removals.map((removal) => removal.containerId);
+    },
+    documentProjectors: createDocumentProjectorRegistry([]),
+    execSql,
+    organizationId: "org-paused",
+  });
+}
+
+test("an edit kept only in the local history tail blocks the removal", async () => {
+  await withPausedFolder(async (execSql, [uploaded, edited]) => {
+    // Nothing is queued, but the stored content is ahead of what was uploaded:
+    // a deferred edit that has not synced.
+    await placedDocument(execSql, {
+      localId: "deferred-edit",
+      pendingBaseVersion: uploaded,
+      snapshotEndVersion: edited,
+    });
+    expect(
+      (await listPendingWrites(execSql)).some(
+        (item) => item.localId === "deferred-edit",
+      ),
+    ).toBe(true);
+    const deletedContainers: string[] = [];
+
+    expect(await remove(execSql, deletedContainers)).toBeNull();
+    expect(deletedContainers).toEqual([]);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "deferred-edit"),
+    ).not.toBeNull();
+  });
+});
+
+test("an organization with nothing pending is removed with its documents", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    await placedDocument(execSql, {
+      localId: "synced",
+      snapshotEndVersion: synced,
+    });
+    const deletedContainers: string[] = [];
+
+    expect(await remove(execSql, deletedContainers)).toEqual({
+      deletedContainerIds: ["folder"],
+      deletedLocalIds: ["synced"],
+    });
+    expect(deletedContainers).toEqual(["folder"]);
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "synced"),
+    ).toBeNull();
+  });
 });

@@ -83,15 +83,22 @@ function retryWhenWritesSettle(
   entry.unsubscribe = subscribeToDomainSyncCoordinator(domainScope, attempt);
 }
 
+// Bound to the scope the operation started in: the tree is opened once, and
+// every action re-checks the scope so stale work never reaches another
+// identity's device state.
 function createOrganizationContentHost(
   runtime: InternalWorkflowRuntimeInput,
   containerContents: ContainerContents,
+  isCurrent: () => boolean,
 ): OrganizationContentHost {
   const { domainScope } = runtime.state;
+  const tree = containerContents.openTree();
   return {
-    forgetOrganizationContent: (organizationId) =>
-      containerContents.openTree().forgetOrganizationContent(organizationId),
+    async forgetOrganizationContent(organizationId) {
+      return isCurrent() && tree.forgetOrganizationContent(organizationId);
+    },
     async hasUnsyncedOrganizationWrites(organizationId) {
+      if (!isCurrent()) return true;
       const pending = await containerContents
         .documentQueries()
         .listPendingWrites();
@@ -104,7 +111,7 @@ function createOrganizationContentHost(
       });
     },
     async refetchContent() {
-      await containerContents.openTree().refresh();
+      if (isCurrent()) await tree.refresh();
     },
     retryWhenWritesSettle: (retry) => retryWhenWritesSettle(domainScope, retry),
   };
@@ -122,12 +129,22 @@ export function createOrganizationMemberships(
   runtimeService: InternalRuntime,
   containerContents: ContainerContents,
 ): OrganizationMemberships {
-  const membershipInput = (runtime: InternalWorkflowRuntimeInput) => ({
-    apiClient: runtime.apiClient,
-    domainScope: runtime.state.domainScope,
-    execSql: runtime.infra.execSql,
-    host: createOrganizationContentHost(runtime, containerContents),
-  });
+  const membershipInput = (runtime: InternalWorkflowRuntimeInput) => {
+    const { domainScope } = runtime.state;
+    const isCurrent = () =>
+      runtimeService.workflowInput().state.domainScope === domainScope;
+    return {
+      apiClient: runtime.apiClient,
+      domainScope,
+      execSql: runtime.infra.execSql,
+      host: createOrganizationContentHost(
+        runtime,
+        containerContents,
+        isCurrent,
+      ),
+      isCurrent,
+    };
+  };
   return {
     async refresh() {
       const runtime = runtimeService.workflowInput();

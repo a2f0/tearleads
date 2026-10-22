@@ -13,8 +13,9 @@ export interface OrganizationDashboardCard {
   /** The organization the session is currently working in. */
   readonly active: boolean;
   /**
-   * Sync can be paused or resumed here: never for the active organization,
-   * whose root the session writes to, or the user's personal organization.
+   * Sync can be paused or resumed here. A personal organization never can,
+   * and the active organization, whose root the session writes to, can only
+   * be resumed if another device paused it.
    */
   readonly canChangeSync: boolean;
   readonly folders: ReadonlyArray<OrganizationDashboardFolder>;
@@ -100,8 +101,9 @@ export function buildOrganizationDashboardCards(input: {
     .map(([organizationId, folders]) => ({
       active: organizationId === input.activeOrganizationId,
       canChangeSync:
-        organizationId !== input.activeOrganizationId &&
-        !input.personalOrganizationIds.has(organizationId),
+        !input.personalOrganizationIds.has(organizationId) &&
+        (organizationId !== input.activeOrganizationId ||
+          input.pausedOrganizationIds.has(organizationId)),
       folders: folders.sort(
         (left, right) =>
           Number(right.workspaceRoot) - Number(left.workspaceRoot) ||

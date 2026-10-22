@@ -60,12 +60,19 @@ While an organization is paused, a device:
 
 Removal waits for the organization's local writes to upload. Pausing from a
 device first asks every sync lane to upload and is refused while any pending
-write for the organization remains, so the copy it removes holds nothing the
-server lacks. When a pause made on another device arrives, a device that still
-has pending writes for that organization keeps them syncing out and removes
-the copy on a later pass. Resuming re-lists the whole tree with fresh lane
-watermarks so the organization downloads again.
+write for the organization remains. The removal itself scans every kind of
+pending write (queued updates, deferred history tails, intents, attachment
+uploads) and deletes under the same SQLite mutation lock, so no edit can land
+between the check and the deletion and the copy it removes holds nothing the
+server lacks. A device that still has pending writes keeps them syncing out
+and retries the removal each time its sync lanes go idle. Resuming re-lists
+the whole tree with fresh lane watermarks so the organization downloads again.
 
 A personal organization cannot be paused: every device keeps its owner's root,
-Contacts, and Trash there. Clients also refuse to pause the active
-organization, whose root the session writes to.
+Contacts, and Trash there. The session's active organization is never skipped
+or removed, even when another device paused it, because its root is the
+session's workspace; the device removes it once the session switches away,
+and Organizations offers to resume it meanwhile. Membership work runs one
+operation at a time per scope and is bound to the scope it started in, so a
+stale membership read cannot undo a newer choice or reach another identity's
+data.

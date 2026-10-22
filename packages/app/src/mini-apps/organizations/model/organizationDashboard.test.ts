@@ -194,3 +194,20 @@ test("marks paused organizations and keeps personal organizations unpausable", (
     { canChangeSync: true, organizationId: "paused", syncPaused: true },
   ]);
 });
+
+test("offers only Resume for an active organization another device paused", () => {
+  const build = (paused: string[]) =>
+    buildOrganizationDashboardCards({
+      activeOrganizationId: "active",
+      namesById: new Map(),
+      nodes: [node({ id: "active", organizationId: "active", parentId: null })],
+      pausedOrganizationIds: new Set(paused),
+      personalOrganizationIds: new Set(),
+    })[0];
+
+  expect(build([])?.canChangeSync).toBe(false);
+  expect(build(["active"])).toMatchObject({
+    canChangeSync: true,
+    syncPaused: true,
+  });
+});

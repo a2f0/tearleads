@@ -45,9 +45,15 @@ export interface OrganizationSyncPauses {
   isOrganizationPaused(organizationId: string): boolean;
   /**
    * Whether sync skips this container: every container of a paused
-   * organization except the one `isRetainedWhileSyncPaused` keeps.
+   * organization except the one `isRetainedWhileSyncPaused` keeps. The
+   * session's active organization is never skipped, even when paused from
+   * another device: its root is the session's workspace until it switches
+   * away.
    */
-  isContainerPaused(container: OrganizationSyncPauseSubject): boolean;
+  isContainerPaused(
+    container: OrganizationSyncPauseSubject,
+    activeOrganizationId: string | null,
+  ): boolean;
   pausedOrganizationIds(): ReadonlySet<string>;
   /** Persists exactly this set and reports which organizations changed. */
   replace(
@@ -118,8 +124,9 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
       return loading;
     },
     isOrganizationPaused: (organizationId) => paused.has(organizationId),
-    isContainerPaused: (container) =>
+    isContainerPaused: (container, activeOrganizationId) =>
       paused.has(container.organizationId) &&
+      container.organizationId !== activeOrganizationId &&
       !isRetainedWhileSyncPaused(container),
     pausedOrganizationIds: () => paused,
     replace(execSql, organizationIds) {

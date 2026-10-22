@@ -137,7 +137,13 @@ export async function discoverContainerDocumentLanesForRuntime({
         request.containerId,
       );
     // A paused organization's container lists like one that is not stored.
-    if (stored && !syncPauses.isContainerPaused(stored.container))
+    if (
+      stored &&
+      !syncPauses.isContainerPaused(
+        stored.container,
+        input.auth.organizationId ?? null,
+      )
+    )
       lanes.push(
         createDiscoveryLane({
           containerOrganizationId: stored.container.organizationId,

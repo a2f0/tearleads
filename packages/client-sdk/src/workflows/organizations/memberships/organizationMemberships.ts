@@ -51,6 +51,12 @@ interface OrganizationMembershipInput {
   readonly domainScope: DomainScope;
   readonly execSql: ExecSql;
   readonly host: OrganizationContentHost;
+  /**
+   * Whether the session still uses `domainScope`. A membership list or pause
+   * that completes after an identity switch must not touch the new identity's
+   * device state.
+   */
+  readonly isCurrent: () => boolean;
 }
 
 export type OrganizationSyncPauseResult =
@@ -109,7 +115,7 @@ async function applyMembershipList(
   pauses: OrganizationSyncPauses,
 ): Promise<OrganizationMembership[] | null> {
   const response = await input.apiClient.listOrganizationMemberships();
-  if (!response) return null;
+  if (!response || !input.isCurrent()) return null;
   const change = await pauses.replace(
     input.execSql,
     response.memberships.flatMap((membership) =>
@@ -161,6 +167,9 @@ async function applySyncPauseChoice(
       status: "failed",
     };
   }
+  // The choice is recorded; a scope that ended meanwhile applies it on its
+  // next membership read instead.
+  if (!input.isCurrent()) return { membership: result.data, status: "updated" };
   await pauses.load(input.execSql);
   const next = new Set(pauses.pausedOrganizationIds());
   if (paused) next.add(organizationId);
