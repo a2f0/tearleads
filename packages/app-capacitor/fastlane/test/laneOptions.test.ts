@@ -7,7 +7,10 @@ const packageRoot = resolve(import.meta.dir, "../..");
 // Environment fallbacks the options below read; the caller's must not leak in.
 const optionEnvironmentNames = [
   "ANDROID_BUILD_NUMBER",
+  "ANDROID_RELEASE_MERGED_PR_NUMBER",
+  "ANDROID_RELEASE_PR_NUMBER",
   "ANDROID_VERSION_CODE",
+  "APP_STORE_VERSION",
   "APPLE_BUILD_NUMBER",
   "APPLE_TEAM_ID",
   "DEVELOPMENT_TEAM",
@@ -17,6 +20,7 @@ const optionEnvironmentNames = [
   "GOOGLE_PLAY_TRACKS",
   "IOS_BUILD_NUMBER",
   "IOS_TEAM_ID",
+  "IOS_VERSION",
   "TEAM_ID",
 ];
 
@@ -36,7 +40,11 @@ results = {
   iosBuildNumber: f.send(:explicit_ios_release_build_number, { build_number: "43" }),
   iosAppleBuildNumberOption: f.send(:explicit_ios_release_build_number, { apple_build_number: "44" }),
   teamOption: f.send(:ios_team_id, { team_id: "OPTION", apple_team_id: "ALIAS" }),
-  teamAliasOption: f.send(:ios_team_id, { apple_team_id: "ALIAS" })
+  teamAliasOption: f.send(:ios_team_id, { apple_team_id: "ALIAS" }),
+  iosVersion: f.send(:explicit_ios_release_version, { version: "2.0.0" }),
+  iosAppleVersionOption: f.send(:explicit_ios_release_version, { apple_version: "2.0.1" }),
+  mergedPrNumber: f.send(:configured_merged_release_pr_number, { merged_pr_number: "47" }, "ANDROID"),
+  prNumberOption: f.send(:configured_merged_release_pr_number, { pr_number: "48" }, "ANDROID")
 }
 ENV["GOOGLE_PLAY_TRACK"] = "alpha"
 results[:envTrack] = f.send(:google_play_upload_track, {})
@@ -46,6 +54,10 @@ ENV["APPLE_BUILD_NUMBER"] = "46"
 results[:iosAppleBuildNumberEnv] = f.send(:explicit_ios_release_build_number, {})
 ENV["TEAM_ID"] = "SHARED"
 results[:teamEnv] = f.send(:ios_team_id, {})
+ENV["APP_STORE_VERSION"] = "2.0.2"
+results[:iosAppleVersionEnv] = f.send(:explicit_ios_release_version, {})
+ENV["ANDROID_RELEASE_PR_NUMBER"] = "49"
+results[:prNumberEnv] = f.send(:configured_merged_release_pr_number, {}, "ANDROID")
 puts JSON.generate(results)
 `;
 
@@ -85,9 +97,15 @@ test("lanes take one name per option and keep their environment fallbacks", asyn
     iosAppleBuildNumberOption: null,
     teamOption: "OPTION",
     teamAliasOption: null,
+    iosVersion: "2.0.0",
+    iosAppleVersionOption: null,
+    mergedPrNumber: 47,
+    prNumberOption: null,
     envTrack: "alpha",
     androidVersionCodeEnv: 45,
     iosAppleBuildNumberEnv: 46,
     teamEnv: "SHARED",
+    iosAppleVersionEnv: "2.0.2",
+    prNumberEnv: 49,
   });
 });
