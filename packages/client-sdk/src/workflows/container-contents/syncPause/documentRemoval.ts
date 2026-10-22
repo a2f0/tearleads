@@ -16,6 +16,8 @@ export interface OrganizationContentRemoval {
   readonly complete: boolean;
   readonly deletedContainerIds: readonly string[];
   readonly deletedLocalIds: readonly string[];
+  /** Documents an open store held, kept on the device. */
+  readonly keptLocalIds: readonly string[];
 }
 
 interface ContainerRemoval {
@@ -64,7 +66,12 @@ export async function removeOrganizationContentUnlessPending(input: {
       ]),
     ];
     if (containerIds.size === 0 && localIds.length === 0) {
-      return { complete: true, deletedContainerIds: [], deletedLocalIds: [] };
+      return {
+        complete: true,
+        deletedContainerIds: [],
+        deletedLocalIds: [],
+        keptLocalIds: [],
+      };
     }
     const documentIds = new Set(localIds);
     const pending = await listPendingWrites(lockedExecSql);
@@ -93,7 +100,12 @@ export async function removeOrganizationContentUnlessPending(input: {
           );
     const deletedLocalIds: string[] = [];
     if (deletedContainerIds.length !== containerIds.size) {
-      return { complete: false, deletedContainerIds, deletedLocalIds };
+      return {
+        complete: false,
+        deletedContainerIds,
+        deletedLocalIds,
+        keptLocalIds: [],
+      };
     }
     for (const localId of localIds) {
       if (
@@ -109,10 +121,12 @@ export async function removeOrganizationContentUnlessPending(input: {
         deletedLocalIds.push(localId);
       }
     }
+    const deleted = new Set(deletedLocalIds);
     return {
-      complete: deletedLocalIds.length === localIds.length,
+      complete: deleted.size === localIds.length,
       deletedContainerIds,
       deletedLocalIds,
+      keptLocalIds: localIds.filter((localId) => !deleted.has(localId)),
     };
   });
 }

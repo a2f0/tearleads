@@ -22,6 +22,7 @@ import {
   type ContainerContentsWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
+import { upsertDiscoveredDocumentsUnlessPaused } from "../../workflows/container-contents/syncPause/discoveryGuard";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,
@@ -44,6 +45,7 @@ type ExecSql = ReturnType<InternalRuntime["workflowInput"]>["infra"]["execSql"];
 
 function createDiscoveryLane(input: {
   readonly containerOrganizationId: string | undefined;
+  readonly isContainerPaused: () => boolean;
   readonly evidenceStore: ReturnType<
     typeof createDocumentDiscoveryEvidenceStore
   >;
@@ -79,6 +81,12 @@ function createDiscoveryLane(input: {
     onFullListing: request.onFullListing,
     refuteContainerDocumentTombstoneHolds: (placements) =>
       refuteContainerDocumentTombstoneHolds(execSql, placements),
+    upsertDiscoveredDocuments: (inputs) =>
+      upsertDiscoveredDocumentsUnlessPaused({
+        execSql,
+        inputs,
+        isPaused: input.isContainerPaused,
+      }),
     verifyContainerDocumentTombstones: createContainerDocumentTombstoneVerifier(
       containerOrganizationId,
       loadHead,
@@ -136,17 +144,19 @@ export async function discoverContainerDocumentLanesForRuntime({
         execSql,
         request.containerId,
       );
-    // A paused organization's container lists like one that is not stored.
-    if (
-      stored &&
-      !syncPauses.isContainerPaused(
+    if (!stored) continue;
+    const isContainerPaused = () =>
+      syncPauses.isContainerPaused(
         stored.container,
-        input.auth.organizationId ?? null,
-      )
-    )
+        runtimeService.workflowInput().auth.organizationId ?? null,
+      );
+    // A paused organization's container lists like one that is not stored,
+    // and a pause landing mid-listing stops its write.
+    if (!isContainerPaused())
       lanes.push(
         createDiscoveryLane({
           containerOrganizationId: stored.container.organizationId,
+          isContainerPaused,
           evidenceStore,
           execSql,
           queries,

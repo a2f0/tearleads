@@ -1,6 +1,9 @@
 import { removeOrganizationContentUnlessPending } from "../../../workflows/container-contents/syncPause/documentRemoval";
 import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
-import { isRetainedWhileSyncPaused } from "../../../workflows/sync";
+import {
+  getOrCreateOrganizationSyncPauses,
+  isRetainedWhileSyncPaused,
+} from "../../../workflows/sync";
 import {
   emitPersistedDocumentDeletion,
   hasRegisteredDocumentStore,
@@ -65,6 +68,9 @@ async function forgetOrganizationContent(
     organizationId,
   });
   if (!removal) return false;
+  const pauses = getOrCreateOrganizationSyncPauses(domainScope);
+  pauses.releaseDocuments(removal.deletedLocalIds);
+  pauses.holdDocuments(organizationId, removal.keptLocalIds);
   for (const localId of removal.deletedLocalIds) {
     emitPersistedDocumentDeletion(domainScope, localId);
   }

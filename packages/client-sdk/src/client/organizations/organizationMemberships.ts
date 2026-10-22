@@ -50,7 +50,7 @@ const settleRetriesByScope = new WeakMap<DomainScope, SettleRetry>();
 
 // One retry per scope: it runs whenever the scope's sync lanes go idle and
 // stops once it reports the work done.
-function retryWhenWritesSettle(
+export function retryWhenWritesSettle(
   domainScope: DomainScope,
   retry: () => Promise<boolean>,
 ): void {
@@ -81,6 +81,8 @@ function retryWhenWritesSettle(
       });
   };
   entry.unsubscribe = subscribeToDomainSyncCoordinator(domainScope, attempt);
+  // The lanes may already have gone idle before the subscription existed.
+  attempt();
 }
 
 // Bound to the scope the operation started in: the tree is opened once, and
