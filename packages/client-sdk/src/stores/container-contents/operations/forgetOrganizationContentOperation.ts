@@ -46,7 +46,6 @@ async function forgetOrganizationContent(
     state,
     organizationId,
   );
-  if (containerIds.length === 0) return true;
   const { documentProjectors, execSql } = state.runtime.infra;
   const { domainScope } = state.runtime.state;
   // Switching into the organization mid-removal stops it before any deletion.
@@ -78,7 +77,7 @@ async function forgetOrganizationContent(
   if (removal.deletedContainerIds.length > 0 && state.initialized) {
     updateContainerContentsSnapshot(state);
   }
-  return removal.deletedContainerIds.length === containerIds.length;
+  return removal.complete;
 }
 
 type ContainerWriteChain = (

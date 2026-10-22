@@ -9,6 +9,7 @@ import {
   type DocumentsWorkflowRuntimeInput,
 } from "../../../workflows/documents";
 import { noopDocumentStorePersistenceEffects } from "./documentStore.testFixtures";
+import { readBackingDocumentStore } from "./localWrites";
 import {
   createDocumentStoreState,
   resetDocumentStore,
@@ -133,4 +134,29 @@ test("independent remote ownership spans every pull continuation page", () => {
 
   state.pullContinuation = null;
   expect(hasPendingIndependentDocumentStoreRemoteSync(state)).toBe(false);
+});
+
+test("any queued mutation counts as a pending local write until it settles", async () => {
+  const state = createDocumentStoreState(
+    "queued-mutation-test",
+    createTestRuntime(),
+    {} as DocumentsPersistence,
+    noopDocumentStorePersistenceEffects,
+    null,
+  );
+  const store = readBackingDocumentStore(state);
+  expect(store.hasPendingLocalWrites()).toBe(false);
+
+  // Row and attachment mutations extend the write chain without touching the
+  // text/field counter; a pause cleanup must still see them.
+  let release = () => {};
+  const queued = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  state.writeChain = state.writeChain.then(() => queued);
+  expect(store.hasPendingLocalWrites()).toBe(true);
+
+  release();
+  await state.writeChain;
+  expect(store.hasPendingLocalWrites()).toBe(false);
 });

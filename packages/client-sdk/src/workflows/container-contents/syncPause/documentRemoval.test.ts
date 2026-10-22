@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import { createDocument, encodeVersionVector } from "@tearleads/loro";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { createDocumentProjectorRegistry } from "../../../data/documents";
+import { sqlContainerContentsPersistence } from "../../../data/persistence/container-contents/containerContentsPersistence";
 import { sqlDocumentsPersistence } from "../../../data/persistence/documents/documentsPersistence";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import { saveTestSyncedContainer } from "../documentQueries/documentQueries.testFixtures";
@@ -124,6 +125,7 @@ test("an organization with nothing pending is removed with its documents", async
     const deletedContainers: string[] = [];
 
     expect(await remove(execSql, deletedContainers)).toEqual({
+      complete: true,
       deletedContainerIds: ["folder"],
       deletedLocalIds: ["synced"],
     });
@@ -162,11 +164,57 @@ test("documents stay when the containers' removal is no longer current", async (
     });
 
     expect(await remove(execSql, [], { containersCurrent: false })).toEqual({
+      complete: false,
       deletedContainerIds: [],
       deletedLocalIds: [],
     });
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "kept"),
     ).not.toBeNull();
+  });
+});
+
+test("a document that gained an edit during removal is removed on a later pass", async () => {
+  await withPausedFolder(async (execSql, [, synced]) => {
+    await placedDocument(execSql, {
+      localId: "late-edit",
+      snapshotEndVersion: synced,
+    });
+    const run = (
+      containerIds: readonly string[],
+      hasPendingLocalWrites: (localId: string) => boolean,
+    ) =>
+      removeOrganizationContentUnlessPending({
+        containerIds,
+        deleteContainers: (lockedExecSql, removals) =>
+          sqlContainerContentsPersistence.deleteContainers(
+            lockedExecSql,
+            removals,
+          ),
+        documentProjectors: createDocumentProjectorRegistry([]),
+        execSql,
+        hasPendingLocalWrites,
+        organizationId: "org-paused",
+      });
+    // The edit lands after the scan, while the containers are being removed.
+    let checks = 0;
+    expect(await run(["folder"], () => checks++ > 0)).toEqual({
+      complete: false,
+      deletedContainerIds: ["folder"],
+      deletedLocalIds: [],
+    });
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "late-edit"),
+    ).not.toBeNull();
+
+    // Once it uploads, the next pass still finds it by its organization.
+    expect(await run([], () => false)).toEqual({
+      complete: true,
+      deletedContainerIds: [],
+      deletedLocalIds: ["late-edit"],
+    });
+    expect(
+      await sqlDocumentsPersistence.loadDocument(execSql, "late-edit"),
+    ).toBeNull();
   });
 });

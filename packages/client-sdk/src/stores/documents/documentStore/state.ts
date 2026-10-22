@@ -38,7 +38,6 @@ import {
 } from "../../../workflows/documents";
 import type {
   DocumentSnapshot,
-  DocumentStore,
   DocumentStoreOpenOptions,
   DocumentsRuntime,
 } from "../types";
@@ -46,6 +45,7 @@ import {
   getAttachmentStatuses,
   getAttachmentStorageKeys,
 } from "./attachments/attachmentSnapshot";
+import { trackWriteChain } from "./localWrites";
 import { sameValidationIssues, shallowEqualRecord } from "./snapshotEquality";
 export type DocumentState = Awaited<ReturnType<typeof createDocument>>;
 export type EncapsulationKeyPair = NonNullable<
@@ -224,7 +224,7 @@ export function createDocumentStoreState(
   initialDocumentKind: StoredDocumentKind = DEFAULT_DOCUMENT_KIND,
   scheduleStartupRemoteSync = true,
 ): DocumentStoreState {
-  return {
+  return trackWriteChain({
     attachmentBlobIdBySlotId: {},
     attachmentContentSha256BySlotId: {},
     attachmentStorageKeyBySlotId: {},
@@ -262,7 +262,7 @@ export function createDocumentStoreState(
     writeChain: Promise.resolve(),
     writerProjection: null,
     writerProjectionGeneration: 0,
-  };
+  });
 }
 
 function emitDocumentStore(state: DocumentStoreState) {
@@ -467,14 +467,4 @@ export function subscribeToDocumentStore(
 ) {
   state.listeners.add(listener);
   return () => void state.listeners.delete(listener);
-}
-
-/** The store members that only read its state. */
-export function readBackingDocumentStore(
-  state: Pick<DocumentStoreState, "pendingLocalWrites" | "snapshot">,
-): Pick<DocumentStore, "getSnapshot" | "hasPendingLocalWrites"> {
-  return {
-    getSnapshot: () => state.snapshot,
-    hasPendingLocalWrites: () => state.pendingLocalWrites > 0,
-  };
 }

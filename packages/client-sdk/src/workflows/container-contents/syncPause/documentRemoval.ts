@@ -1,4 +1,7 @@
-import { listDocumentLocalIdsPlacedOnlyIn } from "../../../data/persistence/container-contents/exclusiveDocumentPlacements";
+import {
+  listDetachedOrganizationDocumentLocalIds,
+  listDocumentLocalIdsPlacedOnlyIn,
+} from "../../../data/persistence/container-contents/exclusiveDocumentPlacements";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
@@ -9,6 +12,8 @@ import { listPendingWrites } from "../pendingWrites";
 import type { ContainerContentsWorkflowRuntimeInfra } from "../runtime";
 
 export interface OrganizationContentRemoval {
+  /** Every targeted container and document is gone. */
+  readonly complete: boolean;
   readonly deletedContainerIds: readonly string[];
   readonly deletedLocalIds: readonly string[];
 }
@@ -29,8 +34,9 @@ interface ContainerRemoval {
  *
  * The containers go first, under `stillCurrent`; documents are deleted only
  * after every container was, and each only while no in-memory edit is queued
- * for it. A document that gained an edit stays to upload it. Returns null when
- * the removal refused.
+ * for it. A document that gained an edit stays to upload it, detached but
+ * still attributed to the organization, and a later pass removes it. Returns
+ * null when the removal refused.
  */
 export async function removeOrganizationContentUnlessPending(input: {
   readonly containerIds: readonly string[];
@@ -45,10 +51,21 @@ export async function removeOrganizationContentUnlessPending(input: {
 }): Promise<OrganizationContentRemoval | null> {
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
     const containerIds = new Set(input.containerIds);
-    const localIds = await listDocumentLocalIdsPlacedOnlyIn(
-      lockedExecSql,
-      input.containerIds,
-    );
+    const localIds = [
+      ...new Set([
+        ...(await listDocumentLocalIdsPlacedOnlyIn(
+          lockedExecSql,
+          input.containerIds,
+        )),
+        ...(await listDetachedOrganizationDocumentLocalIds(
+          lockedExecSql,
+          input.organizationId,
+        )),
+      ]),
+    ];
+    if (containerIds.size === 0 && localIds.length === 0) {
+      return { complete: true, deletedContainerIds: [], deletedLocalIds: [] };
+    }
     const documentIds = new Set(localIds);
     const pending = await listPendingWrites(lockedExecSql);
     if (
@@ -65,17 +82,20 @@ export async function removeOrganizationContentUnlessPending(input: {
     if (localIds.some(input.hasPendingLocalWrites)) return null;
 
     const removedAt = new Date().toISOString();
-    const deletedContainerIds = await input.deleteContainers(
-      lockedExecSql,
-      input.containerIds.map((containerId) => ({
-        containerId,
-        reason: "access_revoked",
-        updatedAt: removedAt,
-      })),
-    );
+    const deletedContainerIds =
+      containerIds.size === 0
+        ? []
+        : await input.deleteContainers(
+            lockedExecSql,
+            input.containerIds.map((containerId) => ({
+              containerId,
+              reason: "access_revoked",
+              updatedAt: removedAt,
+            })),
+          );
     const deletedLocalIds: string[] = [];
-    if (deletedContainerIds.length !== input.containerIds.length) {
-      return { deletedContainerIds, deletedLocalIds };
+    if (deletedContainerIds.length !== containerIds.size) {
+      return { complete: false, deletedContainerIds, deletedLocalIds };
     }
     for (const localId of localIds) {
       if (input.hasPendingLocalWrites(localId)) continue;
@@ -90,6 +110,10 @@ export async function removeOrganizationContentUnlessPending(input: {
         deletedLocalIds.push(localId);
       }
     }
-    return { deletedContainerIds, deletedLocalIds };
+    return {
+      complete: deletedLocalIds.length === localIds.length,
+      deletedContainerIds,
+      deletedLocalIds,
+    };
   });
 }

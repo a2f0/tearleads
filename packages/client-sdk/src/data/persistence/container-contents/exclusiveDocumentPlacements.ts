@@ -1,6 +1,10 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { DOCUMENTS_APP_KIND } from "../../documents/documentConstants";
-import { documentContainerProjection, documents } from "../../sqlite/schema";
+import {
+  documentContainerProjection,
+  documentProjection,
+  documents,
+} from "../../sqlite/schema";
 import { SQLITE_BOUND_VARIABLE_BUDGET } from "../../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../../sqlite/sqlitePersistenceRuntime";
 import type { ExecSql } from "../../sqlite/sqlSchema";
@@ -67,4 +71,27 @@ export async function listDocumentLocalIdsPlacedOnlyIn(
     for (const row of rows) localIds.push(row.localId);
   }
   return localIds.sort();
+}
+
+/**
+ * Local ids of an organization's documents no container holds any more. A
+ * removed container leaves its documents attributed to its organization, so a
+ * later pass can still find them.
+ */
+export async function listDetachedOrganizationDocumentLocalIds(
+  execSql: ExecSql,
+  organizationId: string,
+): Promise<string[]> {
+  const rows = await getClientSQLitePersistenceRuntime(execSql)
+    .db.select({ localId: documentProjection.localId })
+    .from(documentProjection)
+    .where(
+      and(
+        isNull(documentProjection.containerId),
+        eq(documentProjection.organizationId, organizationId),
+      ),
+    );
+  return rows
+    .flatMap((row) => (row.localId === null ? [] : [row.localId]))
+    .sort();
 }
