@@ -6,8 +6,11 @@ import {
   setOrganizationSyncPaused,
 } from "../../workflows/organizations";
 import {
+  type DomainScope,
   getOrCreateOrganizationSyncPauses,
+  hasDomainSyncCoordinatorPendingWork,
   requestAllDomainSyncLanes,
+  subscribeToDomainSyncCoordinator,
   waitForDomainSyncCoordinatorToSettle,
 } from "../../workflows/sync";
 import type { ContainerContents } from "../containerContents";
@@ -37,6 +40,49 @@ export interface OrganizationMemberships {
   subscribeToSyncPauses(listener: () => void): () => void;
 }
 
+interface SettleRetry {
+  retry: () => Promise<boolean>;
+  running: boolean;
+  unsubscribe: () => void;
+}
+
+const settleRetriesByScope = new WeakMap<DomainScope, SettleRetry>();
+
+// One retry per scope: it runs whenever the scope's sync lanes go idle and
+// stops once it reports the work done.
+function retryWhenWritesSettle(
+  domainScope: DomainScope,
+  retry: () => Promise<boolean>,
+): void {
+  const existing = settleRetriesByScope.get(domainScope);
+  if (existing) {
+    existing.retry = retry;
+    return;
+  }
+  const entry: SettleRetry = { retry, running: false, unsubscribe: () => {} };
+  settleRetriesByScope.set(domainScope, entry);
+  const attempt = () => {
+    if (entry.running || hasDomainSyncCoordinatorPendingWork(domainScope)) {
+      return;
+    }
+    entry.running = true;
+    void entry
+      .retry()
+      .then(
+        (done) => {
+          if (!done) return;
+          entry.unsubscribe();
+          settleRetriesByScope.delete(domainScope);
+        },
+        () => undefined,
+      )
+      .finally(() => {
+        entry.running = false;
+      });
+  };
+  entry.unsubscribe = subscribeToDomainSyncCoordinator(domainScope, attempt);
+}
+
 function createOrganizationContentHost(
   runtime: InternalWorkflowRuntimeInput,
   containerContents: ContainerContents,
@@ -60,6 +106,7 @@ function createOrganizationContentHost(
     async refetchContent() {
       await containerContents.openTree().refresh();
     },
+    retryWhenWritesSettle: (retry) => retryWhenWritesSettle(domainScope, retry),
   };
 }
 

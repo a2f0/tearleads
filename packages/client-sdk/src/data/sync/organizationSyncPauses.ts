@@ -55,6 +55,12 @@ export interface OrganizationSyncPauses {
     organizationIds: Iterable<string>,
   ): Promise<OrganizationSyncPauseChange>;
   subscribe(listener: () => void): () => void;
+  /**
+   * Runs membership work for this scope one task at a time, so a membership
+   * read that started before a pause or resume cannot apply after it.
+   * Re-entrant calls from inside a task would wait on themselves.
+   */
+  runExclusive<T>(task: () => Promise<T>): Promise<T>;
 }
 
 async function readPausedOrganizationIds(
@@ -90,6 +96,7 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
   let paused: ReadonlySet<string> = new Set();
   let loading: Promise<void> | null = null;
   let replacing: Promise<void> = Promise.resolve();
+  let exclusive: Promise<void> = Promise.resolve();
   const listeners = new Set<() => void>();
   const notify = () => {
     for (const listener of listeners) listener();
@@ -144,6 +151,14 @@ function createOrganizationSyncPauses(): OrganizationSyncPauses {
       return () => {
         listeners.delete(listener);
       };
+    },
+    runExclusive(task) {
+      const run = exclusive.then(task);
+      exclusive = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
     },
   };
   return pauses;

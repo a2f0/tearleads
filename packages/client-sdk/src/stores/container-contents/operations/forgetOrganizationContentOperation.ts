@@ -1,9 +1,9 @@
-import { listDocumentLocalIdsPlacedOnlyIn } from "../../../workflows/container-contents/containerPersistence";
+import { listPendingWrites } from "../../../workflows/container-contents/pendingWrites";
 import {
-  defaultDocumentsPersistence,
-  deletePersistedDocument,
-  reclaimDocumentOrphanBlobs,
-} from "../../../workflows/documents";
+  deleteDocumentUnlessQueued,
+  listDocumentLocalIdsPlacedOnlyIn,
+} from "../../../workflows/container-contents/syncPause/documentRemoval";
+import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import { isRetainedWhileSyncPaused } from "../../../workflows/sync";
 import { emitPersistedDocumentDeletion } from "../../documents/registry";
 import type { ContainerWriteGuard } from "../remoteWrites/writeGeneration";
@@ -23,13 +23,37 @@ function listForgettableOrganizationContainerIds(
   );
 }
 
+// Deletes each document unless something is queued for it, so a write that
+// lands after the pending-write scan survives and stops the removal.
+async function removeUnqueuedDocuments(
+  state: ContainerContentsStoreState,
+  localIds: readonly string[],
+  isCurrent: ContainerWriteGuard,
+): Promise<boolean> {
+  const { documentProjectors, execSql } = state.runtime.infra;
+  for (const localId of localIds) {
+    if (!isCurrent()) return false;
+    const deleted = await deleteDocumentUnlessQueued({
+      documentProjectors,
+      execSql,
+      localId,
+    });
+    if (!deleted) return false;
+    emitPersistedDocumentDeletion(state.runtime.state.domainScope, localId);
+  }
+  return true;
+}
+
 /**
  * Removes one organization's content from this device after its sync was
  * paused: every container except its retained metadata root, and every
  * document placed only in those containers. Nothing changes on the server, so
- * resuming downloads it again. The caller has already confirmed the
- * organization has no unsynced local writes; this removes documents without
- * per-record guards.
+ * resuming downloads it again.
+ *
+ * Unsynced work is never removed. The operation refuses while any pending
+ * write names the organization, and deletes each document only while nothing
+ * is queued for it; an edit in between stops the removal, keeping the
+ * containers, and the caller retries once uploads settle.
  */
 async function forgetOrganizationContent(
   state: ContainerContentsStoreState,
@@ -44,27 +68,20 @@ async function forgetOrganizationContent(
     organizationId,
   );
   if (containerIds.length === 0) return true;
-  const { documentProjectors, execSql } = state.runtime.infra;
+  const { execSql } = state.runtime.infra;
   await state.persistence.ensureSchema(execSql);
+  const pending = await listPendingWrites(execSql);
+  if (pending.some((item) => item.organizationId === organizationId)) {
+    return false;
+  }
 
   const localIds = await listDocumentLocalIdsPlacedOnlyIn(
     execSql,
     containerIds,
   );
-  for (const localId of localIds) {
-    if (!isCurrent()) return false;
-    const deleted = await deletePersistedDocument({
-      documentProjectors,
-      execSql,
-      localId,
-      persistence: defaultDocumentsPersistence,
-    });
-    if (deleted) {
-      emitPersistedDocumentDeletion(state.runtime.state.domainScope, localId);
-    }
-  }
+  const removed = await removeUnqueuedDocuments(state, localIds, isCurrent);
   if (localIds.length > 0) void reclaimDocumentOrphanBlobs(state.runtime);
-  if (!isCurrent()) return false;
+  if (!removed || !isCurrent()) return false;
 
   const removedAt = new Date().toISOString();
   const deletedContainerIds = await state.persistence.deleteContainers(

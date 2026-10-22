@@ -20,13 +20,14 @@ function membership(
 
 function createHost(unsynced: Set<string> = new Set()) {
   const calls: string[] = [];
+  const retries: Array<() => Promise<boolean>> = [];
   const host: OrganizationContentHost = {
     async flushWrites() {
       calls.push("flush");
     },
     async forgetOrganizationContent(organizationId) {
       calls.push(`forget:${organizationId}`);
-      return true;
+      return !unsynced.has(organizationId);
     },
     async hasUnsyncedOrganizationWrites(organizationId) {
       return unsynced.has(organizationId);
@@ -34,8 +35,11 @@ function createHost(unsynced: Set<string> = new Set()) {
     async refetchContent() {
       calls.push("refetch");
     },
+    retryWhenWritesSettle(retry) {
+      retries.push(retry);
+    },
   };
-  return { calls, host };
+  return { calls, host, retries };
 }
 
 function createApi(
@@ -76,7 +80,8 @@ async function withDatabase(
 test("a refresh applies pauses from other devices and keeps unsynced work", async () => {
   await withDatabase(async (execSql) => {
     const domainScope = createDomainScope();
-    const { calls, host } = createHost(new Set(["org-busy"]));
+    const unsynced = new Set(["org-busy"]);
+    const { calls, host, retries } = createHost(unsynced);
     const { apiClient } = createApi([
       membership("org-a", true),
       membership("org-busy", true),
@@ -102,8 +107,64 @@ test("a refresh applies pauses from other devices and keeps unsynced work", asyn
         ).pausedOrganizationIds(),
       ].sort(),
     ).toEqual(["org-a", "org-busy"]);
-    // org-busy still has writes to upload, so its copy stays until a later pass.
-    expect(calls).toEqual(["forget:org-a"]);
+    // org-busy still has writes to upload, so its copy stays and a retry
+    // waits for the uploads to settle.
+    expect(calls).toEqual(["forget:org-a", "forget:org-busy"]);
+    expect(retries).toHaveLength(1);
+
+    unsynced.clear();
+    expect(await retries[0]?.()).toBe(true);
+    expect(calls.slice(2)).toEqual(["forget:org-a", "forget:org-busy"]);
+  });
+});
+
+test("a membership read that started before a pause cannot undo it", async () => {
+  await withDatabase(async (execSql) => {
+    const domainScope = createDomainScope();
+    const { host } = createHost();
+    const gate: { release?: () => void } = {};
+    const apiClient: OrganizationMembershipApi = {
+      listOrganizationMemberships: () =>
+        new Promise((resolve) => {
+          gate.release = () =>
+            resolve({ memberships: [membership("org-a", false)] });
+        }),
+      async updateOrganizationMembership() {
+        return { data: membership("org-a", true), ok: true };
+      },
+    };
+
+    const staleRead = refreshOrganizationMemberships({
+      apiClient,
+      domainScope,
+      execSql,
+      host,
+    });
+    const pause = setOrganizationSyncPaused({
+      apiClient,
+      domainScope,
+      execSql,
+      host,
+      organizationId: "org-a",
+      paused: true,
+    });
+    while (!gate.release) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    // Answer the read only once the pause has applied, or plainly is waiting
+    // behind it: an unserialized read would then overwrite the pause.
+    await Promise.race([
+      pause,
+      new Promise((resolve) => setTimeout(resolve, 100)),
+    ]);
+    gate.release();
+    await Promise.all([staleRead, pause]);
+
+    expect(
+      getOrCreateOrganizationSyncPauses(domainScope).isOrganizationPaused(
+        "org-a",
+      ),
+    ).toBe(true);
   });
 });
 

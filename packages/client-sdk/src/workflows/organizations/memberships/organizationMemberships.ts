@@ -27,7 +27,11 @@ export interface OrganizationMembershipApi {
  * composition root to the container tree and the document sync lanes.
  */
 export interface OrganizationContentHost {
-  /** Removes an organization's content, keeping its metadata root. */
+  /**
+   * Removes an organization's content, keeping its metadata root. Refuses,
+   * returning false, while any of its writes is unsynced, and removes each
+   * document only if it is unchanged since that check.
+   */
   forgetOrganizationContent(organizationId: string): Promise<boolean>;
   /** Whether any local write for the organization has not uploaded yet. */
   hasUnsyncedOrganizationWrites(organizationId: string): Promise<boolean>;
@@ -35,6 +39,11 @@ export interface OrganizationContentHost {
   flushWrites(): Promise<void>;
   /** Re-lists the whole tree so resumed organizations download again. */
   refetchContent(): Promise<void>;
+  /**
+   * Runs `retry` each time the scope's sync lanes go idle until it resolves
+   * true. A later call replaces the pending retry.
+   */
+  retryWhenWritesSettle(retry: () => Promise<boolean>): void;
 }
 
 interface OrganizationMembershipInput {
@@ -53,21 +62,33 @@ export type OrganizationSyncPauseResult =
       readonly message: string;
     };
 
+async function forgetEveryPausedOrganization(input: {
+  readonly host: OrganizationContentHost;
+  readonly pauses: OrganizationSyncPauses;
+}): Promise<boolean> {
+  let complete = true;
+  for (const organizationId of [...input.pauses.pausedOrganizationIds()]) {
+    if (!(await input.host.forgetOrganizationContent(organizationId))) {
+      complete = false;
+    }
+  }
+  return complete;
+}
+
 /**
  * Removes the content of every paused organization that has nothing left to
  * upload. An organization with pending writes keeps syncing those out and is
- * retried on the next pass, so pausing never discards unsynced work.
+ * retried once the sync lanes go idle, so pausing never discards unsynced work
+ * and a removal does not wait for the next membership read.
  */
 export async function forgetPausedOrganizationContent(input: {
   readonly host: OrganizationContentHost;
   readonly pauses: OrganizationSyncPauses;
 }): Promise<void> {
-  for (const organizationId of [...input.pauses.pausedOrganizationIds()]) {
-    if (await input.host.hasUnsyncedOrganizationWrites(organizationId)) {
-      continue;
-    }
-    await input.host.forgetOrganizationContent(organizationId);
-  }
+  if (await forgetEveryPausedOrganization(input)) return;
+  input.host.retryWhenWritesSettle(() =>
+    input.pauses.runExclusive(() => forgetEveryPausedOrganization(input)),
+  );
 }
 
 /**
@@ -79,9 +100,16 @@ export async function forgetPausedOrganizationContent(input: {
 export async function refreshOrganizationMemberships(
   input: OrganizationMembershipInput,
 ): Promise<OrganizationMembership[] | null> {
+  const pauses = getOrCreateOrganizationSyncPauses(input.domainScope);
+  return pauses.runExclusive(() => applyMembershipList(input, pauses));
+}
+
+async function applyMembershipList(
+  input: OrganizationMembershipInput,
+  pauses: OrganizationSyncPauses,
+): Promise<OrganizationMembership[] | null> {
   const response = await input.apiClient.listOrganizationMemberships();
   if (!response) return null;
-  const pauses = getOrCreateOrganizationSyncPauses(input.domainScope);
   const change = await pauses.replace(
     input.execSql,
     response.memberships.flatMap((membership) =>
@@ -104,6 +132,17 @@ export async function setOrganizationSyncPaused(
     readonly paused: boolean;
   },
 ): Promise<OrganizationSyncPauseResult> {
+  const pauses = getOrCreateOrganizationSyncPauses(input.domainScope);
+  return pauses.runExclusive(() => applySyncPauseChoice(input, pauses));
+}
+
+async function applySyncPauseChoice(
+  input: OrganizationMembershipInput & {
+    readonly organizationId: string;
+    readonly paused: boolean;
+  },
+  pauses: OrganizationSyncPauses,
+): Promise<OrganizationSyncPauseResult> {
   const { host, organizationId, paused } = input;
   if (paused) {
     await host.flushWrites();
@@ -122,13 +161,12 @@ export async function setOrganizationSyncPaused(
       status: "failed",
     };
   }
-  const pauses = getOrCreateOrganizationSyncPauses(input.domainScope);
   await pauses.load(input.execSql);
   const next = new Set(pauses.pausedOrganizationIds());
   if (paused) next.add(organizationId);
   else next.delete(organizationId);
   await pauses.replace(input.execSql, next);
-  if (paused) await host.forgetOrganizationContent(organizationId);
+  if (paused) await forgetPausedOrganizationContent({ host, pauses });
   else await host.refetchContent();
   return { membership: result.data, status: "updated" };
 }
