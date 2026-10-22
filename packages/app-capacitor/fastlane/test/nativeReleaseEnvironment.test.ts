@@ -1,19 +1,13 @@
 import { describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
-import { requireRubyBundle } from "./requireRubyBundle";
-
-const repositoryRoot = resolve(import.meta.dir, "../../..");
-const packageRoot = resolve(repositoryRoot, "packages/app-capacitor");
-const nativeReleaseTargetPath = resolve(
+import { resolve } from "node:path";
+import {
+  nativeReleaseTargetPath,
   packageRoot,
-  "fastlane/lib/native_release_target.rb",
-);
-const snapshotScriptPath = resolve(
-  packageRoot,
-  "tests/native_release_snapshot.rb",
-);
+  readNativeReleaseEnvironment,
+  readNativeReleaseEnvironmentResult,
+  recordValue,
+  stagingTarget,
+} from "./support/nativeReleaseSnapshot";
 
 function rubyWordArray(source: string, constantName: string): string[] {
   const body = source.match(
@@ -23,205 +17,6 @@ function rubyWordArray(source: string, constantName: string): string[] {
     throw new Error(`Could not find Ruby word array ${constantName}`);
   }
   return body.trim().split(/\s+/);
-}
-
-interface NativeReleaseSnapshot {
-  androidBuildVariant: string;
-  androidBuildVariantTask: string;
-  appIdentifier: string;
-  iosArchiveRelativePath: string;
-  productionIosStoreKey: string | null;
-  releaseAabRelativePath: string;
-  releaseMappingRelativePath: string;
-  releaseNativeDebugSymbolsRelativePath: string;
-  environment: Record<string, string | null>;
-  iosConfiguration: string;
-  iosScheme: string;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function recordValue(value: Record<string, unknown>, key: string): unknown {
-  return value[key];
-}
-
-function parseNativeReleaseSnapshot(stdout: string): NativeReleaseSnapshot {
-  const value: unknown = JSON.parse(stdout);
-  if (!isRecord(value)) {
-    throw new Error("Native release snapshot must be an object");
-  }
-  const environmentValue = recordValue(value, "environment");
-  if (!isRecord(environmentValue)) {
-    throw new Error(
-      "Native release snapshot must be an object with an environment",
-    );
-  }
-
-  const androidBuildVariant = recordValue(value, "androidBuildVariant");
-  const androidBuildVariantTask = recordValue(value, "androidBuildVariantTask");
-  const appIdentifier = recordValue(value, "appIdentifier");
-  const iosArchiveRelativePath = recordValue(value, "iosArchiveRelativePath");
-  const iosConfiguration = recordValue(value, "iosConfiguration");
-  const iosScheme = recordValue(value, "iosScheme");
-  const releaseAabRelativePath = recordValue(value, "releaseAabRelativePath");
-  const releaseMappingRelativePath = recordValue(
-    value,
-    "releaseMappingRelativePath",
-  );
-  const releaseNativeDebugSymbolsRelativePath = recordValue(
-    value,
-    "releaseNativeDebugSymbolsRelativePath",
-  );
-  if (
-    typeof androidBuildVariant !== "string" ||
-    typeof androidBuildVariantTask !== "string" ||
-    typeof appIdentifier !== "string" ||
-    typeof iosArchiveRelativePath !== "string" ||
-    typeof iosConfiguration !== "string" ||
-    typeof iosScheme !== "string" ||
-    typeof releaseAabRelativePath !== "string" ||
-    typeof releaseMappingRelativePath !== "string" ||
-    typeof releaseNativeDebugSymbolsRelativePath !== "string"
-  ) {
-    throw new Error("Native release snapshot target fields must be strings");
-  }
-  const productionIosStoreKey = recordValue(value, "productionIosStoreKey");
-  if (
-    productionIosStoreKey !== null &&
-    typeof productionIosStoreKey !== "string"
-  ) {
-    throw new Error("Native release snapshot production key must be nullable");
-  }
-  const environment: Record<string, string | null> = {};
-  for (const [name, entry] of Object.entries(environmentValue)) {
-    if (entry !== null && typeof entry !== "string") {
-      throw new Error(
-        "Native release snapshot environment values must be nullable strings",
-      );
-    }
-    environment[name] = entry;
-  }
-
-  return {
-    androidBuildVariant,
-    androidBuildVariantTask,
-    appIdentifier,
-    environment,
-    iosArchiveRelativePath,
-    iosConfiguration,
-    iosScheme,
-    productionIosStoreKey,
-    releaseAabRelativePath,
-    releaseMappingRelativePath,
-    releaseNativeDebugSymbolsRelativePath,
-  };
-}
-
-const stagingTarget = {
-  androidBuildVariant: "staging",
-  androidBuildVariantTask: "Staging",
-  appIdentifier: "com.tearleads.staging.app",
-  iosArchiveRelativePath: "output/staging/Tearleads-Staging.xcarchive",
-  iosConfiguration: "Release-Staging",
-  iosScheme: "App-Staging",
-  releaseAabRelativePath: "bundle/staging/app-staging.aab",
-  releaseMappingRelativePath: "mapping/staging/mapping.txt",
-  releaseNativeDebugSymbolsRelativePath:
-    "native-debug-symbols/staging/native-debug-symbols.zip",
-};
-
-// Server-oriented production values that no native release may import.
-const productionAppEnv =
-  "SERVER_SECRET=production-server-secret\nNATIVE_TEST_VALUE=production-app\nVITE_REVENUECAT_IOS_API_KEY=appl_production_app\n";
-
-// `sharedEnv` is each tier's shared.env unless `prodSharedEnv` gives production
-// its own; `stagingAppEnv` is staging's app.env.
-async function readNativeReleaseEnvironmentResult(
-  sharedEnv: string,
-  stagingAppEnv: string,
-  processEnvironment: Record<string, string> = {},
-  tier: string | null = "staging",
-  prodSharedEnv: string = sharedEnv,
-) {
-  await requireRubyBundle();
-  const temporaryRoot = await mkdtemp(
-    join(tmpdir(), "tearleads-native-release-target-"),
-  );
-  const copiedTargetPath = join(
-    temporaryRoot,
-    "packages/app-capacitor/fastlane/lib/native_release_target.rb",
-  );
-  const secretsDirectory = join(temporaryRoot, ".secrets");
-  await mkdir(resolve(copiedTargetPath, ".."), { recursive: true });
-  await Promise.all([
-    Bun.write(copiedTargetPath, Bun.file(nativeReleaseTargetPath)),
-    Bun.write(join(secretsDirectory, "staging/shared.env"), sharedEnv),
-    Bun.write(join(secretsDirectory, "staging/app.env"), stagingAppEnv),
-    Bun.write(join(secretsDirectory, "prod/shared.env"), prodSharedEnv),
-    Bun.write(join(secretsDirectory, "prod/app.env"), productionAppEnv),
-  ]);
-
-  const environment = { ...process.env };
-  for (const name of [
-    "SERVER_SECRET",
-    "NATIVE_RELEASE_TIER",
-    "NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY",
-    "NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY",
-    "NATIVE_TEST_VALUE",
-    "VITE_API_BASE_URL",
-    "VITE_REVENUECAT_ANDROID_API_KEY",
-    "VITE_REVENUECAT_IOS_API_KEY",
-    "VITE_REVENUECAT_SYNC_ENTITLEMENT",
-    "VITE_WS_URL",
-  ]) {
-    Reflect.deleteProperty(environment, name);
-  }
-  Object.assign(environment, processEnvironment);
-  if (tier !== null) {
-    Object.assign(environment, { NATIVE_RELEASE_TIER: tier });
-  }
-
-  try {
-    const child = Bun.spawn(
-      ["bundle", "exec", "ruby", snapshotScriptPath, copiedTargetPath],
-      {
-        cwd: packageRoot,
-        env: environment,
-        stderr: "pipe",
-        stdout: "pipe",
-      },
-    );
-    const [exitCode, stderr, stdout] = await Promise.all([
-      child.exited,
-      new Response(child.stderr).text(),
-      new Response(child.stdout).text(),
-    ]);
-    if (exitCode !== 0) {
-      throw new Error(`Ruby native release target failed: ${stderr}`);
-    }
-    return { snapshot: parseNativeReleaseSnapshot(stdout), stderr };
-  } finally {
-    await rm(temporaryRoot, { recursive: true, force: true });
-  }
-}
-
-async function readNativeReleaseEnvironment(
-  sharedEnv: string,
-  stagingAppEnv: string,
-  processEnvironment: Record<string, string> = {},
-  tier: string | null = "staging",
-  prodSharedEnv: string = sharedEnv,
-) {
-  const result = await readNativeReleaseEnvironmentResult(
-    sharedEnv,
-    stagingAppEnv,
-    processEnvironment,
-    tier,
-    prodSharedEnv,
-  );
-  return result.snapshot;
 }
 
 describe("native release environments", () => {
@@ -250,7 +45,7 @@ describe("native release environments", () => {
 
   test("staging imports only its allowlisted native client settings", async () => {
     const snapshot = await readNativeReleaseEnvironment(
-      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_REVENUECAT_SYNC_ENTITLEMENT=sync\nVITE_WS_URL=wss://production.example\nNATIVE_TEST_VALUE=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_REVENUECAT_SYNC_ENTITLEMENT=sync\nVITE_WS_URL=wss://production.example\nTEAM_ID=root\nNATIVE_TEST_VALUE=root\n",
       "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nVITE_WS_URL=wss://staging.example\nNATIVE_TEST_VALUE=staging\nSERVER_SECRET=server-secret\n",
     );
 
@@ -258,8 +53,10 @@ describe("native release environments", () => {
       ...stagingTarget,
       productionIosStoreKey: "appl_root",
       environment: {
+        ANDROID_KEYSTORE_STORE_PASS: null,
         SERVER_SECRET: null,
-        NATIVE_TEST_VALUE: "root",
+        NATIVE_TEST_VALUE: null,
+        TEAM_ID: "root",
         VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
         VITE_REVENUECAT_IOS_API_KEY: "appl_staging",
@@ -283,10 +80,11 @@ describe("native release environments", () => {
 
   test("explicit native release environment values beat dotenv files", async () => {
     const snapshot = await readNativeReleaseEnvironment(
-      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
-      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nNATIVE_TEST_VALUE=staging\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nTEAM_ID=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nVITE_REVENUECAT_ANDROID_API_KEY=goog_staging\nTEAM_ID=staging\n",
       {
         NATIVE_TEST_VALUE: "process",
+        TEAM_ID: "process",
         VITE_REVENUECAT_IOS_API_KEY: "appl_process",
         VITE_WS_URL: "wss://api-staging.tearleads.com/events",
       },
@@ -296,8 +94,10 @@ describe("native release environments", () => {
       ...stagingTarget,
       productionIosStoreKey: "appl_root",
       environment: {
+        ANDROID_KEYSTORE_STORE_PASS: null,
         SERVER_SECRET: null,
         NATIVE_TEST_VALUE: "process",
+        TEAM_ID: "process",
         VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_staging",
         VITE_REVENUECAT_IOS_API_KEY: "appl_process",
@@ -343,7 +143,7 @@ describe("native release environments", () => {
 
   test("staging drops production platform keys when staging omits them", async () => {
     const snapshot = await readNativeReleaseEnvironment(
-      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nNATIVE_TEST_VALUE=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nTEAM_ID=root\n",
       "NATIVE_TEST_VALUE=staging\n",
     );
 
@@ -351,8 +151,10 @@ describe("native release environments", () => {
       ...stagingTarget,
       productionIosStoreKey: "appl_root",
       environment: {
+        ANDROID_KEYSTORE_STORE_PASS: null,
         SERVER_SECRET: null,
-        NATIVE_TEST_VALUE: "root",
+        NATIVE_TEST_VALUE: null,
+        TEAM_ID: "root",
         VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: null,
         VITE_REVENUECAT_IOS_API_KEY: null,
@@ -372,8 +174,10 @@ describe("native release environments", () => {
       ...stagingTarget,
       productionIosStoreKey: null,
       environment: {
+        ANDROID_KEYSTORE_STORE_PASS: null,
         SERVER_SECRET: null,
         NATIVE_TEST_VALUE: null,
+        TEAM_ID: null,
         VITE_API_BASE_URL: "https://api-staging.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: null,
         VITE_REVENUECAT_IOS_API_KEY: null,
@@ -385,7 +189,7 @@ describe("native release environments", () => {
 
   test("production keeps its default target and shared release environment", async () => {
     const snapshot = await readNativeReleaseEnvironment(
-      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_WS_URL=wss://api.tearleads.com/events\nNATIVE_TEST_VALUE=root\n",
+      "VITE_REVENUECAT_IOS_API_KEY=appl_root\nVITE_REVENUECAT_ANDROID_API_KEY=goog_root\nVITE_WS_URL=wss://api.tearleads.com/events\nTEAM_ID=root\nNATIVE_TEST_VALUE=root\n",
       "VITE_REVENUECAT_IOS_API_KEY=appl_staging\nSERVER_SECRET=server-secret\n",
       {},
       null,
@@ -402,8 +206,10 @@ describe("native release environments", () => {
       releaseNativeDebugSymbolsRelativePath:
         "native-debug-symbols/release/native-debug-symbols.zip",
       environment: {
+        ANDROID_KEYSTORE_STORE_PASS: null,
         SERVER_SECRET: null,
-        NATIVE_TEST_VALUE: "root",
+        NATIVE_TEST_VALUE: null,
+        TEAM_ID: "root",
         VITE_API_BASE_URL: "https://api.tearleads.com",
         VITE_REVENUECAT_ANDROID_API_KEY: "goog_root",
         VITE_REVENUECAT_IOS_API_KEY: "appl_root",
@@ -417,9 +223,9 @@ describe("native release environments", () => {
 
   test("each tier reads its own shared.env against production's key baseline", async () => {
     const stagingShared =
-      "NATIVE_TEST_VALUE=staging-shared\nVITE_REVENUECAT_IOS_API_KEY=appl_staging_shared\n";
+      "TEAM_ID=staging-shared\nVITE_REVENUECAT_IOS_API_KEY=appl_staging_shared\n";
     const prodShared =
-      "NATIVE_TEST_VALUE=prod-shared\nVITE_REVENUECAT_IOS_API_KEY=appl_prod\n";
+      "TEAM_ID=prod-shared\nVITE_REVENUECAT_IOS_API_KEY=appl_prod\n";
     const stagingApp = "VITE_REVENUECAT_IOS_API_KEY=appl_staging\n";
     const staging = await readNativeReleaseEnvironment(
       stagingShared,
@@ -430,7 +236,7 @@ describe("native release environments", () => {
     );
     expect(staging.productionIosStoreKey).toBe("appl_prod");
     expect(staging.environment).toMatchObject({
-      NATIVE_TEST_VALUE: "staging-shared",
+      TEAM_ID: "staging-shared",
       VITE_REVENUECAT_IOS_API_KEY: "appl_staging",
     });
 
@@ -444,7 +250,8 @@ describe("native release environments", () => {
     expect(production.productionIosStoreKey).toBe("appl_prod");
     expect(production.environment).toMatchObject({
       SERVER_SECRET: null,
-      NATIVE_TEST_VALUE: "prod-shared",
+      NATIVE_TEST_VALUE: null,
+      TEAM_ID: "prod-shared",
       VITE_REVENUECAT_IOS_API_KEY: "appl_prod",
     });
   });

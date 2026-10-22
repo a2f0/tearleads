@@ -3,10 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-const helperPath = resolve(
-  import.meta.dir,
-  "../fastlane/lib/ios_signing_keychain.rb",
-);
+const helperPath = resolve(import.meta.dir, "../lib/ios_signing_keychain.rb");
 
 const lifecycleScript = `
 require "json"

@@ -7,8 +7,10 @@ require File.realpath(ARGV.fetch(0))
 load_native_release_secrets_env
 android_artifact_paths = native_release_android_artifact_relative_paths
 environment_names = %w[
+  ANDROID_KEYSTORE_STORE_PASS
   SERVER_SECRET
   NATIVE_TEST_VALUE
+  TEAM_ID
   VITE_API_BASE_URL
   VITE_REVENUECAT_ANDROID_API_KEY
   VITE_REVENUECAT_IOS_API_KEY

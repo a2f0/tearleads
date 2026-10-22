@@ -111,7 +111,7 @@ native_release_main android build staging build_number:42`,
       [
         "guard:android:staging",
         "wrapper",
-        "bun:staging:run android:build:google-play:staging build_number:42",
+        "bun:staging:run android:build-release:staging build_number:42",
         "",
       ].join("\n"),
     );

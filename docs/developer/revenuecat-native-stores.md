@@ -149,10 +149,10 @@ store and RevenueCat records before enabling billing.
 
 1. Register `com.tearleads.staging.app` in Apple Developer and create its App
    Store Connect app record with the In-App Purchase capability.
-2. Use the team's match administration workflow to create and commit an App
-   Store distribution profile for `com.tearleads.staging.app`. The repo's
-   `ios:fetch:appstore-profile:staging` lane only verifies/fetches it with
-   `readonly: true`; it cannot generate a missing profile.
+2. Create the App Store distribution profile for `com.tearleads.staging.app` in
+   match with `bun run --cwd packages/app-capacitor ios:profiles:staging`.
+   Release builds and `ios:fetch-profiles:staging` only install it read-only
+   and cannot generate a missing profile.
 3. Create the `com.tearleads.staging.app` Play app, grant the identity from
    `.secrets/staging/google-play-service-account-admin.json` access, and create
    an internal testing track.
@@ -166,8 +166,8 @@ Query both staging stores without building with
 Create separate RevenueCat Apple and Google apps with that platform identifier,
 then set their public keys in `.secrets/staging/app.env` as
 `VITE_REVENUECAT_IOS_API_KEY` and `VITE_REVENUECAT_ANDROID_API_KEY`. Fastlane
-loads release credentials from `shared.env`, but imports only allowlisted native
-RevenueCat client settings from the server-oriented `app.env`. Explicit caller
+imports only store credentials and native RevenueCat client settings from the
+server-oriented `app.env`. Explicit caller
 overrides still win when they differ from the production platform key. If
 staging has no platform key, or resolves to the production key, it fails the
 release guard before the store build begins. The key in production's
@@ -287,8 +287,8 @@ dependency during manifest merging.
 
 ## Getting the SDK key into a dev build
 
-Fastlane loads the tier's `shared.env` (plus staging's allowlisted `app.env`
-keys) before it shells out to `bun run build`, and Vite folds `VITE_`-prefixed
+Fastlane loads the tier's allowlisted `shared.env` and `app.env` values before
+it shells out to `bun run build`, and Vite folds `VITE_`-prefixed
 `process.env` vars into `import.meta.env` — that is the entire chain for a store
 release.
 

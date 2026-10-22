@@ -76,7 +76,8 @@ Google Play builds and iOS TestFlight builds invoke `bun
 run build:release android` or `bun run build:release ios` in
 `packages/app-capacitor`. `NATIVE_RELEASE_TIER` selects `staging` or
 `production` (default). The builder reads the selected tier's `shared.env` and
-`app.env`, injects only the selected public Sentry configuration, uploads maps,
+`app.env` (from `NATIVE_RELEASE_SECRETS_DIR` when set, as the Fastlane lanes
+do), injects only the selected public Sentry configuration, uploads maps,
 and removes them before Capacitor packaging. Publishing maps requires a clean
 Git checkout; staged, modified, or untracked sources stop the release before
 building. Upload failures stop packaging. Debug and local Android APK/sideload

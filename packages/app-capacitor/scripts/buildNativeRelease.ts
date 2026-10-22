@@ -10,15 +10,15 @@ import { nativeSentryCommit } from "./sentryReleaseSource";
 const packageRoot = resolve(import.meta.dirname, "..");
 const repoRoot = resolve(packageRoot, "../..");
 const platform = process.argv[2] ?? "";
-const { NATIVE_RELEASE_TIER } = process.env;
+const { NATIVE_RELEASE_SECRETS_DIR, NATIVE_RELEASE_TIER } = process.env;
 const tier = NATIVE_RELEASE_TIER ?? "production";
 if (tier !== "staging" && tier !== "production")
   throw new Error("Invalid NATIVE_RELEASE_TIER");
-const secretsDir = resolve(
-  repoRoot,
-  ".secrets",
-  tier === "production" ? "prod" : "staging",
-);
+// The Fastlane release lanes read the same folder, including the override.
+const secretsDirOverride = NATIVE_RELEASE_SECRETS_DIR?.trim();
+const secretsDir = secretsDirOverride
+  ? resolve(packageRoot, secretsDirOverride)
+  : resolve(repoRoot, ".secrets", tier === "production" ? "prod" : "staging");
 const env = {
   ...(await readSentrySecrets(resolve(secretsDir, "shared.env"))),
   ...(await readSentrySecrets(resolve(secretsDir, "app.env"))),
