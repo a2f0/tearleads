@@ -361,6 +361,14 @@ export {
   type OrganizationDocumentUsageCategoryBreakdown,
 } from "./organizationDataUsage";
 export {
+  isOrganizationMembershipResponse,
+  isOrganizationMembershipsResponse,
+  type OrganizationMembershipResponse,
+  OrganizationMembershipResponseSchema,
+  type OrganizationMembershipsResponse,
+  OrganizationMembershipsResponseSchema,
+} from "./organizationMembership";
+export {
   isOrganizationNativePurchaseEligibilityResponse,
   type OrganizationNativePurchaseEligibilityResponse,
   OrganizationNativePurchaseEligibilityResponseSchema,

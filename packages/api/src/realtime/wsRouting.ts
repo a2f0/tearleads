@@ -391,7 +391,11 @@ export class WsEventRouter {
 
     // No container scope (e.g. user_registered): fall back to user scope so the
     // event reaches that user's own connected sockets and no one else's.
-    if (event.type === "shared_with_you" || event.type === "user_registered") {
+    if (
+      event.type === "organization_memberships_changed" ||
+      event.type === "shared_with_you" ||
+      event.type === "user_registered"
+    ) {
       for (const ws of this.socketsByUserId.get(event.userId) ?? []) {
         recipients.add(ws);
       }

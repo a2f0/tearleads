@@ -2,6 +2,7 @@ import {
   WsContainerMutationCreatedHintSchema,
   WsDocumentMutationCreatedHintSchema,
   WsDocumentUpdateCreatedHintSchema,
+  WsOrganizationMembershipsChangedHintSchema,
   WsOrganizationReadModelAccessRevokedFrameSchema,
   WsSharedWithYouHintSchema,
   WsUserRegisteredHintSchema,
@@ -36,6 +37,9 @@ const PublishedRealtimeEventSchema = z.discriminatedUnion("type", [
     origin: wsOriginSchema.optional(),
   }),
   WsSharedWithYouHintSchema.extend({ origin: wsOriginSchema.optional() }),
+  WsOrganizationMembershipsChangedHintSchema.extend({
+    origin: wsOriginSchema.optional(),
+  }),
   WsUserRegisteredHintSchema.extend({ origin: wsOriginSchema.optional() }),
   // Server-only control events: consumed by the router, never forwarded.
   z.object({

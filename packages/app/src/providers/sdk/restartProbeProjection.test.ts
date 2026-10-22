@@ -100,6 +100,7 @@ function startInterestHarness(
       onServerEvent: (event) => {
         hints.push(event);
       },
+      onOrganizationMembershipsChanged: () => undefined,
       onSharedWithYou: () => undefined,
     });
   };

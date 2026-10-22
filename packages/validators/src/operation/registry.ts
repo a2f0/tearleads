@@ -64,6 +64,10 @@ import {
   getOrganizationNativePurchaseEligibilityOperation,
   startOrganizationTrialOperation,
 } from "./organizationBilling";
+import {
+  listOrganizationMembershipsOperation,
+  updateOrganizationMembershipOperation,
+} from "./organizationMemberships";
 import { getOrganizationPolicyHistoryOperation } from "./organizationPolicyHistory";
 import {
   createOrganizationGroupOperation,
@@ -169,6 +173,8 @@ export const protocolOperations: readonly [
   typeof listOrganizationGroupMembersOperation,
   typeof updateOrganizationProfileOperation,
   typeof updateOrganizationRosterEntryOperation,
+  typeof listOrganizationMembershipsOperation,
+  typeof updateOrganizationMembershipOperation,
   typeof getPrincipalPolicyOperation,
   typeof getProjectionPolicyHistoryOperation,
   typeof commitOrganizationGroupPolicyOperation,
@@ -244,6 +250,8 @@ export const protocolOperations: readonly [
   listOrganizationGroupMembersOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
+  listOrganizationMembershipsOperation,
+  updateOrganizationMembershipOperation,
   getPrincipalPolicyOperation,
   getProjectionPolicyHistoryOperation,
   commitOrganizationGroupPolicyOperation,

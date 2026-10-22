@@ -208,6 +208,15 @@ export {
   OrganizationBillingPathParamsSchema,
   startOrganizationTrialOperation,
 } from "./organizationBilling";
+export {
+  isListOrganizationMembershipsOperationResponse,
+  isUpdateOrganizationMembershipOperationRequest,
+  isUpdateOrganizationMembershipOperationResponse,
+  listOrganizationMembershipsOperation,
+  type OrganizationMembershipPathParams,
+  OrganizationMembershipPathParamsSchema,
+  updateOrganizationMembershipOperation,
+} from "./organizationMemberships";
 export { getOrganizationPolicyHistoryOperation } from "./organizationPolicyHistory";
 export {
   createOrganizationGroupOperation,

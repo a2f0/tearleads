@@ -25,6 +25,7 @@ import {
   organizationReadModelTables,
   principalPolicyTables,
   securityIncidentTables,
+  syncEngineTables,
 } from "./clientSdkTables";
 import { packageSourcePath } from "./dependencySourceRoots";
 import type { Subsystem } from "./subsystems";
@@ -153,6 +154,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
       `${sdk}/client/deviceFirst/`,
     ],
     surface: syncEngineSurface,
+    tables: syncEngineTables,
   },
   {
     name: "Identity & Session",

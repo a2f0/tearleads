@@ -1,11 +1,10 @@
 import { afterEach, expect, test } from "bun:test";
 import { DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME } from "@tearleads/client-sdk";
-import { cleanup, fireEvent, screen, within } from "@testing-library/react";
+import { cleanup, within } from "@testing-library/react";
 import {
   DUAL_PANE_ATTACHMENT_TEST_TIMEOUT_MS,
   getPaneRoot,
   getPaneUserId,
-  interact,
   renderDualPane,
   waitForDualPaneProvisioning,
 } from "../../../../test/helpers/dual-pane/dualPaneCore";
@@ -13,6 +12,11 @@ import {
   createChildContainer,
   openExplorer,
 } from "../../../../test/helpers/dual-pane/dualPaneExplorerKit";
+import {
+  memberCardShowsFolder,
+  memberOrganizationCard,
+  openOrganizationsDashboard,
+} from "../../../../test/helpers/dual-pane/dualPaneOrganizationsKit";
 import { importPeerIntoRoster } from "../../../../test/helpers/dual-pane/dualPaneRosterKit";
 import { shareContainerWithPeer } from "../../../../test/helpers/dual-pane/dualPaneSharingKit";
 import {
@@ -31,40 +35,6 @@ afterEach(async () => {
   globalThis.localStorage.clear();
   await resetMockServer();
 });
-
-async function openOrganizationsDashboard(pane: HTMLElement) {
-  await interact(() => {
-    fireEvent.contextMenu(pane, { clientX: 160, clientY: 160 });
-  });
-  await interact(() => {
-    fireEvent.click(
-      screen.getByRole("button", { name: ORGANIZATIONS_LABELS.title }),
-    );
-  });
-  await waitForCondition(
-    () =>
-      within(pane).queryByRole("list", { name: ORGANIZATIONS_LABELS.title }) !==
-      null,
-    "Organizations dashboard did not list the peer's own organization.",
-  );
-}
-
-// The founder's organization as the peer sees it: the only card the peer is a
-// plain member of. Both organizations carry the default profile name, so the
-// badge is what tells them apart.
-function memberOrganizationCard(pane: HTMLElement): HTMLElement | null {
-  const dashboard = within(pane).getByRole("list", {
-    name: ORGANIZATIONS_LABELS.title,
-  });
-  return (
-    within(dashboard)
-      .queryAllByRole("region")
-      .find(
-        (card) =>
-          within(card).queryByText(ORGANIZATIONS_LABELS.memberBadge) !== null,
-      ) ?? null
-  );
-}
 
 function explorerSectionHeadings(pane: HTMLElement): string[] {
   return Array.from(
@@ -107,14 +77,7 @@ test(
 
     // No refresh: the share's user-scoped hint re-lists the peer's containers.
     await waitForCondition(
-      () => {
-        const memberCard = memberOrganizationCard(peerPane);
-        return (
-          memberCard !== null &&
-          within(memberCard).queryByRole("button", { name: SHARED_FOLDER }) !==
-            null
-        );
-      },
+      () => memberCardShowsFolder(peerPane, SHARED_FOLDER),
       "The peer's dashboard did not list the folder shared from the founder organization.",
       DASHBOARD_TIMEOUT_MS,
     );

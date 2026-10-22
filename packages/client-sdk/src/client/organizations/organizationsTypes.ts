@@ -21,6 +21,7 @@ import type {
 import type { InternalWorkflowRuntimeInput } from "../runtime/workflowRuntime";
 import type { OrganizationDataUsageCoordinator } from "./organizationDataUsage";
 import type { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
+import type { OrganizationMemberships } from "./organizationMemberships";
 import type { OrganizationReadModelCoordinator } from "./organizationReadModels";
 import type {
   AbandonOrganizationPolicyMutationInput,
@@ -116,6 +117,8 @@ export interface Organizations {
     OrganizationReadModelCoordinator["loadLocalGrants"]
   >;
   listLocalOrganizations: () => Promise<LocalOrganizationSummary[]>;
+  /** The user's own memberships and per-organization sync choices. */
+  readonly memberships: OrganizationMemberships;
   loadPolicyHistory: (
     beforeVersion?: number,
   ) => ReturnType<

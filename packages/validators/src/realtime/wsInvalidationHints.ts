@@ -67,6 +67,14 @@ const WsContainerPathChangedHintSchema = z.object({
   containerIds: z.array(z.string().min(1)).min(1),
 });
 
+// Routed by user: the session user's organization memberships changed on
+// another of their clients (for example sync was paused there), so the client
+// re-reads its own membership list.
+export const WsOrganizationMembershipsChangedHintSchema = z.object({
+  type: z.literal("organization_memberships_changed"),
+  userId: z.string().min(1),
+});
+
 export const WsUserRegisteredHintSchema = z.object({
   type: z.literal("user_registered"),
   userId: z.string().min(1),
@@ -80,6 +88,7 @@ export const WsInvalidationHintSchema = z.discriminatedUnion("type", [
   WsContainerPathChangedHintSchema,
   WsContainerChildrenChangedHintSchema,
   WsSharedWithYouHintSchema,
+  WsOrganizationMembershipsChangedHintSchema,
   WsUserRegisteredHintSchema,
 ]);
 

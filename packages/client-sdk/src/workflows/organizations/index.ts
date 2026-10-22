@@ -37,6 +37,15 @@ export {
 } from "./groupShare";
 export { deleteOrganizationGroup } from "./groups/deleteOrganizationGroup";
 export {
+  forgetPausedOrganizationContent,
+  type OrganizationContentHost,
+  type OrganizationMembership,
+  type OrganizationMembershipApi,
+  type OrganizationSyncPauseResult,
+  refreshOrganizationMemberships,
+  setOrganizationSyncPaused,
+} from "./memberships/organizationMemberships";
+export {
   buildOrganizationProfileDocumentPatch,
   createInitializedOrganizationProfileDocument,
   DEFAULT_PERSONAL_ORGANIZATION_PROFILE_NAME,

@@ -24,6 +24,10 @@ import {
 } from "./organizationDataUsage";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import {
+  createOrganizationMemberships,
+  type OrganizationMemberships,
+} from "./organizationMemberships";
+import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
 } from "./organizationReadModels";
@@ -73,13 +77,16 @@ export type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
+  OrganizationMembership,
   OrganizationPolicyGrantChange,
   OrganizationPolicyGroupChange,
   OrganizationPolicyHistory,
   OrganizationPolicyHistoryEntry,
   OrganizationProfile,
+  OrganizationSyncPauseResult,
   OrganizationUserDetail,
 } from "../../workflows/organizations";
+export type { OrganizationMemberships } from "./organizationMemberships";
 export type {
   OrganizationGroupMutationReceipt,
   Organizations,
@@ -102,6 +109,7 @@ export function createOrganizations(
 }
 
 class OrganizationsService implements Organizations {
+  readonly memberships: OrganizationMemberships;
   private readonly dataUsageCoordinator: OrganizationDataUsageCoordinator;
   private readonly readModelCoordinator: OrganizationReadModelCoordinator;
 
@@ -114,6 +122,10 @@ class OrganizationsService implements Organizations {
     );
     this.readModelCoordinator = createOrganizationReadModelCoordinator(
       this.runtimeService,
+    );
+    this.memberships = createOrganizationMemberships(
+      this.runtimeService,
+      this.containerContents,
     );
   }
 

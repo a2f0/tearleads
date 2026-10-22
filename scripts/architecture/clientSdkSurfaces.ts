@@ -184,6 +184,7 @@ export const syncEngineSurface = [
   `${sdk}/data/shared/domainScope.ts`,
   `${sdk}/data/sync/crdtPeerSeed.ts`,
   `${sdk}/data/sync/databaseUnavailable.ts`,
+  `${sdk}/data/sync/organizationSyncPauses.ts`,
   `${sdk}/data/sync/outgoingUpdateSettlement.ts`,
   `${sdk}/data/sync/sequence.ts`,
   `${sdk}/data/sync/syncCoordinator.ts`,

@@ -54,3 +54,7 @@
 .organizations-folders .mini-app-row {
   gap: var(--space-sm);
 }
+
+.organizations-card > .mini-app-button {
+  justify-self: start;
+}

@@ -23,6 +23,7 @@ export type {
 export { sqlContainerContentsPersistence as defaultContainerContentsPersistence } from "../../data/persistence/container-contents/containerContentsPersistence";
 export type { ContainerRecord } from "../../data/persistence/container-contents/containerPersistence";
 export type { ContainerSyncWatermarkLane } from "../../data/persistence/container-contents/containerSyncWatermarkPersistence";
+export { listDocumentLocalIdsPlacedOnlyIn } from "../../data/persistence/container-contents/exclusiveDocumentPlacements";
 
 export async function enqueuePendingContainerUpdate(
   execSql: ExecSql,

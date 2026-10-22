@@ -156,6 +156,9 @@ async function disableOrganizationRosterEntries(input: {
       status: "disabled",
       disabledAt: now,
       disabledByUserId: input.disabledByUserId,
+      // A member's own sync choices end with their membership; rejoining
+      // starts syncing again.
+      syncPausedAt: null,
       updatedAt: now,
     })
     .where(

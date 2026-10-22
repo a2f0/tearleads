@@ -515,6 +515,7 @@ CREATE TABLE "organization_roster_entries" (
 	"joined_at" timestamp DEFAULT now() NOT NULL,
 	"disabled_at" timestamp,
 	"disabled_by_user_id" uuid,
+	"sync_paused_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );

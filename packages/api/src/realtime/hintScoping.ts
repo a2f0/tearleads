@@ -25,6 +25,7 @@ export function hintContainerIds(event: PublishedHintEvent): string[] {
           ),
         ),
       ];
+    case "organization_memberships_changed":
     case "shared_with_you":
     case "user_registered":
       return [];
@@ -79,6 +80,7 @@ export function scopeHintToInterest(
         updatedAt: event.updatedAt,
       };
     }
+    case "organization_memberships_changed":
     case "shared_with_you":
     case "user_registered": {
       const { origin: _origin, ...hint } = event;

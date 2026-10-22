@@ -149,6 +149,17 @@ function useRefreshGeneration(
   return generation;
 }
 
+// Applies the user's per-organization sync choices, including any made on
+// another device while this one was disconnected.
+function refreshOrganizationMemberships(
+  tearleads: Tearleads,
+  log: (message: string) => void,
+): void {
+  void tearleads.organizations.memberships
+    .refresh()
+    .catch(() => log("WebSocket: organization memberships unavailable"));
+}
+
 function markServerEventsConnected(
   tearleads: Tearleads,
   log: (message: string) => void,
@@ -169,6 +180,7 @@ function markServerEventsConnected(
       .reconciler.reconcileNow()
       .catch(() => log("WebSocket: reconnect catch-up unavailable"));
   }
+  refreshOrganizationMemberships(tearleads, log);
   log("WebSocket: interest declaration acknowledged");
   log("WebSocket connected");
 }
@@ -236,6 +248,8 @@ export function useServerEventsBinding(
               originatedFromSession,
             );
           },
+          onOrganizationMembershipsChanged: () =>
+            refreshOrganizationMemberships(tearleads, log),
           onResyncRequired: (containerIds) =>
             resyncDeclaredContainer(tearleads, interestHandle, containerIds),
           onSharedWithYou: () =>

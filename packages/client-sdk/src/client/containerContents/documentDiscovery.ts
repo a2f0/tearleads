@@ -8,6 +8,7 @@ import {
   refuteContainerDocumentTombstoneHolds,
 } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryEvidence";
 import {
@@ -126,6 +127,8 @@ export async function discoverContainerDocumentLanesForRuntime({
   // between these reads and the listing cannot publish old-organization
   // evidence into its replacement.
   const generation = await evidenceStore.begin();
+  const syncPauses = getOrCreateOrganizationSyncPauses(input.state.domainScope);
+  await syncPauses.load(execSql);
   const lanes: ContainerDocumentDiscoveryLane[] = [];
   for (const request of requests) {
     const stored =
@@ -133,7 +136,8 @@ export async function discoverContainerDocumentLanesForRuntime({
         execSql,
         request.containerId,
       );
-    if (stored)
+    // A paused organization's container lists like one that is not stored.
+    if (stored && !syncPauses.isContainerPaused(stored.container))
       lanes.push(
         createDiscoveryLane({
           containerOrganizationId: stored.container.organizationId,

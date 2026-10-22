@@ -9,10 +9,15 @@ import {
   buildOrganizationDashboardCards,
   type OrganizationDashboardCard,
 } from "../model/organizationDashboard";
+import {
+  type OrganizationSyncChoices,
+  useOrganizationSyncChoices,
+} from "./useOrganizationSyncChoices";
 
 export interface OrganizationDashboardModel {
   readonly cards: ReadonlyArray<OrganizationDashboardCard>;
   readonly ready: boolean;
+  readonly syncChoices: OrganizationSyncChoices;
 }
 
 /**
@@ -40,6 +45,8 @@ export function useOrganizationDashboard(): OrganizationDashboardModel {
     nodes: snapshot.nodes,
     ready: snapshot.ready,
   });
+  const syncChoices = useOrganizationSyncChoices();
+  const { pausedOrganizationIds, personalOrganizationIds } = syncChoices;
   const activeOrganizationId = appData.auth.organizationId ?? null;
   const cards = useMemo(
     () =>
@@ -47,8 +54,16 @@ export function useOrganizationDashboard(): OrganizationDashboardModel {
         activeOrganizationId,
         namesById,
         nodes: snapshot.nodes,
+        pausedOrganizationIds,
+        personalOrganizationIds,
       }),
-    [activeOrganizationId, namesById, snapshot.nodes],
+    [
+      activeOrganizationId,
+      namesById,
+      pausedOrganizationIds,
+      personalOrganizationIds,
+      snapshot.nodes,
+    ],
   );
-  return { cards, ready: snapshot.ready };
+  return { cards, ready: snapshot.ready, syncChoices };
 }

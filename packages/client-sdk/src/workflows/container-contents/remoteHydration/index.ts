@@ -1,3 +1,4 @@
+import { getOrCreateOrganizationSyncPauses } from "../../../data/sync/organizationSyncPauses";
 import { createRuntimePrincipalPolicyWarmer } from "../../principals/runtimePolicyWarmer";
 import { finishRemoteHydration } from "./completeHydration";
 import { createContainerChildIndex } from "./lanes/childIndex";
@@ -156,6 +157,14 @@ async function upsertQueuedRemoteContainer(input: {
     return false;
   }
 
+  const syncPauses = getOrCreateOrganizationSyncPauses(
+    state.runtime.state.domainScope,
+  );
+  await syncPauses.load(state.runtime.infra.execSql);
+  // A paused organization's container is acknowledged without being stored.
+  if (syncPauses.isContainerPaused(queuedRemoteContainer)) {
+    return true;
+  }
   const tombstones = await state.persistence.loadContainerHydrationTombstones(
     state.runtime.infra.execSql,
   );

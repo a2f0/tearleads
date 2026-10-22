@@ -23,6 +23,7 @@ export function routeIncomingWsMessage(
       organizationId: string,
       originatedFromSession: boolean,
     ) => void;
+    onOrganizationMembershipsChanged: () => void;
     onResyncRequired: (containerIds: readonly string[]) => void;
     onSharedWithYou: () => void;
     onServerEvent: (event: WsInvalidationHint) => void;
@@ -64,6 +65,11 @@ export function routeIncomingWsMessage(
     // by re-listing root containers.
     case "shared_with_you":
       handlers.onSharedWithYou();
+      return;
+    // Another of this user's clients changed their organization memberships
+    // (for example paused one); re-read the list and apply it here.
+    case "organization_memberships_changed":
+      handlers.onOrganizationMembershipsChanged();
       return;
     default:
       handlers.onServerEvent(message);

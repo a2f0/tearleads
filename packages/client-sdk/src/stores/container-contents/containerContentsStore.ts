@@ -13,6 +13,7 @@ import {
   renameContainer,
 } from "./operations";
 import { emptyTrash } from "./operations/emptyTrashOperation";
+import { createForgetOrganizationContentMethod } from "./operations/forgetOrganizationContentOperation";
 import {
   prepareContainerGroupRewrap,
   verifyContainerGroupRewrapCurrent,
@@ -135,6 +136,7 @@ type ContainerWriteMethods = Pick<
   | "deleteContainer"
   | "emptyTrash"
   | "ensureSystemContainer"
+  | "forgetOrganizationContent"
   | "moveContainer"
   | "prepareGroupRewrap"
   | "purgeContainer"
@@ -359,6 +361,10 @@ export function createContainerWriteMethods(
           emptyTrash(state, syncAgent, trashContainerId, options, isCurrent),
       ),
     ensureSystemContainer: createEnsureSystemContainerMethod(state, syncAgent),
+    forgetOrganizationContent: createForgetOrganizationContentMethod(
+      state,
+      chainContainerWrite,
+    ),
     moveContainer: (containerId, parentId) =>
       chainContainerWrite(
         state,

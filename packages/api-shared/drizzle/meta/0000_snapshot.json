@@ -1,5 +1,5 @@
 {
-  "id": "a837dfd7-1678-4dde-8504-be7adf790e2c",
+  "id": "ca0f4add-b3b7-4346-990d-5724d210db6d",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -5025,6 +5025,12 @@
         "disabled_by_user_id": {
           "name": "disabled_by_user_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_paused_at": {
+          "name": "sync_paused_at",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },
