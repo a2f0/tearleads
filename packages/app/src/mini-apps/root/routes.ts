@@ -37,7 +37,7 @@ export const ORGANIZATIONS_ROOT_ROUTE: RootRoute = {
   organizationId: null,
   view: "organizations",
 };
-export const AUDIT_ROOT_ROUTE: RootRoute = { subjectId: null, view: "audit" };
+const AUDIT_ROOT_ROUTE: RootRoute = { subjectId: null, view: "audit" };
 
 export function parseRootRouteSegments(
   pathSegments: ReadonlyArray<string>,

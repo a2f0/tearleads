@@ -14,7 +14,7 @@ if (!operator || !member) {
 }
 
 /** Audit events served by `GET /root/audit-events`, newest first. */
-export const ROOT_TEST_AUDIT_EVENTS: ReadonlyArray<RootAuditEventResponse> = [
+const ROOT_TEST_AUDIT_EVENTS: ReadonlyArray<RootAuditEventResponse> = [
   {
     action: "root.identities.get",
     actorSigningKeyFingerprint: operator.signingKeyFingerprint,
