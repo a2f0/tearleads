@@ -99,3 +99,38 @@ test("notifies subscribers only when the set changes", async () => {
     close();
   }
 });
+
+test("a pause set larger than SQLite binds persists whole", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "organization-sync-pauses-bulk",
+  );
+  try {
+    let maxBinds = 0;
+    const boundedExecSql: typeof execSql = new Proxy(execSql, {
+      apply(target, thisArg, args) {
+        const bind = args[1];
+        const binds = Array.isArray(bind) ? bind.length : 0;
+        maxBinds = Math.max(maxBinds, binds);
+        if (binds > 999)
+          throw new Error(`SQLite bind limit exceeded: ${binds}`);
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    const organizationIds = Array.from(
+      { length: 1_001 },
+      (_, index) => `org-${String(index).padStart(4, "0")}`,
+    );
+
+    await getOrCreateOrganizationSyncPauses(createDomainScope()).replace(
+      boundedExecSql,
+      organizationIds,
+    );
+
+    const reopened = getOrCreateOrganizationSyncPauses(createDomainScope());
+    await reopened.load(execSql);
+    expect(reopened.pausedOrganizationIds().size).toBe(organizationIds.length);
+    expect(maxBinds).toBeLessThanOrEqual(999);
+  } finally {
+    close();
+  }
+});

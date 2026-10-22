@@ -1,5 +1,6 @@
 import { listDocumentLocalIdsPlacedOnlyIn } from "../../../data/persistence/container-contents/exclusiveDocumentPlacements";
 import { runSerializedSqlMutation } from "../../../data/sqlite/sqlExec";
+import { registerClientSQLiteCommitGuard } from "../../../data/sqlite/sqliteCommitGuards";
 import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import {
   defaultDocumentsPersistence,
@@ -11,14 +12,14 @@ import type { ContainerContentsWorkflowRuntimeInfra } from "../runtime";
 export interface OrganizationContentRemoval {
   /**
    * `removed` when every targeted container and document is gone.
-   * `pending-writes` and `open-documents` refused before deleting anything.
+   * `pending-writes` and `queued-edits` refused before deleting anything.
    * `interrupted` stopped part way: the removal stopped being current, or a
-   * store opened on a document while it ran and that document stayed.
+   * document was edited while it ran and stayed.
    */
   readonly status:
     | "removed"
     | "pending-writes"
-    | "open-documents"
+    | "queued-edits"
     | "interrupted";
   readonly deletedContainerIds: readonly string[];
   readonly deletedLocalIds: readonly string[];
@@ -30,7 +31,7 @@ export interface OrganizationContentRemoval {
 const CONTAINER_REMOVAL_BATCH_SIZE = 50;
 
 const refused = (
-  status: "pending-writes" | "open-documents",
+  status: "pending-writes" | "queued-edits",
 ): OrganizationContentRemoval => ({
   deletedContainerIds: [],
   deletedLocalIds: [],
@@ -77,6 +78,46 @@ async function deleteContainersInBatches(
   return deleted;
 }
 
+class DocumentEditedDuringRemoval extends Error {}
+
+/**
+ * Deletes one document unless a store queues a write for it before the
+ * deletion commits. The check runs as a commit guard, in the same synchronous
+ * slice as the COMMIT, so an edit queued while the rows were being deleted
+ * rolls the deletion back instead of persisting into a missing row.
+ */
+async function deleteDocumentUnlessEdited(input: {
+  readonly documentProjectors: ContainerContentsWorkflowRuntimeInfra["documentProjectors"];
+  readonly execSql: ExecSql;
+  readonly hasQueuedWrites: (localId: string) => boolean;
+  readonly localId: string;
+}): Promise<boolean> {
+  const expectedRecord = await defaultDocumentsPersistence.loadDocument(
+    input.execSql,
+    input.localId,
+  );
+  if (!expectedRecord) return false;
+  try {
+    return await deletePersistedDocument({
+      beforeDeleteInTransaction: async (transactionExecSql) => {
+        registerClientSQLiteCommitGuard(transactionExecSql, () => {
+          if (input.hasQueuedWrites(input.localId)) {
+            throw new DocumentEditedDuringRemoval();
+          }
+        });
+      },
+      documentProjectors: input.documentProjectors,
+      execSql: input.execSql,
+      expectedRecord,
+      localId: input.localId,
+      persistence: defaultDocumentsPersistence,
+    });
+  } catch (error) {
+    if (error instanceof DocumentEditedDuringRemoval) return false;
+    throw error;
+  }
+}
+
 /**
  * Removes a paused organization's containers and the documents placed only in
  * them, unless a persisted pending write (a queued update, a deferred tail, an
@@ -84,14 +125,15 @@ async function deleteContainersInBatches(
  * containers, or those documents. The scan and every deletion hold one SQLite
  * mutation lock, so no persisted write can land between them.
  *
- * A document an open store holds this session may carry edits that have not
- * reached SQLite, so the removal also refuses while any targeted document is
- * open, leaving the organization's content whole and syncing. The containers
- * go first, under `stillCurrent`; documents are deleted only after every
- * container was, each re-checked right before its rows go. A document whose
- * store opened mid-removal stays as a detached local copy, like any document
- * whose container this device lost. Documents that were already detached are
- * never touched: they may be the only copy of work a recovery still needs.
+ * An open store may also hold edits that have not reached SQLite yet, so
+ * the removal refuses while any targeted document has queued writes; they
+ * persist as pending writes and upload, and a later pass removes the rest.
+ * The containers go first, under `stillCurrent`; documents are deleted only
+ * after every container was, each under a commit guard against an edit
+ * queued meanwhile. A document edited mid-removal stays as a detached local
+ * copy, like any document whose container this device lost. Documents that
+ * were already detached are never touched: they may be the only copy of work
+ * a recovery still needs.
  */
 export async function removeOrganizationContentUnlessPending(input: {
   readonly containerIds: readonly string[];
@@ -101,8 +143,8 @@ export async function removeOrganizationContentUnlessPending(input: {
   ) => Promise<readonly string[]>;
   readonly documentProjectors: ContainerContentsWorkflowRuntimeInfra["documentProjectors"];
   readonly execSql: ExecSql;
-  /** Whether an open document store holds the document this session. */
-  readonly isDocumentOpen: (localId: string) => boolean;
+  /** Whether an open store holds writes for the document not yet in SQLite. */
+  readonly hasQueuedWrites: (localId: string) => boolean;
   readonly organizationId: string;
 }): Promise<OrganizationContentRemoval> {
   return runSerializedSqlMutation(input.execSql, async (lockedExecSql) => {
@@ -130,7 +172,7 @@ export async function removeOrganizationContentUnlessPending(input: {
     ) {
       return refused("pending-writes");
     }
-    if (localIds.some(input.isDocumentOpen)) return refused("open-documents");
+    if (localIds.some(input.hasQueuedWrites)) return refused("queued-edits");
 
     const deletedContainerIds = await deleteContainersInBatches(
       lockedExecSql,
@@ -143,13 +185,11 @@ export async function removeOrganizationContentUnlessPending(input: {
     }
     for (const localId of localIds) {
       if (
-        await deletePersistedDocument({
-          // Checked inside the claimed mutation, right before the rows go.
-          canStartDurableMutation: () => !input.isDocumentOpen(localId),
+        await deleteDocumentUnlessEdited({
           documentProjectors: input.documentProjectors,
           execSql: lockedExecSql,
+          hasQueuedWrites: input.hasQueuedWrites,
           localId,
-          persistence: defaultDocumentsPersistence,
         })
       ) {
         deletedLocalIds.push(localId);

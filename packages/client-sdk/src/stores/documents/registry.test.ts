@@ -3,10 +3,13 @@ import type { DomainScope } from "../../data/shared/domainScope";
 import {
   createDocumentStoreFacade,
   discardRegisteredDocumentLocalState,
+  getOrCreateDocumentStoreRegistry,
   registerDocumentStore,
   registerDocumentStoreIdentity,
   requestRegisteredDocumentRemoteSync,
+  retireDocumentStore,
   subscribeToPersistedDocumentDeletions,
+  takeRegisteredDocumentStore,
 } from "./registry";
 import type { DocumentSnapshot, DocumentStore } from "./types";
 
@@ -40,6 +43,7 @@ function createStore(
     discardLocalState: async () => onDiscard(),
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,
+    hasQueuedWrites: () => false,
     removeAttachment: () => undefined,
     removeRow: async () => undefined,
     replaceAttachment: () => Promise.resolve(),
@@ -228,4 +232,43 @@ test("discard refuses when the two identifiers resolve differently", async () =>
   ).toBe(true);
   expect(targetDiscards).toBe(1);
   expect(otherDiscards).toBe(0);
+});
+
+test("a retired store stops syncing and is rebound to a fresh one on open", () => {
+  const domainScope = {} as DomainScope;
+  let staleSyncs = 0;
+  let freshSyncs = 0;
+  const facade = createDocumentStoreFacade(
+    createStore(() => {
+      staleSyncs += 1;
+    }),
+  );
+  registerDocumentStore(domainScope, "removed", facade, "remote-removed");
+
+  // A paused organization's cleanup removed the document under the store.
+  retireDocumentStore(domainScope, "removed");
+  expect(
+    requestRegisteredDocumentRemoteSync(
+      domainScope,
+      "removed",
+      "remote-removed",
+    ),
+  ).toBe(false);
+
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const reopened = takeRegisteredDocumentStore(registry, "removed", () =>
+    createStore(() => {
+      freshSyncs += 1;
+    }),
+  );
+  // Holders of the same facade now reach the fresh store, which syncs again.
+  expect(reopened).toBe(facade);
+  expect(
+    requestRegisteredDocumentRemoteSync(
+      domainScope,
+      "removed",
+      "remote-removed",
+    ),
+  ).toBe(true);
+  expect({ freshSyncs, staleSyncs }).toEqual({ freshSyncs: 1, staleSyncs: 0 });
 });

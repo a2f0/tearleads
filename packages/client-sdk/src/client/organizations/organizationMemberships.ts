@@ -40,6 +40,15 @@ export interface OrganizationMemberships {
   subscribeToSyncPauses(listener: () => void): () => void;
 }
 
+/**
+ * The scope's document reconciler. Containers it reconciled before a pause
+ * stay marked as listed, so a resume has to forget that before reconciling.
+ */
+export interface OrganizationContentReconciler {
+  resetDiscovered(): void;
+  reconcileNow(): Promise<void>;
+}
+
 interface SettleRetry {
   retry: () => Promise<boolean>;
   running: boolean;
@@ -91,6 +100,7 @@ export function retryWhenWritesSettle(
 function createOrganizationContentHost(
   runtime: InternalWorkflowRuntimeInput,
   containerContents: ContainerContents,
+  openReconciler: () => OrganizationContentReconciler,
   isCurrent: () => boolean,
 ): OrganizationContentHost {
   const { domainScope } = runtime.state;
@@ -98,7 +108,7 @@ function createOrganizationContentHost(
   return {
     async forgetOrganizationContent(organizationId) {
       // A scope that ended has nothing left to retry.
-      if (!isCurrent()) return "next-session";
+      if (!isCurrent()) return true;
       return tree.forgetOrganizationContent(organizationId);
     },
     async hasUnsyncedOrganizationWrites(organizationId) {
@@ -115,7 +125,13 @@ function createOrganizationContentHost(
       });
     },
     async refetchContent() {
-      if (isCurrent()) await tree.refresh();
+      if (!isCurrent()) return;
+      // Re-lists the whole tree and every container's documents. The resumed
+      // organization's folders were listed before the pause, and a hydration
+      // may already have restored them, so they must be forgotten explicitly.
+      const reconciler = openReconciler();
+      reconciler.resetDiscovered();
+      await reconciler.reconcileNow();
     },
     retryWhenWritesSettle: (retry) => retryWhenWritesSettle(domainScope, retry),
   };
@@ -132,6 +148,7 @@ function canReachServer(runtime: InternalWorkflowRuntimeInput): boolean {
 export function createOrganizationMemberships(
   runtimeService: InternalRuntime,
   containerContents: ContainerContents,
+  openReconciler: () => OrganizationContentReconciler,
 ): OrganizationMemberships {
   const membershipInput = (runtime: InternalWorkflowRuntimeInput) => {
     const { domainScope } = runtime.state;
@@ -144,6 +161,7 @@ export function createOrganizationMemberships(
       host: createOrganizationContentHost(
         runtime,
         containerContents,
+        openReconciler,
         isCurrent,
       ),
       isCurrent,

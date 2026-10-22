@@ -68,22 +68,28 @@ device first asks every sync lane to upload and is refused while any pending
 write for the organization remains. The removal itself scans every kind of
 pending write (queued updates, deferred history tails, intents, attachment
 uploads) and deletes under the same SQLite mutation lock, so no persisted write
-can land between the check and the deletion. A document an open store holds
-may carry edits that have not reached SQLite, and stores stay registered for
-the session, so the removal also refuses while any of the organization's
-documents was opened this session. It deletes the containers first and
-documents only after them, re-checking each document right before its rows
-go; one whose store opened mid-removal stays as a detached local copy, like
-any document whose container the device lost. Documents already detached
-before the pause are never removed, since one may be the only copy a recovery
-still needs. A device that still has pending writes
-keeps them syncing out and retries the removal each time its sync lanes go
-idle. One with an open document leaves the organization whole and syncing
-until the next session's membership refresh removes it. Containers go in
-batches, and each batch reads its documents in batches, so every statement
-stays within SQLite's bind limit, all under the one lock. Resuming
-re-lists the whole tree with fresh lane watermarks so the organization
-downloads again.
+can land between the check and the deletion. An open document store may also
+hold edits that have not reached SQLite yet: each store counts every text,
+field, row, attachment, and rotation write from the call until it persists,
+and the removal refuses while any of the organization's documents has one.
+
+The removal deletes the containers first and documents only after them. Each
+document's deletion carries a commit guard that re-checks its store in the
+same synchronous slice as the COMMIT, so an edit queued while the rows were
+being deleted rolls that deletion back; the document stays as a detached
+local copy, like any document whose container the device lost. Documents
+already detached before the pause are never removed, since one may be the
+only copy a recovery still needs. A store whose document was removed stays
+registered but retired: registry syncs skip it, and the next open rebinds it
+to a fresh backing store that loads whatever SQLite holds by then. A device
+with pending or queued writes keeps them syncing out and retries the removal
+each time its sync lanes go idle. Containers go in batches, and each batch
+reads its documents in batches, so every statement stays within SQLite's bind
+limit, all under the one lock.
+
+Resuming forgets which containers the device had already listed, then
+re-lists the whole tree and every container's documents, so the
+organization's folders and documents download again.
 
 A personal organization cannot be paused: every device keeps its owner's root,
 Contacts, and Trash there. The session's active organization is never skipped

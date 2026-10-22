@@ -105,7 +105,7 @@ function remove(
   deletedContainers: string[],
   options: {
     containersCurrent?: boolean;
-    openDocuments?: ReadonlySet<string>;
+    queuedEdits?: ReadonlySet<string>;
   } = {},
 ) {
   return removeOrganizationContentUnlessPending({
@@ -117,7 +117,7 @@ function remove(
     },
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql,
-    isDocumentOpen: (localId) => options.openDocuments?.has(localId) ?? false,
+    hasQueuedWrites: (localId) => options.queuedEdits?.has(localId) ?? false,
     organizationId: "org-paused",
   });
 }
@@ -168,7 +168,7 @@ test("an organization with nothing pending is removed with its documents", async
   });
 });
 
-test("a document an open store holds keeps the whole organization", async () => {
+test("an edit an open store has not yet persisted keeps the whole organization", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
     await placedDocument(execSql, {
       localId: "open-document",
@@ -178,14 +178,15 @@ test("a document an open store holds keeps the whole organization", async () => 
 
     expect(
       await remove(execSql, deletedContainers, {
-        openDocuments: new Set(["open-document"]),
+        queuedEdits: new Set(["open-document"]),
       }),
     ).toEqual({
       deletedContainerIds: [],
       deletedLocalIds: [],
-      status: "open-documents",
+      status: "queued-edits",
     });
-    // Nothing is detached: the folder and its document stay and keep syncing.
+    // Nothing is detached: the folder and its document stay until the edit
+    // persists and uploads.
     expect(deletedContainers).toEqual([]);
     expect(
       await sqlDocumentsPersistence.loadDocument(execSql, "open-document"),
@@ -214,7 +215,7 @@ test("documents stay when the containers' removal is no longer current", async (
 function removeWithRealDeletion(
   execSql: ExecSql,
   containerIds: readonly string[],
-  isDocumentOpen: (localId: string) => boolean = () => false,
+  hasQueuedWrites: (localId: string) => boolean = () => false,
 ) {
   return removeOrganizationContentUnlessPending({
     containerIds,
@@ -222,22 +223,22 @@ function removeWithRealDeletion(
       sqlContainerContentsPersistence.deleteContainers(lockedExecSql, removals),
     documentProjectors: createDocumentProjectorRegistry([]),
     execSql,
-    isDocumentOpen,
+    hasQueuedWrites,
     organizationId: "org-paused",
   });
 }
 
-test("a document whose store opens mid-removal stays as a detached copy", async () => {
+test("an edit queued while a document's rows are deleted rolls the deletion back", async () => {
   await withPausedFolder(async (execSql, [, synced]) => {
     await placedDocument(execSql, {
       localId: "late-edit",
       snapshotEndVersion: synced,
     });
-    // A store opens on the document after the removal checked it, while the
-    // containers are being removed.
+    // The removal's own checks see no queued edit; one is queued while the
+    // document's rows are being deleted, before the deletion commits.
     let checks = 0;
     expect(
-      await removeWithRealDeletion(execSql, ["folder"], () => checks++ > 0),
+      await removeWithRealDeletion(execSql, ["folder"], () => checks++ > 1),
     ).toEqual({
       deletedContainerIds: ["folder"],
       deletedLocalIds: [],
@@ -357,7 +358,7 @@ test("a large organization is removed within SQLite's bind budget", async () => 
         ),
       documentProjectors: createDocumentProjectorRegistry([]),
       execSql: boundedExecSql,
-      isDocumentOpen: () => false,
+      hasQueuedWrites: () => false,
       organizationId: "org-paused",
     });
 

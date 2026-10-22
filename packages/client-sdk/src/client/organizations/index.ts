@@ -25,6 +25,7 @@ import {
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import {
   createOrganizationMemberships,
+  type OrganizationContentReconciler,
   type OrganizationMemberships,
 } from "./organizationMemberships";
 import {
@@ -86,7 +87,10 @@ export type {
   OrganizationSyncPauseResult,
   OrganizationUserDetail,
 } from "../../workflows/organizations";
-export type { OrganizationMemberships } from "./organizationMemberships";
+export type {
+  OrganizationContentReconciler,
+  OrganizationMemberships,
+} from "./organizationMemberships";
 export type {
   OrganizationGroupMutationReceipt,
   Organizations,
@@ -104,8 +108,9 @@ export type {
 export function createOrganizations(
   runtime: InternalRuntime,
   containerContents: ContainerContents,
+  openReconciler: () => OrganizationContentReconciler,
 ): Organizations {
-  return new OrganizationsService(runtime, containerContents);
+  return new OrganizationsService(runtime, containerContents, openReconciler);
 }
 
 class OrganizationsService implements Organizations {
@@ -116,6 +121,7 @@ class OrganizationsService implements Organizations {
   constructor(
     private readonly runtimeService: InternalRuntime,
     private readonly containerContents: ContainerContents,
+    openReconciler: () => OrganizationContentReconciler,
   ) {
     this.dataUsageCoordinator = createOrganizationDataUsageCoordinator(
       this.runtimeService,
@@ -126,6 +132,7 @@ class OrganizationsService implements Organizations {
     this.memberships = createOrganizationMemberships(
       this.runtimeService,
       this.containerContents,
+      openReconciler,
     );
   }
 

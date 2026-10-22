@@ -17,6 +17,7 @@ import {
   registerDocumentStoreIdentity,
   requestDocumentStoreSync,
   resolveDocumentStoreKey,
+  takeRegisteredDocumentStore,
 } from "../registry";
 import type {
   DocumentAttachmentUpload,
@@ -46,6 +47,7 @@ import {
   updateRowInDocumentStore,
 } from "./rows";
 import {
+  countQueuedWrite,
   createDocumentStoreState,
   type DocumentStoreState,
   refreshAttachabilitySnapshot,
@@ -344,19 +346,18 @@ function createBackingDocumentStore(
     openOptions,
   );
 
+  // Local writes count as queued from the call, readiness wait included.
+  const liveWrite = <Result>(write: () => Promise<Result>) =>
+    withLiveSyncLane(() => countQueuedWrite(state, write()));
   const store: DocumentStore = {
     addRow: (fields) =>
-      withLiveSyncLane(() =>
-        addRowToDocumentStore(state, scheduleSync, fields),
-      ),
+      liveWrite(() => addRowToDocumentStore(state, scheduleSync, fields)),
     assertCanRotateContentKey: () =>
       withLiveSyncLane(() =>
         assertBackingDocumentStoreCanRotate(state, scheduleSync),
       ),
     attachFiles: (files: ReadonlyArray<DocumentAttachmentUpload>) =>
-      withLiveSyncLane(() =>
-        attachFilesToDocumentStore(state, scheduleSync, files),
-      ),
+      liveWrite(() => attachFilesToDocumentStore(state, scheduleSync, files)),
     discardLocalState: (expectedDocumentId: string) =>
       withLiveSyncLane(() =>
         discardBackingDocumentStoreLocalState(
@@ -368,16 +369,15 @@ function createBackingDocumentStore(
     ensureInitialized: () =>
       withLiveSyncLane(() => ensureDocumentStoreReady(state, scheduleSync)),
     getSnapshot: () => state.snapshot,
+    hasQueuedWrites: () => state.queuedWrites > 0,
     removeAttachment: (slotId: string) =>
-      withLiveSyncLane(() =>
+      liveWrite(() =>
         removeAttachmentFromDocumentStore(state, scheduleSync, slotId),
       ),
     removeRow: (id) =>
-      withLiveSyncLane(() =>
-        removeRowFromDocumentStore(state, scheduleSync, id),
-      ),
+      liveWrite(() => removeRowFromDocumentStore(state, scheduleSync, id)),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
-      withLiveSyncLane(() =>
+      liveWrite(() =>
         replaceAttachmentInDocumentStore(state, scheduleSync, slotId, file),
       ),
     requestRemoteSync: () =>
@@ -393,16 +393,14 @@ function createBackingDocumentStore(
     relink: (input) =>
       withLiveSyncLane(() => relinkDocumentStore(state, input, scheduleSync)),
     setStructuredFields: (kind, patch, options) =>
-      withLiveSyncLane(() =>
+      liveWrite(() =>
         setDocumentStructuredFields(state, scheduleSync, kind, patch, options),
       ),
     setText: (value: string) =>
-      withLiveSyncLane(() => setDocumentText(state, scheduleSync, value)),
+      liveWrite(() => setDocumentText(state, scheduleSync, value)),
     subscribe: (listener) => subscribeToDocumentStore(state, listener),
     updateRowFields: (id, patch) =>
-      withLiveSyncLane(() =>
-        updateRowInDocumentStore(state, scheduleSync, id, patch),
-      ),
+      liveWrite(() => updateRowInDocumentStore(state, scheduleSync, id, patch)),
     updateRuntime: (runtime: DocumentsRuntime) =>
       updateDocumentStoreRuntime(state, runtime, scheduleSync),
   };
@@ -446,8 +444,20 @@ export function getOrCreateDocumentStore(
   options: DocumentStoreOpenOptions = {},
 ): DocumentStore {
   const registry = getOrCreateDocumentStoreRegistry(domainScope);
-  const existingStore = registry.storesByKey.get(
+  const createBacking = () =>
+    createBackingDocumentStore(
+      localId,
+      runtime,
+      defaultDocumentsPersistence,
+      initialDocumentId,
+      initialText,
+      initialDocumentKind,
+      options,
+    );
+  const existingStore = takeRegisteredDocumentStore(
+    registry,
     resolveDocumentStoreKey(registry, localId, initialDocumentId),
+    createBacking,
   );
   if (existingStore) {
     registerDocumentStore(
@@ -459,15 +469,7 @@ export function getOrCreateDocumentStore(
     return existingStore;
   }
 
-  const nextStore = createDocumentStore(
-    localId,
-    runtime,
-    defaultDocumentsPersistence,
-    initialDocumentId,
-    initialText,
-    initialDocumentKind,
-    options,
-  );
+  const nextStore = createDocumentStoreFacade(createBacking());
   registerDocumentStore(domainScope, localId, nextStore, initialDocumentId);
   return nextStore;
 }

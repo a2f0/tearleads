@@ -3,14 +3,12 @@ import { reclaimDocumentOrphanBlobs } from "../../../workflows/documents";
 import { isRetainedWhileSyncPaused } from "../../../workflows/sync";
 import {
   emitPersistedDocumentDeletion,
-  hasRegisteredDocumentStore,
+  hasQueuedDocumentStoreWrites,
+  retireDocumentStore,
 } from "../../documents/registry";
 import type { ContainerWriteGuard } from "../remoteWrites/writeGeneration";
 import { updateContainerContentsSnapshot } from "../state";
-import type {
-  ContainerContentsStoreState,
-  OrganizationContentForgetOutcome,
-} from "../types";
+import type { ContainerContentsStoreState } from "../types";
 
 /** The local containers forgetting an organization's content removes. */
 function listForgettableOrganizationContainerIds(
@@ -33,18 +31,19 @@ function listForgettableOrganizationContainerIds(
  *
  * Unsynced work is never removed: the removal refuses while any pending write
  * touches the organization, checked under the same lock as the deletions, and
- * while any of its documents is open this session. It also refuses the
- * session's active organization, whose root the session still writes to.
+ * while an open store holds edits for any of its documents that have not
+ * reached SQLite. It also refuses the session's active organization, whose
+ * root the session still writes to. Returns whether nothing is left to retry.
  */
 async function forgetOrganizationContent(
   state: ContainerContentsStoreState,
   organizationId: string,
   isCurrent: ContainerWriteGuard,
-): Promise<OrganizationContentForgetOutcome> {
+): Promise<boolean> {
   if (state.runtime.infra.dbStatus !== "ready" || !state.snapshot.ready) {
-    return "retry";
+    return false;
   }
-  if (state.runtime.auth.organizationId === organizationId) return "retry";
+  if (state.runtime.auth.organizationId === organizationId) return false;
   const containerIds = listForgettableOrganizationContainerIds(
     state,
     organizationId,
@@ -63,11 +62,12 @@ async function forgetOrganizationContent(
       }),
     documentProjectors,
     execSql,
-    isDocumentOpen: (localId) =>
-      hasRegisteredDocumentStore(domainScope, localId),
+    hasQueuedWrites: (localId) =>
+      hasQueuedDocumentStoreWrites(domainScope, localId),
     organizationId,
   });
   for (const localId of removal.deletedLocalIds) {
+    retireDocumentStore(domainScope, localId);
     emitPersistedDocumentDeletion(domainScope, localId);
   }
   if (removal.deletedLocalIds.length > 0) {
@@ -79,17 +79,7 @@ async function forgetOrganizationContent(
   if (removal.deletedContainerIds.length > 0 && state.initialized) {
     updateContainerContentsSnapshot(state);
   }
-  switch (removal.status) {
-    case "removed":
-      return "removed";
-    // Stores stay registered for the session, so retrying cannot succeed
-    // before the next session.
-    case "open-documents":
-      return "next-session";
-    case "pending-writes":
-    case "interrupted":
-      return "retry";
-  }
+  return removal.status === "removed";
 }
 
 type ContainerWriteChain = (
@@ -102,13 +92,13 @@ type ContainerWriteChain = (
 export function createForgetOrganizationContentMethod(
   state: ContainerContentsStoreState,
   chainContainerWrite: ContainerWriteChain,
-): (organizationId: string) => Promise<OrganizationContentForgetOutcome> {
+): (organizationId: string) => Promise<boolean> {
   return async (organizationId) => {
-    let outcome: OrganizationContentForgetOutcome = "retry";
+    let forgotten = false;
     await chainContainerWrite(
       state,
       async (isCurrent) => {
-        outcome = await forgetOrganizationContent(
+        forgotten = await forgetOrganizationContent(
           state,
           organizationId,
           isCurrent,
@@ -117,6 +107,6 @@ export function createForgetOrganizationContentMethod(
       },
       listForgettableOrganizationContainerIds(state, organizationId),
     );
-    return outcome;
+    return forgotten;
   };
 }

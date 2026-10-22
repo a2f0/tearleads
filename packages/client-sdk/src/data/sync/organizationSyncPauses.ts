@@ -3,6 +3,7 @@ import {
   organizationSyncPauses,
   organizationSyncPauseTables,
 } from "../sqlite/schema/organizationSyncPauseSchema";
+import { sqliteInsertBatchSize } from "../sqlite/sqliteBindBudget";
 import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
 import {
   type ExecSql,
@@ -79,22 +80,31 @@ async function readPausedOrganizationIds(
   return new Set(rows.map((row) => row.organizationId));
 }
 
+// One transaction replaces the whole set, so a failed write keeps the
+// previous pauses in force; inserts go in batches within SQLite's bind budget.
 async function writePausedOrganizationIds(
   execSql: ExecSql,
   organizationIds: ReadonlySet<string>,
 ): Promise<void> {
   await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
     await ensureSqlTables(lockedExecSql, organizationSyncPauseTables);
-    const { db } = getClientSQLitePersistenceRuntime(lockedExecSql);
-    await db.delete(organizationSyncPauses).run();
-    if (organizationIds.size > 0) {
-      await db
-        .insert(organizationSyncPauses)
-        .values(
-          [...organizationIds].map((organizationId) => ({ organizationId })),
-        )
-        .run();
-    }
+    const ids = [...organizationIds];
+    const batchSize = sqliteInsertBatchSize(organizationSyncPauses);
+    await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async (tx) => {
+        await tx.delete(organizationSyncPauses).run();
+        for (let index = 0; index < ids.length; index += batchSize) {
+          await tx
+            .insert(organizationSyncPauses)
+            .values(
+              ids
+                .slice(index, index + batchSize)
+                .map((organizationId) => ({ organizationId })),
+            )
+            .run();
+        }
+      },
+    );
   });
 }
 

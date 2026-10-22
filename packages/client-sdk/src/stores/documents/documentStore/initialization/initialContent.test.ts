@@ -288,3 +288,34 @@ test("a birth with fields and rows is the create's seed", async () => {
     close();
   }
 });
+
+test("rows and attachments count as queued writes until they persist", async () => {
+  const { close, execSql } = await createTestExecSql("queued-writes");
+  try {
+    await ensureDeferredBirthSchema(execSql);
+    const env = openStore({ execSql, kind: "env_file", localId: "queued-env" });
+    const pdf = openStore({
+      execSql,
+      kind: "pdf",
+      localId: "queued-pdf",
+      options: { initialStructuredFields: PDF_FIELDS },
+    });
+    expect(await env.ensureInitialized()).toBe(true);
+    expect(await pdf.ensureInitialized()).toBe(true);
+    expect(env.hasQueuedWrites()).toBe(false);
+
+    // Counted the moment each write is queued, before anything persists, so
+    // a pause cleanup never deletes a document under an unsaved edit.
+    const row = env.addRow({ key: "API_URL", value: "https://example.test" });
+    expect(env.hasQueuedWrites()).toBe(true);
+    await row;
+    expect(env.hasQueuedWrites()).toBe(false);
+
+    const attachment = pdf.attachFiles([PDF_UPLOAD]);
+    expect(pdf.hasQueuedWrites()).toBe(true);
+    await attachment;
+    expect(pdf.hasQueuedWrites()).toBe(false);
+  } finally {
+    close();
+  }
+});

@@ -87,7 +87,13 @@ test("runtime resolves an uncertain authored mutation before reading for the nex
         fixture.mutation.request,
       ),
     ).rejects.toThrow("may have committed");
-    const organizations = createOrganizations(runtime, sdk.containerContents);
+    const organizations = createOrganizations(
+      runtime,
+      sdk.containerContents,
+      () => {
+        throw new Error("No organization is resumed in this test");
+      },
+    );
     expect(
       await organizations.readPendingPolicyMutation(
         fixture.scope.organizationId,

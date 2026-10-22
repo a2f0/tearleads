@@ -18,18 +18,6 @@ import type {
 // so the two can't drift.
 export type ContainerContentsShareAccessLevel = ContainerAccessLevel;
 
-/**
- * How removing a paused organization's content ended. `retry`: something that
- * passes (unsynced writes, the active workspace) blocked it; try again once
- * the sync lanes settle. `next-session`: one of its documents was opened this
- * session and its store stays registered until the session ends, so the next
- * session's membership refresh removes it.
- */
-export type OrganizationContentForgetOutcome =
-  | "removed"
-  | "retry"
-  | "next-session";
-
 export interface ContainerContentsStoreOptions {
   logLabel?: string | undefined;
   persistence?: ContainerContentsPersistence | undefined;
@@ -127,9 +115,7 @@ export interface ContainerContentsStore {
    * except its metadata root, and every document placed only in them. Local
    * only; the caller first confirms the organization has no unsynced writes.
    */
-  forgetOrganizationContent: (
-    organizationId: string,
-  ) => Promise<OrganizationContentForgetOutcome>;
+  forgetOrganizationContent: (organizationId: string) => Promise<boolean>;
   // `options.requireExistingGrant` gates the preparation check only. The
   // prepared `rewrap` is always grant-preserving: it re-wraps a signed grant
   // and never mints one, so it carries no chosen group name, and it throws

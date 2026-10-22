@@ -21,6 +21,7 @@ import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canAttachFiles,
   canWriteDocument,
+  chainQueuedWrite,
   type DocumentStoreState,
 } from "../state";
 import { captureDocumentStoreSyncGeneration } from "../sync/syncGeneration";
@@ -291,15 +292,21 @@ export async function attachFilesToDocumentStore(
   // only behind every earlier attach, never while one is still staging. The
   // caller's document is captured now (a cold store captures once ready).
   const callGeneration = captureAttachmentWriteGeneration(state);
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () =>
-      attachThenSettle(state, scheduleSync, files, callGeneration),
-    )
-    .catch((error: unknown) => {
-      reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
-    });
-  return state.writeChain;
+  return chainQueuedWrite(
+    state,
+    state.writeChain
+      .catch(() => undefined)
+      .then(async () =>
+        attachThenSettle(state, scheduleSync, files, callGeneration),
+      )
+      .catch((error: unknown) => {
+        reportDocumentStoreWriteFailure(
+          state,
+          ATTACHMENT_FAILURE_MESSAGE,
+          error,
+        );
+      }),
+  );
 }
 
 export async function replaceAttachmentInDocumentStore(
@@ -322,13 +329,19 @@ export async function replaceAttachmentInDocumentStore(
 
   const writeGeneration = captureAttachmentWriteGeneration(state);
   if (!writeGeneration) return;
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () =>
-      persistSlotAttachmentFile(state, slotId, file, writeGeneration),
-    )
-    .catch((error: unknown) => {
-      reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
-    });
-  return state.writeChain;
+  return chainQueuedWrite(
+    state,
+    state.writeChain
+      .catch(() => undefined)
+      .then(async () =>
+        persistSlotAttachmentFile(state, slotId, file, writeGeneration),
+      )
+      .catch((error: unknown) => {
+        reportDocumentStoreWriteFailure(
+          state,
+          ATTACHMENT_FAILURE_MESSAGE,
+          error,
+        );
+      }),
+  );
 }
