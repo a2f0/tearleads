@@ -1,6 +1,7 @@
 import { FolderIcon } from "@phosphor-icons/react/dist/csr/Folder";
 import { useCallback, useId } from "react";
 import {
+  MiniAppButton,
   MiniAppPanel,
   MiniAppRoot,
   MiniAppSection,
@@ -13,6 +14,7 @@ import {
 } from "../../components/mini-app/rows/MiniAppRow";
 import { useMiniAppBusActions } from "../bus";
 import { useOrganizationDashboard } from "./hooks/useOrganizationDashboard";
+import type { OrganizationSyncChoices } from "./hooks/useOrganizationSyncChoices";
 import { ORGANIZATIONS_LABELS } from "./labels";
 import type {
   OrganizationDashboardCard,
@@ -22,6 +24,7 @@ import "./Organizations.css";
 
 function cardBadge(card: OrganizationDashboardCard): string {
   if (card.active) return ORGANIZATIONS_LABELS.activeBadge;
+  if (card.syncPaused) return ORGANIZATIONS_LABELS.syncPausedBadge;
   return card.workspace
     ? ORGANIZATIONS_LABELS.workspaceBadge
     : ORGANIZATIONS_LABELS.memberBadge;
@@ -53,12 +56,79 @@ function OrganizationFolderRow({
   );
 }
 
-function OrganizationCard({
+function syncButtonLabel(card: OrganizationDashboardCard, busy: boolean) {
+  if (card.syncPaused) {
+    return busy
+      ? ORGANIZATIONS_LABELS.resumingSync
+      : ORGANIZATIONS_LABELS.resumeSync;
+  }
+  return busy
+    ? ORGANIZATIONS_LABELS.pausingSync
+    : ORGANIZATIONS_LABELS.pauseSync;
+}
+
+function OrganizationSyncButton({
   card,
+  syncChoices,
+}: {
+  card: OrganizationDashboardCard;
+  syncChoices: OrganizationSyncChoices;
+}) {
+  if (!card.canChangeSync) return null;
+  const busy = syncChoices.changingOrganizationId === card.organizationId;
+  return (
+    <MiniAppButton
+      disabled={syncChoices.changingOrganizationId !== null}
+      onClick={() =>
+        void syncChoices.setSyncPaused(card.organizationId, !card.syncPaused)
+      }
+    >
+      {syncButtonLabel(card, busy)}
+    </MiniAppButton>
+  );
+}
+
+function OrganizationFolders({
+  card,
+  name,
   onOpenFolder,
 }: {
   card: OrganizationDashboardCard;
+  name: string;
   onOpenFolder: (folderId: string) => void;
+}) {
+  if (card.syncPaused) {
+    return (
+      <MiniAppStatus>{ORGANIZATIONS_LABELS.syncPausedStatus}</MiniAppStatus>
+    );
+  }
+  if (card.folders.length === 0) {
+    return <MiniAppStatus>{ORGANIZATIONS_LABELS.noFolders}</MiniAppStatus>;
+  }
+  return (
+    <ul
+      aria-label={ORGANIZATIONS_LABELS.foldersIn(name)}
+      className="organizations-folders"
+    >
+      {card.folders.map((folder) => (
+        <OrganizationFolderRow
+          folder={folder}
+          key={folder.id}
+          onOpen={onOpenFolder}
+        />
+      ))}
+    </ul>
+  );
+}
+
+function OrganizationCard({
+  card,
+  onOpenFolder,
+  syncChoices,
+}: {
+  card: OrganizationDashboardCard;
+  onOpenFolder: (folderId: string) => void;
+  syncChoices: OrganizationSyncChoices;
 }) {
   const headingId = useId();
   const name = card.name ?? ORGANIZATIONS_LABELS.unnamedOrganization;
@@ -74,22 +144,12 @@ function OrganizationCard({
           <h3 id={headingId}>{name}</h3>
           <span className="organizations-badge">{cardBadge(card)}</span>
         </div>
-        {card.folders.length === 0 ? (
-          <MiniAppStatus>{ORGANIZATIONS_LABELS.noFolders}</MiniAppStatus>
-        ) : (
-          <ul
-            aria-label={ORGANIZATIONS_LABELS.foldersIn(name)}
-            className="organizations-folders"
-          >
-            {card.folders.map((folder) => (
-              <OrganizationFolderRow
-                folder={folder}
-                key={folder.id}
-                onOpen={onOpenFolder}
-              />
-            ))}
-          </ul>
-        )}
+        <OrganizationFolders
+          card={card}
+          name={name}
+          onOpenFolder={onOpenFolder}
+        />
+        <OrganizationSyncButton card={card} syncChoices={syncChoices} />
       </MiniAppPanel>
     </li>
   );
@@ -100,7 +160,7 @@ function OrganizationCard({
  * each, independent of which organization is the active workspace.
  */
 export function Organizations() {
-  const { cards, ready } = useOrganizationDashboard();
+  const { cards, ready, syncChoices } = useOrganizationDashboard();
   const { openMiniApp } = useMiniAppBusActions();
   const openFolder = useCallback(
     (folderId: string) =>
@@ -114,6 +174,9 @@ export function Organizations() {
         <MiniAppSectionHeading>
           <h2>{ORGANIZATIONS_LABELS.title}</h2>
         </MiniAppSectionHeading>
+        {syncChoices.error ? (
+          <MiniAppStatus tone="error">{syncChoices.error}</MiniAppStatus>
+        ) : null}
         {!ready ? (
           <MiniAppStatus>{ORGANIZATIONS_LABELS.loading}</MiniAppStatus>
         ) : cards.length === 0 ? (
@@ -128,6 +191,7 @@ export function Organizations() {
                 card={card}
                 key={card.organizationId}
                 onOpenFolder={openFolder}
+                syncChoices={syncChoices}
               />
             ))}
           </ul>

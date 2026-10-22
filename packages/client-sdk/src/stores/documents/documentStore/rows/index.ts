@@ -17,6 +17,7 @@ import {
 import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canWriteDocument,
+  chainQueuedWrite,
   type DocumentState,
   type DocumentStoreState,
 } from "../state";
@@ -103,13 +104,15 @@ function queueRowMutation(
   // `setReadySnapshot` always re-derives them from the doc — so there is no
   // optimistic snapshot for a concurrent sync pass to clobber. Input smoothness
   // during rapid edits is handled in the app layer (useDocumentRowEditing).
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () => persistRowMutation(state, writeGeneration, mutate))
-    .catch((error: unknown) => {
-      reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
-    });
-  return state.writeChain;
+  return chainQueuedWrite(
+    state,
+    state.writeChain
+      .catch(() => undefined)
+      .then(async () => persistRowMutation(state, writeGeneration, mutate))
+      .catch((error: unknown) => {
+        reportDocumentStoreWriteFailure(state, ROW_FAILURE_MESSAGE, error);
+      }),
+  );
 }
 
 export async function addRowToDocumentStore(

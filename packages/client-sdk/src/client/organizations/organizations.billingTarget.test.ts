@@ -40,6 +40,9 @@ test("billing targets follow the current authenticated session", async () => {
   const organizations = createOrganizations(
     createInternalRuntimeFixture(() => workflowInput),
     {} as ContainerContents,
+    () => {
+      throw new Error("No organization is resumed in this test");
+    },
   );
 
   async function runBilling(organizationId?: string) {

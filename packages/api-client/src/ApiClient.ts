@@ -38,6 +38,7 @@ import {
   listContainerParentLanesOperation,
   listDocumentAttachmentsOperation,
   listOrganizationGroupMembersOperation,
+  listOrganizationMembershipsOperation,
   listRootDataUsageReportOperation,
   listRootIdentitiesOperation,
   listRootIdentityOrganizationsOperation,
@@ -56,6 +57,7 @@ import {
   shareContainerOperation,
   startOrganizationTrialOperation,
   unlinkDocumentOperation,
+  updateOrganizationMembershipOperation,
   updateOrganizationProfileOperation,
   updateOrganizationRosterEntryOperation,
   userIdentityOperation,
@@ -78,6 +80,7 @@ import type {
   ListContainerDocumentLanesRequest,
   ListContainerParentLanesRequest,
   RegistrationRequest,
+  UpdateOrganizationMembershipRequest,
   UpdateOrganizationProfileRequest,
   UpdateOrganizationRosterEntryRequest,
 } from "@tearleads/validators/request";
@@ -97,6 +100,7 @@ import type {
   ListContainerParentLanesResponse,
   ListDocumentAttachmentsResponse,
   OrganizationDataUsageResponse,
+  OrganizationMembershipResponse,
   OrganizationPolicyHistoryResponse,
   OrganizationReadModelResponse,
   PrincipalPolicyBundleResponse,
@@ -177,6 +181,10 @@ import {
 import { organizationBilling } from "./routes/organizations/billing";
 import { getOrganizationDataUsage as organizationDataUsage } from "./routes/organizations/dataUsage";
 import { listOrganizationGroupMembers as groupMembers } from "./routes/organizations/groupMembers";
+import {
+  listOrganizationMemberships as membershipsList,
+  updateOrganizationMembership as membershipUpdate,
+} from "./routes/organizations/memberships";
 import { updateOrganizationProfile as profileUpdate } from "./routes/organizations/profile";
 import { updateOrganizationRosterEntry as rosterUpdate } from "./routes/organizations/roster";
 import { organizationStripeCheckout } from "./routes/organizations/stripeCheckout";
@@ -958,6 +966,32 @@ export class ApiClient {
       JSON.stringify(input),
       { expectedPaymentRequiredOrganizationId: organizationId },
       updateOrganizationRosterEntryOperation,
+    );
+  }
+
+  /** The session user's own organization memberships; no role required. */
+  listOrganizationMemberships() {
+    return this.request(
+      membershipsList.path,
+      membershipsList.isResponse,
+      membershipsList.method,
+      undefined,
+      undefined,
+      listOrganizationMembershipsOperation,
+    );
+  }
+
+  updateOrganizationMembership(
+    organizationId: string,
+    input: UpdateOrganizationMembershipRequest,
+  ): Promise<RequestResult<OrganizationMembershipResponse>> {
+    return this.requestResult(
+      membershipUpdate.path(organizationId),
+      membershipUpdate.isResponse,
+      membershipUpdate.method,
+      JSON.stringify(input),
+      { reportErrors: false },
+      updateOrganizationMembershipOperation,
     );
   }
 

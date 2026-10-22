@@ -104,13 +104,14 @@ export type {
   ContainerShareAccessLevel,
 } from "../../workflows/container-contents/info/containerInfo";
 export type { DocumentInfo } from "../../workflows/container-contents/info/documentInfo";
-export type {
-  PendingWriteQueueItem,
-  PendingWriteQueueItemStatus,
-  PendingWriteQueueObjectKind,
-  PendingWriteQueueOperation,
-  PendingWriteQueueOperationKind,
-  PendingWriteQueueOperationStatus,
+export {
+  carriesLocalWrites,
+  type PendingWriteQueueItem,
+  type PendingWriteQueueItemStatus,
+  type PendingWriteQueueObjectKind,
+  type PendingWriteQueueOperation,
+  type PendingWriteQueueOperationKind,
+  type PendingWriteQueueOperationStatus,
 } from "../../workflows/container-contents/pendingWrites";
 export type {
   ContainerDocumentObjectSyncState,

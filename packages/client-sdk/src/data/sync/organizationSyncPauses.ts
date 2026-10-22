@@ -1,0 +1,245 @@
+import { eq, notInArray } from "drizzle-orm";
+import type { DomainScope } from "../shared/domainScope";
+import {
+  organizationSyncPauseRemovals,
+  organizationSyncPauses,
+  organizationSyncPauseTables,
+} from "../sqlite/schema/organizationSyncPauseSchema";
+import { sqliteInsertBatchSize } from "../sqlite/sqliteBindBudget";
+import { getClientSQLitePersistenceRuntime } from "../sqlite/sqlitePersistenceRuntime";
+import {
+  type ExecSql,
+  ensureSqlTables,
+  runSerializedSqlMutation,
+} from "../sqlite/sqlSchema";
+
+/** The container fields the pause rule reads. */
+export interface OrganizationSyncPauseSubject {
+  readonly organizationId: string;
+  readonly parentId: string | null;
+  readonly systemSlot?: string | null | undefined;
+}
+
+/**
+ * Whether a container stays on the device while its organization is paused:
+ * only the organization's parentless system root, the metadata root every
+ * Members recipient reads, which keeps the organization named and its
+ * membership visible.
+ */
+export function isRetainedWhileSyncPaused(
+  container: OrganizationSyncPauseSubject,
+): boolean {
+  return container.parentId === null && Boolean(container.systemSlot);
+}
+
+export interface OrganizationSyncPauseChange {
+  readonly paused: readonly string[];
+  readonly resumed: readonly string[];
+}
+
+/**
+ * Which organizations this user paused syncing to their devices, for one
+ * domain scope. Sync reads it synchronously once `load` has settled; the
+ * persisted set lets a device that starts offline keep honoring a pause.
+ */
+export interface OrganizationSyncPauses {
+  /** Loads the persisted set once; concurrent and later calls share it. */
+  load(execSql: ExecSql): Promise<void>;
+  isOrganizationPaused(organizationId: string): boolean;
+  /**
+   * Whether sync skips this container: every container of a paused
+   * organization except the one `isRetainedWhileSyncPaused` keeps. The
+   * session's active organization is never skipped, even when paused from
+   * another device: its root is the session's workspace until it switches
+   * away.
+   */
+  isContainerPaused(
+    container: OrganizationSyncPauseSubject,
+    activeOrganizationId: string | null,
+  ): boolean;
+  pausedOrganizationIds(): ReadonlySet<string>;
+  /** Persists exactly this set and reports which organizations changed. */
+  replace(
+    execSql: ExecSql,
+    organizationIds: Iterable<string>,
+  ): Promise<OrganizationSyncPauseChange>;
+  subscribe(listener: () => void): () => void;
+  /**
+   * Runs membership work for this scope one task at a time, so a membership
+   * read that started before a pause or resume cannot apply after it.
+   * Re-entrant calls from inside a task would wait on themselves.
+   */
+  runExclusive<T>(task: () => Promise<T>): Promise<T>;
+}
+
+async function readPausedOrganizationIds(
+  execSql: ExecSql,
+): Promise<Set<string>> {
+  await ensureSqlTables(execSql, organizationSyncPauseTables);
+  const rows = await getClientSQLitePersistenceRuntime(execSql)
+    .db.select({ organizationId: organizationSyncPauses.organizationId })
+    .from(organizationSyncPauses);
+  return new Set(rows.map((row) => row.organizationId));
+}
+
+// One transaction replaces the whole set, so a failed write keeps the
+// previous pauses in force; inserts go in batches within SQLite's bind budget.
+async function writePausedOrganizationIds(
+  execSql: ExecSql,
+  organizationIds: ReadonlySet<string>,
+): Promise<void> {
+  await runSerializedSqlMutation(execSql, async (lockedExecSql) => {
+    await ensureSqlTables(lockedExecSql, organizationSyncPauseTables);
+    const ids = [...organizationIds];
+    const batchSize = sqliteInsertBatchSize(organizationSyncPauses);
+    await getClientSQLitePersistenceRuntime(lockedExecSql).transaction(
+      async (tx) => {
+        await tx.delete(organizationSyncPauses).run();
+        for (let index = 0; index < ids.length; index += batchSize) {
+          await tx
+            .insert(organizationSyncPauses)
+            .values(
+              ids
+                .slice(index, index + batchSize)
+                .map((organizationId) => ({ organizationId })),
+            )
+            .run();
+        }
+        // A resumed organization's removed documents may be reopened again.
+        await tx
+          .delete(organizationSyncPauseRemovals)
+          .where(
+            notInArray(
+              organizationSyncPauseRemovals.organizationId,
+              tx
+                .select({
+                  organizationId: organizationSyncPauses.organizationId,
+                })
+                .from(organizationSyncPauses),
+            ),
+          )
+          .run();
+      },
+    );
+  });
+}
+
+function createOrganizationSyncPauses(): OrganizationSyncPauses {
+  let paused: ReadonlySet<string> = new Set();
+  let loading: Promise<void> | null = null;
+  let replacing: Promise<void> = Promise.resolve();
+  let exclusive: Promise<void> = Promise.resolve();
+  const listeners = new Set<() => void>();
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
+
+  const pauses: OrganizationSyncPauses = {
+    load(execSql) {
+      loading ??= readPausedOrganizationIds(execSql).then(
+        (stored) => {
+          paused = stored;
+          if (stored.size > 0) notify();
+        },
+        (error: unknown) => {
+          // Let a later call retry a failed read.
+          loading = null;
+          throw error;
+        },
+      );
+      return loading;
+    },
+    isOrganizationPaused: (organizationId) => paused.has(organizationId),
+    isContainerPaused: (container, activeOrganizationId) =>
+      paused.has(container.organizationId) &&
+      container.organizationId !== activeOrganizationId &&
+      !isRetainedWhileSyncPaused(container),
+    pausedOrganizationIds: () => paused,
+    replace(execSql, organizationIds) {
+      const next = new Set(organizationIds);
+      // Serialize replacements so each one diffs against the set the previous
+      // one committed.
+      const run = replacing.then(async () => {
+        await pauses.load(execSql);
+        const change = {
+          paused: [...next].filter((id) => !paused.has(id)).sort(),
+          resumed: [...paused].filter((id) => !next.has(id)).sort(),
+        };
+        if (change.paused.length === 0 && change.resumed.length === 0) {
+          return change;
+        }
+        await writePausedOrganizationIds(execSql, next);
+        paused = next;
+        notify();
+        return change;
+      });
+      replacing = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
+    },
+    subscribe(listener) {
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    runExclusive(task) {
+      const run = exclusive.then(task);
+      exclusive = run.then(
+        () => undefined,
+        () => undefined,
+      );
+      return run;
+    },
+  };
+  return pauses;
+}
+
+const pausesByScope = new WeakMap<DomainScope, OrganizationSyncPauses>();
+
+/** The one pause set for a domain scope; a new scope starts unloaded. */
+export function getOrCreateOrganizationSyncPauses(
+  domainScope: DomainScope,
+): OrganizationSyncPauses {
+  let pauses = pausesByScope.get(domainScope);
+  if (!pauses) {
+    pauses = createOrganizationSyncPauses();
+    pausesByScope.set(domainScope, pauses);
+  }
+  return pauses;
+}
+
+/**
+ * Records, in the caller's transaction, that a pause's cleanup removed this
+ * document, so reopening it does not recreate it while the pause lasts.
+ */
+export async function recordPauseRemovedDocument(
+  execSql: ExecSql,
+  removal: { readonly localId: string; readonly organizationId: string },
+): Promise<void> {
+  await ensureSqlTables(execSql, organizationSyncPauseTables);
+  await getClientSQLitePersistenceRuntime(execSql)
+    .db.insert(organizationSyncPauseRemovals)
+    .values(removal)
+    .onConflictDoUpdate({
+      set: { organizationId: removal.organizationId },
+      target: organizationSyncPauseRemovals.localId,
+    })
+    .run();
+}
+
+/** Whether a pause's cleanup removed this document and the pause still holds. */
+export async function isPauseRemovedDocument(
+  execSql: ExecSql,
+  localId: string,
+): Promise<boolean> {
+  await ensureSqlTables(execSql, organizationSyncPauseTables);
+  const rows = await getClientSQLitePersistenceRuntime(execSql)
+    .db.select({ localId: organizationSyncPauseRemovals.localId })
+    .from(organizationSyncPauseRemovals)
+    .where(eq(organizationSyncPauseRemovals.localId, localId))
+    .limit(1);
+  return rows.length > 0;
+}

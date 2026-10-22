@@ -68,6 +68,9 @@ export const organizations = pgTable(
  * - `joinedAt`: When the user first became visible in this organization
  *   roster.
  * - `disabledAt` / `disabledByUserId`: Deactivation audit metadata.
+ * - `syncPausedAt`: When the member paused this organization's content
+ *   syncing to their devices, or null while it syncs. Only the member sets it;
+ *   deactivation clears it. It never affects access.
  * - `createdAt` / `updatedAt`: Server-side row timestamps.
  */
 export const organizationRosterEntries = pgTable(
@@ -84,6 +87,7 @@ export const organizationRosterEntries = pgTable(
     joinedAt: timestamp("joined_at").defaultNow().notNull(),
     disabledAt: timestamp("disabled_at"),
     disabledByUserId: uuid("disabled_by_user_id"),
+    syncPausedAt: timestamp("sync_paused_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

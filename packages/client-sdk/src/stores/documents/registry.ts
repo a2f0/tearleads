@@ -3,6 +3,7 @@ import {
   registerInternalDocumentRelink,
   relinkDocumentStoreWithCommitSideEffect,
 } from "./documentStore/internalRelink";
+import { createRemovedDocumentStore } from "./removedDocumentStore";
 import type {
   DocumentAttachmentUpload,
   DocumentStore,
@@ -12,6 +13,15 @@ import type {
 } from "./types";
 
 interface DocumentStoreRegistry {
+  /** How the last open built each store's backing store, by store key. */
+  freshStoreFactories: Map<string, () => DocumentStore>;
+  /** Each backing store's way to stop its sync lane, by local id. */
+  retireHandlersByLocalId: Map<string, () => void>;
+  /**
+   * Stores whose document was removed under them, each with whether its
+   * removal still holds; see retireDocumentStore.
+   */
+  retiredStores: Map<string, () => boolean>;
   storeKeysByDocumentId: Map<string, string>;
   storeKeysByLocalId: Map<string, string>;
   storesByKey: Map<string, DocumentStoreFacade>;
@@ -72,6 +82,9 @@ export function getOrCreateDocumentStoreRegistry(
   }
 
   const nextRegistry: DocumentStoreRegistry = {
+    freshStoreFactories: new Map(),
+    retireHandlersByLocalId: new Map(),
+    retiredStores: new Map(),
     storeKeysByDocumentId: new Map(),
     storeKeysByLocalId: new Map(),
     storesByKey: new Map(),
@@ -133,8 +146,38 @@ export function registerDocumentStoreIdentity(
   if (localStore) {
     documentStore?.rebindTo(localStore);
     registry.storesByKey.set(documentStoreKey, localStore);
+    // The store's retirement and how to rebuild it move with it.
+    moveKeyedEntry(
+      registry.freshStoreFactories,
+      localStoreKey,
+      documentStoreKey,
+    );
+    moveKeyedEntry(registry.retiredStores, localStoreKey, documentStoreKey);
   }
   registry.storesByKey.delete(localStoreKey);
+}
+
+function moveKeyedEntry<Value>(
+  entries: Map<string, Value>,
+  fromKey: string,
+  toKey: string,
+): void {
+  const value = entries.get(fromKey);
+  entries.delete(fromKey);
+  if (value !== undefined) entries.set(toKey, value);
+}
+
+/**
+ * Whether an open store holds local writes for the document that have not
+ * reached SQLite yet, which no persisted-write scan can see.
+ */
+export function hasQueuedDocumentStoreWrites(
+  domainScope: DomainScope,
+  localId: string,
+): boolean {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  const storeKey = registry?.storeKeysByLocalId.get(localId) ?? localId;
+  return registry?.storesByKey.get(storeKey)?.hasQueuedWrites() ?? false;
 }
 
 export function requestDocumentStoreSync(state: {
@@ -155,10 +198,9 @@ export function requestRegisteredDocumentRemoteSync(
     return false;
   }
 
-  const store = registry.storesByKey.get(
-    resolveDocumentStoreKey(registry, localId, documentId),
-  );
-  if (!store) {
+  const storeKey = resolveDocumentStoreKey(registry, localId, documentId);
+  const store = registry.storesByKey.get(storeKey);
+  if (!store || registry.retiredStores.has(storeKey)) {
     return false;
   }
 
@@ -250,6 +292,7 @@ export function createDocumentStoreFacade(
       targetStore.discardLocalState(expectedDocumentId),
     ensureInitialized: () => targetStore.ensureInitialized(),
     getSnapshot: () => targetStore.getSnapshot(),
+    hasQueuedWrites: () => targetStore.hasQueuedWrites(),
     removeAttachment: (slotId: string) => targetStore.removeAttachment(slotId),
     removeRow: (id) => targetStore.removeRow(id),
     replaceAttachment: (slotId: string, file: DocumentAttachmentUpload) =>
@@ -320,7 +363,75 @@ export function requestDomainDocumentSync(domainScope: DomainScope): void {
     return;
   }
 
-  for (const store of new Set(registry.storesByKey.values())) {
-    store.requestSync();
+  for (const [storeKey, store] of registry.storesByKey) {
+    if (!registry.retiredStores.has(storeKey)) store.requestSync();
   }
+}
+
+/** Lets the backing store for `localId` stop its sync lane when retired. */
+export function onDocumentStoreRetired(
+  domainScope: DomainScope,
+  localId: string,
+  stopSyncLane: () => void,
+): void {
+  getOrCreateDocumentStoreRegistry(domainScope).retireHandlersByLocalId.set(
+    localId,
+    stopSyncLane,
+  );
+}
+
+/**
+ * Retires the store of a document a paused organization's cleanup removed.
+ * Its backing store's sync lane stops and the facade an editor may hold
+ * switches to a read-only stand-in, so nothing recreates or downloads the
+ * document. While `stillRemoved()` holds, reopening returns the stand-in;
+ * after that, the next open rebinds the facade to a fresh backing store that
+ * loads whatever SQLite holds by then, such as a copy rediscovered on resume.
+ */
+export function retireDocumentStore(
+  domainScope: DomainScope,
+  localId: string,
+  stillRemoved: () => boolean,
+): void {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  const storeKey = registry?.storeKeysByLocalId.get(localId) ?? localId;
+  const store = registry?.storesByKey.get(storeKey);
+  if (!registry || !store || registry.retiredStores.has(storeKey)) return;
+  registry.retireHandlersByLocalId.get(localId)?.();
+  store.rebindTo(createRemovedDocumentStore(store.getSnapshot()));
+  registry.retiredStores.set(storeKey, stillRemoved);
+}
+
+/**
+ * Undoes a retirement whose deletion did not commit: the document survives,
+ * so its facade gets a fresh backing store again.
+ */
+export function restoreDocumentStore(
+  domainScope: DomainScope,
+  localId: string,
+): void {
+  const registry = documentStoreRegistriesByScope.get(domainScope);
+  const storeKey = registry?.storeKeysByLocalId.get(localId) ?? localId;
+  const store = registry?.storesByKey.get(storeKey);
+  if (!registry || !store || !registry.retiredStores.delete(storeKey)) return;
+  const createFresh = registry.freshStoreFactories.get(storeKey);
+  // Without a factory the next open rebinds it instead.
+  if (createFresh) store.rebindTo(createFresh());
+  else registry.retiredStores.set(storeKey, () => false);
+}
+
+/** The registered store for a key, rebound once its removal has lifted. */
+export function takeRegisteredDocumentStore(
+  registry: DocumentStoreRegistry,
+  storeKey: string,
+  createFresh: () => DocumentStore,
+): DocumentStoreFacade | undefined {
+  registry.freshStoreFactories.set(storeKey, createFresh);
+  const store = registry.storesByKey.get(storeKey);
+  const stillRemoved = registry.retiredStores.get(storeKey);
+  if (store && stillRemoved && !stillRemoved()) {
+    registry.retiredStores.delete(storeKey);
+    store.rebindTo(createFresh());
+  }
+  return store;
 }

@@ -51,6 +51,15 @@ export type UpdateOrganizationRosterEntryRequest = z.infer<
   typeof UpdateOrganizationRosterEntryRequestSchema
 >;
 
+/** The session user's own choice for one organization they belong to. */
+export const UpdateOrganizationMembershipRequestSchema = z.strictObject({
+  syncPaused: z.boolean(),
+});
+
+export type UpdateOrganizationMembershipRequest = z.infer<
+  typeof UpdateOrganizationMembershipRequestSchema
+>;
+
 export const UpdateOrganizationProfileRequestSchema = loosePlainObject({
   profileDocumentId: uuidV4StringSchema.nullable(),
 });
@@ -82,6 +91,12 @@ export function isUpdateOrganizationRosterEntryRequest(
   value: unknown,
 ): value is UpdateOrganizationRosterEntryRequest {
   return UpdateOrganizationRosterEntryRequestSchema.safeParse(value).success;
+}
+
+export function isUpdateOrganizationMembershipRequest(
+  value: unknown,
+): value is UpdateOrganizationMembershipRequest {
+  return UpdateOrganizationMembershipRequestSchema.safeParse(value).success;
 }
 
 export function isUpdateOrganizationProfileRequest(

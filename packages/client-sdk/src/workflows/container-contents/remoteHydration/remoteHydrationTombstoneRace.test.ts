@@ -5,6 +5,7 @@ import type {
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
@@ -169,7 +170,7 @@ test("a stale tombstone does not starve independent page work", async () => {
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;
@@ -295,7 +296,7 @@ test("a stale descendant keeps its whole tombstone cascade retryable", async () 
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;

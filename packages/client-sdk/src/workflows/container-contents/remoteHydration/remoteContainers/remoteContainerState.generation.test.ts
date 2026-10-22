@@ -1,5 +1,7 @@
 import { expect, mock, test } from "bun:test";
+import { createNativeTestExecSql } from "@tearleads/test-utils";
 import { cachedContainerHydrationRuntime } from "../../../../../test/helpers/cachedContainerHydrationRuntime";
+import { getOrCreateOrganizationSyncPauses } from "../../../../data/sync/organizationSyncPauses";
 import { createRemoteContainerIngestor } from "../index";
 import type {
   ContainerState,
@@ -52,6 +54,21 @@ const remoteContainer: RemoteContainer = {
   systemSlot: null,
   updatedAt: "2026-02-01T00:00:00.000Z",
 };
+
+// The fixture database refuses all SQL. Ingestion reads the scope's paused
+// organizations once, so load that empty set from a scratch database first.
+async function preloadNoSyncPauses(
+  state: RemoteContainerHydrationState,
+): Promise<void> {
+  const scratch = createNativeTestExecSql();
+  try {
+    await getOrCreateOrganizationSyncPauses(
+      state.runtime.state.domainScope,
+    ).load(scratch.execSql);
+  } finally {
+    scratch.close();
+  }
+}
 
 test("stale existing-container persistence cannot publish after reset", async () => {
   const existingState = createExistingState();
@@ -206,6 +223,7 @@ test("remote ingestion replays after recovery without another event", async () =
     },
     runtime: cachedContainerHydrationRuntime([remoteContainer], staleExecSql),
   } as unknown as RemoteContainerHydrationState;
+  await preloadNoSyncPauses(state);
   const ingest = createRemoteContainerIngestor({
     getSerializationBarrier: () => serializationBarrier,
     host: {
@@ -279,6 +297,7 @@ test("remote ingestion discards payloads from a replaced structural context", as
     runtime: cachedContainerHydrationRuntime([remoteContainer]),
     structuralGeneration: 0,
   } as unknown as RemoteContainerHydrationState;
+  await preloadNoSyncPauses(state);
   const ingest = createRemoteContainerIngestor({
     host: {
       persistContainerState: async () => {
@@ -359,6 +378,7 @@ test("reset during a batch replays every item into the recovered database", asyn
     },
     runtime: cachedContainerHydrationRuntime([remoteContainer], staleExecSql),
   } as unknown as RemoteContainerHydrationState;
+  await preloadNoSyncPauses(state);
   const ingest = createRemoteContainerIngestor({
     host: {
       persistContainerState: async () => {

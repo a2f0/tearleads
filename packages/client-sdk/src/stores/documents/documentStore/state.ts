@@ -155,6 +155,8 @@ export interface DocumentStoreState {
    * the final write settles.
    */
   pendingLocalWrites: number;
+  /** Local writes called or chained but unsettled; zero means all in SQLite. */
+  queuedWrites: number;
   persistence: DocumentsPersistence;
   /**
    * Durable continuation for a bounded remote pull, mirrored from the document
@@ -243,6 +245,7 @@ export function createDocumentStoreState(
     pendingBaseVersion: null,
     pendingLocalWrites: 0,
     persistence,
+    queuedWrites: 0,
     pullContinuation: null,
     record: null,
     rejectedServedAttachmentBindings: new Set(),
@@ -466,4 +469,29 @@ export function subscribeToDocumentStore(
 ) {
   state.listeners.add(listener);
   return () => void state.listeners.delete(listener);
+}
+
+/**
+ * Counts `write` in `queuedWrites` until it settles. Counted synchronously, so
+ * a write started while a removal runs is visible to its commit guard.
+ */
+export function countQueuedWrite<T>(
+  state: DocumentStoreState,
+  write: Promise<T>,
+): Promise<T> {
+  state.queuedWrites += 1;
+  const settle = () => {
+    state.queuedWrites -= 1;
+  };
+  void write.then(settle, settle);
+  return write;
+}
+
+/** Installs `link` as the store's write chain, counted until it settles. */
+export function chainQueuedWrite(
+  state: DocumentStoreState,
+  link: Promise<void>,
+): Promise<void> {
+  state.writeChain = countQueuedWrite(state, link);
+  return state.writeChain;
 }

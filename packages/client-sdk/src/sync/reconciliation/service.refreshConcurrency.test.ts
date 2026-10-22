@@ -200,3 +200,33 @@ test("a fresh-listing root request joins a sweep that has not started", async ()
   await full;
   expect(calls).toEqual(["root", "full"]);
 });
+
+test("a fresh-listing full request queues behind a full sweep already running", async () => {
+  const listings: number[] = [];
+  const firstStarted = createGate();
+  const finishFirst = createGate();
+  const service = createReconciliationService(
+    createReconciliationTestHost({
+      refreshTree: async () => {
+        listings.push(listings.length + 1);
+        if (listings.length === 1) {
+          firstStarted.open();
+          await finishFirst.wait;
+        }
+      },
+    }),
+  );
+
+  const running = service.reconcileNow();
+  await firstStarted.wait;
+  expect(service.reconcileNow()).toBe(running);
+  // A resumed organization is visible only to a listing that starts after the
+  // resume, so its refresh queues instead of joining the paused-era sweep.
+  const fresh = service.reconcileNow({ freshListing: true });
+  expect(fresh).not.toBe(running);
+
+  finishFirst.open();
+  await running;
+  await fresh;
+  expect(listings).toEqual([1, 2]);
+});

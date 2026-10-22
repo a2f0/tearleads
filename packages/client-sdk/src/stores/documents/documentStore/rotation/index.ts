@@ -12,7 +12,11 @@ import { requestDocumentStoreSync } from "../../registry";
 import { installRebuiltDocument } from "../history/historyRebuild";
 import { chainIdentityWrite } from "../identityWriteChain";
 import { listPendingUpdates } from "../persistence";
-import type { DocumentState, DocumentStoreState } from "../state";
+import {
+  chainQueuedWrite,
+  type DocumentState,
+  type DocumentStoreState,
+} from "../state";
 import { createStoredDocument } from "../storedDocument";
 import { runDocumentRemoteWork } from "../sync/remoteWork";
 import {
@@ -298,9 +302,12 @@ function installRotationRecovery(input: {
     );
   // Only the checked local install occupies the write queue. Network recovery
   // uses the remote queue, so an outage cannot hold new edits hostage.
-  state.writeChain = installation.then(
-    () => undefined,
-    () => undefined,
+  void chainQueuedWrite(
+    state,
+    installation.then(
+      () => undefined,
+      () => undefined,
+    ),
   );
   return installation;
 }

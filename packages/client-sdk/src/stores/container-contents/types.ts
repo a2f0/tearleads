@@ -110,6 +110,12 @@ export interface ContainerContentsStore {
     trashContainerId: string,
     options?: PurgeOptions,
   ) => Promise<boolean>;
+  /**
+   * Removes a paused organization's content from this device: every container
+   * except its metadata root, and every document placed only in them. Local
+   * only; the caller first confirms the organization has no unsynced writes.
+   */
+  forgetOrganizationContent: (organizationId: string) => Promise<boolean>;
   // `options.requireExistingGrant` gates the preparation check only. The
   // prepared `rewrap` is always grant-preserving: it re-wraps a signed grant
   // and never mints one, so it carries no chosen group name, and it throws

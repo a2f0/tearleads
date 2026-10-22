@@ -3,10 +3,15 @@ import type { DomainScope } from "../../data/shared/domainScope";
 import {
   createDocumentStoreFacade,
   discardRegisteredDocumentLocalState,
+  getOrCreateDocumentStoreRegistry,
+  onDocumentStoreRetired,
   registerDocumentStore,
   registerDocumentStoreIdentity,
   requestRegisteredDocumentRemoteSync,
+  restoreDocumentStore,
+  retireDocumentStore,
   subscribeToPersistedDocumentDeletions,
+  takeRegisteredDocumentStore,
 } from "./registry";
 import type { DocumentSnapshot, DocumentStore } from "./types";
 
@@ -40,6 +45,7 @@ function createStore(
     discardLocalState: async () => onDiscard(),
     ensureInitialized: async () => true,
     getSnapshot: () => READY_SNAPSHOT,
+    hasQueuedWrites: () => false,
     removeAttachment: () => undefined,
     removeRow: async () => undefined,
     replaceAttachment: () => Promise.resolve(),
@@ -228,4 +234,95 @@ test("discard refuses when the two identifiers resolve differently", async () =>
   ).toBe(true);
   expect(targetDiscards).toBe(1);
   expect(otherDiscards).toBe(0);
+});
+
+test("a retired store stays a read-only stand-in until its pause lifts", () => {
+  const domainScope = {} as DomainScope;
+  let staleSyncs = 0;
+  let freshSyncs = 0;
+  let laneStopped = false;
+  const facade = createDocumentStoreFacade(
+    createStore(() => {
+      staleSyncs += 1;
+    }),
+  );
+  registerDocumentStore(domainScope, "removed", facade, "remote-removed");
+  onDocumentStoreRetired(domainScope, "removed", () => {
+    laneStopped = true;
+  });
+
+  // A paused organization's cleanup removed the document under the store.
+  let paused = true;
+  retireDocumentStore(domainScope, "removed", () => paused);
+  expect(laneStopped).toBe(true);
+  expect(facade.getSnapshot().canWrite).toBe(false);
+  expect(
+    requestRegisteredDocumentRemoteSync(
+      domainScope,
+      "removed",
+      "remote-removed",
+    ),
+  ).toBe(false);
+
+  // An editor reopening it while paused gets the stand-in, not a new store
+  // that would recreate and download the document.
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const freshStore = () =>
+    createStore(() => {
+      freshSyncs += 1;
+    });
+  expect(takeRegisteredDocumentStore(registry, "removed", freshStore)).toBe(
+    facade,
+  );
+  expect(facade.getSnapshot().canWrite).toBe(false);
+
+  paused = false;
+  expect(takeRegisteredDocumentStore(registry, "removed", freshStore)).toBe(
+    facade,
+  );
+  // Holders of the same facade now reach the fresh store, which syncs again.
+  expect(facade.getSnapshot().canWrite).toBe(true);
+  expect(
+    requestRegisteredDocumentRemoteSync(
+      domainScope,
+      "removed",
+      "remote-removed",
+    ),
+  ).toBe(true);
+  expect({ freshSyncs, staleSyncs }).toEqual({ freshSyncs: 1, staleSyncs: 0 });
+});
+
+test("a retirement whose deletion did not commit restores a writable store", () => {
+  const domainScope = {} as DomainScope;
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const facade = createDocumentStoreFacade(createStore(() => undefined));
+  registerDocumentStore(domainScope, "survivor", facade, null);
+  // The last open recorded how to build the store.
+  takeRegisteredDocumentStore(registry, "survivor", () =>
+    createStore(() => undefined),
+  );
+
+  retireDocumentStore(domainScope, "survivor", () => true);
+  expect(facade.getSnapshot().canWrite).toBe(false);
+  restoreDocumentStore(domainScope, "survivor");
+
+  expect(facade.getSnapshot().canWrite).toBe(true);
+  expect(registry.retiredStores.has("survivor")).toBe(false);
+});
+
+test("a store keeps its factory and retirement when its identity registers", () => {
+  const domainScope = {} as DomainScope;
+  const registry = getOrCreateDocumentStoreRegistry(domainScope);
+  const facade = createDocumentStoreFacade(createStore(() => undefined));
+  registerDocumentStore(domainScope, "local-created", facade, null);
+  takeRegisteredDocumentStore(registry, "local-created", () =>
+    createStore(() => undefined),
+  );
+  // The first sync assigns the document id, re-keying the store.
+  registerDocumentStoreIdentity(domainScope, "local-created", "remote-created");
+
+  retireDocumentStore(domainScope, "local-created", () => true);
+  restoreDocumentStore(domainScope, "local-created");
+
+  expect(facade.getSnapshot().canWrite).toBe(true);
 });

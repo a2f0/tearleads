@@ -126,6 +126,13 @@ export interface ReconciliationService {
   reconcileRootContainersNow: (options?: {
     readonly freshListing?: boolean;
   }) => Promise<void>;
-  reconcileNow: () => Promise<void>;
+  /**
+   * Refresh the whole tree and reconcile every known container. With
+   * `freshListing`, never join a sweep that already started listing: one
+   * queues behind it instead, so the listing reflects a change made after.
+   */
+  reconcileNow: (options?: {
+    readonly freshListing?: boolean;
+  }) => Promise<void>;
   stop: () => void;
 }

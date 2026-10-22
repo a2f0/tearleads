@@ -24,6 +24,11 @@ import {
 } from "./organizationDataUsage";
 import { loadOrganizationGroupPresentationDetails } from "./organizationGroupPresentation";
 import {
+  createOrganizationMemberships,
+  type OrganizationContentReconciler,
+  type OrganizationMemberships,
+} from "./organizationMemberships";
+import {
   createOrganizationReadModelCoordinator,
   type OrganizationReadModelCoordinator,
 } from "./organizationReadModels";
@@ -73,13 +78,19 @@ export type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
+  OrganizationMembership,
   OrganizationPolicyGrantChange,
   OrganizationPolicyGroupChange,
   OrganizationPolicyHistory,
   OrganizationPolicyHistoryEntry,
   OrganizationProfile,
+  OrganizationSyncPauseResult,
   OrganizationUserDetail,
 } from "../../workflows/organizations";
+export type {
+  OrganizationContentReconciler,
+  OrganizationMemberships,
+} from "./organizationMemberships";
 export type {
   OrganizationGroupMutationReceipt,
   Organizations,
@@ -97,23 +108,31 @@ export type {
 export function createOrganizations(
   runtime: InternalRuntime,
   containerContents: ContainerContents,
+  openReconciler: () => OrganizationContentReconciler,
 ): Organizations {
-  return new OrganizationsService(runtime, containerContents);
+  return new OrganizationsService(runtime, containerContents, openReconciler);
 }
 
 class OrganizationsService implements Organizations {
+  readonly memberships: OrganizationMemberships;
   private readonly dataUsageCoordinator: OrganizationDataUsageCoordinator;
   private readonly readModelCoordinator: OrganizationReadModelCoordinator;
 
   constructor(
     private readonly runtimeService: InternalRuntime,
     private readonly containerContents: ContainerContents,
+    openReconciler: () => OrganizationContentReconciler,
   ) {
     this.dataUsageCoordinator = createOrganizationDataUsageCoordinator(
       this.runtimeService,
     );
     this.readModelCoordinator = createOrganizationReadModelCoordinator(
       this.runtimeService,
+    );
+    this.memberships = createOrganizationMemberships(
+      this.runtimeService,
+      this.containerContents,
+      openReconciler,
     );
   }
 

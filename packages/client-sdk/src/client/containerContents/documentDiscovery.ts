@@ -8,6 +8,7 @@ import {
   refuteContainerDocumentTombstoneHolds,
 } from "../../data/persistence/documents/containerDocumentTombstoneHoldsPersistence";
 import { createDocumentDiscoveryEvidenceStore } from "../../data/persistence/documents/documentDiscoveryEvidencePersistence";
+import { getOrCreateOrganizationSyncPauses } from "../../data/sync/organizationSyncPauses";
 import { listContainerDocumentLanesFromApi } from "../../workflows/container-contents/documentDiscovery/containerDocumentListing";
 import { createDiscoveredDocumentVerifier } from "../../workflows/container-contents/documentDiscovery/documentDiscoveryEvidence";
 import {
@@ -21,6 +22,7 @@ import {
   type ContainerContentsWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
+import { guardDiscoveryAgainstPause } from "../../workflows/container-contents/syncPause/discoveryGuard";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,
@@ -43,6 +45,7 @@ type ExecSql = ReturnType<InternalRuntime["workflowInput"]>["infra"]["execSql"];
 
 function createDiscoveryLane(input: {
   readonly containerOrganizationId: string | undefined;
+  readonly isContainerPaused: () => boolean;
   readonly evidenceStore: ReturnType<
     typeof createDocumentDiscoveryEvidenceStore
   >;
@@ -83,13 +86,17 @@ function createDiscoveryLane(input: {
       loadHead,
       loadEpoch,
     ),
-    verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
-      containerOrganizationId,
-      loadHead,
-      loadEpoch,
-      input.evidenceStore,
-      request.onPendingDiscovery,
-    ),
+    ...guardDiscoveryAgainstPause({
+      execSql,
+      isPaused: input.isContainerPaused,
+      verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(
+        containerOrganizationId,
+        loadHead,
+        loadEpoch,
+        input.evidenceStore,
+        request.onPendingDiscovery,
+      ),
+    }),
   };
 }
 
@@ -126,6 +133,8 @@ export async function discoverContainerDocumentLanesForRuntime({
   // between these reads and the listing cannot publish old-organization
   // evidence into its replacement.
   const generation = await evidenceStore.begin();
+  const syncPauses = getOrCreateOrganizationSyncPauses(input.state.domainScope);
+  await syncPauses.load(execSql);
   const lanes: ContainerDocumentDiscoveryLane[] = [];
   for (const request of requests) {
     const stored =
@@ -133,10 +142,19 @@ export async function discoverContainerDocumentLanesForRuntime({
         execSql,
         request.containerId,
       );
-    if (stored)
+    if (!stored) continue;
+    const isContainerPaused = () =>
+      syncPauses.isContainerPaused(
+        stored.container,
+        runtimeService.workflowInput().auth.organizationId ?? null,
+      );
+    // A paused organization's container lists like one that is not stored,
+    // and a pause landing mid-listing stops its write.
+    if (!isContainerPaused())
       lanes.push(
         createDiscoveryLane({
           containerOrganizationId: stored.container.organizationId,
+          isContainerPaused,
           evidenceStore,
           execSql,
           queries,

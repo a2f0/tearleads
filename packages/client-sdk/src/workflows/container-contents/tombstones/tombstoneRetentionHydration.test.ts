@@ -8,6 +8,7 @@ import type {
 } from "@tearleads/validators/response";
 import { QUEUED_UPDATES_SQL } from "../../../../test/helpers/queuedUpdateRows";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import { defaultContainerContentsPersistence } from "../containerPersistence";
 import { insertTestPendingUpdate } from "../documentQueries/documentQueries.testFixtures";
 import {
@@ -113,7 +114,7 @@ test.each(["listing", "ingest"] as const)(
           },
           auth: { isAuthenticated: true },
           infra: { dbStatus: "ready", execSql },
-          state: { online: true },
+          state: { domainScope: createDomainScope(), online: true },
           util: { log: () => {} },
         },
       } as unknown as RemoteContainerHydrationState;
@@ -272,7 +273,7 @@ test("an unsigned metadata replacement cannot purge the dormant scope", async ()
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;
@@ -379,7 +380,7 @@ test("a never-bound dormant record re-attaches instead of purging", async () => 
         // The lost-response create was this user's own.
         auth: { isAuthenticated: true, userId: "user-1" },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;

@@ -59,6 +59,11 @@ export const principalPolicyTables = [
 
 export const identityTables = ["trustedUserIdentityPins"];
 
+export const syncEngineTables = [
+  "organizationSyncPauseRemovals",
+  "organizationSyncPauses",
+];
+
 export const keyingVerificationTables = [
   "accessManifestCheckpoints",
   "documentPurgeCheckpoints",

@@ -116,6 +116,8 @@ export interface DocumentStore {
   discardLocalState: (expectedDocumentId: string) => Promise<boolean>;
   ensureInitialized: () => Promise<boolean>;
   getSnapshot: () => DocumentSnapshot;
+  /** Whether local writes are queued that have not reached SQLite yet. */
+  hasQueuedWrites: () => boolean;
   removeAttachment: (slotId: string) => void;
   removeRow: RemoveDocumentRow;
   replaceAttachment: (

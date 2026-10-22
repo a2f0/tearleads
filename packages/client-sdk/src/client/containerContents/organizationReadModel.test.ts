@@ -55,7 +55,9 @@ test("container info reads groups strictly from the durable local projection", a
   });
   const runtime = createInternalRuntimeFixture(() => workflowInput);
   const containerContents = createContainerContents(runtime);
-  const organizations = createOrganizations(runtime, containerContents);
+  const organizations = createOrganizations(runtime, containerContents, () => {
+    throw new Error("No organization is resumed in this test");
+  });
 
   try {
     const [firstColdInfo, secondColdInfo] = await Promise.all([
@@ -139,7 +141,9 @@ test("container info does not reconcile or cross an identity scope change", asyn
   };
   const runtime = createInternalRuntimeFixture(() => workflowInput);
   const containerContents = createContainerContents(runtime);
-  const organizations = createOrganizations(runtime, containerContents);
+  const organizations = createOrganizations(runtime, containerContents, () => {
+    throw new Error("No organization is resumed in this test");
+  });
 
   try {
     const unauthenticatedLoad = containerContents.loadContainerInfo({

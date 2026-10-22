@@ -12,9 +12,17 @@ export interface OrganizationDashboardFolder {
 export interface OrganizationDashboardCard {
   /** The organization the session is currently working in. */
   readonly active: boolean;
+  /**
+   * Sync can be paused or resumed here. A personal organization never can,
+   * and the active organization, whose root the session writes to, can only
+   * be resumed if another device paused it.
+   */
+  readonly canChangeSync: boolean;
   readonly folders: ReadonlyArray<OrganizationDashboardFolder>;
   readonly name: string | null;
   readonly organizationId: string;
+  /** The user paused this organization's content syncing to their devices. */
+  readonly syncPaused: boolean;
   /** The user can reach the organization's root, so it can be made active. */
   readonly workspace: boolean;
 }
@@ -68,6 +76,8 @@ export function buildOrganizationDashboardCards(input: {
   activeOrganizationId: string | null;
   namesById: ReadonlyMap<string, string>;
   nodes: ReadonlyArray<ContainerNode>;
+  pausedOrganizationIds: ReadonlySet<string>;
+  personalOrganizationIds: ReadonlySet<string>;
 }): OrganizationDashboardCard[] {
   const nodeIds = new Set(input.nodes.map((node) => node.id));
   const foldersByOrganizationId = new Map<
@@ -90,6 +100,10 @@ export function buildOrganizationDashboardCards(input: {
   return [...foldersByOrganizationId]
     .map(([organizationId, folders]) => ({
       active: organizationId === input.activeOrganizationId,
+      canChangeSync:
+        !input.personalOrganizationIds.has(organizationId) &&
+        (organizationId !== input.activeOrganizationId ||
+          input.pausedOrganizationIds.has(organizationId)),
       folders: folders.sort(
         (left, right) =>
           Number(right.workspaceRoot) - Number(left.workspaceRoot) ||
@@ -98,6 +112,7 @@ export function buildOrganizationDashboardCards(input: {
       ),
       name: input.namesById.get(organizationId) ?? null,
       organizationId,
+      syncPaused: input.pausedOrganizationIds.has(organizationId),
       workspace: folders.some((folder) => folder.workspaceRoot),
     }))
     .sort(compareCards);

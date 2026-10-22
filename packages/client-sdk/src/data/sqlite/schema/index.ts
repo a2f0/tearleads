@@ -35,6 +35,7 @@ import {
   organizationReadModelSQLiteSchema,
   organizationReadModelTables,
 } from "./organizationReadModelTableRegistry";
+import * as organizationSyncPause from "./organizationSyncPauseSchema";
 import { principalGrantRetirements } from "./principalGrantRetirementSchema";
 import {
   principalHistoryEntries,
@@ -629,6 +630,7 @@ export const clientSqlTables: ReadonlyArray<SqlTableSchema> = [
   ...organizationReadModelTables,
   ...organizationDataUsage.organizationDataUsageTables,
   ...provisioningAttempt.organizationProvisioningAttemptTables,
+  ...organizationSyncPause.organizationSyncPauseTables,
 ];
 
 export const clientSQLiteSchema = {
@@ -665,4 +667,5 @@ export const clientSQLiteSchema = {
   ...organizationReadModelSQLiteSchema,
   ...organizationDataUsage.organizationDataUsageSQLiteSchema,
   ...provisioningAttempt.organizationProvisioningAttemptSQLiteSchema,
+  ...organizationSyncPause.organizationSyncPauseSQLiteSchema,
 };

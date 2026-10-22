@@ -5,6 +5,7 @@ import type {
   ListContainersResponse,
 } from "@tearleads/validators/response";
 import { createSignedContainerDirectory } from "../../../../test/helpers/signedContainerDirectory";
+import { createDomainScope } from "../../../data/shared/domainScope";
 import {
   createContainerParentSyncLane,
   defaultContainerContentsPersistence,
@@ -104,7 +105,7 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;
@@ -180,7 +181,7 @@ test("a fetched page cannot resurrect a container deleted before apply", async (
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;
@@ -251,7 +252,7 @@ test("a fetched page cannot overwrite a container mutated in place during fetch"
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;
@@ -326,7 +327,7 @@ test("a stale page item does not starve an independent new container", async () 
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;
@@ -409,7 +410,7 @@ test("a stale tombstone cannot delete a container restored during fetch", async 
         },
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
-        state: { online: true },
+        state: { domainScope: createDomainScope(), online: true },
         util: { log: () => {} },
       },
     } as unknown as RemoteContainerHydrationState;

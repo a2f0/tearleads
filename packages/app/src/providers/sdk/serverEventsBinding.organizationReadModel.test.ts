@@ -69,6 +69,7 @@ test("routes valid organization controls outside the domain event queue", () => 
       onOrganizationReadModelChanged: () => undefined,
       onResyncRequired: () => undefined,
       onServerEvent: (event) => genericEvents.push(event),
+      onOrganizationMembershipsChanged: () => undefined,
       onSharedWithYou: () => undefined,
     },
   );
@@ -91,6 +92,7 @@ test("routes valid organization controls outside the domain event queue", () => 
           organizationHints.push(organizationId),
         onResyncRequired: () => undefined,
         onServerEvent: (event) => genericEvents.push(event),
+        onOrganizationMembershipsChanged: () => undefined,
         onSharedWithYou: () => undefined,
       },
     );
@@ -117,6 +119,7 @@ test("drops malformed read-model controls instead of entering domain sync", () =
     onServerEvent: () => {
       genericEvents += 1;
     },
+    onOrganizationMembershipsChanged: () => undefined,
     onSharedWithYou: () => undefined,
   };
   routeIncomingWsMessage(

@@ -35,6 +35,7 @@ import { createContainersRouter } from "./routes/containers";
 import { createDocumentsRouter } from "./routes/documents";
 import { createHealthRoute } from "./routes/health";
 import { createOrganizationsRouter } from "./routes/organizations";
+import { createOrganizationMembershipsRoute } from "./routes/organizations/memberships";
 import { createPrincipalPolicyRoute } from "./routes/principals/policy";
 import { createRootRouter } from "./routes/root";
 import {
@@ -220,6 +221,14 @@ function mountRouters(
   routeApp.route(
     "/",
     createOrganizationsRouter({
+      requireAuth: deps.requireAuth,
+      runtime: deps.runtime,
+    }),
+  );
+  routeApp.route(
+    "/",
+    createOrganizationMembershipsRoute({
+      publish: deps.publish,
       requireAuth: deps.requireAuth,
       runtime: deps.runtime,
     }),

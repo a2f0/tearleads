@@ -19,6 +19,7 @@ import type {
   RemoteContainerHydrationState,
 } from "../types";
 import { containerStateMatchesFingerprint } from "./containerStateFingerprint";
+import { loadPausedContainerFilter } from "./organizationSyncPauseFilter";
 import {
   listRemoteContainerIdsWithPendingMetadataUpdates,
   listRemoteContainerIdsWithPendingStructuralIntents,
@@ -32,12 +33,26 @@ interface HydrationProgress {
   complete: boolean;
   shouldStop: boolean;
 }
+// Re-checked inside the commit: a pause from another device can land after
+// the page was filtered, and its cleanup may already have run.
+function currentUnlessPaused(
+  input: {
+    isCurrent?: (() => boolean) | undefined;
+    isPaused: (container: ListedRemoteContainerPageItem) => boolean;
+  },
+  container: ListedRemoteContainerPageItem,
+): () => boolean {
+  return () => input.isCurrent?.() !== false && !input.isPaused(container);
+}
+
 async function applyRemoteContainerPage(input: {
   childIdsByParentId: ContainerChildIndex;
   expectedContainerStates: ReadonlyMap<string, ExpectedContainerState>;
   expectedHydrationTombstones: FetchedContainerParentLanePage["expectedHydrationTombstones"];
   host: RemoteContainerHydrationHost;
   isCurrent?: (() => boolean) | undefined;
+  /** Live pause check; a pause arriving mid-page stops the commit. */
+  isPaused: (container: ListedRemoteContainerPageItem) => boolean;
   items: ReadonlyArray<ListedRemoteContainerPageItem>;
   queueParentLane: QueueContainerParentLane;
   seenContainerIds: Set<string>;
@@ -113,7 +128,7 @@ async function applyRemoteContainerPage(input: {
         containerIdsWithPendingMetadataUpdates,
         containerIdsWithPendingStructuralIntents,
         host,
-        isCurrent: input.isCurrent,
+        isCurrent: currentUnlessPaused(input, container),
         expectedHydrationTombstone:
           expectedHydrationTombstones.get(container.id) ?? null,
         prefetchedProjection: prefetchedProjections.get(container.id),
@@ -200,13 +215,18 @@ async function applyContainerParentLanePage(input: {
     host.requestDocumentPriming?.();
   }
 
+  // A paused organization's containers stay off the device. Skipping them
+  // here, after tombstones saw the full page, still lets the lane complete
+  // and its watermark advance; their children are never queued.
+  const isPaused = await loadPausedContainerFilter(state);
   const appliedPage = await applyRemoteContainerPage({
     childIdsByParentId,
     expectedContainerStates,
     expectedHydrationTombstones,
     host,
     isCurrent: input.isCurrent,
-    items: remoteContainerItems,
+    isPaused,
+    items: remoteContainerItems.filter((item) => !isPaused(item)),
     queueParentLane,
     seenContainerIds,
     state,

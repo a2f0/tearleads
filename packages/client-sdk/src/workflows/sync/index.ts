@@ -3,6 +3,15 @@ export {
   type DomainScope,
 } from "../../data/shared/domainScope";
 export { getRuntimePeerSeed } from "../../data/sync/crdtPeerSeed";
+export {
+  getOrCreateOrganizationSyncPauses,
+  isPauseRemovedDocument,
+  isRetainedWhileSyncPaused,
+  type OrganizationSyncPauseChange,
+  type OrganizationSyncPauseSubject,
+  type OrganizationSyncPauses,
+  recordPauseRemovedDocument,
+} from "../../data/sync/organizationSyncPauses";
 export { markOriginatedDocuments } from "../../data/sync/originatedDocuments";
 export type {
   DomainSyncCoordinator,

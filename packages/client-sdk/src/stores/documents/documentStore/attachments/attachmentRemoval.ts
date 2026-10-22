@@ -18,6 +18,7 @@ import {
 import { reportDocumentStoreWriteFailure } from "../reportWriteFailure";
 import {
   canWriteDocument,
+  chainQueuedWrite,
   type DocumentStoreState,
   setReadySnapshot,
 } from "../state";
@@ -198,11 +199,19 @@ export async function removeAttachmentFromDocumentStore(
 
   const writeGeneration = captureAttachmentWriteGeneration(state);
   if (!writeGeneration) return;
-  state.writeChain = state.writeChain
-    .catch(() => undefined)
-    .then(async () => persistRemovedAttachment(state, slotId, writeGeneration))
-    .catch((error: unknown) => {
-      reportDocumentStoreWriteFailure(state, ATTACHMENT_FAILURE_MESSAGE, error);
-    });
-  return state.writeChain;
+  return chainQueuedWrite(
+    state,
+    state.writeChain
+      .catch(() => undefined)
+      .then(async () =>
+        persistRemovedAttachment(state, slotId, writeGeneration),
+      )
+      .catch((error: unknown) => {
+        reportDocumentStoreWriteFailure(
+          state,
+          ATTACHMENT_FAILURE_MESSAGE,
+          error,
+        );
+      }),
+  );
 }

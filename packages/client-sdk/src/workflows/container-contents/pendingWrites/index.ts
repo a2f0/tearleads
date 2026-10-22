@@ -32,6 +32,14 @@ export type {
 } from "./pendingWritesTypes";
 
 /**
+ * Whether an item holds local work that still has to upload. A revalidation
+ * item only reports a failed read and carries no local writes.
+ */
+export function carriesLocalWrites(item: PendingWriteQueueItem): boolean {
+  return item.operations.some((operation) => operation.kind !== "revalidation");
+}
+
+/**
  * List identity-wide local state that still requires a remote write. The
  * returned diagnostic contains only navigation/display metadata and aggregate
  * counts; serialized updates, local storage keys, and upload crypto stay below

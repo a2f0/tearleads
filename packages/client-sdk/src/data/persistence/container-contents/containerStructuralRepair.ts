@@ -8,6 +8,7 @@ import {
   LOCAL_INTENT_LANES,
   localIntents,
 } from "../../sqlite/schema";
+import { sqliteRowsPerStatement } from "../../sqlite/sqliteBindBudget";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
 import { deleteContainerDocumentTombstoneHoldsForContainers } from "../documents/containerDocumentTombstoneHoldsPersistence";
 import { setDocumentProjectionContainerInTransaction } from "../documents/documentProjectionContainers";
@@ -44,6 +45,10 @@ async function loadOrganizationIdsForContainers(
   return organizationIdByContainerId;
 }
 
+// One removed container can hold any number of documents, so their ids are
+// read back in batches that fit SQLite's bind budget.
+const DOCUMENT_ID_BATCH_SIZE = sqliteRowsPerStatement(1);
+
 // A document unlinked from a removed container may keep other live links; its
 // projection then re-homes to the first remaining link (deterministic order)
 // instead of dropping to null.
@@ -52,26 +57,36 @@ async function loadFirstRemainingContainerIdByDocumentId(
   documentIds: ReadonlyArray<string>,
 ): Promise<Map<string, string>> {
   const firstRemainingContainerIdByDocumentId = new Map<string, string>();
-  if (documentIds.length === 0) {
-    return firstRemainingContainerIdByDocumentId;
-  }
-  const remainingLinks = await tx
-    .select({
-      containerId: documentContainerProjection.containerId,
-      documentId: documentContainerProjection.documentId,
-    })
-    .from(documentContainerProjection)
-    .where(inArray(documentContainerProjection.documentId, documentIds))
-    .orderBy(
-      asc(documentContainerProjection.documentId),
-      asc(documentContainerProjection.containerId),
-    );
-  for (const link of remainingLinks) {
-    if (!firstRemainingContainerIdByDocumentId.has(link.documentId)) {
-      firstRemainingContainerIdByDocumentId.set(
-        link.documentId,
-        link.containerId,
+  for (
+    let index = 0;
+    index < documentIds.length;
+    index += DOCUMENT_ID_BATCH_SIZE
+  ) {
+    // A document's links all fall in its own batch, so the first per
+    // document is still the lowest container id.
+    const remainingLinks = await tx
+      .select({
+        containerId: documentContainerProjection.containerId,
+        documentId: documentContainerProjection.documentId,
+      })
+      .from(documentContainerProjection)
+      .where(
+        inArray(
+          documentContainerProjection.documentId,
+          documentIds.slice(index, index + DOCUMENT_ID_BATCH_SIZE),
+        ),
+      )
+      .orderBy(
+        asc(documentContainerProjection.documentId),
+        asc(documentContainerProjection.containerId),
       );
+    for (const link of remainingLinks) {
+      if (!firstRemainingContainerIdByDocumentId.has(link.documentId)) {
+        firstRemainingContainerIdByDocumentId.set(
+          link.documentId,
+          link.containerId,
+        );
+      }
     }
   }
   return firstRemainingContainerIdByDocumentId;

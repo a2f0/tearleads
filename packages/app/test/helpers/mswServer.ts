@@ -269,6 +269,10 @@ const server = setupServer(
     },
   ),
   ...rootConsoleHandlers,
+  // Connect-time membership refresh: no organization is paused by default.
+  http.get("http://localhost:3001/organization-memberships", () =>
+    HttpResponse.json({ memberships: [] }),
+  ),
   http.post(
     "http://localhost:3001/containers/parent-lanes/query",
     async ({ request }) =>

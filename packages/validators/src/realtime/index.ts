@@ -16,6 +16,7 @@ export {
   WsDocumentUpdateCreatedHintSchema,
   type WsInvalidationHint,
   WsInvalidationHintSchema,
+  WsOrganizationMembershipsChangedHintSchema,
   WsSharedWithYouHintSchema,
   WsUserRegisteredHintSchema,
 } from "./wsInvalidationHints";
