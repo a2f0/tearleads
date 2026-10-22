@@ -121,3 +121,39 @@ test("root access outcome names the identity and whether anything changed", () =
     }),
   ).toBe(`Identity u1 (${FINGERPRINT}) was already not root.`);
 });
+
+test("concurrent grants record a single root access change", async () => {
+  const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
+  try {
+    await managed.migrate();
+    const [inserted] = await managed.db
+      .insert(users)
+      .values({
+        defaultOrganizationId: crypto.randomUUID(),
+        encapsulationKeyFingerprint: "cd".repeat(32),
+        encapsulationPublicKey: "kem",
+        fingerprint: FINGERPRINT,
+        signingPublicKey: "signing",
+      })
+      .returning({ id: users.id });
+    if (!inserted) {
+      throw new Error("expected inserted user");
+    }
+
+    const results = await Promise.all([
+      setIdentityRootAccess(managed.db, {
+        fingerprint: FINGERPRINT,
+        isRoot: true,
+      }),
+      setIdentityRootAccess(managed.db, {
+        fingerprint: FINGERPRINT,
+        isRoot: true,
+      }),
+    ]);
+
+    expect(results.filter((result) => result.changed)).toHaveLength(1);
+    expect(await managed.db.select().from(rootAuditEvents)).toHaveLength(1);
+  } finally {
+    await managed.close();
+  }
+}, 15_000);

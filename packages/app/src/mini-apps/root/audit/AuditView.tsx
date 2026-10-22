@@ -1,5 +1,5 @@
 import type { RootAuditEvent } from "@tearleads/client-sdk";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import {
   MiniAppButton,
   MiniAppInput,
@@ -23,7 +23,8 @@ import {
   formatRootTimestamp,
 } from "../identities/rootDisplay";
 import { useRootPage } from "../organizations/useRootPage";
-import { parseAuditSubject, ROOT_AUDIT_ACTION_LABELS } from "./auditLabels";
+import { ROOT_AUDIT_ACTION_LABELS } from "./auditLabels";
+import { useAuditSubjectDraft } from "./useAuditSubjectDraft";
 
 const COLUMNS = [
   { id: "when", header: "When", width: "10rem" },
@@ -123,15 +124,10 @@ export function AuditView({
   onSubjectChange: (subjectId: string | null) => void;
 }) {
   const tearleads = useTearleads();
-  const [draft, setDraft] = useState(subjectId ?? "");
-  const draftIsIncomplete = parseAuditSubject(draft) === undefined;
-  const updateDraft = (value: string) => {
-    setDraft(value);
-    const parsed = parseAuditSubject(value);
-    if (parsed !== undefined && parsed !== subjectId) {
-      onSubjectChange(parsed);
-    }
-  };
+  const { draft, draftIsIncomplete, updateDraft } = useAuditSubjectDraft(
+    subjectId,
+    onSubjectChange,
+  );
   const request = useCallback(
     async (cursor: string | null) => {
       const result = await tearleads.root.listAuditEvents({
