@@ -119,6 +119,7 @@ export type {
   OrganizationGroupMutationReceipt,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
+  OrganizationLeaveRequestResult,
   OrganizationMembership,
   OrganizationMemberships,
   OrganizationPolicyGrantChange,

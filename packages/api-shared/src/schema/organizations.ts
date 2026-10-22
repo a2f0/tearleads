@@ -71,6 +71,9 @@ export const organizations = pgTable(
  * - `syncPausedAt`: When the member paused this organization's content
  *   syncing to their devices, or null while it syncs. Only the member sets it;
  *   deactivation clears it. It never affects access.
+ * - `leaveRequest`: The member's pending signed request to leave, as JSON, or
+ *   null. Only the member files or withdraws it; deactivation clears it.
+ *   Administrators verify its signature before acting on it.
  * - `createdAt` / `updatedAt`: Server-side row timestamps.
  */
 export const organizationRosterEntries = pgTable(
@@ -88,6 +91,7 @@ export const organizationRosterEntries = pgTable(
     disabledAt: timestamp("disabled_at"),
     disabledByUserId: uuid("disabled_by_user_id"),
     syncPausedAt: timestamp("sync_paused_at"),
+    leaveRequest: text("leave_request"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },

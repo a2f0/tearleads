@@ -15,7 +15,12 @@ function membership(
   organizationId: string,
   syncPaused: boolean,
 ): OrganizationMembershipResponse {
-  return { isPersonalOrganizationOwner: false, organizationId, syncPaused };
+  return {
+    isPersonalOrganizationOwner: false,
+    leaveRequestedAt: null,
+    organizationId,
+    syncPaused,
+  };
 }
 
 function createHost(

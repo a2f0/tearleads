@@ -14,6 +14,7 @@ import type { OrganizationDirectoryUserResponse } from "@tearleads/validators/re
 import { and, eq, inArray, isNull, ne } from "drizzle-orm";
 import { uniqueSortedStrings } from "../../utils/array";
 import { OrganizationManagerError } from "./errors";
+import { readStoredLeaveRequest } from "./leaveRequest";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import { recordOrganizationReadModelChangeAudience } from "./readModelChanges";
 import { listValidRosterProfileDocumentIds } from "./rosterProfileDocumentValidity";
@@ -39,6 +40,7 @@ export function toOrganizationDirectoryUser(input: {
     status: input.rosterEntry.status,
     profileDocumentId: input.rosterEntry.profileDocumentId,
     joinedAt: input.rosterEntry.joinedAt.toISOString(),
+    leaveRequest: readStoredLeaveRequest(input.rosterEntry.leaveRequest),
     updatedAt: input.rosterEntry.updatedAt.toISOString(),
     disabledAt: input.rosterEntry.disabledAt?.toISOString() ?? null,
     disabledByUserId: input.rosterEntry.disabledByUserId,
@@ -156,9 +158,10 @@ async function disableOrganizationRosterEntries(input: {
       status: "disabled",
       disabledAt: now,
       disabledByUserId: input.disabledByUserId,
-      // A member's own sync choices end with their membership; rejoining
-      // starts syncing again.
+      // A member's own choices end with their membership: rejoining starts
+      // syncing again, and a fulfilled leave request is cleared.
       syncPausedAt: null,
+      leaveRequest: null,
       updatedAt: now,
     })
     .where(

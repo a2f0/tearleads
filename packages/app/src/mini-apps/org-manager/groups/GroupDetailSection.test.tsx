@@ -37,6 +37,7 @@ test("member controls protect the owner and keep removal progress off Add", () =
     status: "active",
     createdAt: group.createdAt,
     joinedAt: group.createdAt,
+    leaveRequest: null,
     updatedAt: group.createdAt,
     profileDocumentId: null,
     disabledAt: null,

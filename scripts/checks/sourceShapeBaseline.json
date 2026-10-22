@@ -71,8 +71,8 @@
       "bytes": 23986
     },
     "docs/openapi.json": {
-      "lines": 65836,
-      "bytes": 2668408
+      "lines": 66325,
+      "bytes": 2685785
     },
     "docs/protocol-specification.md": {
       "lines": 748,
@@ -95,8 +95,8 @@
       "bytes": 24635
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 1991,
-      "bytes": 63705
+      "lines": 2020,
+      "bytes": 64784
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -219,8 +219,8 @@
       "bytes": 17971
     },
     "packages/app/src/mini-apps/org-manager/hooks/useOrgManagerModel.ts": {
-      "lines": 540,
-      "bytes": 17432
+      "lines": 542,
+      "bytes": 17526
     },
     "packages/app/test/helpers/mswServer.ts": {
       "lines": 815,
@@ -251,8 +251,8 @@
       "bytes": 16817
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 594,
-      "bytes": 17531
+      "lines": 595,
+      "bytes": 17565
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 559,
@@ -323,8 +323,8 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 23727,
-      "bytes": 969059
+      "lines": 23964,
+      "bytes": 976883
     },
     "packages/validators/src/response/index.ts": {
       "lines": 545,

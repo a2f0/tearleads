@@ -1,8 +1,10 @@
 import {
   type OrganizationContentHost,
+  type OrganizationLeaveRequestResult,
   type OrganizationMembership,
   type OrganizationSyncPauseResult,
   refreshOrganizationMemberships,
+  setOrganizationLeaveRequested,
   setOrganizationSyncPaused,
 } from "../../workflows/organizations";
 import {
@@ -37,6 +39,15 @@ export interface OrganizationMemberships {
     organizationId: string,
     paused: boolean,
   ): Promise<OrganizationSyncPauseResult>;
+  /**
+   * Asks the organization's administrators to remove the user, or withdraws
+   * that request. Signed with the user's identity key; an administrator still
+   * has to approve it.
+   */
+  setLeaveRequested(
+    organizationId: string,
+    requested: boolean,
+  ): Promise<OrganizationLeaveRequestResult>;
   /** The organizations paused on this device, read from local storage. */
   loadPausedOrganizationIds(): Promise<ReadonlySet<string>>;
   /** Notifies when the paused set for the current scope changes. */
@@ -194,6 +205,24 @@ export function createOrganizationMemberships(
         ...membershipInput(runtime),
         organizationId,
         paused,
+      });
+    },
+    async setLeaveRequested(organizationId, requested) {
+      const runtime = runtimeService.workflowInput();
+      const { userId } = runtime.auth;
+      const { signingKeyPair } = runtime.crypto;
+      if (!canReachServer(runtime) || !userId || !signingKeyPair) {
+        return {
+          httpStatus: null,
+          message: "Connect to ask to leave an organization.",
+          status: "failed",
+        };
+      }
+      return setOrganizationLeaveRequested({
+        apiClient: runtime.apiClient,
+        organizationId,
+        requested,
+        signer: { signingKeyPair, userId },
       });
     },
     async loadPausedOrganizationIds() {

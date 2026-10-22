@@ -1,8 +1,9 @@
 import type {
+  OrganizationLeaveRequestResult,
   OrganizationMembership,
   OrganizationSyncPauseResult,
 } from "@tearleads/client-sdk";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   useTearleads,
   useTearleadsRuntime,
@@ -14,18 +15,19 @@ const EMPTY_IDS: ReadonlySet<string> = new Set();
 export interface OrganizationSyncChoices {
   readonly changingOrganizationId: string | null;
   readonly error: string | null;
+  /** The user's memberships as the server last reported them, or null. */
+  readonly memberships: ReadonlyMap<string, OrganizationMembership> | null;
   readonly pausedOrganizationIds: ReadonlySet<string>;
   readonly personalOrganizationIds: ReadonlySet<string>;
+  setLeaveRequested(organizationId: string, requested: boolean): Promise<void>;
   setSyncPaused(organizationId: string, paused: boolean): Promise<void>;
 }
 
-function personalIds(
+function byOrganizationId(
   memberships: readonly OrganizationMembership[],
-): ReadonlySet<string> {
-  return new Set(
-    memberships.flatMap((membership) =>
-      membership.isPersonalOrganizationOwner ? [membership.organizationId] : [],
-    ),
+): ReadonlyMap<string, OrganizationMembership> {
+  return new Map(
+    memberships.map((membership) => [membership.organizationId, membership]),
   );
 }
 
@@ -40,35 +42,38 @@ function pauseErrorMessage(result: OrganizationSyncPauseResult): string | null {
   }
 }
 
-/**
- * The user's own sync choices for each organization: the paused set read from
- * this device (so it works offline), the personal organizations the server
- * reports, and the pause/resume action.
- */
-export function useOrganizationSyncChoices(): OrganizationSyncChoices {
+function leaveErrorMessage(
+  result: OrganizationLeaveRequestResult,
+): string | null {
+  return result.status === "updated"
+    ? null
+    : result.message || ORGANIZATIONS_LABELS.leaveRequestFailed;
+}
+
+/** The paused set on this device and the memberships the server reports. */
+function useMembershipState() {
   const tearleads = useTearleads();
   const scopeKey = useTearleadsRuntime().state.domainScope;
   const [pausedOrganizationIds, setPausedOrganizationIds] =
     useState<ReadonlySet<string>>(EMPTY_IDS);
-  const [personalOrganizationIds, setPersonalOrganizationIds] =
-    useState<ReadonlySet<string>>(EMPTY_IDS);
-  const [changingOrganizationId, setChangingOrganizationId] = useState<
-    string | null
-  >(null);
-  const [error, setError] = useState<string | null>(null);
+  const [memberships, setMemberships] = useState<ReadonlyMap<
+    string,
+    OrganizationMembership
+  > | null>(null);
 
   useEffect(() => {
     let active = true;
-    const memberships = tearleads.organizations.memberships;
+    const membershipConduit = tearleads.organizations.memberships;
     const reloadPaused = () => {
-      void memberships.loadPausedOrganizationIds().then((ids) => {
+      void membershipConduit.loadPausedOrganizationIds().then((ids) => {
         if (active) setPausedOrganizationIds(new Set(ids));
       });
     };
-    const unsubscribe = memberships.subscribeToSyncPauses(reloadPaused);
+    const unsubscribe = membershipConduit.subscribeToSyncPauses(reloadPaused);
     reloadPaused();
-    void memberships.refresh().then((list) => {
-      if (active && list) setPersonalOrganizationIds(personalIds(list));
+    setMemberships(null);
+    void membershipConduit.refresh().then((list) => {
+      if (active && list) setMemberships(byOrganizationId(list));
     });
     return () => {
       active = false;
@@ -76,30 +81,87 @@ export function useOrganizationSyncChoices(): OrganizationSyncChoices {
     };
   }, [scopeKey, tearleads]);
 
-  const setSyncPaused = useCallback(
-    async (organizationId: string, paused: boolean) => {
+  return { memberships, pausedOrganizationIds, setMemberships, tearleads };
+}
+
+/**
+ * The user's own choices for each organization: the paused set read from this
+ * device (so it works offline), the memberships the server reports, and the
+ * pause/resume and leave-request actions. One change runs at a time.
+ */
+export function useOrganizationSyncChoices(): OrganizationSyncChoices {
+  const { memberships, pausedOrganizationIds, setMemberships, tearleads } =
+    useMembershipState();
+  const [changingOrganizationId, setChangingOrganizationId] = useState<
+    string | null
+  >(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const runChange = useCallback(
+    async (organizationId: string, change: () => Promise<string | null>) => {
       setChangingOrganizationId(organizationId);
       setError(null);
       try {
-        const result = await tearleads.organizations.memberships.setSyncPaused(
-          organizationId,
-          paused,
-        );
-        setError(pauseErrorMessage(result));
+        setError(await change());
       } catch {
         setError(ORGANIZATIONS_LABELS.syncChangeFailed);
       } finally {
         setChangingOrganizationId(null);
       }
     },
-    [tearleads],
+    [],
+  );
+
+  const setSyncPaused = useCallback(
+    (organizationId: string, paused: boolean) =>
+      runChange(organizationId, async () =>
+        pauseErrorMessage(
+          await tearleads.organizations.memberships.setSyncPaused(
+            organizationId,
+            paused,
+          ),
+        ),
+      ),
+    [runChange, tearleads],
+  );
+
+  const setLeaveRequested = useCallback(
+    (organizationId: string, requested: boolean) =>
+      runChange(organizationId, async () => {
+        const result =
+          await tearleads.organizations.memberships.setLeaveRequested(
+            organizationId,
+            requested,
+          );
+        if (result.status === "updated") {
+          setMemberships((current) =>
+            new Map(current).set(organizationId, result.membership),
+          );
+        }
+        return leaveErrorMessage(result);
+      }),
+    [runChange, setMemberships, tearleads],
+  );
+
+  const personalOrganizationIds = useMemo(
+    () =>
+      new Set(
+        [...(memberships?.values() ?? [])].flatMap((membership) =>
+          membership.isPersonalOrganizationOwner
+            ? [membership.organizationId]
+            : [],
+        ),
+      ),
+    [memberships],
   );
 
   return {
     changingOrganizationId,
     error,
+    memberships,
     pausedOrganizationIds,
     personalOrganizationIds,
+    setLeaveRequested,
     setSyncPaused,
   };
 }

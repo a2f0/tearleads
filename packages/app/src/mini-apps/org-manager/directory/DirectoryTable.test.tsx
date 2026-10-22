@@ -76,6 +76,7 @@ const rosterUser: OrganizationDirectoryUser = {
   isPersonalOrganizationOwner: false,
   isSelf: false,
   joinedAt: "2026-05-20T12:00:00.000Z",
+  leaveRequest: null,
   profileDocumentId: "550e8400-e29b-41d4-a716-446655440001",
   signingKeyFingerprint: "signing-fingerprint",
   signingPublicKey: "signing-public-key",

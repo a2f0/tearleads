@@ -37,6 +37,10 @@ export {
 } from "./groupShare";
 export { deleteOrganizationGroup } from "./groups/deleteOrganizationGroup";
 export {
+  type OrganizationLeaveRequestResult,
+  setOrganizationLeaveRequested,
+} from "./memberships/leaveRequest";
+export {
   forgetPausedOrganizationContent,
   type OrganizationContentHost,
   type OrganizationMembership,

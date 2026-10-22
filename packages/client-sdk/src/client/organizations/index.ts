@@ -78,6 +78,7 @@ export type {
   OrganizationGroupMembers,
   OrganizationGroupPolicyHistory,
   OrganizationGroupSummary,
+  OrganizationLeaveRequestResult,
   OrganizationMembership,
   OrganizationPolicyGrantChange,
   OrganizationPolicyGroupChange,
