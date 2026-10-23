@@ -12,6 +12,7 @@ import StatusNotice from "../components/StatusNotice.astro";
 import { appUrl } from "../config";
 import Layout from "../layouts/Layout.astro";
 import { startingSyncPrice } from "../pricing";
+import { availablePlatforms, homeStructuredData } from "../structuredData";
 import "../styles/home.css";
 import "../styles/homeSections.css";
 import { tagline, taglineLines } from "../tagline";
@@ -19,15 +20,16 @@ import { tagline, taglineLines } from "../tagline";
 const metaItems = [
   "Free on your device",
   `Sync from ${startingSyncPrice}/month`,
-  "macOS",
-  "Linux",
-  "Web",
+  ...availablePlatforms,
 ];
+const description =
+  "Notes, contacts, and files encrypted on your device. Start without a signup, email, or password. Free on your device; paid plans add end-to-end encrypted sync. macOS, Linux, web.";
 ---
 
 <Layout
-  title={`Tearleads | ${tagline}`}
-  description="Notes, contacts, and files encrypted on your device. Start without a signup, email, or password. Free on your device; paid plans add end-to-end encrypted sync. macOS, Linux, web."
+  title={`${tagline} | Tearleads`}
+  description={description}
+  structuredData={homeStructuredData(description)}
 >
   <div class="site-page home">
     <section class="home-hero" aria-labelledby="page-title">

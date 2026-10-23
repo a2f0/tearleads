@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { PRODUCTION_URL_TAGS, STAGING_ROBOTS_META } from "./injectTierMeta";
 
 async function write(path: string, contents: string, executable = false) {
   await mkdir(dirname(path), { recursive: true });
@@ -74,10 +75,18 @@ case "$1 $2" in
     test -z "\${SENTRY_AUTH_TOKEN:-}"
     test "$BUN_PUBLIC_API_BASE_URL" = "https://$WEB_DEPLOY_API_HOSTNAME"
     umask 077
-    printf 'build|%s\\n' "$BUN_PUBLIC_APP_VARIANT" >> "$WEB_DEPLOY_LOG"
+    printf 'build|%s|%s\\n' "$BUN_PUBLIC_APP_VARIANT" "$APP_WEB_TIER" >> "$WEB_DEPLOY_LOG"
     rm -rf dist
     mkdir -p dist/pdfjs/current
     printf '%s' "$BUN_PUBLIC_APP_VARIANT" > dist/index.html
+    # Mirrors scripts/injectTierMeta.ts, or breaks it for a failure case.
+    case "$APP_WEB_TIER:$WEB_DEPLOY_FAILURE" in
+      staging:missing-noindex | prod:missing-canonical) ;;
+      staging:staging-canonical | prod:production-noindex)
+        printf '%s' '${PRODUCTION_URL_TAGS}${STAGING_ROBOTS_META}' >> dist/index.html ;;
+      staging:*) printf '%s' '${STAGING_ROBOTS_META}' >> dist/index.html ;;
+      prod:*) printf '%s' '${PRODUCTION_URL_TAGS}' >> dist/index.html ;;
+    esac
     printf 'app code' > "dist/chunk-$BUN_PUBLIC_APP_VARIANT.js"
     if [[ "$WEB_DEPLOY_FAILURE" == missing-script ]]; then
       rm "dist/chunk-$BUN_PUBLIC_APP_VARIANT.js"
@@ -152,7 +161,7 @@ test.each(["staging", "production"] as const)(
       for (const variant of ["app", "demo"] as const) {
         const published = join(fixture.root, `published-${variant}`);
         expect(await readFile(join(published, "index.html"), "utf8")).toBe(
-          variant,
+          `${variant}${tier === "staging" ? STAGING_ROBOTS_META : PRODUCTION_URL_TAGS}`,
         );
         expect(
           await readFile(join(published, `chunk-${variant}.js`), "utf8"),
@@ -166,6 +175,11 @@ test.each(["staging", "production"] as const)(
         expect(headers).toContain(
           "/chunk-*\n  Cache-Control: public, max-age=31536000, immutable",
         );
+        if (tier === "staging") {
+          expect(headers).toEndWith("/*\n  X-Robots-Tag: noindex, nofollow\n");
+        } else {
+          expect(headers).not.toContain("X-Robots-Tag");
+        }
         await expect(
           stat(
             join(published, `chunk-${variant === "app" ? "demo" : "app"}.js`),
@@ -173,6 +187,8 @@ test.each(["staging", "production"] as const)(
         ).rejects.toThrow();
       }
       const calls = await readFile(fixture.log, "utf8");
+      expect(calls).toContain(`build|app|${wranglerTier}`);
+      expect(calls).toContain(`build|demo|${wranglerTier}`);
       expect(calls).toContain(`--project web-${tier}`);
       expect(calls).toContain(`--dist ${tier}-app`);
       expect(calls).toContain(`publish|app|${wranglerTier}`);
@@ -194,10 +210,19 @@ test.each(["staging", "production"] as const)(
   },
 );
 
-test.each(["missing-map", "missing-script", "multiple-scripts", "upload"])(
-  "%s failure stops publication before anything is published",
-  async (failure) => {
-    const fixture = await deployFixture("staging", failure);
+test.each([
+  ["staging", "missing-map"],
+  ["staging", "missing-script"],
+  ["staging", "multiple-scripts"],
+  ["staging", "upload"],
+  ["staging", "missing-noindex"],
+  ["staging", "staging-canonical"],
+  ["production", "production-noindex"],
+  ["production", "missing-canonical"],
+] as const)(
+  "%s %s failure stops publication before anything is published",
+  async (tier, failure) => {
+    const fixture = await deployFixture(tier, failure);
     try {
       const result = fixture.run();
       expect(result.exitCode).not.toBe(0);

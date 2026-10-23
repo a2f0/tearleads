@@ -69,6 +69,21 @@ instructions for [macOS](../app-electrobun/README.md#macos-releases),
 [Linux from Docker](../app-electrobun/README.md#linux-releases-from-docker), and
 [Windows](../app-electrobun/README.md#windows-releases-from-github-actions).
 
+## Search and link previews
+
+Every page carries Open Graph and Twitter card tags and the `og-image.png`
+preview that the agent-tool `website` image target renders from
+`assets/brand`. Indexable pages also name their `https://tearleads.com`
+canonical URL and `og:url`; staging pages and drafts carry a robots tag
+instead. The home page adds a schema.org graph from `src/structuredData.ts`.
+`src/seoIntegration.ts` writes the crawler files for the build's
+`PUBLIC_ENVIRONMENT`: production gets `robots.txt` with its `Sitemap` line and
+a `sitemap.xml` of every page's canonical URL; staging gets a `robots.txt`
+without a sitemap, a `noindex, nofollow` robots tag on every page, and
+`X-Robots-Tag: noindex, nofollow` added to the `/*` rule in the built
+`_headers`. Staging never uses `Disallow`, which would hide the noindex from
+crawlers.
+
 ## Continuity gallery
 
 ### Local website screenshots

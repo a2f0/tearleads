@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { withStagingNoindex } from "./seo";
 
 async function readReadyUrl(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
@@ -26,7 +27,12 @@ for (const tier of ["staging", "prod"]) {
     const website = resolve(import.meta.dir, "..");
     const assets = resolve(root, "assets");
     await mkdir(assets);
-    await cp(resolve(website, "public/_headers"), resolve(assets, "_headers"));
+    // Staging builds add their noindex header (src/seoIntegration.ts).
+    const headers = await Bun.file(resolve(website, "public/_headers")).text();
+    await Bun.write(
+      resolve(assets, "_headers"),
+      tier === "staging" ? withStagingNoindex(headers) : headers,
+    );
     for (const [path, content] of [
       ["index.html", "<html>website fixture</html>"],
       ["features/index.html", "<html>feature fixture</html>"],
@@ -107,6 +113,9 @@ for (const tier of ["staging", "prod"]) {
         expect(response.status, path).toBe(status);
         if (policy)
           expect(response.headers.get("Cache-Control"), path).toBe(policy);
+        expect(response.headers.get("X-Robots-Tag"), path).toBe(
+          tier === "staging" ? "noindex, nofollow" : null,
+        );
       }
     } finally {
       clearTimeout(timer);
