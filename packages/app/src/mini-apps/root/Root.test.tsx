@@ -437,18 +437,24 @@ test("the audit trail pages events, filters to a subject, and links to targets",
     });
     expect(within(table).getByText("Viewed identity")).toBeTruthy();
 
-    fireEvent.click(within(table).getByTitle(member.userId));
-    await view.findByRole("table", { name: "Identity" });
-    fireEvent.click(view.getByRole("button", { name: "Audit activity" }));
-    const filtered = await view.findByRole("table", { name: "Audit events" });
-    await within(filtered).findByText("Viewed identity");
-    expect(
+    const filterValue = () =>
       (
         view.getByRole("textbox", {
           name: "Filter by identity or organization ID",
         }) as HTMLInputElement
-      ).value,
-    ).toBe(member.userId);
+      ).value;
+    fireEvent.click(within(table).getByTitle(member.userId));
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    const returned = await view.findByRole("table", { name: "Audit events" });
+    expect(filterValue()).toBe(member.userId);
+
+    fireEvent.click(within(returned).getByTitle(member.userId));
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(view.getByRole("button", { name: "Audit activity" }));
+    const filtered = await view.findByRole("table", { name: "Audit events" });
+    await within(filtered).findByText("Viewed identity");
+    expect(filterValue()).toBe(member.userId);
   } finally {
     restore();
   }

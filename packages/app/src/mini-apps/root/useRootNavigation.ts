@@ -3,10 +3,37 @@ import { useCallback } from "react";
 import {
   IDENTITIES_ROOT_ROUTE,
   ORGANIZATIONS_ROOT_ROUTE,
+  type RootReturn,
   type RootRoute,
   type RootView,
   rootRouteForView,
 } from "./routes";
+
+/** The return a detail opened from `route` carries, so Back comes back here. */
+function returnTo(route: RootRoute): RootReturn {
+  if (route.view === "audit")
+    return {
+      returnView: "audit",
+      ...(route.subjectId ? { returnSubjectId: route.subjectId } : {}),
+    };
+  if (route.view !== "organizations" || !route.returnView) return {};
+  return {
+    returnView: route.returnView,
+    ...(route.returnSubjectId
+      ? { returnSubjectId: route.returnSubjectId }
+      : {}),
+  };
+}
+
+function routeForReturn(
+  { returnSubjectId, returnView }: RootReturn,
+  fallback: RootRoute,
+): RootRoute {
+  if (returnView === "reports") return { view: "reports" };
+  if (returnView === "audit")
+    return { subjectId: returnSubjectId ?? null, view: "audit" };
+  return fallback;
+}
 
 export function useRootNavigation(
   route: RootRoute,
@@ -22,11 +49,9 @@ export function useRootNavigation(
         userId,
         view: "identities",
         ...(route.view === "organizations" && route.organizationId
-          ? {
-              returnOrganizationId: route.organizationId,
-              ...(route.returnView ? { returnView: route.returnView } : {}),
-            }
+          ? { returnOrganizationId: route.organizationId }
           : {}),
+        ...returnTo(route),
       }),
     [route, setRoute],
   );
@@ -35,14 +60,19 @@ export function useRootNavigation(
   const closeIdentity = useCallback(
     () =>
       setRoute(
-        route.view === "identities" && route.returnOrganizationId
-          ? {
-              view: "organizations",
-              organizationId: route.returnOrganizationId,
-              tab: "identities",
-              ...(route.returnView ? { returnView: route.returnView } : {}),
-            }
-          : IDENTITIES_ROOT_ROUTE,
+        route.view !== "identities"
+          ? IDENTITIES_ROOT_ROUTE
+          : route.returnOrganizationId
+            ? {
+                view: "organizations",
+                organizationId: route.returnOrganizationId,
+                tab: "identities",
+                ...(route.returnView ? { returnView: route.returnView } : {}),
+                ...(route.returnSubjectId
+                  ? { returnSubjectId: route.returnSubjectId }
+                  : {}),
+              }
+            : routeForReturn(route, IDENTITIES_ROOT_ROUTE),
         { replace: true },
       ),
     [route, setRoute],
@@ -50,14 +80,18 @@ export function useRootNavigation(
 
   const openOrganization = useCallback(
     (organizationId: string) =>
-      setRoute({ view: "organizations", organizationId }),
-    [setRoute],
+      setRoute({
+        view: "organizations",
+        organizationId,
+        ...(route.view === "audit" ? returnTo(route) : {}),
+      }),
+    [route, setRoute],
   );
   const closeOrganization = useCallback(
     () =>
       setRoute(
-        route.view === "organizations" && route.returnView === "reports"
-          ? { view: "reports" }
+        route.view === "organizations"
+          ? routeForReturn(route, ORGANIZATIONS_ROOT_ROUTE)
           : ORGANIZATIONS_ROOT_ROUTE,
         { replace: true },
       ),
