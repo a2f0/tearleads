@@ -105,6 +105,11 @@ test("every root operation records who asked for what before it answers", async 
       expected: {},
     },
     {
+      action: "root.reports.opsHealth.get",
+      path: "/root/reports/ops-health",
+      expected: {},
+    },
+    {
       action: "root.auditEvents.list",
       path: `/root/audit-events?subjectId=${member.userId}`,
       expected: { filter: `subjectId=${member.userId}` },

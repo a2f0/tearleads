@@ -3,6 +3,7 @@ import type { SessionEnv } from "../../middleware/session";
 import { createRootAuditRoute } from "./audit";
 import { createRootDataUsageRoute } from "./dataUsage";
 import { createRootIdentitiesRoute } from "./identities";
+import { createRootOpsHealthRoute } from "./opsHealth";
 import { createRootOrganizationsRoute } from "./organizations";
 import type { RootRouterDeps } from "./shared";
 
@@ -21,6 +22,8 @@ export function createRootRouter(deps: RootRouterDeps) {
   rootRouter.route("/", createRootOrganizationsRoute(deps));
 
   rootRouter.route("/", createRootDataUsageRoute(deps));
+
+  rootRouter.route("/", createRootOpsHealthRoute(deps));
 
   rootRouter.route("/", createRootAuditRoute(deps));
 

@@ -236,6 +236,7 @@ const EXPECTED_ROOT_VALUE_EXPORTS = [
   "loadOrganizationBillingHistory",
   "loadOrganizationBillingManagementUrl",
   "loadRootIdentity",
+  "loadRootOpsHealthReport",
   "loadRootOrganization",
   "loadRootOrganizationDataUsage",
   "localKeyringScopeKey",

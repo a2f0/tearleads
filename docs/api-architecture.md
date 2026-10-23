@@ -118,6 +118,7 @@ generated OpenAPI contract):
 | Search and page platform organizations by name or exact ID | `GET /root/organizations` |
 | Read an organization's persisted billing, Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
 | Page an organization's roster identities, including disabled entries | `GET /root/organizations/:organizationId/identities` |
+| Report billing maintenance trouble across organizations: failing, overdue or lapsed-lease Stripe seat syncs, failed or overdue trial expiries, overdue or lapsed purges, and trials ending and purges falling due within seven days (each section capped at 50 rows) | `GET /root/reports/ops-health` |
 | Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
 
 These routes run `requireAuth` then `requireRoot`, which admits only identities

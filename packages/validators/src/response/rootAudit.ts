@@ -22,6 +22,7 @@ export const ROOT_AUDIT_ACTIONS = [
   "root.organizations.identities.list",
   "root.organizations.list",
   "root.reports.dataUsage.list",
+  "root.reports.opsHealth.get",
 ] as const;
 
 export const RootAuditActionSchema = z.literal(ROOT_AUDIT_ACTIONS);

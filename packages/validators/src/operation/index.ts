@@ -290,6 +290,7 @@ export {
   listRootAuditEventsOperation,
   type RootAuditEventsQuery,
 } from "./rootAudit";
+export { getRootOpsHealthReportOperation } from "./rootOpsHealth";
 export {
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,

@@ -15,6 +15,7 @@ export const ROOT_AUDIT_ACTION_LABELS: Record<
   "root.organizations.identities.list": "Viewed organization roster",
   "root.organizations.list": "Listed organizations",
   "root.reports.dataUsage.list": "Viewed data usage report",
+  "root.reports.opsHealth.get": "Viewed operations health report",
 };
 
 const UUID_PATTERN =

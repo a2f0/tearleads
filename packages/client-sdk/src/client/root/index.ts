@@ -7,6 +7,7 @@ import {
   listRootOrganizationIdentities,
   listRootOrganizations,
   loadRootIdentity,
+  loadRootOpsHealthReport,
   loadRootOrganization,
   loadRootOrganizationDataUsage,
   type RootAuditApi,
@@ -19,6 +20,8 @@ import {
   type RootIdentitiesQueryInput,
   type RootIdentityDetail,
   type RootIdentityOrganization,
+  type RootOpsHealthApi,
+  type RootOpsHealthReport,
   type RootOrganizationDetail,
   type RootOrganizationIdentitiesPage,
   type RootOrganizationPageQueryInput,
@@ -42,6 +45,7 @@ import type { Session } from "../session/sessionTypes";
 type RootApi = RootIdentitiesApi &
   RootOrganizationsApi &
   RootDataUsageApi &
+  RootOpsHealthApi &
   RootAuditApi;
 
 export interface Root {
@@ -55,6 +59,8 @@ export interface Root {
   listDataUsageReport(
     query?: RootOrganizationsQueryInput,
   ): Promise<RootRequestOutcome<RootDataUsageReportPage>>;
+  /** Seat-sync, trial-expiry and purge trouble across every organization. */
+  loadOpsHealthReport(): Promise<RootRequestOutcome<RootOpsHealthReport>>;
   listOrganizations(
     query?: RootOrganizationsQueryInput,
   ): Promise<RootRequestOutcome<RootOrganizationsPage>>;
@@ -203,6 +209,7 @@ export function createRoot(runtimeService: RootRuntime): Root {
       guarded((api) => loadRootOrganizationDataUsage(api, organizationId)),
     listDataUsageReport: (query) =>
       guarded((api) => listRootDataUsageReport(api, query)),
+    loadOpsHealthReport: () => guarded((api) => loadRootOpsHealthReport(api)),
     listOrganizations: (query) =>
       guarded((api) => listRootOrganizations(api, query)),
     loadOrganization: (organizationId) =>
