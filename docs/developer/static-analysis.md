@@ -15,7 +15,9 @@ retains its own push timing row. The branch check reads the pushed refs, not
 the checked-out branch, so `git push origin HEAD:<name>` and detached pushes
 are covered while deletions and tags are skipped. Hooks act only in a clone
 where `install-hooks.sh` ran, so CI's `Lint` job checks every pull request's
-branch name as well.
+branch name as well. Detached pre-commit checks skip only branch naming; the
+file, source-shape, binary, and staged-content checks still run. Push through a
+configured named remote such as `origin`; URL pushes fail before the full gate.
 
 Both gates need the mise-pinned Java, TLA+, and oasdiff tools listed in
 `AGENTS.md`, plus a fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`).
@@ -40,8 +42,10 @@ hook that predates the guard. Use
 Branch names and binary checks use shared agent-tool commands with the policy
 in `agent-tool.json`. Commit trust checks require a present signature and reject
 coauthor trailers on commits newly admitted to the push remote; commits already
-reachable from any of that remote's branches are excluded. Staged commit messages
-also reject coauthor trailers and retain the full pinned commitlint rules.
+reachable from any of that remote's branches are excluded. New branches also
+exclude local `main`, preserving the baseline when a remote has no tracking refs.
+Commit messages retain the full pinned commitlint rules; the committed message
+is authoritative for the pre-push trailer check after Git's cleanup.
 Binary and source-shape checks still inspect each pushed tree range.
 
 OpenAPI compatibility exceptions expire when the comparison base contains the

@@ -39,17 +39,23 @@ test("rejects any named branch without a conventional type and short name", () =
     "feat/invalid..ref",
     "feat/foo.lock",
     `feat/${"a".repeat(46)}`,
-    // Option-like names are still names, never a cue to lint the checkout.
-    "--",
-    "-x",
-    "--help",
     // An explicit empty name is linted too; only no names at all falls back to
     // the checked-out branch.
     "",
   ]) {
     const { code, output } = lint("feat/valid", name);
     expect(code, name).toBe(1);
-    expect(output.length).toBeGreaterThan(0);
+    const report = JSON.parse(output);
+    expect(report.branches[1].name).toBe(name);
+    expect(report.branches[1].errors.length).toBeGreaterThan(0);
+  }
+});
+
+test("option-like positional inputs are rejected by the CLI argument contract", () => {
+  for (const name of ["--", "-x", "--help"]) {
+    const result = lint("feat/valid", name);
+    expect(result.code).toBe(1);
+    expect(result.output).toContain("Usage: branch check");
   }
 });
 

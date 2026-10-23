@@ -11,5 +11,3 @@ echo "Linting commit message..."
 bunx --no-install commitlint \
   --config "$REPO_ROOT/commitlint.config.mts" \
   --edit "$MESSAGE_FILE"
-
-bun run agent-tool commits check --message-file "$MESSAGE_FILE"

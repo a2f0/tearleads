@@ -6,8 +6,14 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 cd "$REPO_ROOT"
 
-echo "Linting branch name..."
-bun run lint:branch-name
+# Detached commits (for example an interactive amend) have no branch to name.
+branch_name=$(git branch --show-current)
+if [ -n "$branch_name" ]; then
+  echo "Linting branch name..."
+  bun run lint:branch-name
+else
+  echo "Skipping branch naming on detached HEAD."
+fi
 
 echo "Checking file names..."
 bun run lint:files

@@ -18,6 +18,10 @@ fi
 cd "$REPO_ROOT"
 
 push_remote=${1:-}
+if ! git remote get-url "$push_remote" >/dev/null 2>&1; then
+  echo "Error: push through a configured named remote (for example origin), not a URL." >&2
+  exit 1
+fi
 zero_sha="0000000000000000000000000000000000000000"
 
 refs_file=$(mktemp)
@@ -95,7 +99,7 @@ while read -r _ local_sha _ remote_sha; do
   # include commits already accepted on another remote branch.
   if [ "$remote_sha" = "$zero_sha" ]; then
     bun run agent-tool commits check --range "$local_sha" \
-      --exclude-remotes "$push_remote" </dev/null
+      --exclude main --exclude-remotes "$push_remote" </dev/null
   else
     bun run agent-tool commits check --range "$local_sha" \
       --exclude "$remote_sha" --exclude-remotes "$push_remote" </dev/null

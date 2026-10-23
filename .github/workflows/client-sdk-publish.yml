@@ -63,7 +63,7 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      # Publish only a version newer than npm's latest, so merges that keep the
+      # Publish only a stable x.y.z newer than npm's latest, so merges that keep the
       # version, re-runs, and out-of-order runs succeed without publishing.
       - name: Decide whether to publish
         id: decide

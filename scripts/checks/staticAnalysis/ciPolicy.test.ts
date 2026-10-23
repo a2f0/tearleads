@@ -22,8 +22,10 @@ function assertCiSuccess(needs: unknown) {
       stderr: "pipe",
     },
   );
-  if (result.exitCode !== 0)
-    throw new Error(result.stdout.toString() + result.stderr.toString());
+  if (result.exitCode !== 0) {
+    const report = JSON.parse(result.stdout.toString());
+    throw new Error(report.errors.join("\n"));
+  }
 }
 
 const successful = () => ({
@@ -44,7 +46,9 @@ test("required native and Terraform jobs must succeed, never skip", () => {
   for (const job of ["native", "terraform"]) {
     const needs = successful();
     needs.changes.outputs = { ...needs.changes.outputs, [job]: "true" };
-    expect(() => assertCiSuccess(needs)).toThrow(job);
+    expect(() => assertCiSuccess(needs)).toThrow(
+      new RegExp(`^${job}: expected (?:success|skipped)[.,]`, "m"),
+    );
     expect(() =>
       assertCiSuccess({
         ...needs,
@@ -84,7 +88,7 @@ test("requires every applicable check and permits only explicitly irrelevant ski
     for (const result of ["failure", "cancelled", "pending"]) {
       expect(() =>
         assertCiSuccess({ ...successful(), [job]: { result } }),
-      ).toThrow(job);
+      ).toThrow(new RegExp(`^${job}: expected (?:success|skipped)[.,]`, "m"));
     }
   }
   for (const job of [
@@ -97,7 +101,7 @@ test("requires every applicable check and permits only explicitly irrelevant ski
   ]) {
     expect(() =>
       assertCiSuccess({ ...successful(), [job]: { result: "skipped" } }),
-    ).toThrow(job);
+    ).toThrow(new RegExp(`^${job}: expected (?:success|skipped)[.,]`, "m"));
   }
   expect(() => assertCiSuccess({})).toThrow();
   expect(() =>
