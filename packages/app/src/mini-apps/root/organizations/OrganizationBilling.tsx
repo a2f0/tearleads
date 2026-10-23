@@ -35,6 +35,7 @@ export function OrganizationBilling({
             { label: "Period ends", value: date(billing.currentPeriodEndsAt) },
             { label: "Disabled", value: date(billing.disabledAt) },
             { label: "Purge after", value: date(billing.purgeAfter) },
+            { label: "Purge started", value: date(billing.purgeStartedAt) },
             { label: "Purged", value: date(billing.purgedAt) },
             {
               label: "Customer ID",
