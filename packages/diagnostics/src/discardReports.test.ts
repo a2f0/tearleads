@@ -61,3 +61,46 @@ test("caller-supplied client reports never pass the transport boundary", async (
     fetchSpy.mockRestore();
   }
 });
+
+test("a pending discard report stays inside the caller's flush timeout", async () => {
+  const pending = Promise.withResolvers<Response>();
+  const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+    Object.assign(
+      async (_url: unknown, init?: RequestInit) =>
+        String(init?.body).includes('"type":"client_report"')
+          ? pending.promise
+          : new Response(null, { status: 200 }),
+      { preconnect: () => {} },
+    ),
+  );
+  const transport = createPrivateSentryTransport({
+    environment: "staging",
+    release: "synthetic",
+    dist: "staging",
+    origin: "",
+    scriptPath: "",
+    runtime: "api",
+  })({ url: "https://sentry.invalid/envelope", recordDroppedEvent: () => {} });
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const event = { tags: { diagnostic_source: "request-error" } };
+    const headers = {
+      event_id: "a".repeat(32),
+      sent_at: new Date().toISOString(),
+    };
+    await transport.send([headers, [[{ type: "event" }, event]]]);
+    await transport.send([headers, [[{ type: "event" }, event]]]);
+    const result = await Promise.race([
+      transport.flush(10),
+      new Promise<string>((resolve) => {
+        deadline = setTimeout(() => resolve("exceeded deadline"), 500);
+      }),
+    ]);
+    expect(result).toBe(false);
+  } finally {
+    clearTimeout(deadline);
+    pending.resolve(new Response(null, { status: 200 }));
+    await transport.flush(2000);
+    fetchSpy.mockRestore();
+  }
+});

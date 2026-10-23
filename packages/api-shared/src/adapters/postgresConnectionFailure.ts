@@ -53,6 +53,15 @@ export class PostgresConnectionError extends Error {
     readonly poolWaiting: number,
     cause: unknown,
   ) {
-    super("Database connection acquisition failed", { cause });
+    const driverCode =
+      cause instanceof Error ? Reflect.get(cause, "code") : undefined;
+    const detail =
+      typeof driverCode === "string" &&
+      (RETRYABLE_CONNECTION_CODES.has(driverCode) ||
+        driverCode === "28P01" ||
+        driverCode === "28000")
+        ? `${code}; ${driverCode}`
+        : code;
+    super(`Database connection acquisition failed (${detail})`, { cause });
   }
 }

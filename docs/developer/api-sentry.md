@@ -58,6 +58,8 @@ the API build number the client last heard from (`api_version`).
 
 The hourly deduplication includes these safe fields and locations, so unrelated
 operations or recognized error codes do not collapse into one frameless error.
+Pool counters are retained on the event but excluded from its deduplication key,
+so changing queue depth cannot exhaust the budget for unrelated failures.
 The five-per-minute and twenty-per-hour budgets apply per diagnostics instance
 (a Worker isolate), not across the service. Event counts are bounded samples.
 The API transport aggregates locally suppressed events into Sentry client

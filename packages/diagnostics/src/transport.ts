@@ -28,7 +28,9 @@ export function createPrivateSentryTransport(
     return {
       async flush(timeout) {
         const report = discards?.take();
-        if (report) await transport.send(report);
+        // send registers in the transport buffer synchronously. Let flush bound
+        // the entire drain rather than waiting for a report before its timeout.
+        if (report) void transport.send(report).then(undefined, () => {});
         return transport.flush(timeout);
       },
       send(envelope) {

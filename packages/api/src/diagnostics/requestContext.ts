@@ -13,6 +13,11 @@ export function routeTemplate(c: Context): string {
 export function apiRequestContext(
   c: Context,
   status: number,
-): ApiRequestContext {
-  return { route: routeTemplate(c), method: c.req.method, status };
+): ApiRequestContext | undefined {
+  try {
+    return { route: routeTemplate(c), method: c.req.method, status };
+  } catch {
+    // Diagnostic context must never replace the application's error response.
+    return undefined;
+  }
 }

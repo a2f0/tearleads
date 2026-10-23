@@ -54,5 +54,5 @@ build_api_worker() {
   (cd "$api_dir" && bun run sentry:cli sourcemaps upload \
     --org "$SENTRY_ORG" --project "$API_SENTRY_PROJECT" \
     --release "tearleads-api@$commit" --dist "$API_SENTRY_ENVIRONMENT" \
-    --url-prefix 'app:///' --validate --strict "$output/index.js" "$output/index.js.map")
+    --url-prefix 'app:///' --validate --strict --wait "$output/index.js" "$output/index.js.map")
 }

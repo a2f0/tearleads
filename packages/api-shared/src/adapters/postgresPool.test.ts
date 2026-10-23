@@ -96,7 +96,34 @@ test("authentication failures are preserved without retry", async () => {
   await expect(new PostgresPool().connect()).rejects.toMatchObject({
     code: "PG_CONNECTION_FAILED",
     connectionAttempts: 1,
+    message:
+      "Database connection acquisition failed (PG_CONNECTION_FAILED; 28P01)",
     cause,
   });
+  expect(connect).toHaveBeenCalledTimes(1);
+});
+
+test("Pool.query rejects exhausted acquisition without executing SQL", async () => {
+  connect.mockImplementation(() =>
+    Promise.reject(
+      new Error("Connection terminated due to connection timeout"),
+    ),
+  );
+  const pool = new PostgresPool();
+  await expect(pool.query("select 1")).rejects.toMatchObject({
+    name: "PostgresConnectionError",
+    code: "PG_CONNECT_TIMEOUT",
+    connectionAttempts: 2,
+  });
+  expect(connect).toHaveBeenCalledTimes(2);
+});
+
+test("a pool that starts shutting down does not retry acquisition", async () => {
+  const pool = new PostgresPool();
+  connect.mockImplementation(async () => {
+    await pool.end();
+    throw new Error("Connection terminated due to connection timeout");
+  });
+  await expect(pool.connect()).rejects.toMatchObject({ connectionAttempts: 1 });
   expect(connect).toHaveBeenCalledTimes(1);
 });
