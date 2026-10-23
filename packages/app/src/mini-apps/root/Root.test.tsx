@@ -406,3 +406,67 @@ for (const origin of ["Reports", "Organizations"] as const) {
     }
   });
 }
+
+test("the audit trail pages events, filters to a subject, and links to targets", async () => {
+  const { restore, view } = await renderRootWithSession(true);
+  const [operator, member] = ROOT_TEST_IDENTITIES;
+  if (!operator || !member) throw new Error("Expected root test identities.");
+  try {
+    fireEvent.click(view.getByRole("button", { name: "Audit" }));
+    const table = await view.findByRole("table", { name: "Audit events" });
+    await within(table).findByText("Viewed identity");
+    expect(within(table).getByText("API CLI")).toBeTruthy();
+    expect(within(table).getByText("Granted root")).toBeTruthy();
+    expect(within(table).queryByText("Listed identities")).toBeNull();
+    fireEvent.click(view.getByRole("button", { name: "Load more" }));
+    await within(table).findByText("Listed identities");
+    expect(
+      within(table).getByText(`fingerprint=${member.signingKeyFingerprint}`),
+    ).toBeTruthy();
+
+    const filter = view.getByRole("textbox", {
+      name: "Filter by identity or organization ID",
+    });
+    fireEvent.change(filter, { target: { value: "2222" } });
+    expect(
+      view.getByText("Enter a full user or organization ID."),
+    ).toBeTruthy();
+    fireEvent.change(filter, { target: { value: member.userId } });
+    await waitFor(() => {
+      expect(within(table).queryByText("Granted root")).toBeNull();
+    });
+    expect(within(table).getByText("Viewed identity")).toBeTruthy();
+
+    const filterValue = () =>
+      (
+        view.getByRole("textbox", {
+          name: "Filter by identity or organization ID",
+        }) as HTMLInputElement
+      ).value;
+    fireEvent.click(within(table).getByTitle(member.userId));
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    const returned = await view.findByRole("table", { name: "Audit events" });
+    expect(filterValue()).toBe(member.userId);
+
+    // Audit -> identity -> organization: Back still ends at the trail.
+    fireEvent.click(within(returned).getByTitle(member.userId));
+    const orgs = await view.findByRole("table", { name: "Organizations" });
+    fireEvent.click(
+      await within(orgs).findByTitle(member.defaultOrganizationId),
+    );
+    await view.findByRole("table", { name: "Organization" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    const again = await view.findByRole("table", { name: "Audit events" });
+    expect(filterValue()).toBe(member.userId);
+
+    fireEvent.click(within(again).getByTitle(member.userId));
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(view.getByRole("button", { name: "Audit activity" }));
+    const filtered = await view.findByRole("table", { name: "Audit events" });
+    await within(filtered).findByText("Viewed identity");
+    expect(filterValue()).toBe(member.userId);
+  } finally {
+    restore();
+  }
+});

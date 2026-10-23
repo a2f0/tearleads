@@ -551,6 +551,7 @@ export type {
   RootRequestOutcome,
 } from "./workflows/root";
 export {
+  listRootAuditEvents,
   listRootDataUsageReport,
   listRootIdentities,
   listRootIdentityOrganizations,
@@ -559,6 +560,10 @@ export {
   loadRootIdentity,
   loadRootOrganization,
   loadRootOrganizationDataUsage,
+  type RootAuditApi,
+  type RootAuditEvent,
+  type RootAuditEventsPage,
+  type RootAuditEventsQueryInput,
   type RootDataUsageApi,
   type RootDataUsageReportPage,
   type RootOrganization,

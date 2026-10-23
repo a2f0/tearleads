@@ -64,6 +64,7 @@ export {
   principalStates,
 } from "./principalStates";
 export { revenuecatWebhookEvents } from "./revenuecatWebhookEvents";
+export { type RootAuditAction, rootAuditEvents } from "./rootAuditEvents";
 export type {
   BlobAuditRetentionMode,
   ContainerSyncTombstoneReason,

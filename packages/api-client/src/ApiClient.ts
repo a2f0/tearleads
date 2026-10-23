@@ -39,6 +39,7 @@ import {
   listDocumentAttachmentsOperation,
   listOrganizationGroupMembersOperation,
   listOrganizationMembershipsOperation,
+  listRootAuditEventsOperation,
   listRootDataUsageReportOperation,
   listRootIdentitiesOperation,
   listRootIdentityOrganizationsOperation,
@@ -47,6 +48,7 @@ import {
   listSessionsOperation,
   logoutOperation,
   moveContainerOperation,
+  type RootAuditEventsQuery,
   type RootIdentitiesQuery,
   type RootOrganizationPageQuery,
   type RootOrganizationsQuery,
@@ -106,6 +108,7 @@ import type {
   OrganizationPolicyHistoryResponse,
   OrganizationReadModelResponse,
   PrincipalPolicyBundleResponse,
+  RootAuditEventsResponse,
   RootDataUsageReportResponse,
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
@@ -727,6 +730,16 @@ export class ApiClient {
     return this.transport.requestResult(
       getRootOrganizationDataUsageOperation,
       { params: { organizationId } },
+      options,
+    );
+  }
+  listRootAuditEventsResult(
+    query: RootAuditEventsQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootAuditEventsResponse>> {
+    return this.transport.requestResult(
+      listRootAuditEventsOperation,
+      { params: {}, query },
       options,
     );
   }

@@ -13,7 +13,11 @@ import { RootOrganizationError } from "../../services/root/organizations";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { respondToStatusError } from "../errorResponse";
-import type { RootRouterDeps } from "./shared";
+import {
+  auditRootRequest,
+  organizationSearchAudit,
+  type RootRouterDeps,
+} from "./shared";
 
 export function createRootDataUsageRoute({
   requireAuth,
@@ -32,12 +36,12 @@ export function createRootDataUsageRoute({
     ),
     async (c) => {
       try {
-        return c.json(
-          await getOrganizationDataUsage(
-            runtime,
-            c.req.valid("param").organizationId,
-          ),
-        );
+        const { organizationId } = c.req.valid("param");
+        await auditRootRequest(c, runtime, {
+          action: getRootOrganizationDataUsageOperation.id,
+          targetOrganizationId: organizationId,
+        });
+        return c.json(await getOrganizationDataUsage(runtime, organizationId));
       } catch (error) {
         return respondToStatusError(c, error, RootOrganizationError);
       }
@@ -54,7 +58,12 @@ export function createRootDataUsageRoute({
     ),
     async (c) => {
       try {
-        return c.json(await listDataUsageReport(runtime, c.req.valid("query")));
+        const query = c.req.valid("query");
+        await auditRootRequest(c, runtime, {
+          action: listRootDataUsageReportOperation.id,
+          ...organizationSearchAudit(query.search),
+        });
+        return c.json(await listDataUsageReport(runtime, query));
       } catch (error) {
         return respondToStatusError(c, error, RootOrganizationError);
       }

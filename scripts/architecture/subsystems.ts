@@ -152,7 +152,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Administration",
     package: "api",
     responsibility:
-      "Root-gated, read-only staff lookups of identities, activity, sessions, organizations, billing, and synced data usage.",
+      "Root-gated, read-only staff lookups of identities, activity, sessions, organizations, billing, and synced data usage, each recorded in the root audit trail before it is answered, plus the audit trail listing.",
     seam: "routes/root via createRootRouter; services/root facade; middleware/root.ts",
     paths: [
       `${api}/routes/root/`,
@@ -322,7 +322,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Console",
     package: "app",
     responsibility:
-      "The root mini-app: identity and organization directories, live sessions, rosters, tabbed billing/history and data usage, and organization usage reports. Offered only to sessions the server reports as root.",
+      "The root mini-app: identity and organization directories, live sessions, rosters, tabbed billing/history and data usage, organization usage reports, and the root audit trail. Offered only to sessions the server reports as root.",
     seam: "mini-apps/root",
     paths: [`${app}/mini-apps/root/`],
   },

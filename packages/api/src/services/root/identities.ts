@@ -2,6 +2,7 @@ import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import {
+  findRootIdentityIdByFingerprint,
   getRootIdentity,
   isRootIdentity,
 } from "../../workflows/root/identityDetail";
@@ -118,3 +119,7 @@ export async function getIdentityOrganizations(
 }
 
 export const hasRootAccess = createDatabaseWorkflowService(isRootIdentity);
+
+export const resolveIdentityIdByFingerprint = createDatabaseWorkflowService(
+  findRootIdentityIdByFingerprint,
+);

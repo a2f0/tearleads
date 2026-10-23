@@ -800,6 +800,21 @@ CREATE UNIQUE INDEX `revenuecat_webhook_events_event_id_idx` ON `revenuecat_webh
 CREATE INDEX `revenuecat_webhook_events_org_idx` ON `revenuecat_webhook_events` (`organization_id`);--> statement-breakpoint
 CREATE INDEX `revenuecat_webhook_events_source_org_idx` ON `revenuecat_webhook_events` (`source_organization_id`);--> statement-breakpoint
 CREATE INDEX `revenuecat_webhook_events_native_route_idx` ON `revenuecat_webhook_events` (`app_user_id`,`original_transaction_id`,`store`,`outcome`);--> statement-breakpoint
+CREATE TABLE `root_audit_events` (
+	`id` text PRIMARY KEY NOT NULL,
+	`actor_user_id` text,
+	`action` text NOT NULL,
+	`target_user_id` text,
+	`target_organization_id` text,
+	`filter` text,
+	`source_ip_address` text,
+	`occurred_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `root_audit_events_occurred_at_id_idx` ON `root_audit_events` (`occurred_at`,`id`);--> statement-breakpoint
+CREATE INDEX `root_audit_events_actor_idx` ON `root_audit_events` (`actor_user_id`,`occurred_at`,`id`);--> statement-breakpoint
+CREATE INDEX `root_audit_events_target_user_idx` ON `root_audit_events` (`target_user_id`,`occurred_at`,`id`);--> statement-breakpoint
+CREATE INDEX `root_audit_events_target_organization_idx` ON `root_audit_events` (`target_organization_id`,`occurred_at`,`id`);--> statement-breakpoint
 CREATE TABLE `users` (
 	`id` text PRIMARY KEY NOT NULL,
 	`fingerprint` text NOT NULL,

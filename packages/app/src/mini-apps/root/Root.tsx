@@ -14,6 +14,7 @@ import {
 import { useAuthenticateAction } from "../../identity/useAuthenticateAction";
 import { useCryptoSession } from "../../providers/crypto/CryptoSessionProvider";
 import "./Root.css";
+import { AuditView } from "./audit/AuditView";
 import { IdentitiesView } from "./identities/IdentitiesView";
 import { IdentityDetailView } from "./identities/IdentityDetailView";
 import { OrganizationDetailView } from "./organizations/OrganizationDetailView";
@@ -69,6 +70,7 @@ function RootContent({
   setRoute: (route: RootRoute, options?: MiniAppRouteSetOptions) => void;
 }) {
   const {
+    openAudit,
     setView,
     openIdentity,
     closeIdentity,
@@ -78,6 +80,18 @@ function RootContent({
 
   if (route.view === "menu") {
     return <RootMenu setView={setView} />;
+  }
+  if (route.view === "audit") {
+    return (
+      <AuditView
+        subjectId={route.subjectId}
+        onSubjectChange={(subjectId) =>
+          setRoute({ subjectId, view: "audit" }, { replace: true })
+        }
+        onSelectIdentity={openIdentity}
+        onSelectOrganization={openOrganization}
+      />
+    );
   }
   if (route.view === "reports") {
     return (
@@ -104,6 +118,7 @@ function RootContent({
         onTabChange={(tab) => setRoute({ ...route, tab }, { replace: true })}
         onBack={closeOrganization}
         onSelectIdentity={openIdentity}
+        onShowAudit={openAudit}
       />
     );
   }
@@ -114,6 +129,7 @@ function RootContent({
         onBack={closeIdentity}
         userId={route.userId}
         onSelectOrganization={openOrganization}
+        onShowAudit={openAudit}
       />
     );
   }

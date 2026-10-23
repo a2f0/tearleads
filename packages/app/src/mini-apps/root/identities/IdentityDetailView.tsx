@@ -218,10 +218,12 @@ export function IdentityDetailView({
   onBack,
   userId,
   onSelectOrganization,
+  onShowAudit,
 }: {
   onBack: () => void;
   userId: string;
   onSelectOrganization: (organizationId: string) => void;
+  onShowAudit: (subjectId: string) => void;
 }) {
   const { detail, error, loading, organizations, refresh } =
     useRootIdentityDetail(userId);
@@ -235,6 +237,9 @@ export function IdentityDetailView({
         <MiniAppButton onClick={onBack}>Back</MiniAppButton>
         <MiniAppButton disabled={loading} onClick={refresh}>
           {loading ? "Loading..." : "Refresh"}
+        </MiniAppButton>
+        <MiniAppButton onClick={() => onShowAudit(userId)}>
+          Audit activity
         </MiniAppButton>
       </MiniAppToolbar>
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}

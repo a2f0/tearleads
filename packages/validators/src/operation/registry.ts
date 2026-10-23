@@ -92,6 +92,7 @@ import {
   listRootIdentitiesOperation,
   listRootIdentityOrganizationsOperation,
 } from "./root";
+import { listRootAuditEventsOperation } from "./rootAudit";
 import {
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
@@ -191,6 +192,7 @@ export const protocolOperations: readonly [
   typeof listRootOrganizationIdentitiesOperation,
   typeof getRootIdentityOperation,
   typeof listRootIdentityOrganizationsOperation,
+  typeof listRootAuditEventsOperation,
   typeof documentSyncOperation,
 ] = [
   getContainerReplacementAuthorizationsOperation,
@@ -270,5 +272,6 @@ export const protocolOperations: readonly [
   listRootOrganizationIdentitiesOperation,
   getRootIdentityOperation,
   listRootIdentityOrganizationsOperation,
+  listRootAuditEventsOperation,
   documentSyncOperation,
 ];

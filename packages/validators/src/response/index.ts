@@ -500,6 +500,15 @@ export {
   RootIdentitySummaryResponseSchema,
 } from "./root";
 export {
+  ROOT_AUDIT_ACTIONS,
+  type RootAuditAction,
+  RootAuditActionSchema,
+  type RootAuditEventResponse,
+  RootAuditEventResponseSchema,
+  type RootAuditEventsResponse,
+  RootAuditEventsResponseSchema,
+} from "./rootAudit";
+export {
   type RootDataUsageReportResponse,
   RootDataUsageReportResponseSchema,
   type RootOrganizationDetailResponse,
