@@ -58,7 +58,7 @@ const entries: Record<
   "the uploadMacosRelease.sh shortcut": {
     command: ({ checkout }) => [
       "sh",
-      join(checkout, "scripts/uploadMacosRelease.sh"),
+      join(checkout, "scripts/release/uploadMacosRelease.sh"),
     ],
     step: ({ checkout, head }) => `step bunx ${checkout} ${head} checkout`,
   },

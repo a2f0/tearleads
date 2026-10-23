@@ -15,8 +15,8 @@ RevenueCat Test Store key as a one-off override; do not replace the platform
 keys in `.secrets/prod/shared.env`:
 
 ```sh
-VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/runIos.sh
-VITE_REVENUECAT_ANDROID_API_KEY=test_... ./scripts/runAndroid.sh
+VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/dev/runIos.sh
+VITE_REVENUECAT_ANDROID_API_KEY=test_... ./scripts/dev/runAndroid.sh
 ```
 
 The RevenueCat offering contains Solo, Team 5, and Team 10 Test Store products,
@@ -106,14 +106,14 @@ each with `:staging`; `android:build-debug-apk`, `android:build-release-apk`,
 The repository-root wrappers run the store lanes with release guards:
 
 ```sh
-./scripts/buildIosRelease.sh             # ios:build-release
-./scripts/uploadIosRelease.sh            # ios:upload-release
-./scripts/buildAndroidRelease.sh         # android:build-release
-./scripts/uploadAndroidRelease.sh        # android:upload-release
-./scripts/buildIosStagingRelease.sh      # and the other Staging wrappers
+./scripts/release/buildIosRelease.sh             # ios:build-release
+./scripts/release/uploadIosRelease.sh            # ios:upload-release
+./scripts/release/buildAndroidRelease.sh         # android:build-release
+./scripts/release/uploadAndroidRelease.sh        # android:upload-release
+./scripts/release/buildIosStagingRelease.sh      # and the other Staging wrappers
 ```
 
-All of them delegate to `scripts/lib/nativeRelease.sh`. They default
+All of them delegate to `scripts/release/nativeRelease.sh`. They default
 `VITE_API_BASE_URL` to the tier's API (`https://api.tearleads.com` or
 `https://api-staging.tearleads.com`), reject a dev-only or cross-tier API or
 WebSocket URL and a RevenueCat Test Store or wrong-store key, and let upload
@@ -258,5 +258,6 @@ version code. Narrow the tracks with `google_tracks:internal,beta` or
 TestFlight state instead of the live version with `apple_live:false` or
 `APP_STORE_LIVE=false`, and skip a store with
 `skip_google:true` (`SKIP_GOOGLE_PLAY`) or `skip_apple:true` (`SKIP_APP_STORE`).
-`scripts/getCurrentAppStoreBuildNumbers.sh` wraps it for the App Store builds of
+`scripts/release/getCurrentAppStoreBuildNumbers.sh` wraps it for the App Store
+builds of
 both tiers.

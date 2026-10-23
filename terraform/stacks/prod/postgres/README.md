@@ -87,8 +87,8 @@ connects directly on port 5432 for the duration of the deploy only.
 
 Staging has its own copy of this stack under
 `terraform/stacks/staging/postgres` without `prevent_destroy`;
-`scripts/destroyStaging.sh` empties and destroys it, including Hyperdrive.
-`scripts/destroyProduction.sh` does the same for production, lifting
+`scripts/deploy/destroyStaging.sh` empties and destroys it, including Hyperdrive.
+`scripts/deploy/destroyProduction.sh` does the same for production, lifting
 `prevent_destroy` for that run with temporary overrides.
 Both tiers are greenfield; recreating a Hyperdrive configuration requires only
 a Worker redeploy to bind its new ID. There is no dual connection path or
@@ -99,7 +99,8 @@ compatibility cutover. See [PlanetScale roles], [connection options], and
 
 1. Apply this database stack.
 2. Apply the independent [R2 storage stack](../../../modules/r2-object-storage/README.md).
-3. Run `scripts/deployProduction.sh` to migrate the database, deploy the API
+3. Run `scripts/deploy/deployProduction.sh` to migrate the database, deploy the
+API
    Worker with its Hyperdrive binding, publish the app and demo
    Workers, and attach the hostnames.
 

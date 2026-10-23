@@ -3,19 +3,19 @@ import { cp, mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-const sourceScripts = resolve(import.meta.dirname, "../../../scripts");
+const sourceScripts = resolve(import.meta.dirname, "../../../scripts/release");
 let root: string;
 
 beforeAll(async () => {
   root = await realpath(
     await mkdtemp(join(tmpdir(), "tearleads desktop wrappers-")),
   );
-  await mkdir(join(root, "scripts/lib"), { recursive: true });
+  await mkdir(join(root, "scripts/release"), { recursive: true });
   const packageScripts = join(root, "packages/app-electrobun/scripts");
   await mkdir(packageScripts, { recursive: true });
   await cp(
-    join(sourceScripts, "lib/desktopRelease.sh"),
-    join(root, "scripts/lib/desktopRelease.sh"),
+    join(sourceScripts, "desktopRelease.sh"),
+    join(root, "scripts/release/desktopRelease.sh"),
   );
   for (const platform of ["Macos", "Linux"]) {
     await Bun.write(
@@ -29,7 +29,10 @@ beforeAll(async () => {
     for (const action of ["build", "upload"]) {
       for (const suffix of ["Release", "StagingRelease"]) {
         const name = `${action}${platform}${suffix}.sh`;
-        await cp(join(sourceScripts, name), join(root, "scripts", name));
+        await cp(
+          join(sourceScripts, name),
+          join(root, "scripts/release", name),
+        );
       }
     }
   }
@@ -70,7 +73,7 @@ for (const platform of ["Macos", "Linux"]) {
   for (const action of ["build", "upload"]) {
     for (const tier of ["staging", "production"]) {
       const name = `${action}${platform}${tier === "staging" ? "Staging" : ""}Release.sh`;
-      const command = () => ["sh", join(root, "scripts", name)];
+      const command = () => ["sh", join(root, "scripts/release", name)];
       test(`${name} selects ${tier} without arguments from any directory`, async () => {
         const result = await run(command());
         expect(result.exitCode, result.stderr).toBe(0);

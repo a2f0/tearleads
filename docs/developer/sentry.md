@@ -44,7 +44,8 @@ The DSNs above are placeholders. The DSN is public; the upload token is private.
 
 ## Deployment and releases
 
-`scripts/deployStaging.sh` and `scripts/deployProduction.sh` publish the API
+`scripts/deploy/deployStaging.sh` and `scripts/deploy/deployProduction.sh`
+publish the API
 Worker and the web app. The API deploy syncs `API_SENTRY_DSN` as a Worker
 secret and sets `API_SENTRY_ENVIRONMENT` from `packages/api/wrangler.jsonc`;
 the bundle receives its commit, exact source-path allowlist, and build number
@@ -82,10 +83,11 @@ and removes them before Capacitor packaging. Publishing maps requires a clean
 Git checkout; staged, modified, or untracked sources stop the release before
 building. Upload failures stop packaging. Debug and local Android APK/sideload
 builds stay local.
-The root `scripts/buildAndroidRelease.sh`,
-`scripts/buildIosRelease.sh`, their `StagingRelease.sh` counterparts, and all
+The root `scripts/release/buildAndroidRelease.sh`,
+`scripts/release/buildIosRelease.sh`, their `StagingRelease.sh` counterparts,
+and all
 corresponding `upload*Release.sh` wrappers reach this step through Fastlane.
-`scripts/deployEverything.sh` uses those wrappers too. No separate source-map
+`scripts/deploy/deployEverything.sh` uses those wrappers too. No separate source-map
 command is required.
 
 Existing installed mobile apps need a new release to start reporting.
@@ -270,7 +272,7 @@ The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
 `ELECTROBUN_RELEASE_TIER` selects
 `staging` or `production`; unset is a local build that reads no secrets and
 reports nothing. Release from the repository root with
-`scripts/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
+`scripts/release/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
 `scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and full commit into
 the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and
 its inherited `postBuild` packaging hook. It drops every inherited Sentry name

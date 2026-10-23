@@ -24,7 +24,7 @@ The `tearleads-downloads-prod` and `tearleads-downloads-staging` buckets are rel
 dependencies. Resolve and compare bucket identities from the selected stack
 before any object deletion.
 Never broaden an application reset into account-wide bucket or resource cleanup.
-`scripts/destroyProduction.sh` is a complete production teardown, wider than
+`scripts/deploy/destroyProduction.sh` is a complete production teardown, wider than
 this reset: it also deletes the downloads bucket with every published release,
 and the website. Do not use it for a reset.
 
@@ -103,7 +103,7 @@ override, applies the saved destroy plan, and removes the override however it
 exits; an override already present stops it. It and the other production
 teardown helpers (`drop-postgres-owned.sh`, `empty-r2-bucket.sh`, and the
 Worker deletion scripts) refuse `prod` unless `TEARLEADS_TEARDOWN_TIER=prod` is
-exported, which `scripts/destroyProduction.sh` does once confirmed. An
+exported, which `scripts/deploy/destroyProduction.sh` does once confirmed. An
 authorized production reset exports it in the reset's own shell.
 
 ## Destroy one environment
@@ -205,7 +205,8 @@ connection verifies TLS. Use client connection evidence with
 a different transport leg and cannot establish client TLS. Verify there are no
 application tables before baseline initialization, and no old blobs in storage.
 
-Run `scripts/deployProduction.sh` or `scripts/deployStaging.sh`. Both require
+Run `scripts/deploy/deployProduction.sh` or `scripts/deploy/deployStaging.sh`.
+Both require
 their database and storage stacks to exist; the API deploy initializes the
 schema with the migration login, syncs the Worker secrets, publishes the
 Worker, and the edge stack reattaches the hostnames. A fresh tier starts with

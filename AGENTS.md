@@ -2,19 +2,11 @@
 
 ## Preflight Commands
 
-Wrap noisy setup, checks, builds, and hook-running Git commands with the
-shared output harness:
-
-```sh
-bun run agent:run --label checks -- bun run check:affected
-bun run agent:run --label push -- git push -u origin HEAD
-bun run agent:logs <reported-log-path> --tail-lines 40 --max-bytes 4096
-```
-
-The harness preserves exit status and full local logs, prints compact success
-receipts, and shows bounded failure excerpts. Inspect relevant log sections;
-do not load whole successful logs. Keep review verdicts, verification reports,
-and required evidence visible.
+Capture noisy setup, checks, builds, and hook-running Git commands with
+`bun run agent:run --label <check> -- <command>`. Inspect bounded excerpts with
+`bun run agent:logs <log-path> --tail-lines 40 --max-bytes 4096`; keep review
+verdicts and verification evidence visible. See the
+[verification guide](docs/developer/verification.md) for receipts and reports.
 
 Run the smallest command that matches the handoff risk:
 
@@ -61,23 +53,6 @@ Run the smallest command that matches the handoff risk:
 - `bun run report:dependencies:archi`: collapsed Graphviz DOT output for
   package/module reports.
 
-### Cheap checks that fail late
-
-The push gate runs its checks in order and stops at the first failure, so a
-mistake in a fast check still costs everything queued ahead of it. Two are worth
-running by hand rather than discovering ~8 minutes into a push:
-
-- `bun tsc --build --pretty false` (about 7s) after any type or signature
-  change. It is **not** part of `check:fast`; only `check:affected` and `check`
-  include it.
-- `bun run lint:architecture` (about 16s) after adding or moving an `import`.
-  A cycle is easy to create by importing a shared symbol back from a module that
-  already imports you; extract the symbol into its own module instead.
-
-Before a push, prefer `bun run check:fast` over a hand-picked subset. It is about
-six minutes and covers the static half of the gate; sampling a few of its checks
-individually is how a gate failure gets discovered at the forty-minute mark.
-
 ### Rebuild the SDK before trusting app or api tests
 
 `packages/app` and `packages/api` resolve `@tearleads/client-sdk` from
@@ -92,7 +67,7 @@ that build prerequisite handled automatically. It, `check`, and `check:affected`
 write per-run JSON reports under `git rev-parse --git-path verification`, with
 revision, working-tree fingerprints, step timings, and outcomes. A source or
 revision change during the run fails verification; see the
-[verification harness](scripts/README.md#verification-harness).
+[verification harness](docs/developer/verification.md).
 
 The same holds for `packages/client-sdk`'s own tests: `distArtifacts.test.ts`
 inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
@@ -299,6 +274,17 @@ Do not edit generated or build output directly:
   still looks correct. Use `cut`, `sed`, or named variables instead; these
   skills read their arguments from the appended argument block. Enforced by
   `bun run lint:skill-placeholders` in `check:fast`.
+
+## Script And Documentation Layout
+
+Follow the [script index](scripts/README.md) when adding or moving tooling.
+Keep package-script names stable, and update callers, relative root resolution,
+CI filters, tests, native build references, and Turbo inputs together. Helpers
+belong beside the command group they serve; `scripts/lib` is for shared helpers.
+Root README covers setup and normal usage. Detailed validation lives in the
+[verification guide](docs/developer/verification.md), analysis policy in the
+[static-analysis guide](docs/developer/static-analysis.md), and deployment policy
+in the [infrastructure guide](docs/developer/infrastructure.md).
 
 ## Agent Tooling And Shipping
 

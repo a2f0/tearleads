@@ -412,9 +412,8 @@ Merging to `main` publishes. When `packages/windowing` changes there,
 `.github/workflows/windowing-publish.yml` publishes the version in
 `package.json` if it is newer than npm's `latest`; a merge that leaves the
 version alone, a re-run, or a run that finishes after a newer release succeeds
-without publishing (`scripts/lib/npmPublishDecision.ts` at the repository root
-makes that call). The workflow
-authenticates with
+without publishing, as decided by `scripts/release/npmPublishDecision.ts`.
+The workflow authenticates with
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm accepts
 the job's GitHub OIDC token instead of an npm token, and attaches provenance to
 each version. On npmjs.com the package's trusted publisher names the `a2f0`
@@ -433,7 +432,8 @@ bun run publish:npm windowing
 
 Windowing has no workspace dependencies, and its React peers and Phosphor
 dependency already exist on npm, so it publishes on its own.
-`scripts/publishNpmPackage.sh` publishes each npm package by its directory name;
+`scripts/release/publishNpmPackage.sh` publishes each npm package by its
+directory name;
 `bun run --cwd packages/windowing publish:npm` runs it for windowing, and the
 workflow runs it too.
 

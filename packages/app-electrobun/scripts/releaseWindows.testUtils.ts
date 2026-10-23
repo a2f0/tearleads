@@ -105,9 +105,12 @@ export async function runWindowsRelease(
       "export const hostedSentryEndpoint = {};\n",
     );
     await write(
-      "scripts/windowsRelease.sh",
+      "scripts/release/windowsRelease.sh",
       await Bun.file(
-        resolve(import.meta.dirname, "../../../scripts/windowsRelease.sh"),
+        resolve(
+          import.meta.dirname,
+          "../../../scripts/release/windowsRelease.sh",
+        ),
       ).text(),
     );
     await write(
@@ -176,7 +179,7 @@ export async function runWindowsRelease(
     const child = Bun.spawn(
       [
         "bash",
-        join(root, "scripts/windowsRelease.sh"),
+        join(root, "scripts/release/windowsRelease.sh"),
         action,
         tier,
         ...(action === "build" ? [] : ["123"]),

@@ -39,11 +39,11 @@ uses the separate Actions build and local publication workflow below.
 
 | Target | Staging script | Production script | Current destination |
 | --- | --- | --- | --- |
-| macOS ARM64 | `scripts/uploadMacosStagingRelease.sh` | `scripts/uploadMacosRelease.sh` | Signed/notarized DMG and update archive in tier's R2 download bucket |
-| Linux x64 | `scripts/uploadLinuxStagingRelease.sh` | `scripts/uploadLinuxRelease.sh` | Tested installer and update archive in tier's R2 download bucket |
-| Windows x64 | `scripts/windowsRelease.sh upload staging RUN_ID` | `scripts/windowsRelease.sh upload production RUN_ID` | Verified Actions ZIP and update archive in tier's R2 download bucket |
-| iOS | `scripts/uploadIosStagingRelease.sh` | `scripts/uploadIosRelease.sh` | TestFlight internal |
-| Android | `scripts/uploadAndroidStagingRelease.sh` | `scripts/uploadAndroidRelease.sh` | Google Play internal |
+| macOS ARM64 | `scripts/release/uploadMacosStagingRelease.sh` | `scripts/release/uploadMacosRelease.sh` | Signed/notarized DMG and update archive in tier's R2 download bucket |
+| Linux x64 | `scripts/release/uploadLinuxStagingRelease.sh` | `scripts/release/uploadLinuxRelease.sh` | Tested installer and update archive in tier's R2 download bucket |
+| Windows x64 | `scripts/release/windowsRelease.sh upload staging RUN_ID` | `scripts/release/windowsRelease.sh upload production RUN_ID` | Verified Actions ZIP and update archive in tier's R2 download bucket |
+| iOS | `scripts/release/uploadIosStagingRelease.sh` | `scripts/release/uploadIosRelease.sh` | TestFlight internal |
+| Android | `scripts/release/uploadAndroidStagingRelease.sh` | `scripts/release/uploadAndroidRelease.sh` | Google Play internal |
 
 Verify the current store lane settings before upload and report their actual
 destinations. “Production app” describes the app identity; it does not request
@@ -51,8 +51,9 @@ a public store rollout. If a new supported target has acquired a release wrapper
 include it or report the scope decision. The current desktop targets are
 macOS ARM64, Linux x64, and Windows x64.
 
-`scripts/deployEverything.sh` deploys both environments and uploads both mobile
-tiers, but omits desktop uploads. `scripts/uploadAllReleases.sh` currently
+`scripts/deploy/deployEverything.sh` deploys both environments and uploads both
+mobile
+tiers, but omits desktop uploads. `scripts/release/uploadAllReleases.sh` currently
 uploads only production mobile builds and redeploys web artifacts for both tiers.
 Neither script alone completes this matrix. Prefer individual tier deployments
 before store uploads so both environments regain service sooner.
@@ -66,7 +67,7 @@ checks; successful builds alone do not publish a release.
 Dispatch once the source is frozen, before downtime where practical, so the
 remote build can run alongside infrastructure work.
 
-After the run succeeds, use `scripts/windowsRelease.sh download <tier> RUN_ID`
+After the run succeeds, use `scripts/release/windowsRelease.sh download <tier> RUN_ID`
 and `upload <tier> RUN_ID` from the clean frozen checkout. These helpers verify
 the workflow, tier, source revision, and payload checksums; upload also publishes
 source maps. Artifacts live under
@@ -160,7 +161,7 @@ independent targets.
    acceptance. Query Google Play's selected track and confirm its exact version
    code. Wait for processing/visibility without re-uploading while pending.
 6. After all three desktop releases for a tier, run
-   `scripts/deployStagingWebsite.sh` or `scripts/deployProductionWebsite.sh`.
+   `scripts/deploy/deployStagingWebsite.sh` or `scripts/deploy/deployProductionWebsite.sh`.
    Website download links are resolved at build time and may silently use an old
    offline fallback if discovery fails. Parse the served HTML and require the
    exact current installer and checksum links for all three desktop platforms.

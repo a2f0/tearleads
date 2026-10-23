@@ -70,12 +70,12 @@ payment-provider configuration, and signing credentials remain dependencies of
 the rebuild. The initial R2 cutover explicitly replaces the AWS download buckets
 with fresh releases; subsequent application resets retain R2 downloads.
 Production database and storage stacks must be provisioned before running
-`scripts/deployProduction.sh`.
+`scripts/deploy/deployProduction.sh`.
 
-`scripts/deployEverything.sh` deploys both tiers and uploads iOS and Android.
+`scripts/deploy/deployEverything.sh` deploys both tiers and uploads iOS and Android.
 macOS and Linux uploads additionally require their staging and production root
 release scripts. Windows x64 requires the Actions build followed by
-`scripts/windowsRelease.sh upload` for each selected tier. Website and web-app
+`scripts/release/windowsRelease.sh upload` for each selected tier. Website and web-app
 deployment are included in each tier's deployment script; refresh the website
 after all desktop publications as described in the
 [release runbook](greenfield-reset-releases.md).
