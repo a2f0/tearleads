@@ -13,15 +13,23 @@ import {
 const website = resolve(import.meta.dir, "..");
 
 beforeAll(() => {
-  // Direct Astro builds skip prebuild; stage the screenshot manifest it needs.
-  const preparation = Bun.spawnSync(
+  // Direct Astro builds skip prebuild. Stage what it would: the icons and
+  // preview image (gitignored, and linked from every page) and the screenshot
+  // manifest.
+  for (const command of [
+    [process.execPath, "run", "images"],
     [process.execPath, "scripts/buildScreenshots.ts"],
-    { cwd: website, stdout: "pipe", stderr: "pipe" },
-  );
-  expect(
-    preparation.exitCode,
-    `${preparation.stdout.toString()}\n${preparation.stderr.toString()}`,
-  ).toBe(0);
+  ]) {
+    const preparation = Bun.spawnSync(command, {
+      cwd: website,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(
+      preparation.exitCode,
+      `${preparation.stdout.toString()}\n${preparation.stderr.toString()}`,
+    ).toBe(0);
+  }
 });
 
 async function build(environment: "production" | "staging", output: string) {

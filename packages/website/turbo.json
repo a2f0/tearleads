@@ -2,6 +2,14 @@
   "$schema": "https://turborepo.com/schema.json",
   "extends": ["//"],
   "tasks": {
+    "test": {
+      "description": "The build tests render the agent-tool website image target from assets/brand before building, as prebuild does.",
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/assets/brand/**",
+        "$TURBO_ROOT$/agent-tool.json"
+      ]
+    },
     "build": {
       "inputs": [
         "$TURBO_DEFAULT$",
