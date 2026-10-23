@@ -1,4 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
+import { workersFetch } from "../../test/helpers/workersFetch";
 import { getStripeSyncOption } from "./stripePrice";
 
 const ENV = {
@@ -15,9 +16,17 @@ const VALID_PRICE = {
 };
 
 function responseFetch(body: unknown, status = 200): typeof fetch {
-  return (async () =>
-    Response.json(body, { status })) as unknown as typeof fetch;
+  return workersFetch(async () => Response.json(body, { status }));
 }
+
+test("a valid configured Price becomes the tier's purchasable option", async () => {
+  expect(
+    await getStripeSyncOption("team_5", {
+      env: ENV,
+      fetchImpl: responseFetch(VALID_PRICE),
+    }),
+  ).toMatchObject({ priceId: "price_team_5", seatLimit: 5, unitAmount: 1_000 });
+});
 
 test("a configured Price with mismatched tier economics is rejected and logged", async () => {
   const errorSpy = spyOn(console, "error").mockImplementation(() => undefined);

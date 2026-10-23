@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
+import { workersFetch } from "../../test/helpers/workersFetch";
 import {
   fetchActiveRevenueCatNativeSubscription,
   fetchRevenueCatManagementUrl,
@@ -19,7 +20,7 @@ function fakeFetch(pages: Array<{ body: unknown; status?: number }>) {
   const calls: Array<{ url: string; auth: string | null; hasSignal: boolean }> =
     [];
   let index = 0;
-  const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchImpl = workersFetch(async (input, init) => {
     calls.push({
       url: String(input),
       auth: new Headers(init?.headers).get("Authorization"),
@@ -30,7 +31,7 @@ function fakeFetch(pages: Array<{ body: unknown; status?: number }>) {
     return new Response(JSON.stringify(page.body), {
       status: page.status ?? 200,
     });
-  }) as typeof fetch;
+  });
   return { fetchImpl, calls };
 }
 

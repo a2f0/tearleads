@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { workersFetch } from "../../test/helpers/workersFetch";
 import {
   associateStripeSubscription,
   isRevenueCatAssociationConfigured,
@@ -22,7 +23,7 @@ function fakeFetch(statuses: number[] = []): {
   requests: RecordedRequest[];
 } {
   const requests: RecordedRequest[] = [];
-  const fetchImpl = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const fetchImpl = workersFetch(async (input, init) => {
     requests.push({
       url: String(input),
       body: typeof init?.body === "string" ? JSON.parse(init.body) : null,
@@ -30,7 +31,7 @@ function fakeFetch(statuses: number[] = []): {
     });
     const status = statuses.shift() ?? 200;
     return new Response("{}", { status });
-  }) as typeof fetch;
+  });
   return { fetchImpl, requests };
 }
 

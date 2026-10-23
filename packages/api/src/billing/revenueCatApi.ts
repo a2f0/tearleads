@@ -137,8 +137,11 @@ async function searchSubscriptionsByStoreIdentifier(input: {
     `?store_subscription_identifier=${encodeURIComponent(input.identifier)}` +
     "&include_scheduled=true";
   const items: ResolvedSubscription[] = [];
+  // Called without a receiver: Workers' `fetch` throws "Illegal invocation"
+  // when invoked as a method of another object, as `input.fetchImpl(...)` is.
+  const { fetchImpl } = input;
   for (let page = 0; page < MAX_SUBSCRIPTION_PAGES; page++) {
-    const response = await input.fetchImpl(`${REVENUECAT_API_ORIGIN}${path}`, {
+    const response = await fetchImpl(`${REVENUECAT_API_ORIGIN}${path}`, {
       headers,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
@@ -240,7 +243,9 @@ async function fetchProductStoreIdentifier(input: {
   readonly projectId: string;
   readonly secretKey: string;
 }): Promise<string | null> {
-  const response = await input.fetchImpl(
+  // Called without a receiver, for the same Workers reason as above.
+  const { fetchImpl } = input;
+  const response = await fetchImpl(
     `${REVENUECAT_API_ORIGIN}/v2/projects/${encodeURIComponent(input.projectId)}` +
       `/products/${encodeURIComponent(input.productResourceId)}`,
     {
