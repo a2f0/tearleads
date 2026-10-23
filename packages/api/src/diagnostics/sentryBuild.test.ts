@@ -15,8 +15,12 @@ set -euo pipefail
 case "$(basename "$0")" in
   git)
     case "$*" in
-      *rev-parse*) printf '%040d\\n' 1 ;;
+      *rev-parse*)
+        if [[ "$TEST_MODE" == revision-changed && -s "$TEST_CALLS" ]]; then
+          printf '%040d\\n' 2
+        else printf '%040d\\n' 1; fi ;;
       *status*)
+        if [[ "$TEST_MODE" == status-failure ]]; then exit 7; fi
         if [[ "$TEST_MODE" == dirty || ( "$TEST_MODE" == changed-during-build && -s "$TEST_CALLS" ) ]]; then
           echo ' M file.ts'
         fi ;;
@@ -97,7 +101,11 @@ test.each(["staging", "prod"])(
     const result = await runBuild("ok", tier);
     expect(result.exitCode).toBe(0);
     const [build, upload] = result.calls.trim().split("\n");
-    const environment = tier === "prod" ? "production" : "staging";
+    const workerConfig = Bun.JSONC.parse(
+      await readFile(new URL("../../wrangler.jsonc", import.meta.url), "utf8"),
+    ) as { env: Record<string, { vars: { API_SENTRY_ENVIRONMENT: string } }> };
+    const environment = workerConfig.env[tier]?.vars.API_SENTRY_ENVIRONMENT;
+    expect(environment).toBeString();
     expect(build).toContain("--dry-run");
     expect(upload).toContain(`--project tearleads-api-${environment}`);
     expect(upload).toContain(
@@ -114,6 +122,8 @@ test.each([
   "missing-token",
   "dirty",
   "changed-during-build",
+  "revision-changed",
+  "status-failure",
   "upload-failure",
 ])("%s stops the deployment preparation", async (mode) => {
   const result = await runBuild(mode);

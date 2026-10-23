@@ -49,8 +49,10 @@ from the original throw site (`original`); `unavailable` means neither stack
 had an approved frame. Up to five exceptions retain their separately sanitized
 stacks, ordered from cause to enclosing error, with up to forty frames each.
 Cause messages, frame variables, source text, and unapproved paths remain
-excluded. Cycles are bounded. Custom error-property getters are never invoked;
-V8's native lazy-stack accessor is admitted only by its captured function identity.
+excluded. Cycles are bounded. Custom `stack` accessors are rejected. V8's native
+lazy-stack accessor is admitted by its captured function identity; runtime
+formatting may consult `name`, `message`, or `Error.prepareStackTrace`, and the
+result still passes the frame allowlist.
 Cron maintenance runs in the same admitted bundle.
 This preserves diagnostic locations without enabling automatic integrations.
 The transport validates the vocabulary again. The API additions do not expand
@@ -70,9 +72,8 @@ data in Sentry's usage/data-fidelity view to include those counts. These reports
 are best effort: an evicted isolate can lose pending counts. They do not contain
 messages, identifiers, routes, or per-event data; the automatic SDK client-report
 integration remains disabled. Browser and desktop collection is unchanged.
-Existing events
-cannot regain information omitted by an older build; deploy a new API
-Worker to receive the richer reports.
+Existing events cannot regain information omitted by an older build; deploy a
+new API Worker to receive the richer reports.
 
 Failures the API logged and deliberately swallowed — a realtime publish after
 the write already committed, read-model notification verification, session

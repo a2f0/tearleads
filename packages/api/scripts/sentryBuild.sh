@@ -23,12 +23,18 @@ configure_api_sentry() {
   export API_SENTRY_DSN
 }
 
+api_checkout_is_clean() {
+  local checkout_state
+  checkout_state="$(git -C "$1" status --porcelain)" || return 1
+  [[ -z "$checkout_state" ]]
+}
+
 build_api_worker() {
   local api_dir="$1" tier="$2" config="$3" output="$4"
   local commit defines_text define
   local -a defines=()
   commit="$(git -C "$api_dir" rev-parse HEAD)" || return 1
-  if [[ -n "${API_SENTRY_DSN:-}" && -n "$(git -C "$api_dir" status --porcelain)" ]]; then
+  if [[ -n "${API_SENTRY_DSN:-}" ]] && ! api_checkout_is_clean "$api_dir"; then
     echo "ERROR: API source-map publishing requires a clean checkout." >&2
     return 1
   fi
@@ -47,7 +53,7 @@ build_api_worker() {
     return 1
   fi
   [[ -n "${API_SENTRY_DSN:-}" ]] || return 0
-  if [[ -n "$(git -C "$api_dir" status --porcelain)" ]]; then
+  if ! api_checkout_is_clean "$api_dir"; then
     echo "ERROR: API checkout changed during the build." >&2
     return 1
   fi
