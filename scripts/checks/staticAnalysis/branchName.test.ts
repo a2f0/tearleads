@@ -62,3 +62,40 @@ test("branch and subject policy retain commitlint types and length", async () =>
   if (!Array.isArray(types)) throw new Error("commitlint must declare types");
   expect(policy.subject.types.toSorted()).toEqual(types.toSorted());
 });
+
+test("ref tuples preserve option-like names, skip deletions and tags, and reject malformed input", () => {
+  const sha = "a".repeat(40);
+  const zero = "0".repeat(40);
+  const check = (input: string) =>
+    Bun.spawnSync(
+      [
+        process.execPath,
+        "node_modules/.bin/agent-tool",
+        "branch",
+        "check",
+        "--pre-push",
+      ],
+      {
+        cwd: repoRoot,
+        stdin: Buffer.from(input),
+        stdout: "pipe",
+        stderr: "pipe",
+      },
+    );
+  const skipped = `(delete) ${zero} refs/heads/invalid ${sha}\nHEAD ${sha} refs/tags/-- ${zero}\n`;
+  expect(check(skipped).exitCode).toBe(0);
+  expect(
+    check(`${skipped}HEAD ${sha} refs/heads/feat/valid ${zero}\n`).exitCode,
+  ).toBe(0);
+  for (const name of ["--", "--pre-push", "--help"]) {
+    const result = check(`${skipped}HEAD ${sha} refs/heads/${name} ${zero}\n`);
+    expect(result.exitCode).toBe(1);
+    const report = JSON.parse(result.stdout.toString());
+    expect(report.branches).toHaveLength(1);
+    expect(report.branches[0].name).toBe(name);
+    expect(report.branches[0].errors).toContain(
+      "Expected <type>/<lowercase-topic> using configured branch types.",
+    );
+  }
+  expect(check("malformed\n").exitCode).toBe(1);
+});

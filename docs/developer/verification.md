@@ -23,8 +23,8 @@ They retain their existing build, TypeScript, static-check, and full or affected
 Turbo test steps. Builds finish before tests begin; `build:packages` prepares
 SQLite, the client SDK, and the Electrobun devkit.
 
-The same holds for `packages/client-sdk`'s own tests: `distArtifacts.test.ts`
-inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
+Rebuild the client SDK before its own tests: `distArtifacts.test.ts` inspects
+`dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
 builds the SDK first; a bare `bun run test` in the package does not, because a
 test script that rebuilt `dist` would delete it under other packages' tests
 running alongside it in turbo.

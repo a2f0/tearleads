@@ -94,7 +94,7 @@
     "test:static-analysis": "bun scripts/testing/testStaticAnalysis.ts",
     "test:architecture": "bun scripts/testing/testArchitecture.ts",
     "test:step-timings": "cd scripts/lib && bun test stepTimings.test.ts",
-    "test:npm-publish": "cd scripts/release && bun test publishPolicy.test.ts publishNpmPackage.test.ts",
+    "test:npm-publish": "cd scripts/release && bun test releasePlan.test.ts publishPolicy.test.ts publishNpmPackage.test.ts",
     "test:biome:promises": "bun scripts/testing/testBiomePromises.ts",
     "test:turbo": "bun run test:turbo:bun && bun run test:turbo:e2e",
     "test:turbo:affected": "bun run test:turbo:bun:affected && bun run test:turbo:e2e:affected",
