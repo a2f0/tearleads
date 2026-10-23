@@ -410,9 +410,9 @@ declarations with TypeScript's defaults, and bundles a named import with webpack
 
 Merging to `main` publishes. When `packages/windowing` changes there,
 `.github/workflows/windowing-publish.yml` publishes the version in
-`package.json` if it is newer than npm's `latest`; a merge that leaves the
-version alone, a re-run, or a run that finishes after a newer release succeeds
-without publishing, as decided by `scripts/release/npmPublishDecision.ts`.
+`package.json` if it is a stable `x.y.z` newer than npm's `latest`; a merge that
+leaves the version alone, a re-run, or a run that finishes after a newer release
+succeeds without publishing, as decided by `agent-tool release plan`.
 The workflow authenticates with
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm accepts
 the job's GitHub OIDC token instead of an npm token, and attaches provenance to

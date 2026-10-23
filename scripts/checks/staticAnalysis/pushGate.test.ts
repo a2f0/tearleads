@@ -5,7 +5,7 @@ import { fixture } from "./fixture.testUtils";
 
 const repoRoot = resolve(import.meta.dir, "../../..");
 const hookPath = "scripts/git/hooks/pre-push";
-const lintCommand = "scripts/checks/lintBranchName.ts --";
+const lintCommand = "run agent-tool branch check --pre-push";
 
 function pushFixture(failingCommand: string) {
   const repo = fixture();
@@ -23,6 +23,7 @@ function configurePushFixture(
 ) {
   for (const path of [
     hookPath,
+    "scripts/git/hooks/pre-commit",
     "scripts/checks/checkFast.sh",
     "scripts/checks/fastChecks.sh",
     "scripts/lib/stepTimings.sh",
@@ -32,18 +33,30 @@ function configurePushFixture(
     repo.write(path, readFileSync(join(repoRoot, path), "utf8"));
     chmodSync(join(repo.cwd, path), 0o755);
   }
-  for (const name of [
-    "checkTerraform",
-    "checkCommitTrust",
-    "checkBinaryFiles",
-  ]) {
+  for (const name of ["checkTerraform"]) {
     const path = `scripts/checks/${name}.sh`;
     repo.write(path, "#!/bin/sh\nexit 0\n");
     chmodSync(join(repo.cwd, path), 0o755);
   }
   repo.write(
+    "agent-tool.json",
+    JSON.stringify({
+      schemaVersion: 1,
+      hooks: {
+        files: [{ source: hookPath, target: "pre-push", executable: true }],
+      },
+    }),
+  );
+  repo.write(
     "bin/bun",
-    '#!/bin/sh\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\n' +
+    "#!/bin/sh\n" +
+      'if [ "$*" = "run agent-tool hooks install --apply" ]; then\n' +
+      '  exec "$REAL_BUN" "$AGENT_TOOL_CLI" hooks install --apply\n' +
+      "fi\n" +
+      'printf "%s\\n" "$*" >> "$COMMAND_LOG"\n' +
+      'if [ "$*" = "run agent-tool branch check --pre-push" ]; then\n' +
+      '  cat > "$PUSH_REFS_LOG"\n' +
+      "fi\n" +
       '[ "$*" != "$FAILING_COMMAND" ] || exit 23\n',
   );
   chmodSync(join(repo.cwd, "bin/bun"), 0o755);
@@ -56,6 +69,9 @@ function configurePushFixture(
     CI_TURBO_PROTOCOL_CACHE: "",
     PATH: `${join(repo.cwd, "bin")}:${PATH}`,
     COMMAND_LOG: log,
+    REAL_BUN: process.execPath,
+    AGENT_TOOL_CLI: join(repoRoot, "node_modules/.bin/agent-tool"),
+    PUSH_REFS_LOG: join(repo.cwd, "push-refs.log"),
     FAILING_COMMAND: failingCommand,
     PUSH_GATE_TIMINGS_LOG: timings,
   };
@@ -75,8 +91,8 @@ function configurePushFixture(
   install();
   // A local bare remote exercises Git's real hook invocation without a network.
   expect(run("git", "init", "--bare", "remote.git").exitCode).toBe(0);
-  const push = () =>
-    run("git", "push", "./remote.git", "HEAD:refs/heads/probe");
+  repo.git("remote", "add", "origin", join(repo.cwd, "remote.git"));
+  const push = () => run("git", "push", "origin", "HEAD:refs/heads/probe");
   return { ...repo, head, log, timings, run, runAt, install, push };
 }
 
@@ -93,10 +109,7 @@ test("CI and the installed hook run the same fast checks in order", () => {
 
     expect(repo.push().exitCode).not.toBe(0);
     const pushCommands = readFileSync(repo.log, "utf8").trim().split("\n");
-    expect(pushCommands).toEqual([
-      "scripts/checks/lintBranchName.ts -- probe",
-      ...ciCommands,
-    ]);
+    expect(pushCommands).toEqual([lintCommand, ...ciCommands]);
     expect(readFileSync(repo.timings, "utf8")).toContain(
       "\tunfinished=markdown\tstatus=failed\t",
     );
@@ -107,20 +120,18 @@ test("CI and the installed hook run the same fast checks in order", () => {
 
 test("the gate lints the branch a push creates, not the checked-out one", () => {
   const branch = "claude/epic-wright-l1f75j";
-  const repo = pushFixture(`${lintCommand} ${branch}`);
+  const repo = pushFixture(lintCommand);
   try {
     // The checkout keeps the fixture's own branch; only the destination names
     // the branch the remote would gain.
     const result = repo.run(
       "git",
       "push",
-      "./remote.git",
+      "origin",
       `HEAD:refs/heads/${branch}`,
     );
     expect(result.exitCode).not.toBe(0);
-    expect(readFileSync(repo.log, "utf8").split("\n")[0]).toBe(
-      `${lintCommand} ${branch}`,
-    );
+    expect(readFileSync(repo.log, "utf8").split("\n")[0]).toBe(lintCommand);
     expect(
       repo.run(
         "git",
@@ -135,23 +146,25 @@ test("the gate lints the branch a push creates, not the checked-out one", () => 
   }
 });
 
-// The stub checks the hook's arguments; branchName.test.ts separately proves
-// real Bun passes a literal `--` through to the linter.
+// The hook passes complete ref tuples; the CLI parses names from stdin.
 test("every pushed branch reaches the linter, even one named --", () => {
   const repo = pushFixture("");
   try {
     const result = repo.run(
       "git",
       "push",
-      "./remote.git",
+      "origin",
       "HEAD:refs/heads/feat/one",
       "HEAD:refs/heads/--",
     );
     expect(result.exitCode, result.stderr.toString()).toBe(0);
     const [lint = ""] = readFileSync(repo.log, "utf8").split("\n");
-    expect(lint).toStartWith(`${lintCommand} `);
-    const names = lint.slice(lintCommand.length + 1).split(" ");
-    expect(names.toSorted()).toEqual(["--", "feat/one"]);
+    expect(lint).toBe(lintCommand);
+    const names = readFileSync(join(repo.cwd, "push-refs.log"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => line.split(" ")[2]);
+    expect(names.toSorted()).toEqual(["refs/heads/--", "refs/heads/feat/one"]);
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }
@@ -164,7 +177,7 @@ test("deleting a branch or pushing a tag lints no branch name", () => {
     repo.write("commands.log", "");
     repo.git("tag", "v1");
     for (const refspec of [":refs/heads/probe", "refs/tags/v1"]) {
-      const result = repo.run("git", "push", "./remote.git", refspec);
+      const result = repo.run("git", "push", "origin", refspec);
       expect(result.exitCode, result.stderr.toString()).toBe(0);
       expect(`${result.stdout}${result.stderr}`).toContain(
         "--- [branch-name] skipped (no branch created or updated) ---",
@@ -225,6 +238,9 @@ test("a successful gate pushes the ref and records all checks", () => {
         .stdout.toString()
         .trim(),
     ).toBe(repo.head);
+    expect(readFileSync(repo.log, "utf8")).toContain(
+      `run agent-tool commits check --range ${repo.head} --exclude main --exclude-remotes origin\n`,
+    );
     const timings = readFileSync(repo.timings, "utf8");
     expect(timings).toContain("\tstatus=passed\t");
     expect(timings).toContain("step\topenapi-compatibility\t");
@@ -268,13 +284,7 @@ test("linked worktrees can refresh shared hooks and run the push gate", () => {
     const updated = `${readFileSync(join(linked, hookPath), "utf8")}\n# Updated hook\n`;
     repo.write(`linked/${hookPath}`, updated);
     const push = () =>
-      repo.runAt(
-        linked,
-        "git",
-        "push",
-        join(repo.cwd, "remote.git"),
-        "HEAD:refs/heads/probe",
-      );
+      repo.runAt(linked, "git", "push", "origin", "HEAD:refs/heads/probe");
     expect(push().stderr.toString()).toContain("hook is stale");
 
     const installed = repo.runAt(linked, "sh", "scripts/git/install-hooks.sh");
@@ -286,6 +296,42 @@ test("linked worktrees can refresh shared hooks and run the push gate", () => {
     expect(result.exitCode).not.toBe(0);
     expect(result.stderr.toString()).not.toContain("hook is stale");
     expect(result.stdout.toString()).toContain("[openapi-compatibility]");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("detached commits skip only branch naming", () => {
+  const repo = pushFixture("run lint:branch-name");
+  try {
+    const attached = repo.run("sh", "scripts/git/hooks/pre-commit");
+    expect(attached.exitCode).toBe(23);
+    repo.git("checkout", "--detach");
+    repo.write("commands.log", "");
+    const detached = repo.run("sh", "scripts/git/hooks/pre-commit");
+    expect(detached.exitCode, detached.stderr.toString()).toBe(0);
+    const commands = readFileSync(repo.log, "utf8");
+    expect(commands).not.toContain("run lint:branch-name");
+    expect(commands).toContain("run lint:files");
+    expect(commands).toContain("lintSourceShape.ts --staged");
+    expect(commands).toContain("run agent-tool checks binaries --staged");
+    expect(commands).toContain("run lint-staged");
+  } finally {
+    rmSync(repo.cwd, { recursive: true, force: true });
+  }
+});
+
+test("URL pushes fail before expensive checks with named-remote guidance", () => {
+  const repo = pushFixture("");
+  try {
+    const result = repo.run(
+      "git",
+      "push",
+      join(repo.cwd, "remote.git"),
+      "HEAD:refs/heads/probe",
+    );
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr.toString()).toContain("configured named remote");
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }

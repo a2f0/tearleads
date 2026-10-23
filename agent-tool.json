@@ -32,6 +32,40 @@
     "validate": [["bun", "run", "lint:source-shape", "--", "--staged"]]
   },
   "pr": { "rejectClaudeBranding": true },
+  "branch": {
+    "enforce": true,
+    "types": null,
+    "exempt": ["main"],
+    "maxLength": 50
+  },
+  "commits": {
+    "signatures": "present",
+    "signatureHeaderFallback": false,
+    "rejectCoauthors": true,
+    "subjects": false
+  },
+  "binaries": {
+    "allow": []
+  },
+  "hooks": {
+    "files": [
+      {
+        "source": "scripts/git/hooks/commit-msg",
+        "target": "commit-msg",
+        "executable": true
+      },
+      {
+        "source": "scripts/git/hooks/pre-commit",
+        "target": "pre-commit",
+        "executable": true
+      },
+      {
+        "source": "scripts/git/hooks/pre-push",
+        "target": "pre-push",
+        "executable": true
+      }
+    ]
+  },
   "images": {
     "targets": {
       "website": {

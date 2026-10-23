@@ -104,10 +104,11 @@ consumer's dependencies.
 
 Merging to `main` publishes. When `packages/client-sdk` changes there,
 `.github/workflows/client-sdk-publish.yml` publishes the version in
-`package.json` if it is newer than npm's `latest`, after running the smoke
-script; a merge that leaves the version alone, a re-run, or a run that finishes
+`package.json` if it is a stable `x.y.z` newer than npm's `latest`, after the
+smoke script passes. A merge that leaves the version alone, a re-run, or a run
+that finishes
 after a newer release succeeds without publishing
-(`scripts/release/npmPublishDecision.ts` makes that call). Because the package
+(`agent-tool release plan` makes that call). Because the package
 ships the workspace packages above, `agent-tool.json` lists it under
 `versions.bundles`: a change to any of them also bumps the SDK's version, so it
 publishes too. The workflow authenticates with

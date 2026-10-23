@@ -18,6 +18,13 @@ The CI build lane selects Node 24.22.1 LTS explicitly and includes its version
 in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
 build results. The uncached workflow reuses that same lane.
 
+Shared agent workflows use an exact npm version of `@a2f0/agent-tool`.
+After changing it, run `bun run agents:sync` and commit the lockfile and managed
+skill manifest with the skills. Check hook installation and the branch, commit,
+CI-gate, and release-policy fixtures; retain the richer Turbo verification and
+Java/TLA toolchain checks. Run `bun run test:static-analysis` and
+`bun run test:npm-publish` before the normal full gate.
+
 ## Current constraints
 
 The compatibility decisions were last reconciled in

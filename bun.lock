@@ -5,6 +5,7 @@
     "": {
       "name": "tearleads",
       "devDependencies": {
+        "@a2f0/agent-tool": "0.1.20",
         "@biomejs/biome": "2.5.15",
         "@commitlint/cli": "21.2.4",
         "@commitlint/config-conventional": "21.2.4",
@@ -12,7 +13,6 @@
         "@tsconfig/strictest": "2.0.8",
         "@types/bun": "1.4.3",
         "@types/invariant": "catalog:",
-        "agent-tool": "github:a2f0/agent-tool#61c5081b2c6a913f72b75c657824dc124e455a2b",
         "dependency-cruiser": "18.7.0",
         "invariant": "catalog:",
         "knip": "6.42.1",
@@ -126,7 +126,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.24",
+      "version": "0.0.25",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -219,7 +219,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.96",
+      "version": "0.1.97",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -357,7 +357,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.19",
+      "version": "0.2.20",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
@@ -408,6 +408,8 @@
     },
   },
   "packages": {
+    "@a2f0/agent-tool": ["@a2f0/agent-tool@0.1.20", "", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "sha512-/MOrIZvDkCh73zGTn4Qs3W+WjjhlPvVz52ZiirVP6W9HbT5hLqs+PA58uVPNZLLrL8Sf2QXVpunXWodrroTLuw=="],
+
     "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
 
     "@a2f0/ct-client": ["@a2f0/ct-client@0.1.5", "", {}, "sha512-1IkE5Ft3XkkbzAegrTblsvsa3JuL0WpB8wydtXHm33iGQNrdJ3djdbhXPa7drhcMbsMzRt3rsOjNZhxqC+qk6A=="],
@@ -1199,8 +1201,6 @@
     "acorn-walk": ["acorn-walk@8.3.5", "", { "dependencies": { "acorn": "^8.11.0" } }, "sha512-HEHNfbars9v4pgpW6SO1KSPkfoS0xVOM/9UzkJltjlsHZmJasxg8aXkuZa7SMf8vKGIBhpUsPluQSqhJFCqebw=="],
 
     "agent-base": ["agent-base@7.1.4", "", {}, "sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ=="],
-
-    "agent-tool": ["@a2f0/agent-tool@github:a2f0/agent-tool#61c5081", { "dependencies": { "@resvg/resvg-wasm": "2.6.2" }, "bin": { "agent-tool": "src/index.ts" } }, "a2f0-agent-tool-61c5081", "sha512-gDD2csLCw/Pu9+mHRPSy393K8SZ8O/5em+yfdbdSX7e9wcRsy5iBKcC/k/WDgW5mouDM8+tZlxPKn6SkusMaaw=="],
 
     "ajv": ["ajv@8.20.0", "", { "dependencies": { "fast-deep-equal": "^3.1.3", "fast-uri": "^3.0.1", "json-schema-traverse": "^1.0.0", "require-from-string": "^2.0.2" } }, "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="],
 

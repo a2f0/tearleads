@@ -73,10 +73,12 @@ jobs:
           version: 2026.10.17
           install_args: bun
           cache: true
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Require every applicable check to succeed
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
-        run: bun scripts/checks/ciGate.ts
+        run: printf '%s\n' "$CI_NEEDS" | bun run agent-tool ci gate - --policy scripts/checks/ciGate.json
 
   lint:
     name: Lint
@@ -115,13 +117,15 @@ jobs:
       # Pre-push lints a pushed branch only where hooks are installed, so a
       # pull request opened from any other clone is checked here. The name is
       # untrusted input: it reaches the shell only through the environment.
-      # Bun drops the leading `--`, so even a branch named `--` is linted
-      # rather than leaving the script to lint the detached checkout.
+      # Pass a ref tuple on stdin so option-like names stay data even when Bun
+      # would drop an argument named `--`.
       - name: Check branch name
         if: github.event_name == 'pull_request'
         env:
           BRANCH_NAME: ${{ github.head_ref }}
-        run: bun scripts/checks/lintBranchName.ts -- "$BRANCH_NAME"
+        run: |
+          printf 'HEAD %s refs/heads/%s %040d\n' "$GITHUB_SHA" "$BRANCH_NAME" 0 |
+            bun run agent-tool branch check --pre-push
 
       - name: Run lint checks
         env:

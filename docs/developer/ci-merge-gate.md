@@ -11,9 +11,9 @@ workspace builds, TypeScript, package tests, the web build, and Postgres
 concurrency and Windows CEF persistence to pass on every PR. It also waits for
 native purchase bridge compiles and Terraform checks whenever their paths change.
 The platform workflows are reusable and retain their standalone manual dispatch
-entry points. `Lint` also rejects a pull request whose head branch fails
-`lint:branch-name`, so a branch pushed from a clone without the pre-push hook
-cannot merge.
+entry points. `Lint` passes pull-request names to
+`agent-tool branch check --pre-push` as stdin ref tuples, so the policy also
+applies to pull requests from clones without hooks.
 
 The API, app, and client SDK suites each run in a `Test (...)` job of their own,
 and `Build and test` runs the remaining package tests. The gate requires both
@@ -57,7 +57,9 @@ three long-suite results. A job starting is not itself evidence of a cache miss.
 The web application build remains uncached because it embeds the current Git
 commit; deployments and local screenshot generation keep their existing behavior.
 
-`scripts/checks/ciPolicy.ts` owns the path selection and gate verdict. A platform
+`scripts/checks/ciPolicy.ts` owns path selection. The shared `agent-tool ci gate`
+command evaluates `scripts/checks/ciGate.json`, which declares required jobs and
+binds conditional jobs to the classifier’s exact outputs. A platform
 job may be skipped only when successful change detection explicitly marked it
 irrelevant. A failed, cancelled, missing, or unexpectedly skipped job fails the
 gate. Workflow and dependency lockfile changes exercise every lane. Ordinary

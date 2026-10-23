@@ -1,0 +1,22 @@
+{
+  "required": [
+    "changes",
+    "lint",
+    "build",
+    "test",
+    "postgres-concurrency",
+    "windows"
+  ],
+  "conditional": [
+    {
+      "job": "native",
+      "source": "changes",
+      "output": "native"
+    },
+    {
+      "job": "terraform",
+      "source": "changes",
+      "output": "terraform"
+    }
+  ]
+}

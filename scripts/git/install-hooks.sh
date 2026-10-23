@@ -3,34 +3,7 @@
 set -e
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-HOOKS_SRC="$REPO_ROOT/scripts/git/hooks"
-# Linked worktrees have a .git file and share hooks/config with the main checkout.
-HOOKS_DST="$(git rev-parse --path-format=absolute --git-common-dir)/hooks"
-mkdir -p "$HOOKS_DST"
+cd "$REPO_ROOT"
 
-for hook in "$HOOKS_SRC"/*; do
-  if [ -f "$hook" ]; then
-    hook_name="$(basename "$hook")"
-    cp "$hook" "$HOOKS_DST/$hook_name"
-    chmod +x "$HOOKS_DST/$hook_name"
-    echo "Installed $hook_name hook"
-  fi
-done
-
-# Copying alone leaves a hook that was deleted or renamed in the source tree
-# installed and executable, so it keeps running forever. Mirror the deletion.
-# Git's own *.sample files ship with `git init`, are inert, and are left alone.
-for installed in "$HOOKS_DST"/*; do
-  [ -f "$installed" ] || continue
-  installed_name="$(basename "$installed")"
-  case "$installed_name" in
-    *.sample) continue ;;
-  esac
-  if [ ! -f "$HOOKS_SRC/$installed_name" ]; then
-    rm -f "$installed"
-    echo "Removed stale $installed_name hook"
-  fi
-done
-
-git config core.hooksPath "$HOOKS_DST"
-echo "Configured core.hooksPath to $HOOKS_DST"
+# Pass --adopt only for an inspected installation from the previous installer.
+exec bun run agent-tool hooks install --apply "$@"

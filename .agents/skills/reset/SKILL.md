@@ -9,17 +9,27 @@ This is checkout cleanup, not a destructive Git reset. Read repository guidance
 for setup and hooks. Determine the default branch through the repository's
 remote metadata rather than assuming main.
 
-Check worktree and index first. Preserve user edits; if they prevent switching,
-report the condition instead of discarding or automatically stashing them. For
-post-merge cleanup, confirm the PR is MERGED before removing a feature branch.
+For post-merge cleanup, preview with
+`agent-tool repo cleanup <PR-number> <shipped-head>`, then run it with `--apply`
+within the authorized cleanup scope. It requires a confirmed MERGED PR, preserves
+local edits, checks exact local/remote feature commits, verifies the merge is on
+the default branch, and fast-forwards that branch. Pass `--keep-branch` when the
+user asked to preserve feature refs. Read the receipt's completed steps if a
+later operation fails; do not claim full cleanup from a partial result.
 
-Fetch the default branch, switch to it, and update by fast-forward only. A
-diverged default branch requires inspection rather than forced replacement.
-Delete a merged feature branch only within the requested cleanup scope and
-after verifying its exact commit is the shipped commit; squash merging does not
-make Git ancestry-based branch deletion proof of shipping. Honor keep-branch.
+Remote branch deletion uses GitHub REST after checking the live ref to avoid
+pre-push hooks. The API has no atomic expected-OID delete guard; the check and
+deletion retain a small concurrent-update window. Fork PRs require manual remote
+handling and are refused by the shared cleanup command.
 
-Run only the hook installer or dependency setup documented by this repository
-when the updated checkout requires it. Do not assume a package manager or copy
-setup commands from another project. Report final branch, commit, and any
-unfinished cleanup.
+For an explicit checkout cleanup without a merged PR, preserve all feature refs:
+check worktree/index, resolve the default branch with `repo context`, fetch it,
+switch, and update by fast-forward only. Never discard or automatically stash
+edits, force a diverged default branch, or infer shipping from Git ancestry after
+a squash merge.
+
+Run the repository's documented dependency/hook setup if required. When copied
+hooks are configured, use `agent-tool hooks check` and `hooks install --apply`;
+inspect unmanaged hooks before an explicit `--adopt`, which backs them up.
+Do not assume a package manager. Report final branch, commit, and unfinished
+cleanup or setup.

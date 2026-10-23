@@ -14,7 +14,8 @@ on:
     paths:
       - packages/client-sdk/**
       - scripts/release/publishNpmPackage.sh
-      - scripts/release/npmPublishDecision.ts
+      - package.json
+      - bun.lock
       - scripts/lib/rewriteDistImports.ts
       - .github/workflows/client-sdk-publish.yml
   workflow_dispatch:
@@ -59,15 +60,14 @@ jobs:
           node-version: 24.22.1
           package-manager-cache: false
 
-      # Publish only a version newer than npm's latest, so merges that keep the
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Publish only a stable x.y.z newer than npm's latest, so merges that keep the
       # version, re-runs, and out-of-order runs succeed without publishing.
       - name: Decide whether to publish
         id: decide
-        run: bun scripts/release/npmPublishDecision.ts client-sdk
-
-      - name: Install dependencies
-        if: steps.decide.outputs.publish == 'true'
-        run: bun install --frozen-lockfile
+        run: bun run agent-tool release plan packages/client-sdk/package.json --allow-private-source --github-output
 
       # Installs the packed package outside the workspace and imports,
       # typechecks, and bundles it before anything reaches npm.
