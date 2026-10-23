@@ -1,8 +1,0 @@
-# Open the root audit action (greenfield flag day, feat/root-ops-health-report):
-# #2625 published the audit listing's `action` as a closed enum, so every new
-# root operation broke the contract. It is now an open string with the known
-# actions as `x-extensible-enum`, and clients accept unknown actions. This is
-# the last break: later root operations add actions without one. The root
-# console and API deploy together on a fresh-data reset.
-# Remove this exact diagnostic once main contains the open contract.
-GET /root/audit-events removed the enum constraint from the `events/items/action` response property for the response status `200`

@@ -12,8 +12,11 @@ const ROOT_AUDIT_ACTION_LABELS: Record<RootAuditAction, string> = {
   "root.organizations.get": "Viewed organization",
   "root.organizations.identities.list": "Viewed organization roster",
   "root.organizations.list": "Listed organizations",
+  "root.organizations.revenuecatEvents.list":
+    "Viewed organization RevenueCat webhooks",
   "root.reports.dataUsage.list": "Viewed data usage report",
   "root.reports.opsHealth.get": "Viewed operations health report",
+  "root.reports.revenuecatEvents.list": "Viewed RevenueCat webhook report",
 };
 
 function isLabeledAction(action: string): action is RootAuditAction {

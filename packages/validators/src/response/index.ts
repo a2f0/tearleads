@@ -532,6 +532,20 @@ export {
   RootOrganizationsResponseSchema,
 } from "./rootOrganizations";
 export {
+  ROOT_REVENUECAT_DISPOSITIONS,
+  ROOT_REVENUECAT_EVENT_ROLES,
+  type RootOrganizationRevenuecatEventResponse,
+  RootOrganizationRevenuecatEventResponseSchema,
+  type RootOrganizationRevenuecatEventsResponse,
+  RootOrganizationRevenuecatEventsResponseSchema,
+  type RootRevenuecatDisposition,
+  RootRevenuecatDispositionSchema,
+  type RootRevenuecatEventResponse,
+  RootRevenuecatEventResponseSchema,
+  type RootRevenuecatEventsReportResponse,
+  RootRevenuecatEventsReportResponseSchema,
+} from "./rootRevenuecat";
+export {
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,
   isStripeCheckoutOptionsResponse,

@@ -42,3 +42,14 @@ export {
   type RootOrganizationsPage,
   type RootOrganizationsQueryInput,
 } from "./organizations";
+export {
+  listRootOrganizationRevenuecatEvents,
+  listRootRevenuecatEventsReport,
+  type RootOrganizationRevenuecatEvent,
+  type RootOrganizationRevenuecatEventsPage,
+  type RootRevenuecatApi,
+  type RootRevenuecatEvent,
+  type RootRevenuecatEventsQueryInput,
+  type RootRevenuecatEventsReportPage,
+  type RootRevenuecatEventsReportQueryInput,
+} from "./revenuecat";

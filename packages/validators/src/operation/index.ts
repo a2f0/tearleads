@@ -302,6 +302,12 @@ export {
   type RootOrganizationsQuery,
 } from "./rootOrganizations";
 export {
+  listRootOrganizationRevenuecatEventsOperation,
+  listRootRevenuecatEventsReportOperation,
+  type RootRevenuecatEventsQuery,
+  type RootRevenuecatEventsReportQuery,
+} from "./rootRevenuecat";
+export {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,

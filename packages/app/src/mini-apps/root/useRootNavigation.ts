@@ -15,6 +15,7 @@ import {
  * that started in the audit trail or Reports still ends back there.
  */
 function returnTo(route: RootRoute): RootReturn {
+  if (route.view === "reports") return { returnView: "reports" };
   if (route.view === "audit")
     return {
       returnView: "audit",

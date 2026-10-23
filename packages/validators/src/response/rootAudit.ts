@@ -22,8 +22,10 @@ export const ROOT_AUDIT_ACTIONS = [
   "root.organizations.get",
   "root.organizations.identities.list",
   "root.organizations.list",
+  "root.organizations.revenuecatEvents.list",
   "root.reports.dataUsage.list",
   "root.reports.opsHealth.get",
+  "root.reports.revenuecatEvents.list",
 ] as const;
 
 /** The server's own vocabulary: exactly the actions it records. */

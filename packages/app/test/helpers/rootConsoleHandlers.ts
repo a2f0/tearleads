@@ -8,6 +8,7 @@ import { rootAuditHandlers } from "./rootAuditHandlers";
 import { ROOT_TEST_IDENTITIES } from "./rootConsoleFixtures";
 import { rootOpsHealthHandlers } from "./rootOpsHealthHandlers";
 import { rootOrganizationHandlers } from "./rootOrganizationHandlers";
+import { rootRevenuecatHandlers } from "./rootRevenuecatHandlers";
 
 export const rootConsoleHandlers = [
   http.get("http://localhost:3001/root/identities", ({ request }) => {
@@ -92,4 +93,5 @@ export const rootConsoleHandlers = [
   ...rootOrganizationHandlers,
   ...rootAuditHandlers,
   ...rootOpsHealthHandlers,
+  ...rootRevenuecatHandlers,
 ];

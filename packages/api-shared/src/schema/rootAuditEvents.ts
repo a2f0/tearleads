@@ -15,8 +15,10 @@ export type RootAuditAction =
   | "root.organizations.get"
   | "root.organizations.identities.list"
   | "root.organizations.list"
+  | "root.organizations.revenuecatEvents.list"
   | "root.reports.dataUsage.list"
-  | "root.reports.opsHealth.get";
+  | "root.reports.opsHealth.get"
+  | "root.reports.revenuecatEvents.list";
 
 /**
  * Every platform-operator action, in the order it happened.

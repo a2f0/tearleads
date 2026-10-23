@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createRoot, type RootRuntime } from "./index";
+import { createRoot, type Root, type RootRuntime } from "./index";
 
 function createRuntime() {
   let isRoot = true;
@@ -48,6 +48,8 @@ function createRuntime() {
         listRootOrganizationIdentitiesResult: failAfterRelease,
         listRootAuditEventsResult: failAfterRelease,
         getRootOpsHealthReportResult: failAfterRelease,
+        listRootOrganizationRevenuecatEventsResult: failAfterRelease,
+        listRootRevenuecatEventsReportResult: failAfterRelease,
       },
     }),
   };
@@ -63,30 +65,20 @@ function createRuntime() {
 }
 
 test("every organization, report and audit lookup is locally gated and drops replies after demotion", async () => {
-  for (const lookup of [
-    "list",
-    "detail",
-    "identities",
-    "usage",
-    "report",
-    "opsHealth",
-    "audit",
-  ] as const) {
+  const lookups: Record<string, (root: Root) => Promise<unknown>> = {
+    list: (root) => root.listOrganizations(),
+    detail: (root) => root.loadOrganization("org"),
+    identities: (root) => root.listOrganizationIdentities("org"),
+    usage: (root) => root.loadOrganizationDataUsage("org"),
+    report: (root) => root.listDataUsageReport(),
+    opsHealth: (root) => root.loadOpsHealthReport(),
+    revenuecat: (root) => root.listOrganizationRevenuecatEvents("org"),
+    revenuecatReport: (root) => root.listRevenuecatEventsReport(),
+    audit: (root) => root.listAuditEvents(),
+  };
+  for (const lookup of Object.values(lookups)) {
     const runtime = createRuntime();
-    const request = () =>
-      lookup === "list"
-        ? runtime.root.listOrganizations()
-        : lookup === "detail"
-          ? runtime.root.loadOrganization("org")
-          : lookup === "usage"
-            ? runtime.root.loadOrganizationDataUsage("org")
-            : lookup === "report"
-              ? runtime.root.listDataUsageReport()
-              : lookup === "opsHealth"
-                ? runtime.root.loadOpsHealthReport()
-                : lookup === "audit"
-                  ? runtime.root.listAuditEvents()
-                  : runtime.root.listOrganizationIdentities("org");
+    const request = () => lookup(runtime.root);
     const pending = request();
     expect(runtime.calls()).toBe(1);
     runtime.demote();

@@ -23,6 +23,7 @@ import { RootMenu } from "./RootMenu";
 import { useRootSidebarPanel } from "./RootSidebar";
 import { DataUsageReportView } from "./reports/DataUsageReportView";
 import { OpsHealthReportView } from "./reports/OpsHealthReportView";
+import { RevenuecatReportView } from "./revenuecat/RevenuecatReportView";
 import {
   IDENTITIES_ROOT_ROUTE,
   type RootRoute,
@@ -106,6 +107,10 @@ function RootContent({
     return (
       <>
         <OpsHealthReportView
+          onSelectOrganization={openReportedOrganization("billing")}
+        />
+        <RevenuecatReportView
+          onSelectIdentity={openIdentity}
           onSelectOrganization={openReportedOrganization("billing")}
         />
         <DataUsageReportView

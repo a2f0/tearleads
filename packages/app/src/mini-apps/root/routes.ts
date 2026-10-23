@@ -45,12 +45,9 @@ export const ORGANIZATIONS_ROOT_ROUTE: RootRoute = {
 };
 const AUDIT_ROOT_ROUTE: RootRoute = { subjectId: null, view: "audit" };
 
-function parseRootReturn(
-  segments: ReadonlyArray<string>,
-  allowReports: boolean,
-): RootReturn {
+function parseRootReturn(segments: ReadonlyArray<string>): RootReturn {
   const [returnView, returnSubjectId] = segments;
-  if (returnView === "reports" && allowReports) return { returnView };
+  if (returnView === "reports") return { returnView };
   if (returnView !== "audit") return {};
   return { returnView, ...(returnSubjectId ? { returnSubjectId } : {}) };
 }
@@ -71,9 +68,9 @@ export function parseRootRouteSegments(
           userId: id,
           view,
           returnOrganizationId: returnId,
-          ...parseRootReturn(returnTail, true),
+          ...parseRootReturn(returnTail),
         }
-      : { userId: id, view, ...parseRootReturn(rest, false) };
+      : { userId: id, view, ...parseRootReturn(rest) };
   }
   if (view === "reports") return { view };
   if (view === "audit") return { subjectId: id || null, view };
@@ -85,7 +82,7 @@ export function parseRootRouteSegments(
       organizationId: id,
       view,
       ...(tab ? { tab } : {}),
-      ...parseRootReturn(returnTail, true),
+      ...parseRootReturn(returnTail),
     };
   }
   return MENU_ROOT_ROUTE;
@@ -115,9 +112,7 @@ export function formatRootRouteSegments(
     ...(route.returnOrganizationId
       ? ["organizations", route.returnOrganizationId]
       : []),
-    ...(route.returnOrganizationId || route.returnView === "audit"
-      ? formatRootReturn(route)
-      : []),
+    ...formatRootReturn(route),
   ];
 }
 export function rootRouteForView(view: RootView): RootRoute {

@@ -52,7 +52,7 @@ test("organization routes and identity return paths survive URL round trips", ()
   });
 });
 
-test("identity routes retain Reports only with an organization return path", () => {
+test("identity routes return to Reports directly or through an organization", () => {
   expect(
     parseRootRouteSegments([
       "identities",
@@ -67,10 +67,19 @@ test("identity routes retain Reports only with an organization return path", () 
     returnOrganizationId: "org-1",
     returnView: "reports",
   });
+  // The RevenueCat report links a delivery's buyer straight to identity detail.
   expect(parseRootRouteSegments(["identities", "user-1", "reports"])).toEqual({
     view: "identities",
     userId: "user-1",
+    returnView: "reports",
   });
+  expect(
+    formatRootRouteSegments({
+      returnView: "reports",
+      userId: "user-1",
+      view: "identities",
+    }),
+  ).toEqual(["identities", "user-1", "reports"]);
 });
 
 test("audit routes keep their subject through URL round trips", () => {
