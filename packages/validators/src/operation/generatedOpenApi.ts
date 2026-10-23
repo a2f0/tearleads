@@ -1217,6 +1217,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/root/reports/ops-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["root.reports.opsHealth.get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 };
 export type webhooks = Record<string, never>;
 export type components = {
@@ -22958,8 +22974,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         events: ({
-                            /** @enum {string} */
-                            action: "root.access.grant" | "root.access.revoke" | "root.auditEvents.list" | "root.identities.get" | "root.identities.list" | "root.identities.organizations.list" | "root.organizations.dataUsage.get" | "root.organizations.get" | "root.organizations.identities.list" | "root.organizations.list" | "root.reports.dataUsage.list";
+                            action: string;
                             actorSigningKeyFingerprint: string | null;
                             actorUserId: string | null;
                             filter: string | null;
@@ -24042,6 +24057,154 @@ export interface operations {
                 content: {
                     "application/json": {
                         error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "root.reports.opsHealth.get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        generatedAt: string;
+                        purges: {
+                            rows: ({
+                                organizationId: string;
+                                purgeAfter: string | null;
+                                purgeStartedAt: string | null;
+                                /** @enum {string} */
+                                status: "disabled" | "deleting";
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            truncated: boolean;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        purgesDue: {
+                            rows: ({
+                                disabledAt: string | null;
+                                organizationId: string;
+                                purgeAfter: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            truncated: boolean;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        seatSync: {
+                            rows: ({
+                                appliedRevision: number;
+                                attemptCount: number;
+                                conditions: ("failing" | "stalled" | "leaseExpired")[];
+                                desiredRevision: number;
+                                lastError: string | null;
+                                lastSyncedAt: string | null;
+                                leaseExpiresAt: string | null;
+                                nextAttemptAt: string | null;
+                                organizationId: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            truncated: boolean;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        trialExpiry: {
+                            rows: ({
+                                attemptCount: number;
+                                lastError: string | null;
+                                nextAttemptAt: string | null;
+                                organizationId: string;
+                                requiresAttention: boolean;
+                                trialEndsAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            truncated: boolean;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                        trialsEnding: {
+                            rows: ({
+                                organizationId: string;
+                                trialEndsAt: string;
+                            } & {
+                                [key: string]: unknown;
+                            })[];
+                            truncated: boolean;
+                        } & {
+                            [key: string]: unknown;
+                        };
                     } & {
                         [key: string]: unknown;
                     };

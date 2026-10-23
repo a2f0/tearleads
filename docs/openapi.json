@@ -63635,7 +63635,8 @@
                         "properties": {
                           "action": {
                             "type": "string",
-                            "enum": [
+                            "minLength": 1,
+                            "x-extensible-enum": [
                               "root.access.grant",
                               "root.access.revoke",
                               "root.auditEvents.list",
@@ -63646,7 +63647,8 @@
                               "root.organizations.get",
                               "root.organizations.identities.list",
                               "root.organizations.list",
-                              "root.reports.dataUsage.list"
+                              "root.reports.dataUsage.list",
+                              "root.reports.opsHealth.get"
                             ]
                           },
                           "actorSigningKeyFingerprint": {
@@ -66706,6 +66708,434 @@
           {
             "description": "document usage totals equal the sums of the category breakdown",
             "id": "response.organization-data-usage-document-totals"
+          }
+        ]
+      }
+    },
+    "/root/reports/ops-health": {
+      "get": {
+        "operationId": "root.reports.opsHealth.get",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "generatedAt": {
+                      "type": "string"
+                    },
+                    "seatSync": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "organizationId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "conditions": {
+                                "items": {
+                                  "type": "string",
+                                  "enum": [
+                                    "failing",
+                                    "stalled",
+                                    "leaseExpired"
+                                  ]
+                                },
+                                "maxItems": 3,
+                                "type": "array"
+                              },
+                              "attemptCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "appliedRevision": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "desiredRevision": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "lastError": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "lastSyncedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "leaseExpiresAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "nextAttemptAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "organizationId",
+                              "conditions",
+                              "attemptCount",
+                              "appliedRevision",
+                              "desiredRevision",
+                              "lastError",
+                              "lastSyncedAt",
+                              "leaseExpiresAt",
+                              "nextAttemptAt"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "maxItems": 50,
+                          "type": "array"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "truncated"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "trialExpiry": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "organizationId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "trialEndsAt": {
+                                "type": "string"
+                              },
+                              "attemptCount": {
+                                "maximum": 1.7976931348623157e+308,
+                                "minimum": 0,
+                                "type": "integer"
+                              },
+                              "lastError": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "nextAttemptAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "requiresAttention": {
+                                "type": "boolean"
+                              }
+                            },
+                            "required": [
+                              "organizationId",
+                              "trialEndsAt",
+                              "attemptCount",
+                              "lastError",
+                              "nextAttemptAt",
+                              "requiresAttention"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "maxItems": 50,
+                          "type": "array"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "truncated"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "purges": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "organizationId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "disabled",
+                                  "deleting"
+                                ]
+                              },
+                              "purgeAfter": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "purgeStartedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "organizationId",
+                              "status",
+                              "purgeAfter",
+                              "purgeStartedAt"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "maxItems": 50,
+                          "type": "array"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "truncated"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "trialsEnding": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "organizationId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "trialEndsAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "organizationId",
+                              "trialEndsAt"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "maxItems": 50,
+                          "type": "array"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "truncated"
+                      ],
+                      "additionalProperties": {}
+                    },
+                    "purgesDue": {
+                      "type": "object",
+                      "properties": {
+                        "rows": {
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "organizationId": {
+                                "type": "string",
+                                "minLength": 1
+                              },
+                              "disabledAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "purgeAfter": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "organizationId",
+                              "disabledAt",
+                              "purgeAfter"
+                            ],
+                            "additionalProperties": {}
+                          },
+                          "maxItems": 50,
+                          "type": "array"
+                        },
+                        "truncated": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "rows",
+                        "truncated"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "generatedAt",
+                    "seatSync",
+                    "trialExpiry",
+                    "purges",
+                    "trialsEnding",
+                    "purgesDue"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "session_refresh_required"
+                    },
+                    "error": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
           }
         ]
       }

@@ -22,6 +22,7 @@ import { OrganizationsView } from "./organizations/OrganizationsView";
 import { RootMenu } from "./RootMenu";
 import { useRootSidebarPanel } from "./RootSidebar";
 import { DataUsageReportView } from "./reports/DataUsageReportView";
+import { OpsHealthReportView } from "./reports/OpsHealthReportView";
 import {
   IDENTITIES_ROOT_ROUTE,
   type RootRoute,
@@ -94,17 +95,23 @@ function RootContent({
     );
   }
   if (route.view === "reports") {
+    const openReportedOrganization =
+      (tab: "billing" | "data-usage") => (organizationId: string) =>
+        setRoute({
+          view: "organizations",
+          organizationId,
+          tab,
+          returnView: "reports",
+        });
     return (
-      <DataUsageReportView
-        onSelectOrganization={(organizationId) =>
-          setRoute({
-            view: "organizations",
-            organizationId,
-            tab: "data-usage",
-            returnView: "reports",
-          })
-        }
-      />
+      <>
+        <OpsHealthReportView
+          onSelectOrganization={openReportedOrganization("billing")}
+        />
+        <DataUsageReportView
+          onSelectOrganization={openReportedOrganization("data-usage")}
+        />
+      </>
     );
   }
   if (route.view === "organizations") {

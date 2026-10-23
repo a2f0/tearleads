@@ -121,6 +121,7 @@ console reaches it through the typed client):
 | Page an organization's roster identities, including disabled entries, with each member's sync pause and seat holding | `GET /root/organizations/:organizationId/identities` |
 | Read an organization's synced data usage | `GET /root/organizations/:organizationId/data-usage` |
 | Page synced data usage by organization, newest organizations first, with the same exact-ID filter | `GET /root/reports/data-usage` |
+| Report billing maintenance trouble across organizations: failing, overdue or lapsed-lease Stripe seat syncs, failed or overdue trial expiries, overdue or lapsed purges, and trials ending and purges falling due within seven days (each section capped at 50 rows) | `GET /root/reports/ops-health` |
 | Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
 
 These routes run `requireAuth` then `requireRoot`, which admits only identities

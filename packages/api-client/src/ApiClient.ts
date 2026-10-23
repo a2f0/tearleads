@@ -29,6 +29,7 @@ import {
   getOrganizationNativePurchaseEligibilityOperation,
   getOrganizationReadModelOperation,
   getRootIdentityOperation,
+  getRootOpsHealthReportOperation,
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
   getStripeCheckoutOptionsOperation,
@@ -113,6 +114,7 @@ import type {
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
   RootIdentityOrganizationsResponse,
+  RootOpsHealthReportResponse,
   RootOrganizationDetailResponse,
   RootOrganizationIdentitiesResponse,
   RootOrganizationsResponse,
@@ -740,6 +742,15 @@ export class ApiClient {
     return this.transport.requestResult(
       listRootAuditEventsOperation,
       { params: {}, query },
+      options,
+    );
+  }
+  getRootOpsHealthReportResult(
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootOpsHealthReportResponse>> {
+    return this.transport.requestResult(
+      getRootOpsHealthReportOperation,
+      { params: {} },
       options,
     );
   }

@@ -509,6 +509,15 @@ export {
   RootAuditEventsResponseSchema,
 } from "./rootAudit";
 export {
+  ROOT_OPS_HEALTH_OVERDUE_MINUTES,
+  ROOT_OPS_HEALTH_SECTION_LIMIT,
+  ROOT_OPS_HEALTH_UPCOMING_DAYS,
+  ROOT_SEAT_SYNC_CONDITIONS,
+  type RootOpsHealthReportResponse,
+  RootOpsHealthReportResponseSchema,
+  RootSeatSyncConditionSchema,
+} from "./rootOpsHealth";
+export {
   type RootDataUsageReportResponse,
   RootDataUsageReportResponseSchema,
   type RootOrganizationDetailResponse,
