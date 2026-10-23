@@ -10,6 +10,7 @@ import type {
   RootIdentityOrganizationsResponse,
   RootIdentitySessionResponse,
 } from "@tearleads/validators/response";
+import { SHA256_HEX_LENGTH } from "@tearleads/validators/util";
 import { Hono } from "hono";
 import type { SessionEnv, UserSessionSummary } from "../../middleware/session";
 import {
@@ -17,6 +18,7 @@ import {
   getIdentityOrganizations,
   listIdentities,
   RootIdentityError,
+  resolveIdentityIdByFingerprint,
 } from "../../services/root/identities";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
@@ -55,8 +57,13 @@ export function createRootIdentitiesRoute({
         const { cursor, fingerprint, limit, rootOnly, userId } =
           c.req.valid("query");
         const onlyRoot = rootOnly === true || rootOnly === "true";
-        // A listing narrowed to one exact user ID is a lookup of that identity,
-        // so it also lands in that identity's audit trail.
+        // A listing narrowed to one exact user ID or full fingerprint is a
+        // lookup of that identity, so it also lands in that identity's audit
+        // trail. Resolving the fingerprint reads only the user ID.
+        const fingerprintUserId =
+          fingerprint?.length === SHA256_HEX_LENGTH
+            ? await resolveIdentityIdByFingerprint(runtime, fingerprint)
+            : null;
         await auditRootRequest(c, runtime, {
           action: listRootIdentitiesOperation.id,
           filters: {
@@ -64,7 +71,7 @@ export function createRootIdentitiesRoute({
             rootOnly: onlyRoot ? "true" : undefined,
             userId,
           },
-          targetUserId: userId,
+          targetUserId: userId ?? fingerprintUserId ?? undefined,
         });
         return c.json<RootIdentitiesResponse>(
           await listIdentities(runtime, {

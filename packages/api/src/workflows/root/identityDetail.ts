@@ -32,3 +32,16 @@ export async function isRootIdentity(
 
   return row?.isRoot === true;
 }
+
+export async function findRootIdentityIdByFingerprint(
+  executor: DatabaseSession,
+  fingerprint: string,
+): Promise<string | null> {
+  const [row] = await executor
+    .select({ userId: users.id })
+    .from(users)
+    .where(eq(users.fingerprint, fingerprint))
+    .limit(1);
+
+  return row?.userId ?? null;
+}

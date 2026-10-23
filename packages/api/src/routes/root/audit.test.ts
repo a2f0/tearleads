@@ -33,7 +33,9 @@ function rootRequest(path: string, app = routeApp): Promise<Response> {
   );
 }
 
-async function latestEvent(action: RootAuditAction) {
+// Back-to-back requests can share a clock tick, so a test making two of the
+// same action tells them apart by `filter` rather than by time.
+async function latestEvent(action: RootAuditAction, filter?: string) {
   const [row] = await db
     .select()
     .from(rootAuditEvents)
@@ -41,6 +43,7 @@ async function latestEvent(action: RootAuditAction) {
       and(
         eq(rootAuditEvents.action, action),
         eq(rootAuditEvents.actorUserId, root.userId),
+        filter === undefined ? undefined : eq(rootAuditEvents.filter, filter),
       ),
     )
     .orderBy(desc(rootAuditEvents.occurredAt), desc(rootAuditEvents.id))
@@ -145,6 +148,28 @@ test("every root operation records who asked for what before it answers", async 
       ...request.expected,
     });
   }
+});
+
+test("a full signing key fingerprint is a lookup of the identity it names", async () => {
+  const response = await rootRequest(
+    `/root/identities?fingerprint=${member.fingerprint}`,
+  );
+  expect(response.status).toBe(200);
+  expect(
+    await latestEvent(
+      "root.identities.list",
+      `fingerprint=${member.fingerprint}`,
+    ),
+  ).toMatchObject({ targetUserId: member.userId });
+
+  const unregistered = "f".repeat(64);
+  const missing = await rootRequest(
+    `/root/identities?fingerprint=${unregistered}`,
+  );
+  expect(missing.status).toBe(200);
+  expect(
+    await latestEvent("root.identities.list", `fingerprint=${unregistered}`),
+  ).toMatchObject({ targetUserId: null });
 });
 
 test("an organization search that names no organization ID records no target", async () => {

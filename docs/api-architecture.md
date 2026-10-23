@@ -132,9 +132,12 @@ activity path so operators can see when an identity was last seen.
 
 Every root handler records a `root_audit_events` row — actor, operation id,
 target identity or organization, applied filters, and request IP — before it
-reads anything. A request whose row cannot be written fails with a 500 instead
-of being answered unrecorded; requests refused by `requireAuth` or
-`requireRoot` record nothing. The CLI's `make-admin` / `revoke-admin` record
+reads anything it serves. A listing narrowed by an exact identifier (a user ID,
+a full signing key fingerprint, or an organization ID search) names that
+identity or organization as its target, so it appears in that subject's audit
+trail. A request whose row cannot be written fails with a 500 instead of being
+answered unrecorded; requests refused by `requireAuth` or `requireRoot` record
+nothing. The CLI's `make-admin` / `revoke-admin` record
 each change to `users.is_root` in the same table, with no actor, in the
 transaction that changes the flag.
 
