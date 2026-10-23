@@ -95,8 +95,8 @@ and a window on a hidden surface fits once the surface shows.
 - **`ContentBoundary`** — `Window` renders a window's component inside this
   optional wrapper, which receives the `WindowEntry`. Hosts use it to give
   content app-specific context (a route provider, an error boundary) without the
-  window layer knowing about apps. Tearleads fills it in
-  `packages/app/src/mini-apps/MiniAppWindow.tsx`.
+  window layer knowing about apps. `MiniAppWindow` fills it for launcher apps
+  (see [Launching mini-apps](#launching-mini-apps)).
 - **`appId`** — an opaque string a host attaches when creating a window. The
   window layer only stores and compares it; the host interprets it.
 
@@ -455,7 +455,7 @@ an external consumer. It needs the network to install the consumer dependencies.
 manifest copies `version` from `package.json`. For a release outside that flow,
 bump the version yourself before publishing. The manifest names this repository,
 which npm requires of a version with provenance, and declares
-`"license": "UNLICENSED"` until a license is chosen.
+`"license": "UNLICENSED"`.
 
 ## Dependency compatibility
 

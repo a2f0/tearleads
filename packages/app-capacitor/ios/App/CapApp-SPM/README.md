@@ -1,5 +1,6 @@
 # CapApp-SPM
 
-This package is used to host SPM dependencies for your Capacitor project
+This package hosts the Swift Package Manager dependencies for the Capacitor iOS
+project.
 
-Do not modify the contents of it or there may be unintended consequences.
+Do not modify its contents by hand; Capacitor manages them.

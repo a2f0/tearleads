@@ -13,48 +13,35 @@ import { Tearleads } from "@tearleads/client-sdk";
 const tearleads = new Tearleads();
 ```
 
-The minimal instance uses same-origin API routes, memory blob storage, default
-logging, and an idle database. Configure SQLite before using persistence, sync,
-or identity generation:
+Configure SQLite before using persistence, sync, or identity generation:
 
 ```ts
 tearleads.database.configure({
   client: sqliteRuntime.client,
   id: sqliteRuntime.id,
 });
-```
 
-Single-identity clients can ask the constructor to start local identity
-provisioning once SQLite becomes ready:
-
-```ts
-const tearleads = new Tearleads({
-  identityProvisioning: "auto",
-});
-```
-
-Automatic provisioning calls `tearleads.identity.generate()` when no signing key
-pair exists and the database is ready. Hosts that need the root container id
-immediately can keep the explicit call after configuring SQLite:
-
-```ts
 const { rootContainerId } = await tearleads.identity.generate();
 ```
 
-## Current Host Contract
+Single-identity clients can pass `identityProvisioning: "auto"` instead of
+calling `generate()`; see [Constructor Options](#constructor-options).
 
-Hosts use current SDK interfaces. `deviceFirst.open()` returns one handle.
-Reconciliation requires scoped hints; `enqueueIdleBackfill()` performs catch-up.
-The force argument and unscoped flush are removed. Creation uses the compound
-container-plus-metadata endpoint. Create, link/unlink, projection and sync APIs
-require structured `Result` methods with complete transport failures.
-Unused nullable mutation methods are not required.
-Container persistence atomically saves pending mutations. An accepted create or
-move must save its state and settle its exact intent revision in one transaction;
-missing settlement acknowledgments are refused. Error recording also checks the
-intent revision; unconditional settlement is not supported.
+## Host Contract
 
-Reset local tables with obsolete columns; startup performs no schema upgrades.
+`deviceFirst.open()` returns one shared handle. Reconciliation takes scoped
+hints, and `enqueueIdleBackfill()` performs catch-up. Container creation
+commits the container and its metadata document in one compound API request.
+Create, link/unlink, projection, and sync adapters provide structured `Result`
+methods that report complete transport failures. Container persistence saves
+pending mutations atomically: an accepted create or move saves its state and
+settles its exact intent revision in one transaction, and an acknowledgment
+without that settlement is refused. Error recording also checks the intent
+revision; settlement is never unconditional.
+
+Startup creates missing tables and indexes but never alters existing ones, so a
+local database whose tables do not match the current schema must be reset.
+
 Verified writer projections leave their access-manifest bundles in the local
 `verified_access_manifest_bundles` table (at most 1,024 rows, oldest evicted
 first, cleared with an organization's remote reset). Later reads cite up to 48
@@ -62,16 +49,16 @@ from the read object's organization so the API omits those bytes; the SDK
 refills and re-verifies them. The table is a byte cache, not a checkpoint:
 losing it only makes reads larger. See
 [incremental evidence](../projection-policy-evidence.md#cost-and-retained-history-tradeoff).
+
 Principal-policy warming verifies and persists its cache. Group policy writes
-atomically pin an organization owner with current/history/checkpoint rows.
-Public policy-cache and bundle-save types require that owner.
-Unowned persisted group evidence requires a full local reset before scoped purge.
-The wire contract requires explicit
-commit-LSN mode, inline-rekey commit markers for nonempty batches, and original
-document/blob write-authorization evidence. Historical signed manifests and
-sealed keyrings remain supported because they are current protocol evidence.
-See the [workflow contract](../../packages/client-sdk/src/workflows/README.md)
-for custom adapter details.
+pin an organization owner atomically with current, history, and checkpoint
+rows, and the public policy-cache and bundle-save types require that owner.
+Persisted group evidence without an owner refuses scoped purge and requires a
+full local reset. The wire contract requires explicit commit-LSN mode,
+inline-rekey commit markers for nonempty batches, and the original
+document/blob write-authorization evidence. See the
+[workflow contract](../../packages/client-sdk/src/workflows/README.md) for
+custom adapter details.
 
 ## Advanced Configuration
 
@@ -111,11 +98,6 @@ const tearleads = new Tearleads({
 const { rootContainerId } = await tearleads.identity.generate();
 ```
 
-Group membership add/remove inputs require `expectedGroupName`, captured from
-the label the user selected. The SDK verifies the signed policy name before
-recipient resolution or key use. A mismatch raises
-`GroupMembershipNameMismatchError` and is reported as a security incident.
-
 Client capabilities:
 
 | Namespace | Owns |
@@ -126,27 +108,47 @@ Client capabilities:
 | `tearleads.session` | registration, auth token, personal-org identity, and active context |
 | `tearleads.network` | online/offline state passed into sync workflows |
 | `tearleads.apiVersion` | latest `X-Tearleads-Api-Version` response header, for diagnostics |
+| `tearleads.apiRequests` | per-identity HTTP attempt counts and timings (see [API Request Counts](#api-request-counts)) |
 | `tearleads.events` | remote event list passed into sync workflows |
 | `tearleads.runtime` | workflow runtime input snapshots for host stores and providers |
+| `tearleads.syncBillingGate` | organizations whose sync writes the API refused with HTTP 402, for billing prompts |
 | `tearleads.documents` | document editing, lists, deletion, subscriptions, and runtime composition |
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, server-authoritative billing eligibility, and the user's own memberships with per-organization sync pauses (`memberships`; see [organization memberships](../organization-memberships.md)) |
-| `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, detailed billing and the latest 50 billing events), the cross-organization ops-health report, RevenueCat webhook deliveries per organization and unmatched or ignored across them, the root audit trail, and suspending or lifting a non-root identity, offered only when the session is root |
+| `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, billing with the latest 50 billing events, data usage), the ops-health report, RevenueCat webhook deliveries, the root audit trail, and identity suspension, offered only when the session is root |
 | `tearleads.userIdentities` | TOFU `resolve`; `resolvePinned`; identity-link `createLink` / `verifyLink` |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
+
+Prefer instance services so document and container stores share the active
+database, identity, sync, and subscription scope. Product code should use the
+namespaces above; import internals only for SDK development or
+[custom persistence](./custom-document-persistence.md).
+
+`tearleads.network` defaults to automatic mode: browser events and API request
+results set `online`. Hosts can force diagnostics with `setMode("offline")` or
+`setMode("online")`, then resume detection with `setMode("automatic")`.
+
+### Organizations and groups
 
 Organization and custom group names are encrypted. Every organization requires
 an independent metadata root with Admins/admin and Members/read grants, isolated
 from personal-root shares and rotations. The SDK verifies signed directories and
 decrypts group names for all members. Built-in labels follow signed roles;
-operator organization listings expose IDs only. This fresh-database contract
-keeps organization profile documents optional.
+operator organization listings expose IDs, never names. Organization profile
+documents are optional.
+
+Group membership add/remove inputs require `expectedGroupName`, captured from
+the label the user selected. The SDK verifies the signed policy name before
+recipient resolution or key use. A mismatch raises
+`GroupMembershipNameMismatchError` and is reported as a security incident.
 
 Low-level group creation requires `metadataAccess`. The initial policy builder
 requires `metadataKey` for a custom group or `builtinRole` for a reserved group.
 Membership and share helpers use `readEncryptedName` to bind the selected label
 to verified metadata. The normal client facade supplies these dependencies.
+
+### Root operator lookups
 
 Root exposes `loadOrganizationDataUsage(organizationId)` for the synced document
 and blob breakdown, and `listDataUsageReport({ search, cursor, limit })` for
@@ -160,27 +162,25 @@ those an identity or organization acted in or was the target of. The server
 records each Root request, including this listing, before answering it; an
 event with a null actor came from the API CLI.
 
-Prefer instance services so document and container stores share the active
-database, identity, sync, and subscription scope. Product code should use the
-namespaces above; import internals only for SDK development or
-[custom persistence](./custom-document-persistence.md). Orphan-recovery queries
-accept a null container plus the active organization; use the indexed
-`hasOrphanedDocuments(...)` probe.
+### Documents and attachments
 
 Document stores initialize automatically before mutating operations such as
 `setText(...)`, `setStructuredFields(...)`, `attachFiles(...)`,
 `replaceAttachment(...)`, and `relink(...)`. Use `ensureInitialized()` only for
 an explicit readiness probe before reading a ready snapshot. Use
 `tearleads.runtime.input(containerId)` for host runtime input; SDK facades retain
-API access and incident reporting.
+API access and incident reporting. Orphan-recovery queries accept a null
+container plus the active organization; use the indexed
+`hasOrphanedDocuments(...)` probe.
 
-Attachment methods persist required `contentSha256` digests in encrypted document
-content and pending-upload rows. Recovery restores slots without reading bytes.
-Hydration replaces a held copy only with bytes matching the document intent; a
-valid served binding the document has not recorded fills only an empty slot.
-Removal queues local bytes for reference-aware reclamation, including copies
-shared by pending uploads after reset. Custom `DocumentsPersistence` adapters
-provide the required `orphanBlobs` queue and reference methods described in
+Attachment methods persist required `contentSha256` digests in encrypted
+document content and pending-upload rows. Recovery restores slots without
+reading bytes. Hydration replaces a held copy only with bytes matching the
+document intent; a valid served binding the document has not recorded fills
+only an empty slot. Removal queues local bytes for reference-aware reclamation,
+including copies shared by pending uploads after reset. Custom
+`DocumentsPersistence` adapters provide the required `orphanBlobs` queue and
+reference methods described in
 [custom persistence](./custom-document-persistence.md).
 
 A host that attaches a file right after creating its document can open it with
@@ -193,10 +193,11 @@ gives up before attaching must call `attachFiles([])` to release the wait. The
 factories take the option, with `remoteSyncMode`, in a trailing
 `DocumentStoreOpenOptions` object.
 
-`initialStructuredFields` and `initialRows`, on the same options and on both
-`openDocument` inputs, put content known at creation into the birth update
-beside the kind and text, so the first sync can send it inside the create. A
-record that already exists ignores them; fields need a non-note kind.
+`initialStructuredFields` and `initialRows`, on the same options and on the
+`tearleads.documents.open(...)` and `documentLinks().openDocument(...)` inputs,
+put content known at creation into the birth update beside the kind and text,
+so the first sync can send it inside the create. An existing record ignores
+them; fields need a non-note kind.
 
 For bounded UI hydration, resolve `localId` with
 `tearleads.documents.findLocalIdByDocumentId(documentId)`, open with
@@ -205,6 +206,8 @@ It returns `false` unless a pass completes. Abort on unmount; cancellation
 releases only waiter-owned work. See the
 [on-demand lifecycle](./custom-document-persistence.md#on-demand-document-lifecycle).
 
+### Sync and container recitation
+
 Loop `syncRemoteDocument(...)`; resume with `readPullContinuation(...)` and
 validate via `validateDocumentSyncUpdateImports(...)`. Inline callbacks pass
 `verification` to `buildMaterializedContainerRekeyPlan(...)`, including
@@ -212,38 +215,41 @@ chains; sync derives successor targets and coded retries. Preserve
 `KeyingVerificationError`; missing [raw-history](../raw-document-history-recovery.md)
 epochs throw `DocumentRawHistoryUnavailableError`.
 
+Custom sync lanes may provide `SyncLaneConfig.priority()`: lower finite numbers
+start first within a phase, with fair rotation among ties. Missing, throwing,
+or nonfinite priority values use zero. Structural work remains a phase barrier;
+priority never interrupts a running callback.
+
 Custom container mutation APIs must implement `ContainerReciteApi` (including
 `reciteContainer`); the built-in API client supplies it. Container mutations
 and atomic group-policy rematerializations schedule non-blocking re-cites for
-already-held verified descendants, with 256 retained heads and eight attempts
-per pass, spaced 250 ms apart. No subtree fetch or retry occurs; it leaves keys
-and grants unchanged. It is not a descendant-rekey or freshness guarantee.
-These mutation facades require `reportSecurityIncident`; the built-in runtime
-wires its durable incident service. Re-citation stops at container epoch 512
-to reserve the remaining verifier history budget for ordinary mutations.
-Organization grant revocation requires a live `stillCurrent` guard. The client
-facade binds it, and group rematerialization cascades, to the captured session,
-organization, signing identity, and database lifetime.
+already-held verified descendants, retaining up to 256 heads and sending at
+most eight re-cites per pass, spaced 250 ms apart. No subtree fetch or retry
+occurs, and keys and grants stay unchanged. It is not a descendant-rekey or
+freshness guarantee. These mutation facades require `reportSecurityIncident`;
+the built-in runtime wires its durable incident service. Re-citation stops at
+container epoch 512 to reserve the remaining verifier history budget for
+ordinary mutations. Organization grant revocation requires a live
+`stillCurrent` guard. The client facade binds it, and group rematerialization
+cascades, to the captured session, organization, signing identity, and database
+lifetime.
 
 Container listing cursors mirror the API's feeds: one `root` cursor lists all
 accessible organizations; `parent:<containerId>` and document lanes use the
 globally unique container ID, never the viewer's selected organization. Purging
 an organization clears that global root cursor and only its own child/document
-lanes. Reset local databases created with organization-prefixed cursors; no
-conversion or dual-read path is provided.
+lanes.
 
-`tearleads.network` defaults to automatic mode: browser events and API request
-results set `online`. Hosts can force diagnostics with `setMode("offline")` or
-`setMode("online")`, then resume detection with `setMode("automatic")`.
+### Runtime input
 
-Runtime input snapshots are grouped by capability:
+Runtime input snapshots expose only these capability groups:
 
 | Group | Fields |
 | --- | --- |
-| `auth` | `userId`, `defaultOrganizationId`, `organizationId`, `isAuthenticated` |
+| `auth` | `userId`, `defaultOrganizationId`, `organizationId`, `rootContainerId`, `isAuthenticated`, `isRoot` |
 | `crypto` | `signingKeyPair`, `signingFingerprint`, `encapsulationKeyPair` |
 | `infra` | `dbStatus`, `execSql`, `blobStore`, `documentProjectors` |
-| `state` | `containerId`, `domainScope`, `events`, `online` |
+| `state` | `containerId`, `domainScope`, `events`, `online`, `serverEventsConnectionGeneration`, `peerScope` |
 | `util` | `log`, `logError`, `isRemoteSyncBlocked` |
 
 `util.logError` is optional for document/container runtimes. Quarantines,
@@ -255,14 +261,16 @@ change an outcome. Hosts filter their own catches with the exported
 `auth.defaultOrganizationId` moves after local reset and finalization in
 [billing-purge recovery](./billing-purge-recovery.md).
 Hosts catch `PurgedOrganizationRecoveryBillingRequiredError` to activate it
-without early local rebind. Runtime snapshots expose only grouped capabilities.
+without early local rebind.
 
-`tearleads.containerContents.workflowRuntime()` remains available to advanced
-host stores and includes root adoption. Custom hosts assembling a store directly
+`tearleads.containerContents.workflowRuntime()` gives advanced host stores a
+runtime that includes root adoption. Custom hosts assembling a store directly
 must use `createContainerContentsStoreWorkflowRuntime(input, adopter)`; the
 adopter atomically validates and updates the session root. The general workflow
-factory has no root-adoption capability. Most product code should use the
+factory has no root-adoption capability. Product code should use the
 higher-level helpers.
+
+### Pending writes and diagnostics
 
 `tearleads.containerContents.documentQueries().listPendingWrites()` returns an
 identity-wide, locally derived view of durable writes that have not converged.
@@ -272,15 +280,10 @@ bytes, move targets, status, and persisted intent errors. A document whose
 read-only revalidation was refused surfaces as a diagnostic `revalidation`
 item even with zero queued writes, so a document that can never refresh is
 visible; such items carry no local data and never offer the destructive
-discard. Serialized Loro
-updates, local blob storage keys, and upload cryptographic material stay private.
-This answers what remains pending; sync snapshots show scheduler work
-and `blobStorageKey` navigation into Blob Browser.
-
-Custom sync lanes may provide `SyncLaneConfig.priority()`: lower finite numbers
-start first within a phase, with fair rotation among ties. Missing, throwing,
-or nonfinite priority values use zero. Structural work remains a phase barrier;
-priority never interrupts a running callback.
+discard. Serialized Loro updates, local blob storage keys, and upload
+cryptographic material stay private. This view answers what remains pending;
+sync snapshots show scheduler work and `blobStorageKey` navigation into Blob
+Browser.
 
 Two per-row recovery actions pair with that view.
 `documentQueries().retryPendingWriteItem(...)` resets the item's parked retry
@@ -328,6 +331,7 @@ and initial runtime state; its `database` field is `TearleadsDatabaseOptions`:
 ```ts
 const tearleads = new Tearleads({
   apiBaseUrl,
+  apiRequestMetrics,
   blobStore,
   blobStoreFactory,
   database,
@@ -339,6 +343,10 @@ const tearleads = new Tearleads({
   logger,
   onSecurityIncident,
   online,
+  peerScope,
+  principalHistoryKeyProvider,
+  principalMutationTimeoutMs,
+  provisionedSystemContainers,
 });
 ```
 
@@ -349,6 +357,13 @@ an idle database.
 `documentProjectors` takes a prebuilt `DocumentProjectorRegistry` or a readonly
 array of `DocumentProjectorDefinition` values; prefer definitions for an
 app-owned document type list, and the SDK normalizes and caches the registry.
+`peerScope` gives each pane distinct Loro peer ids; omit it for a single pane.
+`provisionedSystemContainers` names app-owned system containers, such as a
+trash bin, that every new organization is created with.
+`principalHistoryKeyProvider` is covered in
+[history recovery](./principal-history-recovery.md), and
+`principalMutationTimeoutMs` (default 60 seconds) in
+[policy outcomes](./principal-policy-outcomes.md).
 
 HTTP uses `apiBaseUrl`; see [SDK hosting](./sdk-hosting.md) and
 [identity trust](./trusted-user-identity.md).
@@ -371,9 +386,10 @@ trust domain are kept, and no error text or content is stored. `list()` is
 redacted buffer. Transport errors add none.
 
 `new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The
-constructor only captures the current database `client`, `execSql`, and `id`,
-deriving status unless the host passes a lifecycle override. If the worker is
-already initialized, pass the runtime in; the SDK infers `status: "ready"`:
+constructor only captures the database `client`, `execSql`, and `id` and
+derives the status from them; `TearleadsDatabaseOptions` takes no `status`. If
+the worker is already initialized, pass the runtime in; the SDK infers
+`status: "ready"`:
 
 ```ts
 new Tearleads({
@@ -383,14 +399,7 @@ new Tearleads({
 
 If the host boots SQLite after constructing the SDK, create `new Tearleads(...)`
 without a ready database, call `runtime.client.init(...)`, then publish the
-initialized runtime:
-
-```ts
-tearleads.database.configure({
-  client: runtime.client,
-  id: runtime.id,
-});
-```
+initialized runtime with `tearleads.database.configure({ client, id })`.
 
 Pass `status` to `tearleads.database.configure(...)` only for lifecycle states
 the SDK cannot infer from the presence of a client, such as a worker that
@@ -398,13 +407,8 @@ exists but is still initializing (`"idle"`) or a failed initialization
 (`"error"`). Publish a destroyed runtime with
 `tearleads.database.clear("terminated")`.
 
-Browser and Electron hosts should create worker-backed SQLite runtimes through
-the SDK SQLite facade:
-
-```ts
-import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
-```
-
+Browser and Electron hosts create worker-backed SQLite runtimes with
+`createSQLiteRuntime()` from `@tearleads/client-sdk/sqlite`.
 `SQLiteRuntime` is the host lifecycle object with `{ id, client,
 destroy() }`. The runtime starts its worker from `/worker.js` unless `workerUrl`
 names another URL. The host serves the SDK's `sqlite/worker.js` there, with
@@ -430,22 +434,14 @@ SQLite vocabulary:
 Host runtime code should use this facade instead of importing
 `createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
 `DatabaseWorkerClient` from `@tearleads/sqlite-worker` directly. Low-level
-SQLite tests may still import the underlying worker package to exercise the
+SQLite tests import the underlying worker package to exercise the
 worker itself.
 
 Identity setup is asynchronous because the signing fingerprint is derived from
 the public key and local root setup requires SQLite. `generate()` requires a
 ready SQLite database, creates or reuses the local root container, and stores it
-on `tearleads.session.containerId` before resolving:
-
-```ts
-const result = await tearleads.identity.generate();
-
-result.rootContainerId;
-result.rootContainerCreated;
-result.seedPhrase;
-result.userId;
-```
+on `tearleads.session.containerId` before resolving with `rootContainerId`,
+`rootContainerCreated`, `seedPhrase`, and `userId`.
 
 If SQLite is not ready or local root bootstrap fails when `generate()` runs, the
 promise rejects and the previous identity snapshot is left in place. Configure
@@ -457,7 +453,7 @@ fingerprint asynchronously.
 
 Generated identities are seed-backed: `generate()` creates a 24-word BIP39
 English phrase on the result/snapshot. `importSeedPhrase(...)` regenerates the
-key pairs; session/container recovery remains host-owned.
+key pairs; session/container recovery is host-owned.
 
 Set `identityProvisioning: "auto"` to provision a single-identity SDK instance
 once SQLite is available. It schedules `identity.generate()` when the database
@@ -472,7 +468,7 @@ pass a fixed `blobStore`, or `blobStoreFactory` for identity-scoped stores, at
 construction. The default and factory-backed stores still switch namespaces
 automatically with identity (and via
 `useEphemeralStore`/`useIdentityNamespace`); a fixed `blobStore` is used as
-given, and arbitrary post-construction store replacement is gone.
+given, and the store cannot be replaced after construction.
 
 For browser and Electron hosts, prefer an encrypted local blob store factory:
 
@@ -525,7 +521,8 @@ const keyring = createBrowserLocalKeyring();
 ```
 
 `createBrowserLocalKeyring()` stores both the JSON manifest and the wrapping-key
-handle in IndexedDB; the wrapping key is a non-extractable AES-GCM `CryptoKey`.
+handle in IndexedDB (the manifest falls back to localStorage where IndexedDB is
+unavailable); the wrapping key is a non-extractable AES-GCM `CryptoKey`.
 The wrapped account-root secret and browser `CryptoKey` survive same-origin app
 restarts; `keyring.deleteSession(scope)` removes both. Hosts that need custom
 storage can compose `createIndexedDbWrappingKeyKeystore(...)` with an explicit
@@ -570,15 +567,14 @@ key when a manifest store needs a stable index.
 and development wiring. They are not a durable or platform-secure keychain.
 The browser IndexedDB helper is durable but origin-bound: same-origin code can
 ask the stored `CryptoKey` to unwrap the local secret even though it cannot
-export the key bytes. Hosts needing
-unlock can use `createPinCodeWrappingKeyKeystore`, passphrases, OS keychains,
-or secure enclaves.
+export the key bytes. Hosts needing unlock can use
+`createPinCodeWrappingKeyKeystore`, passphrases, OS keychains, or secure
+enclaves.
+
 Call `session.dispose()` when a host is done with a local keyring session; it
 zeroes the in-memory root and derived byte keys owned by that session.
-Built-in keyrings implement optional `close()` for resource release. Caller-held
-sessions remain valid until `session.dispose()`.
-`keyring.deleteSession(scope)` removes both the manifest and the wrapping-key
-handle for the scope.
+Built-in keyrings implement optional `close()` for resource release; caller-held
+sessions stay valid until `session.dispose()`.
 
 Session snapshots retain `rootAcknowledgments` separately from `containerId`,
 which is the selected local view. Login, registration, and organization creation
@@ -632,10 +628,10 @@ Supported package entry points are:
 
 Each module export maps `types` to an emitted `.d.ts` file and `default` to an
 emitted ESM JavaScript file under `dist`; each `sqlite/` file export names the
-built file itself. The export map is exact. Host code
-reaches document contracts, store facades, and public workflow symbols through
-the root entry point; the SQLite entry point owns its runtime adapter boundary,
-and the testing entry point is forbidden from production source.
+built file itself. Host code reaches document contracts, store facades, and
+public workflow symbols through the root entry point; the SQLite entry point
+owns its runtime adapter boundary, and production source never imports the
+testing entry point.
 
 Do not import `@tearleads/client-sdk/data/*` from host code. The root entry
 point aggregates documented public facades and does not make `data/*` internals,
@@ -679,7 +675,7 @@ would leave a descendant above a directly granted container pinned to a retired
 epoch, with `container_descendant_rekeys_required` and the `requiredContainerIds`
 it must carry, parent-first. `rekeyRemoteContainer`, `revokeRemoteContainer`,
 `moveRemoteContainer`, and document sync's standalone repairs answer it
-themselves: they sign those rekeys against the path the batch will leave behind,
+themselves: they sign those rekeys against the path the batch leaves behind,
 resubmit once with `containerRekeys` carried, and pin the whole batch together.
 Access and keys inherit downward only while the rotator retains authority.
 A self-revoke that removes write access on an owed level is refused atomically
@@ -787,12 +783,13 @@ is queued; hosts can map that code to a specific message. A queued move the
 API refuses with that code is abandoned and its previous placement restored.
 
 Principal rotations and membership changes rematerialize every retained group
-grant against the new current principal head in the same transaction. As a
-result, `recoverKeyringEntryFromWraps` resolves group-addressed anchors through
-current verified principal policies and does not need a historical-principal
-reader. See
-[keying-design.md](../keying-design.md#container-key-epoch-database-row) for the
-artifact model these operate on.
+grant against the new current principal head in the same transaction, so
+`recoverKeyringEntryFromWraps` resolves group-addressed anchors through current
+verified principal policies. Rematerialization wraps only a container's current
+epoch: an older epoch whose only anchor is a group wrap from before a principal
+key rotation fails with `HistoricalWrapUnavailableError`
+(`principal-key-unreachable`). See
+[keying-design.md](../keying-design.md#container-key-epoch-database-row).
 
 ### Purchase capabilities
 
@@ -838,13 +835,13 @@ bun run --filter='@tearleads/client-sdk' build
 - `@tearleads/client-sdk` is private, ESM, side-effect-free, and backed by
   build-output package exports.
 - Local `@tearleads/*` package dependencies use `workspace:*` ranges.
-- The package export map matches the documented root and SQLite entry points
-  exactly, points at `dist` JavaScript/declaration files, and stays in sync with
-  the public API entry-point table.
+- The package export map matches the
+  [entry-point table](#public-api-entry-points) exactly and points at `dist`
+  JavaScript/declaration files.
 - `data/*`, document, store, workflow, and deep implementation package exports
   are rejected.
-- App code uses SDK root service surfaces instead of importing SDK document,
-  workflow, or store package facades directly.
+- App code uses SDK root services instead of importing SDK workflow or store
+  facades directly.
 - Product window vocabulary such as `OrgManager` and `mini-app` stays in
   `packages/app`; SDK source uses platform workflow names.
 
@@ -856,7 +853,9 @@ Creates, identity changes, and structural relinks set it, including
 Placement changes invalidate in-flight device-first reads; ordinary content saves
 allow an initial read before the trailing refresh.
 
-Organization policy history details are derived in memory from existing signed
+## Organization policy history
+
+Organization policy history details are derived in memory from the signed
 records returned by `GET /organizations/:organizationId/policy-history`, bound
 to the exact selected organization state hash. Historical directory payloads
 are checked against their signed hashes, and group membership/grant snapshots
@@ -865,15 +864,15 @@ available to current organization members, including non-admin members.
 `OrganizationPolicyHistoryEntry.groupChanges` describes group creation,
 deletion, membership, grants, and key rotation; `null` means the additional
 evidence is unavailable. The exported `OrganizationPolicyGroupChange` and
-`OrganizationPolicyGrantChange` types describe those details. No new database
-columns, decrypted name snapshots, or persisted summaries are introduced.
-A memory cache reuses verified details at the same head within the current
+`OrganizationPolicyGrantChange` types describe those details. Nothing is
+persisted: no database columns, decrypted name snapshots, or summaries. A memory
+cache reuses verified details at the same head within the current
 identity/database scope; access-generation changes invalidate cached entries.
-The app resolves current group names and roster profile names through existing
+The app resolves current group names and roster profile names through
 local projections; missing or deleted names fall back to identifiers. Offline
 history retains its verified policy entries and reports unavailable group
 details explicitly. Authoritative access denial purges organization presentation
-through the existing access-revocation path.
+through the access-revocation path.
 
 ## Retained folder recovery
 
@@ -897,10 +896,9 @@ Standalone document and container workflow constructors accept
 input supplies the built-in bounded recovery resolvers and survives derived
 document/store adapters without appearing on their public runtime views. The
 host owns key cleanup and must invalidate the lease when its authority or local
-storage changes; see the custody contract in the recovery guide below.
-
-Authority loaders take exact heads, including cached citations. See
-[recovery](principal-history-recovery.md) for offline reads and key custody.
+storage changes. Authority loaders take exact heads, including cached
+citations. See [recovery](principal-history-recovery.md) for offline reads and
+the key-custody contract.
 
 `recoverProjectionPolicyHistory` resolves compact projection sources into verified
 historical authorization selections. Standalone hosts provide private local
@@ -974,12 +972,11 @@ p50/p95 over the latest 256 plus count, total, and max since reset.
 `total` and `db` (I/O wait on Workers), null until a response reports them.
 
 Hosts can pass an `ApiRequestMetrics` instance as `apiRequestMetrics` to retain
-counts across SDK disposal/recreation. The app retains one store per API/identity
-namespace until a page reload. System Monitor's **API Requests** tab shows the
-current identity, retains its counts when switching away and back, and includes
-those counts and timings in the copied report. Reset discards earlier in-flight
-completions without affecting the requests themselves. This telemetry never uses
-durable storage or a remote diagnostics service.
+counts across SDK disposal/recreation; the app keeps one per API/identity
+namespace for the page's lifetime, shown in System Monitor's **API Requests**
+tab. Reset discards earlier in-flight completions without affecting the
+requests themselves. This telemetry never uses durable storage or a remote
+diagnostics service.
 
 ## Explorer hydration and pending downloads
 

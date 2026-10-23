@@ -3,16 +3,16 @@
 Stores own React context adapters, long-lived domain state machines,
 subscriptions, sync scheduling, and event fanout.
 
-They sit between presentation code and the lower app layers:
+They sit between presentation code and the SDK:
 
 ```text
-components/document-types/mini-apps -> stores/providers -> workflows -> data
+components/document-types/mini-apps -> stores/providers -> SDK workflows -> SDK data
 ```
 
 Store modules may consume SDK runtime snapshots through
-`useTearleadsRuntime`, call workflows, use workflow-exposed persistence
+`useTearleadsRuntime`, call SDK workflows, use workflow-exposed persistence
 adapters, expose read-model/action helpers for presentation hooks, and export
-factory functions for tests. They should not import low-level
-`data/persistence/` or `data/sqlite/` modules directly or own screen composition
-and feature presentation. Reusable store test fixtures belong under
+factory functions for tests. They do not reach SDK persistence or SQLite
+internals directly, and they do not own screen composition or feature
+presentation. Reusable store test fixtures belong under
 `packages/app/test/helpers/` rather than production store directories.

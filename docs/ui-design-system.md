@@ -1,9 +1,9 @@
 # UI design system
 
 The conventions that keep the app's chrome consistent across web (desktop
-browser), iPad, and phone. They were previously discoverable only through
-scattered code comments; this page is the single reference. File paths are
-relative to the repo root.
+browser), iPad, and phone. Full paths are relative to the repository root;
+short paths such as `shell/...` and `components/...` are relative to
+`packages/app/src`.
 
 ## Two shells, three tiers
 
@@ -51,8 +51,8 @@ shell. The routed shell is also the desktop default, so mouse users get these
 sizes until they choose windowed mode. Stamping the root element also lets
 portaled menus and modals inherit the sizing.
 
-Two Apple HIG rules drive the values (see the comment block in
-`packages/ui/src/styles.css`):
+Three Apple HIG rules drive the values (see the comment block in
+`packages/ui/src/styles.routed.css`, which holds every routed-mode override):
 
 1. **44px minimum hit target.** `--control-height` resolves to `2.75rem` under
    `data-navigation-mode="routed"` (dense desktop default is `2rem`). Every
@@ -64,6 +64,8 @@ Two Apple HIG rules drive the values (see the comment block in
 2. **16px native inputs.** `input`/`select`/`textarea` render at
    `max(16px, 1em)` in routed mode so iOS Safari does not auto-zoom the
    viewport on focus.
+3. **Readable body text.** The type ramp is re-anchored so body text meets the
+   same 16px floor and keeps pace with the enlarged touch chrome.
 
 ## Safe areas
 
@@ -186,7 +188,8 @@ The de-facto component library is `packages/app/src/components`:
 
 - **Buttons**: use `MiniAppButton`
   (`components/mini-app/controls/MiniAppButton.tsx`) for every content-surface
-  button. Variants: `ghost`, `block`, `withIcon` (icon + label row), plus the
+  button. It takes a `default`, `danger`, or `ghost` variant and the `block`
+  and `withIcon` (icon + label row) props; use the
   `.mini-app-icon-button` class for square icon-only buttons and
   `MiniAppClipboardButton` for copy affordances. Do not re-declare the button
   recipe in feature CSS; keep a feature class only for layout deltas (width,
@@ -210,15 +213,17 @@ The de-facto component library is `packages/app/src/components`:
   `components/mini-app/MiniAppLayout.tsx` and
   `components/mini-app/MiniAppTable.tsx`; rows and virtual are imported from
   their modules directly (`components/mini-app/rows/MiniAppRow`,
-  `components/mini-app/virtual/MiniAppVirtual`). The old `components/shared/*`
-  and `components/pane/*.tsx` re-export shims were removed — import `Pane`
-  family components from their subdirectories (`shell/pane/shell/Pane`, etc.).
+  `components/mini-app/virtual/MiniAppVirtual`). Import `Pane` family
+  components from their `shell/pane/` subdirectories (`shell/pane/shell/Pane`,
+  etc.).
 
 ## Per-app chrome registration
 
-Screens never build their own top bar. Each mini-app's `*RoutedChrome.tsx`
-registers title, back action, and toolbar actions into shared contexts
-(`WindowMenuContext`, detail back-action hooks) that BOTH the windowed title
-bar and the routed app bar read, so a screen automatically gets correct chrome
-in either shell. In-body section headings use `MiniAppHeader`, which is
-layered under the shell title by design.
+Screens never build their own top bar. Each mini-app registers its toolbar
+and Back actions through `@tearleads/windowing`'s window hooks
+(`useWindowTitleBarAction`, `useWindowBackAction`, and related hooks in
+`packages/windowing/src/window/WindowMenuContext.tsx`), usually from its
+`*RoutedChrome.tsx`. BOTH
+the windowed title bar and the routed app bar read those registrations, so a
+screen gets correct chrome in either shell. In-body section headings use
+`MiniAppHeader`, which is layered under the shell title by design.
