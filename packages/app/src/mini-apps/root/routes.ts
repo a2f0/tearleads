@@ -20,6 +20,8 @@ export type RootRoute =
       readonly userId: string | null;
       readonly view: "identities";
       readonly returnOrganizationId?: string;
+      /** The organization tab the identity was opened from; Identities if unset. */
+      readonly returnOrganizationTab?: RootOrganizationTab;
     } & RootReturn)
   | ({
       readonly organizationId: string | null;
@@ -63,14 +65,19 @@ export function parseRootRouteSegments(
   if (view === "identities") {
     const [returnView, returnId, ...returnTail] = rest;
     if (!id) return { userId: null, view };
-    return returnView === "organizations" && returnId
-      ? {
-          userId: id,
-          view,
-          returnOrganizationId: returnId,
-          ...parseRootReturn(returnTail),
-        }
-      : { userId: id, view, ...parseRootReturn(rest) };
+    if (returnView !== "organizations" || !returnId)
+      return { userId: id, view, ...parseRootReturn(rest) };
+    const [tabId, ...afterTab] = returnTail;
+    const returnOrganizationTab = ROOT_ORGANIZATION_TABS.find(
+      (tab) => tab.id === tabId,
+    )?.id;
+    return {
+      userId: id,
+      view,
+      returnOrganizationId: returnId,
+      ...(returnOrganizationTab ? { returnOrganizationTab } : {}),
+      ...parseRootReturn(returnOrganizationTab ? afterTab : returnTail),
+    };
   }
   if (view === "reports") return { view };
   if (view === "audit") return { subjectId: id || null, view };
@@ -110,7 +117,15 @@ export function formatRootRouteSegments(
     route.view,
     route.userId,
     ...(route.returnOrganizationId
-      ? ["organizations", route.returnOrganizationId]
+      ? [
+          "organizations",
+          route.returnOrganizationId,
+          // The roster tab is the default return, so its URL stays short.
+          ...(route.returnOrganizationTab &&
+          route.returnOrganizationTab !== "identities"
+            ? [route.returnOrganizationTab]
+            : []),
+        ]
       : []),
     ...formatRootReturn(route),
   ];

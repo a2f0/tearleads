@@ -58,7 +58,10 @@ export function useRootNavigation(
         userId,
         view: "identities",
         ...(route.view === "organizations" && route.organizationId
-          ? { returnOrganizationId: route.organizationId }
+          ? {
+              returnOrganizationId: route.organizationId,
+              returnOrganizationTab: route.tab ?? "overview",
+            }
           : {}),
         ...returnTo(route),
       }),
@@ -75,7 +78,7 @@ export function useRootNavigation(
             ? {
                 view: "organizations",
                 organizationId: route.returnOrganizationId,
-                tab: "identities",
+                tab: route.returnOrganizationTab ?? "identities",
                 ...(route.returnView ? { returnView: route.returnView } : {}),
                 ...(route.returnSubjectId
                   ? { returnSubjectId: route.returnSubjectId }

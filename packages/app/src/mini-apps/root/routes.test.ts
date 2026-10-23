@@ -41,6 +41,8 @@ test("organization routes and identity return paths survive URL round trips", ()
     ["organizations", "org-1", "identities"],
     ["identities", "user-1", "organizations", "org-1"],
     ["identities", "user-1", "organizations", "org-1", "reports"],
+    ["identities", "user-1", "organizations", "org-1", "billing"],
+    ["identities", "user-1", "organizations", "org-1", "billing", "reports"],
   ]) {
     expect(formatRootRouteSegments(parseRootRouteSegments(segments))).toEqual(
       segments,

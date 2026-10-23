@@ -78,6 +78,21 @@ test("a reported delivery opens its organization's billing, with its webhooks", 
     ).toBeTruthy();
     expect(view.getByText("Moved from this organization")).toBeTruthy();
 
+    // Billing tab -> buyer -> Back returns to the Billing tab, then to Reports.
+    const buyer = ROOT_TEST_IDENTITIES[1];
+    if (!buyer) throw new Error("Expected a buyer identity fixture");
+    fireEvent.click(
+      view.getAllByRole("button", {
+        name: `Open buyer identity ${buyer.userId}`,
+      })[0] as HTMLElement,
+    );
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    await view.findByText(/RENEWAL · applied/);
+    expect(
+      view.getByRole("tab", { name: "Billing" }).getAttribute("aria-selected"),
+    ).toBe("true");
+
     fireEvent.click(view.getByRole("button", { name: "Back" }));
     await view.findByRole("heading", { name: REPORT_HEADING });
   } finally {
