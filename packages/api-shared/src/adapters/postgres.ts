@@ -4,7 +4,6 @@ import { drizzle as drizzleNodePostgres } from "drizzle-orm/node-postgres";
 import { migrate as migrateNodePostgres } from "drizzle-orm/node-postgres/migrator";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import pg from "pg";
 import * as schema from "../schema";
 import { readApiDatabaseKind } from "../schema/dialect";
 import { databaseStatementLogger } from "./databaseStatementCounter";
@@ -16,6 +15,7 @@ import {
   readPostgresStreamConfig,
   readSqlitePath,
 } from "./postgresConfig";
+import { PostgresPool } from "./postgresPool";
 import { createRequestScopedDatabaseRuntime } from "./requestScopedDatabase";
 import { createSqliteApiDatabase } from "./sqliteAdapter";
 import { withDatabaseTransactionCompletion } from "./transactionCompletion";
@@ -26,8 +26,6 @@ import type {
   ManagedApiDatabase,
   MigrationOptions,
 } from "./types";
-
-const { Pool } = pg;
 
 export { withDatabaseStatementCounter } from "./databaseStatementCounter";
 export { gatherWithExecutor, isDatabaseTransaction } from "./executor";
@@ -81,7 +79,7 @@ function createPostgresApiDatabase(
 ): ManagedApiDatabase {
   // pg types its stream factory as a Node Duplex; the Workers socket is a
   // structural stand-in, so it joins the config outside the typed literal.
-  const pool = new Pool(
+  const pool = new PostgresPool(
     Object.assign(
       createPostgresPoolConfig(env, options),
       readPostgresStreamConfig(env),

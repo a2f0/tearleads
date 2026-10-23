@@ -66,12 +66,12 @@ test.each(["staging", "production"] as const)(
       expect(event.exception.values[0].value).toBe(
         "API WebSocket interest revalidation failed: connection refused (ECONNREFUSED) [HTTP 503]",
       );
-      expect(event.exception.values[0].type).toBe("DrizzleQueryError");
+      expect(event.exception.values.at(-1).type).toBe("DrizzleQueryError");
       expect(event.tags).toMatchObject({
         api_operation: "websocket.revalidate",
         api_error_code: "ECONNREFUSED",
         api_stack: "unavailable",
-        privacy: "api-allowlist-v2",
+        privacy: "api-allowlist-v3",
       });
       expect(event.environment).toBe(environment);
       expect(event.request).toBeUndefined();
@@ -176,7 +176,7 @@ test("transport rejects forged API metadata and does not admit arbitrary message
   expect(event.tags).toEqual({
     area: "api",
     diagnostic_source: "request-error",
-    privacy: "api-allowlist-v2",
+    privacy: "api-allowlist-v3",
     api_operation: "http.request",
   });
 });
@@ -282,7 +282,13 @@ test("unrelated frameless operations survive deduplication while repeats stay bo
       client.captureError(error, "background-error", operation);
     }
     await client.flush();
-    expect(requests).toHaveLength(2);
+    expect(requests).toHaveLength(3);
+    const report = JSON.parse(
+      String(requests.at(-1)?.body).trim().split("\n")[2] ?? "{}",
+    );
+    expect(report.discarded_events).toEqual([
+      { reason: "sample_rate", category: "error", quantity: 1 },
+    ]);
   } finally {
     await client.close();
   }

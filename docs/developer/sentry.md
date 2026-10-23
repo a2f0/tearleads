@@ -32,6 +32,7 @@ instead of `STAGING` in `.secrets/prod/app.env`:
 SENTRY_STAGING_PROJECT='tearleads-web-staging'
 SENTRY_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 SENTRY_API_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
+SENTRY_API_STAGING_PROJECT='tearleads-api-staging'
 SENTRY_ANDROID_STAGING_PROJECT='tearleads-android-staging'
 SENTRY_ANDROID_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 SENTRY_IOS_STAGING_PROJECT='tearleads-ios-staging'
@@ -41,32 +42,30 @@ SENTRY_ELECTROBUN_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJE
 ```
 
 The DSNs above are placeholders. DSNs are public; the upload token is private.
+API project slugs default to `tearleads-api-staging` and
+`tearleads-api-production`; the corresponding tier variable can override them.
 
 ## Deployment and releases
 
 `scripts/deploy/deployStaging.sh` and `scripts/deploy/deployProduction.sh`
-publish the API Worker and the web app. The API deploy syncs `API_SENTRY_DSN` as
-a Worker secret and sets `API_SENTRY_ENVIRONMENT` from
-`packages/api/wrangler.jsonc`; the bundle receives its commit, its frame
-allowlist (the deployed entry bundle, `index.js`), and build number through
-`wrangler deploy --define` (see `packages/api/scripts/workerDefines.ts`).
-Wrangler also uploads the bundle's source map to Cloudflare, which does not
-symbolicate Sentry events (see [API error diagnostics](api-sentry.md)).
+publish the API Worker and web app. The API deploy syncs `API_SENTRY_DSN`,
+builds once with its tier and commit, uploads the matching source map to Sentry,
+then publishes that bundle and map to Cloudflare. Configured diagnostics require
+a clean checkout and a successful map upload before migrations or publication.
+See [API diagnostics](api-sentry.md) for release identity and frame admission.
 
 The build number is `git rev-list --count HEAD` at build time. The default
 branch only gains squash-merged commits, so every deploy from it counts higher
-than the one before. The API sends it on
-every response as `X-Tearleads-Api-Version` (exposed to cross-origin clients).
-A shallow clone or source archive builds without it, as does an API run from
-source, and those responses omit the header. A build from a branch counts its
-own commits on top of the merge base, so only default-branch deploys are
-comparable.
+than the one before. The API sends it on every response as
+`X-Tearleads-Api-Version` (exposed to cross-origin clients); shallow clones,
+source archives, and source runs omit it. A branch build counts its own commits
+on top of the merge base, so only default-branch deploys are comparable.
 
 Clients keep the number from the latest response in memory
 (`tearleads.apiVersion`), tag their Sentry reports with it as `api_version`,
 and show it as **API Version** in the System Monitor's Environment tab and
-support report. It is not persisted: it describes the server answering now,
-and a stored value would misattribute the first failures after a redeploy.
+support report. It is not persisted: a stored value would misattribute the
+first failures after a redeploy.
 
 Web deployment selects the tier DSN, builds, uploads maps, then publishes
 assets. Missing upload credentials or an upload failure stop a configured
@@ -108,6 +107,10 @@ Allowed:
 - API operation names, reviewed driver exception types and error codes, and
   error HTTP statuses (400–599). API titles are constructed from this finite
   vocabulary; raw exception text is never sent. See API coverage below.
+- API-only sanitized cause stacks, bounded pool counters, HTTP methods and
+  response statuses, and route templates from the release's OpenAPI allowlist.
+- API-only aggregate counts of locally discarded errors, emitted as bounded
+  client reports without event content or identifiers.
 - Git release, deployment environment, and target/build variant.
 - On clients, `api_version`: the build number from the API's
   `X-Tearleads-Api-Version` response header (see above), as last heard from.
@@ -125,7 +128,8 @@ Excluded:
 - Full page URLs, path segments, queries, fragments, request/response data,
   cookies, authorization headers, DOM text, and console output.
 - Session tracking, replay, screenshots, attachments, feedback, analytics,
-  performance tracing, profiling, Sentry Logs, and client reports.
+  performance tracing, profiling, Sentry Logs, and automatic SDK client reports.
+  Only the API's locally constructed discard counters are permitted.
 
 Anonymous DevTools and extension-only exceptions have no application code frame
 and are discarded. Boundary failures without a usable stack still produce a
@@ -308,11 +312,6 @@ directory and, before publishing, uploads it via `uploadDeferredSourceMaps.ts`
 (`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
 the `linux-x64` dist).
 
-API releases use `tearleads-api@<git-sha>` and `staging` / `production`. Only
-the allowlisted bundle path and positions leave the server, without source
-text or machine paths. API source archives without Git still deploy, with
-remote diagnostics disabled.
-
 Before changing this integration, run the tests in `packages/diagnostics/src`,
 the `diagnostics` folders of `packages/app-capacitor/src`, `packages/api/src`,
 and `packages/app-electrobun/src`, `packages/app-electrobun/scripts/sentry*.test.ts`,
@@ -321,13 +320,12 @@ browser test `packages/app-web/e2e/diagnostics.spec.ts`, and the app
 boundary/logging tests. They inspect emitted envelopes with synthetic private
 values; live verification needs the account configuration above.
 
-Deploy staging first and verify it before enabling production. After a client
-release uploads its maps, trigger a new handled failure in each process; Sentry
-does not symbolicate events it received before the upload. On desktop, a file
-save the main process cannot write (such as a backup export) reports from both
-the main process and the renderer's file saver. Each event must reach the
-expected project with the expected release, environment, and dist, show no
-processing errors, and map its frames to source. It carries only the generic
-message, `app:///` frames with positions, approved breadcrumbs (none from a
-server client), and user IP `0.0.0.0`; file names, contents, host paths, and
-request details stay out.
+Verify staging before enabling production. After a client release uploads its
+maps, trigger a new handled failure in each process; Sentry does not
+symbolicate events it received before the upload. On desktop, a backup export
+the main process cannot write reports from both the main process and the
+renderer's file saver. Each event must reach the expected project with the
+expected release, environment, and dist, show no processing errors, and map
+its frames to source. It carries only the generic message, `app:///` frames
+with positions, approved breadcrumbs (none from a server client), and user IP
+`0.0.0.0`; file names, contents, host paths, and request details stay out.

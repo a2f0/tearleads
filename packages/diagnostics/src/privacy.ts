@@ -1,6 +1,7 @@
 import type { Breadcrumb, ErrorEvent, Event, StackFrame } from "@sentry/core";
 import { isDiagnosticAction, isDiagnosticArea } from "./activity";
 import { apiErrorMessage, sanitizeApiTags } from "./apiDiagnostics";
+import { sanitizeApiRequestTags } from "./apiRequestContext";
 import { API_ERROR_TYPES } from "./apiVocabulary";
 
 export interface SentryPrivacyConfig {
@@ -21,6 +22,7 @@ export interface SentryPrivacyConfig {
   serverSourceRoot?: string;
   runtime?: "api" | "electrobun-main";
   budgetResetMs?: number;
+  routeTemplates?: ReadonlySet<string>;
 }
 
 const ERROR_TYPES = new Set([
@@ -71,11 +73,16 @@ function apiVersionTag(tags: Event["tags"]): { api_version?: string } {
 function diagnosticPolicy(
   tags: Event["tags"],
   runtime: SentryPrivacyConfig["runtime"],
+  routes?: ReadonlySet<string>,
 ) {
   if (runtime === "api") {
     const apiTags = sanitizeApiTags(tags);
     return {
-      tags: { ...apiTags, privacy: "api-allowlist-v2" },
+      tags: {
+        ...apiTags,
+        ...sanitizeApiRequestTags(tags, routes),
+        privacy: "api-allowlist-v3",
+      },
       message: apiErrorMessage(apiTags),
     };
   }
@@ -187,15 +194,30 @@ export function sanitizeSentryEvent(
   const { area, diagnostic_source: source } = event.tags ?? {};
   const sources = config.runtime ? SERVER_SOURCES[config.runtime] : SOURCES;
   if (typeof source !== "string" || !sources.has(source)) return null;
-  const frames = (event.exception?.values?.[0]?.stacktrace?.frames ?? [])
-    .map((frame) => safeFrame(frame, config))
-    .filter((frame): frame is StackFrame => frame !== null)
-    .slice(-40);
+  const sanitizeFrames = (frames: StackFrame[]) =>
+    frames
+      .map((frame) => safeFrame(frame, config))
+      .filter((frame): frame is StackFrame => frame !== null)
+      .slice(-40);
   // Includes anonymous Chrome DevTools and extension-only failures. An explicit
   // boundary still reports a generic failure if no usable stack is available.
-  if (!frames.length && source !== "boundary" && !config.runtime) return null;
-  const type = event.exception?.values?.[0]?.type ?? "Error";
-  const policy = diagnosticPolicy(event.tags, config.runtime);
+  const exceptions = (
+    event.exception?.values?.length ? event.exception.values : [{}]
+  ).slice(
+    config.runtime === "api" ? -5 : 0,
+    config.runtime === "api" ? undefined : 1,
+  );
+  if (
+    !sanitizeFrames(exceptions[0]?.stacktrace?.frames ?? []).length &&
+    source !== "boundary" &&
+    !config.runtime
+  )
+    return null;
+  const policy = diagnosticPolicy(
+    event.tags,
+    config.runtime,
+    config.routeTemplates,
+  );
   return {
     type: undefined,
     ...(typeof event.event_id === "string" &&
@@ -219,9 +241,10 @@ export function sanitizeSentryEvent(
       ...policy.tags,
     },
     exception: {
-      values: [
-        {
-          type: safeErrorType(type, config.runtime),
+      values: exceptions.map((exception) => {
+        const frames = sanitizeFrames(exception.stacktrace?.frames ?? []);
+        return {
+          type: safeErrorType(exception.type ?? "Error", config.runtime),
           value: policy.message,
           ...(frames.length ? { stacktrace: { frames } } : {}),
           mechanism: {
@@ -234,8 +257,8 @@ export function sanitizeSentryEvent(
               "websocket-error",
             ].includes(source),
           },
-        },
-      ],
+        };
+      }),
     },
     breadcrumbs: (config.runtime ? [] : (event.breadcrumbs ?? []))
       .map(sanitizeBreadcrumb)

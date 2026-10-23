@@ -7,8 +7,8 @@ import { captureApiError } from "./sentry";
  * HTTP error response and `createApiErrorHandler` never sees it. The
  * `background-error` source keeps these out of the request 5xx signal.
  */
-// The sanitizer rebuilds only the first exception value, so an aggregate would
-// arrive as its own construction site with every constituent stack discarded.
+// An aggregate's own stack is its construction site. Its constituents are
+// separate failures, each of which can carry its own bounded cause chain.
 // Report the leaves instead, bounded because a sweep aggregates one error per
 // item; the transport's signature deduplication collapses the repeats.
 const MAX_AGGREGATED_REPORTS = 5;

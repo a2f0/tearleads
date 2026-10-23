@@ -11,6 +11,7 @@ export function resolveApiSentryConfig(input: {
   commit?: string | undefined;
   sourceRoot: string;
   sourcePaths: readonly string[];
+  routeTemplates?: readonly string[];
 }): SentryConfig | undefined {
   if (
     !input.dsn ||
@@ -30,6 +31,7 @@ export function resolveApiSentryConfig(input: {
     scriptPath: "",
     serverSourceRoot: input.sourceRoot,
     scriptPaths: new Set(input.sourcePaths),
+    routeTemplates: new Set(input.routeTemplates ?? []),
     budgetResetMs: 60 * 60 * 1000,
   };
 }

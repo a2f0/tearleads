@@ -32,6 +32,10 @@ async function deployFixture(
   const script = resolve(root, "packages/api/scripts/deployApi.sh");
   await mkdir(dirname(script), { recursive: true });
   await cp(resolve(import.meta.dir, "../../api/scripts/deployApi.sh"), script);
+  await cp(
+    resolve(import.meta.dir, "../../api/scripts/sentryBuild.sh"),
+    resolve(dirname(script), "sentryBuild.sh"),
+  );
   await chmod(script, 0o755);
   await cp(
     resolve(import.meta.dir, "../../api/wrangler.jsonc"),
@@ -61,6 +65,9 @@ async function deployFixture(
         : '  DOCUMENT_SYNC_CURSOR_HMAC_KEY="fixture-cursor-key-with-at-least-32-bytes"',
       `  BLOB_GC_HEALTHCHECK_URL=${options.healthcheckUrl ?? "https://hc.example.test/ping/fixture"}`,
       "  SENTRY_API_STAGING_DSN=https://staging-dsn.example.test/1",
+      "  SENTRY_API_PRODUCTION_DSN=https://production-dsn.example.test/2",
+      "  SENTRY_ORG=fixture-org",
+      "  export SENTRY_AUTH_TOKEN=fixture-upload-token",
       "  export STRIPE_SECRET_KEY=sk_test_fixture",
       '  if [[ "$traced" -eq 1 ]]; then set -x; fi',
       "  return 0",
@@ -106,7 +113,14 @@ async function deployFixture(
   );
   await executable(
     resolve(bin, "git"),
-    '#!/bin/sh\nprintf "%s\\n" "$API_DEPLOY_TEST_ROOT"\n',
+    `#!/bin/sh
+case "$*" in
+  *'rev-parse --show-toplevel') printf '%s\\n' "$API_DEPLOY_TEST_ROOT" ;;
+  *'rev-parse HEAD') printf '%040d\\n' 1 ;;
+  *'status --porcelain') ;;
+  *) exit 1 ;;
+esac
+`,
   );
   await executable(
     resolve(bin, "bun"),
@@ -120,6 +134,10 @@ async function deployFixture(
       "    ;;",
       "  'scripts/workerDefines.ts')",
       '    printf \'API_BUILD_VERSION:123\\nAPI_DIAGNOSTICS_BUILD:{"commit":"abc"}\\n\'',
+      "    ;;",
+      "  'run sentry:cli sourcemaps upload '*)",
+      '    printf \'map-upload|%s\\n\' "$*" >> "$API_DEPLOY_TEST_LOG"',
+      `    [[ "\${API_DEPLOY_TEST_UPLOAD_FAIL:-}" != 1 ]] || exit 1`,
       "    ;;",
       "  *) exit 1 ;;",
       "esac",
@@ -143,8 +161,25 @@ async function deployFixture(
       '    printf \'secret-delete|%s|%s\\n\' "$4" "$6" >> "$API_DEPLOY_TEST_LOG"',
       "    ;;",
       "  'wrangler deploy '*)",
-      '    cp "$6" "$API_DEPLOY_TEST_ROOT/deployed-config.jsonc"',
-      '    printf \'deploy|%s\\n\' "$*" >> "$API_DEPLOY_TEST_LOG"',
+      '    original="$*"; entry="$3"; output=""; config=""; dry_run=0',
+      "    while [[ $# -gt 0 ]]; do",
+      '      case "$1" in',
+      '        --outdir) output="$2"; shift ;;',
+      '        --config) config="$2"; shift ;;',
+      "        --dry-run) dry_run=1 ;;",
+      "      esac",
+      "      shift",
+      "    done",
+      '    if [[ "$dry_run" == 1 ]]; then',
+      '      mkdir -p "$output"',
+      '      echo "compiled fixture" > "$output/index.js"',
+      '      echo "{}" > "$output/index.js.map"',
+      '      printf \'build|%s\\n\' "$original" >> "$API_DEPLOY_TEST_LOG"',
+      "    else",
+      '      [[ "$entry" == */bundle/index.js && -s "$entry" ]]',
+      '      cp "$config" "$API_DEPLOY_TEST_ROOT/deployed-config.jsonc"',
+      '      printf \'deploy|%s\\n\' "$original" >> "$API_DEPLOY_TEST_LOG"',
+      "    fi",
       "    ;;",
       "  *) exit 1 ;;",
       "esac",
@@ -204,7 +239,7 @@ test("migrations use the stack's migration login and ignore inherited connection
     POSTGRES_URL: "postgres://other/db",
   });
   expect(run.exitCode, run.stderr).toBe(0);
-  expect(run.calls[0]).toBe(
+  expect(run.calls.find((call) => call.startsWith("migrate|"))).toBe(
     "migrate|fixture.pg.psdb.cloud|5432|migration.user|fixture-db|unset|unset",
   );
 });
@@ -242,8 +277,11 @@ test("the Worker receives Hyperdrive, derived origins, and only managed secrets"
     run.calls.filter((call) => call.startsWith("secret-delete")),
   ).toHaveLength(6);
   const deploy = run.calls.find((call) => call.startsWith("deploy|"));
-  expect(deploy).toContain("wrangler deploy --env staging");
-  expect(deploy).toContain("--define API_BUILD_VERSION:123");
+  expect(deploy).toContain("/bundle/index.js --no-bundle --env staging");
+  expect(deploy).not.toContain("--define");
+  const build = run.calls.find((call) => call.startsWith("build|"));
+  expect(build).toContain("--define API_BUILD_VERSION:123");
+  expect(build).toContain("--dry-run");
   expect(deploy).toContain(
     "--var BLOB_OBJECT_STORE_S3_BUCKET:tearleads-blobs-staging",
   );
@@ -258,7 +296,15 @@ test("the Worker receives Hyperdrive, derived origins, and only managed secrets"
     "--var API_BILLING_RETURN_ORIGINS:https://app-staging.example.test,https://demo-staging.example.test,https://localhost,http://127.0.0.1:3002",
   );
   expect(deploy).toContain("--var API_CORS_ORIGINS:*");
-  // Migrations precede the publish.
+  // Build and map upload precede mutations; publication follows migrations.
+  const steps = run.calls.map((call) => call.split("|")[0]);
+  expect(steps.slice(0, 5)).toEqual([
+    "build",
+    "map-upload",
+    "migrate",
+    "secret-bulk",
+    "deploy",
+  ]);
   expect(
     run.calls.findIndex((call) => call.startsWith("migrate|")),
   ).toBeLessThan(run.calls.findIndex((call) => call.startsWith("deploy|")));
@@ -299,17 +345,29 @@ test("a traced run never prints a secret", async () => {
   const run = await deployFixture({}, { trace: true });
   expect(run.exitCode, run.stderr).toBe(0);
   // Tracing is on again for the deploy itself.
-  expect(run.stderr).toContain("wrangler deploy --env staging");
+  expect(run.stderr).toContain("/bundle/index.js --no-bundle --env staging");
   for (const secret of [
     "migration-password",
     "runtime-password",
     "fixture-cursor-key",
     "fixture-secret",
     "fixture-token",
+    "fixture-upload-token",
     "staging-dsn.example.test",
   ]) {
     expect(run.stderr).not.toContain(secret);
   }
+});
+
+test("a map upload failure stops before migrations, secrets, and publication", async () => {
+  const run = await deployFixture({ API_DEPLOY_TEST_UPLOAD_FAIL: "1" });
+  expect(run.exitCode).not.toBe(0);
+  expect(run.calls.map((call) => call.split("|")[0])).toEqual([
+    "build",
+    "map-upload",
+  ]);
+  expect(run.secrets).toBeNull();
+  expect(run.deployedConfig).toBe("");
 });
 
 test("billing overrides stay separate from wildcard CORS", async () => {

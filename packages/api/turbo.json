@@ -5,6 +5,7 @@
     "test": {
       "inputs": [
         "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/docs/openapi.json",
         "$TURBO_ROOT$/formal/document-sync/BaselineDominanceTraces.json"
       ]
     }

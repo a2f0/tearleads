@@ -99,12 +99,16 @@ resolve the binding; a bare `wrangler deploy` has no configuration ID.
 `POSTGRES_REQUEST_SCOPED` gives each request its own pool of up to four
 connections (`POSTGRES_POOL_MAX`): Workers cannot share sockets across
 requests, even through Hyperdrive. The pool closes when the request finishes;
-Hyperdrive retains the origin connections. The 30 s idle timeout allows reuse
-during a long request. `POSTGRES_COALESCE_WRITES` gathers each query's protocol
-messages into one socket write. `POSTGRES_POOL_MAX_USES=1` applies only to work
-outside an event scope, whose sockets must not survive a checkout. The realtime
-hub also scopes its HTTP, RPC, WebSocket, and alarm events, closing their pools
-before it can hibernate. See
+Hyperdrive retains the origin connections. Transient acquisition failures retry
+once before any SQL runs; an exhausted connection or checkout timeout returns
+HTTP 503. The pool never retries queries or transaction callbacks after
+acquisition. Sentry records the acquisition stage, attempt count, and bounded
+pool counters; see [API diagnostics](api-sentry.md). The 30 s idle timeout
+allows reuse during a long request. `POSTGRES_COALESCE_WRITES` gathers each
+query's protocol messages into one socket write. `POSTGRES_POOL_MAX_USES=1`
+applies only to work outside an event scope, whose sockets must not survive a
+checkout. The realtime hub also scopes its HTTP, RPC, WebSocket, and alarm
+events, closing their pools before it can hibernate. See
 [realtime hub hibernation](realtime-hints.md#cloudflare-hub-hibernation).
 The `local` Wrangler environment keeps the direct
 Postgres transport for workerd tests. Deployed environments require Hyperdrive.
