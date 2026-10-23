@@ -66,8 +66,11 @@ test("every root operation records who asked for what before it answers", async 
   const requests = [
     {
       action: "root.identities.list",
-      path: `/root/identities?fingerprint=${member.fingerprint}`,
-      expected: { filter: `fingerprint=${member.fingerprint}` },
+      path: `/root/identities?fingerprint=${member.fingerprint.slice(0, 8)}&rootOnly=true&userId=${member.userId}`,
+      expected: {
+        filter: `fingerprint=${member.fingerprint.slice(0, 8)}&rootOnly=true&userId=${member.userId}`,
+        targetUserId: member.userId,
+      },
     },
     {
       action: "root.identities.get",
