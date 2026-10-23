@@ -9,14 +9,22 @@ import {
   rootRouteForView,
 } from "./routes";
 
-/** The return a detail opened from `route` carries, so Back comes back here. */
+/**
+ * The return a detail opened from `route` carries, so Back comes back here. A
+ * detail opened from another detail passes that one's return along, so a walk
+ * that started in the audit trail or Reports still ends back there.
+ */
 function returnTo(route: RootRoute): RootReturn {
   if (route.view === "audit")
     return {
       returnView: "audit",
       ...(route.subjectId ? { returnSubjectId: route.subjectId } : {}),
     };
-  if (route.view !== "organizations" || !route.returnView) return {};
+  if (
+    (route.view !== "organizations" && route.view !== "identities") ||
+    !route.returnView
+  )
+    return {};
   return {
     returnView: route.returnView,
     ...(route.returnSubjectId
@@ -83,7 +91,7 @@ export function useRootNavigation(
       setRoute({
         view: "organizations",
         organizationId,
-        ...(route.view === "audit" ? returnTo(route) : {}),
+        ...returnTo(route),
       }),
     [route, setRoute],
   );

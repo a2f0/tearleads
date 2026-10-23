@@ -449,7 +449,18 @@ test("the audit trail pages events, filters to a subject, and links to targets",
     const returned = await view.findByRole("table", { name: "Audit events" });
     expect(filterValue()).toBe(member.userId);
 
+    // Audit -> identity -> organization: Back still ends at the trail.
     fireEvent.click(within(returned).getByTitle(member.userId));
+    const orgs = await view.findByRole("table", { name: "Organizations" });
+    fireEvent.click(
+      await within(orgs).findByTitle(member.defaultOrganizationId),
+    );
+    await view.findByRole("table", { name: "Organization" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    const again = await view.findByRole("table", { name: "Audit events" });
+    expect(filterValue()).toBe(member.userId);
+
+    fireEvent.click(within(again).getByTitle(member.userId));
     await view.findByRole("table", { name: "Identity" });
     fireEvent.click(view.getByRole("button", { name: "Audit activity" }));
     const filtered = await view.findByRole("table", { name: "Audit events" });
