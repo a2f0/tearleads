@@ -60,7 +60,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "api",
     responsibility:
       "Container CRUD, grant/revoke/rekey/move, accessible-container listing with sync paging, and writer-projection access resolution.",
-    seam: "routes/containers via createContainerRouter; services/containers facade",
+    seam: "routes/containers via createContainersRouter; services/containers facade",
     paths: [
       `${api}/routes/containers/`,
       `${api}/services/containers/`,
@@ -269,7 +269,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Shared Utilities",
     package: "api",
     responsibility:
-      "Package-neutral helpers reused across subsystems: arrays, canonical JSON, cursor encoding, SHA-256, server secrets, manifest dependency traversal, bounded verification caching, SQL dialect, UUID generation, database error classification, and best-effort event publishing.",
+      "Package-neutral helpers reused across subsystems: arrays, canonical JSON, cursor encoding, SHA-256, server secrets, manifest dependency traversal, bounded verification caching, SQL dialect, database error classification, and best-effort event publishing.",
     seam: "utils/* direct import",
     paths: [
       `${api}/utils/array.ts`,
@@ -284,7 +284,6 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/utils/sqlDialect.ts`,
       `${api}/utils/storedAccessEventVerification.ts`,
       `${api}/utils/storedManifestGraph.ts`,
-      `${api}/utils/uuid.ts`,
     ],
   },
   ...clientSdkSubsystems,

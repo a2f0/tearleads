@@ -8,8 +8,8 @@ cannot do that for themselves.
 
 The membership conduit is the member's own side of the relationship: product
 state the member controls, which never feeds an access or keying decision.
-It lives on the member's `organization_roster_entries` row, which already
-exists for every active or disabled roster member.
+It lives on the member's `organization_roster_entries` row, which exists for
+every active or disabled roster member.
 
 ## Discovering organizations
 
@@ -20,8 +20,8 @@ names. A device therefore learns about an organization from local state alone:
 of, with `rootContainerId` null when the user cannot reach the organization's
 workspace root. The Organizations mini-app shows each one with the folders the
 user can reach in it, the containers whose parent is not on the device. The
-Org Manager switcher still lists only workspaces, because activating an
-organization makes its root the session container.
+Org Manager switcher lists only workspaces, because activating an organization
+makes its root the session container.
 
 ## Membership list
 
@@ -86,15 +86,14 @@ the deletion commits; a COMMIT that then fails restores the store. Documents
 already detached before the pause are never removed, since one may be the
 only copy a recovery still needs. A retired store's sync lane stops and an
 editor holding it sees a read-only stand-in, so nothing recreates or
-downloads the document. Reopening keeps the
-stand-in while the organization stays paused; after a resume, the next open
-rebinds it to a fresh backing store that loads whatever SQLite holds. Each
-deletion also records the document in `organization_sync_pause_removals`, in
-the same transaction, and a store never recreates a recorded document, so
-reopening one after a restart waits for the resume too; resuming the
-organization drops its records. A device
-with pending or queued writes keeps them syncing out and retries the removal
-each time its sync lanes go idle. Containers go in batches, and each batch
+downloads the document. Reopening keeps the stand-in while the organization
+stays paused; after a resume, the next open rebinds it to a fresh backing
+store that loads whatever SQLite holds. Each deletion also records the
+document in `organization_sync_pause_removals`, in the same transaction, and a
+store never recreates a recorded document, so reopening one after a restart
+waits for the resume too; resuming the organization drops its records. A
+device with pending or queued writes keeps them syncing out and retries the
+removal each time its sync lanes go idle. Containers go in batches, and each batch
 reads its documents in batches, so every statement stays within SQLite's bind
 limit, all under the one lock.
 

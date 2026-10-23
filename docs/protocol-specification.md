@@ -23,13 +23,14 @@ replaces signed input.
 Auth challenge and verification use the same contract path:
 `ChallengeRequestSchema`, `VerifyRequestSchema`, and their response schemas are
 the runtime wire grammar, while `challengeOperation` and `verifyOperation` own
-their HTTP metadata. API client and SDK predicates validate against these schemas.
+their HTTP metadata. API client and SDK predicates validate against these
+schemas.
 
 [`openapi.json`](./openapi.json) and checked generated TypeScript are structural
-views of the operations in the registry. Zod remains runtime
-authority; each `x-tearleads-runtime-refinements` gap needs an executable
+views of the operations in the registry. Zod is the runtime authority; each
+`x-tearleads-runtime-refinements` gap needs an executable
 OpenAPI-accepts/Zod-rejects witness. Crypto, transactions, convergence, and
-formal guarantees remain separate.
+formal guarantees lie outside these views.
 
 Related documents:
 
@@ -48,11 +49,11 @@ Related documents:
 - Make access and key-target state client-verifiable.
 - Bind every encrypted content record to a signed write header.
 - Bind every structural access mutation to a signed access event and derived
- manifest.
+  manifest.
 - Keep blob attachment state server-indexable without exposing document
- plaintext.
+  plaintext.
 - Let the app fail closed when required cryptographic policy material is
- missing, stale, or inconsistent.
+  missing, stale, or inconsistent.
 
 ## Protocol Planes
 
@@ -61,7 +62,7 @@ The protocol has three adjacent planes:
 - Document plane: encrypted Loro updates plus visible causal metadata.
 - Attachment plane: blob staging plus signed attachment bind/detach metadata.
 - Access plane: signed principal policies, access manifests, container KEKs,
- content-key bundles, and write headers.
+  content-key bundles, and write headers.
 
 The planes are separate but not independent. A document sync write needs access
 proofs and content-key targets. A blob bind needs a staged encrypted blob,
@@ -82,10 +83,11 @@ type AccessEvent = {
     | "container.create"
     | "container.grant"
     | "container.move"
-    | "container.rekey"
     | "container.recite"
+    | "container.rekey"
     | "container.revoke"
     | "document.link"
+    | "document.purge"
     | "document.unlink";
   objectKind: "blob" | "container" | "document";
   objectId: string;
@@ -177,20 +179,20 @@ Registration is a bootstrap protocol, not only an account create call.
 - the initial reserved `Admins` group policy and direct member envelope
 - the initial reserved `Members` group policy, holding the registering user
 - the initial signed organization policy state and direct member envelope
-- the signed root container create request
-- the signed root metadata document create request
-- optional initial roster-profile container and profile document create requests
+- signed create requests for the root container, its metadata document, and the
+  organization metadata container
+- optional create requests for the organization profile document, the
+  roster-profile container and document, and initial system containers
 
 The API validates the user key fingerprints, creates the user, organization,
-reserved groups, root container, initial principal policies, root container KEK
-state, root metadata document, and optional encrypted roster-profile bootstrap
-material in one transaction, then returns a login challenge. The initial
-`Admins` policy must project the registering user as the sole admin. The
-initial `Members` policy must project the registering user as admin. The
-initial organization policy must target the new organization, be version `1`,
-use key epoch `1`, be signed by the registering user, project only the
-registering user as admin, and carry a version-2 authority descriptor committing
-the exact initial heads of both reserved groups.
+reserved groups, initial principal policies, and every requested container, KEK
+state, and metadata or profile document in one transaction, then returns a login
+challenge. The initial `Admins` policy must project the registering user as the
+sole admin. The initial `Members` policy must project the registering user as
+admin. The initial organization policy must target the new organization, be
+version `1`, use key epoch `1`, be signed by the registering user, project only
+the registering user as admin, and carry a version-2 authority descriptor
+committing the exact initial heads of both reserved groups.
 
 The response returns each created container and document head. The client
 checks every one against the request it signed before pinning it as a local
@@ -224,14 +226,14 @@ head converges through a `200` snapshot; others get a delta.
 Authentication uses challenge signing:
 
 1. `POST /auth/challenge` stores a short-lived challenge for a registered
- signing-key fingerprint.
+   signing-key fingerprint.
 2. `POST /auth/verify` verifies the signature over the challenge and this API's
- origin, then issues a session token and its first single-use, sixty-second
- websocket ticket; later connects mint one with `POST /auth/ws-ticket`.
+   origin, then issues a session token and its first single-use, sixty-second
+   websocket ticket; later connects mint one with `POST /auth/ws-ticket`.
 3. `GET /auth/sessions`, `DELETE /auth/sessions/:sessionId`, and
- `POST /auth/logout` manage authenticated session tokens.
+   `POST /auth/logout` manage authenticated session tokens.
 4. Authenticated mutation routes require the session user and fingerprint to
- match the signer fields embedded in signed access events or write headers.
+   match the signer fields embedded in signed access events or write headers.
 
 A `401 session_refresh_required` response means the bearer token identified a
 missing, expired, or invalid stored session and permits the client to renew and
@@ -346,12 +348,11 @@ not a trust boundary. A citation whose hash is not stored, or whose
 `containerId` names a different container, is refused with `409`. The previous
 manifest and every path element must also be the container's current head, and
 the signed event's `dependencyManifestHashes` must equal the cited hashes, so a
-stale or uncited head is refused exactly as before. Only the new manifest the
-mutation commits travels in full; a recitation cites its previous head and
-current path the same way. Container KEK wraps target direct users, managed
-principals, or the parent container KEK. A child container can inherit access
-through parent KEK edges without rewriting every descendant object when an
-ancestor grant changes.
+stale or uncited head is refused. Only the new manifest the mutation commits
+travels in full; a recitation cites its previous head and current path the same
+way. Container KEK wraps target direct users, managed principals, or the parent
+container KEK. A child container can inherit access through parent KEK edges
+without rewriting every descendant object when an ancestor grant changes.
 
 For a rotation, the API also verifies that the bridge connects the stored
 current epoch to exactly the proposed next epoch, that the keyring is sealed to
@@ -377,9 +378,9 @@ and, for documents, every authorizing path, `documentManifest`,
 bytes change. A cited hash without a bundle, a bundle stored under a key other
 than its own `manifestHash`, or a bundle nothing cites is a response-shape
 failure. The client resolves every citation to its own copy of the bundle
-before any cache or verifier sees the projection, then verifies it exactly as
-before, recomputing each cited manifest's hash before any position that cites
-it is trusted.
+before any cache or verifier sees the projection, then verifies the result,
+recomputing each cited manifest's hash before any position that cites it is
+trusted.
 
 A projection GET may send `x-known-manifests`: up to 48 unique lowercase
 SHA-256 manifest hashes whose verified bundles the device durably holds. After
@@ -428,16 +429,13 @@ response may include the current `principalHeads[]` the requester may read;
 clients recover those heads through ordinary policy reads before refetching the
 writer projection and replanning.
 
-`DELETE /containers/:containerId` is an authenticated admin-only structural
-operation for empty non-system leaf containers. It is not a signed access-event
-mutation and writes sync tombstones for discovery.
-
-An absent target on delete, a document-listing lane, or writer-projection reads
-returns `404 container_not_found` (a lane `failure`). Clients may treat that
-exact pair as permanent absence: delete installs a maximal anti-resurrection
-fence, document listing treats the lane as unavailable, and restoration sweeps
-may purge retained dormant metadata. A bare, malformed, unknown, or
-wrong-status tag is not deletion authority and fails closed.
+An absent target on `DELETE /containers/:containerId`, a document-listing lane,
+or writer-projection reads returns `404 container_not_found` (a lane `failure`).
+Clients may treat that exact pair as permanent absence: delete installs a
+maximal anti-resurrection fence, document listing treats the lane as
+unavailable, and restoration sweeps may purge retained dormant metadata. A bare,
+malformed, unknown, or wrong-status tag is not deletion authority and fails
+closed.
 
 Behavior-bearing container mutation conflicts use stable tags. A stale parent
 or concurrent mutation returns `409 container_mutation_state_stale`; a
@@ -484,24 +482,24 @@ reading a body.
 There is no completion request. Attachment binding completes the stage: before
 its transaction it assembles parts 1..k of the stage's upload, the run whose
 stored lengths add up to exactly the declared byte length, and verifies the
-object's length and SHA-256 against the stage, deleting a mismatched object
-and refusing with `409`. A part numbered past that run is left out, so a stray
-part cannot change the object. No uploaded parts, a gap (the 409 names its
-first missing part), or parts that miss the declared length are refused
-before the upload is consumed, so that part can still be sent.
-Completion is idempotent: a stage already complete is used as is, and an
-object assembled before a lost state flip is re-verified before it is adopted.
-A bind that finds the upload consumed and no object re-reads the stage: if a
-concurrent bind has marked it complete, that object is verified and used. The
-stage is marked complete once the digest matches, before the envelope header
-is judged, so a malformed envelope is refused (`400`) with the stage left
-complete, and a retry is refused the same way.
-The API stores only object-store multipart metadata in `blob_stages`;
-encrypted payload bytes
-are never encoded into JSON or stored in the database. Staged objects are not
-readable as committed blobs and are promoted only by a successful attachment
-bind. Expired stages, and stages whose parts do not assemble to the declared
-object, fail closed during bind.
+object's length and SHA-256 against the stage, deleting a mismatched object and
+refusing with `409`. A part numbered past that run is left out, so a stray part
+cannot change the object. No uploaded parts, a gap (the 409 names its first
+missing part), or parts that miss the declared length are refused before the
+upload is consumed, so that part can still be sent. Completion is idempotent: a
+stage already complete is used as is, and an object assembled before a lost
+state flip is re-verified before it is adopted. A bind that finds the upload
+consumed and no object re-reads the stage: if a concurrent bind has marked it
+complete, that object is verified and used. The stage is marked complete once
+the digest matches, before the envelope header is judged, so a malformed
+envelope is refused (`400`) with the stage left complete, and a retry is refused
+the same way.
+
+The API stores only object-store multipart metadata in `blob_stages`; encrypted
+payload bytes are never encoded into JSON or stored in the database. Staged
+objects are not readable as committed blobs and are promoted only by a
+successful attachment bind. Expired stages, and stages whose parts do not
+assemble to the declared object, fail closed during bind.
 
 Object keys are `organizations/<organizationId>/blob-stages/<stageId>` and
 remain unchanged after promotion. The stage's immutable organization must match
@@ -513,12 +511,10 @@ GC retains the full key and organization in durable deletion work, checks their
 agreement before object deletion, and retries that exact key after a failure.
 Expiry cleanup uses the stored stage key for both multipart aborts and completed
 object deletion. Organization purge expires and drains only its own stages and
-waits for stage cleanup before finalizing. Stage persistence rechecks organization
-access under the organization row lock after object-store initiation, so a purge
-that wins that race causes the new multipart upload to be aborted.
-
-This is a predeployment contract change. Flat keys and organization-less stage
-requests are unsupported; there is no key migration or legacy fallback.
+waits for stage cleanup before finalizing. Stage persistence rechecks
+organization access under the organization row lock after object-store
+initiation, so a purge that wins that race causes the new multipart upload to be
+aborted.
 
 A client replacing a persisted resume stage must require positive API proof:
 `GET /blobs/stages/multipart/:stageId` returns
@@ -547,8 +543,8 @@ Binding uses:
 `BlobAttachmentBindRequest` carries:
 
 - signed `attachment.bind` event and body
-- verified document manifest bundle
-- authorizing container paths
+- `authorizingContainerPathRefs` citing stored container manifests; the API
+  resolves the document manifest from its own store
 - optional `containerRekeys[]`
 - blob content-key bundle
 - optional `stagedBlob` with `stageId` and signed blob write header
@@ -567,27 +563,26 @@ For bind, the API verifies:
 - staged blob owner and expiry when `stagedBlob` is supplied
 - existing blob presence when no staged blob is supplied
 - submitted blob content-key targets and their hash match only the new binding's
- current derived KEK targets; any other binding in the submission is refused
+  current derived KEK targets; any other binding in the submission is refused
 - staged blob write header matches blob id, blob access manifest hash,
- content-key epoch, target hash, `ciphertextHash` matching the staged
- SHA-256, and writer identity
+  content-key epoch, target hash, `ciphertextHash` matching the staged
+  SHA-256, and writer identity
 
 After verification, the API promotes staged bytes when supplied, detaches the
 previous active slot binding if present, stores the new binding, persists blob
 content-key targets merged with the exact stored envelopes of all other bindings
-under the blob row lock, recomputes the merged target hash, stores the blob write
-header, registers the blob in `blob_audit_objects`, and touches the document
-plus linked containers for sync discovery.
+under the blob row lock, recomputes the merged target hash, stores the blob
+write header, registers the blob in `blob_audit_objects`, and touches the
+document plus linked containers for sync discovery.
 
 Detach uses:
 
 - `POST /blobs/:blobId/attachment-bindings/:bindingId/detach`
 
 `BlobAttachmentDetachRequest` carries the signed `attachment.detach` event and
-body, the document manifest bundle, authorizing container paths, and optional
-`containerRekeys[]`. The API verifies the active binding, signed event,
-document manifest, authorizing paths, and referenced principal policies before
-detaching the binding.
+body, `authorizingContainerPathRefs`, and optional `containerRekeys[]`. The API
+verifies the active binding, signed event, document manifest, authorizing paths,
+and referenced principal policies before detaching the binding.
 
 Each encrypted Loro attachment entry carries its slot ID and required lowercase
 SHA-256 `contentSha256` of the intended plaintext. Local attachment creation and
@@ -598,41 +593,45 @@ An older valid binding with different content remains unavailable and cannot
 replace locally held bytes. A mismatch alone is not tampering evidence: the
 current document can arrive before its new blob upload.
 
-Hydration commits only while its document intent is still current and the durable
-slot still names the local copy observed before downloading. SQLite compares the
-slot inside the guarded transaction; a competing facade's replacement is retained.
-Replaced bytes enter the existing reference-checked orphan reclaim queue. Signed
-attachment binding metadata remains the server-visible authority for blob access,
-attachment listing, replacement, detach, and live blob reachability.
+Hydration commits only while its document intent is still current and the
+durable slot still names the local copy observed before downloading. SQLite
+compares the slot inside the guarded transaction; a competing facade's
+replacement is retained. Replaced bytes enter the reference-checked orphan
+reclaim queue. Signed attachment binding metadata remains the server-visible
+authority for blob access, attachment listing, replacement, detach, and live
+blob reachability.
 
 ## Blob Read Protocol
 
 Blob reads use:
 
 - `GET /documents/:documentId/attachments`
-- `GET /blobs/:blobId`
+- `GET /blobs/:blobId/download`
 - `GET /blobs/:blobId/bytes`
 
-Attachment listing requires document read access through a linked container
-path and returns active `{ bindingId, blobId, slotId, contentKeyBundle }`
-rows. The content-key bundle is loaded from the blob key-package tables, not
-from the encrypted blob bytes. Blob reads require read access through at least
-one active binding's document. The JSON blob route returns committed encrypted
-bytes as a string plus digest metadata. The `/bytes` route streams committed
-encrypted bytes as `application/octet-stream` and exposes blob id, byte length,
-and SHA-256 digest headers. The app combines the attachment listing's blob
-content-key bundle with verified document/container access material to unwrap
-the blob content key and decrypt the committed bytes.
+Attachment listing requires document read access through a linked container path
+and returns one row per active binding: its `bindingId`, `blobId`, `slotId`,
+signed binding event, blob write header and authorization, KEK targets, and
+`contentKeyBundle`. The content-key bundle is loaded from the blob key-package
+tables, not from the encrypted blob bytes. Blob reads require read access
+through at least one active binding's document. The download route returns the
+blob id, byte length, and SHA-256 plus a `source`: a five-minute signed
+object-store URL, or `kind: "api"` when the store cannot sign. The `/bytes`
+route streams committed encrypted bytes as `application/octet-stream` with blob
+id, byte length, and SHA-256 digest headers. The app combines the attachment
+listing's blob content-key bundle with verified document/container access
+material to unwrap the blob content key and decrypt the committed bytes.
 
 The stored blob wrap set and current access-target projection are distinct.
 Container rotation does not rotate immutable blob ciphertext: a cold reader may
 use a retained KEK from the verified current keyring to open an older envelope.
 Each envelope's container manifest and KEK identity must resolve through signed
-history. Signed blob write authority and binding history are verified separately.
-The API retains prior envelope sets by target hash; updating the latest set
-never deletes an issued historical wrap. Link/unlink events carry signed
-`blobRewraps` and atomically install destination envelopes with the document's
-new links (see [document link protocol](document-link-and-sync-protocol.md)).
+history. Signed blob write authority and binding history are verified
+separately. The API retains prior envelope sets by target hash; updating the
+latest set never deletes an issued historical wrap. Link/unlink events carry
+signed `blobRewraps` and atomically install destination envelopes with the
+document's new links (see
+[document link protocol](document-link-and-sync-protocol.md)).
 
 Attachment hydration isolates individual download and verification failures so
 one unavailable or invalid binding cannot suppress unrelated attachments.
@@ -642,22 +641,21 @@ projection-generation cancellation still abort the whole hydration operation.
 ## Delete And Purge Semantics
 
 Removal is terminal and structural. Link, unlink, share, revoke, rekey, move,
-and document purge carry signed access events. Container delete remains an
+and document purge carry signed access events; container delete is an
 authenticated control-plane operation without a signed artifact.
 
-`POST /documents/:documentId/purge` accepts a signed `document.purge` event.
-The signature binds the current document manifest, the sole linked container,
-and every manifest hash in the exact current root-to-leaf container path that
+`POST /documents/:documentId/purge` accepts a signed `document.purge` event. The
+signature binds the current document manifest, the sole linked container, and
+every manifest hash in the exact current root-to-leaf container path that
 authorized the purge. The API independently verifies the event, exact heads,
 root completeness, path contiguity, organization scope, and signer write access,
-stores the terminal event, and
-then removes the document's mutable row, content keys, encrypted updates,
-attachments, and live-head pointer. It retains the signed document manifest
-chain and the exact signed authorization path plus its verification
-dependencies so a device authorized through that purge-time path can retrieve
-the proof from `GET /documents/:documentId/purge` after the live document is
-gone. A user whose only access came through a path unlinked before the purge
-cannot retrieve it.
+stores the terminal event, and then removes the document's mutable row, content
+keys, encrypted updates, attachments, and live-head pointer. It retains the
+signed document manifest chain and the exact signed authorization path plus its
+verification dependencies so a device authorized through that purge-time path
+can retrieve the proof from `GET /documents/:documentId/purge` after the live
+document is gone. A user whose only access came through a path unlinked before
+the purge cannot retrieve it.
 
 The proof carries redacted principal-policy snapshots for every group head its
 container evidence references. Each snapshot retains the signed public state
@@ -684,39 +682,32 @@ replacement, failed cleanup, or interruption rolls back both the checkpoint and
 deletion so the verified proof can be retried safely. After a lost POST
 response, a coded not-found retry uses the retained proof.
 
-The API also requires that the document is linked to exactly one container — a
-document still linked to more than one container must be unlinked down to a
-single link first — and that the target is not a container metadata document,
-which is withheld from purge and torn down only when its container is deleted.
-An unknown document id returns not found. Blobs the purge orphans —
-referenced only by the purged document once its rows are gone — are
-soft-deleted: `dereferencedAt` is stamped while the encrypted bytes, stored
-objects, and key material are retained for a later garbage-collection sweep. A
-blob still referenced by another active binding is left untouched. Detached
-bindings do not keep a blob live. Re-stamping an already-dereferenced blob
-preserves its original timestamp, while a bind during the grace period clears
-the marker and revives the blob. After the grace period, GC locks and rechecks
-the blob before pruning its live row, key material, and detached bindings; its
-`blob_audit_objects` row remains as durable physical-object deletion work. The
-response returns `purgedAt`.
+The API also requires that the document is linked to exactly one container (a
+document with several links must first be unlinked down to one) and that the
+target is not a container metadata document, which is torn down only with its
+container. An unknown document id returns not found. Blobs referenced only by
+the purged document are soft-deleted under the
+[attachment retention](attachment-retention.md) lifecycle: `dereferencedAt` is
+stamped (an existing stamp keeps its original time) while bytes, objects, and
+key material wait for the garbage-collection sweep, and a bind during the grace
+period revives the blob. A blob still referenced by another active binding is
+untouched; detached bindings do not keep a blob live. The response returns
+`purgedAt`.
 
 `DELETE /containers/:containerId` is an admin-only structural delete for empty,
 non-system, non-root leaf containers. A root or system-slot container cannot be
-deleted, a container with child containers is a conflict, and a container with
-any linked user document is a conflict — but the container's own metadata
-document is excluded from that guard, because every container links its
-metadata document to itself, so the guard would otherwise make every folder
-undeletable. An unknown container id returns not found. A successful delete
-runs in one transaction: it writes a per-recipient `deleted` sync tombstone —
-the peer discovery signal for the removal — removes the container row, then
-tears down the container's own metadata document, deleting the
-`containerMetadataDocuments` binding and, when the composite create path
-materialized document rows, those rows and any blobs they orphan (dereferenced
-after required row locks using the database wall clock, so lock waits cannot
-consume the garbage-collection grace period). No purge tombstone is written for
-the metadata document, which is withheld from client discovery; the container
-tombstone is the sole peer signal. Any guard failure aborts and rolls the whole
-transaction back.
+deleted. Child containers or any linked user document make the delete a
+conflict; the container's own metadata document, which every container links to
+itself, is excluded from that guard. An unknown container id returns not found.
+A successful delete runs in one transaction: it writes a per-recipient
+`deleted` sync tombstone (the peer discovery signal), removes the container
+row, then tears down its metadata document: the `containerMetadataDocuments`
+binding and, when the composite create path materialized document rows, those
+rows and any blobs they orphan (dereferenced after required row locks using the
+database wall clock, so lock waits cannot consume the garbage-collection grace
+period). The metadata document gets no purge tombstone because it is withheld
+from client discovery; the container tombstone is the sole peer signal. Any
+guard failure rolls the whole transaction back.
 
 Trash is itself a system-slot container and so cannot be deleted or purged.
 Sending an item to Trash is an ordinary signed relocation — never a delete — and
@@ -737,11 +728,11 @@ The protocol is fail-closed:
 
 - malformed route JSON returns validation errors
 - stale manifest heads, stale key targets, and stale recipient keys return
- conflicts
+  conflicts
 - missing signed policy material prevents managed-principal key derivation
 - signer/session mismatches return forbidden
 - unavailable policy, key, blob, or document material is an availability
- failure, not permission to bypass verification
+  failure, not permission to bypass verification
 
 Projection tables are indexes and caches. They are useful for list and lookup
 performance, but they are not authority for encryption targets or access

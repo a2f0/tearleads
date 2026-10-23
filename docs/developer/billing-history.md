@@ -6,16 +6,16 @@ lifecycle events, the internal licensed-seat ledger, and append-only Stripe
 paid-invoice snapshots. Internal trial events preserve the initialized and
 expired 10-seat capacity snapshots without duplicating their correlated seat
 ledger rows.
-Per-user assignment and release rows remain durable in the seat-event table but
-are intentionally excluded from this capacity-focused admin summary.
+Per-user assignment and release rows stay in the seat-event table but are
+excluded from this capacity-focused admin summary.
 
 Stripe invoice totals preserve the provider's exact `amount_paid` in currency
 minor units. Tier capacity, plan price, recurring interval and interval count,
 Price ID, and billing period come from the matching non-proration invoice
 line—not mutable current subscription state. Capacity is resolved from the
 line's immutable monthly USD Price economics against the canonical tier
-registry (falling back to a currently configured Price ID only when older line
-payloads omit economics), so Price rotation does not collapse historical fixed
+registry (falling back to a currently configured Price ID only when a line
+payload omits those economics), so Price rotation does not collapse historical fixed
 tiers to item quantity `1`. Creation and cycle invoices use a pinned-API lookup
 when the signed webhook's line details are incomplete or could be enriched;
 only those reasons advance seat-period state. Paid subscription update and
@@ -64,6 +64,8 @@ only the recorded provider amount is authoritative.
 
 ## Persistence
 
-Both dialects create billing history tables through the current
-`0000_greenfield_baseline`. Billing events write their audit evidence when the
-provider event is processed; initialization does not synthesize historical rows.
+The billing history tables (`organization_billing_lifecycle_events`,
+`organization_billing_seat_events`, and `organization_billing_invoice_events`)
+are part of each dialect's `0000_greenfield_baseline`. Billing events write
+their audit evidence when the provider event is processed; initialization does
+not synthesize historical rows.

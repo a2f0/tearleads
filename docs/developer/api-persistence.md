@@ -15,88 +15,67 @@ Use `API_DATABASE` to select the database adapter:
 - `turso`: remote-only libSQL with the API SQLite Drizzle migrations applied by
   the deployment migration command.
 
-Each dialect contains one generated `0000_greenfield_baseline` with all current
-schema definitions. The deployment's `migrate` command initializes an empty
-database from that baseline and records its application in Drizzle's journal.
-Repeating initialization on the same current database is idempotent. There are
-no historical schema upgrades, data backfills, or rollout content scans.
+Each dialect has one generated `0000_greenfield_baseline` migration
+(`packages/api-shared/drizzle/` for Postgres, `drizzle-sqlite/` for SQLite and
+Turso) with all current schema definitions. The deployment's `migrate` command
+initializes an empty database from that baseline and records it in Drizzle's
+journal; repeating it on a current database is idempotent. There are no
+incremental schema upgrades, data backfills, or content scans.
 
 Production and staging use PlanetScale PostgreSQL and independent Cloudflare R2
 buckets for encrypted blobs. Runtime database roles and schema initialization
 credentials are separate.
 
-Schema changes update the Drizzle definitions and regenerate both baseline
-bundles. They require fresh server and client databases. Local database startup
-checks the current table shape, and backup imports require format version 13.
-Request validation and signed-history verification enforce the active protocol
+Schema changes update the Drizzle definitions and regenerate both baselines.
+They require fresh server and client databases. Local database startup checks
+the current table shape and refuses an obsolete one with a "reset the local
+database" error, and backup imports require format version 13. Request
+validation and signed-history verification enforce the active protocol
 throughout normal operation.
 
-### Deployment resets
+### Signed-shape invariants
 
-Signed-shape changes are flag days: stored rows in the old shape are refused
-outright (`assertExactKeys`), never migrated or dual-read. Deploying any of the
-following onto a database that predates it requires the greenfield reset above
-(every server database and every client database):
+Signed-shape changes are flag days: stored rows in another shape are refused
+outright (`assertExactKeys`), never migrated or dual-read, so deploying one
+onto an existing database requires resetting every server and client database.
+The stored shapes enforce:
 
-- #2448: the [principal directory binding index](principal-directory-bindings.md)
-  requires a reset on existing databases; both baselines include its table.
-- #2448: durable `principal_policy_commits` receipts bind exact compound
-  requests to their original results. Both generated baselines include the
-  table; databases that predate it require the coordinated reset.
-- #2449: principal wrapping-key epochs use positive safe integers in signed
-  states, references, wire validation, SDK records and persistence. PostgreSQL
-  uses `bigint`; both regenerated baselines constrain all five epoch columns.
-  Genesis starts at epoch 1 and rotations advance exactly one epoch. Deploy
-  with fresh server and client databases and coordinated client releases;
-  existing signed jump histories are not upgraded or accepted.
-- #2442: principal-state versions and manifest principal-head projections use
-  PostgreSQL `bigint` and exact positive JavaScript integer range constraints.
-  Both generated schema baselines were replaced; existing databases require
-  the coordinated server/client reset before this baseline is initialized.
-- #2268: signed artifacts (events, manifests, principal states) must carry a
-  canonical millisecond ISO-8601 `signedAt`; any other encoding fails
-  verification.
-- #2275: content write headers require `dependencyManifestHashes`; headers
-  stored without a citation are refused on read and cannot be re-served.
-- #2276: container manifests require `systemSlot`; pre-#2276 manifests fail the
-  exact-key check.
-- #2271: container path references are resolved against live `containers`
-  rows. A document whose only link targets a container deleted before #2271
-  is unreachable for everyone (`document_projection_container_unavailable`),
-  cannot be unlinked (the path needs the deleted container) and cannot be
-  purged. No repair path exists by design; the greenfield reset covers such
-  rows. The 409 is coded `container_unavailable` (#2278).
-- #2365 finding 19: document and blob content-key wraps authenticate the
-  suite, object id, content-key epoch and target as AES-GCM associated data,
-  under unchanged suite ids. A wrap stored before it no longer opens and reads
-  as an integrity failure, not as an older format.
-- #2522: the server-side document audit hash chain is retired. Signed write
-  headers are the integrity mechanism (see
-  [document write integrity](../document-rekey-and-audit-history.md#write-integrity)).
-  `document_audit_entries`, `document_update_audit_events`, and
-  `document_attachment_audit_events` are dropped, and
-  `document_audit_checkpoints` is replaced by `document_baselines`, which keeps
-  only the baseline metadata its readers consume. `access_event_dependency_projection`
-  is dropped; `access_events.dependency_manifest_hashes` is the only copy of an
-  event's dependency citations. Both generated baselines were replaced;
-  existing databases require the coordinated reset.
-- #2522: the client SDK's outbound write queue is folded into
-  `document_history_updates` (`update_id` plus the queue columns), and
-  `document_pending_updates` is gone. A local database without `update_id` is
-  refused at startup with the obsolete-schema "reset the local database"
-  error; queued edits it had not synced are discarded with that reset. Local
-  backups move to format 11 and refuse older ones.
-- #2365 finding 25: login challenges are signed for the API origin
-  (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`.
-  A client built before it cannot log in, so the reset release ships every
-  client with the API; no v1 window, which would keep the relay open.
+- Principal wrapping-key epochs and principal-state versions are positive safe
+  integers in signed states, references, wire validation, SDK records, and
+  persistence. PostgreSQL stores them, including the manifest principal-head
+  projections, as range-constrained `bigint`. Genesis starts at epoch 1 and
+  each rotation advances exactly one epoch.
+- Durable `principal_policy_commits` receipts bind exact compound policy
+  requests to their original results.
+- Signed artifacts (events, manifests, principal states) carry a canonical
+  millisecond ISO-8601 `signedAt`; any other encoding fails verification.
+- Content write headers carry `dependencyManifestHashes`; a header without that
+  citation is refused on read and never re-served.
+- Container manifests carry `systemSlot`.
+- Container path references resolve against live `containers` rows; a path
+  through a missing container fails with 409 `container_unavailable`.
+- Document and blob content-key wraps authenticate the suite, object id,
+  content-key epoch, and target as AES-GCM associated data.
+- Signed write headers are the write-integrity mechanism (see
+  [document write integrity](../document-rekey-and-audit-history.md#write-integrity));
+  there is no server-side audit hash chain. `document_baselines` keeps only the
+  baseline metadata its readers consume, and
+  `access_events.dependency_manifest_hashes` is the only copy of an event's
+  dependency citations.
+- The client SDK's outbound write queue lives in `document_history_updates`
+  (`update_id` plus the queue columns). A local database without `update_id`
+  is refused at startup with the obsolete-schema error, and edits it had not
+  synced are discarded with the reset.
+- Login challenges are signed for the API origin
+  (`tearleads.auth.challenge.v2`), and production requires `API_PUBLIC_ORIGIN`,
+  so clients and the API release together.
 
 Organization purge (`status = "purged"`) is terminal and not a reset: the
 organization row survives, but every container, document, and blob mutation in
 that organization is refused with `402 billing_inactive`, and a replacement
 organization is provisioned under a fresh organization id. Purged ids are
 therefore never recreated under the same `(kind, organization, id)` key, so
-client checkpoints keyed that way cannot observe a false rollback (#2278 #17).
+client checkpoints keyed that way cannot observe a false rollback.
 
 ### Connection settings
 
@@ -223,12 +202,12 @@ S3 env vars:
 - `BLOB_OBJECT_STORE_S3_KEY_PREFIX`
 
 Blob keys are `organizations/<organizationId>/blob-stages/<stageId>`. Promotion
-retains the stage key; GC aborts uploads and deletes objects using that stored key.
-The optional S3 key prefix wraps it as
+retains the stage key; GC aborts uploads and deletes objects using that stored
+key. The optional S3 key prefix wraps it as
 `<prefix>/organizations/<organizationId>/blob-stages/<stageId>`. The API and GC
 must use the same bucket and prefix configuration.
 
-Uploads retain the multipart staging and attachment plane. Stage initiation
+Uploads use the multipart staging and attachment plane. Stage initiation
 describes the parts the client sends first (byte length and base64 Content-MD5
 of up to four, its upload concurrency), and the response returns each one's
 upload source, so those parts need no authorization request. Immediately
@@ -239,20 +218,12 @@ upload ID, byte length, and base64 Content-MD5. The API checks the stage owner,
 expiry, completion state, upload ID, and bounded part metadata, then signs only
 the stored object key and requested part. The client sends a binary `File`
 directly to S3/R2 with Content-MD5; the signature binds its length and checksum.
-Parts remain capped at 32 MiB.
-Part numbers are also bounded by the staged size and S3/R2's 5 MiB nonfinal-part
-minimum, so small stages cannot authorize thousands of stored parts.
-File bodies preserve binary data through the Capacitor HTTP bridge. On
-2026-10-13, the actual API client and production signer passed real staging R2
-probes using Capacitor 8.5.3 on iOS 26.2 Simulator and Android API 35 Emulator.
-Each native bridge sent binary File parts with Content-MD5 and no API
-Authorization header, received 403 for an expired URL, renewed that part's URL,
-then received 200 for both parts. Completion and download verified all 5,242,888
-bytes against SHA-256. These probes exercised native HTTP transport, including
-signed query parameters and body length, rather than WebView browser fetch.
-Browser requests omit cookies, API authorization, and referrers, and reject
-redirects; physical-device enforcement of these fetch options has not been
-verified.
+Parts are capped at 32 MiB. Part numbers are also bounded by the staged size
+and S3/R2's 5 MiB nonfinal-part minimum, so small stages cannot authorize
+thousands of stored parts. File bodies preserve binary data through the
+Capacitor HTTP bridge. Storage requests carry no API authorization; browser
+requests also omit cookies and referrers and reject redirects, and
+physical-device enforcement of these fetch options is unverified.
 
 Each part URL lasts at most 300 seconds, capped by the stage's remaining
 lifetime. A file can take longer than five minutes: later chunks receive new
@@ -262,9 +233,9 @@ A rejected or failed request can reauthorize and retry the same immutable part
 once, with a short backoff for storage throttling or server errors.
 Interrupted uploads retain resumable stage state and reconcile actual
 stored parts through `ListParts`. URLs are never persisted as resume state.
-The existing one-hour stage lifetime is separate: URLs do not extend it, and an
-expired stage cannot be completed. An accepted request is not aborted by a
-client-side five-minute timer.
+The one-hour stage lifetime is separate: URLs do not extend it, and an expired
+stage cannot be completed. An accepted request is not aborted by a client-side
+five-minute timer.
 
 Attachment binding completes the stage: before its transaction it assembles
 parts 1..k of the stage's upload (the run covering exactly the declared length,
@@ -284,18 +255,15 @@ connectivity.
 
 Memory/custom stores without signing support use an explicit API-byte
 capability: initiation answers each first part with an `api` source, and the
-client sends every part to the API byte route without authorizing it.
-S3/R2 reject the old byte-proxy upload route before buffering its body. There is
-no legacy-client or in-flight-upload compatibility path for the S3/R2 cutover.
-Apply the storage GET/PUT CORS rule before deploying the API and clients together.
+client sends every part to the API byte route without authorizing it. A
+signing store (S3/R2) answers that byte route with 409 before buffering its
+body.
 
 Downloads first call authenticated `GET /blobs/{blobId}/download`. The API
 checks current read access and returns the encrypted length, SHA-256, and an
 S3/R2 GET URL valid for 300 seconds. The client fetches those bytes directly
-without API authorization headers, then verifies and decrypts them as before.
-Browser fetch also omits cookies and rejects redirects. These fetch options
-have not been verified on physical devices using the native HTTP bridge.
-Memory storage returns an API-stream descriptor instead.
+with the same storage fetch options, then verifies and decrypts them. Memory
+storage returns an API-stream descriptor instead.
 
 Expiry limits when a storage request can start; it does not abort an accepted
 download after five minutes. A URL remains usable by anyone holding it until
@@ -305,21 +273,18 @@ or persist signed URLs. Descriptor and object responses use
 browser network errors caused by R2's missing CORS headers on expired responses.
 An interrupted body fails normally; retrying the download gets a new URL and
 starts over. Automatic byte-range resumption is not implemented.
-If direct storage requests still fail, the client falls back once to the existing
-authenticated API stream. This also supports native HTTP bridges that cannot use
-the signed URL and older APIs without the descriptor endpoint. The fallback
-checks current access again and retains length, hash, and decryption checks.
-Storage failures alone do not mark the API offline. Accepted streams are never
-silently restarted or switched to the fallback after delivering bytes.
+If direct storage requests still fail, the client falls back once to the
+authenticated `GET /blobs/{blobId}/bytes` stream, which also serves native HTTP
+bridges that cannot use the signed URL. The fallback checks current access
+again and retains length, hash, and decryption checks. Storage failures alone
+do not mark the API offline. Accepted streams are never silently restarted or
+switched to the fallback after delivering bytes.
 
 The S3 endpoint must be reachable from the client, not just the API. Private R2
 blob buckets allow cross-origin GETs and PUTs from any origin to support web,
-desktop, and mobile clients; valid signatures are still required. Deploy the storage
-stack's CORS configuration before the coordinated API/client upload cutover.
-Only downloads support older APIs through the authenticated stream fallback.
-Old upload clients, including installed native apps, receive 409 on the new
-S3/R2 byte route; new clients require the new upload-authorization route.
-For other S3 providers, apply the equivalent GET/PUT rule in
+desktop, and mobile clients; valid signatures are still required. Deploy the
+storage stack's CORS configuration before the API and clients that depend on
+it. For other S3 providers, apply the equivalent GET/PUT rule in
 `scripts/localstack/blobTransferCors.json`.
 
 LocalStack helper:
@@ -332,8 +297,9 @@ set +a
 bun run --filter=@tearleads/api dev
 ```
 
-The helper configures blob transfer CORS and enables LocalStack signature validation.
-LocalStack remains a development emulator, not a test of production IAM policy.
+The helper configures blob transfer CORS and enables LocalStack signature
+validation. LocalStack is a development emulator, not a test of production IAM
+policy.
 
 To clear objects from the configured LocalStack bucket:
 

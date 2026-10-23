@@ -1,16 +1,17 @@
 # Sync engine edge cases and expected outcomes
 
 A behavioral spec for the client sync engine: what each failure or edge case
-does today, and whether that is the intended behavior. Rows marked
-"needs decision" are open product questions, not settled design. Update this
-table when behavior changes; it is the reference the System Monitor's write
-queue and sync lanes are read against.
+does and whether that is the intended behavior. It is the reference the System
+Monitor's write queue and sync lanes are read against; update it when behavior
+changes.
 
 ## The failure-isolation model
 
-The engine is a single pump running lanes serially (one `structural` lane for
-containers/moves/creates/metadata, one `document` lane per open document,
-structural-first). Its blast-radius rules:
+The engine is one pump per domain scope. The structural `container-contents`
+lane (container creates and moves, metadata, and document moves) runs alone and
+drains first; then up to four `documents:${localId}` lanes, one per registered
+document store, run concurrently (see
+[client sync ordering](client-sync-ordering.md)). Its blast-radius rules:
 
 | Failure | Blast radius |
 | --- | --- |
@@ -32,7 +33,7 @@ everything retriable.
 
 ## Queue statuses
 
-`pending` — will be attempted on the next relevant lane pass. May carry a
+`pending` — attempted on the next relevant lane pass. May carry a
 `lastError` note from the previous attempt (renders as `error` at the item
 level).
 
@@ -56,10 +57,10 @@ without counting as lane progress, so it cannot hot-loop the pump.
 | 5 | Move intent whose destination container is missing locally | `blocked` with a named reason; replays each structural pass and completes if the container appears (e.g. via hydration). | working as designed |
 | 6 | Document deleted while it has a queued move intent | The move intents are deleted with the document. | working as designed |
 | 7 | Move fails remotely (rejected, unavailable, or permission denied) | Non-permission failures stay `pending` with `"Remote document move was rejected or unavailable: <detail> (<status>)"` and retry on every trigger. A permission denial (403) parks the intent as `denied`: excluded from routine structural replays, still visible in the write queue with its recorded error, flipped back to pending by the org-access-restored signal (which counts parked moves as re-arm evidence, resolving each intent's organization through its target container, projection attribution, then the document's current container), a manual "Retry sync" on that document, or once per app launch at the head of the move scan (a restart loses the in-memory access-restored edge, so a relaunch re-attempts them; parked intents also count as startup sync work so the pass is scheduled). A denial anywhere in a multi-leg move parks it — a 403 on one leg followed by a different failure on another still counts. | working as designed — permission failures wait for the restore signal like row 8's document writes; everything else keeps event-driven retry. |
-| 8 | 403 on a write-bearing document sync | Local edit kept untouched; durable error row `"Write access denied by the server (403)"`; footer shows the failure. No retry until org access is restored or another trigger fires. | working as designed; row 21's discard covers the give-up path for remote-backed documents; a user-initiated export remains an open idea |
+| 8 | 403 on a write-bearing document sync | Local edit kept untouched; durable error row `"Write access denied by the server (403)"`; footer shows the failure. No retry until org access is restored or another trigger fires. | working as designed; row 21's discard covers the give-up path for remote-backed documents |
 | 9 | 403 on a read-only pull | Suppressed on purpose — never flags unattempted local edits. | working as designed |
 | 10 | 409 `document_sync_state_stale` | In-pass retry with a fresh projection, bounded. | working as designed |
-| 11 | 409 `update_id_conflict` | In-pass re-key recovery, bounded at 5 durable attempts, then a synthetic terminal failure. The write queue's "Retry sync" resets the durable budget (a deliberate tap is the rate-limited signal that conditions changed). | working as designed |
+| 11 | 409 `document_sync_update_id_conflict` | In-pass re-key recovery, bounded at 5 durable attempts, then a synthetic terminal failure. The write queue's "Retry sync" resets the durable budget (a deliberate tap is the rate-limited signal that conditions changed). | working as designed |
 | 12 | Stale content-key bundle with pending edits | Heal: rotate to a fresh content key anchored by a full-history rotation baseline exported from the durable local history (checkpoint + tail), which every document retains. | working as designed |
 | 13 | Refused read-only revalidation (coded 409 from the writer-projection route, e.g. container unavailable or keying conflict) | The refusal records on the document's durable failure row ("Remote revalidation failed: …") and surfaces in the write-queue view; cleared by the next clean pass. Read-only 403s stay suppressed (row 9). The projection route's 409s all carry stable codes. | working as designed |
 | 14 | Container-metadata sync hitting stale-keying errors | Classified, deferred with a log line, retried next trigger. | working as designed |
@@ -71,51 +72,49 @@ without counting as lane progress, so it cannot hot-loop the pump.
 | 20 | Re-key exhaustion (5 attempts) on a conflicted pending update | Synthetic terminal failure row; the pending row remains and conflicts on future submits until "Retry sync" resets the budget (row 11) or the edits are discarded (row 21). | working as designed |
 | 21 | Queue that can never sync (e.g. a recovery loop that never converges) | Write queue "Discard local edits" (documents with a remote copy only): atomically converts the record to the discovered-share shell — queued updates, staged uploads (rows and bytes), durable history, and the failure row dropped in one transaction; identity, title, placement, and links kept — then re-pulls the server copy in-session. Refused for local-only, unlinked, or move-pending documents. In-flight writers (edits, attachment settles/resume, initialization recovery, the rotation preflight's terminal-failure handler) validate a store generation inside the serialized mutation, so a racing write either lands before the teardown (and is wiped by it) or is skipped. | working as designed |
 
-## Known gaps / follow-ups
+## Recovery details
 
-- Resolved: Explorer exposes last-link orphans (row 3, `container_id IS NULL`
-  with no surviving link) in a read-only **Recovery** recovery
-  collection scoped to the active organization. Users can open a preserved
-  document and move it into a writable container; the collection itself cannot
-  accept creates, uploads, or folder mutations. Queued edits remain visible in
-  the write queue, and priming continues to route orphans with a null container
-  scope so their sync passes resolve them. Orphans of an organization with no
-  active scope (e.g. after the whole organization's access was revoked) stay
-  preserved-but-dormant: without that organization's auth context no pass could
-  resolve them. Attributed rows never cross organization scopes; unattributed
-  device-first rows appear in the active
-  scope, matching priming, and adopt that organization when created remotely.
-  Recovery classification is projection-based: it includes every non-hidden
-  `container_id IS NULL` row with no surviving links, whether detached by a
-  cascade or created locally before receiving its first container.
-- Resolved: access restoration now prunes stale `access_revoked` container
-  sync tombstones server-side (`pruneRegainedAccessTombstones`, wired into
-  the principal-policy transition and `container.grant` flows), so restores
-  that advance no container timestamp — group re-adds, policy changes —
-  relist the container on the next lane pull. `deleted` tombstones are never
-  pruned, and rows for containers the user did not regain survive for
-  clients that have not yet synced the loss. The client also records each
-  removed container as a durable observation-generation fence. Recovery
-  fetches and verifies a writer projection after observing that fence; the
-  unsigned reason and clock cannot permanently bar a valid live container.
-  A hydration fetched before the latest observation cannot cross the fence,
-  and a moved descendant can return after a fresh verified fetch.
-- Resolved: dormant retained metadata records organization attribution before
-  the discovery cascade removes a remote-backed container row. A genuine
-  denied→restored access edge requests sweeps for every organization present
-  in the user's dormant markers, followed by a fully unwatermarked recursive
-  crawl. Reattached containers clear their markers. Failed crawls retry with
-  durable exponential backoff and a five-attempt cap. Unmatched metadata
-  remains dormant after completion; absence and unsigned 404s cannot authorize
-  erasing queued edits or structural intents. Recovery exposes these copies for
-  explicit discard, guarded against concurrent work or rehydration. An explicit
-  Explorer refresh resets every lane watermark and retries discovery.
-- Resurrect race (closed): a persist that expected to update re-checks the
-  row's existence inside its claimed serialized mutation and refuses when
-  another subsystem deleted the document while it was queued. The refusal
-  repeats document teardown to remove side writes that queued after deletion,
-  and detached startup maintenance sweeps aged crash residue without touching
-  fresh in-progress writes or live documents; the attachment side tables are
+- Explorer exposes last-link orphans (row 3, `container_id IS NULL` with no
+  surviving link) in a read-only **Recovery** collection scoped to the active
+  organization. Users can open a preserved document and move it into a writable
+  container; the collection itself cannot accept creates, uploads, or folder
+  mutations. Queued edits remain visible in the write queue, and priming
+  continues to route orphans with a null container scope so their sync passes
+  resolve them. Orphans of an organization with no active scope (e.g. after the
+  whole organization's access was revoked) stay preserved-but-dormant: without
+  that organization's auth context no pass could resolve them. Attributed rows
+  never cross organization scopes; unattributed device-first rows appear in the
+  active scope, matching priming, and adopt that organization when created
+  remotely. Recovery classification is projection-based: it includes every
+  non-hidden `container_id IS NULL` row with no surviving links, whether
+  detached by a cascade or created locally before receiving its first container.
+- Access restoration prunes stale `access_revoked` container sync tombstones
+  server-side (`pruneRegainedAccessTombstones`, wired into the principal-policy
+  transition and `container.grant` flows), so restores that advance no container
+  timestamp — group re-adds, policy changes — relist the container on the next
+  lane pull. `deleted` tombstones are never pruned, and rows for containers the
+  user did not regain survive for clients that have not yet synced the loss. The
+  client also records each removed container as a durable observation-generation
+  fence. Recovery fetches and verifies a writer projection after observing that
+  fence; the unsigned reason and clock cannot permanently bar a valid live
+  container. A hydration fetched before the latest observation cannot cross the
+  fence, and a moved descendant can return after a fresh verified fetch.
+- Dormant retained metadata records organization attribution before the
+  discovery cascade removes a remote-backed container row. A genuine
+  denied→restored access edge requests sweeps for every organization present in
+  the user's dormant markers, followed by a fully unwatermarked recursive crawl.
+  Reattached containers clear their markers. Failed crawls retry with durable
+  exponential backoff and a five-attempt cap. Unmatched metadata remains dormant
+  after completion; absence and unsigned 404s cannot authorize erasing queued
+  edits or structural intents. Recovery exposes these copies for explicit
+  discard, guarded against concurrent work or rehydration. An explicit Explorer
+  refresh resets every lane watermark and retries discovery.
+- Resurrect race: a persist that expected to update re-checks the row's
+  existence inside its claimed serialized mutation and refuses when another
+  subsystem deleted the document while it was queued. The refusal repeats
+  document teardown to remove side writes that queued after deletion, and
+  detached startup maintenance sweeps aged crash residue without touching fresh
+  in-progress writes or live documents; the attachment side tables are
   document-only. Canonical SQL deletion queues attachment bytes for durable
   reclamation across store, container-purge, and remote-delete paths; failed
   byte deletes stay queued for the next connection. Deletion also invalidates
