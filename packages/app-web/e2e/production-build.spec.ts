@@ -101,6 +101,14 @@ for (const variant of ["app", "demo"]) {
         },
       });
 
+      const html = await readFile(join(appDir, "dist", "index.html"), "utf8");
+      const script = html.match(/<script[^>]+src="([^"]+\.js)"/)?.[1];
+      expect(script).toBeDefined();
+      const bundle = await readFile(join(appDir, "dist", script ?? ""), "utf8");
+      // A missing production gate tree-shakes CT out of the emitted entry.
+      expect(bundle).toContain("https://ct.a2f0.net/v1/clicks");
+      expect(bundle).not.toContain("process.env.NODE_ENV");
+
       const pageErrors: string[] = [];
       const loroRequests: string[] = [];
       page.on("pageerror", (error) => pageErrors.push(error.message));
