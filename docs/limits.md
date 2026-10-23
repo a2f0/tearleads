@@ -27,12 +27,11 @@ source of truth and the tables are a map to it.
 | Cited principal policy heads per container mutation | 4,096 references (`MAX_CONTAINER_PRINCIPAL_POLICY_REFS`, `validators/src/util/containerLimits.ts`) | Validators: `request/principalPolicyRef.ts` bounds `principalPolicyRefs`. API: `workflows/containers/mutations/shared/principalPolicies.ts` collapses exact repeats, then loads every cited principal's current head in one query per principal type. | Refusal (400). Each head makes the API verify that principal's stored policy. Inline signed policies (about 9.8 KiB each) fit about this many under the 32 MiB request ceiling, so a ~170-byte reference keeps that capacity rather than multiplying it. |
 
 Each cited reference is a stored manifest the API re-verifies, so the history
-bound is also a CPU bound. Verification markers (#2383,
-`access_manifests.verification_mac`) reduce a marked manifest to one HMAC over
-its stored bytes. A probe citing a 501-manifest lineage (PGlite, M2 Pro)
-measured about 90 µs per reference with markers and 2 ms without: at the bound,
-roughly 0.4 s, or 8 s after a rotated secret or rule revision drops the
-markers. That pass records markers for later requests.
+bound is also a CPU bound. A verification marker
+(`access_manifests.verification_mac`) reduces a marked manifest to one HMAC
+over its stored bytes. On PGlite a reference costs about 90 µs with a marker
+and 2 ms without: at the bound, roughly 0.4 s, or 8 s after a rotated secret or
+rule revision drops the markers. That pass records markers for later requests.
 
 Create and move preserve the reader's structural bound. Policy rotations and
 revocations do not change structure and do not run these depth guards. The
@@ -122,8 +121,8 @@ Hyperdrive holds origin connections across requests; Worker sockets remain
 request-scoped. `POSTGRES_POOL_MAX_USES=1` only retires clients in the fallback
 pool used by Durable Object timers. Request pools reuse clients until the
 request ends. The migration login connects directly from the deploy host and
-is never bound to the Worker. The placement hint stays at `aws:us-east-1` until
-measurements across client regions support a change.
+is never bound to the Worker. The Worker carries an `aws:us-east-1` placement
+hint.
 
 ## Blobs
 
@@ -142,7 +141,7 @@ measurements across client regions support a change.
 | --- | --- | --- | --- |
 | WebSocket client message | 1,000,000 bytes (`MAX_WS_CLIENT_MESSAGE_BYTES`, `validators/src/realtime/wsClientDeclarations.ts`) | Transport payload bound and a pre-parse length check. | Refusal before JSON parsing. |
 | Pending frames per socket | 32 frames or 4,000,000 bytes (`DEFAULT_SOCKET_QUEUE_LIMITS`, `packages/api/src/worker/socketQueue.ts`) | The realtime hub queues each socket's frames behind its authorization. | The socket closes with 1013 and its queue is discarded. |
-| Pending bytes per hub | 32 MiB across every socket (`HUB_QUEUE_BUDGET_BYTES`, `packages/api/src/worker/realtimeHubObject.ts`) | The hub's shared queue budget, so many flooding sockets cannot exhaust its isolate. | The socket that would overrun the budget closes with 1013; the others continue. |
+| Pending bytes per hub | 32 MiB across every socket (`HUB_QUEUE_BUDGET_BYTES`, `packages/api/src/worker/hubConnections.ts`) | The hub's shared queue budget, so many flooding sockets cannot exhaust its isolate. | The socket that would overrun the budget closes with 1013; the others continue. |
 | Sockets per session | 8 (`MAX_SOCKETS_PER_SESSION`) | The hub counts open sockets per session at upgrade. | Refusal with 429 until one closes. |
 | Interest container ids per declaration | 10,000 (`MAX_WS_INTEREST_CONTAINER_IDS`) | Validators. | Refusal. Interest is an invalidation subscription, not an authorization grant. |
 
@@ -150,9 +149,9 @@ measurements across client regions support a change.
 
 | Limit | Value | Where enforced | Past the limit |
 | --- | --- | --- | --- |
-| Principal state version | Positive exact JavaScript integer, through `Number.MAX_SAFE_INTEGER` (9,007,199,254,740,991) | Request/response validators; crypto `principalState.ts`; PostgreSQL `bigint` and SQLite `INTEGER`, with range checks on state/head projection columns. | Representation/overflow refusal only; no 16,384-entry lifetime history budget. Cold verification still walks the complete chain. |
+| Principal state version | Positive exact JavaScript integer, through `Number.MAX_SAFE_INTEGER` (9,007,199,254,740,991) | Request/response validators; crypto `principalState.ts`; PostgreSQL `bigint` and SQLite `INTEGER`, with range checks on state/head projection columns. | Representation/overflow refusal only; there is no lifetime history budget. Cold verification walks the complete chain. |
 | Principal key epoch | Positive exact JavaScript integer through `Number.MAX_SAFE_INTEGER`; genesis 1, rotation advances exactly one | Crypto, wire schemas, SDK records, and range-checked PostgreSQL `bigint` / SQLite `INTEGER` columns for states, epoch keys, member envelopes, verified progress and manifest heads. | Invalid epochs and jumps are refused before commit; unchanged keys retain their epoch. |
-| Principal crypto history page | 128 entries, 128 signer keys, 129 external-authority states; 128 retained reference requests per verifier | `principalPolicyHistoryPage.ts`, `principalPolicyHistoryChecks.ts` | Split work across pages/verifiers. This component does not bound individual projection bytes; see [the verifier contract](principal-history-pages.md). |
+| Principal crypto history page | 128 entries, 128 signer keys, 129 external-authority states; 128 retained reference requests per verifier (`PRINCIPAL_HISTORY_PAGE_ENTRY_LIMIT`, `crypto/src/keying/principalPolicyHistoryTypes.ts`) | `principalPolicyHistoryPage.ts`, `principalPolicyHistoryChecks.ts` | Split work across pages/verifiers. This component does not bound individual projection bytes; see [the verifier contract](principal-history-pages.md). |
 | Principal GET history page | 32 historical entries (`PRINCIPAL_POLICY_HISTORY_PAGE_LIMIT`) plus the pinned head's current artifacts | Response validators and API `principalPolicyPage.ts`. | Continue with the same head hash and returned cursor. This bounds history depth per response, not projection bytes or total SDK memory; see [the transport contract](principal-history-transport.md). |
 
 Cold verification still grows with total signed history, across resumable
@@ -181,7 +180,7 @@ following exceptions can leave a writer waiting on another authorized member:
   at a stale level. The writer waits under
   `document_ancestor_repair_inaccessible` for an authorized member to repair
   it; if no remaining member spans the required targets, writes stay blocked.
-  We retain this trade to avoid exposing inaccessible folders' grant lists.
+  The trade avoids exposing inaccessible folders' grant lists.
   Ordinary writes need only one writable link while the bundle is current.
 
 For the single-path case within the carried-rekey bound, the model in

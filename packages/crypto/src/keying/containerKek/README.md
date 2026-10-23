@@ -1,8 +1,8 @@
 # Container KEK Internals
 
-`../containerKek.ts` remains the public keying facade for container KEK
-verification and exported target helpers. Files in this folder hold internal
-subdomains that are shared by that facade.
+`../containerKek.ts` is the public keying facade for container KEK
+verification and exported target helpers. This folder holds internal modules
+that the facade re-exports.
 
 - `contentKeyTargets.ts` derives and hashes document/blob content-key target
   sets from verified container KEK, document link, and attachment projections.

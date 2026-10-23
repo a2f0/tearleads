@@ -76,11 +76,13 @@ derive; another identity's Trash is reported unavailable, never matched by name.
 Every folder's metadata document id comes from its signed manifest, never from
 the listing. A held folder keeps its organization and metadata document unless
 the session user's own signed `container.create` re-homed it, as purged
-organization recovery does under existing ids; an organization a folder left is
-recorded and never binds it again. Other conflicts are refused as incidents
-before pins or role caching, keeping the row, queued edits and checkpoints; an
-unbound folder binds only to its own user's create. Transactions recheck the
-durable binding. Residual (#2389): another member holding a re-homed folder.
+organization recovery does under existing ids, or the held organization's
+pinned founder created the destination and signed a continuous
+[replacement chain](developer/billing-purge-recovery.md) binding its
+organization and root genesis. An organization a folder left is recorded and
+never binds it again. Other conflicts are refused as incidents before pins or
+role caching, keeping the row, queued edits and checkpoints; an unbound folder
+binds only to its own user's create. Transactions recheck the durable binding.
 
 ## Recovery Key Disclosure
 
@@ -187,7 +189,7 @@ never depends on another device's cache or write.
 A removed admin with a compromised server can append using historical authority
 until a current admin's successor cites newer authority, final for clients
 that observed that advance. The API requires current authority at commit;
-proving currentness needs witnessing or gossip (#1555).
+proving currentness needs witnessing or gossip.
 
 The signed organization descriptor selects `Admins`; display and read-model
 projections never authorize policy or keying. Root and metadata repairs use
@@ -238,9 +240,6 @@ Before displaying or acting on a name, clients verify the group's signed
 directory binding and decrypt its metadata. Creation checks name uniqueness
 against that directory. Membership and grant successors retain the ciphertext;
 local decrypted display caches never enter API requests.
-This format requires a fresh database; legacy plaintext group payloads and
-server name fields have no compatibility path; existing signed history must not
-be silently rewritten or relabeled as encrypted.
 
 The app repeats these checks on fetched policy bundles. A bundle with a
 tampered projection, payload, state hash, chain link, signer, or checkpoint
@@ -317,9 +316,9 @@ Clients verify attachment bind events at referenced membership. Detach events
 are verified only by the API: no client-consumed projection serves them (the
 attachments listing returns live bindings and their bind events), so a detach
 is observed as the binding's absence, not as an event the client checks.
-Clients should commit writes to the verified manifest hash and derived target
-hash. Projection hashes may still be useful cache keys, but they are not the
-authorization source.
+Clients commit writes to the verified manifest hash and derived target hash.
+Projection hashes may be useful cache keys, but they are not the authorization
+source.
 
 Document purge requires a signed terminal event, verified write authority, and
 an exact local document pin or a signed chain from a pin or genesis. Later
@@ -366,14 +365,13 @@ when submitted. Runtime tests cover scope and target matching. The bounded
 ContentWriteAuthority model assumes verified citations and checks historical
 membership and submission freshness, with negative controls for both.
 
-The owner-directed scope of #2158 and #1555 excludes semantic-currentness
-witnessing: a new-to-device document head, content-write header, or attachment
-binding signed by a since-revoked member can be accepted at its complete
-historical citations, including a content write whose target leaf has not
-advanced. This is also the shape of an honestly delayed head. The API enforces
-current paths at commit; clients do not claim to distinguish it from a later
-forgery assisted by the server. Existing document checkpoints still reject
-rollback and forks.
+Semantic-currentness witnessing is out of scope: a new-to-device document
+head, content-write header, or attachment binding signed by a since-revoked
+member can be accepted at its complete historical citations, including a
+content write whose target leaf has not advanced. This is also the shape of an
+honestly delayed head. The API enforces current paths at commit; clients do not
+claim to distinguish it from a later forgery assisted by the server. Existing
+document checkpoints still reject rollback and forks.
 
 Neither container nor principal-policy verification requires a successor new
 to a device to cite the authority's served current head. An honest
@@ -390,11 +388,10 @@ The residual is that a member revoked at an ancestor, with a compromised
 server, can keep authority over a descendant until that next event. The bounded
 re-citation described below advances descendants already held by the mutating
 client, without claiming complete subtree coverage. On a checkpoint-enforced
-current path,
-the client does refuse the opposite disagreement: a served current ancestor
-head that does not descend from a head a child's signed event cites is a
-stale or forked ancestor, whatever the server calls current, since the
-signature proves the cited head exists.
+current path, the client does refuse the opposite disagreement: a served
+current ancestor head that does not descend from a head a child's signed event
+cites is a stale or forked ancestor, whatever the server calls current, since
+the signature proves the cited head exists.
 
 ### Held descendant re-citation
 
@@ -447,8 +444,8 @@ Each signed re-cite is an independent HTTP transaction, including when a client
 stops midway through a pass. Its cursor must commit with its new manifest so a
 reader between requests, or after that interruption, sees the new access
 identity. There is no server-side pass transaction whose final request can
-safely replace those durable invalidations. This is the bounded one-mutation-
-per-held-descendant cost selected in #2171, not a batch notification protocol.
+safely replace those durable invalidations. This is a bounded
+one-mutation-per-held-descendant cost, not a batch notification protocol.
 The authoring API client also invalidates its container/document
 writer-projection caches after each request, so a full pass can clear them
 eight times.
@@ -497,8 +494,8 @@ explicit `tearleads.*.content-key-wrap.aes-256-gcm-container-kek` suites whose
 AES-GCM AAD binds the suite, document or blob id, content-key epoch and
 target, so a server cannot serve one document's or blob's wrap as another's,
 while container KEK wraps use ML-KEM-1024 plus AES-GCM, sealed to a
-principal's key or to the ML-KEM public key derived from the parent KEK
-(#2334); predecessor KEKs are sealed under AES-GCM by their successor.
+principal's key or to the ML-KEM public key derived from the parent KEK;
+predecessor KEKs are sealed under AES-GCM by their successor.
 Rotations write two artifacts: a write-once predecessor bridge under the
 `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` suite (the
 append-only log) and the complete predecessor key history sealed under the
@@ -517,10 +514,10 @@ bridge log (`GET /containers/:id/kek-log`) remains the deterministic rebuild
 path — any current member walks the write-once bridges from the current KEK,
 verifies every recovered key by its epoch-id commitment, and repairs the
 snapshot with an ordinary `container.rekey`.
-This deliberately changes compromise amplification: possession of the current
-container KEK also reveals every retained predecessor KEK through the sealed
-keyring. That is the cost of history-inclusive current access. It does not
-weaken forward revocation—a user who lacks a post-revocation KEK still cannot
+This deliberately widens what a key compromise exposes: possession of the
+current container KEK also reveals every retained predecessor KEK through the
+sealed keyring. That is the cost of history-inclusive current access. It does
+not weaken forward revocation—a user who lacks a post-revocation KEK still cannot
 derive that KEK or later epochs—but current-key compromise exposes retained
 historical content for that container. Current members also learn
 retained-history metadata—including rotation count (from the keyring length),
@@ -633,11 +630,11 @@ access manifest heads. Deleted containers retain their metadata-document
 reservation, and organization purge is terminal (the organization's mutations
 stay refused and a replacement receives a fresh organization id), so a
 checkpointed `(kind, organization, id)` is never recreated from version 1.
-User identity trust currently uses an exact durable
-full-bundle TOFU pin: any later change to either public key, fingerprint, suite,
-or format is rejected. Logout and session recreation retain these pins. An
-intentional fresh-data environment reset must explicitly recreate the local
-trust store too; an authentication response cannot authorize clearing it.
+User identity trust uses an exact durable full-bundle TOFU pin: any later
+change to either public key, fingerprint, suite, or format is rejected. Logout
+and session recreation retain these pins. An intentional fresh-data environment
+reset must explicitly recreate the local trust store too; an authentication
+response cannot authorize clearing it.
 
 The organization policy also commits an exact sorted directory of current group
 heads. Group mutations issued by supported clients advance the group and this
@@ -659,7 +656,7 @@ still exercising the cold-start rollback limit above.
 
 ### First-Contact Identity-Key Substitution
 
-Signer lookups, SDK user-ID imports, and Explorer sharing still use TOFU,
+Signer lookups, SDK user-ID imports, and Explorer sharing use TOFU,
 which cannot authenticate an unpinned stranger's keys.
 
 Contacts and Roster can verify an independently exchanged
@@ -836,6 +833,7 @@ Every API response and app workflow that drives encryption should require the
 signed manifest, verified referenced principal policies, local checkpoint
 comparison, and derived target hash before encrypting or decrypting.
 
-For stronger split-view resistance, clients should persist transparency tree
-checkpoints and compare signed tree heads through device sync, gossip,
-witnesses, or an independently auditable checkpoint stream.
+Clients do not persist transparency tree heads. Split-view resistance beyond
+the local monotonic checkpoints requires comparing signed tree heads through
+device sync, gossip, witnesses, or an independently auditable checkpoint
+stream.
