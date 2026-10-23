@@ -103,7 +103,7 @@ For the deployed R2 buckets, use the repo wrapper — it reads the tier's
 `storage` Terraform stack output and invokes this command locally:
 
 ```bash
-scripts/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
+scripts/admin/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
 ```
 
 ### `make-admin` / `revoke-admin`

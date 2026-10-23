@@ -174,7 +174,7 @@ for (const authorization of ["", "staging"]) {
       authorization,
     );
     expect(result.code).toBe(1);
-    expect(result.stderr).toContain("scripts/destroyProduction.sh");
+    expect(result.stderr).toContain("scripts/deploy/destroyProduction.sh");
     expect(result.calls).toEqual([]);
   });
 }
