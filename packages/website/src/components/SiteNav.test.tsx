@@ -46,28 +46,28 @@ test("static HTML has one Primary nav and a toggle that links to the footer", ()
   expect(toggle?.getAttribute("href")).toBe(`#${nav.FOOTER_NAV_ID}`);
   expect(toggle?.textContent).toBe("Menu");
   expect(currentStates(html)).toEqual({
-    "/features": null,
-    "/security": null,
-    "/pricing": "page",
+    "/features/": null,
+    "/security/": null,
+    "/pricing/": "page",
     "/#download": null,
   });
 });
 
 test("pages inside a section mark that section as current", () => {
   expect(currentStates(staticNav("/manage-subscription"))).toMatchObject({
-    "/pricing": "true",
+    "/pricing/": "true",
   });
   expect(currentStates(staticNav("/downloads/linux"))).toMatchObject({
     "/#download": "true",
   });
   expect(currentStates(staticNav("/features"))).toMatchObject({
-    "/features": "page",
-    "/pricing": null,
+    "/features/": "page",
+    "/pricing/": null,
   });
   for (const pathname of ["/features/authorship", "/features/sharing"]) {
     expect(currentStates(staticNav(pathname))).toMatchObject({
-      "/features": "true",
-      "/pricing": null,
+      "/features/": "true",
+      "/pricing/": null,
     });
   }
 });

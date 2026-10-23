@@ -11,7 +11,7 @@ test("website domains and Workers agree across the two independent stacks", asyn
   expect(config).toHaveProperty("assets", {
     directory: "./dist",
     html_handling: "auto-trailing-slash",
-    not_found_handling: "none",
+    not_found_handling: "404-page",
   });
   expect(config).not.toHaveProperty("main");
   expect(config).not.toHaveProperty("routes");
