@@ -1,83 +1,14 @@
 import { ROOT_TEST_ORGANIZATION } from "../../../test/helpers/rootConsoleFixtures";
 import "../../../test/helpers/mswServer";
 import { afterEach, expect, spyOn, test } from "bun:test";
-import type { Tearleads } from "@tearleads/client-sdk";
-import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
-import {
-  act,
-  fireEvent,
-  render,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import {
-  cleanupIdentityManagerTestEnvironment,
-  createIdentityManagerHostConfig,
-  IdentityManagerTestRuntime,
-  TestWebSocket,
-} from "../../../test/helpers/identityManagerTestRuntime";
+import { fireEvent, waitFor, within } from "@testing-library/react";
+import { cleanupIdentityManagerTestEnvironment } from "../../../test/helpers/identityManagerTestRuntime";
 import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
-import { Root } from "./Root";
-
-const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
+import { renderRootWithSession } from "../../../test/helpers/rootConsoleRender";
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
 });
-
-async function renderRootWithSession(isRoot: boolean) {
-  const originalWebSocket = globalThis.WebSocket;
-  Reflect.set(globalThis, "WebSocket", TestWebSocket);
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
-  const view = render(
-    <IdentityManagerTestRuntime
-      hostConfig={TEST_HOST_CONFIG}
-      onTearleadsReady={(sdk) => {
-        tearleadsRef.current = sdk;
-      }}
-    />,
-  );
-  await waitFor(() => {
-    expect(tearleadsRef.current).toBeTruthy();
-  });
-  const tearleads = tearleadsRef.current;
-  if (!tearleads) {
-    throw new Error("Expected Tearleads SDK to be available after render.");
-  }
-  spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
-  await act(async () => {
-    // Root standing is bound to the signing identity that logged in, so the
-    // session needs a loaded key pair just as a real login would.
-    await tearleads.identity.setKeyPairs({
-      encapsulationKeyPair: null,
-      signingFingerprint: "c".repeat(64),
-      signingKeyPair: generateSigningSeedAndKeyPair(),
-    });
-    tearleads.session.setContext({
-      authToken: "test-token",
-      containerId: "container-1",
-      isAuthenticated: true,
-      isRoot,
-      organizationId: "org-1",
-      userId: "user-1",
-    });
-  });
-  view.rerender(
-    <IdentityManagerTestRuntime
-      hostConfig={TEST_HOST_CONFIG}
-      onTearleadsReady={(sdk) => {
-        tearleadsRef.current = sdk;
-      }}
-    >
-      <Root />
-    </IdentityManagerTestRuntime>,
-  );
-  return {
-    tearleads,
-    restore: () => Reflect.set(globalThis, "WebSocket", originalWebSocket),
-    view,
-  };
-}
 
 test("the root console refuses non-root sessions", async () => {
   const { restore, view } = await renderRootWithSession(false);
@@ -134,6 +65,7 @@ test("the root console lists identities and opens their detail", async () => {
       ),
     ).toBeTruthy();
     expect(view.getByText("trialing")).toBeTruthy();
+    expect(view.getByText("Not paused")).toBeTruthy();
     expect(view.getAllByText("203.0.113.7").length).toBeGreaterThanOrEqual(2);
 
     fireEvent.click(view.getByRole("button", { name: "Back" }));
@@ -145,59 +77,65 @@ test("the root console lists identities and opens their detail", async () => {
   }
 });
 
-test("operators suspend and lift a member account but not a root one", async () => {
+test("identity search takes a user ID or fingerprint prefix and a root-only toggle", async () => {
   const { restore, view } = await renderRootWithSession(true);
   try {
+    fireEvent.click(view.getByRole("button", { name: "Identities" }));
+    const table = await waitFor(() =>
+      view.getByRole("table", { name: "Identities" }),
+    );
+    const body = table.querySelector("tbody");
+    if (!body) throw new Error("Expected an identities table body.");
+    const rowCount = () => within(body).getAllByRole("row").length;
+    await waitFor(() => expect(rowCount()).toBe(2));
     const [rootIdentity, memberIdentity] = ROOT_TEST_IDENTITIES;
     if (!rootIdentity || !memberIdentity) {
       throw new Error("Expected root test identities.");
     }
-    fireEvent.click(view.getByRole("button", { name: "Identities" }));
-    const openIdentity = async (fingerprint: string) => {
-      const table = await waitFor(() =>
-        view.getByRole("table", { name: "Identities" }),
+    const search = (value: string) => {
+      fireEvent.change(
+        view.getByRole("textbox", { name: "Search identities" }),
+        {
+          target: { value },
+        },
       );
-      fireEvent.click(
-        await waitFor(() => within(table).getByTitle(fingerprint)),
-      );
+      fireEvent.click(view.getByRole("button", { name: "Search" }));
+    };
+
+    // A loading listing also renders one placeholder row, so each search
+    // waits for the expected identities rather than for a row count.
+    const expectOnly = async (expected: ReadonlyArray<string>) => {
       await waitFor(() => {
-        expect(view.getByRole("table", { name: "Identity" })).toBeTruthy();
+        for (const identity of ROOT_TEST_IDENTITIES) {
+          const row = within(body).queryByTitle(identity.signingKeyFingerprint);
+          expect(row === null).toBe(
+            !expected.includes(identity.signingKeyFingerprint),
+          );
+        }
       });
     };
 
-    await openIdentity(rootIdentity.signingKeyFingerprint);
-    expect(view.queryByRole("button", { name: "Suspend account" })).toBeNull();
-    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    // Too short to be a prefix: the listing stays put and a hint explains why.
+    search("bbbb");
+    expect(view.getByText(/at least 8 hex characters/)).toBeTruthy();
+    expect(rowCount()).toBe(2);
 
-    await openIdentity(memberIdentity.signingKeyFingerprint);
-    fireEvent.click(
-      await waitFor(() =>
-        view.getByRole("button", { name: "Suspend account" }),
-      ),
+    search(
+      ` ${memberIdentity.signingKeyFingerprint.slice(0, 8).toUpperCase()} `,
     );
-    const dialog = view.getByRole("dialog", { name: "Suspend account?" });
-    expect(dialog.textContent).toContain(
-      "signs the account out of every device",
-    );
-    fireEvent.click(within(dialog).getByRole("button", { name: "Suspend" }));
+    await expectOnly([memberIdentity.signingKeyFingerprint]);
+    expect(view.queryByText(/at least 8 hex characters/)).toBeNull();
 
-    await waitFor(() => {
-      expect(
-        view.getByRole("button", { name: "Lift suspension" }),
-      ).toBeTruthy();
-    });
-    expect(view.queryByRole("dialog")).toBeNull();
-    const summary = view.getByRole("table", { name: "Identity" });
-    expect(
-      within(summary).getByText("Suspended").parentElement?.textContent,
-    ).not.toContain("No");
+    search(rootIdentity.userId);
+    await expectOnly([rootIdentity.signingKeyFingerprint]);
 
-    fireEvent.click(view.getByRole("button", { name: "Lift suspension" }));
-    await waitFor(() => {
-      expect(
-        view.getByRole("button", { name: "Suspend account" }),
-      ).toBeTruthy();
-    });
+    search("");
+    await expectOnly([
+      rootIdentity.signingKeyFingerprint,
+      memberIdentity.signingKeyFingerprint,
+    ]);
+    fireEvent.click(view.getByRole("checkbox", { name: "Root only" }));
+    await expectOnly([rootIdentity.signingKeyFingerprint]);
   } finally {
     restore();
   }
@@ -212,12 +150,18 @@ test("operators browse organizations, inspect invoices, and traverse both direct
       ROOT_TEST_ORGANIZATION.organization.organizationId,
     );
     fireEvent.click(organization);
-    await view.findByRole("table", { name: "Organization" });
+    const overview = await view.findByRole("table", { name: "Organization" });
+    expect(
+      within(overview).getByText(ROOT_TEST_ORGANIZATION.overview.adminGroupId),
+    ).toBeTruthy();
+    expect(within(overview).getByText("3 of 5 licensed")).toBeTruthy();
+    expect(within(overview).getByText("Not started")).toBeTruthy();
     fireEvent.click(view.getByRole("tab", { name: "Billing" }));
     const billing = await view.findByRole("table", {
       name: "Organization billing",
     });
     expect(within(billing).getByText("cus_test")).toBeTruthy();
+    expect(within(billing).getByText("Purge started")).toBeTruthy();
     expect(view.getByRole("table", { name: "Stripe billing" })).toBeTruthy();
     fireEvent.click(view.getByRole("tab", { name: "History" }));
     const history = view.getByText(/INVOICE_PAID/);
@@ -232,6 +176,8 @@ test("operators browse organizations, inspect invoices, and traverse both direct
     });
     const fingerprint = ROOT_TEST_IDENTITIES[1]?.signingKeyFingerprint;
     if (!fingerprint) throw new Error("Expected member fingerprint");
+    expect(await within(roster).findByText(/^Paused /)).toBeTruthy();
+    expect(within(roster).getByText("Yes")).toBeTruthy();
     fireEvent.click(
       await within(roster).findByRole("button", {
         name: `Open identity ${fingerprint}`,
@@ -422,18 +368,35 @@ test("the audit trail pages events, filters to a subject, and links to targets",
     });
     expect(within(table).getByText("Viewed identity")).toBeTruthy();
 
-    fireEvent.click(within(table).getByTitle(member.userId));
-    await view.findByRole("table", { name: "Identity" });
-    fireEvent.click(view.getByRole("button", { name: "Audit activity" }));
-    const filtered = await view.findByRole("table", { name: "Audit events" });
-    await within(filtered).findByText("Viewed identity");
-    expect(
+    const filterValue = () =>
       (
         view.getByRole("textbox", {
           name: "Filter by identity or organization ID",
         }) as HTMLInputElement
-      ).value,
-    ).toBe(member.userId);
+      ).value;
+    fireEvent.click(within(table).getByTitle(member.userId));
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    const returned = await view.findByRole("table", { name: "Audit events" });
+    expect(filterValue()).toBe(member.userId);
+
+    // Audit -> identity -> organization: Back still ends at the trail.
+    fireEvent.click(within(returned).getByTitle(member.userId));
+    const orgs = await view.findByRole("table", { name: "Organizations" });
+    fireEvent.click(
+      await within(orgs).findByTitle(member.defaultOrganizationId),
+    );
+    await view.findByRole("table", { name: "Organization" });
+    fireEvent.click(view.getByRole("button", { name: "Back" }));
+    const again = await view.findByRole("table", { name: "Audit events" });
+    expect(filterValue()).toBe(member.userId);
+
+    fireEvent.click(within(again).getByTitle(member.userId));
+    await view.findByRole("table", { name: "Identity" });
+    fireEvent.click(view.getByRole("button", { name: "Audit activity" }));
+    const filtered = await view.findByRole("table", { name: "Audit events" });
+    await within(filtered).findByText("Viewed identity");
+    expect(filterValue()).toBe(member.userId);
   } finally {
     restore();
   }

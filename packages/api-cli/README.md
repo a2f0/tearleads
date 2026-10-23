@@ -111,11 +111,14 @@ scripts/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
 Sets or clears `users.is_root` for the identity registered with the given
 signing key fingerprint (the 64-character lowercase hex value shown as
 `signingKeyFingerprint` in the app and API). Root identities may call the
-API's internal `/root` operator routes, which list platform identities with
-their last activity, live sessions, organization memberships, and
-per-organization billing standing. Root is a plain operational boolean for
-internal staff and technical support; it grants no access-plane keys and is
-never exposed as a user-facing feature.
+API's internal, read-only `/root` operator routes: the identity directory
+(filterable by fingerprint prefix, user ID, or root standing) with last
+activity, live sessions, and organization memberships; the organization
+directory with persisted billing and Stripe state, the latest billing events,
+and rosters; and synced data usage per organization and across organizations
+(see the operator table in `docs/api-architecture.md`). Root is a plain
+operational boolean for internal staff and technical support; it grants no
+access-plane keys and is never exposed as a user-facing feature.
 
 ```bash
 tearleads-api-cli make-admin <fingerprint>

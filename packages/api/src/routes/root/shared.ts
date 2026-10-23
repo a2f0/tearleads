@@ -1,3 +1,4 @@
+import { isUuidV4String } from "@tearleads/validators/util";
 import type { Context, MiddlewareHandler } from "hono";
 import { readRequestIpAddress } from "../../middleware/requestIp";
 import type { SessionEnv, UserSessionSummary } from "../../middleware/session";
@@ -45,4 +46,25 @@ export async function auditRootRequest(
     targetOrganizationId: event.targetOrganizationId,
     targetUserId: event.targetUserId,
   });
+}
+
+/**
+ * Organization listings match `search` against the exact organization ID (names
+ * are encrypted), so a search naming one is a lookup of that organization and
+ * also lands in its audit trail.
+ */
+export function organizationSearchAudit(search: string | undefined): Pick<
+  RootAuditEventInput,
+  "targetOrganizationId"
+> & {
+  readonly filters: { readonly search: string | undefined };
+} {
+  const normalized = search?.trim().toLowerCase();
+  return {
+    filters: { search: normalized },
+    targetOrganizationId:
+      normalized !== undefined && isUuidV4String(normalized)
+        ? normalized
+        : undefined,
+  };
 }

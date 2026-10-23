@@ -1,5 +1,5 @@
 {
-  "id": "6bea3eff-11ef-4ccf-97e4-ad92074b8173",
+  "id": "135e8935-aa6b-4d5a-8094-2764e47cf501",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -6813,6 +6813,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "users_root_created_at_id_idx": {
+          "name": "users_root_created_at_id_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"users\".\"is_root\"",
           "concurrently": false,
           "method": "btree",
           "with": {}

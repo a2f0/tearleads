@@ -15,7 +15,11 @@ import {
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { respondToStatusError } from "../errorResponse";
-import { auditRootRequest, type RootRouterDeps } from "./shared";
+import {
+  auditRootRequest,
+  organizationSearchAudit,
+  type RootRouterDeps,
+} from "./shared";
 
 export function createRootOrganizationsRoute({
   requireAuth,
@@ -34,7 +38,7 @@ export function createRootOrganizationsRoute({
         const query = c.req.valid("query");
         await auditRootRequest(c, runtime, {
           action: listRootOrganizationsOperation.id,
-          filters: { search: query.search?.trim() },
+          ...organizationSearchAudit(query.search),
         });
         return c.json(await listOrganizations(runtime, query));
       } catch (error) {

@@ -1,0 +1,218 @@
+---
+import PageHeader from "../../components/PageHeader.astro";
+import Screenshot from "../../components/Screenshot.astro";
+import SectionHeader from "../../components/SectionHeader.astro";
+import StatusNotice from "../../components/StatusNotice.astro";
+import { appUrl } from "../../config";
+import Layout from "../../layouts/Layout.astro";
+import "../../styles/features.css";
+
+// UI: ExplorerContainerInfoSharingSections.tsx and Org Manager.
+// Access and key behavior: docs/keying-design.md, docs/security-guarantees.md,
+// and the scope described on /security. Plan availability: src/pricing.ts.
+---
+
+<Layout
+  title="Sharing | Tearleads"
+  description="Share Tearleads folders with people and groups in your organization. Learn about read, write, and admin permissions, encrypted access, and managing a share."
+>
+  <div class="site-page features-page">
+    <PageHeader
+      title="Sharing"
+      lede="Give people access to the folders they need, with permissions that fit their role. Team plans add sharing with users and groups in your organization, while document and file contents stay end-to-end encrypted."
+    >
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/features">Features</a></li>
+          <li aria-current="page">Sharing</li>
+        </ol>
+      </nav>
+      <div class="site-actions">
+        <a class="site-link" href="/pricing">Compare Team plans<span aria-hidden="true"> →</span></a>
+      </div>
+      <StatusNotice />
+    </PageHeader>
+
+    <section class="site-section" id="share-a-folder" aria-labelledby="folder-title">
+      <div class="features-split">
+        <SectionHeader
+          titleId="folder-title"
+          title="Organize together around a folder"
+          lede="Keep related notes, contacts, files, and records together, then share the folder with the people who need them."
+        />
+        <dl class="site-spec">
+          <div>
+            <dt>People</dt>
+            <dd>
+              Share with people in your organization's roster.
+              Each roster member counts toward your plan's member capacity.
+            </dd>
+          </div>
+          <div>
+            <dt>Groups</dt>
+            <dd>
+              Grant access to a group when several people need the same
+              permissions. Manage the group's membership in Org Manager.
+            </dd>
+          </div>
+          <div>
+            <dt>Nested folders</dt>
+            <dd>
+              Access can be inherited from a parent folder. The Sharing tab
+              in Container Info shows direct grants and inherited grants,
+              including the folder they come from.
+            </dd>
+          </div>
+        </dl>
+      </div>
+      <Screenshot
+        name="org-manager-grants"
+        crop="2880 / 700"
+        priority
+        caption="Org Manager, Grants"
+        alt="Org Manager's Grants view showing the Members group with read access to Organization Metadata and the Admins group with admin access to the root folder."
+      />
+    </section>
+
+    <section class="site-section features-split" id="permissions" aria-labelledby="permissions-title">
+      <SectionHeader
+        titleId="permissions-title"
+        title="Choose the permission"
+        lede="Use read access for reference material, write access for collaboration, and admin access for people who manage the folder."
+      />
+      <dl class="site-spec">
+        <div>
+          <dt>Read</dt>
+          <dd>Read the shared content without permission to edit it.</dd>
+        </div>
+        <div>
+          <dt>Write</dt>
+          <dd>Read and edit the shared content.</dd>
+        </div>
+        <div>
+          <dt>Admin</dt>
+          <dd>Read and edit the content, and manage the folder's access.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="site-section features-split" id="get-started" aria-labelledby="start-title">
+      <SectionHeader
+        titleId="start-title"
+        title="Share a folder with a group"
+        lede="Sharing needs an online connection and a Team plan for the organization. Start with a folder whose access you can manage."
+      />
+      <ol class="site-steps" role="list">
+        <li>
+          <h3 class="site-step-title">Add your collaborators</h3>
+          <p>
+            Add the people you want to share with to your organization's
+            roster in Org Manager. Put people in a group if you want to
+            manage their folder access together.
+          </p>
+        </li>
+        <li>
+          <h3 class="site-step-title">Open the folder's sharing controls</h3>
+          <p>
+            In Explorer, open the folder's Container Info view and select
+            Sharing. Review its existing grants and where they come from.
+          </p>
+        </li>
+        <li>
+          <h3 class="site-step-title">Choose who gets access</h3>
+          <p>
+            Use Share To Group to select a group and choose read, write, or
+            admin permission. Confirm with Share to grant access.
+          </p>
+        </li>
+        <li>
+          <h3 class="site-step-title">Review the grant</h3>
+          <p>
+            Check the resulting permission in the folder's Sharing tab.
+            Org Manager's Grants view gives you another place to review
+            the organization's access grants.
+          </p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="site-section features-split" id="how-it-works" aria-labelledby="how-title">
+      <SectionHeader
+        titleId="how-title"
+        title="How encrypted sharing works"
+        lede="A folder brings together content and access rules. The app checks signed access records before making its encryption keys available to recipients."
+      >
+        <a slot="action" class="site-link features-action" href="/security#verified-sharing">
+          How sharing is verified<span aria-hidden="true"> →</span>
+        </a>
+      </SectionHeader>
+      <ol class="site-steps" role="list">
+        <li>
+          <h3 class="site-step-title">Verify the recipients</h3>
+          <p>
+            Your device checks signed access rules and group policies to
+            establish who can receive the folder's keys. A recipient list
+            supplied by the service is not enough on its own.
+          </p>
+        </li>
+        <li>
+          <h3 class="site-step-title">Deliver encrypted content and keys</h3>
+          <p>
+            Document and file contents are encrypted on your device. Content
+            keys are protected by folder keys, which are themselves encrypted
+            for the verified recipients. The service stores and delivers
+            the encrypted material.
+          </p>
+        </li>
+        <li>
+          <h3 class="site-step-title">Verify and open on the receiving device</h3>
+          <p>
+            The receiving app verifies the signed records and access path,
+            unlocks the keys, and decrypts the content locally. Shared edits
+            sync between devices; a note's <a href="/features/authorship">authorship view</a>
+            helps you see each contributor's work.
+          </p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="site-section features-split" id="manage-access" aria-labelledby="manage-title">
+      <SectionHeader
+        titleId="manage-title"
+        title="Understand the scope of a share"
+        lede="Access includes the history a folder retains. Keep that in mind when adding people or changing who can read it."
+      />
+      <div class="features-split-body">
+        <dl class="site-spec">
+          <div>
+            <dt>New members can read retained history</dt>
+            <dd>
+              A new member can read the history retained by the folder, including
+              content from before they joined.
+            </dd>
+          </div>
+          <div>
+            <dt>Revocation cannot recall copies</dt>
+            <dd>
+              Removing access cannot erase content someone has downloaded or
+              keys they already received. Removing group members rotates the
+              group key and affected folder keys, but rotating a parent folder
+              does not automatically replace every nested folder's keys.
+            </dd>
+          </div>
+        </dl>
+        <a class="site-link features-action" href="/security#trust-boundaries">
+          Read the security model and its scope<span aria-hidden="true"> →</span>
+        </a>
+      </div>
+    </section>
+
+    <div class="site-cta">
+      <p>Sharing is included with Team plans.</p>
+      <div class="site-actions">
+        <a class="site-button site-button--primary" href={appUrl}>Open web app</a>
+        <a class="site-link" href="/pricing">Compare plans<span aria-hidden="true"> →</span></a>
+      </div>
+    </div>
+  </div>
+</Layout>

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "49175c4d-0aa9-470d-8e6b-57a9eb0babe1",
+  "id": "53292067-00df-4452-8930-33f88dd6dda5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -5173,6 +5173,12 @@
           "name": "users_created_at_id_idx",
           "columns": ["created_at", "id"],
           "isUnique": false
+        },
+        "users_root_created_at_id_idx": {
+          "name": "users_root_created_at_id_idx",
+          "columns": ["created_at", "id"],
+          "isUnique": false,
+          "where": "\"users\".\"is_root\""
         },
         "users_default_organization_id_idx": {
           "name": "users_default_organization_id_idx",

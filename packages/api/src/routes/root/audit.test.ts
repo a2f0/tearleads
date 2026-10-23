@@ -40,7 +40,9 @@ function rootRequest(
   );
 }
 
-async function latestEvent(action: RootAuditAction) {
+// Back-to-back requests can share a clock tick, so a test making two of the
+// same action tells them apart by `filter` rather than by time.
+async function latestEvent(action: RootAuditAction, filter?: string) {
   const [row] = await db
     .select()
     .from(rootAuditEvents)
@@ -48,6 +50,7 @@ async function latestEvent(action: RootAuditAction) {
       and(
         eq(rootAuditEvents.action, action),
         eq(rootAuditEvents.actorUserId, root.userId),
+        filter === undefined ? undefined : eq(rootAuditEvents.filter, filter),
       ),
     )
     .orderBy(desc(rootAuditEvents.occurredAt), desc(rootAuditEvents.id))
@@ -74,8 +77,11 @@ test("every root operation records who asked for what before it answers", async 
   const requests = [
     {
       action: "root.identities.list",
-      path: `/root/identities?fingerprint=${member.fingerprint}`,
-      expected: { filter: `fingerprint=${member.fingerprint}` },
+      path: `/root/identities?fingerprint=${member.fingerprint.slice(0, 8)}&rootOnly=true&userId=${member.userId}`,
+      expected: {
+        filter: `fingerprint=${member.fingerprint.slice(0, 8)}&rootOnly=true&userId=${member.userId}`,
+        targetUserId: member.userId,
+      },
     },
     {
       action: "root.identities.get",
@@ -89,8 +95,11 @@ test("every root operation records who asked for what before it answers", async 
     },
     {
       action: "root.organizations.list",
-      path: "/root/organizations?search=%20needle%20",
-      expected: { filter: "search=needle" },
+      path: `/root/organizations?search=%20${memberOrganizationId.toUpperCase()}%20`,
+      expected: {
+        filter: `search=${memberOrganizationId}`,
+        targetOrganizationId: memberOrganizationId,
+      },
     },
     {
       action: "root.organizations.get",
@@ -109,13 +118,19 @@ test("every root operation records who asked for what before it answers", async 
     },
     {
       action: "root.reports.dataUsage.list",
-      path: "/root/reports/data-usage",
-      expected: {},
+      path: `/root/reports/data-usage?search=${memberOrganizationId}`,
+      expected: {
+        filter: `search=${memberOrganizationId}`,
+        targetOrganizationId: memberOrganizationId,
+      },
     },
     {
       action: "root.auditEvents.list",
       path: `/root/audit-events?subjectId=${member.userId}`,
-      expected: { filter: `subjectId=${member.userId}` },
+      expected: {
+        filter: `subjectId=${member.userId}`,
+        targetUserId: member.userId,
+      },
     },
     {
       action: "root.identities.suspension.put",
@@ -158,6 +173,58 @@ test("every root operation records who asked for what before it answers", async 
       targetOrganizationId: null,
       targetUserId: null,
       ...request.expected,
+    });
+  }
+});
+
+test("a full signing key fingerprint is a lookup of the identity it names", async () => {
+  const response = await rootRequest(
+    `/root/identities?fingerprint=${member.fingerprint}`,
+  );
+  expect(response.status).toBe(200);
+  expect(
+    await latestEvent(
+      "root.identities.list",
+      `fingerprint=${member.fingerprint}`,
+    ),
+  ).toMatchObject({ targetUserId: member.userId });
+
+  const unregistered = "f".repeat(64);
+  const missing = await rootRequest(
+    `/root/identities?fingerprint=${unregistered}`,
+  );
+  expect(missing.status).toBe(200);
+  expect(
+    await latestEvent("root.identities.list", `fingerprint=${unregistered}`),
+  ).toMatchObject({ targetUserId: null });
+});
+
+test("viewing a subject's audit trail lands in that subject's trail", async () => {
+  const unknown = "33333333-3333-4333-8333-333333333333";
+  for (const [subjectId, expected] of [
+    [memberOrganizationId, { targetOrganizationId: memberOrganizationId }],
+    [unknown, { targetOrganizationId: null, targetUserId: null }],
+  ] as const) {
+    const response = await rootRequest(
+      `/root/audit-events?subjectId=${subjectId}`,
+    );
+    expect(response.status).toBe(200);
+    expect(
+      await latestEvent("root.auditEvents.list", `subjectId=${subjectId}`),
+    ).toMatchObject(expected);
+  }
+});
+
+test("an organization search that names no organization ID records no target", async () => {
+  for (const [action, path] of [
+    ["root.organizations.list", "/root/organizations?search=%20Needle%20"],
+    ["root.reports.dataUsage.list", "/root/reports/data-usage?search=needle"],
+  ] as const) {
+    const response = await rootRequest(path);
+    expect(response.status).toBe(200);
+    expect(await latestEvent(action)).toMatchObject({
+      filter: "search=needle",
+      targetOrganizationId: null,
     });
   }
 });

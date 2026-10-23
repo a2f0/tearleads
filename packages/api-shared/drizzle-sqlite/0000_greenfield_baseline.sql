@@ -831,4 +831,5 @@ CREATE TABLE `users` (
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_fingerprint_unique` ON `users` (`fingerprint`);--> statement-breakpoint
 CREATE INDEX `users_created_at_id_idx` ON `users` (`created_at`,`id`);--> statement-breakpoint
+CREATE INDEX `users_root_created_at_id_idx` ON `users` (`created_at`,`id`) WHERE "users"."is_root";--> statement-breakpoint
 CREATE INDEX `users_default_organization_id_idx` ON `users` (`default_organization_id`);

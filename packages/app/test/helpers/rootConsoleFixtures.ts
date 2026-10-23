@@ -33,6 +33,14 @@ export const ROOT_TEST_ORGANIZATION: RootOrganizationDetailResponse = {
     createdAt: "2026-08-01T00:00:00.000Z",
     billingStatus: "trialing",
   },
+  overview: {
+    adminGroupId: "66666666-6666-4666-8666-666666666666",
+    memberGroupId: "77777777-7777-4777-8777-777777777777",
+    activeMemberCount: 4,
+    disabledMemberCount: 1,
+    syncPausedMemberCount: 1,
+    openSeatAssignmentCount: 3,
+  },
   billing: {
     status: "trialing",
     provider: "revenuecat",
@@ -43,6 +51,7 @@ export const ROOT_TEST_ORGANIZATION: RootOrganizationDetailResponse = {
     disabledAt: null,
     purgeAfter: null,
     purgedAt: null,
+    purgeStartedAt: null,
     providerCustomerId: "cus_test",
     providerSubscriptionId: "sub_test",
     providerProductId: null,

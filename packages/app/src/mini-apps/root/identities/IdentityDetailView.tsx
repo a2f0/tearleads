@@ -24,6 +24,7 @@ import {
   MiniAppTableRow,
   MiniAppTableText,
 } from "../../../components/mini-app/MiniAppTable";
+import { RosterSeatAndSyncCells } from "../organizations/RosterSeatAndSyncCells";
 import { IdentitySuspension } from "./IdentitySuspension";
 import { compactRootIdentifier, formatRootTimestamp } from "./rootDisplay";
 import { useRootIdentityDetail } from "./useRootIdentityDetail";
@@ -39,6 +40,8 @@ const SESSION_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
 const ORGANIZATION_COLUMNS: ReadonlyArray<MiniAppTableColumn> = [
   { header: "Organization", id: "name" },
   { header: "Roster", id: "roster", width: "6rem" },
+  { header: "Seat", id: "seat", width: "4rem" },
+  { header: "Sync", id: "sync", width: "10rem" },
   { header: "Billing", id: "billing", width: "7rem" },
   { header: "Trial Ends", id: "trial-ends", width: "10rem" },
   { header: "Period Ends", id: "period-ends", width: "10rem" },
@@ -186,6 +189,7 @@ function OrganizationsTable({
                   {organization.roster.status}
                 </MiniAppTableText>
               </MiniAppTableCell>
+              <RosterSeatAndSyncCells roster={organization.roster} />
               <MiniAppTableCell>
                 <MiniAppTableText>
                   {organization.billing?.status ?? "none"}

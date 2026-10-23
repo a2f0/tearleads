@@ -21,7 +21,10 @@ const NAV_ITEMS: readonly NavItem[] = [
   {
     href: "/features",
     label: "Features",
-    current: (pathname) => (pathname === "/features" ? "page" : undefined),
+    current: (pathname) => {
+      if (pathname === "/features") return "page";
+      return pathname.startsWith("/features/") ? "true" : undefined;
+    },
   },
   {
     href: "/security",

@@ -18,12 +18,15 @@ import {
   compactRootIdentifier,
   formatRootTimestamp,
 } from "../identities/rootDisplay";
+import { RosterSeatAndSyncCells } from "./RosterSeatAndSyncCells";
 import { useRootPage } from "./useRootPage";
 
 const COLUMNS = [
   { id: "key", header: "Signing Key" },
   { id: "user", header: "User ID" },
   { id: "status", header: "Roster", width: "6rem" },
+  { id: "seat", header: "Seat", width: "4rem" },
+  { id: "sync", header: "Sync", width: "10rem" },
   { id: "joined", header: "Joined", width: "10rem" },
   { id: "disabled", header: "Disabled", width: "10rem" },
 ];
@@ -96,6 +99,7 @@ export function OrganizationIdentities({
                 <MiniAppTableCell>
                   <MiniAppTableText>{roster.status}</MiniAppTableText>
                 </MiniAppTableCell>
+                <RosterSeatAndSyncCells roster={roster} />
                 <MiniAppTableCell>
                   <MiniAppTableText truncate={false}>
                     {formatRootTimestamp(roster.joinedAt)}

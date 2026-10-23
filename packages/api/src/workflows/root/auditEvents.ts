@@ -1,5 +1,6 @@
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
+  organizations,
   type RootAuditAction,
   rootAuditEvents,
   users,
@@ -28,6 +29,30 @@ export async function insertRootAuditEvent(
     targetOrganizationId: input.targetOrganizationId ?? null,
     targetUserId: input.targetUserId ?? null,
   });
+}
+
+/**
+ * The audit columns an audit-trail subject ID fills: an identity's, an
+ * organization's, or neither when it names no one. Reads only IDs.
+ */
+export async function findRootAuditSubject(
+  executor: DatabaseSession,
+  subjectId: string,
+): Promise<Pick<RootAuditEventInput, "targetOrganizationId" | "targetUserId">> {
+  const [user] = await executor
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.id, subjectId))
+    .limit(1);
+  if (user) {
+    return { targetUserId: user.id };
+  }
+  const [organization] = await executor
+    .select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.id, subjectId))
+    .limit(1);
+  return organization ? { targetOrganizationId: organization.id } : {};
 }
 
 interface ListRootAuditEventsInput {

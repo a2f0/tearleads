@@ -10,8 +10,12 @@ import { OrganizationBillingStatusSchema } from "./organizationBilling";
 
 export const RootRosterSchema = loosePlainObject({
   disabledAt: z.string().nullable(),
+  /** Whether the identity holds an open billable-seat assignment in the org. */
+  holdsSeat: z.boolean(),
   joinedAt: z.string(),
   status: z.literal(["active", "disabled"]),
+  /** When the member paused the org's sync to their devices; null while syncing. */
+  syncPausedAt: z.string().nullable(),
 });
 
 /** Operator-facing view of one registered identity, from `GET /root/identities`. */

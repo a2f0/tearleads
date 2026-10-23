@@ -831,4 +831,5 @@ CREATE INDEX "root_audit_events_actor_idx" ON "root_audit_events" USING btree ("
 CREATE INDEX "root_audit_events_target_user_idx" ON "root_audit_events" USING btree ("target_user_id","occurred_at","id");--> statement-breakpoint
 CREATE INDEX "root_audit_events_target_organization_idx" ON "root_audit_events" USING btree ("target_organization_id","occurred_at","id");--> statement-breakpoint
 CREATE INDEX "users_created_at_id_idx" ON "users" USING btree ("created_at","id");--> statement-breakpoint
+CREATE INDEX "users_root_created_at_id_idx" ON "users" USING btree ("created_at","id") WHERE "users"."is_root";--> statement-breakpoint
 CREATE INDEX "users_default_organization_id_idx" ON "users" USING btree ("default_organization_id");
