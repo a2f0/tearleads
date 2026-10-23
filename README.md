@@ -17,7 +17,7 @@ To invoke repository launchers and release shortcuts by name, source
 `scripts/dev/session.sh` from the checkout. For a persistent shell shortcut:
 
 ```sh
-tl() { . /path/to/checkout/scripts/dev/session.sh /path/to/checkout; }
+tl() { . /path/to/checkout/scripts/dev/session.sh /path/to/checkout; } && tl
 ```
 
 ## Deployments and releases

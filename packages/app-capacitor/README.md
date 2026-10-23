@@ -250,14 +250,13 @@ bun run store:build-numbers
 ```
 
 The lane uses the secrets folder's Google Play service account and App Store
-Connect key; missing credentials or one store API failure do not block the
-other lookup. It queries the standard Play tracks (`production`, `beta`,
-`alpha`, and `internal`) and the app's uploaded bundles, and reports the highest
-version code. Narrow the tracks with `google_tracks:internal,beta` or
+Connect key; missing credentials or one store API failure do not block the other
+lookup. It queries the standard Play tracks (`production`, `beta`, `alpha`, and
+`internal`) and the app's uploaded bundles, and reports the highest version
+code. Narrow the tracks with `google_tracks:internal,beta` or
 `GOOGLE_PLAY_TRACKS`, or one track with `track:` or `GOOGLE_PLAY_TRACK`. Query
 TestFlight state instead of the live version with `apple_live:false` or
-`APP_STORE_LIVE=false`, and skip a store with
-`skip_google:true` (`SKIP_GOOGLE_PLAY`) or `skip_apple:true` (`SKIP_APP_STORE`).
+`APP_STORE_LIVE=false`, and skip a store with `skip_google:true`
+(`SKIP_GOOGLE_PLAY`) or `skip_apple:true` (`SKIP_APP_STORE`).
 `scripts/release/getCurrentAppStoreBuildNumbers.sh` wraps it for the App Store
-builds of
-both tiers.
+builds of both tiers.

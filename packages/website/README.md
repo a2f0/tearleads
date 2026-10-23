@@ -41,15 +41,14 @@ website deployment. Their `--skip-terraform` skips server/storage provisioning;
 website domains still reconcile. Their `--skip-infra` also skips domain Terraform.
 
 `scripts/deploy/destroyStaging.sh` and `scripts/deploy/destroyProduction.sh`
-remove the
-Workers, database, R2 storage, and desktop downloads, then destroy the website
-domain and delete the tier's Worker. Deleting a Worker also needs Workers KV
-Storage Read. For a staging website-only teardown use
+remove the Workers, database, R2 storage, and desktop downloads, then destroy
+the website domain and delete the tier's Worker. Deleting a Worker also needs
+Workers KV Storage Read. For a staging website-only teardown use
 `packages/website/scripts/destroyWebsite.sh staging`; production runs only under
-`scripts/deploy/destroyProduction.sh`. A failed domain teardown leaves the Worker
-available. Server-only destruction preserves it. The Terraform wrapper rejects
-production domain destruction before loading credentials, so the teardown
-applies a saved destroy plan instead.
+`scripts/deploy/destroyProduction.sh`. A failed domain teardown leaves the
+Worker available. Server-only destruction preserves it. The Terraform wrapper
+rejects production domain destruction before loading credentials, so the
+teardown applies a saved destroy plan instead.
 
 `public/_headers` keeps HTML and the screenshot manifest revalidating while Astro
 bundles and versioned screenshots receive immutable browser caching. Wrangler

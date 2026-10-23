@@ -59,20 +59,19 @@ The AWS bucket, its DynamoDB lock table, and the local bootstrap state are
 retired; never initialize a stack against them.
 
 `scripts/deploy/deployStaging.sh` and `scripts/deploy/deployProduction.sh` run
-the whole
-sequence: storage, database, API migrations and Worker, app bundles, edge
-hostnames (which need the Workers to exist), API verification, then website. `packages/api/scripts/deployApi.sh`
-migrates with the PlanetScale migration login, syncs the Worker secrets from
-the Terraform outputs and the `.secrets/<tier>/` env files, and publishes with
-the build constants from `packages/api/scripts/workerDefines.ts`. The
-document sync cursor HMAC key is generated once per tier into
-`.secrets/<tier>/worker.env`.
+the whole sequence: storage, database, API migrations and Worker, app bundles,
+edge hostnames (which need the Workers to exist), API verification, then
+website. `packages/api/scripts/deployApi.sh` migrates with the PlanetScale
+migration login, syncs the Worker secrets from the Terraform outputs and the
+`.secrets/<tier>/` env files, and publishes with the build constants from
+`packages/api/scripts/workerDefines.ts`. The document sync cursor HMAC key is
+generated once per tier into `.secrets/<tier>/worker.env`.
 `scripts/deploy/destroyStaging.sh` and `scripts/deploy/destroyProduction.sh`
-remove every
-resource of their tier through `scripts/deploy/destroyTier.sh`, timing each step.
-The production script asks for the domain unless given `--auto-approve`; the
-production teardown steps refuse to run outside it. The stack wrappers still
-refuse a production `destroy`; the teardown applies saved destroy plans.
+remove every resource of their tier through `scripts/deploy/destroyTier.sh`,
+timing each step. The production script asks for the domain unless given
+`--auto-approve`; the production teardown steps refuse to run outside it. The
+stack wrappers still refuse a production `destroy`; the teardown applies saved
+destroy plans.
 
 The deployed API allows browser requests from every origin (`API_CORS_ORIGINS=*`)
 for SDK hosts, with explicit bearer-token and protocol headers and no cookie

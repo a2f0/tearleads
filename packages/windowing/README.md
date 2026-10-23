@@ -433,9 +433,8 @@ bun run publish:npm windowing
 Windowing has no workspace dependencies, and its React peers and Phosphor
 dependency already exist on npm, so it publishes on its own.
 `scripts/release/publishNpmPackage.sh` publishes each npm package by its
-directory name;
-`bun run --cwd packages/windowing publish:npm` runs it for windowing, and the
-workflow runs it too.
+directory name; `bun run --cwd packages/windowing publish:npm` runs it for
+windowing, and the workflow runs it too.
 
 The command rebuilds into a fresh temporary directory, publishes its generated
 consumer manifest with public access to `https://registry.npmjs.org`, and

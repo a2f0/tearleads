@@ -206,13 +206,13 @@ a different transport leg and cannot establish client TLS. Verify there are no
 application tables before baseline initialization, and no old blobs in storage.
 
 Run `scripts/deploy/deployProduction.sh` or `scripts/deploy/deployStaging.sh`.
-Both require
-their database and storage stacks to exist; the API deploy initializes the
-schema with the migration login, syncs the Worker secrets, publishes the
-Worker, and the edge stack reattaches the hostnames. A fresh tier starts with
-an empty key/value Durable Object, so no old session can survive the reset.
-The document sync cursor HMAC key persists in `.secrets/<tier>/worker.env`;
-delete that file before the rebuild when the reset should rotate it.
+Both require their database and storage stacks to exist; the API deploy
+initializes the schema with the migration login, syncs the Worker secrets,
+publishes the Worker, and the edge stack reattaches the hostnames. A fresh tier
+starts with an empty key/value Durable Object, so no old session can survive the
+reset. The document sync cursor HMAC key persists in
+`.secrets/<tier>/worker.env`; delete that file before the rebuild when the reset
+should rotate it.
 
 Verify current schema initialization and application-table emptiness before any
 test identities are created. Compare schema against the current baseline rather

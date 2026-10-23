@@ -45,14 +45,14 @@ The DSNs above are placeholders. The DSN is public; the upload token is private.
 ## Deployment and releases
 
 `scripts/deploy/deployStaging.sh` and `scripts/deploy/deployProduction.sh`
-publish the API
-Worker and the web app. The API deploy syncs `API_SENTRY_DSN` as a Worker
-secret and sets `API_SENTRY_ENVIRONMENT` from `packages/api/wrangler.jsonc`;
-the bundle receives its commit, exact source-path allowlist, and build number
-through `wrangler deploy --define` (see `packages/api/scripts/workerDefines.ts`).
-Wrangler also uploads the bundle's source map. Frames in the deployed bundle
-resolve against that map rather than the repository paths the allowlist names,
-so API frame admission under Workers is a known gap to close.
+publish the API Worker and the web app. The API deploy syncs `API_SENTRY_DSN` as
+a Worker secret and sets `API_SENTRY_ENVIRONMENT` from
+`packages/api/wrangler.jsonc`; the bundle receives its commit, exact source-path
+allowlist, and build number through `wrangler deploy --define` (see
+`packages/api/scripts/workerDefines.ts`). Wrangler also uploads the bundle's
+source map. Frames in the deployed bundle resolve against that map rather than
+the repository paths the allowlist names, so API frame admission under Workers
+is a known gap to close.
 
 The build number is `git rev-list --count HEAD` at build time. The default
 branch only gains squash-merged commits, so every deploy from it counts higher
@@ -73,22 +73,20 @@ Web deployment selects the tier DSN, builds, uploads maps, then publishes
 assets. Missing upload credentials or an upload failure stop a configured
 deployment.
 
-Google Play builds and iOS TestFlight builds invoke `bun
-run build:release android` or `bun run build:release ios` in
-`packages/app-capacitor`. `NATIVE_RELEASE_TIER` selects `staging` or
-`production` (default). The builder reads the selected tier's `shared.env` and
-`app.env` (from `NATIVE_RELEASE_SECRETS_DIR` when set, as the Fastlane lanes
-do), injects only the selected public Sentry configuration, uploads maps,
-and removes them before Capacitor packaging. Publishing maps requires a clean
-Git checkout; staged, modified, or untracked sources stop the release before
-building. Upload failures stop packaging. Debug and local Android APK/sideload
-builds stay local.
-The root `scripts/release/buildAndroidRelease.sh`,
-`scripts/release/buildIosRelease.sh`, their `StagingRelease.sh` counterparts,
-and all
-corresponding `upload*Release.sh` wrappers reach this step through Fastlane.
-`scripts/deploy/deployEverything.sh` uses those wrappers too. No separate source-map
-command is required.
+Google Play builds and iOS TestFlight builds invoke `bun run build:release
+android` or `bun run build:release ios` in `packages/app-capacitor`.
+`NATIVE_RELEASE_TIER` selects `staging` or `production` (default). The builder
+reads the selected tier's `shared.env` and `app.env` (from
+`NATIVE_RELEASE_SECRETS_DIR` when set, as the Fastlane lanes do), injects only
+the selected public Sentry configuration, uploads maps, and removes them before
+Capacitor packaging. Publishing maps requires a clean Git checkout; staged,
+modified, or untracked sources stop the release before building. Upload failures
+stop packaging. Debug and local Android APK/sideload builds stay local. The root
+`scripts/release/buildAndroidRelease.sh`, `scripts/release/buildIosRelease.sh`,
+their `StagingRelease.sh` counterparts, and all corresponding
+`upload*Release.sh` wrappers reach this step through Fastlane.
+`scripts/deploy/deployEverything.sh` uses those wrappers too. No separate
+source-map command is required.
 
 Existing installed mobile apps need a new release to start reporting.
 

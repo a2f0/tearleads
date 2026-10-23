@@ -36,9 +36,8 @@ Maestro must be installed (`curl -fsSL https://get.maestro.mobile.dev | bash`).
 ## Scripted
 
 `scripts/testing/runMaestroTests.sh [ios|android]` (default `ios`) runs the
-steps below
-end to end: build, sync, native compile, simulator/emulator install, then every
-flow in this directory.
+steps below end to end: build, sync, native compile, simulator/emulator install,
+then every flow in this directory.
 
 ## iOS (simulator)
 
@@ -101,8 +100,8 @@ dev-only URLs are rejected before simulator state changes. Tests can point
 These are native review screenshots, not App Store product-page marketing
 screenshots. Do not substitute the resized-browser output from
 `scripts/testing/takeScreenshots.sh`: the web shell follows the Stripe purchase
-path,
-while App Review needs evidence of the native App Store subscription surface.
+path, while App Review needs evidence of the native App Store subscription
+surface.
 
 ## Android (emulator)
 

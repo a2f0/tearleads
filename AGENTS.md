@@ -7,6 +7,8 @@ Capture noisy setup, checks, builds, and hook-running Git commands with
 `bun run agent:logs <log-path> --tail-lines 40 --max-bytes 4096`; keep review
 verdicts and verification evidence visible. See the
 [verification guide](docs/developer/verification.md) for receipts and reports.
+Before pushing, follow its
+[cheap-check guidance](docs/developer/verification.md#before-a-push).
 
 Run the smallest command that matches the handoff risk:
 

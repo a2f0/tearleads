@@ -91,8 +91,7 @@ checkout-bound reports.
   inputs together.
 
 Windows desktop releases use `./scripts/release/windowsRelease.sh build staging`
-or
-`build production` to dispatch GitHub Actions. After the run completes, use
+or `build production` to dispatch GitHub Actions. After the run completes, use
 `download <tier> <run-id>` to retrieve its package or `upload <tier> <run-id>`
-to publish it to R2 with local credentials. See the
-[Windows release guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).
+to publish it to R2 with local credentials. See the [Windows release
+guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).

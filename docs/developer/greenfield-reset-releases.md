@@ -52,11 +52,10 @@ include it or report the scope decision. The current desktop targets are
 macOS ARM64, Linux x64, and Windows x64.
 
 `scripts/deploy/deployEverything.sh` deploys both environments and uploads both
-mobile
-tiers, but omits desktop uploads. `scripts/release/uploadAllReleases.sh` currently
-uploads only production mobile builds and redeploys web artifacts for both tiers.
-Neither script alone completes this matrix. Prefer individual tier deployments
-before store uploads so both environments regain service sooner.
+mobile tiers, but omits desktop uploads. `scripts/release/uploadAllReleases.sh`
+currently uploads only production mobile builds and redeploys web artifacts for
+both tiers. Neither script alone completes this matrix. Prefer individual tier
+deployments before store uploads so both environments regain service sooner.
 
 ## Windows build and publication
 
