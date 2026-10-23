@@ -29,9 +29,8 @@ that the emptiness observation stays true through the commit window. Setting
 and the unlink commit) makes TLC report the `NoDataLoss` violation
 immediately — the lock discipline is load-bearing, not incidental. The
 negative-control check asserts this on every run.
-`RequireEmptyFrontierOnLinkAdvance = FALSE` is the server before #2365 finding
-28, which let a link advance the epoch over committed updates, and TLC reports
-the same violation.
+`RequireEmptyFrontierOnLinkAdvance = FALSE` lets a link advance the epoch over
+committed updates, and TLC reports the same violation.
 
 A rotation baseline covers history only under the epoch it is sealed to, and it
 is itself a committed update, so both gates ask whether any update is

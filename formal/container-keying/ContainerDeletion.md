@@ -1,11 +1,11 @@
 # Container deletion and terminal metadata IDs
 
-[`ContainerDeletion.tla`](./ContainerDeletion.tla) models findings #4 and #17
-in #2266. A document create and a leaf-container delete can start in either
-order. A committed document must retain a live target, and deleting a container
-must permanently retire its metadata document ID. The guarantee concerns
-container deletion; billing purge of still-live containers is a separate
-lifecycle outside this model. Retired ID pairs survive later organization purge.
+[`ContainerDeletion.tla`](./ContainerDeletion.tla) models a document create
+and a leaf-container delete that can start in either order. A committed document
+must retain a live target, and deleting a container must permanently retire its
+metadata document ID. The guarantee concerns container deletion; billing purge
+of still-live containers is a separate lifecycle outside this model. Retired ID
+pairs survive later organization purge.
 
 | Model action or predicate | Production seam |
 | --- | --- |

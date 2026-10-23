@@ -5,7 +5,7 @@ store retained in the import queue after empty-trash deletes its durable row.
 The store must check that row before beginning remote creation. If another
 generation replaces the store while that read is pending, the old result must
 not clear the replacement. Once started, the create may carry the document's
-one queued row as its seed (#2585). The row may leave the queue only when the
+one queued row as its seed. The row may leave the queue only when the
 server holds its content. A peer may edit the document after the create
 commits; settling the seed skips the pass's pull, so a hint for that edit must
 survive even when it arrives before the store holds the document's id. A

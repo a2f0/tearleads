@@ -138,8 +138,6 @@ runtime tests cover this cardinality rather than the model.
 While a declaration round awaits acknowledgment, the client coalesces tree
 changes and sends one diff from the latest snapshot after that round completes.
 Burst tests cover both initial declarations and later add/remove rounds.
-The accepted-ID acknowledgment and batched revocation frames are a flag-day
-wire contract.
 
 Only group policy changes affect container reachability. Organization policy
 constraints prohibit grants and require their projection to mirror the current
@@ -170,20 +168,18 @@ most `sessionReadTimeoutMs` (ten seconds) and reports once per pass under its
 own diagnostic label. A read that times out stays outstanding, but a later
 check joins it instead of adding another, so a hung store holds at most one
 read per session. The deadline then closes the session even if that read never
-answers. A read that
-answers late still acts on its answer. A failure only delays the close, up to a
-deadline: like installed proofs, a session the store has not confirmed for
-`maxProofAgeMs` closes every socket with 1013, so the client reconnects through
-a fresh ticket once the store answers again. The bound must be at least twice
-the revalidation interval: a tick can come a whole interval after the last one,
-and a confirmation dates from when its read started. A shorter bound is refused
-at startup. Only a live answer, or a ticket
-upgrade for another socket of the session, confirms it and re-arms the
-deadline. `Elapse` advances time while the socket is open, and
-`UnconfirmedSessionsLapse` checks that no socket is served once its session has
-gone unconfirmed past the deadline, however many reads fail. With rechecks
-disabled (`intervalMs` 0) a session is checked only on reconnect and has no
-deadline.
+answers. A read that answers late still acts on its answer. A failure only
+delays the close, up to a deadline: like installed proofs, a session the store
+has not confirmed for `maxProofAgeMs` closes every socket with 1013, so the
+client reconnects through a fresh ticket once the store answers again. The bound
+must be at least twice the revalidation interval: a tick can come a whole
+interval after the last one, and a confirmation dates from when its read
+started. A shorter bound is refused at startup. Only a live answer, or a ticket
+upgrade for another socket of the session, confirms it and re-arms the deadline.
+`Elapse` advances time while the socket is open, and `UnconfirmedSessionsLapse`
+checks that no socket is served once its session has gone unconfirmed past the
+deadline, however many reads fail. With rechecks disabled (`intervalMs` 0) a
+session is checked only on reconnect and has no deadline.
 
 Negative controls remove authorization, dependency invalidation, the live-socket
 guard, the per-socket ownership of a query result, scoped eviction, query

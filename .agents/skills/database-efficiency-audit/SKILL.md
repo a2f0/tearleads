@@ -116,8 +116,8 @@ and inspect bounded excerpts with `agent-tool logs <path>`.
    preload, and save per-scenario statement counts and the most repeated
    normalized statements.
 5. Collect PlanetScale evidence (step 2) unless `no-planetscale` was given.
-6. Build a compact known-dispositions index: the statement-budget history
-   in `docs/request-budget-closeout.md` and
+6. Build a compact known-dispositions index: the request budgets and design
+   decisions in `docs/request-budgets.md` and
    `docs/principal-history-transport.md`, the table and index decisions in
    #2522 and its PRs (#2524 to #2541, including its declined items 7, 22,
    27, 35, 36, and 37), project memory, and earlier database audit issues

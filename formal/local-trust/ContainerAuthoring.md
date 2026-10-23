@@ -14,14 +14,14 @@ not. The server may echo any plan the client signs without checking authority.
 
 The bounded choices cover read, write, and admin grants; child, system, and
 document creation and link/unlink; sharing, revocation, rekeying, and moves.
-Moves independently
-require admin on the source and write on the destination. Document links require
-write on the target and on an existing linked source. Group membership is
-abstracted into its verified effective access. Later policy changes and the
-server's knowledge of current policy remain outside this local authoring model.
-The effective grant belongs to the signed target organization. For child and
-document creation, the signer's active personal organization does not replace
-that target scope; cross-organization readers still cannot author writes.
+Moves independently require admin on the source and write on the destination.
+Document links require write on the target and on an existing linked source.
+Group membership is abstracted into its verified effective access. Later policy
+changes and the server's knowledge of current policy remain outside this local
+authoring model. The effective grant belongs to the signed target organization.
+For child and document creation, the signer's active personal organization does
+not replace that target scope; cross-organization readers still cannot author
+writes.
 
 The negative control removes the client permission check. A read-only signer
 then creates a plan that a dishonest server can echo into an acknowledgement.

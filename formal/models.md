@@ -48,10 +48,10 @@ grants; organization principals are not recovery recipients. `Descendants`
 extend it with child containers whose key epochs pin the parent epoch current
 when they were minted: a descendant verifies against any pinned epoch the
 parent's retained history still covers, and the negative control
-`strict-parent-epoch-pin-strands-descendant` reproduces the pre-#2330 rule under
-which an ancestor rotation stranded the subtree. An honest rotation may also
-seal a forged entry, an invented epoch id over server-chosen material that
-passes its material check, whether rebuilt for a repair or carried in the
+`strict-parent-epoch-pin-strands-descendant` accepts only the parent's current
+epoch, under which an ancestor rotation strands the subtree. An honest rotation
+may also seal a forged entry, an invented epoch id over server-chosen material
+that passes its material check, whether rebuilt for a repair or carried in the
 served keyring. `RotationsSealOnlySignedLineage` requires that it never does.
 `AnchorToSignedLineage` records that rule as a switch. The model does not
 represent where manifests are served or the lineage walk, so the invariant
@@ -71,9 +71,9 @@ before an additive join hands that key out. See the
 ### Container Tombstone Recovery
 
 [`container-keying/ContainerTombstoneRecovery.tla`](./container-keying/ContainerTombstoneRecovery.tla)
-covers finding 8 of #2365: an unsigned parent listing that withdraws a cached
-subtree after its child has moved elsewhere cannot authorize erasing local work
-or declaring every cached descendant terminally deleted. See the
+checks that an unsigned parent listing that withdraws a cached subtree after its
+child has moved elsewhere cannot authorize erasing local work or declaring every
+cached descendant terminally deleted. See the
 [mapping and boundaries](./container-keying/ContainerTombstoneRecovery.md).
 
 ### Manifest History Availability
@@ -96,8 +96,9 @@ and [page verification](./container-keying/PrincipalHistoryPages.md), including
 checks the distinct read and write currency rules for a three-level container
 path. Rotating a parent preserves descendant reads; repairing a child can make
 its grandchild stale without making it unreadable. Setting
-`StrictReadParentPin = TRUE` is the negative control for #2329: the first root
-rotation violates `HonestReadsAvailable`.
+`StrictReadParentPin = TRUE`, which accepts only the parent's current epoch for
+reads, makes the first root rotation violate `HonestReadsAvailable`; that switch
+has no registered negative control.
 
 The production seams are `resolveContainerKekParentBinding` (signed historical
 epoch membership) and `assertContainerKekParentEdgesCurrent` (current epochs
@@ -121,9 +122,10 @@ a revoked member can open and a writer holding a key outside its grant. See the
 models the invariant that no device may ever be unable to read or write
 because another device holds a cache or must issue a write first. A dependent
 (descendant container, or group policy) cites an authority (ancestor, or
-Admins policy); every client refusal rule is a parameter, and the currency
-rules withdrawn in #2174 and #2173 are the negative controls that reproduce
-the bricking. See the [mapping, configurations, and boundary](./container-keying/NoBrickedDevice.md).
+Admins policy); every client refusal rule is a parameter, and negative controls
+show that requiring stale heads or chain entries to cite the current authority
+bricks a device. See the
+[mapping, configurations, and boundary](./container-keying/NoBrickedDevice.md).
 
 ### Principal Reference Progress
 
@@ -179,8 +181,7 @@ ownership, checkpoint retirement, waiting writers, and fair worker termination.
 [`document-sync/RestartProbeConvergence.tla`](./document-sync/RestartProbeConvergence.tla)
 models startup and acknowledged-reconnect probes, peer writes during the
 handshake or an in-flight pull, and signal-sequence coalescing for encrypted Loro
-body and attachment-slot state. Its bounded run explores 6,757 generated states,
-1,912 distinct states, and depth 15. See the
+body and attachment-slot state. See the
 [production mapping and model boundary](./document-sync/RestartProbeConvergence.md)
 for the action seams, fairness assumptions, and excluded blob-hydration layer.
 
@@ -279,30 +280,30 @@ access from local signing authority and models an untrusted server echoing a pla
 
 ### Purge Recovery and Subtree Purge Scope
 
-[`local-trust/PurgeRecovery.tla`](./local-trust/PurgeRecovery.tla) covers
-finding 10 of #2365: recovery adopts a replacement organization or root that an
-untrusted API returns, or re-homes the local corpus there, only with this
-identity's explicit signed replacement intent. See the
+[`local-trust/PurgeRecovery.tla`](./local-trust/PurgeRecovery.tla) checks that
+recovery adopts a replacement organization or root that an untrusted API
+returns, or re-homes the local corpus there, only with this identity's explicit
+signed replacement intent. See the
 [mapping and boundaries](./local-trust/PurgeRecovery.md).
 
 [`local-trust/SubtreePurgeScope.tla`](./local-trust/SubtreePurgeScope.tla)
-covers finding 1 of #2485: unsigned listing edges cannot select purge candidates
-outside a user-selected subtree. See the
+checks that unsigned listing edges cannot select purge candidates outside a
+user-selected subtree. See the
 [mapping and boundaries](./local-trust/SubtreePurgeScope.md).
 
 ### Session Retry Identity
 
 [`local-trust/SessionRetryIdentity.tla`](./local-trust/SessionRetryIdentity.tla)
-covers finding 3 of #2485: a delayed 401 for one identity never replays its
-request as another. See the
+checks that a delayed 401 for one identity never replays its request as
+another. See the
 [mapping and boundaries](./local-trust/SessionRetryIdentity.md).
 
 ### Principal Acknowledgement Race
 
 [`local-trust/PrincipalAcknowledgementRace.tla`](./local-trust/PrincipalAcknowledgementRace.tla)
-covers finding 4 of #2485: a signed compound receipt arrives after an honest
-reader has recovered that receipt or a later descendant, and committing it must
-neither roll progress back nor report an incident. See the
+models a signed compound receipt that arrives after an honest reader has
+recovered that receipt or a later descendant; committing it must neither roll
+progress back nor report an incident. See the
 [mapping and boundaries](./local-trust/PrincipalAcknowledgementRace.md).
 
 ## Realtime
@@ -314,10 +315,10 @@ Models under [`realtime/`](./realtime).
 [`realtime/ContainerInterest.tla`](./realtime/ContainerInterest.tla) checks that
 container subscriptions require current read access before indexing, cannot be
 restored by an authorization that outlived revocation or close, and reach a
-socket only after its own client declares; an ended session's
-socket never outlives the next answered session read, and an unconfirmed session
-closes at its deadline.
-See the [production mapping and bounds](./realtime/ContainerInterest.md).
+socket only after its own client declares; an ended session's socket never
+outlives the next answered session read, and an unconfirmed session closes at
+its deadline. See the
+[production mapping and bounds](./realtime/ContainerInterest.md).
 
 ### Organization Read-Model Stamps
 
@@ -340,8 +341,8 @@ to destination-write authority.
 ### Pending Attachment Detach
 
 [`blob-attachments/PendingAttachmentDetach.tla`](./blob-attachments/PendingAttachmentDetach.tla)
-models #2491: a bind can commit before its response reaches the client or local
-settlement finishes, so removing the slot must preserve a detached row that the
+models a bind that commits before its response reaches the client or local
+settlement finishes: removing the slot must preserve a detached row that the
 current store's detach pass sees, before and after a restart. See the
 [mapping and boundaries](./blob-attachments/PendingAttachmentDetach.md).
 

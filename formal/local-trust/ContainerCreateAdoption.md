@@ -1,8 +1,8 @@
 # Pending container create adoption
 
-[`ContainerCreateAdoption.tla`](./ContainerCreateAdoption.tla) models
-finding 26 of #2365 and its follow-ups in #2420. A container create committed,
-its response was lost, and a listing carries the container. The pending intent
+[`ContainerCreateAdoption.tla`](./ContainerCreateAdoption.tla) models a
+container create that committed while its response was lost, followed by a
+listing that carries the container. The pending intent
 must be adopted only through the signed epoch-1 create. While it was pending,
 the user may have moved the folder locally and another writer may have moved
 it remotely. A foreign create under the same id must not stop the rest of the
@@ -38,7 +38,7 @@ It checks six properties:
   edit is written into the folder while its create is pending;
 - a later intent in the same pass eventually syncs, under fairness for
   adoption, refusal and that intent;
-- the folder's metadata seed (#2585) leaves the queue only once the server
+- the folder's metadata seed leaves the queue only once the server
   holds it: the lost response may have been the seeded create's or a plain
   fallback's, so adoption keeps the seed queued.
 

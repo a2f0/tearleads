@@ -36,4 +36,4 @@ custody, current authorization, and HTTP deadlines remain outside this model.
 In particular, it does not prove that a saved prefix is current, that a database
 write persisted it, or that restoring old progress cannot repeat work. Clients
 must still pin an exact final head and protect monotonic checkpoint publication;
-API and SDK integration remains in #2448.
+those obligations belong to the API and SDK integration.

@@ -74,8 +74,8 @@ network availability, successful recovery for invalid input, or completion
 under unbounded retries.
 
 The smaller progress run explores 292,008 generated states, 168,712 distinct
-states, and depth 13. The original three-update safety configuration remains
-registered and checks the larger frontier without adding temporal-check cost.
+states, and depth 13. The three-update safety configuration checks the larger
+frontier without temporal-check cost.
 
 Five fault switches are `TRUE` in both registered configurations. Automated
 negative controls independently flip them and require these failures:
@@ -92,6 +92,6 @@ The first four mutate the install guards or effects. The last suppresses the
 verified publication step: safety still permits waiting forever in `ready`, but
 the temporal check rejects it even though an external reset could end recovery.
 These are model fault switches, not runtime configuration options. The writer
-completion now represents both rejection and an erroneously committed stale
+completion represents both rejection and an erroneously committed stale
 write that restores the pre-recovery checkpoint. The control must violate exact
 durable-history preservation, independently of the writer's status label.

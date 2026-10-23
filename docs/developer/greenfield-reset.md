@@ -18,21 +18,19 @@ versions, credentials, build numbers, or Terraform plans from a previous run.
 | Terraform backend and release buckets | Retain, including historical immutable downloads. |
 | Signing, store and payment-provider resources | Retain; reconcile external records separately when requested. |
 
-The current application buckets are `tearleads-blobs-prod` and
-`tearleads-blobs-staging`.
-The `tearleads-downloads-prod` and `tearleads-downloads-staging` buckets are release
-dependencies. Resolve and compare bucket identities from the selected stack
-before any object deletion.
-Never broaden an application reset into account-wide bucket or resource cleanup.
-`scripts/deploy/destroyProduction.sh` is a complete production teardown, wider than
-this reset: it also deletes the downloads bucket with every published release,
-and the website. Do not use it for a reset.
+The application buckets are `tearleads-blobs-prod` and
+`tearleads-blobs-staging`. The `tearleads-downloads-prod` and
+`tearleads-downloads-staging` buckets are release dependencies. Resolve and
+compare bucket identities from the selected stack before any object deletion.
+Never broaden an application reset into account-wide bucket or resource
+cleanup. `scripts/deploy/destroyProduction.sh` is a complete production
+teardown, wider than this reset: it also deletes the downloads bucket with
+every published release, and the website. Do not use it for a reset.
 
 Authoritative details:
 [API persistence](api-persistence.md),
-[production Postgres](../../terraform/stacks/prod/postgres/README.md),
-[blob storage](../../terraform/modules/r2-object-storage/README.md), and
-[the compatibility audit](greenfield-compatibility-audit.md).
+[production Postgres](../../terraform/stacks/prod/postgres/README.md), and
+[blob storage](../../terraform/modules/r2-object-storage/README.md).
 
 ## Preflight before downtime
 
@@ -75,7 +73,7 @@ scope and location; an old data restore reverses the fresh-start outcome.
 Production database and blob resources intentionally use `prevent_destroy`.
 For an explicitly authorized complete production data reset, use temporary,
 stack-local `greenfield_reset_override.tf` files. Derive addresses from the
-current configuration. The current protected addresses are:
+current configuration. The protected addresses are:
 
 - Postgres: `restapi_object.database`, `restapi_object.main_protection`,
   `planetscale_postgres_branch_role.runtime`, and
@@ -148,7 +146,7 @@ Both tiers have an independent PlanetScale database stack:
    host, branch, and role. Require TLS with certificate verification and the
    direct migration port; never use a development connection fallback.
 2. Run the documented `DROP OWNED BY CURRENT_USER CASCADE` through that migration
-   connection. PlanetScale will not delete a role that still owns objects.
+   connection. PlanetScale does not delete a role that still owns objects.
    This SQL belongs only to the authorized complete teardown. Check that the
    old application tables are gone.
    `terraform/scripts/drop-postgres-owned.sh "$TIER"` runs it from the stack's
@@ -206,11 +204,12 @@ a different transport leg and cannot establish client TLS. Verify there are no
 application tables before baseline initialization, and no old blobs in storage.
 
 Run `scripts/deploy/deployProduction.sh` or `scripts/deploy/deployStaging.sh`.
-Both require their database and storage stacks to exist; the API deploy
-initializes the schema with the migration login, syncs the Worker secrets,
-publishes the Worker, and the edge stack reattaches the hostnames. A fresh tier
-starts with an empty key/value Durable Object, so no old session can survive the
-reset. The document sync cursor HMAC key persists in
+The staging script applies its database and storage stacks itself; the
+production script requires both to exist already. The API deploy initializes
+the baseline schema with the migration login, syncs the Worker secrets, and
+publishes the Worker; the edge stack then reattaches the hostnames. A fresh
+tier starts with an empty key/value Durable Object, so no old session can
+survive the reset. The document sync cursor HMAC key persists in
 `.secrets/<tier>/worker.env`; delete that file before the rebuild when the reset
 should rotate it.
 

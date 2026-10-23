@@ -43,15 +43,17 @@ Branch names and binary checks use shared agent-tool commands with the policy
 in `agent-tool.json`. Commit trust checks require a present signature and reject
 coauthor trailers on commits newly admitted to the push remote; commits already
 reachable from any of that remote's branches are excluded. New branches also
-exclude local `main`, preserving the baseline when a remote has no tracking refs.
+exclude local `main`, so the check still has a baseline when the remote has no
+tracking refs.
 Commit messages retain the full pinned commitlint rules; the committed message
 is authoritative for the pre-push trailer check after Git's cleanup.
 Binary and source-shape checks still inspect each pushed tree range.
 
 OpenAPI compatibility exceptions expire when the comparison base contains the
 new contract. Remove their entries from
-`scripts/checks/openApiCompatibilityErrors.ignore` at that point; an unused
-exception deliberately fails both gates.
+`scripts/checks/openApiCompatibilityErrors.ignore` (present only while an
+exception is active) at that point; an unused exception deliberately fails both
+gates.
 
 ## Source shape
 
@@ -65,19 +67,15 @@ grant an unstaged allowance. Renames check both the old and new path.
 Changing `scripts/checks/sourceShapeBaseline.json` triggers a full scan of the
 selected snapshot, including unchanged source. The baseline rejects unknown
 fields, invalid counts, empty or duplicate export allowances, and unused
-permissions. Remove obsolete suppression counts and star-export specifiers when
-removing
-the corresponding source constructs.
+permissions. Remove suppression counts and star-export specifiers together
+with the source constructs they allow.
 
-File-size allowances remain ceilings: shrinking an over-limit file does not
+File-size allowances are ceilings: shrinking an over-limit file does not
 require updating its exact line and byte counts. Once a file fits the default
-budget, remove its allowance. Increases still require reviewer context.
-
-The old, unenforced `categories` metadata has moved out of the baseline. Its
-rationale remains: holistic dependency-cruiser configuration and long-form
-design/reference documents can warrant larger budgets when splitting would
-obscure the relationships they describe. The numeric allowance is the enforced
-policy; a category never exempts a file from checking.
+budget, remove its allowance. Increases require reviewer context. Holistic
+dependency-cruiser configuration and long-form design or reference documents
+can warrant larger budgets when splitting would obscure the relationships they
+describe; the numeric allowance is still the enforced limit.
 
 ## Canonical ordering
 
@@ -99,21 +97,18 @@ subdirectory still checks the repository root. The inventory reads only a file
 prefix to identify shebangs and skips missing working files and directories.
 Stage new files before running the command.
 
-Explicit exceptions live in `scripts/checks/shellScripts.ts`: currently only
-the generated Gradle wrapper, which is maintained upstream. New templates or
-generated files need an explicit decision rather than a directory-wide
-exclusion.
+Explicit exceptions live in `scripts/checks/shellScripts.ts`; the only one is
+the upstream-maintained Gradle wrapper,
+`packages/app-capacitor/android/gradlew`. New templates or generated files need
+an explicit decision rather than a directory-wide exclusion.
 
-## Scope decision for issue #1441
+## Scope
 
-Keep the existing production Knip dead-file check, scoped promise lint,
-architecture checks, and on-demand CodeQL skill. The closeout fixes inaccurate
-Git-content checking, stale allowances, shell coverage, and the dependencies
-classified in [the audit record](dependency-audit.md).
-
-Blanket strict Knip adoption, root-tooling/private-export expansion, exact
-file-size ratcheting, full subsystem-table generation/validation, and grouped
-dependency bots are intentionally not completion requirements. Add focused
-architecture regression tests when changing important boundary rules; an
-exhaustive fixture matrix is deferred. These are scope decisions, not claims
-that the declined work was implemented.
+The gates include the production Knip dead-file check, the scoped promise
+lint, and the architecture checks; CodeQL runs on demand through the
+`run-code-ql-scan` skill, not in CI. Strict Knip mode, private-export checks for
+root tooling, exact file-size ratcheting, full subsystem-table generation, and
+grouped dependency bots are deliberately out of scope. Add focused architecture
+regression tests when changing important boundary rules, rather than an
+exhaustive fixture matrix. Dependency advisories are triaged in the
+[dependency audit policy](dependency-audit.md).
