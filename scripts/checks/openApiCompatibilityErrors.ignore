@@ -1,0 +1,6 @@
+# Root ops-health report (feat/root-ops-health-report, greenfield flag day):
+# the root audit trail records every root operation, so the new
+# `root.reports.opsHealth.get` action joins the audit listing's `action` enum.
+# The root console and API deploy together on a fresh-data reset.
+# Remove this exact diagnostic once main contains this contract.
+GET /root/audit-events added the new `root.reports.opsHealth.get` enum value to the `events/items/action` response property for the response status `200`
