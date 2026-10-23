@@ -7,7 +7,7 @@ import {
   MiniAppButton,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
-import { formatBillingAmount } from "../../shared/billingFormatters";
+import { formatTotalAmount } from "../../shared/billingFormatters";
 import { formatRootTimestamp } from "../identities/rootDisplay";
 import { RootFacts } from "../organizations/RootFacts";
 
@@ -79,10 +79,12 @@ export function RevenuecatDeliveries({
             { label: "Period type", value: delivery.periodType },
             {
               label: "Store price",
+              // RevenueCat reports ISO minor units, not Stripe's exponents.
               value:
-                formatBillingAmount(
+                formatTotalAmount(
                   delivery.priceInPurchasedCurrencyMinor,
                   delivery.currency,
+                  "revenuecat",
                 ) || null,
             },
             {
