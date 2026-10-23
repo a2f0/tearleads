@@ -334,7 +334,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.20",
+      "version": "0.1.21",
       "dependencies": {
         "@astrojs/react": "7.1.1",
         "@phosphor-icons/react": "2.1.10",
