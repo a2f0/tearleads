@@ -15,7 +15,7 @@ test("an action newer than the console shows its operation id", async () => {
     data: {
       events: [
         {
-          action: "root.identities.suspension.put",
+          action: "root.identities.futureAction.put",
           actorSigningKeyFingerprint: "ab".repeat(32),
           actorUserId: "22222222-2222-4222-8222-222222222222",
           filter: null,
@@ -44,7 +44,7 @@ test("an action newer than the console shows its operation id", async () => {
     fireEvent.click(view.getByRole("button", { name: "Audit" }));
     const table = await view.findByRole("table", { name: "Audit events" });
     expect(
-      await within(table).findByText("root.identities.suspension.put"),
+      await within(table).findByText("root.identities.futureAction.put"),
     ).toBeTruthy();
     expect(
       within(table).getByText("Viewed operations health report"),
