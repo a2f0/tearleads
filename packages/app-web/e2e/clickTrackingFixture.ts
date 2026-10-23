@@ -79,11 +79,12 @@ export async function openClickTrackingFixture(
   await page.addInitScript((preference) => {
     const pending: Promise<Response>[] = [];
     const fetch = window.fetch.bind(window);
-    window.fetch = (input, init) => {
+    const trackedFetch = (input: RequestInfo | URL, init?: RequestInit) => {
       const response = fetch(input, init);
       pending.push(response);
       return response;
     };
+    Reflect.set(window, "fetch", trackedFetch);
     Reflect.set(window, "settleClickRequests", () => Promise.all(pending));
     Object.defineProperty(navigator, "webdriver", {
       value: preference === "automation",
@@ -130,6 +131,7 @@ export async function openClickTrackingFixture(
         <html ${signal === "extension" ? "data-ct-disabled" : ""}>
         <button id="${privateMarker}" title="${privateMarker}">${privateMarker}</button>
         <div id="surface">${privateMarker}</div>
+        <a href="/documents/${privateMarker}?token=${privateMarker}" onclick="event.preventDefault()">${privateMarker}</a>
         <input value="${privateMarker}"><textarea>${privateMarker}</textarea>
         <div data-ct-ignore><span id="ignored">Ignored subtree</span></div>
         <div contenteditable="true">${privateMarker}</div>
@@ -146,7 +148,7 @@ export async function openClickTrackingFixture(
     `${origin}/documents/${privateMarker}?token=${privateMarker}#${privateMarker}`,
   );
   await page.waitForFunction(
-    () => document.documentElement.dataset.ready === "true",
+    () => document.documentElement.getAttribute("data-ready") === "true",
   );
   return { requests, errors };
 }

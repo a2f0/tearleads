@@ -29,7 +29,9 @@ for (const host of clickTrackingHosts) {
       host.origin,
       host.app,
     );
-    await page.locator("button").evaluate((element) => element.click());
+    await page.locator("button").evaluate((element) => {
+      if (element instanceof HTMLElement) element.click();
+    });
     await page.locator("input").click();
     await page.locator("textarea").click();
     await page.locator("#ignored").click();
@@ -38,17 +40,19 @@ for (const host of clickTrackingHosts) {
     expect(requests).toEqual([]);
     await page.locator("button").click();
     await page.locator("#surface").click();
+    await page.locator("a").click();
     await flushClickFixture(page);
     await expect.poll(() => requests.length).toBe(1);
     const request = requests[0];
     expect(request?.body).not.toContain(privateMarker);
-    expect(request?.headers.referer).toBeUndefined();
-    expect(request?.headers.cookie).toBeUndefined();
+    const { referer, cookie } = request?.headers ?? {};
+    expect(referer).toBeUndefined();
+    expect(cookie).toBeUndefined();
     const body = JSON.parse(request?.body ?? "{}");
     expect(body.site).toBe("tearleads");
     expect(body.environment).toBe(host.environment);
-    expect(body.events).toHaveLength(2);
-    for (const [index, target] of ["button", "div"].entries()) {
+    expect(body.events).toHaveLength(3);
+    for (const [index, target] of ["button", "div", "a"].entries()) {
       expect(body.events[index]).toEqual({
         id: expect.any(String),
         timestamp: expect.any(Number),
@@ -106,6 +110,7 @@ for (const host of clickTrackingHosts) {
     );
     await flushClickFixture(page);
     expect(requests).toEqual([]);
+    expect(errors).toEqual([]);
   });
 
   test(`${host.origin} remains inert in development`, async ({ page }) => {

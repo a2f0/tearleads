@@ -50,6 +50,21 @@ for (const environment of ["production", "staging", undefined]) {
       ]);
       expect(code, `${stdout}\n${stderr}`).toBe(0);
       const index = await Bun.file(resolve(output, "index.html")).text();
+      const scripts = await Promise.all(
+        [...index.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>/g)]
+          .map((match) => match[1])
+          .filter(
+            (source): source is string =>
+              source?.startsWith("/_astro/") === true,
+          )
+          .map((source) => Bun.file(resolve(output, `.${source}`)).text()),
+      );
+      // Prove the shared layout emits its CT initializer in actual builds.
+      expect(
+        scripts.some((script) =>
+          script.includes("https://ct.a2f0.net/v1/clicks"),
+        ),
+      ).toBe(true);
       const channel = environment === "staging" ? "canary" : "stable";
       for (const target of ["macos-arm64", "linux-x64"]) {
         const appName =
