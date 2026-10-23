@@ -13,8 +13,8 @@ on:
     branches: [main]
     paths:
       - packages/client-sdk/**
-      - scripts/publishNpmPackage.sh
-      - scripts/lib/npmPublishDecision.ts
+      - scripts/release/publishNpmPackage.sh
+      - scripts/release/npmPublishDecision.ts
       - scripts/lib/rewriteDistImports.ts
       - .github/workflows/client-sdk-publish.yml
   workflow_dispatch:
@@ -63,7 +63,7 @@ jobs:
       # version, re-runs, and out-of-order runs succeed without publishing.
       - name: Decide whether to publish
         id: decide
-        run: bun scripts/lib/npmPublishDecision.ts client-sdk
+        run: bun scripts/release/npmPublishDecision.ts client-sdk
 
       - name: Install dependencies
         if: steps.decide.outputs.publish == 'true'
@@ -77,4 +77,4 @@ jobs:
 
       - name: Publish to npm
         if: steps.decide.outputs.publish == 'true'
-        run: bash scripts/publishNpmPackage.sh client-sdk
+        run: bash scripts/release/publishNpmPackage.sh client-sdk

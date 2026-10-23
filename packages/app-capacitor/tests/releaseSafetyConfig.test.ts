@@ -50,7 +50,7 @@ async function buildNumberSelection(
       "-c",
       '. "$1"; if native_release_build_number_chosen "$2" "$3"; then printf chosen; else printf unselected; fi',
       "sh",
-      resolve(repositoryRoot, "scripts/lib/nativeRelease.sh"),
+      resolve(repositoryRoot, "scripts/release/nativeRelease.sh"),
       platform,
       option,
     ],
@@ -78,7 +78,7 @@ async function nativeBunCommand(
       "-c",
       '. "$1"; native_release_bun_command "$2" "$3" "$4"',
       "sh",
-      resolve(repositoryRoot, "scripts/lib/nativeRelease.sh"),
+      resolve(repositoryRoot, "scripts/release/nativeRelease.sh"),
       platform,
       action,
       tier,
@@ -143,17 +143,17 @@ describe("RevenueCat store-release safety", () => {
   for (const [scriptName, target] of Object.entries(releaseScriptTargets)) {
     test(`${scriptName} delegates to the shared ${target} runner`, async () => {
       const script = await Bun.file(
-        resolve(repositoryRoot, "scripts", scriptName),
+        resolve(repositoryRoot, "scripts/release", scriptName),
       ).text();
 
-      expect(script).toContain('. "$SCRIPT_DIR/lib/nativeRelease.sh"');
+      expect(script).toContain('. "$SCRIPT_DIR/nativeRelease.sh"');
       expect(script).toContain(`native_release_main ${target} "$@"`);
     });
   }
 
   test("the shared runner guards both platform keys", async () => {
     const script = await Bun.file(
-      resolve(repositoryRoot, "scripts/lib/nativeRelease.sh"),
+      resolve(repositoryRoot, "scripts/release/nativeRelease.sh"),
     ).text();
     const normalizedScript = script
       .replace(/\\\n\s*/g, " ")

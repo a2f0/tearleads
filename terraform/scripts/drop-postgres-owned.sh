@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Drop every object a tier's migration login owns so PlanetScale can delete its
 # roles when the tier's Postgres stack is destroyed. Production runs this only
-# under scripts/destroyProduction.sh (see teardownGuard.sh).
+# under scripts/deploy/destroyProduction.sh (see teardownGuard.sh).
 set -euo pipefail
 
 if [[ $# -ne 1 ]]; then

@@ -15,8 +15,8 @@ Both builds used the clean source commit
 The release commands completed:
 
 ```sh
-scripts/uploadMacosStagingRelease.sh
-scripts/uploadLinuxStagingRelease.sh
+scripts/release/uploadMacosStagingRelease.sh
+scripts/release/uploadLinuxStagingRelease.sh
 ```
 
 The macOS command completed from the owner's Terminal after this agent session

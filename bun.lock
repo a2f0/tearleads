@@ -126,7 +126,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -165,7 +165,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -334,7 +334,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "dependencies": {
         "@astrojs/react": "7.1.1",
         "@phosphor-icons/react": "2.1.10",
@@ -355,7 +355,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.18",
+      "version": "0.2.19",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",

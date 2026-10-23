@@ -107,7 +107,7 @@ Merging to `main` publishes. When `packages/client-sdk` changes there,
 `package.json` if it is newer than npm's `latest`, after running the smoke
 script; a merge that leaves the version alone, a re-run, or a run that finishes
 after a newer release succeeds without publishing
-(`scripts/lib/npmPublishDecision.ts` makes that call). Because the package
+(`scripts/release/npmPublishDecision.ts` makes that call). Because the package
 ships the workspace packages above, `agent-tool.json` lists it under
 `versions.bundles`: a change to any of them also bumps the SDK's version, so it
 publishes too. The workflow authenticates with
@@ -127,7 +127,7 @@ bun run publish:npm:dry-run client-sdk
 bun run publish:npm client-sdk --otp 123456
 ```
 
-`scripts/publishNpmPackage.sh` rebuilds into a fresh temporary directory,
+`scripts/release/publishNpmPackage.sh` rebuilds into a fresh temporary directory,
 publishes its generated manifest with public access to
 `https://registry.npmjs.org`, and removes the directory on success or failure.
 A temporary `.npmrc` overrides any scope-specific registry without changing

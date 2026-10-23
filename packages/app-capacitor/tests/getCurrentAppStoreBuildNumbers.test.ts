@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 const buildNumbersScript = resolve(
   import.meta.dir,
-  "../../../scripts/getCurrentAppStoreBuildNumbers.sh",
+  "../../../scripts/release/getCurrentAppStoreBuildNumbers.sh",
 );
 
 function environmentValue(name: string) {

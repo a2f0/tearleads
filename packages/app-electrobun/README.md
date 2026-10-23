@@ -26,7 +26,7 @@ runner downloads the paired release once, like the other mise-managed tools.
 Deleting `.hutch/devkit/` requires rerunning preparation before standalone
 `bun tsc --build` or `bun run lint:knip:all` / `bun run lint:knip:production`.
 
-Run `./scripts/runElectrobun.sh` from the repository root (or
+Run `./scripts/dev/runElectrobun.sh` from the repository root (or
 `bun run --cwd packages/app-electrobun dev`) to start the desktop app. Arguments
 such as `--reset` are forwarded to the package launcher. Use
 `bun run --cwd packages/app-electrobun build:dev` to build it. The main process
@@ -59,12 +59,12 @@ installed. These scripts load the selected tier's `.secrets/<tier>/shared.env`
 and `app.env` and select its API, WebSocket, Sentry, and download bucket.
 
 ```sh
-scripts/buildMacosStagingRelease.sh
-scripts/buildMacosRelease.sh
+scripts/release/buildMacosStagingRelease.sh
+scripts/release/buildMacosRelease.sh
 
 # Build, sign, notarize, verify, and upload to the matching R2 bucket:
-scripts/uploadMacosStagingRelease.sh
-scripts/uploadMacosRelease.sh
+scripts/release/uploadMacosStagingRelease.sh
+scripts/release/uploadMacosRelease.sh
 ```
 
 Equivalent package commands are `build:staging`, `build:release`,
@@ -86,7 +86,7 @@ installs.
 
 Like the iOS and Android wrappers, `*Release.sh` defaults to production and
 `*StagingRelease.sh` selects staging. Each supports `--help` and accepts no tier
-argument. Dispatch is shared in `scripts/lib/desktopRelease.sh`.
+argument. Dispatch is shared in `scripts/release/desktopRelease.sh`.
 
 Signing uses the installed Developer ID Application identity. Set
 `ELECTROBUN_DEVELOPER_ID` if more than one is installed. Notarization uses
@@ -159,12 +159,12 @@ bun run --cwd packages/app-electrobun test:release-packaging --staging
 Run these commands from a checkout with Docker running:
 
 ```sh
-scripts/buildLinuxStagingRelease.sh
-scripts/buildLinuxRelease.sh
+scripts/release/buildLinuxStagingRelease.sh
+scripts/release/buildLinuxRelease.sh
 
 # Build, verify, and upload to the matching R2 bucket:
-scripts/uploadLinuxStagingRelease.sh
-scripts/uploadLinuxRelease.sh
+scripts/release/uploadLinuxStagingRelease.sh
+scripts/release/uploadLinuxRelease.sh
 ```
 
 The upload commands build before publishing. Equivalent package commands are
@@ -311,8 +311,8 @@ container.
 Push the commit first, then dispatch from the Actions UI, or use:
 
 ```sh
-./scripts/windowsRelease.sh build staging
-./scripts/windowsRelease.sh build production
+./scripts/release/windowsRelease.sh build staging
+./scripts/release/windowsRelease.sh build production
 # Or build both tiers at one pushed ref:
 gh workflow run electrobun-windows.yml --ref YOUR_BRANCH -f tier=both
 gh run list --workflow electrobun-windows.yml --event workflow_dispatch
@@ -322,9 +322,9 @@ Download the `tearleads-windows-<tier>-<commit>` artifact from the completed
 run's Actions page, or use the local helper with its numeric run ID:
 
 ```sh
-./scripts/windowsRelease.sh download staging RUN_ID
-./scripts/windowsRelease.sh upload staging RUN_ID
-./scripts/windowsRelease.sh upload production RUN_ID
+./scripts/release/windowsRelease.sh download staging RUN_ID
+./scripts/release/windowsRelease.sh upload staging RUN_ID
+./scripts/release/windowsRelease.sh upload production RUN_ID
 ```
 
 Both helpers require a clean checkout at exactly the run's commit. They check
@@ -343,8 +343,8 @@ extract everything before running setup. These installers are currently unsigned
 After publishing, refresh the website's build-time links:
 
 ```sh
-./scripts/deployStagingWebsite.sh --skip-terraform
-./scripts/deployProductionWebsite.sh --skip-terraform
+./scripts/deploy/deployStagingWebsite.sh --skip-terraform
+./scripts/deploy/deployProductionWebsite.sh --skip-terraform
 ```
 
 The homepage resolves the tier's Windows manifest alongside macOS and Linux.
