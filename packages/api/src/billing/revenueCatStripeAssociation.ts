@@ -77,19 +77,19 @@ async function postJson(input: {
   /** Statuses to treat as success besides 2xx (e.g. 409 already-exists). */
   tolerateStatuses?: readonly number[];
 }): Promise<void> {
-  const response = await input.fetchImpl(
-    `${REVENUECAT_API_ORIGIN}${input.path}`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${input.apiKey}`,
-        "Content-Type": "application/json",
-        ...input.headers,
-      },
-      body: JSON.stringify(input.body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  // Called without a receiver: Workers' `fetch` throws "Illegal invocation"
+  // when invoked as a method of another object, as `input.fetchImpl(...)` is.
+  const { fetchImpl } = input;
+  const response = await fetchImpl(`${REVENUECAT_API_ORIGIN}${input.path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.apiKey}`,
+      "Content-Type": "application/json",
+      ...input.headers,
     },
-  );
+    body: JSON.stringify(input.body),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
   if (response.ok || input.tolerateStatuses?.includes(response.status)) {
     return;
   }

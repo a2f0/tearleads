@@ -136,7 +136,10 @@ async function performStripeFetch(input: {
   form?: URLSearchParams;
   idempotencyKey?: string;
 }): Promise<Response> {
-  return input.fetchImpl(`${STRIPE_API_ORIGIN}${input.path}`, {
+  // Called without a receiver: Workers' `fetch` throws "Illegal invocation"
+  // when invoked as a method of another object, as `input.fetchImpl(...)` is.
+  const { fetchImpl } = input;
+  return fetchImpl(`${STRIPE_API_ORIGIN}${input.path}`, {
     method: input.method,
     headers: {
       Authorization: `Bearer ${input.secretKey}`,

@@ -1,4 +1,5 @@
 import type { RevenueCatApiDeps } from "../../src/billing/revenueCatApi";
+import { workersFetch } from "./workersFetch";
 
 export function playReplacementApiDeps(input: {
   readonly appUserId: string;
@@ -8,7 +9,7 @@ export function playReplacementApiDeps(input: {
   readonly replacementSubscriptionId: string;
 }): RevenueCatApiDeps {
   const revenueCatSubscriptionId = "sub_verified_play_lineage";
-  const fetchImpl = (async (request: RequestInfo | URL) => {
+  const fetchImpl = workersFetch(async (request) => {
     const url = new URL(String(request));
     if (url.pathname.endsWith("/products/prod_replacement")) {
       return Response.json({ store_identifier: input.productId });
@@ -35,7 +36,7 @@ export function playReplacementApiDeps(input: {
         },
       ],
     });
-  }) as typeof fetch;
+  });
   return {
     env: {
       REVENUECAT_PROJECT_ID: "proj_test",
