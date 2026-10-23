@@ -16,8 +16,8 @@ Wrangler owns asset deployments; the independent Terraform roots in
 leaves the website available. The API, application, and demo still use the server.
 
 ```sh
-scripts/deployStagingWebsite.sh
-scripts/deployProductionWebsite.sh
+scripts/deploy/deployStagingWebsite.sh
+scripts/deploy/deployProductionWebsite.sh
 ```
 
 Each script loads its tier's `.secrets/<tier>/shared.env` and `app.env`, builds
@@ -35,19 +35,20 @@ tier's R2 state key, `TF_STATE_ACCESS_KEY_ID` and `TF_STATE_SECRET_ACCESS_KEY`
 in `app.env`. No other credentials are needed for a standalone website
 deployment.
 
-The full `scripts/deployStaging.sh` and `scripts/deployProduction.sh` include this
+The full `scripts/deploy/deployStaging.sh` and
+`scripts/deploy/deployProduction.sh` include this
 website deployment. Their `--skip-terraform` skips server/storage provisioning;
 website domains still reconcile. Their `--skip-infra` also skips domain Terraform.
 
-`scripts/destroyStaging.sh` and `scripts/destroyProduction.sh` remove the
-Workers, database, R2 storage, and desktop downloads, then destroy the website
-domain and delete the tier's Worker. Deleting a Worker also needs Workers KV
-Storage Read. For a staging website-only teardown use
+`scripts/deploy/destroyStaging.sh` and `scripts/deploy/destroyProduction.sh`
+remove the Workers, database, R2 storage, and desktop downloads, then destroy
+the website domain and delete the tier's Worker. Deleting a Worker also needs
+Workers KV Storage Read. For a staging website-only teardown use
 `packages/website/scripts/destroyWebsite.sh staging`; production runs only under
-`scripts/destroyProduction.sh`. A failed domain teardown leaves the Worker
-available. Server-only destruction preserves it. The Terraform wrapper rejects
-production domain destruction before loading credentials, so the teardown
-applies a saved destroy plan instead.
+`scripts/deploy/destroyProduction.sh`. A failed domain teardown leaves the
+Worker available. Server-only destruction preserves it. The Terraform wrapper
+rejects production domain destruction before loading credentials, so the
+teardown applies a saved destroy plan instead.
 
 `public/_headers` keeps HTML and the screenshot manifest revalidating while Astro
 bundles and versioned screenshots receive immutable browser caching. Wrangler
@@ -61,9 +62,9 @@ The homepage's macOS and Linux download links select the production or staging
 R2 download domain using `PUBLIC_ENVIRONMENT`. Each build resolves download discovery
 metadata into a matching pair of immutable installer and SHA-256 checksum URLs;
 offline builds retain the verified first release. Build and upload
-the matching release with `scripts/uploadMacosRelease.sh` or
-`scripts/uploadLinuxRelease.sh` for production; use
-`scripts/uploadMacosStagingRelease.sh` or `scripts/uploadLinuxStagingRelease.sh`
+the matching release with `scripts/release/uploadMacosRelease.sh` or
+`scripts/release/uploadLinuxRelease.sh` for production; use
+`scripts/release/uploadMacosStagingRelease.sh` or `scripts/release/uploadLinuxStagingRelease.sh`
 for staging. Run these from the repository root before deploying the website.
 See the desktop instructions for
 [macOS](../app-electrobun/README.md#macos-releases) and

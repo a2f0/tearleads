@@ -34,10 +34,6 @@
     "packages/loro/src/index.ts": ["./shared"]
   },
   "fileSizes": {
-    "AGENTS.md": {
-      "lines": 352,
-      "bytes": 20212
-    },
     "dependency-cruiser.config.ts": {
       "lines": 543,
       "bytes": 16294

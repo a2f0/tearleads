@@ -18,8 +18,8 @@ async function runWebsite(
   try {
     for (const path of [
       "packages/website/scripts/deployWebsite.sh",
-      "scripts/deployStagingWebsite.sh",
-      "scripts/deployProductionWebsite.sh",
+      "scripts/deploy/deployStagingWebsite.sh",
+      "scripts/deploy/deployProductionWebsite.sh",
       "packages/website/scripts/destroyWebsite.sh",
       "terraform/scripts/destroy-stack.sh",
       "terraform/scripts/teardownGuard.sh",
@@ -107,7 +107,7 @@ for (const [label, tier, environment, portal] of [
   ["Staging", "staging", "staging", "test_00w7sKaemgcfdhb5lR0x200"],
   ["Production", "prod", "production", "live_fixture"],
 ]) {
-  const script = `scripts/deploy${label}Website.sh`;
+  const script = `scripts/deploy/deploy${label}Website.sh`;
   test(`${tier} builds, publishes assets, then attaches its independent domain`, async () => {
     const result = await runWebsite(script);
     expect(result.exitCode, result.stderr).toBe(0);
@@ -202,7 +202,7 @@ test("production website teardown refuses to run outside destroyProduction.sh", 
     ["prod"],
   );
   expect(result.exitCode).toBe(1);
-  expect(result.stderr).toContain("scripts/destroyProduction.sh");
+  expect(result.stderr).toContain("scripts/deploy/destroyProduction.sh");
   expect(result.calls).toEqual([]);
 });
 

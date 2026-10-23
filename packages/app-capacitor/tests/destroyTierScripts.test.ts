@@ -59,7 +59,7 @@ async function runTeardown(
   try {
     for (const path of [
       script,
-      "scripts/lib/destroyTier.sh",
+      "scripts/deploy/destroyTier.sh",
       "scripts/lib/stepTimings.sh",
     ]) {
       await mkdir(dirname(resolve(root, path)), { recursive: true });
@@ -109,8 +109,8 @@ async function runTeardown(
   }
 }
 
-const staging = "scripts/destroyStaging.sh";
-const production = "scripts/destroyProduction.sh";
+const staging = "scripts/deploy/destroyStaging.sh";
+const production = "scripts/deploy/destroyProduction.sh";
 
 for (const [label, args, input] of [
   ["--auto-approve", ["--auto-approve"], ""],
@@ -290,7 +290,7 @@ for (const [script, args] of guardedSteps) {
       const result = await runGuardedStep(script, args, authorization);
       expect(result.exitCode).toBe(1);
       expect(result.stderr).toContain(
-        "Production is destroyed only through scripts/destroyProduction.sh",
+        "Production is destroyed only through scripts/deploy/destroyProduction.sh",
       );
       expect(result.calls).toEqual([]);
     });

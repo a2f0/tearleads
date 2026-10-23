@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 const repositoryRoot = resolve(import.meta.dir, "../../..");
 const nativeReleaseScript = resolve(
   repositoryRoot,
-  "scripts/lib/nativeRelease.sh",
+  "scripts/release/nativeRelease.sh",
 );
 
 async function nativeDefaultApi(tier: "production" | "staging") {

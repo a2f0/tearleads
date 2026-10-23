@@ -97,8 +97,8 @@ test("selects native and infrastructure checks without skipping their dependenci
   }
   expect(ciScopes(["terraform/main.tf"]).terraform).toBe(true);
   for (const path of [
-    "scripts/deployStaging.sh",
-    "scripts/deployProduction.sh",
+    "scripts/deploy/deployStaging.sh",
+    "scripts/deploy/deployProduction.sh",
     "packages/api/scripts/deployApi.sh",
     "packages/api/wrangler.jsonc",
     "packages/app-web/scripts/deployAppWeb.sh",

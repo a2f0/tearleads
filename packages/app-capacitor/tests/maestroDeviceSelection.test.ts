@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 const runMaestroTestsScript = resolve(
   import.meta.dir,
-  "../../../scripts/runMaestroTests.sh",
+  "../../../scripts/testing/runMaestroTests.sh",
 );
 
 const bootedUdid = "DDDDDDDD-DDDD-DDDD-DDDD-DDDDDDDDDDDD";

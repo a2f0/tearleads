@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 const screenshotScript = resolve(
   import.meta.dir,
-  "../../../scripts/takeSubscriptionReviewScreenshots.sh",
+  "../../../scripts/testing/takeSubscriptionReviewScreenshots.sh",
 );
 const reviewFlow = resolve(
   import.meta.dir,
