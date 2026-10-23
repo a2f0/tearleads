@@ -186,7 +186,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@stripe/stripe-js": "10.1.0",
@@ -335,7 +335,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@astrojs/react": "7.1.1",
