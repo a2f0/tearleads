@@ -23,7 +23,7 @@ import {
   formatRootTimestamp,
 } from "../identities/rootDisplay";
 import { useRootPage } from "../organizations/useRootPage";
-import { ROOT_AUDIT_ACTION_LABELS } from "./auditLabels";
+import { rootAuditActionLabel } from "./auditLabels";
 import { useAuditSubjectDraft } from "./useAuditSubjectDraft";
 
 const COLUMNS = [
@@ -92,7 +92,7 @@ function AuditRow({ event, ...links }: AuditLinks & { event: RootAuditEvent }) {
       </MiniAppTableCell>
       <MiniAppTableCell>
         <MiniAppTableText title={event.action}>
-          {ROOT_AUDIT_ACTION_LABELS[event.action]}
+          {rootAuditActionLabel(event.action)}
         </MiniAppTableText>
       </MiniAppTableCell>
       <MiniAppTableCell>

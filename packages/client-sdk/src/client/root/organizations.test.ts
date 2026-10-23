@@ -47,6 +47,7 @@ function createRuntime() {
         listRootOrganizationsResult: failAfterRelease,
         listRootOrganizationIdentitiesResult: failAfterRelease,
         listRootAuditEventsResult: failAfterRelease,
+        getRootOpsHealthReportResult: failAfterRelease,
         liftRootIdentitySuspensionResult: failAfterRelease,
         suspendRootIdentityResult: failAfterRelease,
       },
@@ -63,13 +64,14 @@ function createRuntime() {
   };
 }
 
-test("every organization, audit and suspension call is locally gated and drops replies after demotion", async () => {
+test("every organization, report, audit and suspension call is locally gated and drops replies after demotion", async () => {
   for (const lookup of [
     "list",
     "detail",
     "identities",
     "usage",
     "report",
+    "opsHealth",
     "audit",
     "suspend",
     "lift",
@@ -84,13 +86,15 @@ test("every organization, audit and suspension call is locally gated and drops r
             ? runtime.root.loadOrganizationDataUsage("org")
             : lookup === "report"
               ? runtime.root.listDataUsageReport()
-              : lookup === "audit"
-                ? runtime.root.listAuditEvents()
-                : lookup === "suspend"
-                  ? runtime.root.suspendIdentity("user")
-                  : lookup === "lift"
-                    ? runtime.root.liftIdentitySuspension("user")
-                    : runtime.root.listOrganizationIdentities("org");
+              : lookup === "opsHealth"
+                ? runtime.root.loadOpsHealthReport()
+                : lookup === "audit"
+                  ? runtime.root.listAuditEvents()
+                  : lookup === "suspend"
+                    ? runtime.root.suspendIdentity("user")
+                    : lookup === "lift"
+                      ? runtime.root.liftIdentitySuspension("user")
+                      : runtime.root.listOrganizationIdentities("org");
     const pending = request();
     expect(runtime.calls()).toBe(1);
     runtime.demote();

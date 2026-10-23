@@ -93,6 +93,7 @@ import {
   listRootIdentityOrganizationsOperation,
 } from "./root";
 import { listRootAuditEventsOperation } from "./rootAudit";
+import { getRootOpsHealthReportOperation } from "./rootOpsHealth";
 import {
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
@@ -197,6 +198,7 @@ export const protocolOperations: readonly [
   typeof getRootIdentityOperation,
   typeof listRootIdentityOrganizationsOperation,
   typeof listRootAuditEventsOperation,
+  typeof getRootOpsHealthReportOperation,
   typeof suspendRootIdentityOperation,
   typeof liftRootIdentitySuspensionOperation,
   typeof documentSyncOperation,
@@ -279,6 +281,7 @@ export const protocolOperations: readonly [
   getRootIdentityOperation,
   listRootIdentityOrganizationsOperation,
   listRootAuditEventsOperation,
+  getRootOpsHealthReportOperation,
   suspendRootIdentityOperation,
   liftRootIdentitySuspensionOperation,
   documentSyncOperation,

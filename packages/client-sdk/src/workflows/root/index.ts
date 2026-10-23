@@ -25,6 +25,11 @@ export {
   type RootRequestOutcome,
 } from "./identities";
 export {
+  loadRootOpsHealthReport,
+  type RootOpsHealthApi,
+  type RootOpsHealthReport,
+} from "./opsHealth";
+export {
   listRootOrganizationIdentities,
   listRootOrganizations,
   loadRootOrganization,

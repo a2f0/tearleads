@@ -7,6 +7,7 @@ import type {
   RootIdentityDetailResponse,
   RootIdentityOrganizationsResponse,
   RootIdentitySuspensionResponse,
+  RootOpsHealthReportResponse,
   RootOrganizationDetailResponse,
   RootOrganizationIdentitiesResponse,
   RootOrganizationsResponse,
@@ -167,6 +168,23 @@ test("generated root audit operation matches its wire contract", () => {
         operations["root.auditEvents.list"]["responses"][200]["content"]["application/json"]
       >,
       NormalizeWireType<RootAuditEventsResponse>
+    >
+  >();
+});
+
+test("generated root ops-health operation matches its wire contract", () => {
+  assertType<
+    IsEqual<
+      paths["/root/reports/ops-health"]["get"],
+      operations["root.reports.opsHealth.get"]
+    >
+  >();
+  assertType<
+    IsEqual<
+      NormalizeWireType<
+        operations["root.reports.opsHealth.get"]["responses"][200]["content"]["application/json"]
+      >,
+      NormalizeWireType<RootOpsHealthReportResponse>
     >
   >();
 });

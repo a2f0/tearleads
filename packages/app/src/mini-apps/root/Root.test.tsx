@@ -3,8 +3,8 @@ import "../../../test/helpers/mswServer";
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { fireEvent, waitFor, within } from "@testing-library/react";
 import { cleanupIdentityManagerTestEnvironment } from "../../../test/helpers/identityManagerTestRuntime";
+import { renderRootWithSession } from "../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
-import { renderRootWithSession } from "../../../test/helpers/rootConsoleRender";
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();

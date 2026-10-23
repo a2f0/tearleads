@@ -7,7 +7,8 @@ import { and, asc, eq, isNull, lte, or } from "drizzle-orm";
 
 const DEFAULT_PURGE_LIMIT = 25;
 const MAX_PURGE_LIMIT = 250;
-const ORGANIZATION_PURGE_CLAIM_LEASE_MS = 5 * 60 * 1000;
+/** A purge claim not renewed within this window is treated as abandoned. */
+export const ORGANIZATION_PURGE_CLAIM_LEASE_MS = 5 * 60 * 1000;
 
 export interface OrganizationPurgeClaim {
   readonly leaseId: string;

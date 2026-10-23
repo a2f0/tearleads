@@ -16,16 +16,12 @@ import {
 
 const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
-/** Renders the root console for a session the server reported as root or not. */
-interface RenderedRootConsole {
+/** Renders the root console for a logged-in session, root or not. */
+export async function renderRootWithSession(isRoot: boolean): Promise<{
   readonly restore: () => void;
   readonly tearleads: Tearleads;
   readonly view: RenderResult;
-}
-
-export async function renderRootWithSession(
-  isRoot: boolean,
-): Promise<RenderedRootConsole> {
+}> {
   const originalWebSocket = globalThis.WebSocket;
   Reflect.set(globalThis, "WebSocket", TestWebSocket);
   const tearleadsRef: { current: Tearleads | null } = { current: null };

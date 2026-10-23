@@ -6,6 +6,7 @@ import type {
 import { HttpResponse, http } from "msw";
 import { rootAuditHandlers } from "./rootAuditHandlers";
 import { ROOT_TEST_IDENTITIES } from "./rootConsoleFixtures";
+import { rootOpsHealthHandlers } from "./rootOpsHealthHandlers";
 import { rootOrganizationHandlers } from "./rootOrganizationHandlers";
 import {
   rootSuspensionHandlers,
@@ -94,5 +95,6 @@ export const rootConsoleHandlers = [
   ),
   ...rootOrganizationHandlers,
   ...rootAuditHandlers,
+  ...rootOpsHealthHandlers,
   ...rootSuspensionHandlers,
 ];
