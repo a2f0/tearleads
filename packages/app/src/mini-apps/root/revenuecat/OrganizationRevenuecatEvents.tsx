@@ -41,8 +41,9 @@ export function OrganizationRevenuecatEvents({
     <>
       <MiniAppInfoHeading>RevenueCat webhooks</MiniAppInfoHeading>
       <MiniAppStatus>
-        Stored deliveries applied to this organization, and transfers that moved
-        a purchase away from it, newest first by event time.
+        Stored deliveries resolved to this organization, whether applied or
+        ignored, and transfers that moved a purchase away from it, newest first
+        by event time.
       </MiniAppStatus>
       <MiniAppToolbar>
         <MiniAppButton disabled={loading} onClick={refresh}>

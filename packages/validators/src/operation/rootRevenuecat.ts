@@ -35,7 +35,8 @@ const failureResponses = {
 
 /**
  * An organization's stored RevenueCat webhook deliveries, newest first: the
- * ones applied to it and the transfers that moved a purchase away from it.
+ * ones resolved to it (applied or ignored) and the transfers that moved a
+ * purchase away from it.
  */
 export const listRootOrganizationRevenuecatEventsOperation =
   defineJsonOperation({

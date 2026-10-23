@@ -91,7 +91,8 @@ async function listPage(
 }
 
 /**
- * An organization's deliveries: those applied to it, and the `TRANSFER`s that
+ * An organization's deliveries, whatever their outcome: those resolved to it,
+ * and the `TRANSFER`s that
  * moved a purchase away from it, which name it only as their source.
  */
 export async function listRootOrganizationRevenuecatEvents(

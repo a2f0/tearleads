@@ -122,7 +122,7 @@ console reaches it through the typed client):
 | Read an organization's synced data usage | `GET /root/organizations/:organizationId/data-usage` |
 | Page synced data usage by organization, newest organizations first, with the same exact-ID filter | `GET /root/reports/data-usage` |
 | Report billing maintenance trouble across organizations: failing, overdue or lapsed-lease Stripe seat syncs, failed or overdue trial expiries, overdue or lapsed purges, and trials ending and purges falling due within seven days (each section capped at 50 rows) | `GET /root/reports/ops-health` |
-| Page an organization's stored RevenueCat webhook deliveries newest first by event time: those applied to it (`role: target`) and the `TRANSFER`s that moved a purchase away from it (`role: source`) | `GET /root/organizations/:organizationId/revenuecat-events` |
+| Page an organization's stored RevenueCat webhook deliveries newest first by event time, whatever their outcome: those resolved to it (`role: target`) and the `TRANSFER`s that moved a purchase away from it (`role: source`) | `GET /root/organizations/:organizationId/revenuecat-events` |
 | Page RevenueCat deliveries across organizations that resolved to none or that the handler ignored (`disposition`: `unmatched`, `ignored`, or `both`) | `GET /root/reports/revenuecat-events` |
 | Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
 

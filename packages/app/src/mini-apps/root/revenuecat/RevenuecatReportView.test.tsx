@@ -76,7 +76,9 @@ test("a reported delivery opens its organization's billing, with its webhooks", 
     expect(
       view.getByText(/TRANSFER · applied · transferred away/),
     ).toBeTruthy();
-    expect(view.getByText("Moved from this organization")).toBeTruthy();
+    expect(
+      view.getByText("Transferred away from this organization"),
+    ).toBeTruthy();
 
     // Billing tab -> buyer -> Back returns to the Billing tab, then to Reports.
     const buyer = ROOT_TEST_IDENTITIES[1];

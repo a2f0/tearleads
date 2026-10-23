@@ -34,7 +34,7 @@ const revenuecatEventShape = {
   outcome: nonEmptyStringSchema,
   /** RevenueCat App User ID; the client sets it to the buyer's user id. */
   appUserId: z.string(),
-  /** Organization the event was applied to; null when none resolved. */
+  /** Organization the event resolved to; null when none did. */
   organizationId: nonEmptyStringSchema.nullable(),
   /** Previous owner for a `TRANSFER`. */
   sourceOrganizationId: nonEmptyStringSchema.nullable(),
@@ -66,9 +66,9 @@ export type RootRevenuecatEventResponse = z.infer<
 export const ROOT_REVENUECAT_EVENT_ROLES = ["target", "source"] as const;
 
 /**
- * One delivery as an organization saw it: the organization it was applied to
- * (`target`), or the previous owner a `TRANSFER` moved the purchase from
- * (`source`).
+ * One delivery as an organization saw it: the organization it resolved to
+ * (`target`, whether the handler applied or ignored it), or the previous owner
+ * a `TRANSFER` moved the purchase from (`source`).
  */
 export const RootOrganizationRevenuecatEventResponseSchema = loosePlainObject({
   ...revenuecatEventShape,

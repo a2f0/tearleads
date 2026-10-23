@@ -14,7 +14,7 @@ import { type RootRequestOutcome, toOutcome } from "./identities";
 /** One stored RevenueCat webhook delivery (wire shape). */
 export type RootRevenuecatEvent = RootRevenuecatEventResponse;
 
-/** A delivery as one organization saw it: applied to it, or moved from it. */
+/** A delivery as one organization saw it: resolved to it, or moved from it. */
 export type RootOrganizationRevenuecatEvent =
   RootOrganizationRevenuecatEventResponse;
 

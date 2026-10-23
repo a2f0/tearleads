@@ -18,8 +18,9 @@ const date = (value: string | null) =>
   formatRootTimestamp(value, "Not recorded");
 
 const ROLE_LABELS = {
-  source: "Moved from this organization",
-  target: "Applied to this organization",
+  // A target delivery may still be ignored; its outcome says which.
+  source: "Transferred away from this organization",
+  target: "Resolved to this organization",
 } as const;
 
 function summary(delivery: Delivery): string {
