@@ -1,4 +1,11 @@
 export {
+  listRootAuditEvents,
+  type RootAuditApi,
+  type RootAuditEvent,
+  type RootAuditEventsPage,
+  type RootAuditEventsQueryInput,
+} from "./audit";
+export {
   listRootDataUsageReport,
   loadRootOrganizationDataUsage,
   type RootDataUsageApi,

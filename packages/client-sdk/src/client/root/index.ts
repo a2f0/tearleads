@@ -1,5 +1,6 @@
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import {
+  listRootAuditEvents,
   listRootDataUsageReport,
   listRootIdentities,
   listRootIdentityOrganizations,
@@ -8,6 +9,9 @@ import {
   loadRootIdentity,
   loadRootOrganization,
   loadRootOrganizationDataUsage,
+  type RootAuditApi,
+  type RootAuditEventsPage,
+  type RootAuditEventsQueryInput,
   type RootDataUsageApi,
   type RootDataUsageReportPage,
   type RootIdentitiesApi,
@@ -35,9 +39,16 @@ import type { Session } from "../session/sessionTypes";
  * is authenticated and the server reported it as root at login; the API still
  * enforces root access on its own, so this gate only avoids doomed requests.
  */
-type RootApi = RootIdentitiesApi & RootOrganizationsApi & RootDataUsageApi;
+type RootApi = RootIdentitiesApi &
+  RootOrganizationsApi &
+  RootDataUsageApi &
+  RootAuditApi;
 
 export interface Root {
+  /** Recorded operator actions, newest first; each listing is recorded too. */
+  listAuditEvents(
+    query?: RootAuditEventsQueryInput,
+  ): Promise<RootRequestOutcome<RootAuditEventsPage>>;
   loadOrganizationDataUsage(
     organizationId: string,
   ): Promise<RootRequestOutcome<OrganizationDataUsageResponse>>;
@@ -186,6 +197,8 @@ export function createRoot(runtimeService: RootRuntime): Root {
     get isAvailable() {
       return activeApi() !== null;
     },
+    listAuditEvents: (query) =>
+      guarded((api) => listRootAuditEvents(api, query)),
     loadOrganizationDataUsage: (organizationId) =>
       guarded((api) => loadRootOrganizationDataUsage(api, organizationId)),
     listDataUsageReport: (query) =>

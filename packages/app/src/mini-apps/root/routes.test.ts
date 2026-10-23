@@ -72,3 +72,50 @@ test("identity routes retain Reports only with an organization return path", () 
     userId: "user-1",
   });
 });
+
+test("audit routes keep their subject through URL round trips", () => {
+  expect(parseRootRouteSegments(["audit"])).toEqual({
+    subjectId: null,
+    view: "audit",
+  });
+  expect(parseRootRouteSegments(["audit", "user-1"])).toEqual({
+    subjectId: "user-1",
+    view: "audit",
+  });
+  expect(formatRootRouteSegments({ subjectId: null, view: "audit" })).toEqual([
+    "audit",
+  ]);
+  expect(
+    formatRootRouteSegments({ subjectId: "user-1", view: "audit" }),
+  ).toEqual(["audit", "user-1"]);
+  expect(rootRouteForView("audit")).toEqual({ subjectId: null, view: "audit" });
+});
+
+test("details opened from the audit trail return to it with its subject", () => {
+  for (const segments of [
+    ["identities", "user-1", "audit"],
+    ["identities", "user-1", "audit", "user-2"],
+    ["identities", "user-1", "organizations", "org-1", "audit", "user-2"],
+    ["organizations", "org-1", "overview", "audit"],
+    ["organizations", "org-1", "identities", "audit", "user-2"],
+  ]) {
+    expect(formatRootRouteSegments(parseRootRouteSegments(segments))).toEqual(
+      segments,
+    );
+  }
+  expect(
+    parseRootRouteSegments([
+      "organizations",
+      "org-1",
+      "overview",
+      "audit",
+      "user-2",
+    ]),
+  ).toEqual({
+    organizationId: "org-1",
+    returnSubjectId: "user-2",
+    returnView: "audit",
+    tab: "overview",
+    view: "organizations",
+  });
+});

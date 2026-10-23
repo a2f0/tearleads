@@ -684,6 +684,17 @@ CREATE TABLE "revenuecat_webhook_events" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "root_audit_events" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"actor_user_id" uuid,
+	"action" text NOT NULL,
+	"target_user_id" uuid,
+	"target_organization_id" uuid,
+	"filter" text,
+	"source_ip_address" text,
+	"occurred_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"fingerprint" text NOT NULL,
@@ -814,6 +825,10 @@ CREATE UNIQUE INDEX "revenuecat_webhook_events_event_id_idx" ON "revenuecat_webh
 CREATE INDEX "revenuecat_webhook_events_org_idx" ON "revenuecat_webhook_events" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "revenuecat_webhook_events_source_org_idx" ON "revenuecat_webhook_events" USING btree ("source_organization_id");--> statement-breakpoint
 CREATE INDEX "revenuecat_webhook_events_native_route_idx" ON "revenuecat_webhook_events" USING btree ("app_user_id","original_transaction_id","store","outcome");--> statement-breakpoint
+CREATE INDEX "root_audit_events_occurred_at_id_idx" ON "root_audit_events" USING btree ("occurred_at","id");--> statement-breakpoint
+CREATE INDEX "root_audit_events_actor_idx" ON "root_audit_events" USING btree ("actor_user_id","occurred_at","id");--> statement-breakpoint
+CREATE INDEX "root_audit_events_target_user_idx" ON "root_audit_events" USING btree ("target_user_id","occurred_at","id");--> statement-breakpoint
+CREATE INDEX "root_audit_events_target_organization_idx" ON "root_audit_events" USING btree ("target_organization_id","occurred_at","id");--> statement-breakpoint
 CREATE INDEX "users_created_at_id_idx" ON "users" USING btree ("created_at","id");--> statement-breakpoint
 CREATE INDEX "users_root_created_at_id_idx" ON "users" USING btree ("created_at","id") WHERE "users"."is_root";--> statement-breakpoint
 CREATE INDEX "users_default_organization_id_idx" ON "users" USING btree ("default_organization_id");

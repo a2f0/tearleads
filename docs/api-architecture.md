@@ -121,6 +121,7 @@ console reaches it through the typed client):
 | Page an organization's roster identities, including disabled entries, with each member's sync pause and seat holding | `GET /root/organizations/:organizationId/identities` |
 | Read an organization's synced data usage | `GET /root/organizations/:organizationId/data-usage` |
 | Page synced data usage by organization, newest organizations first, with the same exact-ID filter | `GET /root/reports/data-usage` |
+| Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
 
 These routes run `requireAuth` then `requireRoot`, which admits only identities
 whose `users.is_root` flag is set. The flag is an operational boolean for
@@ -128,6 +129,17 @@ internal staff and technical support, granted and revoked with the API CLI's
 `make-admin` / `revoke-admin` commands; it carries no access-plane keys.
 `users.last_active_at` is written by the session middleware's throttled
 activity path so operators can see when an identity was last seen.
+
+Every root handler records a `root_audit_events` row — actor, operation id,
+target identity or organization, applied filters, and request IP — before it
+reads anything it serves. A listing narrowed by an exact identifier (a user ID,
+a full signing key fingerprint, an organization ID search, or an audit-trail
+subject) names that identity or organization as its target, so it appears in
+that subject's audit trail. A request whose row cannot be written fails with a
+500 instead of being answered unrecorded; requests refused by `requireAuth` or
+`requireRoot` record nothing. The CLI's `make-admin` / `revoke-admin` record
+each change to `users.is_root` in the same table, with no actor, in the
+transaction that changes the flag.
 
 ## Code Layers
 

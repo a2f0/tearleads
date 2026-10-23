@@ -15,7 +15,11 @@ import {
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { respondToStatusError } from "../errorResponse";
-import type { RootRouterDeps } from "./shared";
+import {
+  auditRootRequest,
+  organizationSearchAudit,
+  type RootRouterDeps,
+} from "./shared";
 
 export function createRootOrganizationsRoute({
   requireAuth,
@@ -31,7 +35,12 @@ export function createRootOrganizationsRoute({
     queryParamsValidator(listRootOrganizationsOperation.query, "Invalid query"),
     async (c) => {
       try {
-        return c.json(await listOrganizations(runtime, c.req.valid("query")));
+        const query = c.req.valid("query");
+        await auditRootRequest(c, runtime, {
+          action: listRootOrganizationsOperation.id,
+          ...organizationSearchAudit(query.search),
+        });
+        return c.json(await listOrganizations(runtime, query));
       } catch (error) {
         return respondToStatusError(c, error, RootOrganizationError);
       }
@@ -48,9 +57,12 @@ export function createRootOrganizationsRoute({
     ),
     async (c) => {
       try {
-        return c.json(
-          await getOrganization(runtime, c.req.valid("param").organizationId),
-        );
+        const { organizationId } = c.req.valid("param");
+        await auditRootRequest(c, runtime, {
+          action: getRootOrganizationOperation.id,
+          targetOrganizationId: organizationId,
+        });
+        return c.json(await getOrganization(runtime, organizationId));
       } catch (error) {
         return respondToStatusError(c, error, RootOrganizationError);
       }
@@ -71,10 +83,15 @@ export function createRootOrganizationsRoute({
     ),
     async (c) => {
       try {
+        const { organizationId } = c.req.valid("param");
+        await auditRootRequest(c, runtime, {
+          action: listRootOrganizationIdentitiesOperation.id,
+          targetOrganizationId: organizationId,
+        });
         return c.json(
           await getOrganizationIdentities(
             runtime,
-            c.req.valid("param").organizationId,
+            organizationId,
             c.req.valid("query"),
           ),
         );

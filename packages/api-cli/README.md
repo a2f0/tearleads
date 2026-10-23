@@ -129,7 +129,10 @@ The command reads the database the same way `migrate` does (`API_DATABASE`
 defaults to `postgres`, connection variables from the environment). It prints
 whether the identity `is now root` or `was already root`, and fails with a
 non-zero exit when the fingerprint is malformed, extra arguments are passed, or
-no identity is registered under that fingerprint. Against a deployed tier,
+no identity is registered under that fingerprint. A change is recorded in the
+root audit trail (`root_audit_events`, action `root.access.grant` or
+`root.access.revoke`, with no actor) in the transaction that changes the flag;
+a run that changes nothing records nothing. Against a deployed tier,
 export the runtime connection from the `postgres` Terraform stack output
 (`terraform/scripts/run-postgres-stack.sh <tier> output -json api_connection`)
 in a private shell, then run the command from source:
