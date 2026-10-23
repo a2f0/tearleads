@@ -49,7 +49,8 @@ from the original throw site (`original`); `unavailable` means neither stack
 had an approved frame. Up to five exceptions retain their separately sanitized
 stacks, ordered from cause to enclosing error, with up to forty frames each.
 Cause messages, frame variables, source text, and unapproved paths remain
-excluded. Cycles are bounded and error-property getters are not invoked.
+excluded. Cycles are bounded. Custom error-property getters are never invoked;
+V8's native lazy-stack accessor is admitted only by its captured function identity.
 Cron maintenance runs in the same admitted bundle.
 This preserves diagnostic locations without enabling automatic integrations.
 The transport validates the vocabulary again. The API additions do not expand

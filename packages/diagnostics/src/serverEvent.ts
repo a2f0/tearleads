@@ -1,5 +1,9 @@
 import type { Event, StackParser } from "@sentry/core";
-import { diagnosticErrorChain, errorDataProperty } from "./errorProperties";
+import {
+  diagnosticErrorChain,
+  diagnosticErrorStack,
+  errorDataProperty,
+} from "./errorProperties";
 import { type SentryPrivacyConfig, sanitizeSentryEvent } from "./privacy";
 
 const REPORTER_FRAME =
@@ -23,7 +27,7 @@ export function sanitizeServerEvent(
         values: chain
           .map((error, index) => {
             if (index === 0) return root;
-            const stack = errorDataProperty(error, "stack");
+            const stack = diagnosticErrorStack(error);
             const name =
               errorDataProperty(error, "name") ??
               errorDataProperty(Object.getPrototypeOf(error), "name");
