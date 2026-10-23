@@ -147,7 +147,9 @@ the sweep cannot survive it. A sweep that fails answers 500 and can be
 repeated; meanwhile `requireAuth` re-reads `users.suspended_at` on its
 throttled activity path (about once a minute per session), so a session the
 sweep missed is refused within one activity interval. A failed check fails the
-request rather than admitting it.
+request rather than admitting it. Websocket ticket upgrades and session
+liveness rechecks read the same flag, so a missed session's sockets close on
+their next check.
 
 ## Code Layers
 

@@ -8,6 +8,7 @@ import { requestChallenge, submitVerify } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { get, setKeepTtl } from "../../adapters/keyValueStore";
+import { isLiveUserSession, listUserSessions } from "../../middleware/session";
 import { createRouteApp, routeApp } from "../../routeApp";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
@@ -232,4 +233,25 @@ test("a session a failed sweep missed is refused on its next throttled request",
 
   expect((await suspension(member.userId, "DELETE")).status).toBe(200);
   await authenticate(member);
+});
+
+test("websocket liveness refuses a session a failed sweep missed", async () => {
+  const [live] = await listUserSessions({
+    currentToken: "",
+    userId: member.userId,
+  });
+  if (!live) throw new Error("expected a live member session");
+  const identity = { sessionId: live.id, userId: member.userId };
+  expect(await isLiveUserSession(identity)).toBe(true);
+  const app = createRouteApp({
+    destroyUserSession: async () => {
+      throw new Error("session store unavailable");
+    },
+  });
+
+  expect((await suspension(member.userId, "PUT", app)).status).toBe(500);
+  expect(await isLiveUserSession(identity)).toBe(false);
+
+  expect((await suspension(member.userId, "DELETE")).status).toBe(200);
+  expect(await isLiveUserSession(identity)).toBe(true);
 });

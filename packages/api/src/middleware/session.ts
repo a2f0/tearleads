@@ -328,7 +328,15 @@ export function createListUserSessions(
 
 export const listUserSessions = createListUserSessions(get, srem, sscanMembers);
 
-export function createIsLiveUserSession(getSession: SessionStoreGet) {
+/**
+ * Whether a websocket's session may stay open: still stored and, when a
+ * standing check is given, its user not suspended, so a socket a suspension's
+ * sweep missed closes on its next liveness check.
+ */
+export function createIsLiveUserSession(
+  getSession: SessionStoreGet,
+  isUserSuspended?: UserSuspensionCheck,
+) {
   return async (input: {
     sessionId: string;
     userId: string;
@@ -344,11 +352,17 @@ export function createIsLiveUserSession(getSession: SessionStoreGet) {
     }
 
     const data = parseSessionData(raw);
-    return data?.id === input.sessionId && data.userId === input.userId;
+    if (data?.id !== input.sessionId || data.userId !== input.userId) {
+      return false;
+    }
+    return !(await isUserSuspended?.(input.userId));
   };
 }
 
-export const isLiveUserSession = createIsLiveUserSession(get);
+export const isLiveUserSession = createIsLiveUserSession(
+  get,
+  defaultIsUserSuspended,
+);
 
 export function createDestroyUserSession(
   getSession: SessionStoreGet,
