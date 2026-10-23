@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
 import {
@@ -6,6 +6,7 @@ import {
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
 import { ROOT_OPS_HEALTH_SECTION_LIMIT } from "@tearleads/validators/response";
+import { inArray } from "drizzle-orm";
 import { loadRootOpsHealthReport } from "./opsHealth";
 
 // Far from the dates other suites write, so their rows stay out of the window.
@@ -17,11 +18,28 @@ const at = (deltaMs: number) => new Date(NOW.getTime() + deltaMs);
 type BillingRow = typeof organizationBilling.$inferInsert;
 type SeatsRow = typeof organizationBillingStripeSeats.$inferInsert;
 
+// These fixtures are due work the billing workers would claim, and those
+// workers' suites share this database, so none may outlive its test.
+const inserted: string[] = [];
+afterEach(async () => {
+  const organizationIds = inserted.splice(0);
+  if (organizationIds.length === 0) return;
+  await db
+    .delete(organizationBillingStripeSeats)
+    .where(
+      inArray(organizationBillingStripeSeats.organizationId, organizationIds),
+    );
+  await db
+    .delete(organizationBilling)
+    .where(inArray(organizationBilling.organizationId, organizationIds));
+});
+
 async function organization(
   billing: Omit<BillingRow, "organizationId">,
   seats?: Omit<SeatsRow, "organizationId">,
 ): Promise<string> {
   const organizationId = randomUUID();
+  inserted.push(organizationId);
   await db.insert(organizationBilling).values({ ...billing, organizationId });
   if (seats) {
     await db
@@ -269,13 +287,16 @@ test("upcoming sections cover the next seven days, soonest first", async () => {
 
 test("each section stops at its limit and says so", async () => {
   const later = new Date(NOW.getTime() + 365 * DAY);
-  await db.insert(organizationBilling).values(
-    Array.from({ length: ROOT_OPS_HEALTH_SECTION_LIMIT + 1 }, (_, index) => ({
+  const rows = Array.from(
+    { length: ROOT_OPS_HEALTH_SECTION_LIMIT + 1 },
+    (_, index) => ({
       organizationId: randomUUID(),
       status: "trialing" as const,
       trialEndsAt: new Date(later.getTime() + (index + 1) * MINUTE),
-    })),
+    }),
   );
+  inserted.push(...rows.map((row) => row.organizationId));
+  await db.insert(organizationBilling).values(rows);
 
   const { trialsEnding } = await loadRootOpsHealthReport(db, later);
   expect(trialsEnding.rows).toHaveLength(ROOT_OPS_HEALTH_SECTION_LIMIT);
