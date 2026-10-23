@@ -1137,6 +1137,22 @@ export type paths = {
         patch?: never;
         trace?: never;
     };
+    "/root/identities/{userId}/suspension": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["root.identities.suspension.put"];
+        post?: never;
+        delete: operations["root.identities.suspension.delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/root/organizations": {
         parameters: {
             query?: never;
@@ -4848,6 +4864,7 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         authenticated: true;
+                        code?: unknown;
                         error?: unknown;
                         isRoot: boolean;
                         organizationId: string;
@@ -4882,6 +4899,31 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         authenticated: false;
+                        /** @constant */
+                        code?: "account_suspended";
+                        error?: string;
+                        isRoot?: unknown;
+                        organizationId?: unknown;
+                        rootContainerId?: unknown;
+                        token?: unknown;
+                        userId?: unknown;
+                        wsTicket?: unknown;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        authenticated: false;
+                        /** @constant */
+                        code?: "account_suspended";
                         error?: string;
                         isRoot?: unknown;
                         organizationId?: unknown;
@@ -4903,6 +4945,8 @@ export interface operations {
                     "application/json": {
                         /** @constant */
                         authenticated: false;
+                        /** @constant */
+                        code?: "account_suspended";
                         error?: string;
                         isRoot?: unknown;
                         organizationId?: unknown;
@@ -23090,6 +23134,7 @@ export interface operations {
                             lastActiveAt: string | null;
                             registrationSourceIpAddress: string | null;
                             signingKeyFingerprint: string;
+                            suspendedAt: string | null;
                             userId: string;
                         } & {
                             [key: string]: unknown;
@@ -23194,6 +23239,7 @@ export interface operations {
                             lastActiveAt: string | null;
                             registrationSourceIpAddress: string | null;
                             signingKeyFingerprint: string;
+                            suspendedAt: string | null;
                             userId: string;
                         } & {
                             [key: string]: unknown;
@@ -23343,6 +23389,253 @@ export interface operations {
                         } & {
                             [key: string]: unknown;
                         })[];
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "root.identities.suspension.put": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        identity: {
+                            createdAt: string;
+                            defaultOrganizationId: string;
+                            isRoot: boolean;
+                            lastActiveAt: string | null;
+                            registrationSourceIpAddress: string | null;
+                            signingKeyFingerprint: string;
+                            suspendedAt: string | null;
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code?: "session_refresh_required";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Failure JSON response */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    "root.identities.suspension.delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful JSON response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        identity: {
+                            createdAt: string;
+                            defaultOrganizationId: string;
+                            isRoot: boolean;
+                            lastActiveAt: string | null;
+                            registrationSourceIpAddress: string | null;
+                            signingKeyFingerprint: string;
+                            suspendedAt: string | null;
+                            userId: string;
+                        } & {
+                            [key: string]: unknown;
+                        };
                     } & {
                         [key: string]: unknown;
                     };
@@ -23887,6 +24180,7 @@ export interface operations {
                                 lastActiveAt: string | null;
                                 registrationSourceIpAddress: string | null;
                                 signingKeyFingerprint: string;
+                                suspendedAt: string | null;
                                 userId: string;
                             } & {
                                 [key: string]: unknown;

@@ -28,6 +28,7 @@ interface VerifyChallengeResult {
 }
 
 type VerifyChallengeErrorReason =
+  | "account_suspended"
   | "challenge_not_found"
   | "invalid_signature"
   | "unknown_fingerprint";
@@ -39,6 +40,22 @@ export class VerifyChallengeError extends Error {
   ) {
     super(message);
   }
+}
+
+function suspendedError(): VerifyChallengeError {
+  return new VerifyChallengeError("Account suspended", "account_suspended");
+}
+
+async function isSuspended(
+  runtime: ApiServiceRuntime,
+  userId: string,
+): Promise<boolean> {
+  const [row] = await runtime.db
+    .select({ suspendedAt: users.suspendedAt })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  return Boolean(row?.suspendedAt);
 }
 
 export async function verifyChallenge(
@@ -61,6 +78,7 @@ export async function verifyChallenge(
       id: users.id,
       isRoot: users.isRoot,
       signingPublicKey: users.signingPublicKey,
+      suspendedAt: users.suspendedAt,
     })
     .from(users)
     .where(eq(users.fingerprint, input.fingerprint))
@@ -93,6 +111,10 @@ export async function verifyChallenge(
   if (!verify(signatureBytes, challengeBytes, publicKey)) {
     throw new VerifyChallengeError("Invalid signature", "invalid_signature");
   }
+  // Checked only after the signature, so only the key holder learns of it.
+  if (user.suspendedAt) {
+    throw suspendedError();
+  }
 
   const { sessionId, token } = await runtime.sessionTokenIssuer.createSession({
     userId: user.id,
@@ -100,6 +122,16 @@ export async function verifyChallenge(
     createdAt: Date.now(),
     ipAddress: input.ipAddress,
   });
+  // A suspension committed since the read above may have swept the user's
+  // sessions before this one existed. It commits the flag before sweeping, so
+  // re-reading it after the session is stored leaves no window between them.
+  if (await isSuspended(runtime, user.id)) {
+    await runtime.sessionTokenIssuer.revokeSession({
+      sessionId,
+      userId: user.id,
+    });
+    throw suspendedError();
+  }
 
   const [root] = await runtime.db
     .select({ id: containers.id })

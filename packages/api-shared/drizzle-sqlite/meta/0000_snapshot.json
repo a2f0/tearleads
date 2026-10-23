@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "83005d67-ea22-4aaa-905b-8d4cb4eb7cd1",
+  "id": "53292067-00df-4452-8930-33f88dd6dda5",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "access_events": {
@@ -5139,6 +5139,13 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        },
+        "suspended_at": {
+          "name": "suspended_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "last_active_at": {
           "name": "last_active_at",

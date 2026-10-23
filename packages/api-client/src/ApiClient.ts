@@ -34,6 +34,7 @@ import {
   getRootOrganizationOperation,
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
+  liftRootIdentitySuspensionOperation,
   linkDocumentOperation,
   listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
@@ -60,6 +61,7 @@ import {
   revokeContainerOperation,
   shareContainerOperation,
   startOrganizationTrialOperation,
+  suspendRootIdentityOperation,
   unlinkDocumentOperation,
   updateOrganizationMembershipOperation,
   updateOrganizationProfileOperation,
@@ -114,6 +116,7 @@ import type {
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
   RootIdentityOrganizationsResponse,
+  RootIdentitySuspensionResponse,
   RootOpsHealthReportResponse,
   RootOrganizationDetailResponse,
   RootOrganizationIdentitiesResponse,
@@ -122,6 +125,7 @@ import type {
 } from "@tearleads/validators/response";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
 import { BoundedCache } from "./ApiCache";
+import { verifiedLogin } from "./accountSuspension";
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { ApiRequestRuntime } from "./apiRequestRuntime";
 import {
@@ -565,13 +569,15 @@ export class ApiClient {
       this.requestRuntime.authChallengeBytes(challengeHex, fingerprint),
       secretKey,
     );
-    const response = await this.transport.request(
-      verifyOperation,
-      {
-        body: { fingerprint, signature: Array.from(signed) },
-        params: {},
-      },
-      { retryOnSessionExpired: false },
+    const response = verifiedLogin(
+      await this.transport.requestResult(
+        verifyOperation,
+        {
+          body: { fingerprint, signature: Array.from(signed) },
+          params: {},
+        },
+        { retryOnSessionExpired: false },
+      ),
     );
     if (!response?.authenticated) return null;
     this.webSocketTickets.rememberLogin(response);
@@ -830,6 +836,22 @@ export class ApiClient {
       { params: { userId } },
       options,
     );
+  }
+
+  suspendRootIdentityResult(
+    userId: string,
+  ): Promise<RequestResult<RootIdentitySuspensionResponse>> {
+    return this.transport.requestResult(suspendRootIdentityOperation, {
+      params: { userId },
+    });
+  }
+
+  liftRootIdentitySuspensionResult(
+    userId: string,
+  ): Promise<RequestResult<RootIdentitySuspensionResponse>> {
+    return this.transport.requestResult(liftRootIdentitySuspensionOperation, {
+      params: { userId },
+    });
   }
 
   getOrganizationDataUsageResult(

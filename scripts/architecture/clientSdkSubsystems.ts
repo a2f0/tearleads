@@ -107,7 +107,7 @@ export const clientSdkSubsystems: readonly Subsystem[] = [
     name: "Root Console Client",
     package: "client-sdk",
     responsibility:
-      "Root-only identity, organization, roster, billing, data usage, ops-health, and audit trail lookups, gated by the session's server-reported root flag.",
+      "Root-only identity, organization, roster, billing, data usage, ops-health, and audit trail lookups and identity suspension, gated by the session's server-reported root flag.",
     seam: "tearleads.root facade; workflows/root",
     paths: [`${sdk}/workflows/root/`, `${sdk}/client/root/`],
     surface: rootConsoleSurface,
