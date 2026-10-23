@@ -46,6 +46,7 @@ build_app_web() {
   echo "Building $label..."
   (cd "$APP_WEB_DIR" && unset SENTRY_AUTH_TOKEN && \
     NODE_ENV=production \
+    APP_WEB_TIER="$TIER" \
     BUN_PUBLIC_APP_VARIANT="$variant" \
     BUN_PUBLIC_API_BASE_URL="https://${API_HOSTNAME}" \
     BUN_PUBLIC_WS_URL="wss://${API_HOSTNAME}/events" \
@@ -60,13 +61,27 @@ build_app_web() {
 # Stage one build for Wrangler. Builds recreate dist/, so each variant is
 # copied aside before the next build. Source maps stay out of the upload, and
 # the header file sets the cache policy: the entry document and the runtime
-# workers revalidate on every load, while hashed chunks are immutable.
+# workers revalidate on every load, while hashed chunks are immutable. Staging
+# also sends noindex with every response. The build's tier tags must match the
+# tier being published: a robots tag and no canonical URL on staging, and the
+# reverse on production.
 stage_assets() {
   local variant="$1"
   local assets_dir="$APP_WEB_DIR/dist-$variant"
+  local index="$assets_dir/index.html"
 
   rm -rf "$assets_dir"
   cp -R "$APP_WEB_DIR/dist" "$assets_dir"
+  if [[ "$TIER" == staging ]]; then
+    if ! grep -qF '<meta name="robots" content="noindex, nofollow"' "$index" ||
+      grep -qF 'rel="canonical"' "$index"; then
+      echo "ERROR: The staging $variant build must carry its robots tag and no canonical URL." >&2
+      exit 1
+    fi
+  elif grep -qF 'name="robots"' "$index" || ! grep -qF 'rel="canonical"' "$index"; then
+    echo "ERROR: The production $variant build must carry its canonical URL and no robots tag." >&2
+    exit 1
+  fi
   printf '*.map\n' >"$assets_dir/.assetsignore"
   cat >"$assets_dir/_headers" <<'HEADERS'
 /
@@ -84,6 +99,9 @@ stage_assets() {
 /chunk-*
   Cache-Control: public, max-age=31536000, immutable
 HEADERS
+  if [[ "$TIER" == staging ]]; then
+    printf '/*\n  X-Robots-Tag: noindex, nofollow\n' >>"$assets_dir/_headers"
+  fi
 }
 
 publish_assets() {

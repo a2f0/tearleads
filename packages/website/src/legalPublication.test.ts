@@ -152,9 +152,10 @@ for (const environment of ["production", "staging", undefined]) {
         expect(html).not.toContain("being prepared for publication");
         expect(html).not.toContain("Review draft");
         expect(html).not.toContain("Not yet effective");
-        expect(html.includes('name="robots" content="noindex"')).toBe(
+        expect(html.includes('name="robots" content="noindex, nofollow"')).toBe(
           environment === "staging",
         );
+        expect(html.includes('name="robots"')).toBe(environment === "staging");
       }
     } finally {
       if (child.exitCode === null) child.kill();

@@ -188,7 +188,9 @@ test("page loads", async ({ page }) => {
 
   await openWindowedDesktop(page);
 
-  await expect(page).toHaveTitle("App");
+  await expect(page).toHaveTitle(
+    "Tearleads – Encrypted notes, contacts, and files",
+  );
   const firstVisiblePane = visiblePane(page);
   await generateKeyPair(page, firstVisiblePane);
 

@@ -301,7 +301,13 @@ const productionConfig = {
       ],
     },
     "packages/website": {
-      entry: ["astro.config.ts!", "src/pages/**/*.astro!"],
+      // Knip reads astro.config.ts as plugin configuration rather than as a
+      // production root, so list the build integration it loads explicitly.
+      entry: [
+        "astro.config.ts!",
+        "src/pages/**/*.astro!",
+        "src/seoIntegration.ts!",
+      ],
       project: ["src/**/*.{astro,ts,tsx}!", "!src/**/*.test.ts"],
       ignoreDependencies: ["@astrojs/react", "react-dom"],
     },

@@ -85,6 +85,15 @@
               { "fill": "#ffffff" },
               { "source": "logo", "scale": 0.8 }
             ]
+          },
+          {
+            "path": "og-image.png",
+            "size": [1200, 630],
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.5 }
+            ]
           }
         ]
       },

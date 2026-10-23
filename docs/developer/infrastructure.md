@@ -14,6 +14,15 @@ Production uses `tearleads.com`, `app.tearleads.com`, `demo.tearleads.com`, and
 `api-staging.tearleads.com`. The demo hosts serve the two-pane demo variant of
 the same bundle. Realtime events share each tier's API hostname at `/events`.
 
+Production web hosts are indexable, and the demo hosts' shell names the app
+root as its canonical URL. Staging web hosts name no canonical URL and send
+`X-Robots-Tag: noindex, nofollow` with a matching robots meta tag. The website
+build adds these for `PUBLIC_ENVIRONMENT=staging` (see the
+[website guide](../../packages/website/README.md#search-and-link-previews)).
+`packages/app-web/scripts/deployAppWeb.sh` builds the app with `APP_WEB_TIER`,
+which `scripts/injectTierMeta.ts` reads, then adds the header while staging
+the assets and refuses a build whose tags do not match its tier.
+
 ## Infrastructure Lifecycle
 
 Terraform provisions each tier's persistent resources and Wrangler publishes

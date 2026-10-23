@@ -1,4 +1,4 @@
-import { copyFile, cp, mkdir } from "node:fs/promises";
+import { copyFile, cp, mkdir, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { version as pdfjsVersion } from "pdfjs-dist/legacy/build/pdf.mjs";
 
@@ -14,6 +14,14 @@ const pdfPackageSource = new URL(
 const pdfAssetDirectories = ["cmaps", "wasm", "standard_fonts"] as const;
 
 await mkdir(distDir, { recursive: true });
+
+// A real robots.txt, so crawlers do not get the single-page fallback's HTML.
+// Every tier serves the same rules: staging stays out of search through its
+// noindex tag and header, which a Disallow rule would hide from crawlers.
+await writeFile(
+  fileURLToPath(new URL("robots.txt", distDir)),
+  "User-agent: *\nAllow: /\n",
+);
 
 // The SDK's SQLite worker files, at the root where createSQLiteRuntime looks.
 for (const asset of ["worker.js", "sqlite3.wasm", "sqlite3-licenses.md"]) {
