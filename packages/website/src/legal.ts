@@ -1,5 +1,5 @@
 /** Update both documents together after the publication review in LEGAL_REVIEW.md. */
-const updatedAt = "2026-09-14";
+const updatedAt = "2026-10-22";
 
 export const legalDetails = {
   operator: "Tearleads, LLC",
