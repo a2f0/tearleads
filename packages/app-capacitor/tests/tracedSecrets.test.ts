@@ -76,7 +76,9 @@ async function tracedRun(scriptPath: string, args: readonly string[]) {
 }
 
 test("a traced bucket listing never prints the storage secret", async () => {
-  const run = await tracedRun("scripts/listBlobBucketKeys.sh", ["staging"]);
+  const run = await tracedRun("scripts/admin/listBlobBucketKeys.sh", [
+    "staging",
+  ]);
   expect(run.exitCode, run.stderr).toBe(0);
   expect(run.calls).toEqual(["bun src/index.ts blob-store:list-keys"]);
   expect(run.stderr).toContain("+ ");

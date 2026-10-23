@@ -5,11 +5,11 @@ import { resolve } from "node:path";
 
 const nativeReleaseScript = resolve(
   import.meta.dir,
-  "../../../scripts/lib/nativeRelease.sh",
+  "../../../scripts/release/nativeRelease.sh",
 );
 const stagingAndroidWrapper = resolve(
   import.meta.dir,
-  "../../../scripts/buildAndroidStagingRelease.sh",
+  "../../../scripts/release/buildAndroidStagingRelease.sh",
 );
 
 function environmentValue(name: string) {

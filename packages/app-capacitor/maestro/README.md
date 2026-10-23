@@ -35,9 +35,9 @@ Maestro must be installed (`curl -fsSL https://get.maestro.mobile.dev | bash`).
 
 ## Scripted
 
-`scripts/runMaestroTests.sh [ios|android]` (default `ios`) runs the steps below
-end to end: build, sync, native compile, simulator/emulator install, then every
-flow in this directory.
+`scripts/testing/runMaestroTests.sh [ios|android]` (default `ios`) runs the
+steps below end to end: build, sync, native compile, simulator/emulator install,
+then every flow in this directory.
 
 ## iOS (simulator)
 
@@ -67,7 +67,7 @@ maestro --platform ios test maestro/first-identity-offline.yaml
 Run the repository wrapper from any directory:
 
 ```sh
-./scripts/takeSubscriptionReviewScreenshots.sh
+./scripts/testing/takeSubscriptionReviewScreenshots.sh
 ```
 
 It builds and installs the production-id Capacitor shell on an available
@@ -99,8 +99,9 @@ dev-only URLs are rejected before simulator state changes. Tests can point
 
 These are native review screenshots, not App Store product-page marketing
 screenshots. Do not substitute the resized-browser output from
-`scripts/takeScreenshots.sh`: the web shell follows the Stripe purchase path,
-while App Review needs evidence of the native App Store subscription surface.
+`scripts/testing/takeScreenshots.sh`: the web shell follows the Stripe purchase
+path, while App Review needs evidence of the native App Store subscription
+surface.
 
 ## Android (emulator)
 
