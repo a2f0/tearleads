@@ -44,11 +44,17 @@ function shifted(now: Date, deltaMs: number): Date {
 
 /**
  * Seat-sync rows the worker would claim (an active organization with a bound
- * Stripe subscription item and price) that failed, are overdue, or hold a
- * lapsed lease.
+ * Stripe subscription item and price) that failed, are overdue and not being
+ * worked, or hold a lapsed lease.
  */
 async function listSeatSyncIssues(executor: DatabaseSession, now: Date) {
   const overdueBefore = shifted(now, -MAINTENANCE_OVERDUE_MS);
+  // A claim keeps the row's past retry time, so only an unleased (or lapsed)
+  // overdue row is stalled; this mirrors the worker's own lease check.
+  const unleased = or(
+    isNull(seats.leaseExpiresAt),
+    lte(seats.leaseExpiresAt, now),
+  );
   const rows = await executor
     .select({
       appliedRevision: seats.appliedRevision,
@@ -75,7 +81,7 @@ async function listSeatSyncIssues(executor: DatabaseSession, now: Date) {
         lte(seats.nextAttemptAt, shifted(now, STRIPE_SEAT_SYNC_MAX_RETRY_MS)),
         or(
           isNotNull(seats.lastError),
-          lte(seats.nextAttemptAt, overdueBefore),
+          and(lte(seats.nextAttemptAt, overdueBefore), unleased),
           and(isNotNull(seats.leaseId), lte(seats.leaseExpiresAt, now)),
         ),
       ),
@@ -85,14 +91,15 @@ async function listSeatSyncIssues(executor: DatabaseSession, now: Date) {
   return section(
     rows.map((row) => {
       const conditions: SeatSyncCondition[] = [];
+      const leaseLive = row.leaseExpiresAt !== null && row.leaseExpiresAt > now;
       if (row.lastError !== null) conditions.push("failing");
-      if (row.nextAttemptAt !== null && row.nextAttemptAt <= overdueBefore)
-        conditions.push("stalled");
       if (
-        row.leaseId !== null &&
-        row.leaseExpiresAt !== null &&
-        row.leaseExpiresAt <= now
+        row.nextAttemptAt !== null &&
+        row.nextAttemptAt <= overdueBefore &&
+        !leaseLive
       )
+        conditions.push("stalled");
+      if (row.leaseId !== null && row.leaseExpiresAt !== null && !leaseLive)
         conditions.push("leaseExpired");
       return {
         appliedRevision: row.appliedRevision,
@@ -267,19 +274,24 @@ async function listPurgesDue(executor: DatabaseSession, now: Date) {
 }
 
 /**
- * Cross-organization billing maintenance health, read in one transaction so
- * every section reflects the same moment.
+ * Cross-organization billing maintenance health. PostgreSQL reads every
+ * section from one repeatable-read snapshot, so an organization moving between
+ * states mid-report appears in at most one; SQLite and Turso already run each
+ * transaction alone.
  */
 export async function loadRootOpsHealthReport(
   db: ApiDatabase,
   now: Date,
 ): Promise<Report> {
-  return db.transaction(async (tx) => ({
-    generatedAt: now.toISOString(),
-    seatSync: await listSeatSyncIssues(tx, now),
-    trialExpiry: await listTrialExpiryIssues(tx, now),
-    purges: await listPurgeIssues(tx, now),
-    trialsEnding: await listTrialsEnding(tx, now),
-    purgesDue: await listPurgesDue(tx, now),
-  }));
+  return db.transaction(
+    async (tx) => ({
+      generatedAt: now.toISOString(),
+      seatSync: await listSeatSyncIssues(tx, now),
+      trialExpiry: await listTrialExpiryIssues(tx, now),
+      purges: await listPurgeIssues(tx, now),
+      trialsEnding: await listTrialsEnding(tx, now),
+      purgesDue: await listPurgesDue(tx, now),
+    }),
+    { accessMode: "read only", isolationLevel: "repeatable read" },
+  );
 }

@@ -89,6 +89,16 @@ test("seat sync lists failed, stalled and lapsed-lease rows the worker would cla
       nextAttemptAt: at(-2 * MINUTE),
     }),
   );
+  // Claiming keeps the row's overdue retry time; a live lease means it is
+  // being worked, not stalled.
+  const overdueButClaimed = await organization(
+    active,
+    boundSeats({
+      leaseExpiresAt: at(MINUTE),
+      leaseId: "lease-overdue-held",
+      nextAttemptAt: at(-20 * MINUTE),
+    }),
+  );
   const disabledOrganization = await organization(
     { status: "disabled" },
     boundSeats({ lastError: "stale", nextAttemptAt: at(-MINUTE) }),
@@ -107,6 +117,7 @@ test("seat sync lists failed, stalled and lapsed-lease rows the worker would cla
     healthy,
     justDue,
     heldLease,
+    overdueButClaimed,
     disabledOrganization,
     unbound,
   ]) {
