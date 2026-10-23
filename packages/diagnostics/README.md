@@ -7,6 +7,9 @@ this package does not import application or server implementation code.
 `browser` supplies the app diagnostics contract and browser lifecycle listeners.
 `server` uses an isolated scope for each explicitly captured server error. Neither
 client installs automatic integrations. `privacy` reconstructs allowed error
-fields, and `transport` repeats that check before sending only error envelopes.
+fields, and `transport` repeats that check before sending error envelopes. API
+reports retain bounded, sanitized cause stacks, database acquisition counters,
+and build-allowlisted route templates. Only the API transport also emits locally
+constructed aggregate discard counts; caller-supplied client reports are rejected.
 
 See [the collection and deployment policy](../../docs/developer/sentry.md).

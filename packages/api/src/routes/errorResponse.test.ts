@@ -38,13 +38,19 @@ test("a 500+ domain error is captured where it is answered", async () => {
   );
   try {
     const response = await app([
-      ["server", () => new SyntheticDomainError(secret, 500)],
-    ]).request("/server");
+      ["server/:privateId", () => new SyntheticDomainError(secret, 500)],
+    ]).request(`/server/${secret}`);
     expect(response.status).toBe(500);
     expect(capture).toHaveBeenCalledTimes(1);
-    const [error, source] = capture.mock.calls[0] ?? [];
+    const [error, source, operation, request] = capture.mock.calls[0] ?? [];
     expect(error).toBeInstanceOf(SyntheticDomainError);
     expect(source).toBe("request-error");
+    expect(operation).toBeUndefined();
+    expect(request).toEqual({
+      route: "/server/{privateId}",
+      method: "GET",
+      status: 500,
+    });
   } finally {
     capture.mockRestore();
   }

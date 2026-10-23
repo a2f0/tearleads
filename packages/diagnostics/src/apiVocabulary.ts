@@ -26,6 +26,10 @@ export const API_OPERATIONS = {
 export type ApiDiagnosticOperation = keyof typeof API_OPERATIONS;
 
 export const API_ERROR_CODES = {
+  PG_CONNECT_TIMEOUT: "database connection timed out",
+  PG_POOL_TIMEOUT: "database pool acquisition timed out",
+  PG_CONNECTION_UNAVAILABLE: "database connection unavailable",
+  PG_CONNECTION_FAILED: "database connection acquisition failed",
   ECONNREFUSED: "connection refused",
   ECONNRESET: "connection reset",
   ECONNABORTED: "connection aborted",
@@ -42,6 +46,7 @@ export const API_ERROR_CODES = {
   "08001": "database connection could not be established",
   "08003": "database connection does not exist",
   "08006": "database connection failure",
+  "28P01": "database authentication failed",
   "23502": "database not-null violation",
   "23503": "database foreign-key violation",
   "23505": "database unique constraint violation",
@@ -76,6 +81,7 @@ export const API_ERROR_CODES = {
 } as const;
 
 export const API_ERROR_TYPES = new Set([
+  "PostgresConnectionError",
   "PostgresError",
   "DrizzleError",
   "DrizzleQueryError",

@@ -1,5 +1,6 @@
 import {
   type ApiDiagnosticOperation,
+  type ApiRequestContext,
   createServerDiagnostics,
   type ServerErrorSource,
 } from "@tearleads/diagnostics/server";
@@ -11,6 +12,7 @@ declare const API_DIAGNOSTICS_BUILD: {
   commit: string;
   sourceRoot: string;
   sourcePaths: readonly string[];
+  routeTemplates?: readonly string[];
 };
 
 function configureDiagnostics() {
@@ -34,9 +36,10 @@ export function captureApiError(
   error: unknown,
   source: ServerErrorSource,
   operation?: ApiDiagnosticOperation,
+  request?: ApiRequestContext,
 ): void {
   try {
-    diagnostics?.captureError(error, source, operation);
+    diagnostics?.captureError(error, source, operation, request);
   } catch {
     // Observability must not alter the application's error response.
   }

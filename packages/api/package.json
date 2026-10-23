@@ -1,10 +1,11 @@
 {
   "name": "@tearleads/api",
-  "version": "0.1.61",
+  "version": "0.1.62",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
   "scripts": {
+    "sentry:cli": "sentry-cli",
     "db:generate": "bun run --cwd ../api-shared db:generate",
     "db:generate:sqlite": "bun run --cwd ../api-shared db:generate:sqlite",
     "db:migrate": "bun run --cwd ../api-cli migrate",
@@ -31,6 +32,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@sentry/cli": "3.8.1",
     "@tearleads/api-client": "workspace:*",
     "@tearleads/bob-and-alice": "workspace:*",
     "@tearleads/client-sdk": "workspace:*",

@@ -1,6 +1,7 @@
 import { makeFetchTransport } from "@sentry/browser";
 import type { ClientOptions, Event } from "@sentry/core";
 import { createSentryEventBudget } from "./budget";
+import { createDiscardReports } from "./discardReports";
 import { fetchWithTimeout } from "./fetch";
 import { type SentryPrivacyConfig, sanitizeSentryEvent } from "./privacy";
 
@@ -15,6 +16,8 @@ export function createPrivateSentryTransport(
 ): ClientOptions["transport"] {
   return (options) => {
     const admitEvent = createSentryEventBudget(config.budgetResetMs);
+    const discards =
+      config.runtime === "api" ? createDiscardReports() : undefined;
     const transport = makeFetchTransport(options, (url, init) =>
       fetchWithTimeout(url, {
         ...init,
@@ -23,7 +26,13 @@ export function createPrivateSentryTransport(
       }),
     );
     return {
-      flush: (timeout) => transport.flush(timeout),
+      async flush(timeout) {
+        const report = discards?.take();
+        // send registers in the transport buffer synchronously. Let flush bound
+        // the entire drain rather than waiting for a report before its timeout.
+        if (report) void transport.send(report).then(undefined, () => {});
+        return transport.flush(timeout);
+      },
       send(envelope) {
         // Nothing except rebuilt error envelopes can leave this boundary.
         const items: Array<[{ type: "event" }, Event]> = [];
@@ -32,6 +41,7 @@ export function createPrivateSentryTransport(
           const event = sanitizeSentryEvent(item[1], config);
           if (event && admitEvent(event))
             items.push([{ type: "event" }, event]);
+          else if (event) discards?.record();
         }
         return items.length
           ? transport.send([

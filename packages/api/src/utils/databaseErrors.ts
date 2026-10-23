@@ -102,6 +102,13 @@ export function isLockContention(error: unknown): boolean {
 /** Remote database transport failures for which a later request may succeed. */
 export function isTransientDatabaseFailure(error: unknown): boolean {
   return (
+    hasDatabaseCode(
+      error,
+      (code) =>
+        code === "PG_CONNECT_TIMEOUT" ||
+        code === "PG_POOL_TIMEOUT" ||
+        code === "PG_CONNECTION_UNAVAILABLE",
+    ) ||
     isLibsqlTransactionContention(error) ||
     isLockContention(error) ||
     hasDatabaseCode(error, (code) =>

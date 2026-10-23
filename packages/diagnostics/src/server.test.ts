@@ -75,7 +75,7 @@ test("API SDK sends only sanitized errors with exact source frames and isolated 
       expect(body).not.toContain(secret);
       expect(request.credentials).toBe("omit");
       const event = JSON.parse(body.trim().split("\n")[2] ?? "{}");
-      expect(event.exception.values[0].stacktrace.frames).toEqual([
+      expect(event.exception.values.at(-1).stacktrace.frames).toEqual([
         {
           filename: "app:///packages/api/src/routeApp.ts",
           lineno: index === 0 ? 12 : 30,
@@ -209,7 +209,7 @@ test("the Electrobun main client sends only frames under its bundle root through
     const body = String(requests[0]?.body);
     expect(body).not.toContain(secret);
     const event = JSON.parse(body.trim().split("\n")[2] ?? "{}");
-    expect(event.exception.values[0].stacktrace.frames).toEqual([
+    expect(event.exception.values.at(-1).stacktrace.frames).toEqual([
       { filename: "app:///bun/index.js", lineno: 4, colno: 26, in_app: true },
     ]);
   } finally {
