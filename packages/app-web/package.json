@@ -1,6 +1,6 @@
 {
   "name": "app-web",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -25,6 +25,7 @@
     "destroy:demo": "wrangler delete --config wrangler.demo.jsonc"
   },
   "dependencies": {
+    "@a2f0/ct-client": "0.1.5",
     "@stripe/stripe-js": "10.1.0",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/diagnostics": "workspace:*",

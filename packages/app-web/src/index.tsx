@@ -6,6 +6,7 @@ import {
   resolveAppHostRuntimeConfig,
 } from "app/host/AppHostConfig";
 import { createRoot } from "react-dom/client";
+import { initializeClickTracking } from "./clickTracking";
 import { configureSentry } from "./diagnostics/sentry";
 import {
   prepareControllingServiceWorker,
@@ -64,3 +65,4 @@ if (import.meta.hot) {
 }
 
 registerServiceWorkerAfterLoad();
+initializeClickTracking(process.env.NODE_ENV === "production");
