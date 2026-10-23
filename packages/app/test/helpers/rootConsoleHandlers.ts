@@ -9,10 +9,16 @@ import { rootOrganizationHandlers } from "./rootOrganizationHandlers";
 
 export const rootConsoleHandlers = [
   http.get("http://localhost:3001/root/identities", ({ request }) => {
-    const fingerprint = new URL(request.url).searchParams.get("fingerprint");
+    const query = new URL(request.url).searchParams;
+    const fingerprintPrefix = query.get("fingerprint");
+    const userId = query.get("userId");
+    const rootOnly = query.get("rootOnly") === "true";
     const identities = ROOT_TEST_IDENTITIES.filter(
       (identity) =>
-        fingerprint === null || identity.signingKeyFingerprint === fingerprint,
+        (fingerprintPrefix === null ||
+          identity.signingKeyFingerprint.startsWith(fingerprintPrefix)) &&
+        (userId === null || identity.userId === userId) &&
+        (!rootOnly || identity.isRoot),
     );
     return HttpResponse.json<RootIdentitiesResponse>({
       identities,
