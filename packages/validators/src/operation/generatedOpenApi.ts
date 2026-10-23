@@ -22974,8 +22974,7 @@ export interface operations {
                 content: {
                     "application/json": {
                         events: ({
-                            /** @enum {string} */
-                            action: "root.access.grant" | "root.access.revoke" | "root.auditEvents.list" | "root.identities.get" | "root.identities.list" | "root.identities.organizations.list" | "root.organizations.dataUsage.get" | "root.organizations.get" | "root.organizations.identities.list" | "root.organizations.list" | "root.reports.dataUsage.list" | "root.reports.opsHealth.get";
+                            action: string;
                             actorSigningKeyFingerprint: string | null;
                             actorUserId: string | null;
                             filter: string | null;

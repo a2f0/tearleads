@@ -63635,7 +63635,8 @@
                         "properties": {
                           "action": {
                             "type": "string",
-                            "enum": [
+                            "minLength": 1,
+                            "x-extensible-enum": [
                               "root.access.grant",
                               "root.access.revoke",
                               "root.auditEvents.list",
