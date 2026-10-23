@@ -51,7 +51,7 @@
     },
     "packages/api-cli": {
       "name": "@tearleads/api-cli",
-      "version": "0.1.12",
+      "version": "0.1.13",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1155.0",
         "@tearleads/api-shared": "workspace:*",
@@ -94,7 +94,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.66",
+      "version": "0.1.67",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -126,7 +126,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -165,7 +165,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -218,7 +218,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.91",
+      "version": "0.1.92",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -334,7 +334,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.21",
+      "version": "0.1.22",
       "dependencies": {
         "@astrojs/react": "7.1.1",
         "@phosphor-icons/react": "2.1.10",
@@ -355,7 +355,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.18",
+      "version": "0.2.19",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
