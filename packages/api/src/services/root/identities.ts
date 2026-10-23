@@ -20,7 +20,7 @@ const MAX_ROOT_IDENTITY_PAGE_SIZE = 200;
 export class RootIdentityError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 404,
+    readonly status: 400 | 404 | 409,
   ) {
     super(message);
   }

@@ -10,6 +10,8 @@ export const ROOT_AUDIT_ACTION_LABELS: Record<
   "root.identities.get": "Viewed identity",
   "root.identities.list": "Listed identities",
   "root.identities.organizations.list": "Viewed identity organizations",
+  "root.identities.suspension.delete": "Lifted suspension",
+  "root.identities.suspension.put": "Suspended account",
   "root.organizations.dataUsage.get": "Viewed organization data usage",
   "root.organizations.get": "Viewed organization",
   "root.organizations.identities.list": "Viewed organization roster",

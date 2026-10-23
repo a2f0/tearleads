@@ -119,6 +119,8 @@ generated OpenAPI contract):
 | Read an organization's persisted billing, Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
 | Page an organization's roster identities, including disabled entries | `GET /root/organizations/:organizationId/identities` |
 | Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
+| Suspend a non-root identity: refuse its sign-in and revoke every live session (409 for a root identity) | `PUT /root/identities/:userId/suspension` |
+| Lift a suspension so the identity's devices can sign in again | `DELETE /root/identities/:userId/suspension` |
 
 These routes run `requireAuth` then `requireRoot`, which admits only identities
 whose `users.is_root` flag is set. The flag is an operational boolean for
@@ -129,11 +131,19 @@ activity path so operators can see when an identity was last seen.
 
 Every root handler records a `root_audit_events` row — actor, operation id,
 target identity or organization, applied filters, and request IP — before it
-reads anything. A request whose row cannot be written fails with a 500 instead
-of being answered unrecorded; requests refused by `requireAuth` or
-`requireRoot` record nothing. The CLI's `make-admin` / `revoke-admin` record
-each change to `users.is_root` in the same table, with no actor, in the
-transaction that changes the flag.
+reads or changes anything. A request whose row cannot be written fails with a
+500 instead of being answered unrecorded, and a suspension it carried is not
+applied; requests refused by `requireAuth` or `requireRoot` record nothing,
+while a suspension the route itself refuses is still recorded. The CLI's
+`make-admin` / `revoke-admin` record each change to `users.is_root` in the same
+table, with no actor, in the transaction that changes the flag.
+
+Suspension sets `users.suspended_at`, then revokes the identity's live
+sessions. `POST /auth/verify` refuses a suspended identity's valid signature
+with 403 and code `account_suspended`, which clients treat as terminal rather
+than renewing. Verify re-reads the flag after it stores the new session and
+revokes that session if a suspension committed meanwhile, so a sign-in racing
+the sweep cannot survive it. Repeating a suspension sweeps sessions again.
 
 ## Code Layers
 

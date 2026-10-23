@@ -1,8 +1,17 @@
 import { z } from "zod";
 import { loosePlainObject, nonEmptyStringSchema } from "../../schema";
 
+export const VERIFY_ERROR_CODES = {
+  /**
+   * The signature is valid but a platform operator suspended the account.
+   * Terminal: renewing the session cannot succeed until the suspension lifts.
+   */
+  accountSuspended: "account_suspended",
+} as const;
+
 export const VerifySuccessResponseSchema = loosePlainObject({
   authenticated: z.literal(true),
+  code: z.never().optional(),
   error: z.never().optional(),
   /** Platform-operator flag; gates the root console, enforced server-side. */
   isRoot: z.boolean(),
@@ -16,6 +25,7 @@ export const VerifySuccessResponseSchema = loosePlainObject({
 
 export const VerifyFailureResponseSchema = loosePlainObject({
   authenticated: z.literal(false),
+  code: z.literal(VERIFY_ERROR_CODES.accountSuspended).optional(),
   error: z.string().optional(),
   isRoot: z.never().optional(),
   organizationId: z.never().optional(),

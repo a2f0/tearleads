@@ -11757,6 +11757,9 @@
                       "type": "boolean",
                       "const": true
                     },
+                    "code": {
+                      "not": {}
+                    },
                     "error": {
                       "not": {}
                     },
@@ -11835,6 +11838,55 @@
                       "type": "boolean",
                       "const": false
                     },
+                    "code": {
+                      "type": "string",
+                      "const": "account_suspended"
+                    },
+                    "error": {
+                      "type": "string"
+                    },
+                    "isRoot": {
+                      "not": {}
+                    },
+                    "organizationId": {
+                      "not": {}
+                    },
+                    "rootContainerId": {
+                      "not": {}
+                    },
+                    "token": {
+                      "not": {}
+                    },
+                    "userId": {
+                      "not": {}
+                    },
+                    "wsTicket": {
+                      "not": {}
+                    }
+                  },
+                  "required": [
+                    "authenticated"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "authenticated": {
+                      "type": "boolean",
+                      "const": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "const": "account_suspended"
+                    },
                     "error": {
                       "type": "string"
                     },
@@ -11875,6 +11927,10 @@
                     "authenticated": {
                       "type": "boolean",
                       "const": false
+                    },
+                    "code": {
+                      "type": "string",
+                      "const": "account_suspended"
                     },
                     "error": {
                       "type": "string"
@@ -63642,6 +63698,8 @@
                               "root.identities.get",
                               "root.identities.list",
                               "root.identities.organizations.list",
+                              "root.identities.suspension.delete",
+                              "root.identities.suspension.put",
                               "root.organizations.dataUsage.get",
                               "root.organizations.get",
                               "root.organizations.identities.list",
@@ -64182,6 +64240,475 @@
         ]
       }
     },
+    "/root/identities/{userId}/suspension": {
+      "delete": {
+        "operationId": "root.identities.suspension.delete",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "defaultOrganizationId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "isRoot": {
+                          "type": "boolean"
+                        },
+                        "lastActiveAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "registrationSourceIpAddress": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "signingKeyFingerprint": {
+                          "maxLength": 64,
+                          "minLength": 64,
+                          "pattern": "^[0-9a-f]+$",
+                          "type": "string"
+                        },
+                        "suspendedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "userId": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "createdAt",
+                        "defaultOrganizationId",
+                        "isRoot",
+                        "lastActiveAt",
+                        "registrationSourceIpAddress",
+                        "signingKeyFingerprint",
+                        "suspendedAt",
+                        "userId"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "identity"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "session_refresh_required"
+                    },
+                    "error": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "root.identities.suspension.put",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            "style": "simple"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "identity": {
+                      "type": "object",
+                      "properties": {
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "defaultOrganizationId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "isRoot": {
+                          "type": "boolean"
+                        },
+                        "lastActiveAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "registrationSourceIpAddress": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "signingKeyFingerprint": {
+                          "maxLength": 64,
+                          "minLength": 64,
+                          "pattern": "^[0-9a-f]+$",
+                          "type": "string"
+                        },
+                        "suspendedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "userId": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "createdAt",
+                        "defaultOrganizationId",
+                        "isRoot",
+                        "lastActiveAt",
+                        "registrationSourceIpAddress",
+                        "signingKeyFingerprint",
+                        "suspendedAt",
+                        "userId"
+                      ],
+                      "additionalProperties": {}
+                    }
+                  },
+                  "required": [
+                    "identity"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Successful JSON response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "const": "session_refresh_required"
+                    },
+                    "error": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "description": "Failure JSON response"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/root/identities/{userId}": {
       "get": {
         "operationId": "root.identities.get",
@@ -64244,6 +64771,16 @@
                           "pattern": "^[0-9a-f]+$",
                           "type": "string"
                         },
+                        "suspendedAt": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
                         "userId": {
                           "type": "string",
                           "minLength": 1
@@ -64256,6 +64793,7 @@
                         "lastActiveAt",
                         "registrationSourceIpAddress",
                         "signingKeyFingerprint",
+                        "suspendedAt",
                         "userId"
                       ],
                       "additionalProperties": {}
@@ -64537,6 +65075,16 @@
                             "pattern": "^[0-9a-f]+$",
                             "type": "string"
                           },
+                          "suspendedAt": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
                           "userId": {
                             "type": "string",
                             "minLength": 1
@@ -64549,6 +65097,7 @@
                           "lastActiveAt",
                           "registrationSourceIpAddress",
                           "signingKeyFingerprint",
+                          "suspendedAt",
                           "userId"
                         ],
                         "additionalProperties": {}
@@ -65047,6 +65596,16 @@
                                 "pattern": "^[0-9a-f]+$",
                                 "type": "string"
                               },
+                              "suspendedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
                               "userId": {
                                 "type": "string",
                                 "minLength": 1
@@ -65059,6 +65618,7 @@
                               "lastActiveAt",
                               "registrationSourceIpAddress",
                               "signingKeyFingerprint",
+                              "suspendedAt",
                               "userId"
                             ],
                             "additionalProperties": {}

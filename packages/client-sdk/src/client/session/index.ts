@@ -17,7 +17,10 @@ import {
   SessionIdentityAcknowledgments,
 } from "./sessionIdentityTrust";
 import { userSessionsFromResponse } from "./sessionListing";
-import { refuseSessionLogin } from "./sessionLoginRefusal";
+import {
+  authenticateUnlessSuspended,
+  refuseSessionLogin,
+} from "./sessionLoginRefusal";
 import { createSessionOrganization } from "./sessionOrganizationCreation";
 import {
   clearSessionRemoteSyncState,
@@ -164,16 +167,22 @@ class SessionService implements Session {
     this.dependencies.log(
       challengeHex ? "Authenticating with challenge..." : "Authenticating...",
     );
-    const authentication = challengeHex
-      ? await this.dependencies.api.authenticateWithChallenge(
-          fingerprint,
-          signingKeyPair.signingPrivateKey,
-          challengeHex,
-        )
-      : await this.dependencies.api.authenticate(
-          fingerprint,
-          signingKeyPair.signingPrivateKey,
-        );
+    const authentication = await authenticateUnlessSuspended(
+      () =>
+        challengeHex
+          ? this.dependencies.api.authenticateWithChallenge(
+              fingerprint,
+              signingKeyPair.signingPrivateKey,
+              challengeHex,
+            )
+          : this.dependencies.api.authenticate(
+              fingerprint,
+              signingKeyPair.signingPrivateKey,
+            ),
+      () => {
+        if (this.snapshotValue === snapshotAtStart) this.logout();
+      },
+    );
 
     if (this.dependencies.identity.snapshot !== identitySnapshot) {
       return false;

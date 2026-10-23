@@ -3,7 +3,11 @@ import type { BlobObjectStore } from "../adapters/blobObjectStore";
 import { createDefaultBlobObjectStore } from "../adapters/defaultBlobObjectStore";
 import { del, get, getdel, set } from "../adapters/keyValueStore";
 import { publish } from "../adapters/pubSub";
-import { createSession, type IssuedSession } from "../middleware/session";
+import {
+  createSession,
+  destroyUserSession,
+  type IssuedSession,
+} from "../middleware/session";
 import type { PublishedRealtimeEvent } from "../realtime/publishedRealtimeEvents";
 import { readDocumentSyncCursorHmacKey } from "../utils/serverSecrets";
 import type { SessionCreateInput } from "../validators/session";
@@ -21,6 +25,11 @@ export interface EventPublisher {
 
 export interface SessionTokenIssuer {
   createSession: (data: SessionCreateInput) => Promise<IssuedSession>;
+  /** Revokes one session the issuer created; false when it was already gone. */
+  revokeSession: (input: {
+    sessionId: string;
+    userId: string;
+  }) => Promise<boolean>;
 }
 
 export interface ApiServiceRuntime {
@@ -39,7 +48,7 @@ function buildDefaultApiServiceRuntime(): ApiServiceRuntime {
     documentSyncCursorHmacKey: readDocumentSyncCursorHmacKey(),
     eventPublisher: { publish },
     keyValueStore: { del, get, getdel, set },
-    sessionTokenIssuer: { createSession },
+    sessionTokenIssuer: { createSession, revokeSession: destroyUserSession },
   };
 }
 

@@ -824,6 +824,7 @@ CREATE TABLE `users` (
 	`default_organization_id` text NOT NULL,
 	`registration_source_ip_address` text,
 	`is_root` integer DEFAULT false NOT NULL,
+	`suspended_at` integer,
 	`last_active_at` integer,
 	`created_at` integer DEFAULT (cast((julianday('now') - 2440587.5)*86400000 as integer)) NOT NULL
 );

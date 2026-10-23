@@ -32,6 +32,7 @@ export {
 } from "./userIdentity";
 export {
   isVerifyResponse,
+  VERIFY_ERROR_CODES,
   type VerifyFailureResponse,
   VerifyFailureResponseSchema,
   type VerifyResponse,

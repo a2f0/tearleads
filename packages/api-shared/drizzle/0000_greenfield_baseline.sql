@@ -704,6 +704,7 @@ CREATE TABLE "users" (
 	"default_organization_id" uuid NOT NULL,
 	"registration_source_ip_address" text,
 	"is_root" boolean DEFAULT false NOT NULL,
+	"suspended_at" timestamp,
 	"last_active_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "users_fingerprint_unique" UNIQUE("fingerprint")

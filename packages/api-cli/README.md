@@ -129,7 +129,9 @@ non-zero exit when the fingerprint is malformed, extra arguments are passed, or
 no identity is registered under that fingerprint. A change is recorded in the
 root audit trail (`root_audit_events`, action `root.access.grant` or
 `root.access.revoke`, with no actor) in the transaction that changes the flag;
-a run that changes nothing records nothing. Against a deployed tier,
+a run that changes nothing records nothing. Root identities cannot be
+suspended, and granting root does not lift an existing suspension; lift it
+from the root console. Against a deployed tier,
 export the runtime connection from the `postgres` Terraform stack output
 (`terraform/scripts/run-postgres-stack.sh <tier> output -json api_connection`)
 in a private shell, then run the command from source:

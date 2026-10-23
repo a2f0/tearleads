@@ -1,5 +1,5 @@
 {
-  "id": "ac630a2e-79e1-442f-922e-1611b701c3a2",
+  "id": "6bea3eff-11ef-4ccf-97e4-ad92074b8173",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -6774,6 +6774,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": false
+        },
+        "suspended_at": {
+          "name": "suspended_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
         },
         "last_active_at": {
           "name": "last_active_at",

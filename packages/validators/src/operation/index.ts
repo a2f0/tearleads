@@ -300,6 +300,10 @@ export {
   type RootOrganizationsQuery,
 } from "./rootOrganizations";
 export {
+  liftRootIdentitySuspensionOperation,
+  suspendRootIdentityOperation,
+} from "./rootSuspension";
+export {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,

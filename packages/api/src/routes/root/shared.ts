@@ -10,6 +10,10 @@ import type { ApiServiceRuntime } from "../../services/runtime";
 type RootAuditEventInput = Parameters<typeof recordRootAuditEvent>[1];
 
 export interface RootRouterDeps {
+  readonly destroyUserSession: (input: {
+    sessionId: string;
+    userId: string;
+  }) => Promise<boolean>;
   readonly listUserSessions: (input: {
     currentToken: string;
     userId: string;

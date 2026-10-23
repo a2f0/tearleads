@@ -37,3 +37,8 @@ export {
   type RootOrganizationsPage,
   type RootOrganizationsQueryInput,
 } from "./organizations";
+export {
+  liftRootIdentitySuspension,
+  type RootSuspensionApi,
+  suspendRootIdentity,
+} from "./suspension";
