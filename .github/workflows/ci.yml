@@ -73,10 +73,12 @@ jobs:
           version: 2026.10.17
           install_args: bun
           cache: true
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
       - name: Require every applicable check to succeed
         env:
           CI_NEEDS: ${{ toJSON(needs) }}
-        run: bun scripts/checks/ciGate.ts
+        run: printf '%s\n' "$CI_NEEDS" | bun run agent-tool ci gate - --policy scripts/checks/ciGate.json
 
   lint:
     name: Lint
@@ -121,7 +123,7 @@ jobs:
         if: github.event_name == 'pull_request'
         env:
           BRANCH_NAME: ${{ github.head_ref }}
-        run: bun scripts/checks/lintBranchName.ts -- "$BRANCH_NAME"
+        run: bun run lint:branch-name "$BRANCH_NAME"
 
       - name: Run lint checks
         env:

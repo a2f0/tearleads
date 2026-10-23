@@ -5,7 +5,7 @@ import { fixture } from "./fixture.testUtils";
 
 const repoRoot = resolve(import.meta.dir, "../../..");
 const hookPath = "scripts/git/hooks/pre-push";
-const lintCommand = "scripts/checks/lintBranchName.ts --";
+const lintCommand = "run agent-tool branch check --pre-push";
 
 function pushFixture(failingCommand: string) {
   const repo = fixture();
@@ -32,18 +32,30 @@ function configurePushFixture(
     repo.write(path, readFileSync(join(repoRoot, path), "utf8"));
     chmodSync(join(repo.cwd, path), 0o755);
   }
-  for (const name of [
-    "checkTerraform",
-    "checkCommitTrust",
-    "checkBinaryFiles",
-  ]) {
+  for (const name of ["checkTerraform"]) {
     const path = `scripts/checks/${name}.sh`;
     repo.write(path, "#!/bin/sh\nexit 0\n");
     chmodSync(join(repo.cwd, path), 0o755);
   }
   repo.write(
+    "agent-tool.json",
+    JSON.stringify({
+      schemaVersion: 1,
+      hooks: {
+        files: [{ source: hookPath, target: "pre-push", executable: true }],
+      },
+    }),
+  );
+  repo.write(
     "bin/bun",
-    '#!/bin/sh\nprintf "%s\\n" "$*" >> "$COMMAND_LOG"\n' +
+    "#!/bin/sh\n" +
+      'if [ "$*" = "run agent-tool hooks install --apply" ]; then\n' +
+      '  exec "$REAL_BUN" "$AGENT_TOOL_CLI" hooks install --apply\n' +
+      "fi\n" +
+      'printf "%s\\n" "$*" >> "$COMMAND_LOG"\n' +
+      'if [ "$*" = "run agent-tool branch check --pre-push" ]; then\n' +
+      '  cat > "$PUSH_REFS_LOG"\n' +
+      "fi\n" +
       '[ "$*" != "$FAILING_COMMAND" ] || exit 23\n',
   );
   chmodSync(join(repo.cwd, "bin/bun"), 0o755);
@@ -56,6 +68,9 @@ function configurePushFixture(
     CI_TURBO_PROTOCOL_CACHE: "",
     PATH: `${join(repo.cwd, "bin")}:${PATH}`,
     COMMAND_LOG: log,
+    REAL_BUN: process.execPath,
+    AGENT_TOOL_CLI: join(repoRoot, "node_modules/.bin/agent-tool"),
+    PUSH_REFS_LOG: join(repo.cwd, "push-refs.log"),
     FAILING_COMMAND: failingCommand,
     PUSH_GATE_TIMINGS_LOG: timings,
   };
@@ -93,10 +108,7 @@ test("CI and the installed hook run the same fast checks in order", () => {
 
     expect(repo.push().exitCode).not.toBe(0);
     const pushCommands = readFileSync(repo.log, "utf8").trim().split("\n");
-    expect(pushCommands).toEqual([
-      "scripts/checks/lintBranchName.ts -- probe",
-      ...ciCommands,
-    ]);
+    expect(pushCommands).toEqual([lintCommand, ...ciCommands]);
     expect(readFileSync(repo.timings, "utf8")).toContain(
       "\tunfinished=markdown\tstatus=failed\t",
     );
@@ -107,7 +119,7 @@ test("CI and the installed hook run the same fast checks in order", () => {
 
 test("the gate lints the branch a push creates, not the checked-out one", () => {
   const branch = "claude/epic-wright-l1f75j";
-  const repo = pushFixture(`${lintCommand} ${branch}`);
+  const repo = pushFixture(lintCommand);
   try {
     // The checkout keeps the fixture's own branch; only the destination names
     // the branch the remote would gain.
@@ -118,9 +130,7 @@ test("the gate lints the branch a push creates, not the checked-out one", () => 
       `HEAD:refs/heads/${branch}`,
     );
     expect(result.exitCode).not.toBe(0);
-    expect(readFileSync(repo.log, "utf8").split("\n")[0]).toBe(
-      `${lintCommand} ${branch}`,
-    );
+    expect(readFileSync(repo.log, "utf8").split("\n")[0]).toBe(lintCommand);
     expect(
       repo.run(
         "git",
@@ -135,8 +145,7 @@ test("the gate lints the branch a push creates, not the checked-out one", () => 
   }
 });
 
-// The stub checks the hook's arguments; branchName.test.ts separately proves
-// real Bun passes a literal `--` through to the linter.
+// The hook passes complete ref tuples; the CLI parses names from stdin.
 test("every pushed branch reaches the linter, even one named --", () => {
   const repo = pushFixture("");
   try {
@@ -149,9 +158,12 @@ test("every pushed branch reaches the linter, even one named --", () => {
     );
     expect(result.exitCode, result.stderr.toString()).toBe(0);
     const [lint = ""] = readFileSync(repo.log, "utf8").split("\n");
-    expect(lint).toStartWith(`${lintCommand} `);
-    const names = lint.slice(lintCommand.length + 1).split(" ");
-    expect(names.toSorted()).toEqual(["--", "feat/one"]);
+    expect(lint).toBe(lintCommand);
+    const names = readFileSync(join(repo.cwd, "push-refs.log"), "utf8")
+      .trim()
+      .split("\n")
+      .map((line) => line.split(" ")[2]);
+    expect(names.toSorted()).toEqual(["refs/heads/--", "refs/heads/feat/one"]);
   } finally {
     rmSync(repo.cwd, { recursive: true, force: true });
   }

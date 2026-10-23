@@ -8,9 +8,8 @@ MESSAGE_FILE="$1"
 cd "$REPO_ROOT"
 
 echo "Linting commit message..."
-npx --yes \
-  --package @commitlint/cli \
-  --package @commitlint/config-conventional \
-  commitlint \
+bunx --no-install commitlint \
   --config "$REPO_ROOT/commitlint.config.mts" \
   --edit "$MESSAGE_FILE"
+
+bun run agent-tool commits check --message-file "$MESSAGE_FILE"

@@ -57,7 +57,9 @@ three long-suite results. A job starting is not itself evidence of a cache miss.
 The web application build remains uncached because it embeds the current Git
 commit; deployments and local screenshot generation keep their existing behavior.
 
-`scripts/checks/ciPolicy.ts` owns the path selection and gate verdict. A platform
+`scripts/checks/ciPolicy.ts` owns path selection. The shared `agent-tool ci gate`
+command evaluates `scripts/checks/ciGate.json`, which declares required jobs and
+binds conditional jobs to the classifier’s exact outputs. A platform
 job may be skipped only when successful change detection explicitly marked it
 irrelevant. A failed, cancelled, missing, or unexpectedly skipped job fails the
 gate. Workflow and dependency lockfile changes exercise every lane. Ordinary

@@ -1,5 +1,29 @@
 import { expect, test } from "bun:test";
-import { assertCiSuccess, ciDiffRange, ciScopes } from "../ciPolicy";
+import { resolve } from "node:path";
+import { ciDiffRange, ciScopes } from "../ciPolicy";
+
+const repoRoot = resolve(import.meta.dir, "../../..");
+
+function assertCiSuccess(needs: unknown) {
+  const result = Bun.spawnSync(
+    [
+      process.execPath,
+      "node_modules/.bin/agent-tool",
+      "ci",
+      "gate",
+      "-",
+      "--policy",
+      "scripts/checks/ciGate.json",
+    ],
+    {
+      cwd: repoRoot,
+      stdin: Buffer.from(JSON.stringify(needs)),
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+  if (result.exitCode !== 0) throw new Error(result.stderr.toString());
+}
 
 const successful = () => ({
   changes: {
@@ -19,7 +43,7 @@ test("required native and Terraform jobs must succeed, never skip", () => {
   for (const job of ["native", "terraform"]) {
     const needs = successful();
     needs.changes.outputs = { ...needs.changes.outputs, [job]: "true" };
-    expect(() => assertCiSuccess(needs)).toThrow(`${job} must be success`);
+    expect(() => assertCiSuccess(needs)).toThrow();
     expect(() =>
       assertCiSuccess({
         ...needs,
@@ -196,9 +220,7 @@ test("Lint checks a pull request's branch name without interpolating it", async 
   const { BRANCH_NAME: branchName } = check?.env ?? {};
   expect(check?.if).toBe("github.event_name == 'pull_request'");
   expect(branchName).toMatch(/^\$\{\{ github\.head_ref \}\}$/);
-  expect(check?.run).toBe(
-    'bun scripts/checks/lintBranchName.ts -- "$BRANCH_NAME"',
-  );
+  expect(check?.run).toBe('bun run lint:branch-name "$BRANCH_NAME"');
   const position = names.indexOf("Check branch name");
   expect(position).toBeGreaterThan(names.indexOf("Install dependencies"));
   expect(position).toBeLessThan(names.indexOf("Run lint checks"));

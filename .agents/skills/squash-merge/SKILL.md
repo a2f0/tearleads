@@ -12,11 +12,13 @@ findings require repair and a new review before merging.
 Follow the repository's review-bot policy and require all actionable blocking
 review feedback to be addressed before merging.
 
-Wait for required checks using `gh pr checks --watch --fail-fast`. Refresh the
-PR and live base from the repository that owns the PR. Confirm local HEAD and PR
-HEAD both equal the reviewed commit, the base branch is unchanged, the live base
-still equals the reviewed base, and that base is an ancestor of reviewed HEAD.
-If any identity changed, refresh, validate, and review again.
+Wait with `agent-tool pr checks --wait --head <reviewed-head>`, which waits for
+checks to appear and for every workflow/job/event entry to finish. Run
+`agent-tool pr preflight <reviewed-head> <base-branch> <reviewed-base>` immediately
+before merging. It checks local and PR identity, live base, ancestry, explicit
+version policy, merge readiness, configured strict rulesets, and passing checks.
+If an identity changed, refresh, integrate, validate, and review again. Read
+unresolved feedback with `pr threads list` and follow project review policy.
 
 Use a title that satisfies `agent-tool.json` and pass both reviewed HEAD and
 base branch:

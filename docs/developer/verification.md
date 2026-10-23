@@ -6,20 +6,28 @@ output harness:
 ```sh
 bun run agent:run --label checks -- bun run check:affected
 bun run agent:run --label package -- bun run check:package @tearleads/api
-bun run agent:run --label push -- git push -u origin HEAD
+bun run agent:run --label push -- bun run agent-tool branch push <reviewed-sha> --remote origin
 bun run agent:logs <reported-log-path> --tail-lines 40 --max-bytes 4096
 ```
 
-The commit-pinned agent-tool release retains full stdout and stderr in private
+The exact npm-pinned agent-tool release retains full stdout and stderr in private
 local files, prints a compact receipt on success, and includes a bounded excerpt
 on failure. Its exit status remains the command's exit status. The log reader
 returns bounded, sanitized excerpts; inspect those before requesting more output.
 Keep the existing verification reports below as evidence of completed gates.
+They additionally prove Turbo task and artifact completeness, which the shared
+process runner alone cannot establish.
 
 `bun run check` and `bun run check:affected` use the same verification runner.
 They retain their existing build, TypeScript, static-check, and full or affected
 Turbo test steps. Builds finish before tests begin; `build:packages` prepares
 SQLite, the client SDK, and the Electrobun devkit.
+
+The same holds for `packages/client-sdk`'s own tests: `distArtifacts.test.ts`
+inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
+builds the SDK first; a bare `bun run test` in the package does not, because a
+test script that rebuilt `dist` would delete it under other packages' tests
+running alongside it in turbo.
 
 The Turbo test and E2E scripts first record the planned tasks, then require a
 fresh run summary proving that every planned task completed successfully, either

@@ -9,7 +9,8 @@ a client SDK, and an API for synchronizing documents and shared containers.
 2. Run `bun install --frozen-lockfile`.
 3. Run `bundle install` from `packages/app-capacitor` for native release checks.
 4. Run `bun run build:packages` to build SQLite and the SDK and prepare Electrobun.
-5. Run `sh scripts/git/install-hooks.sh` to install Git hooks.
+5. Run `sh scripts/git/install-hooks.sh` to install Git hooks. Existing clones
+   follow the [one-time hook migration](docs/developer/static-analysis.md#ci-and-the-push-gate).
 6. Run `bun run --filter=@tearleads/api dev` to start the API.
 7. Run `bun run --filter=app-web dev` to start the web app.
 

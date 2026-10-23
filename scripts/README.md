@@ -16,7 +16,9 @@ dry-run options.
 
 `release/publishNpmPackage.sh` publishes a package to npm by its directory name:
 `windowing` or `client-sdk`. Each package's workflow runs it when a version
-bump merges, after `release/npmPublishDecision.ts` checks the version is new. To
+bump merges, after `agent-tool release plan` checks the version is new. The
+workflows install the pinned tool first and pass `--allow-private-source` because
+these private workspaces build public consumer manifests. To
 publish by hand, run `bun run publish:npm:dry-run <package>` to
 build and preview it, then `bun run publish:npm <package>` to publish it; both
 also accept `--tag <tag>` and `--otp <code>`. See the
@@ -81,6 +83,9 @@ checkout-bound reports.
 ## Adding a script
 
 - Put commands in the purpose-specific group above, even when invoked directly.
+- Use agent-tool for shared Git, GitHub, hook installation, binary checks, CI
+  aggregation, and npm release decisions. Keep repository policy, path
+  classification, application checks, and release orchestration here.
 - Keep helpers and their tests beside their owning commands, including domain
   groups such as `architecture/` and `protocol/`. Reserve `lib/` for helpers
   shared across groups, and put test launchers in `testing/`.

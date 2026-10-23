@@ -50,11 +50,8 @@ Run the smallest command that matches the handoff risk:
   See [static-analysis maintenance](docs/developer/static-analysis.md) for
   snapshot semantics and explicit script exceptions, and
   [dependency maintenance](docs/dependency-upgrades.md) for upgrade policy.
-- `bun run report:dependencies:json`: dependency-cruiser diagnostics for
-  architecture debugging.
-- `bun run report:dependencies:mermaid`: graph output for quick dependency visualization.
-- `bun run report:dependencies:archi`: collapsed Graphviz DOT output for
-  package/module reports.
+- `bun run report:dependencies:json`, `report:dependencies:mermaid`, and
+  `report:dependencies:archi`: architecture diagnostics and graphs.
 
 ### Rebuild the SDK before trusting app or api tests
 
@@ -71,12 +68,6 @@ write per-run JSON reports under `git rev-parse --git-path verification`, with
 revision, working-tree fingerprints, step timings, and outcomes. A source or
 revision change during the run fails verification; see the
 [verification harness](docs/developer/verification.md).
-
-The same holds for `packages/client-sdk`'s own tests: `distArtifacts.test.ts`
-inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
-builds the SDK first; a bare `bun run test` in the package does not, because a
-test script that rebuilt `dist` would delete it under other packages' tests
-running alongside it in turbo.
 
 ### Declare what a Turbo task reads
 
@@ -291,10 +282,12 @@ in the [infrastructure guide](docs/developer/infrastructure.md).
 
 ## Agent Tooling And Shipping
 
-Review, PR, merge, and version helpers come from the commit-pinned
-[`a2f0/agent-tool`](https://github.com/a2f0/agent-tool) dev dependency; run it
-with `bun run agent-tool`. Title, required-check, base-freshness, and version
-policy is in `agent-tool.json`. The shared `cross-agent-review`, `open-pr`,
+Shared branch, hook, validation, release, review, PR, and version helpers come
+from the exact npm-pinned [`@a2f0/agent-tool`](https://github.com/a2f0/agent-tool)
+dev dependency; run it
+with `bun run agent-tool`. Branch, commit trust, binary, hook, title,
+required-check, base-freshness, and
+version policy is in `agent-tool.json`. The shared `cross-agent-review`, `open-pr`,
 `squash-merge`, `ship-pr`, `reset`, and `update-dependencies` skills are managed
 copies in `.agents/skills` and `.claude/skills`, tracked by
 `.agent-tool-skills.json`. Do not edit them; change the shared skill upstream
@@ -326,16 +319,21 @@ Shipping rules on top of the shared skills:
   pull request's branch. If a session starts on a nonconforming branch, move
   the work to a conforming branch before the first commit.
 - **Push**: the pre-push gate takes over ten minutes, so run it in the
-  background. It rejects `Co-authored-by` trailers. A rewrite that only removes
+  background. It checks signatures and rejects `Co-authored-by` trailers on
+  commits not already reachable from the push remote. A rewrite that only removes
   them needs no re-review if the tree and the merge base with the PR base are
   unchanged; re-pin the reviewed SHA to the rewritten head.
+- **Branches**: create from the current base with `bun run agent-tool branch create
+  <name> --base main --remote origin`. Use `branch push <reviewed-sha> --remote
+  origin` through the output harness; normal hooks remain mandatory.
 - **Merge**: run
   `node_modules/.bin/agent-tool pr merge '' "$REVIEWED_SHA" "$BASE_REF"`
   directly, because `bun run` drops empty arguments. It requires the core
   checks in the [merge gate policy](docs/developer/ci-merge-gate.md) and a
   strict, non-bypassable `protect-main` ruleset. Never use `gh pr merge`.
 - **Reset**: after returning to `main`, run `sh scripts/git/install-hooks.sh`
-  so merged hook changes take effect. First require that `scripts/git/hooks`
-  has no untracked or ignored files, since the installer copies every file.
+  so merged hook changes take effect. It installs only the tracked files declared
+  in `agent-tool.json`; inspect existing hooks before the one-time `--adopt`
+  migration described in the [static-analysis guide](docs/developer/static-analysis.md).
 - **Report** the push gate cost with
   `scripts/git/showPushGateTimings.sh --head "$REVIEWED_SHA"` after the merge.

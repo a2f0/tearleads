@@ -22,14 +22,27 @@ Both gates need the mise-pinned Java, TLA+, and oasdiff tools listed in
 The bounded protocol models add minutes to each push; use the timing log to
 inspect the cost of individual checks.
 
-`sh scripts/git/install-hooks.sh` installs the checked-out hooks and configures
-Git to use them. `ship-pr` runs this through `reset` after a successful merge
-and fast-forward. Linked worktrees install into the common Git directory because
-they share hooks and configuration. Pre-push refuses to run a stale installed
-copy; update the branch from its base before reinstalling. Installing from an
-older branch can restore a hook that predates this guard and silently remove
-the protection. Use `scripts/git/showPushGateTimings.sh --head <sha>`
-to find the checks recorded for a particular push in this checkout.
+`sh scripts/git/install-hooks.sh` installs the tracked hooks declared in
+`agent-tool.json` through `agent-tool hooks install --apply`. On an existing
+checkout, first compare the installed hooks with `scripts/git/hooks`, then run
+`sh scripts/git/install-hooks.sh --adopt` once to migrate the inspected hooks.
+The installer backs up replacements, records ownership, preserves unrelated
+hooks, and refuses later local edits. `bun run agent-tool hooks check` detects
+missing, edited, or stale copies. The installer honors repository/worktree
+`core.hooksPath`; linked worktrees share the common Git directory by default.
+
+`ship-pr` refreshes hooks through `reset` after a successful merge and
+fast-forward. Pre-push refuses a stale installed copy; update the branch from
+its base before reinstalling. Installing from an older branch can restore a
+hook that predates the guard. Use
+`scripts/git/showPushGateTimings.sh --head <sha>` to inspect each push.
+
+Branch names and binary checks use shared agent-tool commands with the policy
+in `agent-tool.json`. Commit trust checks require a present signature and reject
+coauthor trailers on commits newly admitted to the push remote; commits already
+reachable from any of that remote's branches are excluded. Staged commit messages
+also reject coauthor trailers and retain the full pinned commitlint rules.
+Binary and source-shape checks still inspect each pushed tree range.
 
 OpenAPI compatibility exceptions expire when the comparison base contains the
 new contract. Remove their entries from

@@ -16,6 +16,6 @@ echo "Checking source shape..."
 bun scripts/checks/lintSourceShape.ts --staged
 
 echo "Checking for binary files..."
-"$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --staged
+bun run agent-tool checks binaries --staged
 
 bun run lint-staged
