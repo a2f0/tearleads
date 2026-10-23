@@ -271,8 +271,9 @@ The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
 `staging` or `production`; unset is a local build that reads no secrets and
 reports nothing. Release from the repository root with
 `scripts/release/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
-`scripts/withSentryReleaseEnv.ts` resolves that tier's DSN and full commit into
-the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for the Electrobun build and
+`packages/app-electrobun/scripts/withSentryReleaseEnv.ts` resolves that tier's
+DSN and full commit into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for
+the Electrobun build and
 its inherited `postBuild` packaging hook. It drops every inherited Sentry name
 first, so exported configuration cannot reroute events and the token never
 reaches a bundle. A configured tier with a missing or malformed DSN stops the

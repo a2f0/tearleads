@@ -81,11 +81,11 @@ checkout-bound reports.
 ## Adding a script
 
 - Put commands in the purpose-specific group above, even when invoked directly.
-- Keep helpers and their tests beside their owning commands; reserve `lib/` for
-  helpers shared across groups. Native platform scripts stay with their package,
-  and Terraform scripts stay in the infrastructure tree.
-- Keep domain-specific helpers and tests beside their tooling in `checks/`,
-  `architecture/`, or `protocol/`; put test launchers in `testing/`.
+- Keep helpers and their tests beside their owning commands, including domain
+  groups such as `architecture/` and `protocol/`. Reserve `lib/` for helpers
+  shared across groups, and put test launchers in `testing/`.
+- Native platform scripts stay with their package; Terraform scripts stay in
+  the infrastructure tree.
 - Wire automated commands through the root `package.json`. When moving a file,
   update its imports, shell source paths, test fixtures, documentation, and Turbo
   inputs together.
