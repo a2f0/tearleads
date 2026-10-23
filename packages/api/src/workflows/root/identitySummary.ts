@@ -8,6 +8,7 @@ export interface RootIdentitySummary {
   readonly lastActiveAt: string | null;
   readonly registrationSourceIpAddress: string | null;
   readonly signingKeyFingerprint: string;
+  readonly suspendedAt: string | null;
   readonly userId: string;
 }
 
@@ -18,6 +19,7 @@ export const rootIdentitySelection = {
   lastActiveAt: users.lastActiveAt,
   registrationSourceIpAddress: users.registrationSourceIpAddress,
   signingKeyFingerprint: users.fingerprint,
+  suspendedAt: users.suspendedAt,
   userId: users.id,
 } as const;
 
@@ -28,6 +30,7 @@ interface RootIdentityRow {
   readonly lastActiveAt: Date | null;
   readonly registrationSourceIpAddress: string | null;
   readonly signingKeyFingerprint: string;
+  readonly suspendedAt: Date | null;
   readonly userId: string;
 }
 
@@ -41,6 +44,7 @@ export function toRootIdentitySummary(
     lastActiveAt: row.lastActiveAt?.toISOString() ?? null,
     registrationSourceIpAddress: row.registrationSourceIpAddress,
     signingKeyFingerprint: row.signingKeyFingerprint,
+    suspendedAt: row.suspendedAt?.toISOString() ?? null,
     userId: row.userId,
   };
 }

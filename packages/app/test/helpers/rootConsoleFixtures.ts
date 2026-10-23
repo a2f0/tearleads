@@ -11,6 +11,7 @@ export const ROOT_TEST_IDENTITIES: RootIdentitiesResponse["identities"] = [
     lastActiveAt: "2026-09-06T10:00:00.000Z",
     registrationSourceIpAddress: "203.0.113.7",
     signingKeyFingerprint: "a".repeat(64),
+    suspendedAt: null,
     userId: "11111111-1111-4111-8111-111111111111",
   },
   {
@@ -20,6 +21,7 @@ export const ROOT_TEST_IDENTITIES: RootIdentitiesResponse["identities"] = [
     lastActiveAt: null,
     registrationSourceIpAddress: null,
     signingKeyFingerprint: "b".repeat(64),
+    suspendedAt: null,
     userId: "22222222-2222-4222-8222-222222222222",
   },
 ];

@@ -106,6 +106,10 @@ import {
   listRootRevenuecatEventsReportOperation,
 } from "./rootRevenuecat";
 import {
+  liftRootIdentitySuspensionOperation,
+  suspendRootIdentityOperation,
+} from "./rootSuspension";
+import {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,
@@ -201,6 +205,8 @@ export const protocolOperations: readonly [
   typeof getRootOpsHealthReportOperation,
   typeof listRootOrganizationRevenuecatEventsOperation,
   typeof listRootRevenuecatEventsReportOperation,
+  typeof suspendRootIdentityOperation,
+  typeof liftRootIdentitySuspensionOperation,
   typeof documentSyncOperation,
 ] = [
   getContainerReplacementAuthorizationsOperation,
@@ -284,5 +290,7 @@ export const protocolOperations: readonly [
   getRootOpsHealthReportOperation,
   listRootOrganizationRevenuecatEventsOperation,
   listRootRevenuecatEventsReportOperation,
+  suspendRootIdentityOperation,
+  liftRootIdentitySuspensionOperation,
   documentSyncOperation,
 ];

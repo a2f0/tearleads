@@ -308,6 +308,10 @@ export {
   type RootRevenuecatEventsReportQuery,
 } from "./rootRevenuecat";
 export {
+  liftRootIdentitySuspensionOperation,
+  suspendRootIdentityOperation,
+} from "./rootSuspension";
+export {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
   createStripeCheckoutSessionOperation,

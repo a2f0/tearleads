@@ -9,6 +9,10 @@ import { ROOT_TEST_IDENTITIES } from "./rootConsoleFixtures";
 import { rootOpsHealthHandlers } from "./rootOpsHealthHandlers";
 import { rootOrganizationHandlers } from "./rootOrganizationHandlers";
 import { rootRevenuecatHandlers } from "./rootRevenuecatHandlers";
+import {
+  rootSuspensionHandlers,
+  withRootTestSuspension,
+} from "./rootSuspensionHandlers";
 
 export const rootConsoleHandlers = [
   http.get("http://localhost:3001/root/identities", ({ request }) => {
@@ -38,7 +42,7 @@ export const rootConsoleHandlers = [
         return HttpResponse.json({ error: "User not found" }, { status: 404 });
       }
       return HttpResponse.json<RootIdentityDetailResponse>({
-        identity,
+        identity: withRootTestSuspension(identity),
         sessions: [
           {
             createdAt: "2026-09-01T09:00:00.000Z",
@@ -94,4 +98,5 @@ export const rootConsoleHandlers = [
   ...rootAuditHandlers,
   ...rootOpsHealthHandlers,
   ...rootRevenuecatHandlers,
+  ...rootSuspensionHandlers,
 ];

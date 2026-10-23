@@ -11,6 +11,8 @@ export type RootAuditAction =
   | "root.identities.get"
   | "root.identities.list"
   | "root.identities.organizations.list"
+  | "root.identities.suspension.delete"
+  | "root.identities.suspension.put"
   | "root.organizations.dataUsage.get"
   | "root.organizations.get"
   | "root.organizations.identities.list"

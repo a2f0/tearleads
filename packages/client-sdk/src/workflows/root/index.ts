@@ -53,3 +53,8 @@ export {
   type RootRevenuecatEventsReportPage,
   type RootRevenuecatEventsReportQueryInput,
 } from "./revenuecat";
+export {
+  liftRootIdentitySuspension,
+  type RootSuspensionApi,
+  suspendRootIdentity,
+} from "./suspension";

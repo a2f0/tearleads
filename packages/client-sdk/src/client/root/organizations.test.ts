@@ -50,6 +50,8 @@ function createRuntime() {
         getRootOpsHealthReportResult: failAfterRelease,
         listRootOrganizationRevenuecatEventsResult: failAfterRelease,
         listRootRevenuecatEventsReportResult: failAfterRelease,
+        liftRootIdentitySuspensionResult: failAfterRelease,
+        suspendRootIdentityResult: failAfterRelease,
       },
     }),
   };
@@ -64,7 +66,7 @@ function createRuntime() {
   };
 }
 
-test("every organization, report and audit lookup is locally gated and drops replies after demotion", async () => {
+test("every organization, report, audit and suspension call is locally gated and drops replies after demotion", async () => {
   const lookups: Record<string, (root: Root) => Promise<unknown>> = {
     list: (root) => root.listOrganizations(),
     detail: (root) => root.loadOrganization("org"),
@@ -75,6 +77,8 @@ test("every organization, report and audit lookup is locally gated and drops rep
     revenuecat: (root) => root.listOrganizationRevenuecatEvents("org"),
     revenuecatReport: (root) => root.listRevenuecatEventsReport(),
     audit: (root) => root.listAuditEvents(),
+    suspend: (root) => root.suspendIdentity("user"),
+    lift: (root) => root.liftIdentitySuspension("user"),
   };
   for (const lookup of Object.values(lookups)) {
     const runtime = createRuntime();

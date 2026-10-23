@@ -33,6 +33,11 @@ import { boolean, index, pgTable, text, timestamp, uuid } from "./columns";
  *   gated by `requireRoot`. This is a plain operational boolean, not part of
  *   the signed access plane; it is granted and revoked only through the API
  *   CLI (`make-admin` / `revoke-admin`).
+ * - `suspendedAt`: When a platform operator suspended the account; null while
+ *   it is in good standing. A suspended identity's challenge signatures are
+ *   refused at `POST /auth/verify`, so its devices cannot sign back in, and the
+ *   suspension sweeps every live session. Set and cleared only through the
+ *   `/root/identities/{userId}/suspension` routes, which refuse root targets.
  * - `lastActiveAt`: Most recent authenticated request timestamp, written on
  *   the session middleware's throttled activity path (about once a minute per
  *   session). Nullable until the user's first authenticated request after
@@ -65,6 +70,7 @@ export const users = pgTable(
     defaultOrganizationId: uuid("default_organization_id").notNull(),
     registrationSourceIpAddress: text("registration_source_ip_address"),
     isRoot: boolean("is_root").default(false).notNull(),
+    suspendedAt: timestamp("suspended_at"),
     lastActiveAt: timestamp("last_active_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

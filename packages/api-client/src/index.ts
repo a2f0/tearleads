@@ -1,4 +1,5 @@
 export { ApiClient } from "./ApiClient";
+export { AccountSuspendedError } from "./accountSuspension";
 export {
   type ApiRequestCounts,
   type ApiRequestEndpointCounts,

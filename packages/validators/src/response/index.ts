@@ -34,6 +34,7 @@ export {
   UserIdentityResponseSchema,
   type UserSessionResponse,
   UserSessionResponseSchema,
+  VERIFY_ERROR_CODES,
   type VerifyFailureResponse,
   VerifyFailureResponseSchema,
   type VerifyResponse,
@@ -484,6 +485,7 @@ export {
   isRootIdentitiesResponse,
   isRootIdentityDetailResponse,
   isRootIdentityOrganizationsResponse,
+  isRootIdentitySuspensionResponse,
   type RootIdentitiesResponse,
   RootIdentitiesResponseSchema,
   type RootIdentityDetailResponse,
@@ -498,6 +500,8 @@ export {
   RootIdentitySessionResponseSchema,
   type RootIdentitySummaryResponse,
   RootIdentitySummaryResponseSchema,
+  type RootIdentitySuspensionResponse,
+  RootIdentitySuspensionResponseSchema,
 } from "./root";
 export {
   ROOT_AUDIT_ACTIONS,

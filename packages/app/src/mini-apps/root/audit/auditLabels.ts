@@ -8,6 +8,8 @@ const ROOT_AUDIT_ACTION_LABELS: Record<RootAuditAction, string> = {
   "root.identities.get": "Viewed identity",
   "root.identities.list": "Listed identities",
   "root.identities.organizations.list": "Viewed identity organizations",
+  "root.identities.suspension.delete": "Requested suspension lift",
+  "root.identities.suspension.put": "Requested account suspension",
   "root.organizations.dataUsage.get": "Viewed organization data usage",
   "root.organizations.get": "Viewed organization",
   "root.organizations.identities.list": "Viewed organization roster",

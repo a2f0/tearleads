@@ -551,6 +551,7 @@ export type {
   RootRequestOutcome,
 } from "./workflows/root";
 export {
+  liftRootIdentitySuspension,
   listRootAuditEvents,
   listRootDataUsageReport,
   listRootIdentities,
@@ -586,6 +587,8 @@ export {
   type RootRevenuecatEventsQueryInput,
   type RootRevenuecatEventsReportPage,
   type RootRevenuecatEventsReportQueryInput,
+  type RootSuspensionApi,
+  suspendRootIdentity,
 } from "./workflows/root";
 export type {
   ClearRemoteSyncStateResult,

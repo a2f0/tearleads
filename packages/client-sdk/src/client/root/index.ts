@@ -1,5 +1,6 @@
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import {
+  liftRootIdentitySuspension,
   listRootAuditEvents,
   listRootDataUsageReport,
   listRootIdentities,
@@ -20,6 +21,7 @@ import {
   type RootIdentitiesApi,
   type RootIdentitiesPage,
   type RootIdentitiesQueryInput,
+  type RootIdentity,
   type RootIdentityDetail,
   type RootIdentityOrganization,
   type RootOpsHealthApi,
@@ -36,6 +38,8 @@ import {
   type RootRevenuecatEventsQueryInput,
   type RootRevenuecatEventsReportPage,
   type RootRevenuecatEventsReportQueryInput,
+  type RootSuspensionApi,
+  suspendRootIdentity,
 } from "../../workflows/root";
 import type {
   WorkflowRuntimeAuthInput,
@@ -54,7 +58,8 @@ type RootApi = RootIdentitiesApi &
   RootDataUsageApi &
   RootOpsHealthApi &
   RootRevenuecatApi &
-  RootAuditApi;
+  RootAuditApi &
+  RootSuspensionApi;
 
 export interface Root {
   /** Recorded operator actions, newest first; each listing is recorded too. */
@@ -97,6 +102,16 @@ export interface Root {
     userId: string,
   ): Promise<RootRequestOutcome<RootIdentityOrganization[]>>;
   loadIdentity(userId: string): Promise<RootRequestOutcome<RootIdentityDetail>>;
+  /** Lets a suspended identity's devices sign in again. */
+  liftIdentitySuspension(
+    userId: string,
+  ): Promise<RootRequestOutcome<RootIdentity>>;
+  /**
+   * Signs the identity out of every device and refuses its sign-in until the
+   * suspension is lifted. The server refuses root identities. A session change
+   * mid-flight leaves the outcome unknown; reload the identity to see it.
+   */
+  suspendIdentity(userId: string): Promise<RootRequestOutcome<RootIdentity>>;
 }
 
 /**
@@ -218,16 +233,18 @@ export function createRoot(runtimeService: RootRuntime): Root {
     get isAvailable() {
       return activeApi() !== null;
     },
-    ...rootLookups(guarded),
+    ...guardedRootCalls(guarded),
   };
 }
 
-/** Runs one lookup against the active root api, or refuses it locally. */
 type GuardedRootRequest = <Data>(
   request: (api: RootApi) => Promise<RootRequestOutcome<Data>>,
 ) => Promise<RootRequestOutcome<Data>>;
 
-function rootLookups(guarded: GuardedRootRequest): Omit<Root, "isAvailable"> {
+/** Every facade call, each run through the session's root gate. */
+function guardedRootCalls(
+  guarded: GuardedRootRequest,
+): Omit<Root, "isAvailable"> {
   return {
     listAuditEvents: (query) =>
       guarded((api) => listRootAuditEvents(api, query)),
@@ -254,5 +271,9 @@ function rootLookups(guarded: GuardedRootRequest): Omit<Root, "isAvailable"> {
     listIdentityOrganizations: (userId) =>
       guarded((api) => listRootIdentityOrganizations(api, userId)),
     loadIdentity: (userId) => guarded((api) => loadRootIdentity(api, userId)),
+    liftIdentitySuspension: (userId) =>
+      guarded((api) => liftRootIdentitySuspension(api, userId)),
+    suspendIdentity: (userId) =>
+      guarded((api) => suspendRootIdentity(api, userId)),
   };
 }
