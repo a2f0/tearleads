@@ -134,6 +134,8 @@ for (const environment of ["production", "staging", undefined]) {
         expect(html).toContain(`mailto:${legalDetails.email}`);
         expect(html).toContain(legalDetails.operator);
         expect(html).toContain(contentMarker);
+        // The related-documents nav marks the page itself as current.
+        expect(html).toContain(`<a href="/${route}/" aria-current="page">`);
         if (route === "privacy-policy") {
           for (const disclosure of [
             "Click analytics",
