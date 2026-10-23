@@ -4,7 +4,7 @@
   "tasks": {
     "e2e": {
       "inputs": [
-        "$TURBO_DEFAULT$",
+        "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/packages/website/src/clickTracking.ts"
       ]
     },

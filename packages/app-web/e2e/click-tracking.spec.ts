@@ -32,6 +32,8 @@ for (const host of clickTrackingHosts) {
     await page.locator("button").evaluate((element) => element.click());
     await page.locator("input").click();
     await page.locator("textarea").click();
+    await page.locator("#ignored").click();
+    await page.locator("[contenteditable]").click();
     await flushClickFixture(page);
     expect(requests).toEqual([]);
     await page.locator("button").click();
@@ -84,7 +86,7 @@ for (const host of clickTrackingHosts) {
   test(`${host.origin} discards queued clicks when privacy changes`, async ({
     page,
   }) => {
-    const { requests } = await openClickTrackingFixture(
+    const { requests, errors } = await openClickTrackingFixture(
       page,
       output,
       host.origin,
@@ -96,6 +98,7 @@ for (const host of clickTrackingHosts) {
     );
     await flushClickFixture(page);
     expect(requests).toEqual([]);
+    expect(errors).toEqual([]);
     await page.evaluate(() =>
       Object.defineProperty(navigator, "globalPrivacyControl", {
         value: false,
@@ -106,7 +109,7 @@ for (const host of clickTrackingHosts) {
   });
 
   test(`${host.origin} remains inert in development`, async ({ page }) => {
-    const { requests } = await openClickTrackingFixture(
+    const { requests, errors } = await openClickTrackingFixture(
       page,
       output,
       host.origin,
@@ -117,6 +120,7 @@ for (const host of clickTrackingHosts) {
     await page.locator("button").click();
     await flushClickFixture(page);
     expect(requests).toEqual([]);
+    expect(errors).toEqual([]);
   });
 }
 
@@ -128,7 +132,7 @@ for (const app of ["website", "web-app"]) {
     "https://app.tearleads.com:444",
   ]) {
     test(`${app} ignores unregistered origin ${origin}`, async ({ page }) => {
-      const { requests } = await openClickTrackingFixture(
+      const { requests, errors } = await openClickTrackingFixture(
         page,
         output,
         origin,
@@ -137,6 +141,7 @@ for (const app of ["website", "web-app"]) {
       await page.locator("button").click();
       await flushClickFixture(page);
       expect(requests).toEqual([]);
+      expect(errors).toEqual([]);
     });
   }
 }

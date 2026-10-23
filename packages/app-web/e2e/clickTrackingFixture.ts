@@ -52,8 +52,7 @@ export async function buildClickTrackingFixture(output: string): Promise<void> {
   for (const [name, entry] of [
     ["website", "../../website/src/clickTracking.ts"],
     ["app", "../src/clickTracking.ts"],
-  ]) {
-    if (!name || !entry) throw new Error("Missing click fixture entry");
+  ] as const) {
     await promisify(execFile)("bun", [
       "build",
       fileURLToPath(new URL(entry, import.meta.url)),
@@ -78,6 +77,14 @@ export async function openClickTrackingFixture(
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript((preference) => {
+    const pending: Promise<Response>[] = [];
+    const fetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const response = fetch(input, init);
+      pending.push(response);
+      return response;
+    };
+    Reflect.set(window, "settleClickRequests", () => Promise.all(pending));
     Object.defineProperty(navigator, "webdriver", {
       value: preference === "automation",
       configurable: true,
@@ -124,7 +131,8 @@ export async function openClickTrackingFixture(
         <button id="${privateMarker}" title="${privateMarker}">${privateMarker}</button>
         <div id="surface">${privateMarker}</div>
         <input value="${privateMarker}"><textarea>${privateMarker}</textarea>
-        <a data-ct-ignore href="/?${privateMarker}">Excluded</a>
+        <div data-ct-ignore><span id="ignored">Ignored subtree</span></div>
+        <div contenteditable="true">${privateMarker}</div>
         <script type="module">
           import { initializeClickTracking } from '/tracker.js';
           initializeClickTracking(${productionBuild});
@@ -144,7 +152,10 @@ export async function openClickTrackingFixture(
 }
 
 export async function flushClickFixture(page: Page): Promise<void> {
-  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
-  // Let any forbidden fetch from a blocked tracker reach the interception.
-  await page.waitForTimeout(100);
+  await page.evaluate(async () => {
+    window.dispatchEvent(new Event("pagehide"));
+    // CT starts fetch synchronously from pagehide. Wait for the intercepted
+    // response, including headers, so a forbidden request cannot arrive late.
+    await Reflect.get(window, "settleClickRequests")();
+  });
 }
