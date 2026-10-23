@@ -5,7 +5,11 @@ import {
 import type { RootAuditEventsResponse } from "@tearleads/validators/response";
 import { Hono } from "hono";
 import type { SessionEnv } from "../../middleware/session";
-import { listAuditEvents, RootAuditError } from "../../services/root/audit";
+import {
+  listAuditEvents,
+  RootAuditError,
+  resolveAuditSubject,
+} from "../../services/root/audit";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { respondToStatusError } from "../errorResponse";
 import { auditRootRequest, type RootRouterDeps } from "./shared";
@@ -28,6 +32,9 @@ export function createRootAuditRoute({
         await auditRootRequest(c, runtime, {
           action: listRootAuditEventsOperation.id,
           filters: { subjectId },
+          ...(subjectId === undefined
+            ? {}
+            : await resolveAuditSubject(runtime, subjectId)),
         });
         return c.json<RootAuditEventsResponse>(
           await listAuditEvents(runtime, {

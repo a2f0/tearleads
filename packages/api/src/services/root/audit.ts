@@ -3,6 +3,7 @@ import type { RootAuditEventsResponse } from "@tearleads/validators/response";
 import { isUuidV4String } from "@tearleads/validators/util";
 import { decodeCursor, encodeCursor } from "../../utils/cursor";
 import {
+  findRootAuditSubject,
   insertRootAuditEvent,
   listRootAuditEvents,
 } from "../../workflows/root/auditEvents";
@@ -28,6 +29,13 @@ export class RootAuditError extends Error {
  */
 export const recordRootAuditEvent =
   createDatabaseWorkflowService(insertRootAuditEvent);
+
+/**
+ * Viewing a subject's audit trail is a lookup of that subject, so the event
+ * names it as its target and it lands in the trail it viewed.
+ */
+export const resolveAuditSubject =
+  createDatabaseWorkflowService(findRootAuditSubject);
 
 /**
  * The listing filters an operator applied, as a query string with sorted keys.

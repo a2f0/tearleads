@@ -119,7 +119,10 @@ test("every root operation records who asked for what before it answers", async 
     {
       action: "root.auditEvents.list",
       path: `/root/audit-events?subjectId=${member.userId}`,
-      expected: { filter: `subjectId=${member.userId}` },
+      expected: {
+        filter: `subjectId=${member.userId}`,
+        targetUserId: member.userId,
+      },
     },
   ] as const;
 
@@ -170,6 +173,22 @@ test("a full signing key fingerprint is a lookup of the identity it names", asyn
   expect(
     await latestEvent("root.identities.list", `fingerprint=${unregistered}`),
   ).toMatchObject({ targetUserId: null });
+});
+
+test("viewing a subject's audit trail lands in that subject's trail", async () => {
+  const unknown = "33333333-3333-4333-8333-333333333333";
+  for (const [subjectId, expected] of [
+    [memberOrganizationId, { targetOrganizationId: memberOrganizationId }],
+    [unknown, { targetOrganizationId: null, targetUserId: null }],
+  ] as const) {
+    const response = await rootRequest(
+      `/root/audit-events?subjectId=${subjectId}`,
+    );
+    expect(response.status).toBe(200);
+    expect(
+      await latestEvent("root.auditEvents.list", `subjectId=${subjectId}`),
+    ).toMatchObject(expected);
+  }
 });
 
 test("an organization search that names no organization ID records no target", async () => {
