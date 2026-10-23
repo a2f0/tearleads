@@ -88,7 +88,7 @@ test("the Home carousel shows phones with light captures, in order", () => {
   // Contacts has no light capture, so it is left out.
   expect(home).not.toContain("Contacts on a phone");
   expect(home).toContain('media="(prefers-color-scheme: dark)"');
-  expect(home).toContain('href="/screenshots/mobile/explorer"');
+  expect(home).toContain('href="/screenshots/mobile/explorer/"');
 });
 
 test("the step buttons stay hidden until the script wires them", () => {

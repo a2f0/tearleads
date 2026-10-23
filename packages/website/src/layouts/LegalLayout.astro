@@ -18,10 +18,11 @@ const showDocument = shouldShowLegalDocument({
   isDevelopment: import.meta.env.DEV && import.meta.env.MODE === "development",
   environment: import.meta.env.PUBLIC_ENVIRONMENT,
 });
-const pathname = Astro.url.pathname.replace(/\/$/, "");
+// Links use the served trailing-slash form; match the path in that form too.
+const pathname = Astro.url.pathname.replace(/\/?$/, "/");
 const relatedPages = [
-  { href: "/privacy-policy", label: "Privacy Policy" },
-  { href: "/terms-of-service", label: "Terms of Service" },
+  { href: "/privacy-policy/", label: "Privacy Policy" },
+  { href: "/terms-of-service/", label: "Terms of Service" },
 ];
 ---
 

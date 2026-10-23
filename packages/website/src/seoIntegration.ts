@@ -34,6 +34,12 @@ async function canonicalPageUrls(
 export function seoIntegration(
   environment: string | undefined,
 ): AstroIntegration {
+  // Deployments name their tier; a local build leaves it unset. Any other
+  // value would publish indexable pages without a sitemap, so it fails.
+  if (environment && environment !== "production" && environment !== "staging")
+    throw new Error(
+      `PUBLIC_ENVIRONMENT must be production or staging, not ${environment}`,
+    );
   const isProduction = environment === "production";
   return {
     name: "tearleads-seo",

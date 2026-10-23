@@ -32,9 +32,10 @@ const { description, title, noIndex = false, structuredData } = Astro.props;
 const robots = robotsDirective({ isStaging, noIndex });
 // A page that asks not to be indexed names no URL for search to prefer.
 const canonical = robots === null ? canonicalUrl(Astro.url.pathname) : null;
-// Nav hrefs have no trailing slash (e.g. "/pricing"), but Astro.url.pathname
-// can include one ("/pricing/") depending on trailing-slash config. Normalize
-// so aria-current matching in SiteNav is reliable in dev and in the build.
+// SiteNav matches paths without a trailing slash (e.g. "/pricing"), but
+// Astro.url.pathname can include one ("/pricing/") depending on trailing-slash
+// config. Normalize so aria-current matching is reliable in dev and in the
+// build. Links themselves use the served "/pricing/" form (see seo.ts).
 const rawPathname = Astro.url.pathname;
 const pathname =
   rawPathname.length > 1 ? rawPathname.replace(/\/$/, "") : rawPathname;

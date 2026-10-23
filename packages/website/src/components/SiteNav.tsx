@@ -19,7 +19,7 @@ interface NavItem {
 
 const NAV_ITEMS: readonly NavItem[] = [
   {
-    href: "/features",
+    href: "/features/",
     label: "Features",
     current: (pathname) => {
       if (pathname === "/features") return "page";
@@ -27,12 +27,12 @@ const NAV_ITEMS: readonly NavItem[] = [
     },
   },
   {
-    href: "/security",
+    href: "/security/",
     label: "Security",
     current: (pathname) => (pathname === "/security" ? "page" : undefined),
   },
   {
-    href: "/pricing",
+    href: "/pricing/",
     label: "Pricing",
     current: (pathname) => {
       if (pathname === "/pricing") return "page";

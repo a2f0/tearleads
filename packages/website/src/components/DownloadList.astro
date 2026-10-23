@@ -18,7 +18,7 @@ import SectionHeader from "./SectionHeader.astro";
  * Home's download section (`id="download"`: the nav and footer link to
  * /#download). It resolves the current installer and checksum URLs at build
  * time; src/legalPublication.test.ts expects both installer URLs and the
- * literal href="/downloads/linux" in the built index.html.
+ * literal href="/downloads/linux/" in the built index.html.
  *
  * "Signed and notarized": packages/app-electrobun/electrobun.config.ts sets
  * codesign and notarize for every release tier, and releaseMacos.sh builds
@@ -81,7 +81,7 @@ const rows: readonly DownloadRow[] = [
         label: "SHA-256 checksum",
         ariaLabel: "SHA-256 checksum for Linux",
       },
-      { href: "/downloads/linux", label: "Install guide" },
+      { href: "/downloads/linux/", label: "Install guide" },
     ],
     action: {
       href: linux.installerUrl,
@@ -101,7 +101,7 @@ const rows: readonly DownloadRow[] = [
               label: "SHA-256 checksum",
               ariaLabel: "SHA-256 checksum for Windows",
             },
-            { href: "/downloads/windows", label: "Install guide" },
+            { href: "/downloads/windows/", label: "Install guide" },
           ],
           action: {
             href: windows.installerUrl,
@@ -188,6 +188,6 @@ const rows: readonly DownloadRow[] = [
   <p class="site-downloads-note">
     Verify each desktop download against its SHA-256 checksum before you
     install. The <a
-      href="/downloads/linux">Linux install guide</a> shows the command.
+      href="/downloads/linux/">Linux install guide</a> shows the command.
   </p>
 </section>

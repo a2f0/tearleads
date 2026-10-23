@@ -13,15 +13,23 @@ import {
 const website = resolve(import.meta.dir, "..");
 
 beforeAll(() => {
-  // Direct Astro builds skip prebuild; stage the screenshot manifest it needs.
-  const preparation = Bun.spawnSync(
+  // Direct Astro builds skip prebuild. Stage what it would: the icons and
+  // preview image (gitignored, and linked from every page) and the screenshot
+  // manifest.
+  for (const command of [
+    [process.execPath, "run", "images"],
     [process.execPath, "scripts/buildScreenshots.ts"],
-    { cwd: website, stdout: "pipe", stderr: "pipe" },
-  );
-  expect(
-    preparation.exitCode,
-    `${preparation.stdout.toString()}\n${preparation.stderr.toString()}`,
-  ).toBe(0);
+  ]) {
+    const preparation = Bun.spawnSync(command, {
+      cwd: website,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(
+      preparation.exitCode,
+      `${preparation.stdout.toString()}\n${preparation.stderr.toString()}`,
+    ).toBe(0);
+  }
 });
 
 async function build(environment: "production" | "staging", output: string) {
@@ -60,6 +68,30 @@ async function builtPages(output: string): Promise<Map<string, string>> {
   return pages;
 }
 
+/**
+ * Root-relative links that would not reach a built file directly: a page link
+ * without its trailing slash (which the host redirects) or a missing file.
+ */
+async function unservedLinks(
+  output: string,
+  documents: ReadonlyMap<string, string>,
+): Promise<string[]> {
+  const misses: string[] = [];
+  for (const [document, html] of documents) {
+    for (const [, href = ""] of html.matchAll(/\shref="(\/(?!\/)[^"#?]*)/g)) {
+      if (href === "/") continue;
+      const isFile = /\.[a-z0-9]+$/i.test(href);
+      const file = isFile ? href : `${href}index.html`;
+      const exists = await Bun.file(
+        resolve(output, `.${decodeURIComponent(file)}`),
+      ).exists();
+      if (!exists || (!isFile && !href.endsWith("/")))
+        misses.push(`${document} -> ${href}`);
+    }
+  }
+  return misses;
+}
+
 for (const environment of ["production", "staging"] as const) {
   test(`${environment} builds publish their tier's crawler metadata`, async () => {
     const output = await mkdtemp(resolve(tmpdir(), "tearleads-seo-build-"));
@@ -95,6 +127,18 @@ for (const environment of ["production", "staging"] as const) {
         ).toBe(staging);
         if (!staging) expect(html, path).not.toContain('name="robots"');
       }
+      // Unknown paths get the 404 page, which never names a URL.
+      const notFound = await Bun.file(resolve(output, "404.html")).text();
+      expect(notFound).toContain(
+        `<meta name="robots" content="${staging ? "noindex, nofollow" : "noindex"}">`,
+      );
+      expect(notFound).not.toContain('rel="canonical"');
+      expect(notFound).not.toContain('property="og:url"');
+      expect(notFound.match(/<h1[\s>]/g)).toHaveLength(1);
+      expect(
+        await unservedLinks(output, new Map([...pages, ["404", notFound]])),
+      ).toEqual([]);
+
       const home = pages.get("/") ?? "";
       const graph = home.match(
         /<script type="application\/ld\+json">(.*?)<\/script>/s,

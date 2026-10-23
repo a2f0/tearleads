@@ -127,7 +127,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.27",
+      "version": "0.0.28",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -336,7 +336,7 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.25",
+      "version": "0.1.26",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@astrojs/react": "7.1.1",

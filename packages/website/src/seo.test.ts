@@ -7,6 +7,7 @@ import {
   sitemapXml,
   withStagingNoindex,
 } from "./seo";
+import { seoIntegration } from "./seoIntegration";
 import { availablePlatforms, homeStructuredData } from "./structuredData";
 
 test("canonical URLs use the production origin and trailing-slash form", () => {
@@ -16,6 +17,17 @@ test("canonical URLs use the production origin and trailing-slash form", () => {
   expect(canonicalUrl("/features/sharing/")).toBe(
     "https://tearleads.com/features/sharing/",
   );
+});
+
+test("the build accepts only the deployment tiers or a local build", () => {
+  for (const environment of ["production", "staging", "", undefined]) {
+    expect(seoIntegration(environment).name).toBe("tearleads-seo");
+  }
+  for (const environment of ["prod", "Production", "preview"]) {
+    expect(() => seoIntegration(environment)).toThrow(
+      `PUBLIC_ENVIRONMENT must be production or staging, not ${environment}`,
+    );
+  }
 });
 
 test("staging pages are noindex, nofollow; drafts are noindex", () => {
