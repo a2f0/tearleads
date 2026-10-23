@@ -1,5 +1,8 @@
 import { expect, test } from "bun:test";
-import { createDefaultManagedApiDatabase } from "@tearleads/api-shared/postgres";
+import {
+  type ApiDatabase,
+  createDefaultManagedApiDatabase,
+} from "@tearleads/api-shared/postgres";
 import { rootAuditEvents, users } from "@tearleads/api-shared/schema";
 import { asc, eq } from "drizzle-orm";
 import {
@@ -9,6 +12,49 @@ import {
 } from "./rootAccess";
 
 const FINGERPRINT = "ab".repeat(32);
+
+async function insertIdentity(db: ApiDatabase): Promise<{ id: string }> {
+  const [inserted] = await db
+    .insert(users)
+    .values({
+      defaultOrganizationId: crypto.randomUUID(),
+      encapsulationKeyFingerprint: "cd".repeat(32),
+      encapsulationPublicKey: "kem",
+      fingerprint: FINGERPRINT,
+      signingPublicKey: "signing",
+    })
+    .returning({ id: users.id });
+  if (!inserted) {
+    throw new Error("expected inserted user");
+  }
+  return inserted;
+}
+
+/** `db`, except that every insert inside a transaction throws. */
+function withFailingTransactionInserts(db: ApiDatabase): ApiDatabase {
+  const failInserts = <T extends object>(tx: T): T =>
+    new Proxy(tx, {
+      get(target, property) {
+        if (property === "insert") {
+          return () => {
+            throw new Error("audit store unavailable");
+          };
+        }
+        const value: unknown = Reflect.get(target, property);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    });
+  return new Proxy(db, {
+    get(target, property) {
+      if (property === "transaction") {
+        return (run: (tx: object) => Promise<unknown>) =>
+          target.transaction((tx) => run(failInserts(tx)));
+      }
+      const value: unknown = Reflect.get(target, property);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+}
 
 test("root access args require exactly one hex fingerprint", () => {
   expect(parseRootAccessArgs([FINGERPRINT])).toEqual({
@@ -32,19 +78,7 @@ test("root access flips is_root for the fingerprint's identity and is idempotent
   const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
   try {
     await managed.migrate();
-    const [inserted] = await managed.db
-      .insert(users)
-      .values({
-        defaultOrganizationId: crypto.randomUUID(),
-        encapsulationKeyFingerprint: "cd".repeat(32),
-        encapsulationPublicKey: "kem",
-        fingerprint: FINGERPRINT,
-        signingPublicKey: "signing",
-      })
-      .returning({ id: users.id });
-    if (!inserted) {
-      throw new Error("expected inserted user");
-    }
+    const inserted = await insertIdentity(managed.db);
 
     const readIsRoot = async () => {
       const [row] = await managed.db
@@ -126,19 +160,7 @@ test("concurrent grants record a single root access change", async () => {
   const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
   try {
     await managed.migrate();
-    const [inserted] = await managed.db
-      .insert(users)
-      .values({
-        defaultOrganizationId: crypto.randomUUID(),
-        encapsulationKeyFingerprint: "cd".repeat(32),
-        encapsulationPublicKey: "kem",
-        fingerprint: FINGERPRINT,
-        signingPublicKey: "signing",
-      })
-      .returning({ id: users.id });
-    if (!inserted) {
-      throw new Error("expected inserted user");
-    }
+    await insertIdentity(managed.db);
 
     const results = await Promise.all([
       setIdentityRootAccess(managed.db, {
@@ -152,6 +174,45 @@ test("concurrent grants record a single root access change", async () => {
     ]);
 
     expect(results.filter((result) => result.changed)).toHaveLength(1);
+    expect(await managed.db.select().from(rootAuditEvents)).toHaveLength(1);
+  } finally {
+    await managed.close();
+  }
+}, 15_000);
+
+test("a root access change whose audit row cannot be written is rolled back", async () => {
+  const managed = createDefaultManagedApiDatabase({ API_DATABASE: "memory" });
+  try {
+    await managed.migrate();
+    const inserted = await insertIdentity(managed.db);
+    const readIsRoot = async () => {
+      const [row] = await managed.db
+        .select({ isRoot: users.isRoot })
+        .from(users)
+        .where(eq(users.id, inserted.id));
+      return row?.isRoot;
+    };
+    const failing = withFailingTransactionInserts(managed.db);
+
+    await expect(
+      setIdentityRootAccess(failing, {
+        fingerprint: FINGERPRINT,
+        isRoot: true,
+      }),
+    ).rejects.toThrow("audit store unavailable");
+    await expect(readIsRoot()).resolves.toBe(false);
+
+    await setIdentityRootAccess(managed.db, {
+      fingerprint: FINGERPRINT,
+      isRoot: true,
+    });
+    await expect(
+      setIdentityRootAccess(failing, {
+        fingerprint: FINGERPRINT,
+        isRoot: false,
+      }),
+    ).rejects.toThrow("audit store unavailable");
+    await expect(readIsRoot()).resolves.toBe(true);
     expect(await managed.db.select().from(rootAuditEvents)).toHaveLength(1);
   } finally {
     await managed.close();
