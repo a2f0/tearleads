@@ -180,7 +180,7 @@ class SessionService implements Session {
               signingKeyPair.signingPrivateKey,
             ),
       () => {
-        if (this.snapshotValue === snapshotAtStart) this.logout();
+        if (this.authToken === snapshotAtStart.authToken) this.logout();
       },
     );
 

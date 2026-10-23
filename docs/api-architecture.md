@@ -143,7 +143,11 @@ sessions. `POST /auth/verify` refuses a suspended identity's valid signature
 with 403 and code `account_suspended`, which clients treat as terminal rather
 than renewing. Verify re-reads the flag after it stores the new session and
 revokes that session if a suspension committed meanwhile, so a sign-in racing
-the sweep cannot survive it. Repeating a suspension sweeps sessions again.
+the sweep cannot survive it. A sweep that fails answers 500 and can be
+repeated; meanwhile `requireAuth` re-reads `users.suspended_at` on its
+throttled activity path (about once a minute per session), so a session the
+sweep missed is refused within one activity interval. A failed check fails the
+request rather than admitting it.
 
 ## Code Layers
 

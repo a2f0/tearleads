@@ -20,6 +20,7 @@ function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
 
 async function withSuspendedServer(
   run: (sdk: Tearleads, verifies: () => number) => Promise<void>,
+  holdVerify: Promise<void> = Promise.resolve(),
 ): Promise<void> {
   const { close, execSql } = await createTestExecSql("session-suspension");
   const previousFetch = globalThis.fetch;
@@ -37,6 +38,7 @@ async function withSuspendedServer(
     }
     if (url.pathname === "/auth/verify") {
       verifies += 1;
+      await holdVerify;
       return jsonResponse(
         {
           authenticated: false,
@@ -92,4 +94,20 @@ test("a suspended login rejects with the typed reason and signs out", async () =
     expect(sdk.session.isAuthenticated).toBe(false);
     expect(verifies()).toBe(1);
   });
+});
+
+test("a suspended login still signs out after the organization changed mid-flight", async () => {
+  const release = Promise.withResolvers<void>();
+  await withSuspendedServer(async (sdk, verifies) => {
+    const login = sdk.session.login();
+    while (verifies() === 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+    }
+    sdk.session.setContext({ organizationId: "org-2" });
+    release.resolve();
+
+    await expect(login).rejects.toBeInstanceOf(AccountSuspendedError);
+    expect(sdk.session.authToken).toBeNull();
+    expect(sdk.session.isAuthenticated).toBe(false);
+  }, release.promise);
 });

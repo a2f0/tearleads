@@ -18,18 +18,13 @@ export function withRootTestSuspension(
   };
 }
 
-function respond(userId: string) {
-  const identity = ROOT_TEST_IDENTITIES.find(
-    (candidate) => candidate.userId === userId,
-  );
+function findIdentity(userId: string) {
+  return ROOT_TEST_IDENTITIES.find((candidate) => candidate.userId === userId);
+}
+
+function respond(identity: RootIdentitySummaryResponse | undefined) {
   if (!identity) {
     return HttpResponse.json({ error: "User not found" }, { status: 404 });
-  }
-  if (identity.isRoot) {
-    return HttpResponse.json(
-      { error: "Root identities cannot be suspended" },
-      { status: 409 },
-    );
   }
   return HttpResponse.json<RootIdentitySuspensionResponse>({
     identity: withRootTestSuspension(identity),
@@ -40,15 +35,22 @@ export const rootSuspensionHandlers = [
   http.put<{ userId: string }>(
     "http://localhost:3001/root/identities/:userId/suspension",
     ({ params }) => {
+      const identity = findIdentity(params.userId);
+      if (identity?.isRoot) {
+        return HttpResponse.json(
+          { error: "Root identities cannot be suspended" },
+          { status: 409 },
+        );
+      }
       suspendedUserIds.add(params.userId);
-      return respond(params.userId);
+      return respond(identity);
     },
   ),
   http.delete<{ userId: string }>(
     "http://localhost:3001/root/identities/:userId/suspension",
     ({ params }) => {
       suspendedUserIds.delete(params.userId);
-      return respond(params.userId);
+      return respond(findIdentity(params.userId));
     },
   ),
 ];

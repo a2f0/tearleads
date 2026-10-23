@@ -59,9 +59,10 @@ function SuspendConfirmationDialog({
 }
 
 /**
- * Suspend and lift controls for a non-root identity. Root identities, the
- * operator's own among them, are managed only through the API CLI, so they get
- * no controls here and the server refuses them anyway.
+ * Suspend and lift controls. A root identity, the operator's own among them,
+ * is never offered suspension, which the server refuses anyway. One granted
+ * root while suspended keeps the lift control, since granting root does not
+ * lift a suspension.
  */
 export function IdentitySuspension({
   identity,
@@ -75,7 +76,7 @@ export function IdentitySuspension({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (identity.isRoot) {
+  if (identity.isRoot && !identity.suspendedAt) {
     return null;
   }
 

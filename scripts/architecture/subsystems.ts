@@ -205,14 +205,16 @@ export const subsystems: readonly Subsystem[] = [
     name: "Session Lifecycle",
     package: "api",
     responsibility:
-      "Bearer-token session storage, activity/IP tracking, history request lifetime, request-IP binding, and session revocation (publish session_revoked).",
+      "Bearer-token session storage, activity/IP tracking with a suspended-account re-check, history request lifetime, request-IP binding, and session revocation (publish session_revoked).",
     seam: "middleware/session.ts (requireAuth) and realtime/sessionRevocation.ts",
     paths: [
       `${api}/middleware/requestIp.ts`,
       `${api}/middleware/requestLifetime.ts`,
       `${api}/utils/principalHistoryWork.ts`,
       `${api}/middleware/session.ts`,
+      `${api}/middleware/sessionActivity.ts`,
       `${api}/middleware/userActivity.ts`,
+      `${api}/middleware/userSuspension.ts`,
       `${api}/realtime/sessionRevocation.ts`,
       `${api}/validators/session.ts`,
     ],

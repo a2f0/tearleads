@@ -24,16 +24,23 @@ import {
 } from "./requestIp";
 import type { RequestLifetimeBindings } from "./requestLifetime";
 import {
+  persistSessionActivity,
+  shouldUpdateSessionActivity,
+  withSessionActivity,
+} from "./sessionActivity";
+import {
   recordUserActivity as defaultRecordUserActivity,
   type UserActivityRecorder,
 } from "./userActivity";
+import {
+  isUserSuspended as defaultIsUserSuspended,
+  type UserSuspensionCheck,
+} from "./userSuspension";
 
 const SESSION_TTL_SECONDS = 86400;
 const SESSION_ID_PREFIX = "session-id:";
 const SESSION_PREFIX = "session:";
 const USER_SESSIONS_PREFIX = "user-sessions:";
-const SESSION_ACTIVITY_UPDATE_INTERVAL_MS = 60000;
-const MAX_SESSION_IP_ADDRESSES = 64;
 
 type SessionStoreAddSetMember = (key: string, member: string) => Promise<void>;
 type SessionStoreDelete = (key: string) => Promise<void>;
@@ -91,37 +98,6 @@ function extractToken(c: Context): string | null {
   }
   const token = header.slice(7);
   return isSessionId(token) ? token : null;
-}
-
-function withSessionActivity(
-  session: SessionData,
-  ipAddress: string | null,
-  lastActiveAt: number,
-): SessionData {
-  const nextIpAddresses =
-    ipAddress && !session.ipAddresses.includes(ipAddress)
-      ? [...session.ipAddresses, ipAddress].slice(-MAX_SESSION_IP_ADDRESSES)
-      : session.ipAddresses;
-
-  return {
-    ...session,
-    ipAddresses: nextIpAddresses,
-    lastActiveAt,
-    lastActiveIp: ipAddress ?? session.lastActiveIp,
-  };
-}
-
-function shouldUpdateSessionActivity(
-  session: SessionData,
-  ipAddress: string | null,
-  now: number,
-): boolean {
-  return (
-    now - session.lastActiveAt >= SESSION_ACTIVITY_UPDATE_INTERVAL_MS ||
-    (ipAddress !== null &&
-      (session.lastActiveIp !== ipAddress ||
-        !session.ipAddresses.includes(ipAddress)))
-  );
 }
 
 function parseSessionData(raw: string): SessionData | null {
@@ -199,6 +175,7 @@ export function createRequireAuth(
   getSession: SessionStoreGet,
   setSessionKeepTtl: SessionStoreSetKeepTtl,
   recordUserActivity?: UserActivityRecorder,
+  isUserSuspended?: UserSuspensionCheck,
 ) {
   return createMiddleware<SessionEnv>(
     async (c: Context<SessionEnv>, next: Next) => {
@@ -243,22 +220,29 @@ export function createRequireAuth(
         ? withSessionActivity(parsed, ipAddress, now)
         : parsed;
 
+      // Refused before activity advances, so every later request re-checks.
+      // A failed check fails the request: suspension enforcement is closed.
+      if (
+        shouldUpdateActivity &&
+        isUserSuspended &&
+        (await isUserSuspended(session.userId))
+      ) {
+        return c.json(
+          {
+            code: SESSION_ERROR_CODES.refreshRequired,
+            error: "Account suspended",
+          },
+          401,
+        );
+      }
       if (shouldUpdateActivity) {
-        try {
-          await setSessionKeepTtl(sessionKey(token), JSON.stringify(session));
-        } catch (error) {
-          console.error("Failed to update session activity metadata:", error);
-        }
-        if (recordUserActivity) {
-          try {
-            await recordUserActivity({
-              lastActiveAt: now,
-              userId: session.userId,
-            });
-          } catch (error) {
-            console.error("Failed to record user activity:", error);
-          }
-        }
+        await persistSessionActivity({
+          key: sessionKey(token),
+          now,
+          recordUserActivity,
+          session,
+          setSessionKeepTtl,
+        });
       }
 
       c.set("session", session);
@@ -276,6 +260,7 @@ export const requireAuth = createRequireAuth(
   get,
   setKeepTtl,
   defaultRecordUserActivity,
+  defaultIsUserSuspended,
 );
 
 export function createListUserSessions(

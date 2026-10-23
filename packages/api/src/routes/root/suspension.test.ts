@@ -7,6 +7,7 @@ import { and, eq } from "drizzle-orm";
 import { requestChallenge, submitVerify } from "../../../test/helpers/api";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";
+import { get, setKeepTtl } from "../../adapters/keyValueStore";
 import { createRouteApp, routeApp } from "../../routeApp";
 import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
@@ -195,4 +196,40 @@ test("a suspension whose audit event cannot be written changes nothing", async (
   expect(response.status).toBe(500);
   expect(await suspendedAt(member.userId)).toBeNull();
   expect(await sessionStatus(member.token)).toBe(200);
+});
+
+// Moves the session's last activity a minute and more into the past, as if
+// its holder had paused, so its next request takes the throttled path.
+async function ageSession(token: string | undefined): Promise<void> {
+  const key = `session:${token}`;
+  const raw = await get(key);
+  if (!raw) throw new Error("expected a stored session");
+  await setKeepTtl(
+    key,
+    JSON.stringify({ ...JSON.parse(raw), lastActiveAt: Date.now() - 120_000 }),
+  );
+}
+
+test("a session a failed sweep missed is refused on its next throttled request", async () => {
+  const app = createRouteApp({
+    destroyUserSession: async () => {
+      throw new Error("session store unavailable");
+    },
+  });
+
+  const response = await suspension(member.userId, "PUT", app);
+
+  expect(response.status).toBe(500);
+  expect(await suspendedAt(member.userId)).not.toBeNull();
+  await ageSession(member.token);
+  const refused = await routeApp.request("/auth/sessions", {
+    headers: { Authorization: `Bearer ${member.token}` },
+  });
+  expect(refused.status).toBe(401);
+  expect(await refused.json()).toMatchObject({
+    code: "session_refresh_required",
+  });
+
+  expect((await suspension(member.userId, "DELETE")).status).toBe(200);
+  await authenticate(member);
 });

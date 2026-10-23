@@ -84,7 +84,7 @@
     },
     "docs/subsystems.md": {
       "lines": 114,
-      "bytes": 20376
+      "bytes": 20475
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -339,8 +339,8 @@
       "bytes": 20435
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 625,
-      "bytes": 23798
+      "lines": 627,
+      "bytes": 23923
     }
   },
   "suppressions": {
