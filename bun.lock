@@ -51,7 +51,7 @@
     },
     "packages/api-cli": {
       "name": "@tearleads/api-cli",
-      "version": "0.1.13",
+      "version": "0.1.14",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1155.0",
         "@tearleads/api-shared": "workspace:*",
@@ -94,7 +94,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.67",
+      "version": "0.1.68",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -218,7 +218,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.92",
+      "version": "0.1.93",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
