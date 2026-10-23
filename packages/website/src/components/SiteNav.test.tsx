@@ -64,6 +64,12 @@ test("pages inside a section mark that section as current", () => {
     "/features": "page",
     "/pricing": null,
   });
+  for (const pathname of ["/features/authorship", "/features/sharing"]) {
+    expect(currentStates(staticNav(pathname))).toMatchObject({
+      "/features": "true",
+      "/pricing": null,
+    });
+  }
 });
 
 function renderNav() {

@@ -77,8 +77,10 @@ export const rootConsoleHandlers = [
             organizationId: identity.defaultOrganizationId,
             roster: {
               disabledAt: null,
+              holdsSeat: true,
               joinedAt: "2026-08-01T00:00:00.000Z",
               status: "active",
+              syncPausedAt: null,
             },
           },
         ],

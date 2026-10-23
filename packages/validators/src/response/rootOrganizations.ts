@@ -39,8 +39,21 @@ const RootOrganizationBillingResponseSchema = loosePlainObject({
   providerProductId: z.string().nullable(),
   providerTransactionId: z.string().nullable(),
   entitlementId: z.string().nullable(),
+  purgeStartedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
+});
+
+/** Persisted group bindings plus roster and seat counts; no names or content. */
+const RootOrganizationOverviewResponseSchema = loosePlainObject({
+  adminGroupId: nonEmptyStringSchema,
+  memberGroupId: nonEmptyStringSchema,
+  activeMemberCount: nonNegativeIntegerSchema,
+  disabledMemberCount: nonNegativeIntegerSchema,
+  /** Active members who paused the organization's sync to their devices. */
+  syncPausedMemberCount: nonNegativeIntegerSchema,
+  /** Unreleased billable-seat assignments, the billing panel's assigned seats. */
+  openSeatAssignmentCount: nonNegativeIntegerSchema,
 });
 
 const RootOrganizationStripeResponseSchema = loosePlainObject({
@@ -61,6 +74,7 @@ const RootOrganizationStripeResponseSchema = loosePlainObject({
 
 export const RootOrganizationDetailResponseSchema = loosePlainObject({
   organization: RootOrganizationSummaryResponseSchema,
+  overview: RootOrganizationOverviewResponseSchema,
   billing: RootOrganizationBillingResponseSchema.nullable(),
   stripe: RootOrganizationStripeResponseSchema.nullable(),
   /** The 50 most recent merged durable billing events. */

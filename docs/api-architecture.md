@@ -115,10 +115,10 @@ console reaches it through the typed client):
 | --- | --- |
 | List platform identities (newest first, cursor paged; optional filters: `fingerprint`, the first 8–64 lowercase hex characters of a signing key fingerprint, exact `userId`, and `rootOnly`) | `GET /root/identities` |
 | Get one identity with its last activity and live sessions | `GET /root/identities/:userId` |
-| List an identity's organizations with roster status and billing standing | `GET /root/identities/:userId/organizations` |
+| List an identity's organizations with roster status, sync pause, seat holding, and billing standing | `GET /root/identities/:userId/organizations` |
 | Page platform organizations newest first, optionally narrowed to one exact organization ID (names are encrypted, so there is no name search) | `GET /root/organizations` |
-| Read an organization's persisted billing, Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
-| Page an organization's roster identities, including disabled entries | `GET /root/organizations/:organizationId/identities` |
+| Read an organization's group bindings, roster and open-seat counts, persisted billing (including purge progress), Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
+| Page an organization's roster identities, including disabled entries, with each member's sync pause and seat holding | `GET /root/organizations/:organizationId/identities` |
 | Read an organization's synced data usage | `GET /root/organizations/:organizationId/data-usage` |
 | Page synced data usage by organization, newest organizations first, with the same exact-ID filter | `GET /root/reports/data-usage` |
 

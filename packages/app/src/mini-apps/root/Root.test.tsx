@@ -134,6 +134,7 @@ test("the root console lists identities and opens their detail", async () => {
       ),
     ).toBeTruthy();
     expect(view.getByText("trialing")).toBeTruthy();
+    expect(view.getByText("Not paused")).toBeTruthy();
     expect(view.getAllByText("203.0.113.7").length).toBeGreaterThanOrEqual(2);
 
     fireEvent.click(view.getByRole("button", { name: "Back" }));
@@ -218,12 +219,18 @@ test("operators browse organizations, inspect invoices, and traverse both direct
       ROOT_TEST_ORGANIZATION.organization.organizationId,
     );
     fireEvent.click(organization);
-    await view.findByRole("table", { name: "Organization" });
+    const overview = await view.findByRole("table", { name: "Organization" });
+    expect(
+      within(overview).getByText(ROOT_TEST_ORGANIZATION.overview.adminGroupId),
+    ).toBeTruthy();
+    expect(within(overview).getByText("3 of 5 licensed")).toBeTruthy();
+    expect(within(overview).getByText("Not started")).toBeTruthy();
     fireEvent.click(view.getByRole("tab", { name: "Billing" }));
     const billing = await view.findByRole("table", {
       name: "Organization billing",
     });
     expect(within(billing).getByText("cus_test")).toBeTruthy();
+    expect(within(billing).getByText("Purge started")).toBeTruthy();
     expect(view.getByRole("table", { name: "Stripe billing" })).toBeTruthy();
     fireEvent.click(view.getByRole("tab", { name: "History" }));
     const history = view.getByText(/INVOICE_PAID/);
@@ -238,6 +245,8 @@ test("operators browse organizations, inspect invoices, and traverse both direct
     });
     const fingerprint = ROOT_TEST_IDENTITIES[1]?.signingKeyFingerprint;
     if (!fingerprint) throw new Error("Expected member fingerprint");
+    expect(await within(roster).findByText(/^Paused /)).toBeTruthy();
+    expect(within(roster).getByText("Yes")).toBeTruthy();
     fireEvent.click(
       await within(roster).findByRole("button", {
         name: `Open identity ${fingerprint}`,

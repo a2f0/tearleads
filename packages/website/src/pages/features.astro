@@ -136,8 +136,8 @@ const tools = [
               </p>
             </div>
           </div>
-          <a class="site-link features-action" href="/security#verified-sharing">
-            How sharing is verified<span aria-hidden="true"> →</span>
+          <a class="site-link features-action" href="/features/sharing">
+            Explore sharing<span aria-hidden="true"> →</span>
           </a>
         </div>
       </div>
@@ -158,7 +158,11 @@ const tools = [
         titleId="authorship-title"
         title="Authorship"
         lede="Document Info in Explorer lists a note's contributors with their edit counts and highlights which contributor wrote each character. The same view shows the note's links, attachments, and security details."
-      />
+      >
+        <a slot="action" class="site-link" href="/features/authorship">
+          Explore authorship<span aria-hidden="true"> →</span>
+        </a>
+      </SectionHeader>
       <Screenshot
         name="note-blame"
         crop="1440 / 1280"
