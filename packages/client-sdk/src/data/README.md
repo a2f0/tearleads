@@ -2,9 +2,9 @@
 
 The client SDK keeps SQLite execution explicit. `ExecSql` carries the active
 database connection, serialized mutation queue, and nested transaction
-behavior, so it should not be replaced with a global database handle.
+behavior, so it is never replaced with a global database handle.
 
-The intended dependency direction is:
+The dependency direction is:
 
 ```text
 host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite + data/blobs + shared helpers
@@ -20,24 +20,23 @@ host adapters -> SDK stores -> SDK workflows -> data/persistence + data/sqlite +
   API calls, local persistence, key/projection verification, and transaction
   boundaries.
 - Persistence modules under `persistence/` are domain-specific SQLite stores.
-  They keep taking explicit `ExecSql` values and should not import React,
-  providers, UI, hooks, or workflows.
+  They take explicit `ExecSql` values and do not import React, providers, UI,
+  hooks, or workflows.
 - SQLite internals under `sqlite/` own the executor adapter, Drizzle schema
   definitions, transaction serialization, and shared table helpers.
 - Blob storage internals under `blobs/` own the OPFS/memory byte stores.
-  Host adapters and stores should consume the blob workflow facade instead of
+  Host adapters and stores consume the blob workflow facade instead of
   importing these stores directly.
 - Blob byte/store contracts live in `blobs/blobContracts.ts`. Workflows and
   other data modules import them directly; stores reach them through the blob
   workflow facade, like the rest of `blobs/`.
 - Sync coordination helpers under `sync/` own shared lane scheduling and
-  prerequisite checks. Workflows compose them; presentation should stay behind
-  stores/providers. Runtime-idle helpers that need to observe sync activity
-  should use the sync workflow facade instead of importing these internals.
+  prerequisite checks. Workflows compose them; presentation stays behind
+  stores/providers. Runtime-idle helpers that observe sync activity use the
+  sync workflow facade instead of importing these internals.
 - Document summary contracts live in `documents/documentSummary.ts` so
-  presentation,
-  stores, workflows, and persistence can share document read-model shapes
-  without importing document shared-helper internals.
+  presentation, stores, workflows, and persistence can share document
+  read-model shapes without importing document shared-helper internals.
 - Key and projection verification lives under `keyingProjectionVerification/`,
   entered through its `index.ts` facade. The keying primitives it shares with
   persistence and workflows (canonical JSON, effective access levels, stable
@@ -64,16 +63,15 @@ and executor contracts belong behind `@tearleads/client-sdk/sqlite`. Host
 application code should prefer the `Tearleads` instance and otherwise import
 public local keyring helpers, document contracts, store facades, or workflow
 facade symbols from `@tearleads/client-sdk`.
-Cross-package callers should not import `@tearleads/client-sdk/data/*`
-subpaths; promote the needed contract through the SDK root facade or the SQLite
-facade instead.
+Cross-package callers do not import `@tearleads/client-sdk/data/*` subpaths;
+promote the needed contract through the SDK root facade or the SQLite facade
+instead.
 
-Package exports are explicit and should stop at the root SDK and SQLite
-runtime boundaries. Adding a new cross-package API should usually mean adding
-or widening a domain facade export from `@tearleads/client-sdk`, rather than
-exporting a nested implementation file. Low-level `data/` modules should stay
-package-internal unless there is a deliberate decision to promote a new public
-SDK contract.
+Package exports are explicit and stop at the root SDK and SQLite runtime
+boundaries. A cross-package API means adding or widening a domain facade export
+from `@tearleads/client-sdk`, not exporting a nested implementation file.
+Low-level `data/` modules stay package-internal unless deliberately promoted to
+a public SDK contract.
 
 Use public package entry points such as `@tearleads/client-sdk` and
 `@tearleads/client-sdk/sqlite` instead of importing implementation modules or
@@ -98,8 +96,7 @@ transaction-scoped workflow code, pass the active executor explicitly so all
 reads and writes share the same SQLite connection and serialization boundary.
 
 Adapter/store code should not thread raw `ExecSql` through every intermediate
-helper when a workflow context would express the operation more clearly. That
-cleanup should be incremental and behavior-preserving.
+helper when a workflow context would express the operation more clearly.
 
 ## Rules
 
@@ -123,8 +120,8 @@ cleanup should be incremental and behavior-preserving.
 - Production host stores, providers, and identity runtime should consume the
   SDK root facade rather than importing `data/persistence/`, `data/sqlite/`,
   `data/blobs/` directly. The host application's data provider is the executor
-  construction boundary. Tests may still use low-level
-  persistence stores for fixtures and characterization checks.
+  construction boundary. Tests may use low-level persistence stores for
+  fixtures and characterization checks.
 - Production presentation files should not accept, pass, or import raw `ExecSql`
   values. Bind the executor inside stores/providers and expose domain-shaped
   actions or read models instead.
@@ -132,7 +129,8 @@ cleanup should be incremental and behavior-preserving.
   `data/` internals. Low-level persistence characterization belongs in
   `packages/client-sdk` tests, not host tests.
 
-`bun run lint:architecture` enforces the current high-confidence subset of
-these rules for `packages/client-sdk/src`, `packages/app/src`, and
-`packages/api/src`, plus the SDK package export, private source-consumption, and
-workflow taxonomy guardrails documented in `docs/developer/client-sdk.md`.
+`bun run lint:architecture` enforces a high-confidence subset of these rules
+for `packages/client-sdk/src`, `packages/app/src`, and `packages/api/src`, plus
+the SDK package export, private source-consumption, and workflow taxonomy
+guardrails documented in the
+[client SDK guide](../../../../docs/developer/client-sdk.md).

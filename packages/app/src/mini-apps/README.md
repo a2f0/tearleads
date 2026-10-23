@@ -3,23 +3,26 @@
 The mini-app layer owns app-local window composition and route-style messages
 between mini-app windows.
 
-`bus.tsx` is intentionally SDK-independent infrastructure. It coordinates
-window open, restore, focus, and message delivery through `@tearleads/windowing`
-(window state and the launcher's navigation), and it receives concrete mini-app
-definitions from its caller. It should not import the SDK or other
-`@tearleads/*` packages beyond `@tearleads/windowing`, app runtime providers,
-app stores, document type registries, or concrete mini-app implementations.
+`bus.tsx` is intentionally SDK-independent infrastructure. It opens or raises a
+mini-app through the app's navigation actions
+(`../navigation/AppNavigationProvider.tsx`, over the windowing launcher) and
+queues each message until a subscriber of the target app claims it; a message
+sent while opening a window waits for that window. It must not import the SDK
+or other `@tearleads/*` packages beyond `@tearleads/windowing`, app runtime
+providers, app stores, document type registries, or concrete mini-app
+implementations.
 
 The window core (`@tearleads/windowing`) is app-agnostic: it stores a window's
 `appId` as an opaque string and never imports mini-app code. Its launcher runs
 the mini-apps from a definition: `registry.ts` gives it `MINI_APP_LAUNCHER`,
 every mini-app's definition (title, icon, component, sidebar default) with the
-menu order and Explorer as the routed shell's home. The package opens them in
-windows (`MiniAppWindow`, whose boundary slot takes the app's
-`MiniAppBoundary`) or shows one at a time in its routed shell. Both the regular
-app and the demo run this one launcher; their host profiles differ in the
-layout they prefer. `isMiniAppId` narrows a window's `appId` back to a
-`MiniAppId`.
+menu order and Explorer as both the routed shell's home and the empty
+desktop's default window. The package opens them in windows (`MiniAppWindow`,
+whose `AppBoundary` slot takes `LauncherMiniAppBoundary` from
+`../components/mini-app/MiniAppBoundary.tsx`) or shows one at a time in its
+routed shell. Both the regular app and the demo run this one launcher; their
+host profiles differ in the layout they prefer. `isMiniAppId` narrows a
+window's `appId` back to a `MiniAppId`.
 
 `catalog.ts` holds each app's title, icon, and menu order without importing
 any app, so chrome that only labels or lists apps stays light; `registry.ts`
@@ -66,7 +69,7 @@ Everything else lives in a feature folder. Recurring folder roles:
 
 Tests sit beside the code they exercise, in the same folder.
 
-`.ls-lint.yml` pins this shape: reorganized mini-apps carry a directory
+`.ls-lint.yml` pins this shape for the larger mini-apps with a directory
 allowlist plus per-directory file-count budgets. Adding a folder or growing a
 budget is fine — do it deliberately in `.ls-lint.yml` rather than letting a
-root re-accumulate loose files.
+root accumulate loose files.

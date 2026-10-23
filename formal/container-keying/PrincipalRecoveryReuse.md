@@ -1,8 +1,7 @@
 # Principal recovery reuse
 
 [`PrincipalRecoveryReuse.tla`](./PrincipalRecoveryReuse.tla) checks how
-authenticated principal-history recovery is reused
-([#2522](https://github.com/a2f0/tearleads/issues/2522)). An honest server
+authenticated principal-history recovery is reused. An honest server
 advances the organization directory head; a group revocation is a rotation
 committed with a directory successor, so it is an advance. Each workflow
 operation reads the server-current head once (the bare discovery read), then
@@ -70,10 +69,9 @@ hints. Ten negative controls in
   server forever, the bricked-device shape `NoBrickedDevice` forbids.
 - `MemoPerOperation = FALSE` violates `FreshPerOperation`: a memo that outlives
   its operation serves a directory older than the next operation's start. A
-  caller's policy cache that remembered resolved evidence was a second such
-  memo with its own, drifting rules (Codex re-reviews of 9c9c8dcc2 and
-  343e89875); it was removed, and `principalRecoveryOperation.test.ts` reuses
-  one cache across two operations, across a hint, and past a named group pin.
+  caller's shared policy cache must not become a second such memo:
+  `principalRecoveryOperation.test.ts` shares one cache across two operations,
+  across a hint, and past a named group pin.
 - `EvictOnHint = FALSE` violates `NoStaleAfterHint`: a hinted advance would not
   reach later collections of an operation already in flight.
 - `EvictOnCheckpoint = FALSE` violates `ReuseCoversPin`: another operation's
@@ -85,11 +83,11 @@ hints. Ten negative controls in
 - `StampObservedEpoch = FALSE` violates `NoStaleAfterHint`: stamping an entry
   with the epoch current when it is stored, rather than the one observed before
   its reads (or its source's), lets a hint that arrived mid-collection go
-  unnoticed by later collections. This is the race the Codex review of
-  e262ab3ff found; `principalRecoveryMemoHintRace.test.ts` reproduces it.
+  unnoticed by later collections. `principalRecoveryMemoHintRace.test.ts`
+  reproduces this race.
 - `CarryProducerLifetime = FALSE` violates `NoUseAfterProducerExpiry`: a value
   handed out under the consumer's lifetime alone stays usable after the
-  collection that produced it expired (Codex re-review of 5c8239daf).
+  collection that produced it expired.
   `principalRecoveryOperation.test.ts` and `principalRecoveryMemo.test.ts` expire
   the producer after hand-out and before the consumer's use.
 - `PrimeRequiresAcknowledgement = FALSE` violates `PinCommitted`: priming a

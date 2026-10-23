@@ -1,8 +1,8 @@
 # Principal acknowledgement races
 
 [`PrincipalAcknowledgementRace.tla`](./PrincipalAcknowledgementRace.tla) models
-issue #2485 finding 4: a signed compound receipt arrives after an honest reader
-has recovered that receipt or a later descendant.
+a signed compound receipt that arrives after an honest reader has recovered that
+receipt or a later descendant.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -26,12 +26,11 @@ ordinary retryable error even when the pin lies on a fork: its branch is unknown
 until scoped history covers it. `DeferralNeedsUncoveredPin` keeps that outcome
 from replacing ordinary completion. `RecoverAndRetry` models the later scoped
 read and host retry, after which an honest receipt completes and a fork refuses.
-Signatures,
-private prefix authentication and Merkle membership proofs are abstracted as
-the authenticated branch relation. Runtime tests exercise real signatures,
-SQLite transactions, private progress and proof verification. The model treats
-compound writes as one atomic action; injected SQL failure tests cover
-rollback. It does not model arbitrary reader starvation: production permits
+Signatures, private prefix authentication and Merkle membership proofs are
+abstracted as the authenticated branch relation. Runtime tests exercise real
+signatures, SQLite transactions, private progress and proof verification. The
+model treats compound writes as one atomic action; injected SQL failure tests
+cover rollback. It does not model arbitrary reader starvation: production permits
 eight local publication attempts (seven retries) before returning an ordinary
 retryable error. The model assumes weak fairness of local reconciliation and of
 the later scoped read and host retry. It does not claim progress while history

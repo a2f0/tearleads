@@ -1,8 +1,8 @@
 # Terminal anchors across backup restore
 
-[`TerminalAnchors.tla`](./TerminalAnchors.tla) models finding #9 in #2266.
-Restoring an older or independently produced backup must preserve every local
-terminal purge decision and every retained security incident. A purge value
+[`TerminalAnchors.tla`](./TerminalAnchors.tla) checks that restoring an older
+or independently produced backup preserves every local terminal purge decision
+and every retained security incident. A purge value
 abstracts the organization, document manifest hash, and purge event hash; any
 difference for the same document is a conflict, without an epoch comparison.
 
@@ -22,11 +22,11 @@ preflights, and restores. The implementation regression drives the real SQLite
 restore, including backups without either table, independent rows, repeated
 observations, and conflicting purge evidence.
 
-`PreserveAnchors = FALSE` reproduces the original table-replacement bug.
-`RecheckAtCommit = FALSE` uses a stale preflight merge and loses a decision
-observed before the write transaction. Registered negative controls exercise
-both the purge-pin and incident-evidence
-properties, as well as the stale-preflight race.
+`PreserveAnchors = FALSE` replaces the local tables with the backup's instead
+of merging them. `RecheckAtCommit = FALSE` uses a stale preflight merge and
+loses a decision observed before the write transaction. Registered negative
+controls exercise both the purge-pin and incident-evidence properties, as well
+as the stale-preflight race.
 
 The model abstracts incident counts and timestamps; implementation tests check
 their idempotent maximum-count and enclosing-time-window merge. Deliberate
@@ -54,9 +54,8 @@ principal key and its pin value represents the organization ID. Checkpoint
 versions themselves are outside this model. The restore keeps current-only
 ownership, imports backup-only ownership, and rejects conflicting owners before
 writing. Retaining a group checkpoint without its owner would strand later
-organization-scoped recovery (#2365). Native SQLite regressions cover restoring
-an empty or absent owner table, merging overlapping scopes, conflict refusal,
-and successful remote-state reset after restore. Preflight refuses any merged
-group checkpoint that has no owner, before changing the database. Ownership is
-never inferred
-from display rows or backfilled from unsigned metadata.
+organization-scoped recovery. Native SQLite regressions cover restoring an
+empty or absent owner table, merging overlapping scopes, conflict refusal, and
+successful remote-state reset after restore. Preflight refuses any merged group
+checkpoint that has no owner, before changing the database. Ownership is never
+inferred from display rows or backfilled from unsigned metadata.

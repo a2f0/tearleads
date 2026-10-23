@@ -24,35 +24,35 @@ principal policies, derives the document link-set manifest, stores the manifest
 head, and validates the submitted content-key bundle against derived document
 KEK targets.
 
-A create may also carry an `initialSync` seed (#2585): a `DocumentSyncRequest`
-holding exactly one outgoing update and no container rekeys, whose start is
-empty and whose `localVersionVector` is the update's end. It is the client's one
-queued update that holds the new document's whole content. Content known at
-creation (a contact's names, an imported file's fields and rows) is opened into
-that birth update rather than written after it, so such a document qualifies.
-The API commits the
-seed in the create transaction under the same write-header, target, and billing
-checks as a standalone sync, so a seed a sync would refuse fails the create, and
-nothing commits. The response's `initialSync` names the accepted update id and
-the commit position, which the client records as its first sync's. The route
-publishes the seed's update hint. The client settles its queued row only when
-that acknowledgement names it. Settling the seed answers only the update signal
-the client held before submitting the create, so the pass skips its pull. A
-peer can edit the document before the response arrives, so the client matches
-update hints against the id it submitted the create under until the response
-installs it, and any such hint keeps the pull owed. A folder's metadata
-document takes the folder's id, so a seeded folder create matches hints for it
-the same way. A refused seed falls back
-once to the plain create, after which the row syncs as before. A lost response
-is adopted through `409 document_manifest_already_exists`. Adoption cannot tell
-whether the seed committed, so the row stays queued and syncs as an ordinary
-update. That sync encrypts the row again, so when the seed did commit, the
-reused id no longer matches the stored ciphertext and the server answers
+A create may also carry an `initialSync` seed: a `DocumentSyncRequest` holding
+exactly one outgoing update and no container rekeys, whose start is empty and
+whose `localVersionVector` is the update's end. It is the client's one queued
+update that holds the new document's whole content. Content known at creation (a
+contact's names, an imported file's fields and rows) is opened into that birth
+update rather than written after it, so such a document qualifies. The API
+commits the seed in the create transaction under the same write-header, target,
+and billing checks as a standalone sync, so a seed a sync would refuse fails the
+create, and nothing commits. The response's `initialSync` names the accepted
+update id and the commit position, which the client records as its first sync's.
+The route publishes the seed's update hint. The client settles its queued row
+only when that acknowledgement names it. Settling the seed answers only the
+update signal the client held before submitting the create, so the pass skips
+its pull. A peer can edit the document before the response arrives, so the
+client matches update hints against the id it submitted the create under until
+the response installs it, and any such hint keeps the pull owed. A folder's
+metadata document takes the folder's id, so a seeded folder create matches hints
+for it the same way.
+
+A refused seed falls back once to the plain create, after which the row syncs
+normally. A lost response is adopted through
+`409 document_manifest_already_exists`. Adoption cannot tell whether the seed
+committed, so the row stays queued and syncs as an ordinary update. That sync
+encrypts the row again, so when the seed did commit, the reused id no longer
+matches the stored ciphertext and the server answers
 `409 document_sync_update_id_conflict`. Recovery settles the row when its pull
 carries the stored update and otherwise re-keys the row, whose ops then commit
 again under a fresh id; the duplicate is harmless because CRDT import is
-idempotent. A lost response therefore costs the recovery round trips, not
-data.
+idempotent. A lost response therefore costs the recovery round trips, not data.
 
 Both link and unlink bodies require `blobRewraps`: one entry per blob actively
 bound to the changed document, with `blobId`, the immutable `contentKeyEpoch`,
@@ -87,7 +87,7 @@ epoch only under the same emptiness proof; otherwise the link is rejected as a
 conflict. A stored rotation baseline counts as a committed update. Honest
 clients link at the current epoch.
 
-Encrypted Loro sync uses `POST /documents/{documentId}/sync`.
+Encrypted Loro sync uses `POST /documents/:documentId/sync`.
 `DocumentSyncRequest` carries:
 
 - `contentKeyEpoch`
@@ -102,19 +102,20 @@ Encrypted Loro sync uses `POST /documents/{documentId}/sync`.
 - optional `minLsn`
 - `supportsPullPagination: true`
 - optional opaque `pullCursor`
+- optional read-only `historyMode: "raw"`
+- `inlineRekeyCommitId`, present exactly when `containerRekeys[]` is non-empty
 - `outgoingUpdates[]`
 
-`inlineRekeyCommitId` is required exactly when `containerRekeys[]` is non-empty.
-The durable marker makes the rekey and its outgoing write replay-safe as one
-transaction; unmarked batches and markers without a batch are rejected.
+The durable `inlineRekeyCommitId` marker makes the rekey and its outgoing write
+replay-safe as one transaction; unmarked batches and markers without a batch are
+rejected.
 
 Document sync updates carry encrypted bytes, partial version vectors, and a
 signed write header. Checkpoint fields are either all absent or the tuple
 `rotate_baseline`, `full_history_snapshot`, and a non-empty source vector.
 Writes require path refs; the API requires an active path. Reads may omit refs
-and carry no rekeys or bundle.
-`expectedLinkSetManifestHash` pins the server-resolved document head instead of
-echoing the full manifest.
+and carry no rekeys or bundle. `expectedLinkSetManifestHash` pins the
+server-resolved document head instead of echoing the full manifest.
 
 For accepted writes, the API verifies:
 
@@ -127,12 +128,12 @@ For accepted writes, the API verifies:
 - duplicate update ids are idempotent only when the encrypted content and write
   header match the already accepted update
 
-The sync response returns accepted outgoing ids, a `commitLsn`, an optional
+The sync response returns accepted outgoing ids, a `commitLsn` and its
 `commitLsnMode`, the active content-key bundle, a required array of the older
 epoch bundles that served updates cite, document KEK targets, encrypted updates
 missing from the client-supplied frontier, and `pullPage`. `pullPage.hasMore`
-and `pullPage.nextCursor` are consistent: a continuation is present exactly
-when more updates remain in the frozen pull snapshot.
+and `pullPage.nextCursor` are consistent: a continuation is present exactly when
+more updates remain in the frozen pull snapshot.
 
 The active bundle travels only as `contentKeyBundle`. `contentKeyBundles` holds
 each older epoch at most once and never the active epoch, so an empty probe or a
@@ -142,7 +143,7 @@ the validator also rejects an array epoch at or above the active one, as a
 malformed response.
 
 Every sync request must set `supportsPullPagination: true`, and every successful
-response must carry `pullPage`; there is no legacy unbounded response mode. The
+response must carry `pullPage`; there is no unbounded response mode. The
 first paginated pull proves `minLsn` before freezing its upper update bound.
 Update inserts and watermark capture serialize on the document manifest head,
 so PostgreSQL identity allocation cannot place a later-committing lower sequence
@@ -168,7 +169,7 @@ it has no outgoing updates, rekeys, key bundle, or authorizing paths. Every page
 must retain the first page's key identity and commit-LSN mode, and its tracked
 checkpoint must satisfy the prior page's `commitLsn`.
 
-One response page contains at most 64 updates and 128 MiB including its key
+One response page contains at most 64 updates and 48 MiB including its key
 envelope. The SDK settles exactly one page per submission before requesting the
 next. Built-in document and container-metadata stores persist a versioned
 continuation in the shared local `documents` row; pulled document history is
@@ -195,6 +196,7 @@ JSON `409` responses retain `error` for diagnostics and carry a normative code:
 | Code                                         | Client action                                  |
 | -------------------------------------------- | ---------------------------------------------- |
 | `document_sync_checkpoint_coverage_conflict` | Regenerate the queued rotation checkpoint.     |
+| `document_sync_descendant_rekeys_required`   | Commit the container rekeys standalone, retry. |
 | `document_sync_state_stale`                  | Refetch the writer projection and replan.      |
 | `document_sync_update_id_conflict`           | Run pending-update ID recovery.                |
 | `document_sync_conflict`                     | Report the terminal conflict without retrying. |

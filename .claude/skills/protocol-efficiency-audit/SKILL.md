@@ -29,10 +29,9 @@ Three rules frame every proposal:
   fields travel are in scope.
 - **Greenfield.** No compatibility shims, dual reads, rollout flags, or data
   migrations. Routes, tables, and local schema may change freely; deployment is
-  the coordinated reset in `docs/developer/api-persistence.md`. Earlier
-  "will not fix" dispositions made for a non-greenfield closeout
-  (`docs/request-budget-closeout.md`, #2203) are candidates again, provided the
-  proposal answers the constraints that disposition named.
+  the coordinated reset in `docs/developer/api-persistence.md`. The design
+  decisions in `docs/request-budgets.md#design-decisions` are candidates for
+  change, provided the proposal answers the constraints each decision names.
 
 Waste is measured in five units: requests per operation, bytes per operation,
 SQL statements per request, tables, and mechanisms (distinct ways of doing one
@@ -112,7 +111,7 @@ inspect bounded excerpts with `agent-tool logs <path>`.
    per-endpoint tables as the measured baseline. Reuse completed logs only
    after resume validation.
 4. On the first batch, read `docs/protocol-specification.md`,
-   `docs/client-sync-ordering.md`, `docs/request-budget-closeout.md`, and the
+   `docs/client-sync-ordering.md`, `docs/request-budgets.md`, and the
    "Request costs" section of `docs/developer/current-principal-consumers.md`.
    Save a compact baseline with source references for later batches.
 5. Build the inventories from `references/measurement.md`: routes, API tables,

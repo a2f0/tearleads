@@ -1,7 +1,7 @@
 # Container depth remains readable
 
-[`ContainerDepth.tla`](./ContainerDepth.tla) models #2365 finding #12: a create
-or subtree move must preserve the path bound used by readers. Depth counts
+[`ContainerDepth.tla`](./ContainerDepth.tla) checks that a create or subtree
+move preserves the path bound used by readers. Depth counts
 edges from the root; the production limit counts containers, so a 100-container
 path has depths zero through 99.
 
@@ -27,7 +27,6 @@ early destination refusal; the API must check descendants that a client may not
 be able to discover.
 
 This model covers structural create and move transitions only. Production
-revocations do not change structure and do not call the new depth guards;
+revocations do not change structure and do not call the depth guards;
 revocation availability and carried-rekey obligations are outside this model.
-It establishes no temporal liveness result. No migration or compatibility
-behavior is modeled or implemented.
+It establishes no temporal liveness result.

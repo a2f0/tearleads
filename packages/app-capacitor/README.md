@@ -2,14 +2,14 @@
 
 ## Supported OS versions
 
-Native releases require iOS 18 or later and Android 12 (API 31) or later.
-This is an intentional support-floor change for the embedded PDF viewer: older
-versions can no longer install updates of the app, rather than falling back to
-an external PDF app. Both staging and production builds use these minimums.
+Native releases require iOS 18 or later and Android 12 (API 31) or later. The
+embedded PDF viewer sets this floor: the app does not install on older versions
+rather than falling back to an external PDF app. Both staging and production
+builds use these minimums.
 
 ## Test a native subscription
 
-The Capacitor shell already presents the RevenueCat-managed store flow from
+The Capacitor shell presents the RevenueCat-managed store flow from
 Organization Manager → Billing. For the fastest first pass, use the project's
 RevenueCat Test Store key as a one-off override; do not replace the platform
 keys in `.secrets/prod/shared.env`:
@@ -133,8 +133,8 @@ and import only these names, because both files also hold server values:
   `APP_STORE_CONNECT_KEY_ID`, `APP_STORE_CONNECT_ISSUER_ID`, `MATCH_GIT_URL`,
   `MATCH_GIT_BASIC_AUTHORIZATION`, `MATCH_PASSWORD`,
   `ANDROID_KEYSTORE_STORE_PASS`, and `ANDROID_KEYSTORE_KEY_PASS`. Values copied
-  from `root/root.env`, including both keystore passwords today, stay in
-  `shared.env` until they are rotated into `app.env`.
+  from `root/root.env`, including both keystore passwords, stay in `shared.env`
+  until they are rotated into `app.env`.
 - The tier's Vite client settings. Production reads its RevenueCat keys and
   other declared `VITE_*` settings from `shared.env`, never from the
   server-oriented `app.env`. Staging reads only `VITE_REVENUECAT_SYNC_ENTITLEMENT`
@@ -159,11 +159,12 @@ the latest TestFlight build for the target app version.
 | --- | --- | --- |
 | Explicit number | `build_number:` or `ANDROID_BUILD_NUMBER` | `build_number:` or `IOS_BUILD_NUMBER` |
 | Store's next number | `next_google_play:true` or `ANDROID_RELEASE_NEXT_GOOGLE_PLAY=true` | `next_testflight:true` or `IOS_RELEASE_NEXT_TESTFLIGHT=true` |
-| Merged PR | `merged_pr_number:` or `ANDROID_RELEASE_PR_NUMBER` | `merged_pr_number:` or `IOS_RELEASE_PR_NUMBER` |
+| Merged PR | `merged_pr_number:` or `ANDROID_RELEASE_MERGED_PR_NUMBER` | `merged_pr_number:` or `IOS_RELEASE_MERGED_PR_NUMBER` |
 | Merge date | `merged_date:YYYY-MM-DD` or `ANDROID_RELEASE_MERGED_DATE` | `merged_date:YYYY-MM-DD` or `IOS_RELEASE_MERGED_DATE` |
 
-`ANDROID_VERSION_CODE` and `APPLE_BUILD_NUMBER` are still read as fallbacks for
-the explicit number. The iOS app version comes from the Xcode target's
+`ANDROID_VERSION_CODE` and `APPLE_BUILD_NUMBER` are fallbacks for the explicit
+number, and `ANDROID_RELEASE_PR_NUMBER` and `IOS_RELEASE_PR_NUMBER` for the
+merged PR. The iOS app version comes from the Xcode target's
 `MARKETING_VERSION`; override it with `version:<version>`, `IOS_VERSION`, or
 `APP_STORE_VERSION`.
 
@@ -171,7 +172,8 @@ the explicit number. The iOS app version comes from the Xcode target's
 
 `ios build_release` runs a release Capacitor sync, verifies that the generated
 native config is fully bundled, renders the icon and splash images, and builds
-`ios/App/output/Tearleads.ipa` (staging: `ios/App/output/staging/`). It
+`ios/App/output/Tearleads.ipa` (staging:
+`ios/App/output/staging/Tearleads-Staging.ipa`). It
 installs the App Store certificate and profile read-only from match into a
 throwaway keychain, deleted whether the build succeeds or fails, and signs the
 App target manually. The keychain is the default while the build runs, and the

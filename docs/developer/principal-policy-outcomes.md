@@ -27,8 +27,6 @@ cannot delete the acknowledgement; the hash still binds its exact target.
 Organization purge removes these receipts together with standalone receipts.
 A null database group ID therefore does not identify the operation domain.
 
-The schema change regenerates both greenfield baselines and requires fresh
-databases under the repository reset policy; there is no historical upgrade.
 Clients must preserve the authored request while its outcome is unknown.
 The SDK's principal policy journal does this for all four operation kinds. See
 [HTTP acceptance evidence](../principal-history-acceptance.md) for the complete
@@ -55,7 +53,7 @@ new group, deletion, directory successor, read-model change and receipt. The API
 client retries only validated preparation continuations with the original request
 bytes and identity. Its `createOrganizationGroupResult` and
 `deleteOrganizationGroupResult` methods preserve unknown outcomes and accept
-cancellation options; the existing nullable methods delegate to those results.
+cancellation options; the nullable methods delegate to those results.
 
 Creation receipts reconstruct the original group summary and directory outcome,
 even after later policies advance. Deletion receipts reconstruct the original
@@ -135,7 +133,7 @@ format. `discardUnreadableJournaledPrincipalMutation` and the organization facad
 `discardUnreadablePolicyMutation` require that identifier and explicit
 unknown-outcome acknowledgement. They discard only the unchanged, still-unreadable
 record and do not submit it or change policy pins. Org Manager exposes the same
-confirmation for this case. No previous schema is interpreted or migrated.
+confirmation for this case.
 
 Journal scope includes the API origin and signing fingerprint. A different origin
 or rotated identity does not inherit or replay the former scope's records; those
@@ -170,8 +168,7 @@ uncertain work and releases the local lane so inspection and actions can proceed
 All four operation kinds share the same lane and require an explicit signed
 operation kind: `compound`, `organization`, `group-create`, or `group-delete`.
 Standalone organization rows have no group target. Missing or unsupported kinds
-are rejected; there is no interpretation of an older journal format. Recovery
-dispatches only that authenticated route and
+are rejected. Recovery dispatches only that authenticated route and
 checks the matching receipt before removing the journal row. Group creation also
 checks the exact authored genesis against the returned summary; deletion checks
 both organization and deleted group IDs.

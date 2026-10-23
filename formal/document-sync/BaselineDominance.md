@@ -74,16 +74,15 @@ regressions check isolation, stable reuse, and bounded device-storage keys.
 This mapping does not change the version-vector dominance predicate.
 
 This is exhaustive bounded model checking, not an unbounded mathematical proof.
-The model reflects the post-pruning system: the server retains every accepted
-update, a normal-mode read is redirected through the readable current-epoch
-baseline only when that baseline dominates every omitted older-epoch update,
-and raw mode always serves the complete retained missing frontier. Baseline
-contents are end-to-end encrypted, so the server cannot verify what a baseline
-carries; `hasBaseline` abstracts an authenticated baseline record that passed
+In the model, as in production, the server retains every accepted update, a
+normal-mode read is redirected through the readable current-epoch baseline only
+when that baseline dominates every omitted older-epoch update, and raw mode
+always serves the complete retained missing frontier. Baseline contents are
+end-to-end encrypted, so the server cannot verify what a baseline carries;
+`hasBaseline` abstracts an authenticated baseline record that passed
 replayability checks (`isAuthenticatedReplayableBaseline`), whose declared
 coverage vector the model takes at face value, exactly as production does. The
 model also assumes well-formed persisted version vectors and continued
 availability of that current-epoch baseline. Cryptographic authenticity,
 database transactions, SQL ordering, and Loro's own CRDT correctness remain
-outside the abstraction. A future TLAPS or theorem-prover layer could prove the
-parameterized invariant after this model has stabilized.
+outside the abstraction.

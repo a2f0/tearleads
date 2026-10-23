@@ -56,9 +56,9 @@ is specific to the native bridge, as opposed to the web one:
 - **Org binding rides the subscriber attribute.** A native store purchase
   carries no transaction metadata, so `orgId` is set as a customer-level
   subscriber attribute immediately before the purchase and the webhook resolves
-  against it. The attribute is **mutable** — a later
-  purchase for another org overwrites it — so it cannot attribute a purchase
-  that completes after another has started. The server therefore accepts the
+  against it. The attribute is **mutable** — a later purchase for another org
+  overwrites it — so it cannot attribute a purchase that completes after
+  another has started. The server therefore accepts the
   grant only when the attributed organization is still the buyer's personal
   organization.
 
@@ -71,9 +71,9 @@ bridge, regardless of which keys are inlined.
 Use the Test Store first to prove the app-side flow before waiting on App Store
 Connect or Play Console. The `default` offering should contain `solo`, `team_5`,
 and `team_10` packages backed by matching Test Store products and attached to
-the `sync` entitlement. `@revenuecat/purchases-capacitor` 13.2.1 is newer than
-RevenueCat's minimum Test Store-compatible Capacitor SDK (11.2.6).
-RevenueCat reports these webhook events with `store: "TEST_STORE"` and
+the `sync` entitlement. The pinned `@revenuecat/purchases-capacitor` satisfies
+RevenueCat's minimum Test Store-compatible Capacitor SDK (11.2.6). RevenueCat
+reports these webhook events with `store: "TEST_STORE"` and
 `environment: "SANDBOX"`; the server treats them as native purchases, including
 the personal-organization restriction, and staging must opt into sandbox events.
 
@@ -167,23 +167,21 @@ Create separate RevenueCat Apple and Google apps with that platform identifier,
 then set their public keys in `.secrets/staging/app.env` as
 `VITE_REVENUECAT_IOS_API_KEY` and `VITE_REVENUECAT_ANDROID_API_KEY`. Fastlane
 imports only store credentials and native RevenueCat client settings from the
-server-oriented `app.env`. Explicit caller
-overrides still win when they differ from the production platform key. If
-staging has no platform key, or resolves to the production key, it fails the
-release guard before the store build begins. The key in production's
-`shared.env` is the default comparison baseline. Env-only CI and key-rotation
-workflows may instead export the independent
+server-oriented `app.env`. Explicit caller overrides win when they differ from
+the production platform key. If staging has no platform key, or resolves to the
+production key, it fails the release guard before the store build begins. The
+key in production's `shared.env` is the default comparison baseline. Env-only CI
+and key-rotation workflows may instead export the independent
 `NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_IOS_API_KEY` or
 `NATIVE_RELEASE_PRODUCTION_VITE_REVENUECAT_ANDROID_API_KEY` baseline. Without
-either default or an explicit baseline, staging fails closed. Staging
-may override the shared
-`VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a different entitlement
-identifier. Production releases likewise reject the resolved platform key
-unless it exactly matches its independent production baseline. The allowlist
-controls dotenv imports only; callers remain responsible for variables they
-export explicitly. Add any future shared `VITE_*` setting that staging must
-inherit intentionally to `NATIVE_SHARED_VITE_ENV_NAMES`; otherwise it is
-stripped from staging dotenv imports.
+either default or an explicit baseline, staging fails closed. Staging may
+override the shared `VITE_REVENUECAT_SYNC_ENTITLEMENT` when its project uses a
+different entitlement identifier. Production releases likewise reject the
+resolved platform key unless it exactly matches its independent production
+baseline. The allowlist controls dotenv imports only; callers remain responsible
+for variables they export explicitly. A shared `VITE_*` setting that staging
+must inherit belongs in `NATIVE_SHARED_VITE_ENV_NAMES`; any other is stripped
+from staging dotenv imports.
 
 The staging tier must also have `REVENUECAT_ALLOW_SANDBOX_EVENTS=true` in
 staging's `app.env` when its API Worker deploys. This controls webhook
@@ -207,8 +205,8 @@ Before testing the real Apple purchase sheet:
    `sync_team_10_monthly` for production, or their `_staging` variants for
    staging, at $5, $10, and $20 USD per month. Rank Team 10 at level 1, Team 5
    at level 2, and Solo at level 3 so upgrades take effect immediately and
-   downgrades at renewal. Finish
-   their localization, price, and review metadata.
+   downgrades at renewal. Finish their localization, price, and review
+   metadata.
    StoreKit owns the mid-cycle economics: it immediately moves to a higher
    service level and prorates the old subscription, while a move to a lower
    service level stays on the paid tier until renewal. No iOS-specific

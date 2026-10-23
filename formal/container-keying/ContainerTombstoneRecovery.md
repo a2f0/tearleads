@@ -1,10 +1,10 @@
 # Container listing removals and recovery
 
-[`ContainerTombstoneRecovery.tla`](./ContainerTombstoneRecovery.tla) covers
-finding 8 of #2365. A parent listing
-can withdraw a cached subtree after its child has moved elsewhere. The listing
-is unsigned, including its deletion reason and timestamp. It cannot authorize
-erasing local work or declaring every cached descendant terminally deleted.
+[`ContainerTombstoneRecovery.tla`](./ContainerTombstoneRecovery.tla) models a
+parent listing that withdraws a cached subtree after its child has moved
+elsewhere. The listing is unsigned, including its deletion reason and timestamp.
+It cannot authorize erasing local work or declaring every cached descendant
+terminally deleted.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -32,6 +32,6 @@ Recovery checks and pins current writer projections after destination-role
 validation, then compares the leaf pin in the insertion transaction. A newer
 move pinned during verification or before insertion cannot restore an older
 parent. These checkpoint races are covered by runtime tests rather than this
-removal-generation model. Recovery is enabled after
-verified live evidence; no guarantee is made that a dishonest server supplies
-that evidence. Explicit user deletion remains a separate authorized operation.
+removal-generation model. Recovery is enabled after verified live evidence; no
+guarantee is made that a dishonest server supplies that evidence. Explicit user
+deletion remains a separate authorized operation.

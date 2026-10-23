@@ -4,5 +4,5 @@
 It resolves Loro to its supported base64 entrypoint, embedding WASM and its
 JavaScript glue in the resulting bundle or standalone executable. Use it for
 browser builds and `Bun.build({ compile: ... })` builds so deployment does not
-require files from `node_modules`. Runtime consumers continue to import the
-regular `@tearleads/loro` entrypoints.
+require files from `node_modules`. Runtime consumers import the regular
+`@tearleads/loro` entrypoints.

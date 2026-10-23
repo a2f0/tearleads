@@ -10,7 +10,7 @@ configuration; editing a workflow alone does not make a check required.
 workspace builds, TypeScript, package tests, the web build, and Postgres
 concurrency and Windows CEF persistence to pass on every PR. It also waits for
 native purchase bridge compiles and Terraform checks whenever their paths change.
-The platform workflows are reusable and retain their standalone manual dispatch
+The platform workflows are reusable and keep their standalone manual dispatch
 entry points. `Lint` passes pull-request names to
 `agent-tool branch check --pre-push` as stdin ref tuples, so the policy also
 applies to pull requests from clones without hooks.
@@ -49,21 +49,20 @@ needed to keep ordinary website edits independent.
 A cache miss can still occur while `main` is producing a new result: a PR cannot
 reuse another PR's cache or a task that has not finished. The
 [GitHub cache access rules](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#restrictions-for-accessing-a-cache)
-apply to the Turbo cache bridge. For example, the footer-only PR
-[run 38627337483](https://github.com/a2f0/tearleads/actions/runs/38627337483)
-started its API/app suites before the preceding main run finished; the subsequent
-[main run](https://github.com/a2f0/tearleads/actions/runs/38632214420) reused all
-three long-suite results. A job starting is not itself evidence of a cache miss.
-The web application build remains uncached because it embeds the current Git
-commit; deployments and local screenshot generation keep their existing behavior.
+apply to the Turbo cache bridge. A PR that starts its long suites before the
+preceding `main` run finishes executes them; a later run reuses the results.
+A job starting is not itself evidence of a cache miss, because a cache hit
+still runs the job and replays the task log. The web application build is
+uncached because it embeds the current Git commit.
 
 `scripts/checks/ciPolicy.ts` owns path selection. The shared `agent-tool ci gate`
 command evaluates `scripts/checks/ciGate.json`, which declares required jobs and
-binds conditional jobs to the classifier’s exact outputs. A platform
-job may be skipped only when successful change detection explicitly marked it
+binds conditional jobs to the classifier’s exact outputs. A platform job may
+be skipped only when successful change detection explicitly marked it
 irrelevant. A failed, cancelled, missing, or unexpectedly skipped job fails the
-gate. Workflow and dependency lockfile changes exercise every lane. Ordinary
-feature-branch pushes no longer duplicate the pull-request CI run.
+gate. Changes to workflows, CI scripts, tool pins, `package.json`, or `bun.lock`
+exercise every lane. CI runs on pull requests and `main` pushes only, so a
+feature-branch push does not duplicate the pull-request run.
 
 Require the aggregate gate rather than a path-filtered workflow: GitHub leaves
 checks from skipped workflows pending, while skipped jobs can count as passing.
@@ -81,7 +80,8 @@ base's effective rules include an active strict status rule that the
 authenticated actor cannot bypass. Update `agent-tool.json` together with the
 ruleset when a required check name changes.
 
-When introducing this gate, first verify a PR's Windows and aggregate results,
-then update the ruleset to require the new check names. Existing PRs must adopt
-the workflow change before they can satisfy the new gate. Preserve existing
-signature, pull-request, deletion, and force-push protections when updating it.
+When renaming or adding a required check, first verify that a PR reports it
+under the new name, then update the ruleset and `agent-tool.json`. Open PRs
+must merge the workflow change before they can satisfy the new gate. Preserve
+the ruleset's signature, pull-request, deletion, and force-push protections
+when updating it.

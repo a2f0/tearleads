@@ -1,8 +1,8 @@
 # Manifest history availability
 
-[`ManifestHistory.tla`](./ManifestHistory.tla) models issue #2365 finding #6:
-accepted signed histories must remain readable when verification markers are
-lost or retired, and reaching a verification budget must not prevent revocation.
+[`ManifestHistory.tla`](./ManifestHistory.tla) checks that accepted signed
+histories remain readable when verification markers are lost or retired, and
+that reaching a verification budget never prevents revocation.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -20,21 +20,20 @@ and an authorized actor. A device's durable verified-bundle table is the set
 `held` of versions whose bytes it stores; `known` models the rejected design of
 a hash-only table whose bytes may be gone. It does not model signatures,
 missing dependencies, cycles, hierarchy depth, storage corruption, or key-epoch
-bounds. Runtime
-regressions exercise the real signature verifier and histories longer than the
-former 4,096-entry limit. The history counter saturates only to keep the model
+bounds. Runtime regressions exercise the real signature verifier and histories
+longer than 4,096 entries. The history counter saturates only to keep the model
 finite; revocation still has an enabled transition at the model boundary.
 
 The positive configuration makes `Readable` unconditional: it specifies the
 intended acceptance contract, not the traversal algorithm. The two negative
 controls supply the meaningful counterexamples to rejected designs. Bounded
-cold verification
-with unrestricted commits violates `HonestReadsAvailable` after a warm history
-grows and the process restarts. Capping mutations at the read limit preserves
-reads but violates `RevocationAvailable`. These are enabled-action safety checks,
-not claims of eventual network or scheduler progress.
+cold verification with unrestricted commits violates `HonestReadsAvailable`
+after a warm history grows and the process restarts. Capping mutations at the
+read limit preserves reads but violates `RevocationAvailable`. These are
+enabled-action safety checks, not claims of eventual network or scheduler
+progress.
 
-This repair removes the deterministic history-depth refusal. Each mutation runs
+Production has no history-depth refusal. Each mutation runs
 the stored-history verifier over the manifest it stores and marks it, and a
 projection read writes back the markers it earned after committing. A marker is
 a MAC under a key derived from a server-held secret over the manifest hash, a
@@ -47,7 +46,7 @@ Document ancestor queries share a request-local binary ancestor index: indexing
 N manifests uses O(N log N) time and space, and each indexed lineage query
 takes O(log N). The index expands only down to requested floors.
 
-Writer projections cite each manifest by hash (#2522). A projection read may
+Writer projections cite each manifest by hash. A projection read may
 list, in `x-known-manifests`, up to 48 manifest hashes whose verified bundles
 the device durably holds; the API omits exactly those it would have served and
 names them in `omittedBundles`. The device refills each omission from the bytes

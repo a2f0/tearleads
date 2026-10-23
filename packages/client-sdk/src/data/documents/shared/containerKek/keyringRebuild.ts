@@ -258,11 +258,13 @@ async function unwrapWrapsWithCurrentPolicies(input: {
  *
  * Scope bound: a direct user envelope is recoverable from identity keys
  * alone, so a pristine client anchors on it. A group- or organization-
- * addressed envelope additionally requires the current principal secret key.
- * Principal rotation rematerializes every retained container grant against
- * the new principal head, so a current reader never needs an older principal
- * key to use this recovery path. Unreachable principal keys fail closed with
- * `HistoricalWrapUnavailableError` rather than appearing to be corruption.
+ * addressed envelope additionally requires the secret key of the principal
+ * key epoch it was addressed to. Principal rotation rematerializes retained
+ * grants by wrapping only the container's current epoch, so an older epoch
+ * whose only anchor is a group wrap from before a principal key rotation needs
+ * a principal key this client cannot resolve. Such epochs fail closed with
+ * `HistoricalWrapUnavailableError` (`principal-key-unreachable`) rather than
+ * appearing to be corruption.
  */
 export async function recoverKeyringEntryFromWraps(input: {
   containerId: string;

@@ -1,8 +1,8 @@
 # Document priming after root verification
 
 [`RootDocumentPriming.tla`](./RootDocumentPriming.tla) covers a scheduling race
-exposed by the signed destination checks in #2266. A pending document create can
-run before its root's remote proof finishes. That pass defers the create; the
+created by signed destination checks: a pending document create can run before
+its root's remote proof finishes. That pass defers the create; the
 first durable remote acknowledgement must schedule another document pass.
 
 | Model action or predicate | Production seam |
@@ -17,6 +17,6 @@ and subsequent container mutations. The negative control removes the priming
 notification and strands a document whose first pass ran before acknowledgement.
 Separate automated controls require both `DeferredDocumentsAreScheduled` and
 `DocumentEventuallySyncs` to fail, so the safety check cannot mask a vacuous
-eventual-sync property.
-The app regression pauses the real signed root projection until the first
-document-priming pass has finished, then requires the local document to sync.
+eventual-sync property. The app regression pauses the real signed root
+projection until the first document-priming pass has finished, then requires the
+local document to sync.

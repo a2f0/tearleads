@@ -26,7 +26,7 @@ A successful result retains only its direct predecessor and successor. Repeated
 calls do not accumulate complete history. This result does not advance durable
 checkpoints, publish a resumable prefix, or prove arbitrary older citations.
 Callers must retain or recover the evidence needed for those operations and
-apply the existing atomic checkpoint and acknowledgement rules. In particular,
+apply the atomic checkpoint and acknowledgement rules. In particular,
 admit the acknowledged successor before another mutation. A checkpoint older
 than the retained predecessor needs additional verified history; the two-entry
 result alone cannot advance it.
@@ -101,14 +101,10 @@ acknowledged head.
 Completed exact-head stages retain earlier encrypted envelopes when the reusable
 prefix advances. If only a completed prefix survives for the predecessor, its
 authenticated artifacts are saved as a completed stage in the same transaction.
-Key lookup selects archived and held candidates by an indexed fingerprint;
-they remain untrusted encrypted candidates, not authorization evidence. Publication
-retains the current completed stage and its newest completed predecessor, pruning
-older stages in bounded transactions after archiving encrypted key candidates.
-The archive keeps the newest envelope set per principal-key fingerprint and
-preserves separate key epochs. See [cache retention](principal-history-cache.md)
-for incomplete-stage limits, offline availability and remaining reclamation work
-under #2448. Current wire artifacts never contain manufactured `previousStates`.
+Publication retains the current completed stage and its newest completed
+predecessor; see [cache retention](principal-history-cache.md) for stage
+pruning, the encrypted key-candidate archive and offline availability. Current
+wire artifacts never contain manufactured `previousStates`.
 
 `selectPrincipalPolicyCurrentPredecessorReferences` combines a privately verified
 successor with selected citations from its exact private predecessor. Scope,
@@ -164,5 +160,5 @@ pending-work, directory and Admins authorization checks. Verified observed heads
 can advance local rollback checkpoints even when a requested deletion is refused.
 Deleting a group preserves its rollback checkpoints and historical encrypted
 artifacts; it does not erase local grants. Later access still requires a live
-directory citation and verified container authorization. Storage reclamation
-is separate from request-level continuation and remains a future optimization.
+directory citation and verified container authorization. A deleted group's
+retained artifacts are not reclaimed.

@@ -120,18 +120,6 @@ Related docs:
 - [keying-design.md](./keying-design.md#blob-content-keys)
 - [protocol-specification.md](./protocol-specification.md#blob-read-protocol)
 
-## Local Keyring
-
-The SDK helper that wraps one account-root secret with a host-provided wrapping
-key keystore, persists a manifest through a host-provided manifest store, and
-derives local SQLite, blob-store, identity-persistence, or custom-purpose keys
-from that root.
-
-Related docs:
-
-- [developer/client-sdk.md](./developer/client-sdk.md#local-keyring)
-- [security-guarantees.md](./security-guarantees.md#local-at-rest-key-wrapping)
-
 ## Blob Stage
 
 A temporary holding record for encrypted blob bytes before an attachment bind
@@ -205,7 +193,7 @@ log ground truth for rebuilding a damaged keyring via
 Related docs:
 
 - [keying-design.md](./keying-design.md#container-key-epoch-database-row)
-- [security-guarantees.md](./security-guarantees.md)
+- [security-guarantees.md](./security-guarantees.md#content-confidentiality)
 
 ## Content Key
 
@@ -310,9 +298,9 @@ Related docs:
 
 ## Grant
 
-A signed access assignment on a container or managed principal. Container
-grants are direct manifest inputs and may be inherited along container paths.
-Group grants require policy; organization access uses reserved groups.
+A signed `read`, `write`, or `admin` container assignment to a user or group,
+inherited along container paths. Group grants require active signed group
+policy; organizations receive no grants and use the reserved groups instead.
 
 Related docs:
 
@@ -321,14 +309,26 @@ Related docs:
 
 ## Key Target
 
-One recipient target for wrapped key material, such as a direct user/device
-encapsulation key, a group or organization principal key, or a parent container
-KEK. The target hash commits to the sorted derived target set.
+One recipient target for wrapped key material: a user's encapsulation key, a
+group principal key, or a container KEK. The target hash commits to the sorted
+derived target set.
 
 Related docs:
 
 - [keying-design.md](./keying-design.md#document-content-keys)
 - [keying-design.md](./keying-design.md#blob-content-keys)
+
+## Local Keyring
+
+The SDK helper that wraps one account-root secret with a host-provided wrapping
+key keystore, persists a manifest through a host-provided manifest store, and
+derives local SQLite, blob-store, identity-persistence, or custom-purpose keys
+from that root.
+
+Related docs:
+
+- [developer/client-sdk.md](./developer/client-sdk.md#local-keyring)
+- [security-guarantees.md](./security-guarantees.md#local-at-rest-key-wrapping)
 
 ## Loro Update
 
@@ -370,8 +370,8 @@ container. The organization row stores `adminGroupId` and `memberGroupId`.
 Reachability through `Admins` is org-admin authority. Reachability through
 `Members` is organization membership. Org-manager directory lifecycle is stored
 in organization roster entries so disabled users can remain visible after access
-removal. Organization policy can still act as a managed principal for grants,
-but org-manager product role semantics come from the reserved groups.
+removal. Organization policy commits authority, not container grants;
+org-manager product roles come from the reserved groups.
 
 Related docs:
 
@@ -522,10 +522,10 @@ Related docs:
 
 ## Writer Projection
 
-A server response that packages the current verified access and key-target
-material needed for a client to prepare future writes. Writer projections
-require stronger authorization than simple reads because they expose wrapped
-key material for writing.
+A server response that packages an object's signed access history, wrapped
+key material, and key targets so a client can unwrap its keys and prepare
+writes. Serving one requires current read access; write authorization is
+checked when a write commits.
 
 Related docs:
 

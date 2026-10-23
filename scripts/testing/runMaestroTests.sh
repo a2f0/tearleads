@@ -31,10 +31,10 @@ resolve_sim_udid() {
     | grep -oE '[0-9A-F-]{36}' | tail -1
 }
 
-# The Maestro flows provision identities fully offline (no backend running),
-# but Vite inlines VITE_* at build time and src/index.tsx throws on boot when
-# VITE_API_BASE_URL is missing, leaving a blank WebView. Default to the local
-# API address for the platform so the installed app also works interactively.
+# The Maestro flows provision identities fully offline (no backend running).
+# Vite inlines VITE_* at build time, so build against the platform's local API
+# address (10.0.2.2 from the Android emulator) so the installed app also works
+# interactively.
 case "$PLATFORM" in
   ios)
     export VITE_API_BASE_URL="${VITE_API_BASE_URL:-http://localhost:3001}"

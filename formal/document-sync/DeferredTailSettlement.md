@@ -85,14 +85,13 @@ carries the birth, so the file costs one update. If that attach does not land,
 `QueueRetainedTail` durably queues the retained tail with no new operation and
 requests a pass. Production also holds scheduled passes (`canRunScheduledSync`)
 until that attach settles, a write advances the marker, the store resets, or
-its initialization fails, so
-no pass ships the birth on its own. A hold only removes interleavings; the
-model keeps `Prime` enabled, so it checks the pass-before-attach order as well.
-Before lifting the hold, production reloads durable history if the live
-document holds operations the record frontier does not, and reinitializes the
-store if that reload fails, so a failed attach whose rollback could not run
-never ships its slot. The model's `PublishedHistoryIsDurable` keeps that
-precondition throughout.
+its initialization fails, so no pass ships the birth on its own. A hold only
+removes interleavings; the model keeps `Prime` enabled, so it checks the
+pass-before-attach order as well. Before lifting the hold, production reloads
+durable history if the live document holds operations the record frontier does
+not, and reinitializes the store if that reload fails, so a failed attach whose
+rollback could not run never ships its slot. The model's
+`PublishedHistoryIsDurable` keeps that precondition throughout.
 
 The abstraction maps to production at these seams:
 
@@ -154,18 +153,17 @@ require that:
 - user-discarded local state has no queued or retained work, while an accepted
   authoritative remote deletion is tracked separately as a terminal state.
 
-Relaxing the durable queue-claim guard violates
+In edited copies of the model (these guards are not constants, so they have no
+registered negative controls), relaxing the durable queue-claim guard violates
 `DurableStartRequiresLiveContext`; relaxing the publication guard violates
 `AllPublicationsMatchContext`. Publishing from a stale completion violates
 `StaleDurableCompletionCannotPublish`, while letting relink overtake a claimed
-chain task violates
-`StartedDurableOpSerializesRelink`. Relaxing either
+chain task violates `StartedDurableOpSerializesRelink`. Relaxing either
 deletion publication guard violates `AllPublicationsMatchContext`, letting an
 unvalidated response start a durable operation violates
-`DurableStartRequiresLiveContext`, and letting
-a stale deletion remove the live store violates
-`StaleDeletionCannotRemoveLiveDocument`. These checks are independent from the
-tail-accounting invariants.
+`DurableStartRequiresLiveContext`, and letting a stale deletion remove the live
+store violates `StaleDeletionCannotRemoveLiveDocument`. These checks are
+independent from the tail-accounting invariants.
 
 The local update log stores each queued update as its local history tail row,
 so a checkpoint can cover an operation that is still queued. Settlement clears
@@ -176,18 +174,14 @@ but nothing durable still sends it.
 
 The checked configuration uses two abstract operations, two document
 identity/access contexts, and two non-reused store generations, exploring
-8,121,966 generated and 1,257,712 distinct states at depth 43. Set union stands
-in
-for semantic version-vector merge, and each queued operation stands in for the
-coverage carried by one or more durable pending rows. A same-document key
-rotation is a new model identity even when its remote UUID is unchanged; key
-derivation and cross-identity content migration remain outside this
-abstraction. The `authoritativelyDeleted` bit distinguishes a matched upstream
-deletion from a user discard so the tail-safety property does not reinterpret
-server deletion semantics. The production tests remain responsible for Loro
-version-vector decoding, partial-start/end continuity, full-history checkpoint
-coverage, SQL transactionality, update payload bytes, and sync-coordinator
-scheduling. This is exhaustive bounded model checking, not an unbounded proof.
-A current-schema local database with already-reconciled canonical root
-identities is the runtime cutover boundary; migration of retired pre-cutover
-backups is outside both the model and the supported protocol.
+8,121,966 generated and 1,257,712 distinct states at depth 43. Set union
+stands in for semantic version-vector merge, and each queued operation stands in
+for the coverage carried by one or more durable pending rows. A same-document
+key rotation is a new model identity even when its remote UUID is unchanged; key
+derivation and cross-identity content migration remain outside this abstraction.
+The `authoritativelyDeleted` bit distinguishes a matched upstream deletion from
+a user discard so the tail-safety property does not reinterpret server deletion
+semantics. The production tests remain responsible for Loro version-vector
+decoding, partial-start/end continuity, full-history checkpoint coverage, SQL
+transactionality, update payload bytes, and sync-coordinator scheduling. This is
+exhaustive bounded model checking, not an unbounded proof.

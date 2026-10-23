@@ -1,11 +1,12 @@
 # Verified root and system destinations
 
-[`SystemDestination.tla`](./SystemDestination.tla) covers finding #8 in #2266.
-An untrusted listing claims a root edge and a system slot. A client may merge
-pre-login content only into its session's own verified root. System writes must
-use the signed slot in its required topology: organization metadata has an
-independent root, while other slots are direct root children. Minting either
-requires administrator authority, so an ordinary writer cannot create a decoy.
+[`SystemDestination.tla`](./SystemDestination.tla) models verified root and
+system destinations. An untrusted listing claims a root edge and a system slot.
+A client may merge pre-login content only into its session's own verified root.
+System writes must use the signed slot in its required topology: organization
+metadata has an independent root, while other slots are direct root children.
+Minting either requires administrator authority, so an ordinary writer cannot
+create a decoy.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -14,7 +15,7 @@ requires administrator authority, so an ordinary writer cannot create a decoy.
 | `MergeRoot` / `RequireSessionRoot` / `RequireRootScope` | `isSessionRootState` checks the session root identity and organization at the reconciliation boundary, after `verifyRemoteContainerDestination` checks its signed organization |
 | `MergeRoot` / `RequireRootCreator` | `assertRootCreatedBySessionUser` requires the acknowledged root's epoch-1 create, found by `verifiedContainerCreateManifest`, to be signed by the session user; `assertAcknowledgedRootSigner` applies it on hydration and `isVerifiedLocalRootReconciliationTarget` before every local root merge, using only the role remote hydration verified and cached (an uncached role leaves the merge pending) |
 | `Login` / `RefuseRootSwap` | `acknowledgeSessionRoot` refuses a different root id for an already acknowledged organization; `commitSessionRootAcknowledgment` decides and commits it against the live snapshot and records the incident |
-| `RestoreBackup` / `PreserveAcknowledgmentsOnRestore` | `prepareForRestoreReload` rewrites the session with `restoreReloadCryptoSessionContext`, signed out but keeping its acknowledgements (from the saved record when the live session has not loaded it), and `clearRestoredLocalCaches` no longer clears sessions |
+| `RestoreBackup` / `PreserveAcknowledgmentsOnRestore` | `prepareForRestoreReload` rewrites the session with `restoreReloadCryptoSessionContext`, signed out but keeping its acknowledgements (from the saved record when the live session has not loaded it), and `clearRestoredLocalCaches` leaves sessions in place |
 | `MoveDestination` / `PreserveDestinationIdentity` | `deriveContainerMoveManifestState` forbids moves of roots and system containers |
 | `UseSystem` / `RequireSystemScope` | `findSystemContainerStateForRoot` selects the authenticated slot in the active organization and acknowledged root |
 | `CreateSystem` / `RequireSystemAdministrator` / `RequireSystemTopology` | `assertContainerSystemTopology` permits only the organization-derived metadata slot at a root; `deriveContainerCreateManifestState` requires administrator authority and complete root parent paths for all other slots |
@@ -33,9 +34,8 @@ or require KEK decryption; actual writes verify current authority separately.
 Root and system parent edges cannot move, and signed slots are immutable. It models
 one classification snapshot, not network availability, listing completeness, cache
 lifetime, or authoring races. Root identity comes from server acknowledgements
-and must
-also match a signed parentless manifest; an unsigned login response alone is
-insufficient to make an ordinary shared folder a root.
+and must also match a signed parentless manifest; an unsigned login response
+alone is insufficient to make an ordinary shared folder a root.
 
 Each of the eleven guards has a negative control. The shared-system invariant
 keeps extra recipients from becoming a reason to refuse a legitimate Trash or
@@ -48,9 +48,9 @@ The SDK caches the immutable role and metadata id of every verified container,
 with a bounded per-database cache scoped by organization and container identity.
 Only roots and system containers also cache their fixed parent. Grant, key and
 ordinary-container parent state are never cached by this classifier. Ordinary
-children now require signed metadata bindings before hydration (finding 15 of
-issue #2365). The model covers root/system classification and immutability for reuse;
-metadata-target authentication, the locally held organization/metadata binding
+children require signed metadata bindings before hydration. The model covers
+root/system classification and immutability for reuse; metadata-target
+authentication, the locally held organization/metadata binding
 and cache eviction are covered by runtime tests, not by this model.
 
 Session root acknowledgements are stored separately from the local root
@@ -61,7 +61,7 @@ acknowledgement. Encrypted session persistence retains the per-organization
 acknowledgements under the signing fingerprint, and a backup restore keeps
 them: it rewrites the session signed out, with no pinned root, before reloading
 (`RestoreBackup`; the negative control `restore-clears-root-acknowledgements`
-reproduces the restore that cleared them). Before the live session has loaded
+reproduces a restore that clears them). Before the live session has loaded
 the saved record, the rewrite reads that record instead. A rewrite that fails,
 or waits more than five seconds behind a stalled session write, drops the record
 and logs why. That failure path is the negative control's restore and is not

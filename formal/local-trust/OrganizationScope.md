@@ -1,11 +1,12 @@
 # Organization Scope
 
-[OrganizationScope.tla](./OrganizationScope.tla) models finding 19 of #2266.
-A group signature proves a principal history, while the separately signed
-organization directory binds its head to the expected organization. A cache
-warm attempt needs both. A historical reference can use the verified history
-below that directory head; requiring the reference itself to equal the newest
-head would prevent an honest delayed container from recovering its group key.
+[OrganizationScope.tla](./OrganizationScope.tla) models the organization scope
+of cached group policies. A group signature proves a principal history, while
+the separately signed organization directory binds its head to the expected
+organization. A cache warm attempt needs both. A historical reference can use
+the verified history below that directory head; requiring the reference itself
+to equal the newest head would prevent an honest delayed container from
+recovering its group key.
 
 | Model action or predicate | Production seam |
 | --- | --- |

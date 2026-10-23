@@ -1,7 +1,8 @@
 # Custom Document Persistence
 
 Hosts that replace the built-in `DocumentsPersistence` adapter must implement
-the complete current contract.
+the whole contract below; the SDK has no fallback for split create, split
+commit, void enqueue, or optional identity-probe adapter shapes.
 
 `createDocumentWithHistoryCheckpoint(...)` atomically creates the canonical
 record, standard projections, host projection callback, birth history
@@ -51,6 +52,11 @@ An atomic raw-history recovery increments the canonical record's
 `recoveryGeneration`. Every enqueue and save compares the generation captured
 before it waited for the mutation queue; a stale writer returns a compare-and-set
 loss and reloads the recovered record rather than publishing old history.
+`supportsAtomicRecoveryHistoryPruning: true` declares that recovery checkpoint
+replacement, covered-history selection, rejection of unproven pending rows, and
+quarantine of queued checkpoint artifacts share the guarded
+`commitDocumentMutation(...)` transaction that advances `recoveryGeneration`;
+rotation raw-history recovery refuses an adapter without it.
 
 `commitDocumentMutation(...)` conditionally writes an already-prepared mutation
 only when the complete expected durable record still matches. Its history
@@ -86,7 +92,7 @@ unknown, and no network work starts. A host may generate a local id when no row
 exists, then call `documents.open({ localId, documentId }, {
 remoteSyncMode: "on-demand" })`. On-demand mode suppresses the initial remote
 pull only when creating the backing store; an already-registered store keeps
-its existing owners.
+its owners.
 
 `requestRemoteSyncAndWait(signal)` returns `true` only after its requested sync
 generation completes. Abort, coordinator invalidation, missing prerequisites,
@@ -94,7 +100,7 @@ or an incomplete remote response returns `false`. Hosts should abort when the
 owning view unmounts. The final waiter cancels its cold probe only if no startup
 or fire-and-forget `requestRemoteSync()` owner shares the work, and an
 invalidated probe's late response is not persisted. Ordinary store activity can
-subsequently re-arm a cancelled on-demand store.
+re-arm a cancelled on-demand store.
 
 `deleteDocumentIfMatches(...)` compares the captured security identity and
 container placement inside the same write transaction as teardown and the host
@@ -118,10 +124,6 @@ the authoritative current record after the compare-and-set (including after a
 race loss), or `null` when the canonical row is absent. The store uses that
 record to adopt progress written by another pane before retrying from page one.
 
-This is a flag-day contract. The SDK has no compatibility path for previous
-split-create, split-commit, void-enqueue, or optional identity-probe adapter
-shapes.
-
 `saveHydratedAttachment(...)` compares `expectedStorageKey` with the slot's
 current durable row and `expectedSnapshotEndVersion` with the canonical document
 row for `attachment.localId`, inside one immediate transaction. Either mismatch
@@ -135,9 +137,9 @@ transaction and never delete bytes themselves: hydration keys a copy by blob id,
 so one copy can back slots in several documents. Memory adapters must preserve
 the same compare-and-set and queueing behavior. Attachment entries require
 `contentSha256`, the plaintext digest stored inside authenticated encrypted
-document content. Local
-attachment records carry the plaintext digest of the bytes they hold, so read
-models can flag a held copy whose digest differs from the document intent.
+document content. Local attachment records carry the plaintext digest of the
+bytes they hold, so read models can flag a held copy whose digest differs from
+the document intent.
 
 When a slot holds no local bytes, hydration installs a validly signed served
 binding even if its digest differs from the document intent, and the store

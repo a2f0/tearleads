@@ -6,10 +6,9 @@ provisioning depends on the WebView's real SQLite worker + OPFS, which the
 in-process test doubles do not exercise. Provisioning a local identity is
 purely local, so these run with **no backend running**.
 
-These are manual native gates. The repository's build-and-test CI jobs are
-currently workflow-dispatch-only to conserve Actions credits, and no hosted
-Android/iOS simulator job invokes Maestro yet. Run both flows on both platforms
-before shipping a change to native database or identity lifecycle behavior.
+These are manual native gates: no CI job runs Maestro. Run both offline flows
+on both platforms before shipping a change to native database or identity
+lifecycle behavior.
 
 ## Flows
 
@@ -17,11 +16,10 @@ before shipping a change to native database or identity lifecycle behavior.
   identity offline and reaches a usable, keyed state.
 - `offline-second-identity.yaml` — provisioning a **second** identity from the
   Identity Manager works offline, yields a genuinely new active identity, then
-  repeatedly switches between both identities. Regression test for the
-  second-identity provisioning and stale transition-waiter hangs (creating a
-  second identity tore down the first identity's SQLite worker and could not
-  construct a new one on a WebView; the app now reuses one dedicated worker
-  across switches — see `AppHostConfig.reuseDatabaseWorker`).
+  repeatedly switches between both identities. A WebView cannot construct a
+  second SQLite worker, so the app reuses one dedicated worker across identity
+  switches (`AppHostConfig.reuseDatabaseWorker`); this flow guards that path
+  against provisioning and transition hangs.
 - `review/subscription-review-screenshots.yaml` — registers or logs in a
   persistent simulator identity against the production API, opens the real
   native Billing surface, verifies the three RevenueCat/StoreKit tiers and
@@ -37,7 +35,9 @@ Maestro must be installed (`curl -fsSL https://get.maestro.mobile.dev | bash`).
 
 `scripts/testing/runMaestroTests.sh [ios|android]` (default `ios`) runs the
 steps below end to end: build, sync, native compile, simulator/emulator install,
-then every flow in this directory.
+then every flow at the top of this directory (not `review/`). On iOS,
+`MAESTRO_IOS_SIMULATOR` selects a simulator by name; Android runs only on a
+running emulator, never a physical device, because the flows clear app state.
 
 ## iOS (simulator)
 
@@ -117,6 +117,7 @@ maestro --platform android test maestro/offline-second-identity.yaml
 maestro --platform android test maestro/first-identity-offline.yaml
 ```
 
-The flows use `launchApp: { clearState: true }`, so each run starts from a clean
-install. They match on WebView text (`Explorer`, `Identity Manager`, `Register`,
-`New Identity`, …), so the same flow runs unchanged on both platforms.
+The offline flows use `launchApp: { clearState: true }`, so each run starts
+from a clean install. They match on WebView text (`Contacts`,
+`Identity Manager`, `Register`, `New Identity`, …), so the same flow runs
+unchanged on both platforms.

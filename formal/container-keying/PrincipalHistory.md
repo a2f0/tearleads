@@ -2,10 +2,10 @@
 
 [`PrincipalHistory.tla`](./PrincipalHistory.tla) checks the availability contract
 for both group and organization histories. Each counter summarizes a complete,
-valid signed chain.
-An authorized revocation remains enabled after ordinary updates cross the former
-lifetime ceiling. Losing all verification progress does not prevent bounded
-batches from walking the accepted history again.
+valid signed chain. An authorized revocation remains enabled after ordinary
+updates cross a fixed lifetime ceiling (`OldCeiling`). Losing all verification
+progress does not prevent bounded batches from walking the accepted history
+again.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -15,8 +15,9 @@ batches from walking the accepted history again.
 | `WriteAllowed` | `validatePrincipalStateIdentityFields` enforces exact representation without an artificial lifetime history budget |
 
 The positive configuration crosses a small modeled ceiling for both principals.
-Two negative controls restore the write cutoff or the cold traversal cutoff and
-must violate `RevocationAvailable` or `RecoveryCanProgress`, respectively.
+Two negative controls impose a write cutoff (`CapWrites`) or a cold traversal
+cutoff (`CapReads`) at that ceiling and must violate `RevocationAvailable` or
+`RecoveryCanProgress`, respectively.
 `MaxHistory` bounds exploration; a reserved successor allows revocation at that
 bound. It is not a production history limit. The model checks enabled progress,
 not eventual completion under an infinite sequence of restarts. With both caps
@@ -39,8 +40,8 @@ keys retain their epoch; membership shrink and grant removal require rotation.
 `policyEpochHttp.test.ts` checks atomic refusal and subsequent revocation over
 HTTP. Epochs use positive safe integers across wire, crypto, SDK and storage.
 This model assumes valid rotations rather than modeling epoch arithmetic.
-Cold history cost remains linear; this model makes
-no performance guarantee for arbitrarily large histories.
+Cold history cost is linear; this model makes no performance guarantee for
+arbitrarily large histories.
 
 Run the full boundary scenario with
 `bun run --cwd packages/api test:principal-history`. This opt-in suite serializes

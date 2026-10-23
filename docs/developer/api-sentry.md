@@ -6,7 +6,7 @@ failures) and failures during WebSocket handshakes. A domain error carrying a
 never sees, so it is captured where it is answered instead. Its status is kept
 deliberately: propagating it would turn a retryable 503 into a permanent 500
 unless its cause chain happened to look like driver contention. Expected client
-errors and organization entitlement failures keep their existing responses and
+errors and organization entitlement failures keep their usual responses and
 stay local. Each captured API error has an independent scope and no
 breadcrumbs, preventing activity from different requests from mixing.
 
@@ -55,9 +55,10 @@ formatting may consult `name`, `message`, or `Error.prepareStackTrace`, and the
 result still passes the frame allowlist.
 Cron maintenance runs in the same admitted bundle.
 This preserves diagnostic locations without enabling automatic integrations.
-The transport validates the vocabulary again. The API additions do not expand
-client and desktop collection, which uses `allowlist-v2`: `allowlist-v1` plus
-the API build number the client last heard from (`api_version`).
+The transport validates the vocabulary again. None of these API fields apply
+to client and desktop collection (`privacy=allowlist-v2`), whose only
+server-derived field is the API build number the client last heard from
+(`api_version`).
 
 The hourly deduplication includes these safe fields and locations, so unrelated
 operations or recognized error codes do not collapse into one frameless error.
@@ -71,9 +72,7 @@ reports, at most once per minute when flushed. Their only data is a timestamp,
 data in Sentry's usage/data-fidelity view to include those counts. These reports
 are best effort: an evicted isolate can lose pending counts. They do not contain
 messages, identifiers, routes, or per-event data; the automatic SDK client-report
-integration remains disabled. Browser and desktop collection is unchanged.
-Existing events cannot regain information omitted by an older build; deploy a
-new API Worker to receive the richer reports.
+integration remains disabled.
 
 Failures the API logged and deliberately swallowed — a realtime publish after
 the write already committed, read-model notification verification, session
@@ -85,9 +84,9 @@ remain outside this integration.
 
 The blob-GC and billing maintenance runs, scheduled by the Worker's Cron
 Triggers, use the same diagnostics configuration and report their own swallowed
-maintenance failures: blob
-reclamation reports the aggregate carrying every per-object failure, and each
-billing phase reports independently so one failure does not hide the others.
+maintenance failures: blob reclamation reports the aggregate carrying every
+per-object failure, and each billing phase reports independently so one failure
+does not hide the others.
 Per-item failures, which the sweeps count and drop rather than raise, report
 too; free-trial expiry reports at the attention threshold its backoff already
 defines rather than on every retryable attempt. An aggregate reports a bounded

@@ -1,34 +1,12 @@
 # Repository scripts
 
-Commands are grouped by purpose. Package scripts are the stable entrypoints
-for automated checks, builds, and publishing; direct shell shortcuts live in
-the groups below.
-For example, run `./scripts/dev/runApp.sh`,
-`./scripts/release/buildIosRelease.sh`, or
-`./scripts/deploy/deployStaging.sh` from the repository root.
-
-For website-only deployments, run `./scripts/deploy/deployStagingWebsite.sh` or
-`./scripts/deploy/deployProductionWebsite.sh`. Both use the shared deployment
-helper in
-`packages/website/scripts/deployWebsite.sh`; see the
-[website deployment guide](../packages/website/README.md) for credentials and
-dry-run options.
-
-`release/publishNpmPackage.sh` publishes a package to npm by its directory name:
-`windowing` or `client-sdk`. Each package's workflow runs it when a version
-bump merges, after `agent-tool release plan` checks the version is new. The
-workflows install the pinned tool first and pass `--allow-private-source` because
-these private workspaces build public consumer manifests. To
-publish by hand, run `bun run publish:npm:dry-run <package>` to
-build and preview it, then `bun run publish:npm <package>` to publish it; both
-also accept `--tag <tag>` and `--otp <code>`. See the
-[windowing](../packages/windowing/README.md#publishing) and
-[client SDK](../packages/client-sdk/README.md#publishing) publishing guides for
-authentication, versioning, and consumer smoke checks.
-
-Automated checks and supporting code live in subfolders. Use the root
-`package.json` commands, such as `bun run check:fast`, `bun run lint:architecture`,
-or `bun run test:static-analysis`, to run checks and tooling tests.
+Commands are grouped by purpose. Root `package.json` scripts are the stable
+entrypoints for automated checks, builds, and publishing, such as
+`bun run check:fast`, `bun run lint:architecture`, or
+`bun run test:static-analysis`. Direct shell shortcuts live in the groups
+below; run them from the repository root, for example
+`./scripts/dev/runApp.sh`, `./scripts/release/buildIosRelease.sh`, or
+`./scripts/deploy/deployStaging.sh`.
 
 | Folder | Contents |
 | --- | --- |
@@ -46,25 +24,51 @@ or `bun run test:static-analysis`, to run checks and tooling tests.
 | `release/` | Native and desktop release builds/uploads, npm publishing, and their helpers and tests. |
 | `testing/` | Test runners, screenshots, device-test launchers, and verification evidence. |
 
+## Deployment and release shortcuts
+
+For website-only deployments, run `./scripts/deploy/deployStagingWebsite.sh` or
+`./scripts/deploy/deployProductionWebsite.sh`. Both use the shared helper in
+`packages/website/scripts/deployWebsite.sh`; see the
+[website deployment guide](../packages/website/README.md) for credentials and
+dry-run options.
+
+Windows desktop releases use `./scripts/release/windowsRelease.sh build staging`
+or `build production` to dispatch GitHub Actions. After the run completes, use
+`download <tier> <run-id>` to retrieve its package or `upload <tier> <run-id>`
+to publish it to R2 with local credentials. See the
+[Windows release guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).
+
+`release/publishNpmPackage.sh` publishes a package to npm by its directory name:
+`windowing` or `client-sdk`. Each package's publish workflow runs it when a
+version bump merges, after `agent-tool release plan --allow-private-source`
+confirms the version is new; the flag is needed because these private
+workspaces build public consumer manifests. To publish by hand, run
+`bun run publish:npm:dry-run <package>` to build and preview it, then
+`bun run publish:npm <package>` to publish it; both also accept `--tag <tag>`
+and `--otp <code>`. See the
+[windowing](../packages/windowing/README.md#publishing) and
+[client SDK](../packages/client-sdk/README.md#publishing) publishing guides for
+authentication, versioning, and consumer smoke checks.
+
 ## Screenshot seed and capture
 
-`bun run screenshots:seed` verifies the pinned Continuity manifest, validates its
-versioned seed contract, and builds `tearleads-seed.tlbackup.json` through the SDK.
-The adjacent `.provenance.json` binds the backup to the seed and screenshot
+`bun run screenshots:seed` verifies the pinned Continuity manifest, validates
+its versioned seed contract, and builds `tearleads-seed.tlbackup.json` through
+the SDK. The adjacent `.provenance.json` binds the backup to the seed and screenshot
 expectations. Both are local artifacts. A direct Playwright capture rejects a
 missing or stale provenance; regenerate with `bun run screenshots:seed`.
 
 `bun run screenshots` regenerates that backup and restores it through the app
 before capturing desktop, tablet, and phone layouts in both themes. Household
-detail captures assert decoded family/equipment photos and receipts, inventory fields,
-and tracker table rows and graph points. The browser locale and time zone are
-pinned so the dated readings render consistently. `bun run build:website` also
-stages these captures into the website gallery.
+detail captures assert decoded family/equipment photos and receipts, inventory
+fields, and tracker table rows and graph points. The browser locale and time
+zone are pinned so the dated readings render consistently.
+`bun run build:website` also stages these captures into the website gallery.
 
-Add canonical facts and photographic assets in [a2f0/continuity](https://github.com/a2f0/continuity),
-regenerate and ship them there, then update the root catalog commit pin and run
-`bun install`.
-The contract test in `packages/app/test/screenshot-seed/continuitySeed.test.ts`
+Add canonical facts and photographic assets in
+[a2f0/continuity](https://github.com/a2f0/continuity), regenerate and ship them
+there, then update the root catalog commit pin and run `bun install`. The
+contract test in `packages/app/test/screenshot-seed/continuitySeed.test.ts`
 builds and restores the pinned data into a separate database and blob store.
 Tracker `rows` go through `addRow`; repeated `equipment-photos` entries append
 independent images, while single-image attachment slots reject duplicates.
@@ -76,9 +80,9 @@ test verifies that every seeded reading is accepted by the chart parser.
 ## Verification
 
 Use `bun run check`, `bun run check:affected`, or `bun run check:package` for
-repository verification. The [verification guide](../docs/developer/verification.md)
-describes build prerequisites, Turbo task evidence, command capture, and
-checkout-bound reports.
+repository verification. The
+[verification guide](../docs/developer/verification.md) describes build
+prerequisites, Turbo task evidence, command capture, and checkout-bound reports.
 
 ## Adding a script
 
@@ -94,9 +98,3 @@ checkout-bound reports.
 - Wire automated commands through the root `package.json`. When moving a file,
   update its imports, shell source paths, test fixtures, documentation, and Turbo
   inputs together.
-
-Windows desktop releases use `./scripts/release/windowsRelease.sh build staging`
-or `build production` to dispatch GitHub Actions. After the run completes, use
-`download <tier> <run-id>` to retrieve its package or `upload <tier> <run-id>`
-to publish it to R2 with local credentials. See the [Windows release
-guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).

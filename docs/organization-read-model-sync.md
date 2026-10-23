@@ -1,8 +1,8 @@
 # Organization Read-Model Sync
 
-Organization administration is server-authoritative but should be local-first
-for presentation. The client therefore keeps normalized SQLite projections and
-reconciles them from one organization-scoped, cursor-ordered feed.
+Organization administration is server-authoritative but local-first for
+presentation. The client keeps normalized SQLite projections and reconciles them
+from one organization-scoped, cursor-ordered feed.
 
 ## Authority boundary
 
@@ -23,12 +23,12 @@ A personal organization belongs to the user whose server-side
 the `admin` role in `Admins`, even when another admin signs the change or the
 owner tries to leave. The API rejects violating policy commits with 409 before
 writing either signed successor or advancing the read-model cursor. Custom
-organizations and ordinary groups retain their existing membership rules.
+organizations and ordinary groups carry no such owner constraint.
 
-Directory rows expose `isPersonalOrganizationOwner` for UI affordances, including
-when another admin views the owner. It is independent of requester-relative
-`isSelf` and is persisted in the local directory cache. The response field is
-required and persisted as a non-null boolean. It does not replace the
+Directory rows expose `isPersonalOrganizationOwner` for UI affordances,
+including when another admin views the owner. It is independent of
+requester-relative `isSelf`, required in the response, and persisted as a
+non-null boolean in the local directory cache. It does not replace the
 server-side membership invariant. Account deletion and organization purge are
 separate lifecycle operations from roster removal.
 
@@ -43,13 +43,13 @@ Sharing and key-rotation probes consume the signed directory, not the read-model
 group lane, and reject a current group response whose head differs from the
 committed entry.
 
-Every signed principal-state header has an `externalAuthority` field. Directly
-authorized states use `null`; externally administered organization groups cite
-the exact signed Admins head used to authorize that state. Historical citations
-are checked against exact signed Admins history without in-chain rollback.
-The API requires current Admins authority at commit; delayed histories remain
-verifiable after Admins advances, including on checkpointed devices.
-Verification requires this signed authority field on every state.
+Every signed principal-state header carries a required `externalAuthority`
+field, which verification checks on every state. Directly authorized states use
+`null`; externally administered organization groups cite the exact signed Admins
+head used to authorize that state. Historical citations are checked against
+exact signed Admins history without in-chain rollback. The API requires current
+Admins authority at commit; delayed histories remain verifiable after Admins
+advances, including on checkpointed devices.
 
 Explorer writes must obtain the exact verified policy and access state needed
 to unwrap keys and encrypt content. They must never infer authority from a
@@ -90,13 +90,12 @@ in the source mutation's database transaction, so the counter and stamps roll
 back with the mutation. The update holds the head row lock until commit, so
 same-organization writers are serialized and cursor allocation order is commit
 order: no reader can see stamp N committed before stamp N-1. Every group stamp
-is written after the head update, under that lock. Clients treat cursor values
-as opaque strings.
+is written after the head update, under that lock.
 
-A global database sequence is intentionally not used. Postgres sequences are
-allocation-ordered and do not roll back: a transaction could reserve cursor 10,
-another commit cursor 11, and a client could advance past the later-committing
-10. A transactional organization head removes that race.
+The cursor is not a global database sequence: Postgres sequences are
+allocation-ordered and do not roll back, so a transaction could reserve cursor
+10, another commit cursor 11, and a client could advance past the
+later-committing 10. A transactional organization head removes that race.
 
 Mutation workflows stamp only after actual domain transitions. Exact policy
 replays and no-op conditional updates advance nothing. A stamp records only that
@@ -166,11 +165,12 @@ snapshot and delta contract.
 ## Snapshot and delta contract
 
 A client without a cursor requests an atomic full snapshot. A client with a
-cursor requests the lanes stamped after that cursor. Responses include an opaque
-`nextCursor`, `hasMore`, and unconditional requester metadata; the client
-advances its cursor and requester row in the same local SQLite transaction that
-applies the page. A concurrent response already applied at the same cursor may
-still update its own requester row. A stale response updates neither.
+cursor, which it treats as an opaque string, requests the lanes stamped after
+it. Responses include an opaque `nextCursor`, `hasMore`, and unconditional
+requester metadata; the client advances its cursor and requester row in the same
+local SQLite transaction that applies the page. A concurrent response already
+applied at the same cursor may still update its own requester row. A stale
+response updates neither.
 
 A snapshot carries a membership head for the reserved `Members` group and for
 every stateful visible group, including groups with no members. Each head
@@ -196,7 +196,10 @@ client atomically replaces the organization's projection from a new full
 snapshot. Applying the same response more than once is a no-op.
 
 Network, server, and response-shape failures retain the last-known-good local
-snapshot. An authoritative 403 or 404 purges the organization's projection.
+snapshot. A `403` or `404` coded `organization_presentation_access_denied`
+purges the organization's projection; an uncoded or unknown failure does not. A
+warm client discards its cursor for a fresh snapshot only on
+`400 organization_read_model_cursor_invalid`.
 
 ## Realtime behavior
 
@@ -221,8 +224,8 @@ viewing document attribution, Explorer may open and probe only contributor
 profile documents already named by the organization projection and already
 located beneath the existing roster-profile container; it never provisions
 that container. Hydration is disabled-first, cumulatively capped at a sticky 32
-contributors per document across at most 32 recently viewed documents, retries
-a failed probe at most three times, and is cancelled when the authenticated
+contributors per document across at most 32 recently viewed documents, attempts
+each probe at most three times, and is cancelled when the authenticated
 organization scope changes. Until a probe persists a profile locally,
 attribution falls back to the contributor's user ID. Opening the selected
 profile editor remains an explicit document operation and may synchronize that
@@ -236,7 +239,7 @@ acknowledges that declaration only after authorization and socket indexing, and
 the client starts HTTP catch-up only after the matching acknowledgement. This
 ordering prevents a committed feed event from falling between catch-up and
 live routing. A denied acknowledgement still drives HTTP reconciliation so its
-authoritative 403 or 404 response purges stale local policy and keying material.
+coded 403 or 404 response purges stale local policy and keying material.
 Declaration authorization is deadline-bounded and fails closed with that same
 denied acknowledgement, so one stalled access check cannot strand catch-up or
 delay organization events for other connected recipients indefinitely.
@@ -253,8 +256,11 @@ audience with declared interest and reconstructs a minimal client frame;
 recipient IDs and the authoring-session origin never cross the websocket
 boundary. A malformed event or one without an audience fails closed. When a
 previously authorized interested user leaves the audience, the socket receives
-one access-revoked control and no subsequent mutation timing while access is
-absent. HTTP reconciliation then purges the local projection on 403 or 404.
+one `organization_read_model_access_revoked` control and no subsequent mutation
+timing while access is absent. HTTP reconciliation then purges the local
+projection on the coded 403 or 404. Neither organization frame enters the
+container/document event queue; each schedules only organization read-model
+reconciliation.
 
 Principal-policy writes publish the container-discovery `shared_with_you` hint
 only for users who become newly reachable after the commit, and only when the
@@ -296,6 +302,9 @@ check so restored access cannot be stranded until another reconnect.
 Authentication, offline, and local-only transitions tear down the loop; the
 first connection still does not fetch a projection that has no consumer.
 
+HTTP remains authoritative after hints, reconnects, explicit refreshes, and
+cursor-gap recovery.
+
 Provisioned system-container polling prefers an exact system-slot match. A
 viewer of a shared organization cannot derive slots keyed by that
 organization's founder, so an already-hydrated direct child of the active root
@@ -303,17 +312,13 @@ with the registered visible name and an opaque non-null slot also ends the
 poll. This is only a discovery stop condition; signed container state remains
 the access and keying authority.
 
-This control event never enters the container/document event queue and schedules
-only organization read-model reconciliation. HTTP remains authoritative after
-hints, reconnects, explicit refreshes, and cursor-gap recovery.
+## Organization policy history
 
-### Organization policy change details
-
-The policy-history read endpoint accepts an exact organization `stateHash` and
-returns existing organization payloads plus public group policy snapshots up to
-that head. Deleted groups retain the signed states and projections needed for
-this history, while their encrypted names and key envelopes remain deleted.
-Clients verify all evidence and derive differences in memory. The history
-response contains no group or roster display names, and viewing it writes no
-new history data. Names are resolved through the same encrypted metadata and
-roster profiles used elsewhere in Org Manager.
+`GET /organizations/:organizationId/policy-history` accepts an exact
+organization `stateHash` and returns existing organization payloads plus public
+group policy snapshots up to that head. Deleted groups retain the signed states
+and projections needed for this history, while their encrypted names and key
+envelopes remain deleted. Clients verify all evidence and derive differences in
+memory. The history response contains no group or roster display names, and
+viewing it writes no new history data. Names are resolved through the same
+encrypted metadata and roster profiles used elsewhere in Org Manager.

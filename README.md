@@ -8,7 +8,8 @@ a client SDK, and an API for synchronizing documents and shared containers.
 1. Install `mise` with `brew install mise`, then run `mise install`.
 2. Run `bun install --frozen-lockfile`.
 3. Run `bundle install` from `packages/app-capacitor` for native release checks.
-4. Run `bun run build:packages` to build SQLite and the SDK and prepare Electrobun.
+4. Run `bun run build:packages` to build SQLite and the SDK and prepare the
+   Electrobun devkit.
 5. Run `sh scripts/git/install-hooks.sh` to install Git hooks. Existing clones
    follow the [one-time hook migration](docs/developer/static-analysis.md#ci-and-the-push-gate).
 6. Run `bun run --filter=@tearleads/api dev` to start the API.
@@ -34,16 +35,16 @@ See the [script index](scripts/README.md) for commands grouped by purpose.
 ## Running Tests
 
 ```sh
-# Run all Bun tests across workspace packages, sequentially
+# Build packages, then run every workspace's tests sequentially
 bun run test:bun
 
 # Run Bun workspace tests through Turborepo
 bun run test:turbo:bun
 
-# Run all Turborepo test tasks
+# Run Bun workspace tests and the web E2E suite through Turborepo
 bun run test:turbo
 
-# Run only changed/impacted Bun workspace tests through Turborepo
+# Run only affected workspace and E2E tests through Turborepo
 bun run test:turbo:affected
 
 # Run a specific test
@@ -60,23 +61,20 @@ Workspace packages reference those versions with `catalog:` and
 ## Turborepo
 
 [`turbo.json`](./turbo.json) adds dependency-aware task orchestration and
-caching on top of the Bun workspace. The `test` task depends on each
-package's `build` task, so generated artifacts are refreshed before tests run.
-CI shares the cache through the GitHub Actions cache; a task that reads files
-outside its package declares them in that package's `turbo.json`.
+caching on top of the Bun workspace. The `test` task depends on the `build`
+task of each workspace dependency, so their generated artifacts are refreshed
+before tests run. CI shares the cache through the GitHub Actions cache; a task
+that reads files outside its package declares them in that package's
+`turbo.json`.
 
 ## Developer Docs
+
+The [documentation index](./docs/README.md) lists every design reference and
+developer guide. Common starting points:
 
 - [Verification](./docs/developer/verification.md)
 - [Static Analysis](./docs/developer/static-analysis.md)
 - [CI and Merge Requirements](./docs/developer/ci-merge-gate.md)
 - [Infrastructure and Deployment](./docs/developer/infrastructure.md)
-- [API Persistence](./docs/developer/api-persistence.md)
 - [Client SDK](./docs/developer/client-sdk.md)
-- [Dependency Maintenance](./docs/dependency-upgrades.md)
-- [Hosted Click Analytics](./docs/developer/click-tracking.md)
-- [Payment Provider MCP and CLI Operations](./docs/developer/payment-provider-mcp.md)
-- [Realtime Hint Privacy](./docs/developer/realtime-hints.md)
-- [RevenueCat Billing](./docs/developer/revenuecat-billing.md)
-- [RevenueCat Native Stores](./docs/developer/revenuecat-native-stores.md)
-- [Stripe Checkout Client](./docs/developer/stripe-checkout-client.md)
+- [Security Guarantees](./docs/security-guarantees.md)

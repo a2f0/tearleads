@@ -14,15 +14,13 @@ editor or `tsc` resolves the package. Root `build:packages` and `check:fast` pre
 it automatically. The repository's TypeScript rules take precedence over the
 SDK config; the package lists its vendor compatibility exceptions explicitly.
 
-The pinned npm package selects Hutch 0.28.1 for Electrobun 2.0.4. This
-stable release includes the native Windows listener fix for reserved or occupied
-ports; 2.0.1 can exit at startup with a websocket `Unexpected` error. Its
+The pinned npm package, Electrobun 2.0.4, selects Hutch 0.28.1. Its
 [bootstrap](https://github.com/blackboardsh/electrobun/blob/v2.0.4/npm/electrobun/bin/resolve-hutch.cjs)
 checks the release index's archive size and SHA-256, then validates cached
-launcher/engine hashes. It reuses `~/.hutch/` on subsequent runs. After the first
-setup, `DASH_RELEASE_OFFLINE=1 bun run --cwd packages/app-electrobun prepare:devkit`
-works without downloading once the selected release is cached. A fresh CI
-runner downloads the paired release once, like the other mise-managed tools.
+launcher/engine hashes. It reuses `~/.hutch/` on subsequent runs. Once the
+selected release is cached,
+`DASH_RELEASE_OFFLINE=1 bun run --cwd packages/app-electrobun prepare:devkit`
+works without downloading. A fresh CI runner downloads the paired release.
 Deleting `.hutch/devkit/` requires rerunning preparation before standalone
 `bun tsc --build` or `bun run lint:knip:all` / `bun run lint:knip:production`.
 
@@ -30,7 +28,7 @@ Run `./scripts/dev/runElectrobun.sh` from the repository root (or
 `bun run --cwd packages/app-electrobun dev`) to start the desktop app. Arguments
 such as `--reset` are forwarded to the package launcher. Use
 `bun run --cwd packages/app-electrobun build:dev` to build it. The main process
-continues to use Bun. Renderer settings are explicit build-time defines:
+runs on Bun. Renderer settings are explicit build-time defines:
 `BUN_PUBLIC_API_BASE_URL` defaults to localhost, `BUN_PUBLIC_WS_URL` defaults to
 the backend events endpoint, and the build wrapper stamps
 `BUN_PUBLIC_APP_VERSION` and `BUN_PUBLIC_GIT_SHA`. Unset settings compile to
@@ -41,11 +39,6 @@ Windows, this pins Chromium to the app release independently of the machine's
 WebView2 installation and update cycle. macOS builds use the native WKWebView
 and explicitly disable CEF bundling. These settings apply to both development
 and release builds in `electrobun.config.ts`.
-
-The repository's [pre-deployment policy](../../docs/request-budget-closeout.md)
-has no legacy production clients to support; this Windows renderer choice
-establishes the release baseline. Local WebView2 development profiles remain
-separate from CEF profiles and are not migrated by this configuration.
 
 The packaging step emits the renderer HTML and assets together with Bun and
 embeds Loro's WASM, alongside the SQLite worker and WASM. Both packaged and
@@ -75,14 +68,7 @@ before publishing. Staging uses Electrobun's `canary` channel and production use
 On macOS, staging uses the app name **TL Staging**, matching mobile, and the
 window title **TL Staging**. Hutch adds its channel suffix to the bundle and
 volume (`TL Staging-canary.app` / `TL Staging-canary`) and removes spaces from
-artifact filenames. Production uses **Tearleads**. The bundle identifier and
-channel data directories stay the same, so this rename preserves existing data.
-
-For this rename, quit `Tearleads-canary.app`, drag `TL Staging-canary.app` from
-the new DMG into Applications, then remove the old app bundle. Keep the app's
-data directories. Migration across the bundle rename through Electrobun's
-updater has not been verified; use this manual installation for existing staging
-installs.
+artifact filenames. Production uses **Tearleads**.
 
 Like the iOS and Android wrappers, `*Release.sh` defaults to production and
 `*StagingRelease.sh` selects staging. Each supports `--help` and accepts no tier
@@ -108,18 +94,17 @@ The macOS `postWrap` hook restores the expanded app from the wrapper's payload
 before Hutch signs, notarizes, and creates the DMG. This lets the app launch
 from the read-only disk image; the self-extracting wrapper otherwise fails while
 trying to replace itself there. Drag Tearleads to Applications to install it.
-The compressed update archive is still generated and published by Hutch.
-Artifacts and SHA-256 checksums are written to the
-ignored `build/artifacts/` directory. Uploads publish DMGs, matching checksums,
-and full update archives under
-immutable filenames containing their SHA-256 digests. Publication reads the tier's
-`release_storage` Terraform output and uses bucket-scoped R2 credentials with the
-AWS CLI's S3 protocol. Apply `terraform/stacks/<tier>/downloads` first. Public
-origins are `https://downloads.tearleads.com` and
-`https://downloads-staging.tearleads.com`; historical S3 URLs are retired. Update
-and download discovery documents are replaced only after all payloads succeed,
-so a failed upload preserves previously published releases. Discovery uses revalidating
-cache headers; immutable artifacts may be cached for a year.
+Hutch also generates and publishes the compressed update archive.
+Artifacts and SHA-256 checksums are written to the ignored `build/artifacts/`
+directory. Uploads publish DMGs, matching checksums, and full update archives
+under immutable filenames containing their SHA-256 digests. Publication reads
+the tier's `release_storage` Terraform output and uses bucket-scoped R2
+credentials with the AWS CLI's S3 protocol. Apply
+`terraform/stacks/<tier>/downloads` first. Public origins are
+`https://downloads.tearleads.com` and `https://downloads-staging.tearleads.com`.
+Update and download discovery documents are replaced only after all payloads
+succeed, so a failed upload preserves previously published releases. Discovery
+uses revalidating cache headers; immutable artifacts may be cached for a year.
 Delta patches are disabled; full update archives are published with each build.
 
 | Tier | Public origin hostname | Local installer |
@@ -129,9 +114,9 @@ Delta patches are disabled; full update archives are published with each build.
 
 Redeploy the website after publishing: its build resolves the environment's
 `<channel>-macos-arm64-download.json` into a matched pair of immutable installer
-and checksum links. An unavailable discovery document falls back to the verified
-first release. Published immutable artifacts are never overwritten by this
-publisher. The macOS scripts publish macOS ARM64. See
+and checksum links. An unavailable discovery document falls back to a pinned,
+verified release. The publisher never overwrites a published immutable
+artifact. The macOS scripts publish macOS ARM64. See
 [Electrobun distribution](https://framework.blackboard.sh/electrobun/guides/bundling-and-distribution/)
 for platform packaging and native runner requirements.
 
@@ -170,8 +155,8 @@ scripts/release/uploadLinuxRelease.sh
 The upload commands build before publishing. Equivalent package commands are
 `build:linux:staging`, `build:linux:release`, `upload:linux:staging`, and
 `upload:linux:release`, run with `bun run --cwd packages/app-electrobun <command>`.
-The shorter `build:linux` and `upload:linux` commands default to production and
-still accept an explicit `staging` or `production` argument.
+The shorter `build:linux` and `upload:linux` commands are production aliases
+and accept no tier argument.
 They build Linux x64 in an Ubuntu 24.04 container with Bun pinned to the
 repository version and Electrobun pinned by the lockfile. On Apple silicon,
 disable Docker Desktop's **Use Rosetta for x86_64/amd64 emulation** setting to
@@ -182,9 +167,9 @@ under QEMU as well as on native Linux.
 
 The pinned [Electrobun Linux wrapper](https://github.com/blackboardsh/electrobun/blob/v2.0.4/package/src/native/linux/nativeWrapper.cpp)
 already sets `settings.no_sandbox = true`. `no-zygote` changes process startup
-without changing that sandbox setting. We accept the additional renderer startup
-cost so the exact published application can pass installation and persistence
-checks under QEMU; the application uses one main window.
+without changing that sandbox setting. The additional renderer startup cost is
+accepted so the exact published application can pass installation and
+persistence checks under QEMU; the application uses one main window.
 
 The development launcher runs Turbo explicitly with Bun, including when the
 Linux smoke test uses an isolated home directory. The container ships Bun and
@@ -205,14 +190,14 @@ The Linux Docker context listing also disables filesystem-monitor hooks.
 The container build stages source maps outside the app and removes every map
 from the build directory, but uploads nothing
 (`TEARLEADS_ELECTROBUN_SOURCEMAP_UPLOAD=deferred`, honoured only without `.git`).
-After the installation check, upload copies the staged maps to a private host
-temporary directory and runs `scripts/uploadDeferredSourceMaps.ts`, which requires
-the source commit to be the clean checkout's `HEAD`, accepts exactly the
-renderer and main-process pairs as regular files under the `linux-x64` dist
-that `releaseLinux.sh` names (never the host's own platform), and uploads them
-with the token from the tier's `.secrets/<tier>/shared.env`. A failed or
-partial upload stops before R2.
-Build mode uploads no maps. The artifact check refuses any `.map` in the
+Upload then copies the staged maps to a private host temporary directory and
+runs `scripts/uploadDeferredSourceMaps.ts`, which requires the source commit to
+be the clean checkout's `HEAD`, accepts exactly the renderer and main-process
+pairs as regular files under the `linux-x64` dist that `releaseLinux.sh` names
+(never the host's own platform), and uploads them with the token from the
+tier's `.secrets/<tier>/shared.env`. Maps upload before the installation check,
+so its first errors can symbolicate; a failed or partial upload stops before
+R2. Build mode uploads no maps. The artifact check refuses any `.map` in the
 artifacts.
 
 Artifacts are copied to `build/linux-x64/<production|staging>/`, separate from
@@ -253,8 +238,8 @@ pwsh ./packages/app-electrobun/scripts/testWindowsPortConflict.ps1
 
 The Windows CEF persistence CI job runs this check on a native Windows runner
 through `scripts/testWindowsPortConflict.ps1`. That wrapper holds the native
-host transport's first candidate port (50000) exclusively, verifies that the old
-SO_REUSEADDR configuration receives access denied, then requires the app to
+host transport's first candidate port (50000) exclusively, verifies that an
+SO_REUSEADDR bind on it receives access denied, then requires the app to
 select a later internal websocket port on each launch. If an outside reservation
 or listener prevents the test from owning 50000, it reports that condition and
 runs the persistence checks without those forced-conflict assertions.
@@ -290,9 +275,8 @@ probe enables it only for the launched test process through
 `ELECTROBUN_CEF_REMOTE_DEBUGGING_PORT`. Electrobun
 [disables remote debugging by default for canary and stable builds](https://github.com/blackboardsh/electrobun/blob/v2.0.4/package/src/native/shared/chromium_flags.test.cpp#L23).
 
-See [dependency upgrade notes](../../docs/dependency-upgrades.md) and the
-[Electrobun migration guide](https://github.com/blackboardsh/electrobun/blob/main/docs/src/content/docs/electrobun/guides/migrating-to-v2.mdx)
-when changing the toolchain.
+See the [dependency upgrade notes](../../docs/dependency-upgrades.md) when
+changing the toolchain.
 
 ## Windows releases from GitHub Actions
 
@@ -338,7 +322,7 @@ payloads to the same downloads buckets as macOS and Linux. Discovery uses
 
 Actions artifacts expire after 14 days; publish or download them before then.
 The Windows ZIP contains the setup executable and its adjacent hidden payload;
-extract everything before running setup. These installers are currently unsigned.
+extract everything before running setup. The Windows installers are unsigned.
 
 After publishing, refresh the website's build-time links:
 

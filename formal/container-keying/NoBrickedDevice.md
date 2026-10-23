@@ -2,11 +2,10 @@
 
 [`NoBrickedDevice.tla`](./NoBrickedDevice.tla) models the invariant that no
 device may ever be unable to read or write because another device holds a
-cache or must issue a write first (#2192 Gate F1). It exists so that every
-client refusal rule is a parameter checked against that invariant before it
-is implemented: the withdrawn container currency rule (#2174) and the
-principal-policy currency rule (#2173) both failed it in production review,
-and the model reports the same failure in seconds.
+cache or must issue a write first. Every client refusal rule is a parameter
+checked against that invariant before it is implemented. Two currency rules
+that look protective, requiring a newer head or every newer chain entry to cite
+the current authority, fail it, and the model reports that failure in seconds.
 
 One dependent object cites one authority. In the container instance the
 authority is an ancestor container's manifest head and the dependent a
@@ -52,18 +51,18 @@ loss tombstones are an additional effect, not the whole membership transition.
 Descendants without a direct group grant can retain their older signed ancestor
 citations: these are the honestly committed heads the SDK must still accept.
 
-`CurrentSignerOk` models the #2266 regression: demanding membership at the
-served current authority rejects valid history after revocation. Its
-`RefuseSignerRevokedAtCurrent` parameter stays `FALSE`; the API still checks
-current membership when committing new work.
+`CurrentSignerOk` demands membership at the served current authority, which
+rejects valid history after revocation. Its `RefuseSignerRevokedAtCurrent`
+parameter stays `FALSE`; the API still checks current membership when
+committing new work.
 
 `StaleHeadOk` and `StaleChainOk` have no production seam by design. The first
-is the rule #2174 withdrew: a head newer than the device's checkpoint must
-cite the served current authority head. The second is the rule #2173 removed
-from `verifyPrincipalPolicyExternalAuthorityProgress`: every chain entry
-newer than the checkpoint must cite it. Both stay in the model as parameters,
-`FALSE` in every registered configuration, so the negative controls below can
-show what each would cost.
+requires a head newer than the device's checkpoint to cite the served current
+authority head. The second requires every chain entry newer than the
+checkpoint to cite it, a rule `verifyPrincipalPolicyExternalAuthorityProgress`
+does not apply. Both stay in the model as parameters, `FALSE` in every
+registered configuration, so the negative controls below can show what each
+would cost.
 
 ## Registered configurations
 
@@ -111,8 +110,8 @@ a single rule, and requires TLC to report exactly the named violation:
   `CheckpointsAreMonotone`, `HeldCitationsNeverRegress`,
   `HeldAuthorityCoversHeldCitation`, and `HeldSignerWasMemberAtCitation`.
 
-A future refusal rule is added as one more parameter, set `TRUE` in the
-registered configurations only once the liveness run still passes.
+A new refusal rule is added as one more parameter and set `TRUE` in the
+registered configurations only if the liveness run still passes.
 
 ## Implementation trace projection
 
@@ -140,11 +139,11 @@ sequence of the model's actions with the outcome the verifier produced:
   predecessor. The real API + SDK counterpart is
   `packages/api/src/routes/principals/historicalPolicyProjection.test.ts`.
 - `.../noBrickPolicyProjection.test.ts` drives `verifyPrincipalPolicyBundle`
-  through the #2173 shape: a group successor by a since-removed admin citing
-  the older Admins head is accepted after Admins advances, a later successor
-  by the replacement admin is accepted with that entry in its chain, and a
-  citation regression, the removed admin citing the head that removed them,
-  and a rollback below the checkpoint are refused.
+  through the stale-chain shape: a group successor by a since-removed admin
+  citing the older Admins head is accepted after Admins advances, a later
+  successor by the replacement admin is accepted with that entry in its chain,
+  and a citation regression, the removed admin citing the head that removed
+  them, and a rollback below the checkpoint are refused.
 
 Each recorded verification becomes one `HonestSync` or `Verify` step whose
 projection the recorder derives from the served bundles: the head's epoch,
@@ -168,19 +167,20 @@ whose membership is the only one the model distinguishes. A forged dependent
 head that extends the honest chain beyond a device's checkpoint, signed while
 the late signer still had membership at the head it cites, is accepted: that
 is the documented residual a revoked ancestor member keeps until the next
-legitimate event on the descendant, and the reason the currency rules were
-tempting. A device that accepts such a head holds a branch the model does not
-track, so it takes no further step; detecting that split view needs the
-transparency witnessing of #2186 Part C, not a refusal rule. Signatures,
+legitimate event on the descendant. A device that accepts such a head holds a
+branch the model does not track, so it takes no further step. Detecting that
+split view requires transparency witnessing, not a refusal rule; the system
+does not implement witnessing
+([#2186](https://github.com/a2f0/tearleads/issues/2186)). Signatures,
 hashes, the grant algebra, and the checkpoint persistence are outside the
 abstraction. The model serves a policy projection as one atomic tuple, where
 production makes separate reads (the organization, its Admins group, the
 metadata root). A commit between two reads serves a chain extending the head
-the other read cites; the client rereads once instead of reporting tampering
-(#2365 finding 22). This is exhaustive bounded model checking, not a proof.
+the other read cites; the client rereads once instead of reporting tampering.
+This is exhaustive bounded model checking, not a proof.
 
 Writer projections may omit manifest bundles a device cited from its own
-durable verified-bundle table (#2522). The device rebuilds the same served
+durable verified-bundle table. The device rebuilds the same served
 tuple from those exact bytes before any rule here runs, so the projections this
 model serves are unchanged, and nothing a device reads depends on another
 device's table. Losing the table only removes citations; the next read arrives
