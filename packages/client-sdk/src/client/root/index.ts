@@ -6,7 +6,9 @@ import {
   listRootIdentities,
   listRootIdentityOrganizations,
   listRootOrganizationIdentities,
+  listRootOrganizationRevenuecatEvents,
   listRootOrganizations,
+  listRootRevenuecatEventsReport,
   loadRootIdentity,
   loadRootOpsHealthReport,
   loadRootOrganization,
@@ -27,10 +29,15 @@ import {
   type RootOrganizationDetail,
   type RootOrganizationIdentitiesPage,
   type RootOrganizationPageQueryInput,
+  type RootOrganizationRevenuecatEventsPage,
   type RootOrganizationsApi,
   type RootOrganizationsPage,
   type RootOrganizationsQueryInput,
   type RootRequestOutcome,
+  type RootRevenuecatApi,
+  type RootRevenuecatEventsQueryInput,
+  type RootRevenuecatEventsReportPage,
+  type RootRevenuecatEventsReportQueryInput,
   type RootSuspensionApi,
   suspendRootIdentity,
 } from "../../workflows/root";
@@ -50,6 +57,7 @@ type RootApi = RootIdentitiesApi &
   RootOrganizationsApi &
   RootDataUsageApi &
   RootOpsHealthApi &
+  RootRevenuecatApi &
   RootAuditApi &
   RootSuspensionApi;
 
@@ -66,6 +74,15 @@ export interface Root {
   ): Promise<RootRequestOutcome<RootDataUsageReportPage>>;
   /** Seat-sync, trial-expiry and purge trouble across every organization. */
   loadOpsHealthReport(): Promise<RootRequestOutcome<RootOpsHealthReport>>;
+  /** RevenueCat deliveries that resolved to no organization or were ignored. */
+  listRevenuecatEventsReport(
+    query?: RootRevenuecatEventsReportQueryInput,
+  ): Promise<RootRequestOutcome<RootRevenuecatEventsReportPage>>;
+  /** An organization's RevenueCat deliveries, including transfers away. */
+  listOrganizationRevenuecatEvents(
+    organizationId: string,
+    query?: RootRevenuecatEventsQueryInput,
+  ): Promise<RootRequestOutcome<RootOrganizationRevenuecatEventsPage>>;
   listOrganizations(
     query?: RootOrganizationsQueryInput,
   ): Promise<RootRequestOutcome<RootOrganizationsPage>>;
@@ -199,9 +216,7 @@ export function createRoot(runtimeService: RootRuntime): Root {
       : null;
   };
 
-  const guarded = async <Data>(
-    request: (api: RootApi) => Promise<RootRequestOutcome<Data>>,
-  ): Promise<RootRequestOutcome<Data>> => {
+  const guarded: GuardedRootRequest = async (request) => {
     const api = activeApi();
     if (!api) {
       return NOT_AVAILABLE;
@@ -238,6 +253,12 @@ function guardedRootCalls(
     listDataUsageReport: (query) =>
       guarded((api) => listRootDataUsageReport(api, query)),
     loadOpsHealthReport: () => guarded((api) => loadRootOpsHealthReport(api)),
+    listRevenuecatEventsReport: (query) =>
+      guarded((api) => listRootRevenuecatEventsReport(api, query)),
+    listOrganizationRevenuecatEvents: (organizationId, query) =>
+      guarded((api) =>
+        listRootOrganizationRevenuecatEvents(api, organizationId, query),
+      ),
     listOrganizations: (query) =>
       guarded((api) => listRootOrganizations(api, query)),
     loadOrganization: (organizationId) =>

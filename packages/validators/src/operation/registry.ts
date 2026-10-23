@@ -102,6 +102,10 @@ import {
   listRootOrganizationsOperation,
 } from "./rootOrganizations";
 import {
+  listRootOrganizationRevenuecatEventsOperation,
+  listRootRevenuecatEventsReportOperation,
+} from "./rootRevenuecat";
+import {
   liftRootIdentitySuspensionOperation,
   suspendRootIdentityOperation,
 } from "./rootSuspension";
@@ -199,6 +203,8 @@ export const protocolOperations: readonly [
   typeof listRootIdentityOrganizationsOperation,
   typeof listRootAuditEventsOperation,
   typeof getRootOpsHealthReportOperation,
+  typeof listRootOrganizationRevenuecatEventsOperation,
+  typeof listRootRevenuecatEventsReportOperation,
   typeof suspendRootIdentityOperation,
   typeof liftRootIdentitySuspensionOperation,
   typeof documentSyncOperation,
@@ -282,6 +288,8 @@ export const protocolOperations: readonly [
   listRootIdentityOrganizationsOperation,
   listRootAuditEventsOperation,
   getRootOpsHealthReportOperation,
+  listRootOrganizationRevenuecatEventsOperation,
+  listRootRevenuecatEventsReportOperation,
   suspendRootIdentityOperation,
   liftRootIdentitySuspensionOperation,
   documentSyncOperation,

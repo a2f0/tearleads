@@ -302,6 +302,12 @@ export {
   type RootOrganizationsQuery,
 } from "./rootOrganizations";
 export {
+  listRootOrganizationRevenuecatEventsOperation,
+  listRootRevenuecatEventsReportOperation,
+  type RootRevenuecatEventsQuery,
+  type RootRevenuecatEventsReportQuery,
+} from "./rootRevenuecat";
+export {
   liftRootIdentitySuspensionOperation,
   suspendRootIdentityOperation,
 } from "./rootSuspension";

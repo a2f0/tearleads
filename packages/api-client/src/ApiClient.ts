@@ -46,7 +46,9 @@ import {
   listRootIdentitiesOperation,
   listRootIdentityOrganizationsOperation,
   listRootOrganizationIdentitiesOperation,
+  listRootOrganizationRevenuecatEventsOperation,
   listRootOrganizationsOperation,
+  listRootRevenuecatEventsReportOperation,
   listSessionsOperation,
   logoutOperation,
   moveContainerOperation,
@@ -54,6 +56,8 @@ import {
   type RootIdentitiesQuery,
   type RootOrganizationPageQuery,
   type RootOrganizationsQuery,
+  type RootRevenuecatEventsQuery,
+  type RootRevenuecatEventsReportQuery,
   reciteContainerOperation,
   registerOperation,
   rekeyContainerOperation,
@@ -120,7 +124,9 @@ import type {
   RootOpsHealthReportResponse,
   RootOrganizationDetailResponse,
   RootOrganizationIdentitiesResponse,
+  RootOrganizationRevenuecatEventsResponse,
   RootOrganizationsResponse,
+  RootRevenuecatEventsReportResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
@@ -760,6 +766,16 @@ export class ApiClient {
       options,
     );
   }
+  listRootRevenuecatEventsReportResult(
+    query: RootRevenuecatEventsReportQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootRevenuecatEventsReportResponse>> {
+    return this.transport.requestResult(
+      listRootRevenuecatEventsReportOperation,
+      { params: {}, query },
+      options,
+    );
+  }
   listRootDataUsageReportResult(
     query: RootOrganizationsQuery = {},
     options: RequestResultOptions = {},
@@ -800,6 +816,18 @@ export class ApiClient {
   ): Promise<RequestResult<RootOrganizationIdentitiesResponse>> {
     return this.transport.requestResult(
       listRootOrganizationIdentitiesOperation,
+      { params: { organizationId }, query },
+      options,
+    );
+  }
+
+  listRootOrganizationRevenuecatEventsResult(
+    organizationId: string,
+    query: RootRevenuecatEventsQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootOrganizationRevenuecatEventsResponse>> {
+    return this.transport.requestResult(
+      listRootOrganizationRevenuecatEventsOperation,
       { params: { organizationId }, query },
       options,
     );

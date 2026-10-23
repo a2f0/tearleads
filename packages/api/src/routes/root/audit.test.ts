@@ -130,6 +130,16 @@ test("every root operation records who asked for what before it answers", async 
       expected: {},
     },
     {
+      action: "root.organizations.revenuecatEvents.list",
+      path: `/root/organizations/${memberOrganizationId}/revenuecat-events`,
+      expected: { targetOrganizationId: memberOrganizationId },
+    },
+    {
+      action: "root.reports.revenuecatEvents.list",
+      path: "/root/reports/revenuecat-events?disposition=ignored",
+      expected: { filter: "disposition=ignored" },
+    },
+    {
       action: "root.auditEvents.list",
       path: `/root/audit-events?subjectId=${member.userId}`,
       expected: {

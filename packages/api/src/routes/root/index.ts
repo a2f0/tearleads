@@ -5,6 +5,7 @@ import { createRootDataUsageRoute } from "./dataUsage";
 import { createRootIdentitiesRoute } from "./identities";
 import { createRootOpsHealthRoute } from "./opsHealth";
 import { createRootOrganizationsRoute } from "./organizations";
+import { createRootRevenuecatEventsRoute } from "./revenuecatEvents";
 import type { RootRouterDeps } from "./shared";
 import { createRootSuspensionRoute } from "./suspension";
 
@@ -25,6 +26,8 @@ export function createRootRouter(deps: RootRouterDeps) {
   rootRouter.route("/", createRootDataUsageRoute(deps));
 
   rootRouter.route("/", createRootOpsHealthRoute(deps));
+
+  rootRouter.route("/", createRootRevenuecatEventsRoute(deps));
 
   rootRouter.route("/", createRootAuditRoute(deps));
 

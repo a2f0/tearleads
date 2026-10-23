@@ -131,6 +131,12 @@ function createDeferredRootRuntime() {
         getRootOpsHealthReportResult: async () => {
           throw new Error("not used");
         },
+        listRootOrganizationRevenuecatEventsResult: async () => {
+          throw new Error("not used");
+        },
+        listRootRevenuecatEventsReportResult: async () => {
+          throw new Error("not used");
+        },
         liftRootIdentitySuspensionResult: async () => {
           throw new Error("not used");
         },
@@ -319,6 +325,12 @@ test("a real SDK key-pair swap drops an in-flight lookup", async () => {
           throw new Error("not used");
         },
         getRootOpsHealthReportResult: async () => {
+          throw new Error("not used");
+        },
+        listRootOrganizationRevenuecatEventsResult: async () => {
+          throw new Error("not used");
+        },
+        listRootRevenuecatEventsReportResult: async () => {
           throw new Error("not used");
         },
         liftRootIdentitySuspensionResult: async () => {

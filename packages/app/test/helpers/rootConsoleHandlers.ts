@@ -8,6 +8,7 @@ import { rootAuditHandlers } from "./rootAuditHandlers";
 import { ROOT_TEST_IDENTITIES } from "./rootConsoleFixtures";
 import { rootOpsHealthHandlers } from "./rootOpsHealthHandlers";
 import { rootOrganizationHandlers } from "./rootOrganizationHandlers";
+import { rootRevenuecatHandlers } from "./rootRevenuecatHandlers";
 import {
   rootSuspensionHandlers,
   withRootTestSuspension,
@@ -96,5 +97,6 @@ export const rootConsoleHandlers = [
   ...rootOrganizationHandlers,
   ...rootAuditHandlers,
   ...rootOpsHealthHandlers,
+  ...rootRevenuecatHandlers,
   ...rootSuspensionHandlers,
 ];

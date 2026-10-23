@@ -132,7 +132,7 @@ Client capabilities:
 | `tearleads.containerContents` | container tree, document queries/links, discovery, diagnostics, and runtime composition |
 | `tearleads.deviceFirst` | shared locally durable container mutation store, instant container/document projection, and background reconciler |
 | `tearleads.organizations` | strict local-first organization and durable data-usage projections, exact-head history from verified policy storage, server-authoritative billing eligibility, and the user's own memberships with per-organization sync pauses (`memberships`; see [organization memberships](../organization-memberships.md)) |
-| `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, detailed billing and the latest 50 billing events), the cross-organization ops-health report, the root audit trail, and suspending or lifting a non-root identity, offered only when the session is root |
+| `tearleads.root` | platform-operator identity and organization lookups (paged directories and rosters, sessions, detailed billing and the latest 50 billing events), the cross-organization ops-health report, RevenueCat webhook deliveries per organization and unmatched or ignored across them, the root audit trail, and suspending or lifting a non-root identity, offered only when the session is root |
 | `tearleads.userIdentities` | TOFU `resolve`; `resolvePinned`; identity-link `createLink` / `verifyLink` |
 | `tearleads.securityIncidents` | durable local records of terminal trust-boundary verification failures |
 
