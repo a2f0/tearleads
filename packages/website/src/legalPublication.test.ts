@@ -75,7 +75,7 @@ for (const environment of ["production", "staging", undefined]) {
           new RegExp(`${channel}-${target}-[a-f0-9]{64}-${appName}`),
         );
       }
-      expect(index).toContain('href="/downloads/linux"');
+      expect(index).toContain('href="/downloads/linux/"');
       const staging = environment === "staging";
       expect(index).toContain(
         staging

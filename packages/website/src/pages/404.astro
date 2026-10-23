@@ -1,0 +1,25 @@
+---
+// Workers Static Assets serves this page, with status 404, for every path
+// that matches no file (`not_found_handling: "404-page"` in wrangler.jsonc).
+// It is never listed in the sitemap and names no canonical URL.
+import PageHeader from "../components/PageHeader.astro";
+import Layout from "../layouts/Layout.astro";
+---
+
+<Layout
+  title="Page not found | Tearleads"
+  description="There is no Tearleads page at this address."
+  noIndex
+>
+  <div class="site-page site-page--narrow">
+    <PageHeader
+      title="Page not found"
+      lede="There is no page at this address. The link may be mistyped, or the page may have moved."
+    >
+      <div class="site-actions">
+        <a class="site-button site-button--primary" href="/">Go to the home page</a>
+        <a class="site-button site-button--secondary" href="/features/">See what Tearleads does</a>
+      </div>
+    </PageHeader>
+  </div>
+</Layout>

@@ -21,7 +21,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     title: "Encrypted on your device",
     protection:
       "Document and file contents, organization names, and custom group names are encrypted on your device before they sync. The service stores ciphertext and wrapped keys, not plaintext content keys.",
-    href: "/security#device-boundary",
+    href: "/security/#device-boundary",
   },
   {
     // docs/security-guarantees.md "Signed Access Manifests", "Forged Group Or
@@ -31,7 +31,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     title: "Verified sharing",
     protection:
       "The app works out who can receive a folder's keys from signed access records and group policies that it verifies itself, so access follows signatures rather than the server's membership rows.",
-    href: "/security#verified-sharing",
+    href: "/security/#verified-sharing",
   },
   {
     // docs/security-guarantees.md "Principal Changes And Their Containers
@@ -40,7 +40,7 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     title: "Atomic key rotation",
     protection:
       "Removing group members rotates the group key and the affected folder keys in one atomic update.",
-    href: "/security#verified-sharing",
+    href: "/security/#verified-sharing",
   },
   {
     // docs/security-guarantees.md "Local At-Rest Key Wrapping" (the host
@@ -49,6 +49,6 @@ export const securitySummary: readonly SecuritySummaryRow[] = [
     title: "Encrypted at rest",
     protection:
       "Local data is stored encrypted, under keys protected by a host wrapping key, and you can add a PIN lock.",
-    href: "/security#local-storage",
+    href: "/security/#local-storage",
   },
 ];

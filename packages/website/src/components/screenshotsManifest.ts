@@ -103,8 +103,9 @@ export function entryKey(project: string, theme: string, name: string): string {
   return `${project} ${theme} ${name}`;
 }
 
+// The trailing slash is the form the host serves without a redirect.
 export function screenshotPath(project: string, name: string): string {
-  return `/screenshots/${encodeURIComponent(project)}/${encodeURIComponent(name)}`;
+  return `/screenshots/${encodeURIComponent(project)}/${encodeURIComponent(name)}/`;
 }
 
 // Deep links always include the capture platform; the index uses the first.

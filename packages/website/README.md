@@ -84,6 +84,11 @@ without a sitemap, a `noindex, nofollow` robots tag on every page, and
 `_headers`. Staging never uses `Disallow`, which would hide the noindex from
 crawlers.
 
+Unknown paths answer 404 with `src/pages/404.astro`, through the Worker's
+`not_found_handling: "404-page"`. The host redirects `/pricing` to `/pricing/`,
+so internal links use the trailing-slash form that canonical URLs name, and the
+build test fails on a root-relative link that would redirect or miss a file.
+
 ## Continuity gallery
 
 ### Local website screenshots

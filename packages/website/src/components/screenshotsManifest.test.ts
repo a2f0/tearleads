@@ -62,9 +62,9 @@ test("deep links preserve the selected platform when several captured the same s
   const routes = screenshotRoutes(manifest);
   for (const platform of ["windowed", "mobile", "tablet"]) {
     const path = screenshotPath(platform, "explorer");
-    expect(path).toBe(`/screenshots/${platform}/explorer`);
+    expect(path).toBe(`/screenshots/${platform}/explorer/`);
     const route = routes.find(
-      (candidate) => `/screenshots/${candidate.params.slug}` === path,
+      (candidate) => `/screenshots/${candidate.params.slug}/` === path,
     );
     expect(route).toBeDefined();
     expect(route?.props.initialScreen).toBe("explorer");
@@ -106,7 +106,7 @@ test("a build without captures retains only the gallery index", () => {
 
 test("screenshot names cannot add path segments, queries, or fragments to links", () => {
   expect(screenshotPath("mobile", "notes/shared?view=full#detail")).toBe(
-    "/screenshots/mobile/notes%2Fshared%3Fview%3Dfull%23detail",
+    "/screenshots/mobile/notes%2Fshared%3Fview%3Dfull%23detail/",
   );
 });
 

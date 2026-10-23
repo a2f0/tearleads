@@ -28,10 +28,10 @@ function footerGroups(appUrl: string): readonly FooterGroup[] {
     {
       heading: "Product",
       links: [
-        { href: "/features", label: "Features" },
-        { href: "/security", label: "Security" },
-        { href: "/pricing", label: "Pricing" },
-        { href: "/screenshots", label: "Screenshots" },
+        { href: "/features/", label: "Features" },
+        { href: "/security/", label: "Security" },
+        { href: "/pricing/", label: "Pricing" },
+        { href: "/screenshots/", label: "Screenshots" },
         {
           href: "https://github.com/a2f0/tearleads/tree/main/docs",
           label: "Technical documents",
@@ -49,9 +49,9 @@ function footerGroups(appUrl: string): readonly FooterGroup[] {
     {
       heading: "Account and legal",
       links: [
-        { href: "/manage-subscription", label: "Manage subscription" },
-        { href: "/privacy-policy", label: "Privacy Policy" },
-        { href: "/terms-of-service", label: "Terms of Service" },
+        { href: "/manage-subscription/", label: "Manage subscription" },
+        { href: "/privacy-policy/", label: "Privacy Policy" },
+        { href: "/terms-of-service/", label: "Terms of Service" },
       ],
     },
   ];
