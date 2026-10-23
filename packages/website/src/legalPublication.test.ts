@@ -50,6 +50,21 @@ for (const environment of ["production", "staging", undefined]) {
       ]);
       expect(code, `${stdout}\n${stderr}`).toBe(0);
       const index = await Bun.file(resolve(output, "index.html")).text();
+      const scripts = await Promise.all(
+        [...index.matchAll(/<script\b[^>]*\bsrc="([^"]+)"[^>]*>/g)]
+          .map((match) => match[1])
+          .filter(
+            (source): source is string =>
+              source?.startsWith("/_astro/") === true,
+          )
+          .map((source) => Bun.file(resolve(output, `.${source}`)).text()),
+      );
+      // Prove the shared layout emits its CT initializer in actual builds.
+      expect(
+        scripts.some((script) =>
+          script.includes("https://ct.a2f0.net/v1/clicks"),
+        ),
+      ).toBe(true);
       const channel = environment === "staging" ? "canary" : "stable";
       for (const target of ["macos-arm64", "linux-x64"]) {
         const appName =
@@ -94,10 +109,15 @@ for (const environment of ["production", "staging", undefined]) {
       ).text();
       expect(features).toContain('id="sync-and-sharing"');
       expect(features).toContain('id="document-authorship"');
+      const featureDetails = await Promise.all(
+        ["authorship", "sharing"].map((slug) =>
+          Bun.file(resolve(output, "features", slug, "index.html")).text(),
+        ),
+      );
       // Pages that show phone captures, which leave out the in-app test
       // banner, carry the release notice while it is set.
       if (releaseNotice !== null) {
-        for (const html of [index, features]) {
+        for (const html of [index, features, ...featureDetails]) {
           expect(html).toContain(releaseNotice);
         }
       }
@@ -114,6 +134,17 @@ for (const environment of ["production", "staging", undefined]) {
         expect(html).toContain(`mailto:${legalDetails.email}`);
         expect(html).toContain(legalDetails.operator);
         expect(html).toContain(contentMarker);
+        if (route === "privacy-policy") {
+          for (const disclosure of [
+            "Click analytics",
+            "Global Privacy Control",
+            "90 days",
+            "connection IP address",
+            "administrator login",
+          ])
+            expect(html).toContain(disclosure);
+          expect(html).not.toContain("does not change its behavior");
+        }
         expect(html).not.toContain('aria-label="At a glance"');
         expect(html).toContain('id="contents-title"');
         expect(html).toContain(`datetime="${legalDetails.updatedAt}"`);

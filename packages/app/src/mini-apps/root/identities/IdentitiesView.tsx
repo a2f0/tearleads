@@ -1,6 +1,8 @@
-import { useCallback, useState } from "react";
+import { MIN_ROOT_FINGERPRINT_PREFIX_LENGTH } from "@tearleads/validators/operation";
+import { useId, useMemo, useState } from "react";
 import {
   MiniAppButton,
+  MiniAppCheckbox,
   MiniAppInput,
   MiniAppSection,
   MiniAppSectionHeading,
@@ -8,7 +10,10 @@ import {
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import { IdentitiesTable } from "./IdentitiesTable";
-import { parseFingerprintFilter } from "./rootDisplay";
+import {
+  normalizeIdentityFilterDraft,
+  parseIdentityFilter,
+} from "./rootDisplay";
 import { useRootIdentities } from "./useRootIdentities";
 
 export function IdentitiesView({
@@ -16,46 +21,71 @@ export function IdentitiesView({
 }: {
   onSelectIdentity: (userId: string) => void;
 }) {
-  const [fingerprintDraft, setFingerprintDraft] = useState("");
-  // The applied filter only moves when the draft is empty or a complete
-  // fingerprint. Mid-edit drafts keep the last applied listing on screen with
-  // a hint instead of refetching everything or firing a rejected request.
-  const [appliedFingerprint, setAppliedFingerprint] = useState<string | null>(
-    null,
+  const rootOnlyId = useId();
+  const [draft, setDraft] = useState("");
+  // The applied filter only moves on a search with an empty draft, a user ID,
+  // or a long enough fingerprint prefix. A rejected search keeps the last
+  // applied listing on screen with a hint instead of firing a doomed request.
+  const [appliedDraft, setAppliedDraft] = useState("");
+  const [draftRejected, setDraftRejected] = useState(false);
+  const [rootOnly, setRootOnly] = useState(false);
+  const filter = useMemo(
+    () => parseIdentityFilter(appliedDraft) ?? null,
+    [appliedDraft],
   );
-  const draftIsIncomplete =
-    parseFingerprintFilter(fingerprintDraft) === undefined;
-  const updateFingerprintDraft = useCallback((draft: string) => {
-    setFingerprintDraft(draft);
-    const parsed = parseFingerprintFilter(draft);
-    if (parsed !== undefined) {
-      setAppliedFingerprint(parsed);
-    }
-  }, []);
   const { error, identities, loadMore, loading, nextCursor, refresh } =
-    useRootIdentities(appliedFingerprint);
+    useRootIdentities(filter, rootOnly);
 
   return (
     <MiniAppSection>
       <MiniAppSectionHeading>
         <h2>Identities</h2>
       </MiniAppSectionHeading>
-      <MiniAppToolbar wrap>
-        <MiniAppInput
-          aria-label="Filter by signing key fingerprint"
-          className="root-console-filter"
-          onChange={(event) => updateFingerprintDraft(event.target.value)}
-          placeholder="Signing key fingerprint"
-          spellCheck={false}
-          value={fingerprintDraft}
-        />
-        <MiniAppButton disabled={loading} onClick={refresh}>
-          {loading ? "Loading..." : "Refresh"}
-        </MiniAppButton>
-      </MiniAppToolbar>
-      {draftIsIncomplete && (
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (parseIdentityFilter(draft) === undefined) {
+            setDraftRejected(true);
+            return;
+          }
+          setDraftRejected(false);
+          const normalized = normalizeIdentityFilterDraft(draft);
+          if (normalized === appliedDraft) refresh();
+          else setAppliedDraft(normalized);
+        }}
+      >
+        <MiniAppToolbar wrap>
+          <MiniAppInput
+            aria-label="Search identities"
+            className="root-console-filter"
+            onChange={(event) => {
+              setDraft(event.target.value);
+              setDraftRejected(false);
+            }}
+            placeholder="Signing key fingerprint or user ID"
+            spellCheck={false}
+            value={draft}
+          />
+          <MiniAppButton type="submit" disabled={loading}>
+            Search
+          </MiniAppButton>
+          <MiniAppButton disabled={loading} onClick={refresh}>
+            {loading ? "Loading..." : "Refresh"}
+          </MiniAppButton>
+          <label className="root-console-toggle" htmlFor={rootOnlyId}>
+            <MiniAppCheckbox
+              checked={rootOnly}
+              id={rootOnlyId}
+              onChange={(event) => setRootOnly(event.target.checked)}
+            />
+            Root only
+          </label>
+        </MiniAppToolbar>
+      </form>
+      {draftRejected && (
         <MiniAppStatus>
-          Enter the full 64-character hex signing key fingerprint.
+          Enter a full user ID, or at least {MIN_ROOT_FINGERPRINT_PREFIX_LENGTH}{" "}
+          hex characters of a signing key fingerprint.
         </MiniAppStatus>
       )}
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}

@@ -103,11 +103,11 @@ assert_tier_deploy_ordering() {
 
 compare_stack edge
 compare_stack postgres normalize_destroy_guards
-compare_tier_files "$REPO_ROOT/scripts/deployStaging.sh" "$REPO_ROOT/scripts/deployProduction.sh"
+compare_tier_files "$REPO_ROOT/scripts/deploy/deployStaging.sh" "$REPO_ROOT/scripts/deploy/deployProduction.sh"
 assert_worker_names staging
 assert_worker_names prod
 assert_api_deploy_ordering
-assert_tier_deploy_ordering "$REPO_ROOT/scripts/deployStaging.sh"
-assert_tier_deploy_ordering "$REPO_ROOT/scripts/deployProduction.sh"
+assert_tier_deploy_ordering "$REPO_ROOT/scripts/deploy/deployStaging.sh"
+assert_tier_deploy_ordering "$REPO_ROOT/scripts/deploy/deployProduction.sh"
 
 echo "Infrastructure parity checks passed."

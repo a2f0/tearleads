@@ -104,17 +104,85 @@ test("lists platform identities newest first with root flags", async () => {
   expect(createdAts).toEqual([...createdAts].sort().reverse());
 });
 
-test("filters identities by signing key fingerprint", async () => {
+function listedUserIds(body: { identities: { userId: string }[] }): string[] {
+  return body.identities.map((identity) => identity.userId);
+}
+
+test("filters identities by a full signing key fingerprint", async () => {
   const response = await fetchAsRoot(
     `/root/identities?fingerprint=${member.fingerprint}`,
   );
   expect(response.status).toBe(200);
 
   const body = await response.json();
-  expect(
-    body.identities.map((identity: { userId: string }) => identity.userId),
-  ).toEqual([member.userId]);
+  expect(listedUserIds(body)).toEqual([member.userId]);
   expect(body.nextCursor).toBeNull();
+});
+
+test("filters identities by a fingerprint prefix without reaching neighbors", async () => {
+  // Fingerprints on both sides of the prefix's range, plus its two extremes.
+  const prefix = "fedcba98";
+  const fingerprints = {
+    below: `fedcba97${"f".repeat(56)}`,
+    first: `${prefix}${"0".repeat(56)}`,
+    last: `${prefix}${"f".repeat(56)}`,
+    above: `fedcba99${"0".repeat(56)}`,
+  };
+  const rows = await db
+    .insert(users)
+    .values(
+      Object.values(fingerprints).map((fingerprint) => ({
+        defaultOrganizationId: MISSING_USER_ID,
+        encapsulationKeyFingerprint: fingerprint,
+        encapsulationPublicKey: "unused",
+        fingerprint,
+        signingPublicKey: "unused",
+      })),
+    )
+    .returning({ fingerprint: users.fingerprint, id: users.id });
+  const idOf = (fingerprint: string) => {
+    const id = rows.find((row) => row.fingerprint === fingerprint)?.id;
+    if (!id)
+      throw new Error(`Expected an inserted identity for ${fingerprint}`);
+    return id;
+  };
+
+  const response = await fetchAsRoot(`/root/identities?fingerprint=${prefix}`);
+  expect(response.status).toBe(200);
+  expect(new Set(listedUserIds(await response.json()))).toEqual(
+    new Set([idOf(fingerprints.first), idOf(fingerprints.last)]),
+  );
+});
+
+test("looks identities up by user ID", async () => {
+  const found = await fetchAsRoot(`/root/identities?userId=${member.userId}`);
+  expect(found.status).toBe(200);
+  expect(listedUserIds(await found.json())).toEqual([member.userId]);
+
+  const missing = await fetchAsRoot(
+    `/root/identities?userId=${MISSING_USER_ID}`,
+  );
+  expect(missing.status).toBe(200);
+  expect(await missing.json()).toEqual({ identities: [], nextCursor: null });
+});
+
+test("lists only root identities when asked, combined with other filters", async () => {
+  const response = await fetchAsRoot("/root/identities?rootOnly=true");
+  expect(response.status).toBe(200);
+  const body: { identities: IdentityBody[] } = await response.json();
+  expect(listedUserIds(body)).toContain(root.userId);
+  expect(listedUserIds(body)).not.toContain(member.userId);
+  expect(body.identities.every((identity) => identity.isRoot)).toBe(true);
+
+  const everyone = await fetchAsRoot(
+    `/root/identities?rootOnly=false&userId=${member.userId}`,
+  );
+  expect(listedUserIds(await everyone.json())).toEqual([member.userId]);
+
+  const memberAsRoot = await fetchAsRoot(
+    `/root/identities?rootOnly=true&userId=${member.userId}`,
+  );
+  expect(listedUserIds(await memberAsRoot.json())).toEqual([]);
 });
 
 test("pages identities through opaque cursors without gaps or repeats", async () => {
@@ -157,7 +225,11 @@ test("rejects malformed listing queries", async () => {
     "limit=0",
     "limit=201",
     "limit=abc",
-    "fingerprint=abc",
+    "fingerprint=abcdef1",
+    `fingerprint=${"A".repeat(8)}`,
+    `fingerprint=${"a".repeat(65)}`,
+    "userId=not-a-uuid",
+    "rootOnly=yes",
   ]) {
     const response = await fetchAsRoot(`/root/identities?${query}`);
     expect(response.status).toBe(400);

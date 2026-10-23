@@ -10,17 +10,13 @@ import {
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import {
-  describeRootFailure,
-  describeThrown,
-  formatRootTimestamp,
-} from "../identities/rootDisplay";
+import { describeRootFailure, describeThrown } from "../identities/rootDisplay";
 import { ROOT_ORGANIZATION_TABS, type RootOrganizationTab } from "../routes";
 import { OrganizationBilling } from "./OrganizationBilling";
 import { OrganizationBillingHistory } from "./OrganizationBillingHistory";
 import { OrganizationDataUsage } from "./OrganizationDataUsage";
 import { OrganizationIdentities } from "./OrganizationIdentities";
-import { RootFacts } from "./RootFacts";
+import { OrganizationOverview } from "./OrganizationOverview";
 
 export function OrganizationDetailView({
   organizationId,
@@ -101,22 +97,7 @@ export function OrganizationDetailView({
             {detail ? (
               <>
                 {activeTab === "overview" && (
-                  <RootFacts
-                    label="Organization"
-                    facts={[
-                      {
-                        label: "Organization ID",
-                        value: detail.organization.organizationId,
-                        copy: true,
-                      },
-                      {
-                        label: "Created",
-                        value: formatRootTimestamp(
-                          detail.organization.createdAt,
-                        ),
-                      },
-                    ]}
-                  />
+                  <OrganizationOverview detail={detail} />
                 )}
                 {activeTab === "billing" && (
                   <OrganizationBilling

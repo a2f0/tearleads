@@ -15,14 +15,17 @@ const fixtures: readonly TierFixture[] = [
   {
     name: "staging",
     tier: "staging",
-    sourceScript: resolve(import.meta.dir, "../../../scripts/deployStaging.sh"),
+    sourceScript: resolve(
+      import.meta.dir,
+      "../../../scripts/deploy/deployStaging.sh",
+    ),
     commands: [
       ["storage", "terraform/scripts/prepare-storage.sh"],
       ["postgres", "terraform/scripts/prepare-postgres.sh"],
       ["api", "packages/api/scripts/deployApi.sh"],
       ["edge", "terraform/scripts/run-edge-stack.sh"],
       ["api-verify", "packages/api/scripts/verifyApi.sh"],
-      ["website", "scripts/deployStagingWebsite.sh"],
+      ["website", "scripts/deploy/deployStagingWebsite.sh"],
       ["app-web", "packages/app-web/scripts/deployStagingAppWeb.sh"],
     ],
   },
@@ -31,7 +34,7 @@ const fixtures: readonly TierFixture[] = [
     tier: "prod",
     sourceScript: resolve(
       import.meta.dir,
-      "../../../scripts/deployProduction.sh",
+      "../../../scripts/deploy/deployProduction.sh",
     ),
     commands: [
       ["storage", "terraform/scripts/prepare-storage.sh"],
@@ -39,7 +42,7 @@ const fixtures: readonly TierFixture[] = [
       ["api", "packages/api/scripts/deployApi.sh"],
       ["edge", "terraform/scripts/run-edge-stack.sh"],
       ["api-verify", "packages/api/scripts/verifyApi.sh"],
-      ["website", "scripts/deployProductionWebsite.sh"],
+      ["website", "scripts/deploy/deployProductionWebsite.sh"],
       ["app-web", "packages/app-web/scripts/deployProductionAppWeb.sh"],
     ],
   },
@@ -67,7 +70,7 @@ for (const fixture of fixtures) {
         await mkdir(resolve(root, "scripts/lib"), { recursive: true });
         await cp(fixture.sourceScript, script);
         await cp(
-          resolve(dirname(fixture.sourceScript), "lib/stepTimings.sh"),
+          resolve(dirname(fixture.sourceScript), "../lib/stepTimings.sh"),
           resolve(root, "scripts/lib/stepTimings.sh"),
         );
         await chmod(script, 0o755);

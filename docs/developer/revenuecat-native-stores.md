@@ -81,8 +81,8 @@ Pass the public Test Store key as a one-build override. The run scripts preserve
 an already-exported value, so the platform keys in `.secrets` remain untouched:
 
 ```sh
-VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/runIos.sh
-VITE_REVENUECAT_ANDROID_API_KEY=test_... ./scripts/runAndroid.sh
+VITE_REVENUECAT_IOS_API_KEY=test_... ./scripts/dev/runIos.sh
+VITE_REVENUECAT_ANDROID_API_KEY=test_... ./scripts/dev/runAndroid.sh
 ```
 
 For an end-to-end staging test, point the mobile bundle at the reachable staging
@@ -91,7 +91,7 @@ API instead of the local default:
 ```sh
 VITE_API_BASE_URL=https://api-staging.tearleads.com \
 VITE_REVENUECAT_IOS_API_KEY=test_... \
-./scripts/runIos.sh
+./scripts/dev/runIos.sh
 ```
 
 Then sign in, open Organization Manager → Billing as an organization admin, and
@@ -126,10 +126,10 @@ pair are selected by `NATIVE_RELEASE_TIER=staging`; the staging release wrappers
 set this automatically:
 
 ```sh
-./scripts/buildAndroidStagingRelease.sh
-./scripts/buildIosStagingRelease.sh
-./scripts/uploadAndroidStagingRelease.sh
-./scripts/uploadIosStagingRelease.sh
+./scripts/release/buildAndroidStagingRelease.sh
+./scripts/release/buildIosStagingRelease.sh
+./scripts/release/uploadAndroidStagingRelease.sh
+./scripts/release/uploadIosStagingRelease.sh
 ```
 
 The production `App` scheme and staging `App-Staging` scheme are both committed

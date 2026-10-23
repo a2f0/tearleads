@@ -34,10 +34,6 @@
     "packages/loro/src/index.ts": ["./shared"]
   },
   "fileSizes": {
-    "AGENTS.md": {
-      "lines": 352,
-      "bytes": 20212
-    },
     "dependency-cruiser.config.ts": {
       "lines": 543,
       "bytes": 16294
@@ -71,8 +67,8 @@
       "bytes": 23986
     },
     "docs/openapi.json": {
-      "lines": 67038,
-      "bytes": 2710801
+      "lines": 67143,
+      "bytes": 2714838
     },
     "docs/protocol-specification.md": {
       "lines": 748,
@@ -260,7 +256,7 @@
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 455,
-      "bytes": 34160
+      "bytes": 34158
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,
@@ -323,8 +319,8 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24253,
-      "bytes": 987204
+      "lines": 24270,
+      "bytes": 988036
     },
     "packages/validators/src/response/index.ts": {
       "lines": 563,

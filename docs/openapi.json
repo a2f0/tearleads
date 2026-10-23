@@ -64017,6 +64017,9 @@
                                   }
                                 ]
                               },
+                              "holdsSeat": {
+                                "type": "boolean"
+                              },
                               "joinedAt": {
                                 "type": "string"
                               },
@@ -64026,12 +64029,24 @@
                                   "active",
                                   "disabled"
                                 ]
+                              },
+                              "syncPausedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
                               "disabledAt",
+                              "holdsSeat",
                               "joinedAt",
-                              "status"
+                              "status",
+                              "syncPausedAt"
                             ],
                             "additionalProperties": {}
                           }
@@ -64471,7 +64486,7 @@
             "required": false,
             "schema": {
               "maxLength": 64,
-              "minLength": 64,
+              "minLength": 8,
               "pattern": "^[0-9a-f]+$",
               "type": "string"
             },
@@ -64486,6 +64501,27 @@
               "maximum": 200,
               "minimum": 1,
               "type": "integer"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "rootOnly",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "style": "form"
+          },
+          {
+            "explode": true,
+            "in": "query",
+            "name": "userId",
+            "required": false,
+            "schema": {
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
             },
             "style": "form"
           }
@@ -65077,6 +65113,9 @@
                                   }
                                 ]
                               },
+                              "holdsSeat": {
+                                "type": "boolean"
+                              },
                               "joinedAt": {
                                 "type": "string"
                               },
@@ -65086,12 +65125,24 @@
                                   "active",
                                   "disabled"
                                 ]
+                              },
+                              "syncPausedAt": {
+                                "anyOf": [
+                                  {
+                                    "type": "string"
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
                               }
                             },
                             "required": [
                               "disabledAt",
+                              "holdsSeat",
                               "joinedAt",
-                              "status"
+                              "status",
+                              "syncPausedAt"
                             ],
                             "additionalProperties": {}
                           }
@@ -65310,6 +65361,48 @@
                       ],
                       "additionalProperties": {}
                     },
+                    "overview": {
+                      "type": "object",
+                      "properties": {
+                        "adminGroupId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "memberGroupId": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "activeMemberCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "disabledMemberCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "syncPausedMemberCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "openSeatAssignmentCount": {
+                          "maximum": 1.7976931348623157e+308,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "adminGroupId",
+                        "memberGroupId",
+                        "activeMemberCount",
+                        "disabledMemberCount",
+                        "syncPausedMemberCount",
+                        "openSeatAssignmentCount"
+                      ],
+                      "additionalProperties": {}
+                    },
                     "billing": {
                       "anyOf": [
                         {
@@ -65451,6 +65544,16 @@
                                 }
                               ]
                             },
+                            "purgeStartedAt": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
                             "createdAt": {
                               "type": "string"
                             },
@@ -65473,6 +65576,7 @@
                             "providerProductId",
                             "providerTransactionId",
                             "entitlementId",
+                            "purgeStartedAt",
                             "createdAt",
                             "updatedAt"
                           ],
@@ -65889,6 +65993,7 @@
                   },
                   "required": [
                     "organization",
+                    "overview",
                     "billing",
                     "stripe",
                     "history"

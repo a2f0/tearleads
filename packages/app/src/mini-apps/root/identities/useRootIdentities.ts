@@ -1,7 +1,11 @@
 import type { RootIdentity } from "@tearleads/client-sdk";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
-import { describeRootFailure, describeThrown } from "./rootDisplay";
+import {
+  describeRootFailure,
+  describeThrown,
+  type RootIdentityFilter,
+} from "./rootDisplay";
 
 interface RootIdentitiesState {
   readonly error: string | null;
@@ -18,11 +22,14 @@ const EMPTY_STATE: RootIdentitiesState = {
 };
 
 /**
- * Pages the platform identity listing. A changed fingerprint filter restarts
- * from the first page; `loadMore` appends the next page. Responses that land
- * after a newer request started are discarded.
+ * Pages the platform identity listing. A changed filter or root-only choice
+ * restarts from the first page; `loadMore` appends the next page. Responses
+ * that land after a newer request started are discarded.
  */
-export function useRootIdentities(fingerprint: string | null) {
+export function useRootIdentities(
+  filter: RootIdentityFilter | null,
+  rootOnly: boolean,
+) {
   const tearleads = useTearleads();
   const [state, setState] = useState<RootIdentitiesState>(EMPTY_STATE);
   const requestSequence = useRef(0);
@@ -43,7 +50,8 @@ export function useRootIdentities(fingerprint: string | null) {
       try {
         outcome = await tearleads.root.listIdentities({
           ...(cursor === null ? {} : { cursor }),
-          ...(fingerprint === null ? {} : { fingerprint }),
+          ...filter,
+          ...(rootOnly ? { rootOnly } : {}),
         });
       } catch (error) {
         outcome = { message: describeThrown(error), ok: false, status: null };
@@ -69,7 +77,7 @@ export function useRootIdentities(fingerprint: string | null) {
         nextCursor: outcome.data.nextCursor,
       }));
     },
-    [fingerprint, tearleads],
+    [filter, rootOnly, tearleads],
   );
 
   useEffect(() => {

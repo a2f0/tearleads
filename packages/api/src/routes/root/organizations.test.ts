@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { db } from "@tearleads/api-shared/postgres";
 import {
   organizationBilling,
+  organizationBillingSeatAssignments,
   organizationBillingStripeSeats,
   organizationRosterEntries,
   organizations,
@@ -10,6 +11,7 @@ import {
 } from "@tearleads/api-shared/schema";
 import { createTestUser } from "@tearleads/bob-and-alice";
 import {
+  RootIdentityOrganizationsResponseSchema,
   RootOrganizationDetailResponseSchema,
   RootOrganizationIdentitiesResponseSchema,
   RootOrganizationsResponseSchema,
@@ -274,5 +276,103 @@ test("long non-ID searches return no organizations", async () => {
     expect(
       RootOrganizationsResponseSchema.parse(await response.json()),
     ).toMatchObject({ organizations: [], nextCursor: null });
+  }
+});
+
+test("overview and rosters report groups, roster standing, seats, and purge progress", async () => {
+  const [source] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  if (!source) throw new Error("Expected organization fixture");
+  const id = randomUUID();
+  const absentUserId = randomUUID();
+  const pausedAt = new Date("2026-08-04T00:00:00Z");
+  const purgeStartedAt = new Date("2026-08-05T00:00:00Z");
+  await db.insert(organizations).values({ ...source, id });
+  await db.insert(organizationBilling).values({
+    organizationId: id,
+    status: "disabled",
+    seatCount: 3,
+    disabledAt: new Date("2026-08-03T00:00:00Z"),
+    purgeAfter: new Date("2099-01-01T00:00:00Z"),
+    purgeStartedAt,
+  });
+  await db.insert(organizationRosterEntries).values([
+    {
+      organizationId: id,
+      userId: root.userId,
+      status: "active",
+      syncPausedAt: pausedAt,
+    },
+    {
+      organizationId: id,
+      userId: member.userId,
+      status: "disabled",
+      disabledAt: new Date("2026-08-02T00:00:00Z"),
+    },
+    { organizationId: id, userId: absentUserId, status: "active" },
+  ]);
+  const assignment = {
+    organizationId: id,
+    assignedAt: new Date("2026-08-01T00:00:00Z"),
+    assignmentSourceType: "principal_state" as const,
+    assignmentSourceId: "root-overview-test",
+  };
+  await db.insert(organizationBillingSeatAssignments).values([
+    { ...assignment, userId: root.userId },
+    { ...assignment, userId: absentUserId },
+    {
+      ...assignment,
+      userId: member.userId,
+      releasedAt: new Date("2026-08-02T00:00:00Z"),
+    },
+    // An open seat elsewhere must not count toward this organization.
+    { ...assignment, organizationId, userId: absentUserId },
+  ]);
+
+  const detail = RootOrganizationDetailResponseSchema.parse(
+    await (await request(`/root/organizations/${id}`)).json(),
+  );
+  expect(detail.overview).toEqual({
+    adminGroupId: source.adminGroupId,
+    memberGroupId: source.memberGroupId,
+    activeMemberCount: 2,
+    disabledMemberCount: 1,
+    syncPausedMemberCount: 1,
+    openSeatAssignmentCount: 2,
+  });
+  expect(detail.billing).toMatchObject({
+    seatCount: 3,
+    purgeStartedAt: purgeStartedAt.toISOString(),
+  });
+
+  const roster = RootOrganizationIdentitiesResponseSchema.parse(
+    await (await request(`/root/organizations/${id}/identities`)).json(),
+  );
+  const rosterOf = (userId: string) =>
+    roster.identities.find((row) => row.identity.userId === userId)?.roster;
+  expect(rosterOf(root.userId)).toMatchObject({
+    status: "active",
+    syncPausedAt: pausedAt.toISOString(),
+    holdsSeat: true,
+  });
+  expect(rosterOf(member.userId)).toMatchObject({
+    status: "disabled",
+    syncPausedAt: null,
+    holdsSeat: false,
+  });
+
+  for (const [userId, expected] of [
+    [root.userId, { syncPausedAt: pausedAt.toISOString(), holdsSeat: true }],
+    [member.userId, { syncPausedAt: null, holdsSeat: false }],
+  ] as const) {
+    const memberships = RootIdentityOrganizationsResponseSchema.parse(
+      await (await request(`/root/identities/${userId}/organizations`)).json(),
+    );
+    expect(
+      memberships.organizations.find((org) => org.organizationId === id)
+        ?.roster,
+    ).toMatchObject(expected);
   }
 });

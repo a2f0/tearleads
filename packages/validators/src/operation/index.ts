@@ -281,6 +281,7 @@ export {
   listRootIdentitiesOperation,
   listRootIdentityOrganizationsOperation,
   MAX_ROOT_IDENTITY_PAGE_SIZE,
+  MIN_ROOT_FINGERPRINT_PREFIX_LENGTH,
   type RootIdentitiesQuery,
   RootIdentitiesQuerySchema,
   type RootIdentityPathParams,

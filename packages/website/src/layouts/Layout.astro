@@ -54,6 +54,10 @@ const pathname =
     {(isStaging || noIndex) && <meta name="robots" content="noindex" />}
   </head>
   <body>
+    <script>
+      import { initializeClickTracking } from "../clickTracking";
+      initializeClickTracking(import.meta.env.PROD);
+    </script>
     <a class="skip-link" href="#main">Skip to content</a>
     <SiteFrame appUrl={appUrl}>
       <SiteNav client:media="(max-width: 700px)" pathname={pathname} slot="nav" />

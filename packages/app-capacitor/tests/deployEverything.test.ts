@@ -13,7 +13,7 @@ import { dirname, resolve } from "node:path";
 
 const sourceScript = resolve(
   import.meta.dir,
-  "../../../scripts/deployEverything.sh",
+  "../../../scripts/deploy/deployEverything.sh",
 );
 const commonScript = resolve(
   import.meta.dir,
@@ -21,12 +21,12 @@ const commonScript = resolve(
 );
 
 const commandPaths = [
-  "scripts/deployStaging.sh",
-  "scripts/uploadIosStagingRelease.sh",
-  "scripts/uploadAndroidStagingRelease.sh",
-  "scripts/deployProduction.sh",
-  "scripts/uploadIosRelease.sh",
-  "scripts/uploadAndroidRelease.sh",
+  "scripts/deploy/deployStaging.sh",
+  "scripts/release/uploadIosStagingRelease.sh",
+  "scripts/release/uploadAndroidStagingRelease.sh",
+  "scripts/deploy/deployProduction.sh",
+  "scripts/release/uploadIosRelease.sh",
+  "scripts/release/uploadAndroidRelease.sh",
 ] as const;
 
 interface HarnessRun {
@@ -48,13 +48,14 @@ async function writeExecutable(path: string, source: string) {
 
 async function runHarness(failAt?: string): Promise<HarnessRun> {
   const root = await mkdtemp(resolve(tmpdir(), "tearleads-deploy-everything-"));
-  const script = resolve(root, "scripts/deployEverything.sh");
+  const script = resolve(root, "scripts/deploy/deployEverything.sh");
   const logPath = resolve(root, "calls.log");
 
   await mkdir(resolve(root, "scripts/lib"), { recursive: true });
+  await mkdir(dirname(script), { recursive: true });
   await cp(sourceScript, script);
   await cp(
-    resolve(dirname(sourceScript), "lib/stepTimings.sh"),
+    resolve(dirname(sourceScript), "../lib/stepTimings.sh"),
     resolve(root, "scripts/lib/stepTimings.sh"),
   );
   await chmod(script, 0o755);

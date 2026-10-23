@@ -1,6 +1,6 @@
 {
   "name": "website",
-  "version": "0.1.20",
+  "version": "0.1.23",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -17,6 +17,7 @@
     "destroy:assets": "wrangler delete"
   },
   "dependencies": {
+    "@a2f0/ct-client": "0.1.5",
     "@astrojs/react": "7.1.1",
     "@phosphor-icons/react": "2.1.10",
     "@tearleads/ui": "workspace:*",

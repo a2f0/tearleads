@@ -29,8 +29,8 @@ test("every scripted xcodebuild builds only the committed Swift package pins", a
   expect(commands.map(({ path }) => path)).toEqual(
     expect.arrayContaining([
       "scripts/checks/testNativePurchaseBridge.sh",
-      "scripts/runMaestroTests.sh",
-      "scripts/takeSubscriptionReviewScreenshots.sh",
+      "scripts/testing/runMaestroTests.sh",
+      "scripts/testing/takeSubscriptionReviewScreenshots.sh",
     ]),
   );
   for (const { path, command } of commands)

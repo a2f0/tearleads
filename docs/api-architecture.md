@@ -107,17 +107,20 @@ empty probe or a page at the current epoch; never a repeat of
 `contentKeyBundle`), `documentKekTargets`, required
 `pullPage: {hasMore, nextCursor}`, and encrypted `updates[]`.
 
-Operator surface (internal, outside the protocol operation registry and the
-generated OpenAPI contract):
+Operator surface (internal staff and technical support only; registered in the
+protocol operation registry and the generated OpenAPI contract so the root
+console reaches it through the typed client):
 
 | Capability | Route |
 | --- | --- |
-| List platform identities (newest first, cursor paged, optional `fingerprint` filter) | `GET /root/identities` |
+| List platform identities (newest first, cursor paged; optional filters: `fingerprint`, the first 8–64 lowercase hex characters of a signing key fingerprint, exact `userId`, and `rootOnly`) | `GET /root/identities` |
 | Get one identity with its last activity and live sessions | `GET /root/identities/:userId` |
-| List an identity's organizations with roster status and billing standing | `GET /root/identities/:userId/organizations` |
-| Search and page platform organizations by name or exact ID | `GET /root/organizations` |
-| Read an organization's persisted billing, Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
-| Page an organization's roster identities, including disabled entries | `GET /root/organizations/:organizationId/identities` |
+| List an identity's organizations with roster status, sync pause, seat holding, and billing standing | `GET /root/identities/:userId/organizations` |
+| Page platform organizations newest first, optionally narrowed to one exact organization ID (names are encrypted, so there is no name search) | `GET /root/organizations` |
+| Read an organization's group bindings, roster and open-seat counts, persisted billing (including purge progress), Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
+| Page an organization's roster identities, including disabled entries, with each member's sync pause and seat holding | `GET /root/organizations/:organizationId/identities` |
+| Read an organization's synced data usage | `GET /root/organizations/:organizationId/data-usage` |
+| Page synced data usage by organization, newest organizations first, with the same exact-ID filter | `GET /root/reports/data-usage` |
 | Report billing maintenance trouble across organizations: failing, overdue or lapsed-lease Stripe seat syncs, failed or overdue trial expiries, overdue or lapsed purges, and trials ending and purges falling due within seven days (each section capped at 50 rows) | `GET /root/reports/ops-health` |
 | Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
 
@@ -130,8 +133,11 @@ activity path so operators can see when an identity was last seen.
 
 Every root handler records a `root_audit_events` row — actor, operation id,
 target identity or organization, applied filters, and request IP — before it
-reads anything. A request whose row cannot be written fails with a 500 instead
-of being answered unrecorded; requests refused by `requireAuth` or
+reads anything it serves. A listing narrowed by an exact identifier (a user ID,
+a full signing key fingerprint, an organization ID search, or an audit-trail
+subject) names that identity or organization as its target, so it appears in
+that subject's audit trail. A request whose row cannot be written fails with a
+500 instead of being answered unrecorded; requests refused by `requireAuth` or
 `requireRoot` record nothing. The CLI's `make-admin` / `revoke-admin` record
 each change to `users.is_root` in the same table, with no actor, in the
 transaction that changes the flag.

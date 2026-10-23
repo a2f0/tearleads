@@ -1,19 +1,22 @@
 # Repository scripts
 
-The top level holds commands you run directly: local app launchers, release
-builds and uploads, deployments, screenshots, and maintenance tools.
-For example, run `./scripts/runApp.sh`, `./scripts/buildIosRelease.sh`, or
-`./scripts/deployStaging.sh` from the repository root.
+Commands are grouped by purpose. Package scripts are the stable entrypoints
+for automated checks, builds, and publishing; direct shell shortcuts live in
+the groups below.
+For example, run `./scripts/dev/runApp.sh`,
+`./scripts/release/buildIosRelease.sh`, or
+`./scripts/deploy/deployStaging.sh` from the repository root.
 
-For website-only deployments, run `./scripts/deployStagingWebsite.sh` or
-`./scripts/deployProductionWebsite.sh`. Both use the shared deployment helper in
+For website-only deployments, run `./scripts/deploy/deployStagingWebsite.sh` or
+`./scripts/deploy/deployProductionWebsite.sh`. Both use the shared deployment
+helper in
 `packages/website/scripts/deployWebsite.sh`; see the
 [website deployment guide](../packages/website/README.md) for credentials and
 dry-run options.
 
-`publishNpmPackage.sh` publishes a package to npm by its directory name:
+`release/publishNpmPackage.sh` publishes a package to npm by its directory name:
 `windowing` or `client-sdk`. Each package's workflow runs it when a version
-bump merges, after `lib/npmPublishDecision.ts` checks the version is new. To
+bump merges, after `release/npmPublishDecision.ts` checks the version is new. To
 publish by hand, run `bun run publish:npm:dry-run <package>` to
 build and preview it, then `bun run publish:npm <package>` to publish it; both
 also accept `--tag <tag>` and `--otp <code>`. See the
@@ -27,15 +30,19 @@ or `bun run test:static-analysis`, to run checks and tooling tests.
 
 | Folder | Contents |
 | --- | --- |
+| `admin/` | Explicit operational utilities, including blob-bucket inspection. |
 | `architecture/` | Architecture checks and reports, dependency rules, workspace and subsystem registries. |
 | `checks/` | Check entry points, static analysis helpers, baselines, and regression fixtures. |
+| `deploy/` | Tier and website deployments, teardown, and their shared helpers. |
+| `dev/` | Local launchers, shell setup, seed generation, and cache maintenance. |
 | `git/` | Hook installation, hook implementations, and push timing reports. |
 | `keychain/` | Manual macOS keychain utilities. |
-| `lib/` | Shared shell functions and build helpers called by other scripts, with their tests. |
+| `lib/` | Helpers shared across script groups, including timings, build metadata, and release environment guards. |
 | `localstack/` | Local S3 setup, shutdown, and reset commands. |
 | `postgres/` | Development database setup, migration, and reset commands. |
 | `protocol/` | Formal protocol checks, trace generation and projection, negative controls, and their tests. |
-| `testing/` | Test runners used by package scripts and automated checks. |
+| `release/` | Native and desktop release builds/uploads, npm publishing, and their helpers and tests. |
+| `testing/` | Test runners, screenshots, device-test launchers, and verification evidence. |
 
 ## Screenshot seed and capture
 
@@ -64,78 +71,27 @@ Tracker seeds preserve Continuity’s recorded wall-clock time when converting
 offset-bearing timestamps to the app’s `datetime-local` fields. The restore
 test verifies that every seeded reading is accepted by the chart parser.
 
-## Verification harness
+## Verification
 
-For agent sessions, wrap verification and other noisy commands with the shared
-output harness:
-
-```sh
-bun run agent:run --label checks -- bun run check:affected
-bun run agent:run --label package -- bun run check:package @tearleads/api
-bun run agent:run --label push -- git push -u origin HEAD
-bun run agent:logs <reported-log-path> --tail-lines 40 --max-bytes 4096
-```
-
-The commit-pinned agent-tool release retains full stdout and stderr in private
-local files, prints a compact receipt on success, and includes a bounded excerpt
-on failure. Its exit status remains the command's exit status. The log reader
-returns bounded, sanitized excerpts; inspect those before requesting more output.
-Keep the existing verification reports below as evidence of completed gates.
-
-`bun run check` and `bun run check:affected` use the same verification runner.
-They retain their existing build, TypeScript, static-check, and full or affected
-Turbo test steps. Builds finish before tests begin; `build:packages` prepares
-SQLite, the client SDK, and the Electrobun devkit.
-
-The Turbo test and E2E scripts first record the planned tasks, then require a
-fresh run summary proving that every planned task completed successfully, either
-by execution or from cache. Turbo can exit zero after interruption; an exit code
-alone is insufficient. Missing, incomplete or stale evidence fails verification.
-Run summaries accumulate under `.turbo/runs` for inspection; remove that ignored
-directory when the evidence is no longer needed.
-
-For focused tests, select the exact workspace name from its `package.json`:
-
-```sh
-bun run check:package @tearleads/api
-bun run check:package app --test-name-pattern 'folder recovery'
-bun run check:package @tearleads/client-sdk
-```
-
-This command runs `build:packages`, then the selected workspace's `test` script.
-Additional arguments go to that script as separate arguments, including patterns
-with spaces. The API script still tests both database backends. Package mode
-does not run TypeScript, static checks, or browser E2E tests; use `check:affected`
-or `check` for a handoff. Dependencies must already be installed; the runner does
-not install tools or change the lockfile.
-
-Each run prints the path to a JSON report under the checkout's Git directory:
-`git rev-parse --git-path verification` locates the report directory, including
-in linked worktrees. Reports record the mode, package, starting and ending Git
-commit/tree IDs, working-tree status and content fingerprints, commands, step
-durations, exit codes, and skipped steps after a failure. Dirty worktrees are
-supported and identified in the report. A changed revision or source fingerprint
-fails the run, even when all commands succeeded.
-
-Reports are saved before and after each step. An abruptly killed process leaves
-a `running` report rather than a successful result. Each run has its own file,
-and reports are local evidence rather than a replacement for CI. Avoid editing
-source or running concurrent builds/tests while a verification run is active:
-the SDK build replaces output that dependent tests consume.
+Use `bun run check`, `bun run check:affected`, or `bun run check:package` for
+repository verification. The [verification guide](../docs/developer/verification.md)
+describes build prerequisites, Turbo task evidence, command capture, and
+checkout-bound reports.
 
 ## Adding a script
 
-- Keep a command at the top level when it is intended to be run directly for
-  development, releases, deployment, or maintenance.
-- Put shared shell functions and internal command wrappers in `lib/`.
-- Keep domain-specific helpers and tests beside their tooling in `checks/`,
-  `architecture/`, or `protocol/`; put test launchers in `testing/`.
+- Put commands in the purpose-specific group above, even when invoked directly.
+- Keep helpers and their tests beside their owning commands, including domain
+  groups such as `architecture/` and `protocol/`. Reserve `lib/` for helpers
+  shared across groups, and put test launchers in `testing/`.
+- Native platform scripts stay with their package; Terraform scripts stay in
+  the infrastructure tree.
 - Wire automated commands through the root `package.json`. When moving a file,
   update its imports, shell source paths, test fixtures, documentation, and Turbo
   inputs together.
 
-Windows desktop releases use `./scripts/windowsRelease.sh build staging` or
-`build production` to dispatch GitHub Actions. After the run completes, use
+Windows desktop releases use `./scripts/release/windowsRelease.sh build staging`
+or `build production` to dispatch GitHub Actions. After the run completes, use
 `download <tier> <run-id>` to retrieve its package or `upload <tier> <run-id>`
-to publish it to R2 with local credentials. See the
-[Windows release guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).
+to publish it to R2 with local credentials. See the [Windows release
+guide](../packages/app-electrobun/README.md#windows-releases-from-github-actions).

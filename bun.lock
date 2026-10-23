@@ -24,7 +24,7 @@
     },
     "packages/api": {
       "name": "@tearleads/api",
-      "version": "0.1.56",
+      "version": "0.1.58",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1155.0",
         "@aws-sdk/s3-request-presigner": "3.1155.0",
@@ -51,7 +51,7 @@
     },
     "packages/api-cli": {
       "name": "@tearleads/api-cli",
-      "version": "0.1.12",
+      "version": "0.1.14",
       "dependencies": {
         "@aws-sdk/client-s3": "3.1155.0",
         "@tearleads/api-shared": "workspace:*",
@@ -64,7 +64,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.28",
+      "version": "0.1.29",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -77,7 +77,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.18",
+      "version": "0.1.19",
       "dependencies": {
         "@electric-sql/pglite": "0.5.11",
         "@libsql/client": "0.18.0",
@@ -94,7 +94,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.65",
+      "version": "0.1.68",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -126,7 +126,7 @@
     },
     "packages/app-capacitor": {
       "name": "app-capacitor",
-      "version": "0.0.23",
+      "version": "0.0.24",
       "dependencies": {
         "@capacitor-community/sqlite": "8.1.1",
         "@capacitor/app": "8.1.2",
@@ -165,7 +165,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.10",
+      "version": "0.0.11",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -186,8 +186,9 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.17",
+      "version": "0.1.18",
       "dependencies": {
+        "@a2f0/ct-client": "0.1.5",
         "@stripe/stripe-js": "10.1.0",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -218,7 +219,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.90",
+      "version": "0.1.93",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -322,7 +323,7 @@
     },
     "packages/validators": {
       "name": "@tearleads/validators",
-      "version": "0.1.30",
+      "version": "0.1.32",
       "dependencies": {
         "zod": "catalog:",
       },
@@ -334,8 +335,9 @@
     },
     "packages/website": {
       "name": "website",
-      "version": "0.1.20",
+      "version": "0.1.23",
       "dependencies": {
+        "@a2f0/ct-client": "0.1.5",
         "@astrojs/react": "7.1.1",
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/ui": "workspace:*",
@@ -355,7 +357,7 @@
     },
     "packages/windowing": {
       "name": "@tearleads/windowing",
-      "version": "0.2.18",
+      "version": "0.2.19",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "react": "catalog:react",
@@ -407,6 +409,8 @@
   },
   "packages": {
     "@a2f0/continuity": ["@a2f0/continuity@github:a2f0/continuity#ccec49f", {}, "a2f0-continuity-ccec49f", "sha512-SwQMufS2JVURyMbhehQMLvNnvuJsqDQihxvsLGnFjeVWwsweJTRy9esLA4dnJziHq2u36qlSG0uzAsQOk0hAbQ=="],
+
+    "@a2f0/ct-client": ["@a2f0/ct-client@0.1.5", "", {}, "sha512-1IkE5Ft3XkkbzAegrTblsvsa3JuL0WpB8wydtXHm33iGQNrdJ3djdbhXPa7drhcMbsMzRt3rsOjNZhxqC+qk6A=="],
 
     "@astrojs/compiler-binding": ["@astrojs/compiler-binding@0.5.1", "", { "optionalDependencies": { "@astrojs/compiler-binding-android-arm64": "0.5.1", "@astrojs/compiler-binding-darwin-arm64": "0.5.1", "@astrojs/compiler-binding-darwin-x64": "0.5.1", "@astrojs/compiler-binding-linux-arm64-gnu": "0.5.1", "@astrojs/compiler-binding-linux-arm64-musl": "0.5.1", "@astrojs/compiler-binding-linux-x64-gnu": "0.5.1", "@astrojs/compiler-binding-linux-x64-musl": "0.5.1", "@astrojs/compiler-binding-wasm32-wasi": "0.5.1", "@astrojs/compiler-binding-win32-arm64-msvc": "0.5.1", "@astrojs/compiler-binding-win32-x64-msvc": "0.5.1" } }, "sha512-oczyolLUl9mNrtuBuNjuvn5thpHrFLXAHAWGTRg0JDHQ8cGVsVeFekOu2uSoQGgainJIi+A3/9m0DyYwz3Nlnw=="],
 
