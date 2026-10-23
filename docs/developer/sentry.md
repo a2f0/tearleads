@@ -32,6 +32,7 @@ instead of `STAGING` in `.secrets/prod/app.env`:
 SENTRY_STAGING_PROJECT='tearleads-web-staging'
 SENTRY_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 SENTRY_API_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
+SENTRY_API_STAGING_PROJECT='tearleads-api-staging'
 SENTRY_ANDROID_STAGING_PROJECT='tearleads-android-staging'
 SENTRY_ANDROID_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 SENTRY_IOS_STAGING_PROJECT='tearleads-ios-staging'
@@ -41,18 +42,17 @@ SENTRY_ELECTROBUN_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJE
 ```
 
 The DSNs above are placeholders. The DSN is public; the upload token is private.
+API project slugs default to `tearleads-api-staging` and
+`tearleads-api-production`; the corresponding tier variable can override them.
 
 ## Deployment and releases
 
 `scripts/deploy/deployStaging.sh` and `scripts/deploy/deployProduction.sh`
-publish the API Worker and the web app. The API deploy syncs `API_SENTRY_DSN` as
-a Worker secret and sets `API_SENTRY_ENVIRONMENT` from
-`packages/api/wrangler.jsonc`; the bundle receives its commit, exact source-path
-allowlist, and build number through `wrangler deploy --define` (see
-`packages/api/scripts/workerDefines.ts`). Wrangler also uploads the bundle's
-source map. Frames in the deployed bundle resolve against that map rather than
-the repository paths the allowlist names, so API frame admission under Workers
-is a known gap to close.
+publish the API Worker and web app. The API deploy syncs `API_SENTRY_DSN`,
+builds once with its tier and commit, uploads the matching source map to Sentry,
+then publishes that bundle and map to Cloudflare. Configured diagnostics require
+a clean checkout and a successful map upload before migrations or publication.
+See [API diagnostics](api-sentry.md) for release identity and frame admission.
 
 The build number is `git rev-list --count HEAD` at build time. The default
 branch only gains squash-merged commits, so every deploy from it counts higher
@@ -114,6 +114,10 @@ Allowed:
 - API operation names, reviewed driver exception types and error codes, and
   error HTTP statuses (400–599). API titles are constructed from this finite
   vocabulary; raw exception text is never sent. See API coverage below.
+- API-only sanitized cause stacks, bounded pool counters, HTTP methods and
+  response statuses, and route templates from the release's OpenAPI allowlist.
+- API-only aggregate counts of locally discarded errors, emitted as bounded
+  client reports without event content or identifiers.
 - Git release, deployment environment, and target/build variant.
 - On clients, `api_version`: the build number from the API's
   `X-Tearleads-Api-Version` response header (see above), as last heard from.
@@ -131,7 +135,8 @@ Excluded:
 - Full page URLs, path segments, queries, fragments, request/response data,
   cookies, authorization headers, DOM text, and console output.
 - Session tracking, replay, screenshots, attachments, feedback, analytics,
-  performance tracing, profiling, Sentry Logs, and client reports.
+  performance tracing, profiling, Sentry Logs, and automatic SDK client reports.
+  Only the API's locally constructed discard counters are permitted.
 
 Anonymous DevTools and extension-only exceptions have no application code frame
 and are discarded. Boundary failures without a usable stack still produce a
@@ -314,12 +319,6 @@ the same checkout, `BUN_*` and token rules, copies staging to a private host
 directory and, before publishing, uploads it via `uploadDeferredSourceMaps.ts`
 (`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
 the `linux-x64` dist).
-
-API releases use `tearleads-api@<git-sha>`
-and `staging` / `production`. Only allowlisted repository-relative paths and
-positions leave the server, without source text or machine paths.
-
-API source archives without Git still deploy, with remote diagnostics disabled.
 
 Run the tests in `packages/diagnostics/src`, both native and API diagnostics
 folders, `packages/app-electrobun/scripts/sentry*.test.ts`,

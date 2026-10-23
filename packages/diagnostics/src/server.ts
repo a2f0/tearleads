@@ -1,12 +1,14 @@
 import { createStackParser, Scope } from "@sentry/core";
 import { nodeStackLineParser, ServerRuntimeClient } from "@sentry/core/server";
 import { apiErrorTags } from "./apiDiagnostics";
+import type { ApiRequestContext } from "./apiRequestContext";
 import type { ApiDiagnosticOperation } from "./apiVocabulary";
 import { privateDataCollection } from "./collectionPolicy";
 import type { SentryConfig } from "./config";
 import { sanitizeServerEvent } from "./serverEvent";
 import { createPrivateSentryTransport } from "./transport";
 
+export type { ApiRequestContext } from "./apiRequestContext";
 export type { ApiDiagnosticOperation } from "./apiVocabulary";
 
 // `background-error` covers post-commit and post-handshake failures the API
@@ -47,7 +49,13 @@ export function createServerDiagnostics(config: SentryConfig) {
     sendClientReports: false,
     maxBreadcrumbs: 0,
     beforeSend: (event, hint) =>
-      sanitizeServerEvent(event, config, stackParser, hint.syntheticException),
+      sanitizeServerEvent(
+        event,
+        config,
+        stackParser,
+        hint.syntheticException,
+        hint.originalException,
+      ),
   });
   client.init();
   return {
@@ -55,6 +63,7 @@ export function createServerDiagnostics(config: SentryConfig) {
       error: unknown,
       source: ServerErrorSource | MainProcessErrorSource,
       operation?: ApiDiagnosticOperation,
+      request?: ApiRequestContext,
     ) {
       if (!(error instanceof Error)) return;
       // Each error has an isolated scope. No request or user context is shared.
@@ -68,6 +77,13 @@ export function createServerDiagnostics(config: SentryConfig) {
           tags: {
             diagnostic_source: source,
             ...(config.runtime === "api" ? apiErrorTags(error, operation) : {}),
+            ...(config.runtime === "api" && request
+              ? {
+                  api_route: request.route,
+                  api_method: request.method,
+                  api_response_status: String(request.status),
+                }
+              : {}),
           },
         },
       });

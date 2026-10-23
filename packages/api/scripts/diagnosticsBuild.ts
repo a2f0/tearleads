@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { isSentryCommit } from "@tearleads/diagnostics/config";
 import { parseApiVersion } from "@tearleads/validators/operation";
@@ -28,7 +29,19 @@ export function workerDiagnosticsBuild(root: string) {
   const { commit, sourceRoot } = diagnosticsBuild(root);
   // wrangler.jsonc's src/worker/index.ts entry is deployed as index.js.
   // Admit that exact code artifact; no runtime path or wildcard can opt in.
-  return { commit, sourceRoot, sourcePaths: ["/index.js"] };
+  return {
+    commit,
+    sourceRoot,
+    sourcePaths: ["/index.js"],
+    routeTemplates: routeTemplates(root),
+  };
+}
+
+function routeTemplates(root: string): string[] {
+  const document: { paths: Record<string, unknown> } = JSON.parse(
+    readFileSync(resolve(root, "docs/openapi.json"), "utf8"),
+  );
+  return ["/", "unmatched", ...Object.keys(document.paths)];
 }
 
 /**
@@ -84,5 +97,10 @@ function readGitBuild(sourceRoot: string) {
         !/\.(?:test|spec)\./u.test(path),
     )
     .map((path) => `/${path}`);
-  return { commit, sourceRoot, sourcePaths };
+  return {
+    commit,
+    sourceRoot,
+    sourcePaths,
+    routeTemplates: routeTemplates(sourceRoot),
+  };
 }

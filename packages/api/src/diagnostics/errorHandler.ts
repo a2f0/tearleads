@@ -1,17 +1,14 @@
-import type { ServerErrorSource } from "@tearleads/diagnostics/server";
 import type { ErrorHandler } from "hono";
 import { HTTPException } from "hono/http-exception";
 import type { SessionEnv } from "../middleware/session";
 import { isTransientDatabaseFailure } from "../utils/databaseErrors";
 import { RequestBodyTooLargeError } from "../validators/requestBodyTooLarge";
 import { OrganizationSyncDisabledError } from "../workflows/billing/organizationSyncEligibility";
+import { apiRequestContext } from "./requestContext";
 import { captureApiError } from "./sentry";
 
 export function createApiErrorHandler(
-  capture: (
-    error: unknown,
-    source: ServerErrorSource,
-  ) => void = captureApiError,
+  capture: typeof captureApiError = captureApiError,
 ): ErrorHandler<SessionEnv> {
   return (error, c) => {
     // Organization entitlement and stable-seat failures surface uniformly as 402.
@@ -32,10 +29,16 @@ export function createApiErrorHandler(
     if (error instanceof RequestBodyTooLargeError) {
       return c.json({ error: "Request body too large" }, 413);
     }
-    capture(error, "request-error");
+    const status =
+      error instanceof HTTPException
+        ? error.status
+        : isTransientDatabaseFailure(error)
+          ? 503
+          : 500;
+    capture(error, "request-error", undefined, apiRequestContext(c, status));
     if (error instanceof HTTPException) return error.getResponse();
     console.error(error);
-    if (isTransientDatabaseFailure(error)) {
+    if (status === 503) {
       return c.json({ error: "Database temporarily unavailable" }, 503);
     }
     return c.json({ error: "Internal Server Error" }, 500);

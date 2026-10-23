@@ -1,11 +1,9 @@
 import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
-import type { Context, MiddlewareHandler } from "hono";
-import { matchedRoutes } from "hono/route";
+import type { MiddlewareHandler } from "hono";
+import { routeTemplate } from "./requestContext";
 
 export const serverTimingHeaderName = "Server-Timing";
 const REQUEST_COST_EVENT = "api.request.cost";
-const UNMATCHED_ROUTE = "unmatched";
-const ROUTE_PARAMETER_PATTERN = /:([^/]+)/g;
 
 /** Deployed Workers set this; tests and local servers stay quiet. */
 export function readApiRequestCostLog(
@@ -13,20 +11,6 @@ export function readApiRequestCostLog(
 ): boolean {
   const { API_REQUEST_COST_LOG: enabled } = env;
   return enabled?.trim() === "true";
-}
-
-/**
- * The route that answered, written as its operation path template
- * (`/documents/{documentId}`), so a log line never carries the request URL or
- * the IDs inside it. A request no route matched was answered after the global
- * `*` middleware, which names nothing.
- */
-function routeTemplate(c: Context): string {
-  const route = matchedRoutes(c)[c.req.routeIndex];
-  if (!route || (route.method === "ALL" && route.path === "/*")) {
-    return UNMATCHED_ROUTE;
-  }
-  return route.path.replace(ROUTE_PARAMETER_PATTERN, "{$1}");
 }
 
 function roundMilliseconds(milliseconds: number): number {

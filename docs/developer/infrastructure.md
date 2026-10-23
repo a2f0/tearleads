@@ -97,6 +97,10 @@ scripts to resolve the binding; a bare `wrangler deploy` has no configuration ID
 `POSTGRES_REQUEST_SCOPED` still gives each request its own four-connection pool:
 Workers cannot share sockets across requests, even through Hyperdrive. The pool
 closes when the request finishes; Hyperdrive retains the origin connections.
+Transient acquisition failures retry once before any SQL runs; an exhausted
+connection or checkout timeout returns HTTP 503. The pool never retries queries
+or transaction callbacks after acquisition. Sentry records the acquisition
+stage, attempt count, and bounded pool counters; see [API diagnostics](api-sentry.md).
 The 30 s idle timeout allows reuse during a long request.
 `POSTGRES_COALESCE_WRITES` gathers each query's protocol messages into one
 socket write. `maxUses=1` remains

@@ -75,14 +75,15 @@ assert_worker_names() {
 
 assert_api_deploy_ordering() {
   local deploy_file="$REPO_ROOT/packages/api/scripts/deployApi.sh"
-  local migration_line secrets_line publish_line
+  local build_line migration_line secrets_line publish_line
 
+  build_line="$(awk 'index($0, "build_api_worker ") { print NR; exit }' "$deploy_file")"
   migration_line="$(awk 'index($0, "bun src/index.ts migrate") { print NR; exit }' "$deploy_file")"
   secrets_line="$(awk 'index($0, "wrangler secret bulk") { print NR; exit }' "$deploy_file")"
-  publish_line="$(awk 'index($0, "wrangler deploy --env") { print NR; exit }' "$deploy_file")"
-  if [ -z "$migration_line" ] || [ -z "$secrets_line" ] || [ -z "$publish_line" ] ||
-    [ "$migration_line" -ge "$secrets_line" ] || [ "$secrets_line" -ge "$publish_line" ]; then
-    echo "ERROR: API deploy must migrate, sync secrets, then publish the Worker in that order: $deploy_file" >&2
+  publish_line="$(awk 'index($0, "wrangler deploy ") && index($0, "--no-bundle") { print NR; exit }' "$deploy_file")"
+  if [ -z "$build_line" ] || [ -z "$migration_line" ] || [ -z "$secrets_line" ] || [ -z "$publish_line" ] ||
+    [ "$build_line" -ge "$migration_line" ] || [ "$migration_line" -ge "$secrets_line" ] || [ "$secrets_line" -ge "$publish_line" ]; then
+    echo "ERROR: API deploy must build/upload maps, migrate, sync secrets, then publish without rebuilding: $deploy_file" >&2
     return 1
   fi
 }

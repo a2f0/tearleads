@@ -6,6 +6,10 @@ import {
   type ApiDiagnosticOperation,
   isVocabularyKey,
 } from "./apiVocabulary";
+import {
+  errorDataProperty as dataProperty,
+  diagnosticErrorChain,
+} from "./errorProperties";
 
 type DiagnosticTags = Partial<
   Record<
@@ -13,16 +17,22 @@ type DiagnosticTags = Partial<
     | "api_error_code"
     | "api_error_status"
     | "api_cause_type"
-    | "api_stack",
+    | "api_stack"
+    | "api_database_stage"
+    | "api_connection_attempts"
+    | "api_pool_total"
+    | "api_pool_idle"
+    | "api_pool_waiting",
     string
   >
 >;
 
-// Do not execute arbitrary error-property getters while reporting a failure.
-function dataProperty(value: unknown, key: string): unknown {
-  if (typeof value !== "object" || value === null) return undefined;
-  return Object.getOwnPropertyDescriptor(value, key)?.value;
-}
+const POOL_COUNTERS = {
+  connectionAttempts: "api_connection_attempts",
+  poolTotal: "api_pool_total",
+  poolIdle: "api_pool_idle",
+  poolWaiting: "api_pool_waiting",
+} as const;
 
 function isErrorStatus(value: unknown): value is number {
   return (
@@ -39,8 +49,7 @@ export function apiErrorTags(
     tags.api_operation = operation;
   // Drivers wrap failures (e.g. a Drizzle query wrapping a connection error).
   // Keep the deepest recognized code without exporting any cause text.
-  let candidate: unknown = error;
-  for (let depth = 0; depth < 5 && candidate instanceof Error; depth++) {
+  for (const [depth, candidate] of diagnosticErrorChain(error).entries()) {
     // AWS service exceptions use Code/name and $metadata.httpStatusCode.
     const code = ["code", "Code", "name"]
       .map((key) => dataProperty(candidate, key))
@@ -55,7 +64,18 @@ export function apiErrorTags(
     const name = dataProperty(candidate, "name");
     if (depth > 0 && typeof name === "string" && API_ERROR_TYPES.has(name))
       tags.api_cause_type = name;
-    candidate = dataProperty(candidate, "cause");
+    if (dataProperty(candidate, "databaseStage") === "connect") {
+      tags.api_database_stage = "connect";
+      for (const [property, tag] of Object.entries(POOL_COUNTERS)) {
+        const value = dataProperty(candidate, property);
+        if (
+          Number.isSafeInteger(value) &&
+          Number(value) >= 0 &&
+          Number(value) <= 10000
+        )
+          tags[tag] = String(value);
+      }
+    }
   }
   return tags;
 }
@@ -63,7 +83,7 @@ export function apiErrorTags(
 // Rechecked by both beforeSend and the transport; forged tags cannot bypass
 // the allowlist, and API additions never apply to browser or desktop events.
 export function sanitizeApiTags(tags: Event["tags"]): DiagnosticTags {
-  const result: DiagnosticTags = {};
+  const result = sanitizePoolTags(tags);
   const {
     api_operation: operation,
     diagnostic_source: source,
@@ -89,6 +109,23 @@ export function sanitizeApiTags(tags: Event["tags"]): DiagnosticTags {
     ["original", "capture-site", "unavailable"].includes(stack)
   )
     result.api_stack = stack;
+  return result;
+}
+
+function sanitizePoolTags(tags: Event["tags"]): DiagnosticTags {
+  const result: DiagnosticTags = {};
+  const { api_database_stage: stage } = tags ?? {};
+  if (stage === "connect") {
+    result.api_database_stage = "connect";
+    for (const tag of Object.values(POOL_COUNTERS)) {
+      const value = tags?.[tag];
+      if (
+        typeof value === "string" &&
+        /^(?:0|[1-9]\d{0,3}|10000)$/u.test(value)
+      )
+        result[tag] = value;
+    }
+  }
   return result;
 }
 

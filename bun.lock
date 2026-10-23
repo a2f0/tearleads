@@ -41,6 +41,7 @@
         "zod": "catalog:",
       },
       "devDependencies": {
+        "@sentry/cli": "3.8.1",
         "@tearleads/api-client": "workspace:*",
         "@tearleads/bob-and-alice": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
