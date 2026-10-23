@@ -11,6 +11,7 @@ import {
 } from "../../../components/mini-app/MiniAppLayout";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { describeRootFailure, describeThrown } from "../identities/rootDisplay";
+import { OrganizationRevenuecatEvents } from "../revenuecat/OrganizationRevenuecatEvents";
 import { ROOT_ORGANIZATION_TABS, type RootOrganizationTab } from "../routes";
 import { OrganizationBilling } from "./OrganizationBilling";
 import { OrganizationBillingHistory } from "./OrganizationBillingHistory";
@@ -100,10 +101,16 @@ export function OrganizationDetailView({
                   <OrganizationOverview detail={detail} />
                 )}
                 {activeTab === "billing" && (
-                  <OrganizationBilling
-                    billing={detail.billing}
-                    stripe={detail.stripe}
-                  />
+                  <>
+                    <OrganizationBilling
+                      billing={detail.billing}
+                      stripe={detail.stripe}
+                    />
+                    <OrganizationRevenuecatEvents
+                      organizationId={organizationId}
+                      onSelectIdentity={onSelectIdentity}
+                    />
+                  </>
                 )}
                 {activeTab === "history" && (
                   <OrganizationBillingHistory entries={detail.history} />

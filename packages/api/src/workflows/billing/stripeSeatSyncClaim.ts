@@ -13,7 +13,8 @@ import { isSqliteApiDatabase } from "../../utils/sqlDialect";
 
 const LEASE_MS = 5 * 60 * 1000;
 const DRIFT_AUDIT_MS = 24 * 60 * 60 * 1000;
-const MAX_RETRY_MS = 60 * 60 * 1000;
+/** Longest failure backoff, so a failed row is due again within this window. */
+export const STRIPE_SEAT_SYNC_MAX_RETRY_MS = 60 * 60 * 1000;
 
 export interface StripeSeatSyncClaim {
   readonly appliedSeatPeriodKey: string | null;
@@ -36,7 +37,10 @@ export interface StripeSeatSyncClaim {
 type StripeSeatStateRow = typeof organizationBillingStripeSeats.$inferSelect;
 
 function nextRetryAt(now: Date, attemptCount: number): Date {
-  const delayMs = Math.min(MAX_RETRY_MS, 2 ** attemptCount * 1000);
+  const delayMs = Math.min(
+    STRIPE_SEAT_SYNC_MAX_RETRY_MS,
+    2 ** attemptCount * 1000,
+  );
   return new Date(now.getTime() + delayMs);
 }
 

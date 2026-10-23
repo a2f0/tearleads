@@ -26,6 +26,8 @@ export const RootIdentitySummaryResponseSchema = loosePlainObject({
   lastActiveAt: z.string().nullable(),
   registrationSourceIpAddress: z.string().nullable(),
   signingKeyFingerprint: sha256HexStringSchema,
+  /** When an operator suspended the account; null while in good standing. */
+  suspendedAt: z.string().nullable(),
   userId: nonEmptyStringSchema,
 });
 
@@ -64,6 +66,15 @@ export const RootIdentityDetailResponseSchema = loosePlainObject({
 
 export type RootIdentityDetailResponse = z.infer<
   typeof RootIdentityDetailResponseSchema
+>;
+
+/** The identity after a suspension was placed or lifted. */
+export const RootIdentitySuspensionResponseSchema = loosePlainObject({
+  identity: RootIdentitySummaryResponseSchema,
+});
+
+export type RootIdentitySuspensionResponse = z.infer<
+  typeof RootIdentitySuspensionResponseSchema
 >;
 
 export const rootOrganizationBillingShape = {
@@ -115,6 +126,12 @@ export function isRootIdentityDetailResponse(
   value: unknown,
 ): value is RootIdentityDetailResponse {
   return RootIdentityDetailResponseSchema.safeParse(value).success;
+}
+
+export function isRootIdentitySuspensionResponse(
+  value: unknown,
+): value is RootIdentitySuspensionResponse {
+  return RootIdentitySuspensionResponseSchema.safeParse(value).success;
 }
 
 export function isRootIdentityOrganizationsResponse(

@@ -42,6 +42,7 @@ export function createServiceTestRuntime(
         sessionId: "test-session-id",
         token: "test-session",
       }),
+      revokeSession: async () => true,
     },
   };
 }

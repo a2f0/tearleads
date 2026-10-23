@@ -39,8 +39,8 @@
       "bytes": 16294
     },
     "docs/developer/client-sdk.md": {
-      "lines": 990,
-      "bytes": 55012
+      "lines": 996,
+      "bytes": 55536
     },
     "docs/developer/device-first.md": {
       "lines": 375,
@@ -67,8 +67,8 @@
       "bytes": 23986
     },
     "docs/openapi.json": {
-      "lines": 66714,
-      "bytes": 2698969
+      "lines": 68426,
+      "bytes": 2755933
     },
     "docs/protocol-specification.md": {
       "lines": 748,
@@ -80,7 +80,7 @@
     },
     "docs/subsystems.md": {
       "lines": 114,
-      "bytes": 20304
+      "bytes": 20658
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -91,8 +91,8 @@
       "bytes": 24635
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 2033,
-      "bytes": 65166
+      "lines": 2094,
+      "bytes": 67136
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -247,8 +247,8 @@
       "bytes": 16817
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 600,
-      "bytes": 17694
+      "lines": 615,
+      "bytes": 18189
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 559,
@@ -256,7 +256,7 @@
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 455,
-      "bytes": 34073
+      "bytes": 34355
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,
@@ -319,12 +319,12 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24106,
-      "bytes": 981989
+      "lines": 24834,
+      "bytes": 1006424
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 554,
-      "bytes": 19428
+      "lines": 581,
+      "bytes": 20358
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 508,
@@ -335,8 +335,8 @@
       "bytes": 20435
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 625,
-      "bytes": 23750
+      "lines": 627,
+      "bytes": 24074
     }
   },
   "suppressions": {

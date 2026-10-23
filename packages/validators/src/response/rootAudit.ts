@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { registerJsonSchemaFragment } from "../jsonSchema";
 import {
   arraySchema,
   loosePlainObject,
@@ -17,20 +18,40 @@ export const ROOT_AUDIT_ACTIONS = [
   "root.identities.get",
   "root.identities.list",
   "root.identities.organizations.list",
+  "root.identities.suspension.delete",
+  "root.identities.suspension.put",
   "root.organizations.dataUsage.get",
   "root.organizations.get",
   "root.organizations.identities.list",
   "root.organizations.list",
+  "root.organizations.revenuecatEvents.list",
   "root.reports.dataUsage.list",
+  "root.reports.opsHealth.get",
+  "root.reports.revenuecatEvents.list",
 ] as const;
 
+/** The server's own vocabulary: exactly the actions it records. */
 export const RootAuditActionSchema = z.literal(ROOT_AUDIT_ACTIONS);
 
 export type RootAuditAction = z.infer<typeof RootAuditActionSchema>;
 
+/**
+ * An action as the audit listing reports it. Every new root operation adds an
+ * action, so clients accept any operation id rather than a closed list that a
+ * newer server would outgrow; the known ones are listed as extensible.
+ */
+const RootAuditEventActionSchema = registerJsonSchemaFragment(
+  z.string().min(1),
+  {
+    type: "string",
+    minLength: 1,
+    "x-extensible-enum": [...ROOT_AUDIT_ACTIONS],
+  },
+);
+
 /** One recorded operator action, from `GET /root/audit-events`. */
 export const RootAuditEventResponseSchema = loosePlainObject({
-  action: RootAuditActionSchema,
+  action: RootAuditEventActionSchema,
   /** The acting root identity's signing key; null when the API CLI acted. */
   actorSigningKeyFingerprint: sha256HexStringSchema.nullable(),
   actorUserId: nonEmptyStringSchema.nullable(),

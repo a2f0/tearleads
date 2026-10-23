@@ -25,6 +25,7 @@ import {
   MiniAppTableText,
 } from "../../../components/mini-app/MiniAppTable";
 import { RosterSeatAndSyncCells } from "../organizations/RosterSeatAndSyncCells";
+import { IdentitySuspension } from "./IdentitySuspension";
 import { compactRootIdentifier, formatRootTimestamp } from "./rootDisplay";
 import { useRootIdentityDetail } from "./useRootIdentityDetail";
 
@@ -88,6 +89,11 @@ function IdentitySummary({ identity }: { identity: RootIdentity }) {
         </MiniAppInfoRow>
         <MiniAppInfoRow label="Root">
           {identity.isRoot ? "Yes" : "No"}
+        </MiniAppInfoRow>
+        <MiniAppInfoRow label="Suspended">
+          {identity.suspendedAt
+            ? formatRootTimestamp(identity.suspendedAt)
+            : "No"}
         </MiniAppInfoRow>
       </tbody>
     </MiniAppKeyValueTable>
@@ -246,6 +252,7 @@ export function IdentityDetailView({
       {detail ? (
         <>
           <IdentitySummary identity={detail.identity} />
+          <IdentitySuspension identity={detail.identity} onChanged={refresh} />
           <MiniAppInfoHeading>Live Sessions</MiniAppInfoHeading>
           <SessionsTable sessions={detail.sessions} />
         </>

@@ -137,6 +137,7 @@ test("auth operations emit their public request and response contracts", () => {
     "200",
     "400",
     "401",
+    "403",
     "404",
     "500",
     "503",

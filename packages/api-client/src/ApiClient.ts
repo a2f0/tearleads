@@ -29,10 +29,12 @@ import {
   getOrganizationNativePurchaseEligibilityOperation,
   getOrganizationReadModelOperation,
   getRootIdentityOperation,
+  getRootOpsHealthReportOperation,
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
   getStripeCheckoutOptionsOperation,
   initiateMultipartBlobStageOperation,
+  liftRootIdentitySuspensionOperation,
   linkDocumentOperation,
   listContainerDocumentLanesOperation,
   listContainerParentLanesOperation,
@@ -44,7 +46,9 @@ import {
   listRootIdentitiesOperation,
   listRootIdentityOrganizationsOperation,
   listRootOrganizationIdentitiesOperation,
+  listRootOrganizationRevenuecatEventsOperation,
   listRootOrganizationsOperation,
+  listRootRevenuecatEventsReportOperation,
   listSessionsOperation,
   logoutOperation,
   moveContainerOperation,
@@ -52,6 +56,8 @@ import {
   type RootIdentitiesQuery,
   type RootOrganizationPageQuery,
   type RootOrganizationsQuery,
+  type RootRevenuecatEventsQuery,
+  type RootRevenuecatEventsReportQuery,
   reciteContainerOperation,
   registerOperation,
   rekeyContainerOperation,
@@ -59,6 +65,7 @@ import {
   revokeContainerOperation,
   shareContainerOperation,
   startOrganizationTrialOperation,
+  suspendRootIdentityOperation,
   unlinkDocumentOperation,
   updateOrganizationMembershipOperation,
   updateOrganizationProfileOperation,
@@ -113,13 +120,18 @@ import type {
   RootIdentitiesResponse,
   RootIdentityDetailResponse,
   RootIdentityOrganizationsResponse,
+  RootIdentitySuspensionResponse,
+  RootOpsHealthReportResponse,
   RootOrganizationDetailResponse,
   RootOrganizationIdentitiesResponse,
+  RootOrganizationRevenuecatEventsResponse,
   RootOrganizationsResponse,
+  RootRevenuecatEventsReportResponse,
   UserIdentityResponse,
 } from "@tearleads/validators/response";
 import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
 import { BoundedCache } from "./ApiCache";
+import { verifiedLogin } from "./accountSuspension";
 import type { ApiRequestInstrumentation } from "./apiRequestMetrics";
 import { ApiRequestRuntime } from "./apiRequestRuntime";
 import {
@@ -563,13 +575,15 @@ export class ApiClient {
       this.requestRuntime.authChallengeBytes(challengeHex, fingerprint),
       secretKey,
     );
-    const response = await this.transport.request(
-      verifyOperation,
-      {
-        body: { fingerprint, signature: Array.from(signed) },
-        params: {},
-      },
-      { retryOnSessionExpired: false },
+    const response = verifiedLogin(
+      await this.transport.requestResult(
+        verifyOperation,
+        {
+          body: { fingerprint, signature: Array.from(signed) },
+          params: {},
+        },
+        { retryOnSessionExpired: false },
+      ),
     );
     if (!response?.authenticated) return null;
     this.webSocketTickets.rememberLogin(response);
@@ -743,6 +757,25 @@ export class ApiClient {
       options,
     );
   }
+  getRootOpsHealthReportResult(
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootOpsHealthReportResponse>> {
+    return this.transport.requestResult(
+      getRootOpsHealthReportOperation,
+      { params: {} },
+      options,
+    );
+  }
+  listRootRevenuecatEventsReportResult(
+    query: RootRevenuecatEventsReportQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootRevenuecatEventsReportResponse>> {
+    return this.transport.requestResult(
+      listRootRevenuecatEventsReportOperation,
+      { params: {}, query },
+      options,
+    );
+  }
   listRootDataUsageReportResult(
     query: RootOrganizationsQuery = {},
     options: RequestResultOptions = {},
@@ -788,6 +821,18 @@ export class ApiClient {
     );
   }
 
+  listRootOrganizationRevenuecatEventsResult(
+    organizationId: string,
+    query: RootRevenuecatEventsQuery = {},
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<RootOrganizationRevenuecatEventsResponse>> {
+    return this.transport.requestResult(
+      listRootOrganizationRevenuecatEventsOperation,
+      { params: { organizationId }, query },
+      options,
+    );
+  }
+
   listRootIdentitiesResult(
     query: RootIdentitiesQuery = {},
     options: RequestResultOptions = {},
@@ -819,6 +864,22 @@ export class ApiClient {
       { params: { userId } },
       options,
     );
+  }
+
+  suspendRootIdentityResult(
+    userId: string,
+  ): Promise<RequestResult<RootIdentitySuspensionResponse>> {
+    return this.transport.requestResult(suspendRootIdentityOperation, {
+      params: { userId },
+    });
+  }
+
+  liftRootIdentitySuspensionResult(
+    userId: string,
+  ): Promise<RequestResult<RootIdentitySuspensionResponse>> {
+    return this.transport.requestResult(liftRootIdentitySuspensionOperation, {
+      params: { userId },
+    });
   }
 
   getOrganizationDataUsageResult(

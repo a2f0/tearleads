@@ -14,6 +14,7 @@ import * as LogProvider from "../providers/logging/LogProvider";
 import * as TearleadsProvider from "../providers/sdk/TearleadsProvider";
 import { IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE } from "./identityAcknowledgmentMismatch";
 import {
+  ACCOUNT_SUSPENDED_MESSAGE,
   describeAuthenticationFailure,
   useAuthenticateAction,
 } from "./useAuthenticateAction";
@@ -71,6 +72,35 @@ test("a login refused for a different acknowledged account is not reported as a 
         message: "Authentication refused by identity acknowledgment",
       },
     ]);
+  } finally {
+    for (const spy of spies) spy.mockRestore();
+  }
+});
+
+test("a suspended account is named instead of reported as a failed login", async () => {
+  const suspended = Object.assign(new Error("This account is suspended."), {
+    name: "AccountSuspendedError",
+  });
+  const spies = [
+    spyOn(CryptoSessionProvider, "useCryptoSession").mockReturnValue({
+      login: async () => {
+        throw suspended;
+      },
+    } as unknown as CryptoSessionProvider.CryptoSessionContextValue),
+    spyOn(LogProvider, "useLog").mockReturnValue({
+      log: () => undefined,
+      logError: () => undefined,
+    } as unknown as ReturnType<typeof LogProvider.useLog>),
+    spyOn(TearleadsProvider, "useTearleads").mockReturnValue({
+      network: { online: true },
+    } as unknown as ReturnType<typeof TearleadsProvider.useTearleads>),
+  ];
+  try {
+    const view = renderHook(() => useAuthenticateAction());
+    await act(async () => {
+      expect(await view.result.current.authenticate()).toBe(false);
+    });
+    expect(view.result.current.error).toBe(ACCOUNT_SUSPENDED_MESSAGE);
   } finally {
     for (const spy of spies) spy.mockRestore();
   }

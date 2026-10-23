@@ -93,6 +93,7 @@ import {
   listRootIdentityOrganizationsOperation,
 } from "./root";
 import { listRootAuditEventsOperation } from "./rootAudit";
+import { getRootOpsHealthReportOperation } from "./rootOpsHealth";
 import {
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
@@ -100,6 +101,14 @@ import {
   listRootOrganizationIdentitiesOperation,
   listRootOrganizationsOperation,
 } from "./rootOrganizations";
+import {
+  listRootOrganizationRevenuecatEventsOperation,
+  listRootRevenuecatEventsReportOperation,
+} from "./rootRevenuecat";
+import {
+  liftRootIdentitySuspensionOperation,
+  suspendRootIdentityOperation,
+} from "./rootSuspension";
 import {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,
@@ -193,6 +202,11 @@ export const protocolOperations: readonly [
   typeof getRootIdentityOperation,
   typeof listRootIdentityOrganizationsOperation,
   typeof listRootAuditEventsOperation,
+  typeof getRootOpsHealthReportOperation,
+  typeof listRootOrganizationRevenuecatEventsOperation,
+  typeof listRootRevenuecatEventsReportOperation,
+  typeof suspendRootIdentityOperation,
+  typeof liftRootIdentitySuspensionOperation,
   typeof documentSyncOperation,
 ] = [
   getContainerReplacementAuthorizationsOperation,
@@ -273,5 +287,10 @@ export const protocolOperations: readonly [
   getRootIdentityOperation,
   listRootIdentityOrganizationsOperation,
   listRootAuditEventsOperation,
+  getRootOpsHealthReportOperation,
+  listRootOrganizationRevenuecatEventsOperation,
+  listRootRevenuecatEventsReportOperation,
+  suspendRootIdentityOperation,
+  liftRootIdentitySuspensionOperation,
   documentSyncOperation,
 ];

@@ -2,7 +2,10 @@ import {
   operationRoutePath,
   verifyOperation,
 } from "@tearleads/validators/operation";
-import type { VerifyResponse } from "@tearleads/validators/response";
+import {
+  VERIFY_ERROR_CODES,
+  type VerifyResponse,
+} from "@tearleads/validators/response";
 import { Hono } from "hono";
 import { readRequestIpAddress } from "../../middleware/requestIp";
 import type { SessionEnv } from "../../middleware/session";
@@ -58,6 +61,16 @@ export function createVerifyRoute(
         });
       } catch (error) {
         if (error instanceof VerifyChallengeError) {
+          if (error.reason === "account_suspended") {
+            return c.json<VerifyResponse>(
+              {
+                authenticated: false,
+                code: VERIFY_ERROR_CODES.accountSuspended,
+                error: error.message,
+              },
+              403,
+            );
+          }
           const status = error.reason === "unknown_fingerprint" ? 404 : 401;
 
           return c.json<VerifyResponse>(
