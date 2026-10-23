@@ -107,17 +107,20 @@ empty probe or a page at the current epoch; never a repeat of
 `contentKeyBundle`), `documentKekTargets`, required
 `pullPage: {hasMore, nextCursor}`, and encrypted `updates[]`.
 
-Operator surface (internal, outside the protocol operation registry and the
-generated OpenAPI contract):
+Operator surface (internal staff and technical support only; registered in the
+protocol operation registry and the generated OpenAPI contract so the root
+console reaches it through the typed client):
 
 | Capability | Route |
 | --- | --- |
-| List platform identities (newest first, cursor paged, optional `fingerprint` filter) | `GET /root/identities` |
+| List platform identities (newest first, cursor paged; optional filters: `fingerprint`, the first 8–64 lowercase hex characters of a signing key fingerprint, exact `userId`, and `rootOnly`) | `GET /root/identities` |
 | Get one identity with its last activity and live sessions | `GET /root/identities/:userId` |
-| List an identity's organizations with roster status and billing standing | `GET /root/identities/:userId/organizations` |
-| Search and page platform organizations by name or exact ID | `GET /root/organizations` |
-| Read an organization's persisted billing, Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
-| Page an organization's roster identities, including disabled entries | `GET /root/organizations/:organizationId/identities` |
+| List an identity's organizations with roster status, sync pause, seat holding, and billing standing | `GET /root/identities/:userId/organizations` |
+| Page platform organizations newest first, optionally narrowed to one exact organization ID (names are encrypted, so there is no name search) | `GET /root/organizations` |
+| Read an organization's group bindings, roster and open-seat counts, persisted billing (including purge progress), Stripe binding and latest 50 billing events | `GET /root/organizations/:organizationId` |
+| Page an organization's roster identities, including disabled entries, with each member's sync pause and seat holding | `GET /root/organizations/:organizationId/identities` |
+| Read an organization's synced data usage | `GET /root/organizations/:organizationId/data-usage` |
+| Page synced data usage by organization, newest organizations first, with the same exact-ID filter | `GET /root/reports/data-usage` |
 | Page recorded operator actions newest first, optionally only those involving one identity or organization (`subjectId`) | `GET /root/audit-events` |
 
 These routes run `requireAuth` then `requireRoot`, which admits only identities

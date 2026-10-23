@@ -72,12 +72,21 @@
 
   /* Beside the heading, the section rule above already opens the content, so
      the right column drops its own top rules and starts level with the h2. */
-  .features-split .site-spec {
+  .features-split .site-spec,
+  .features-split .site-steps {
     border-top: 0;
   }
 
   .features-split .site-spec > div:first-child {
     padding-top: var(--site-space-2);
+  }
+
+  .features-split .site-steps > li:first-child {
+    padding-top: var(--site-space-1);
+  }
+
+  .features-split .site-steps > li:first-child::before {
+    top: var(--site-space-1);
   }
 
   /* Until the right column is wide enough for two readable measures, Sync

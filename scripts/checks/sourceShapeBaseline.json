@@ -71,8 +71,8 @@
       "bytes": 23986
     },
     "docs/openapi.json": {
-      "lines": 66609,
-      "bytes": 2694932
+      "lines": 66714,
+      "bytes": 2698969
     },
     "docs/protocol-specification.md": {
       "lines": 748,
@@ -260,7 +260,7 @@
     },
     "packages/client-sdk/src/workflows/README.md": {
       "lines": 455,
-      "bytes": 34075
+      "bytes": 34073
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,
@@ -323,8 +323,8 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24089,
-      "bytes": 981157
+      "lines": 24106,
+      "bytes": 981989
     },
     "packages/validators/src/response/index.ts": {
       "lines": 554,

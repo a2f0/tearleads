@@ -52,16 +52,27 @@ export function createRootIdentitiesRoute({
     queryParamsValidator(listRootIdentitiesOperation.query, "Invalid query"),
     async (c) => {
       try {
-        const { cursor, fingerprint, limit } = c.req.valid("query");
+        const { cursor, fingerprint, limit, rootOnly, userId } =
+          c.req.valid("query");
+        const onlyRoot = rootOnly === true || rootOnly === "true";
+        // A listing narrowed to one exact user ID is a lookup of that identity,
+        // so it also lands in that identity's audit trail.
         await auditRootRequest(c, runtime, {
           action: listRootIdentitiesOperation.id,
-          filters: { fingerprint },
+          filters: {
+            fingerprint,
+            rootOnly: onlyRoot ? "true" : undefined,
+            userId,
+          },
+          targetUserId: userId,
         });
         return c.json<RootIdentitiesResponse>(
           await listIdentities(runtime, {
             cursor,
-            fingerprint,
+            fingerprintPrefix: fingerprint,
             limit: limit === undefined ? undefined : Number(limit),
+            rootOnly: onlyRoot,
+            userId,
           }),
         );
       } catch (error) {

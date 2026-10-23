@@ -9,6 +9,7 @@ import {
   users,
 } from "@tearleads/api-shared/schema";
 import { asc, eq } from "drizzle-orm";
+import { loadOpenSeatHolders, seatHolderKey } from "./openSeatHolders";
 
 export interface RootIdentityOrganizationBilling {
   readonly currentPeriodEndsAt: string | null;
@@ -29,8 +30,10 @@ export interface RootIdentityOrganization {
   readonly organizationId: string;
   readonly roster: {
     readonly disabledAt: string | null;
+    readonly holdsSeat: boolean;
     readonly joinedAt: string;
     readonly status: OrganizationRosterStatus;
+    readonly syncPausedAt: string | null;
   };
 }
 
@@ -72,6 +75,7 @@ export async function listRootIdentityOrganizations(
       rosterDisabledAt: organizationRosterEntries.disabledAt,
       rosterJoinedAt: organizationRosterEntries.joinedAt,
       rosterStatus: organizationRosterEntries.status,
+      rosterSyncPausedAt: organizationRosterEntries.syncPausedAt,
     })
     .from(organizationRosterEntries)
     .innerJoin(
@@ -84,6 +88,10 @@ export async function listRootIdentityOrganizations(
     )
     .where(eq(organizationRosterEntries.userId, userId))
     .orderBy(asc(organizationRosterEntries.joinedAt), asc(organizations.id));
+  const seatHolders = await loadOpenSeatHolders(executor, {
+    organizationIds: rows.map((row) => row.organizationId),
+    userIds: [userId],
+  });
 
   return rows.map((row) => ({
     billing:
@@ -104,8 +112,10 @@ export async function listRootIdentityOrganizations(
     organizationId: row.organizationId,
     roster: {
       disabledAt: isoOrNull(row.rosterDisabledAt),
+      holdsSeat: seatHolders.has(seatHolderKey(row.organizationId, userId)),
       joinedAt: row.rosterJoinedAt.toISOString(),
       status: row.rosterStatus,
+      syncPausedAt: isoOrNull(row.rosterSyncPausedAt),
     },
   }));
 }

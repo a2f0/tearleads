@@ -10,14 +10,13 @@ import {
   RootIdentityOrganizationsResponseSchema,
   SessionFailureResponseSchema,
 } from "../response";
-import {
-  loosePlainObject,
-  sha256HexStringSchema,
-  uuidV4StringSchema,
-} from "../schema";
+import { loosePlainObject, uuidV4StringSchema } from "../schema";
+import { SHA256_HEX_LENGTH } from "../util/protocol";
 import { defineJsonOperation } from "./definition";
 
 export const MAX_ROOT_IDENTITY_PAGE_SIZE = 200;
+/** Shortest signing key fingerprint prefix the identity listing accepts. */
+export const MIN_ROOT_FINGERPRINT_PREFIX_LENGTH = 8;
 
 const DIGITS_PATTERN = /^\d+$/u;
 
@@ -43,6 +42,32 @@ export function rootIdentityPageLimitSchema() {
   );
 }
 
+// A prefix of a lowercase hex signing key fingerprint; the full 64 characters
+// match exactly one identity.
+const rootFingerprintPrefixSchema = registerJsonSchemaFragment(
+  z
+    .string()
+    .regex(
+      new RegExp(
+        `^[0-9a-f]{${MIN_ROOT_FINGERPRINT_PREFIX_LENGTH},${SHA256_HEX_LENGTH}}$`,
+        "u",
+      ),
+    ),
+  {
+    maxLength: SHA256_HEX_LENGTH,
+    minLength: MIN_ROOT_FINGERPRINT_PREFIX_LENGTH,
+    pattern: "^[0-9a-f]+$",
+    type: "string",
+  },
+);
+
+// Like `limit`, the flag arrives as a string over HTTP and as a boolean from
+// typed clients; the OpenAPI view stays a boolean.
+const rootOnlyFlagSchema = registerJsonSchemaFragment(
+  z.union([z.boolean(), z.literal(["true", "false"])]),
+  { type: "boolean" },
+);
+
 const RootPathParamsSchema = z.strictObject({});
 export const RootIdentityPathParamsSchema = z.strictObject({
   userId: uuidV4StringSchema,
@@ -53,8 +78,12 @@ export type RootIdentityPathParams = z.infer<
 
 export const RootIdentitiesQuerySchema = loosePlainObject({
   cursor: z.string().min(1).optional(),
-  fingerprint: sha256HexStringSchema.optional(),
+  /** 8 to 64 leading characters of the signing key fingerprint. */
+  fingerprint: rootFingerprintPrefixSchema.optional(),
   limit: rootIdentityPageLimitSchema().optional(),
+  /** Only identities that currently hold root. */
+  rootOnly: rootOnlyFlagSchema.optional(),
+  userId: uuidV4StringSchema.optional(),
 });
 export type RootIdentitiesQuery = z.infer<typeof RootIdentitiesQuerySchema>;
 

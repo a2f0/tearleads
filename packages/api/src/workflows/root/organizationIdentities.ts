@@ -5,6 +5,7 @@ import {
   rootIdentitySelection,
   toRootIdentitySummary,
 } from "./identitySummary";
+import { loadOpenSeatHolders, seatHolderKey } from "./openSeatHolders";
 
 export async function listRootOrganizationIdentities(
   executor: DatabaseSession,
@@ -17,6 +18,7 @@ export async function listRootOrganizationIdentities(
       rosterStatus: organizationRosterEntries.status,
       rosterJoinedAt: organizationRosterEntries.joinedAt,
       rosterDisabledAt: organizationRosterEntries.disabledAt,
+      rosterSyncPausedAt: organizationRosterEntries.syncPausedAt,
     })
     .from(organizationRosterEntries)
     .innerJoin(users, eq(users.id, organizationRosterEntries.userId))
@@ -29,6 +31,10 @@ export async function listRootOrganizationIdentities(
     .orderBy(asc(users.id))
     .limit(input.limit + 1);
   const page = rows.slice(0, input.limit);
+  const seatHolders = await loadOpenSeatHolders(executor, {
+    organizationIds: [organizationId],
+    userIds: page.map((row) => row.userId),
+  });
   return {
     identities: page.map((row) => ({
       identity: toRootIdentitySummary(row),
@@ -36,6 +42,8 @@ export async function listRootOrganizationIdentities(
         status: row.rosterStatus,
         joinedAt: row.rosterJoinedAt.toISOString(),
         disabledAt: row.rosterDisabledAt?.toISOString() ?? null,
+        syncPausedAt: row.rosterSyncPausedAt?.toISOString() ?? null,
+        holdsSeat: seatHolders.has(seatHolderKey(organizationId, row.userId)),
       },
     })),
     nextAfterId:

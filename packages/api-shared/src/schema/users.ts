@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, index, pgTable, text, timestamp, uuid } from "./columns";
 
 /**
@@ -41,8 +42,13 @@ import { boolean, index, pgTable, text, timestamp, uuid } from "./columns";
  * Indexes:
  * - `users_fingerprint_unique` enforces one signing key fingerprint per user
  *   and gives auth challenge verification an indexed `fingerprint` lookup.
+ *   The root identity listing's fingerprint-prefix filter is a range scan of
+ *   the same index.
  * - `users_created_at_id_idx` backs the root identity listing's keyset
  *   pagination (newest registrations first).
+ * - `users_root_created_at_id_idx` is the same ordering over root identities
+ *   only, so the listing's root-only filter reads a handful of index entries
+ *   instead of walking every registration.
  * - `users_default_organization_id_idx` bounds personal-owner lookups during
  *   reserved organization group policy commits.
  */
@@ -64,6 +70,9 @@ export const users = pgTable(
   },
   (table) => [
     index("users_created_at_id_idx").on(table.createdAt, table.id),
+    index("users_root_created_at_id_idx")
+      .on(table.createdAt, table.id)
+      .where(sql`${table.isRoot}`),
     index("users_default_organization_id_idx").on(table.defaultOrganizationId),
   ],
 );

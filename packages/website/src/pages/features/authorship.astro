@@ -1,0 +1,186 @@
+---
+import PageHeader from "../../components/PageHeader.astro";
+import Screenshot from "../../components/Screenshot.astro";
+import SectionHeader from "../../components/SectionHeader.astro";
+import StatusNotice from "../../components/StatusNotice.astro";
+import { appUrl } from "../../config";
+import Layout from "../../layouts/Layout.astro";
+import "../../styles/features.css";
+
+// UI: ExplorerDocumentInfoGeneralSections.tsx and explorer/labelCatalog.ts.
+// Attribution: client-sdk data/documents/editAttributionBlame.ts and
+// workflows/container-contents/attribution/documentCharacterBlame.ts.
+---
+
+<Layout
+  title="Authorship | Tearleads"
+  description="See who contributed to a Tearleads note, compare edit and character counts, and read the current text with authorship highlights in Document Info."
+>
+  <div class="site-page features-page">
+    <PageHeader
+      title="Authorship"
+      lede="See who contributed to a note and which parts of its current text came from each contributor. Authorship brings that context into Document Info, alongside the note's links, attachments, and security details."
+    >
+      <nav slot="before" class="site-breadcrumb" aria-label="Breadcrumb">
+        <ol role="list">
+          <li><a href="/features">Features</a></li>
+          <li aria-current="page">Authorship</li>
+        </ol>
+      </nav>
+      <StatusNotice />
+    </PageHeader>
+
+    <section
+      class="site-section features-split features-authorship"
+      id="see-the-contributors"
+      aria-labelledby="contributors-title"
+    >
+      <SectionHeader
+        titleId="contributors-title"
+        title="Read a note with its contributors in view"
+        lede="When several people work on a shared note, a single last-edited label leaves out much of the story. Authorship shows the contributors behind the document and highlights their contributions in the text you are reading."
+      />
+      <Screenshot
+        name="note-blame"
+        crop="1440 / 1280"
+        size="narrow"
+        priority
+        caption="Document Info, authorship"
+        alt="Document Info for a note showing two contributors, their edit and character counts, and the note's text highlighted in each contributor's color."
+      />
+    </section>
+
+    <section class="site-section features-split" id="read-authorship" aria-labelledby="read-title">
+      <SectionHeader
+        titleId="read-title"
+        title="Three ways to understand a contribution"
+        lede="Document Info connects an overview of the edits with a closer look at the text that remains in the note."
+      />
+      <dl class="site-spec">
+        <div>
+          <dt>Contributors</dt>
+          <dd>
+            Lists contributing identities and their recorded edit operations,
+            shown as “ops.” An operation count describes document changes;
+            it is not a count of words, saves, or editing sessions.
+          </dd>
+        </div>
+        <div>
+          <dt>Character Blame</dt>
+          <dd>
+            Counts the characters in the current text attributed to each
+            contributor. Deleted text no longer appears in these counts, so
+            they answer a different question from the edit-operation totals.
+          </dd>
+        </div>
+        <div>
+          <dt>Blame</dt>
+          <dd>
+            Displays a read-only view of the note with colored text highlights
+            and a contributor legend. Follow a color to see which passages
+            share an author.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="site-section features-split" id="open-authorship" aria-labelledby="open-title">
+      <SectionHeader
+        titleId="open-title"
+        title="Find authorship in Explorer"
+        lede="Use a synced note with attribution available. A shared note makes it easy to see contributions from more than one identity."
+      />
+      <ol class="site-steps" role="list">
+        <li>
+          <h3 class="site-step-title">Find the note</h3>
+          <p>Open Explorer and locate the note you want to inspect.</p>
+        </li>
+        <li>
+          <h3 class="site-step-title">Open Document Info</h3>
+          <p>
+            Open the note's Info view and select the General tab. The
+            contributor summary appears alongside the document's general details.
+          </p>
+        </li>
+        <li>
+          <h3 class="site-step-title">Follow the text</h3>
+          <p>
+            Review Contributors, then Character Blame and the highlighted
+            Blame view. Match the highlights to the legend to read each
+            person's contribution in context.
+          </p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="site-section features-split" id="how-it-works" aria-labelledby="how-title">
+      <SectionHeader
+        titleId="how-title"
+        title="How authorship works"
+        lede="Attribution follows document operations and signing identities, so contributions can be related back to the text after changes are merged."
+      />
+      <div class="site-prose">
+        <p>
+          Tearleads records edits as document operations. Synced updates carry
+          a writer's user ID and signing-key fingerprint. Attribution records
+          associate ranges of operations with that signing identity.
+        </p>
+        <p>
+          To build the authorship view, the app reads the current document on
+          your device and matches each character's operation ID to those
+          records. It totals the characters by contributor and groups adjacent
+          characters from the same contributor into highlighted passages.
+        </p>
+        <p>
+          This view describes the current text. A person can have recorded
+          edits even when none of their characters remain in the note.
+          Names help you recognize contributors; the underlying attribution
+          is tied to their signing identities.
+        </p>
+      </div>
+    </section>
+
+    <section class="site-section features-split" id="attribution-status" aria-labelledby="status-title">
+      <SectionHeader
+        titleId="status-title"
+        title="When attribution is incomplete"
+        lede="The view distinguishes missing attribution from contributions it can identify."
+      />
+      <dl class="site-spec">
+        <div>
+          <dt>Unattributed text</dt>
+          <dd>
+            Local edits can appear before the attribution records catch up.
+            Characters without matching records are marked Unattributed.
+          </dd>
+        </div>
+        <div>
+          <dt>Re-asserted contributions</dt>
+          <dd>
+            When attribution comes only from someone uploading an existing
+            document state during key rotation, the contributor is marked
+            “(re-asserted).” That identifies the signed uploader of that state;
+            it does not establish who originally wrote its text.
+          </dd>
+        </div>
+        <div>
+          <dt>Unavailable summaries</dt>
+          <dd>
+            Document Info reports when edit attribution cannot be loaded or
+            is too large for a complete summary. Character highlights may be
+            absent when the local document cannot be read or is too large to
+            scan. The rest of Document Info remains available.
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <div class="site-cta">
+      <p>Keep the context when you work together.</p>
+      <div class="site-actions">
+        <a class="site-button site-button--primary" href={appUrl}>Open web app</a>
+        <a class="site-link" href="/features/sharing">Explore sharing<span aria-hidden="true"> →</span></a>
+      </div>
+    </div>
+  </div>
+</Layout>
