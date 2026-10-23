@@ -28,8 +28,10 @@ export class RootIdentityError extends Error {
 
 interface ListRootIdentitiesPageInput {
   readonly cursor?: string | undefined;
-  readonly fingerprint?: string | undefined;
+  readonly fingerprintPrefix?: string | undefined;
   readonly limit?: number | undefined;
+  readonly rootOnly?: boolean | undefined;
+  readonly userId?: string | undefined;
 }
 
 interface RootIdentitiesPage {
@@ -72,8 +74,10 @@ export async function listIdentities(
 
   const result = await listRootIdentities(runtime.db, {
     afterUserId: cursor?.afterUserId,
-    fingerprint: input.fingerprint,
+    fingerprintPrefix: input.fingerprintPrefix,
     limit,
+    rootOnly: input.rootOnly === true,
+    userId: input.userId,
   });
 
   return {

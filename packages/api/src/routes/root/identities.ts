@@ -52,12 +52,15 @@ export function createRootIdentitiesRoute({
     queryParamsValidator(listRootIdentitiesOperation.query, "Invalid query"),
     async (c) => {
       try {
-        const { cursor, fingerprint, limit } = c.req.valid("query");
+        const { cursor, fingerprint, limit, rootOnly, userId } =
+          c.req.valid("query");
         return c.json<RootIdentitiesResponse>(
           await listIdentities(runtime, {
             cursor,
-            fingerprint,
+            fingerprintPrefix: fingerprint,
             limit: limit === undefined ? undefined : Number(limit),
+            rootOnly: rootOnly === true || rootOnly === "true",
+            userId,
           }),
         );
       } catch (error) {
