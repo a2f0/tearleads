@@ -1,7 +1,10 @@
 # Legal document publication review
 
-The owner authorized publication of the current Privacy Policy and Terms of
-Service on September 14, 2026. `src/legal.ts` records that effective date and sets
+The owner authorized publication of the Privacy Policy and Terms of Service
+on September 14, 2026, and the CT rollout with browser privacy preferences honored
+on October 22, 2026. The current revision discloses CT click analytics, its
+Tearleads, LLC operator, Cloudflare hosting, IP/geography, and 90-day retention.
+`src/legal.ts` records the current effective date and sets
 `isDraft: false`. Both documents render in full in production, staging, and local
 builds, with an effective date and no draft notice. Staging remains non-indexable.
 
@@ -94,6 +97,7 @@ Build and review both pages again, then deploy only when publication is authoriz
 | --- | --- |
 | Encryption, visible metadata, sharing limits | `docs/security-guarantees.md`, `docs/keying-design.md` |
 | App and API diagnostics, exclusions, connection IP exposure | `docs/developer/sentry.md`, `packages/diagnostics/src/privacy.ts` |
+| Hosted click analytics, privacy preferences, and retention | `docs/developer/click-tracking.md`, `packages/app-web/src/clickTracking.ts`, `src/clickTracking.ts` |
 | Session IPs and activity | `packages/api/src/routes/auth/sessions.ts`, `packages/api/src/middleware/session.ts` |
 | Local identity destruction is local | `packages/app/src/providers/identity/useDestroyKey.ts` |
 | Billing providers and platform responsibilities | `docs/developer/revenuecat-billing.md` |

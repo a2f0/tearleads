@@ -100,12 +100,30 @@ const sections = [
       including your IP address, to its infrastructure. The marketing website
       does not use this app error-reporting integration.
     </p>
+    <h3>Click analytics</h3>
+    <p>
+      Our hosted website, web app, and demo use CT, operated by Tearleads, LLC,
+      to understand which interface elements people use. CT receives click times,
+      generic element types, and website, application, and environment labels.
+      We send a generic page path, not document or organization routes. We do not
+      send text contents, form values, link destinations, query strings, account
+      identifiers, or document contents. Native mobile and desktop apps do not
+      use this click collector.
+    </p>
+    <p>
+      Cloudflare hosts CT and stores the connection IP address with approximate
+      geography, such as country, region, and city, alongside each click. This
+      geography comes from the network connection, not device GPS. The analytics
+      dashboard requires an administrator login. CT click records expire after
+      90 days.
+    </p>
   </section>
 
   <section id="purposes" aria-labelledby="purposes-title">
     <h2 id="purposes-title">3. How and why we use information</h2>
     <ul>
       <li>Provide local app functionality, authenticate identities, deliver encrypted sync, and enforce sharing permissions.</li>
+      <li>Understand use of the hosted interface through the limited click analytics described above.</li>
       <li>Process purchases, manage subscription entitlements, reconcile payments, and maintain billing records.</li>
       <li>Operate, secure, troubleshoot, and improve the reliability of the services, including investigating misuse.</li>
       <li>Respond to support and privacy requests and communicate important service or policy changes.</li>
@@ -162,6 +180,7 @@ const sections = [
       <li><strong>Hosting and delivery:</strong> Cloudflare for website delivery, application hosting, and encrypted file storage; PlanetScale for the hosted database.</li>
       <li><strong>Payments:</strong> <a href="https://stripe.com/privacy">Stripe</a> for web payments and subscription management; <a href="https://www.revenuecat.com/privacy/">RevenueCat</a> for cross-platform subscription entitlements; and Apple or Google when you purchase through their stores. Billing providers may process information for their own fraud-prevention and legal obligations under their policies.</li>
       <li><strong>Error reporting:</strong> <a href="https://sentry.io/privacy/">Sentry</a> for the limited diagnostics described above.</li>
+      <li><strong>Click analytics:</strong> CT, operated by Tearleads, LLC and hosted on Cloudflare, for the click records and connection geography described above.</li>
       <li><strong>Communications and business support:</strong> email providers and professional advisers when needed to handle your messages, operate the business, or meet legal obligations.</li>
     </ul>
     <p>
@@ -185,8 +204,11 @@ const sections = [
     </p>
     <p>
       The marketing website does not use advertising trackers or analytics
-      cookies. It does not change its behavior in response to the browser’s
-      “Do Not Track” setting; it does not use cross-site advertising tracking.
+      cookies. CT honors the browser’s “Do Not Track” and Global Privacy Control
+      settings, the CT opt-out extension, and a saved per-site opt-out preference.
+      These choices stop click collection on the website, web app, and demo;
+      they do not disable functionality or the separate error diagnostics.
+      CT does not create a persistent visitor identifier or an advertising profile.
       You can manage storage and permissions through your browser or device.
       Blocking or clearing storage can disable features or permanently remove
       local keys and unsynced data. Export a backup first if you need to keep them.
@@ -207,6 +229,7 @@ const sections = [
       <li><strong>Lapsed subscriptions:</strong> remote organization data may be purged after the service’s billing grace period. This does not necessarily remove local copies. Organization, membership, identity, and billing records can remain after the remote content is purged.</li>
       <li><strong>Audit records:</strong> some signed access history, deletion records, and identifiers currently have no automatic expiry. They support verification, prevent identifier reuse across organizations, and track unfinished deletion work. Deleting a document does not automatically erase this history.</li>
       <li><strong>Operational records:</strong> session information, logs, diagnostics, support correspondence, and financial records follow their service configuration and operational or legal needs. Backups and provider-held records may outlast removal from live systems.</li>
+      <li><strong>Click analytics:</strong> CT deletes click records, including their connection IP and associated geography, after 90 days.</li>
     </ul>
     <p>
       We do not promise immediate erasure from every system. Contact us to request

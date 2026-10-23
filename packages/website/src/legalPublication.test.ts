@@ -119,6 +119,17 @@ for (const environment of ["production", "staging", undefined]) {
         expect(html).toContain(`mailto:${legalDetails.email}`);
         expect(html).toContain(legalDetails.operator);
         expect(html).toContain(contentMarker);
+        if (route === "privacy-policy") {
+          for (const disclosure of [
+            "Click analytics",
+            "Global Privacy Control",
+            "90 days",
+            "connection IP address",
+            "administrator login",
+          ])
+            expect(html).toContain(disclosure);
+          expect(html).not.toContain("does not change its behavior");
+        }
         expect(html).not.toContain('aria-label="At a glance"');
         expect(html).toContain('id="contents-title"');
         expect(html).toContain(`datetime="${legalDetails.updatedAt}"`);

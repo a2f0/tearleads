@@ -11,6 +11,7 @@ const result = await Bun.build({
   target: "browser",
   minify: true,
   env: "BUN_PUBLIC_*",
+  define: { "process.env.NODE_ENV": JSON.stringify("production") },
   publicPath: "/",
   plugins: [loroWasmPlugin],
 });

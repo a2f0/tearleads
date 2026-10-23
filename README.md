@@ -162,6 +162,7 @@ outside its package declares them in that package's `turbo.json`.
 
 ## Developer Docs
 
+- [Hosted Click Analytics](./docs/developer/click-tracking.md)
 - [API Persistence](./docs/developer/api-persistence.md)
 - [Client SDK](./docs/developer/client-sdk.md)
 - [Dependency Maintenance](./docs/dependency-upgrades.md)

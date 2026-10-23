@@ -2,6 +2,12 @@
   "$schema": "https://turborepo.com/schema.json",
   "extends": ["//"],
   "tasks": {
+    "e2e": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/website/src/clickTracking.ts"
+      ]
+    },
     "build": {
       "inputs": [
         "$TURBO_DEFAULT$",

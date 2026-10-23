@@ -25,6 +25,7 @@
     "destroy:demo": "wrangler delete --config wrangler.demo.jsonc"
   },
   "dependencies": {
+    "@a2f0/ct-client": "0.1.5",
     "@stripe/stripe-js": "10.1.0",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/diagnostics": "workspace:*",
