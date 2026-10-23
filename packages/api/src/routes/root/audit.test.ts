@@ -84,8 +84,11 @@ test("every root operation records who asked for what before it answers", async 
     },
     {
       action: "root.organizations.list",
-      path: "/root/organizations?search=%20needle%20",
-      expected: { filter: "search=needle" },
+      path: `/root/organizations?search=%20${memberOrganizationId.toUpperCase()}%20`,
+      expected: {
+        filter: `search=${memberOrganizationId}`,
+        targetOrganizationId: memberOrganizationId,
+      },
     },
     {
       action: "root.organizations.get",
@@ -104,8 +107,11 @@ test("every root operation records who asked for what before it answers", async 
     },
     {
       action: "root.reports.dataUsage.list",
-      path: "/root/reports/data-usage",
-      expected: {},
+      path: `/root/reports/data-usage?search=${memberOrganizationId}`,
+      expected: {
+        filter: `search=${memberOrganizationId}`,
+        targetOrganizationId: memberOrganizationId,
+      },
     },
     {
       action: "root.auditEvents.list",
@@ -137,6 +143,20 @@ test("every root operation records who asked for what before it answers", async 
       targetOrganizationId: null,
       targetUserId: null,
       ...request.expected,
+    });
+  }
+});
+
+test("an organization search that names no organization ID records no target", async () => {
+  for (const [action, path] of [
+    ["root.organizations.list", "/root/organizations?search=%20Needle%20"],
+    ["root.reports.dataUsage.list", "/root/reports/data-usage?search=needle"],
+  ] as const) {
+    const response = await rootRequest(path);
+    expect(response.status).toBe(200);
+    expect(await latestEvent(action)).toMatchObject({
+      filter: "search=needle",
+      targetOrganizationId: null,
     });
   }
 });

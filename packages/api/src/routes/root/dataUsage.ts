@@ -13,7 +13,11 @@ import { RootOrganizationError } from "../../services/root/organizations";
 import { pathParamsValidator } from "../../validators/pathParams";
 import { queryParamsValidator } from "../../validators/queryParams";
 import { respondToStatusError } from "../errorResponse";
-import { auditRootRequest, type RootRouterDeps } from "./shared";
+import {
+  auditRootRequest,
+  organizationSearchAudit,
+  type RootRouterDeps,
+} from "./shared";
 
 export function createRootDataUsageRoute({
   requireAuth,
@@ -57,7 +61,7 @@ export function createRootDataUsageRoute({
         const query = c.req.valid("query");
         await auditRootRequest(c, runtime, {
           action: listRootDataUsageReportOperation.id,
-          filters: { search: query.search?.trim() },
+          ...organizationSearchAudit(query.search),
         });
         return c.json(await listDataUsageReport(runtime, query));
       } catch (error) {
