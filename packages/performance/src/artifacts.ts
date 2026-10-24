@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { openCloudflareTail } from "./cloudflare";
 import { type Options, targets } from "./options";
@@ -14,6 +14,7 @@ export async function createReportWriter(
   const root = resolve(import.meta.dir, "../../..");
   const directory = resolve(root, ".test_files/performance");
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  await chmod(directory, 0o700);
   const path = resolve(directory, `${options.environment}-${runId}.json`);
   const git = (...args: string[]) =>
     execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();

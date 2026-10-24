@@ -2,16 +2,35 @@ import { type CostEvent, sanitizeCostEvent } from "./costEvents";
 import { jsonRecord } from "./jsonRecord";
 import { runHeader } from "./transport";
 
-function tailApi(worker: string) {
+interface TailRuntime {
+  account: string | undefined;
+  token: string | undefined;
+  fetch: typeof fetch;
+  connect: (url: string) => WebSocket;
+  openTimeoutMs: number;
+}
+
+function defaultRuntime(): TailRuntime {
   const { CLOUDFLARE_ACCOUNT_ID: account, CLOUDFLARE_API_TOKEN: token } =
     process.env;
+  return {
+    account,
+    token,
+    fetch: globalThis.fetch,
+    connect: (url) => new WebSocket(url, "trace-v1"),
+    openTimeoutMs: 15_000,
+  };
+}
+
+function tailApi(worker: string, runtime: TailRuntime) {
+  const { account, token } = runtime;
   if (!account || !/^[a-f0-9]{32}$/i.test(account) || !token) {
     throw new Error(
       "--cloudflare needs CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN.",
     );
   }
   // Capture fetch before the experiment installs its API-only transport.
-  const transport = globalThis.fetch;
+  const transport = runtime.fetch;
   const endpoint = `https://api.cloudflare.com/client/v4/accounts/${account}/workers/scripts/${worker}/tails`;
   async function api(url: string, method: string, body?: string) {
     const response = await transport(url, {
@@ -33,8 +52,12 @@ function tailApi(worker: string) {
   return { endpoint, api };
 }
 
-export async function openCloudflareTail(worker: string, runId: string) {
-  const { endpoint, api } = tailApi(worker);
+export async function openCloudflareTail(
+  worker: string,
+  runId: string,
+  runtime: TailRuntime = defaultRuntime(),
+) {
+  const { endpoint, api } = tailApi(worker, runtime);
   const response = await api(
     endpoint,
     "POST",
@@ -47,12 +70,7 @@ export async function openCloudflareTail(worker: string, runId: string) {
   );
   const id: unknown = Reflect.get(result, "id");
   const url: unknown = Reflect.get(result, "url");
-  if (
-    typeof id !== "string" ||
-    !id ||
-    typeof url !== "string" ||
-    !url.startsWith("wss://")
-  )
+  if (typeof id !== "string" || !id)
     throw new Error("Invalid Cloudflare tail response.");
   const deleteUrl = `${endpoint}/${encodeURIComponent(id)}`;
   const events: CostEvent[] = [];
@@ -71,7 +89,9 @@ export async function openCloudflareTail(worker: string, runId: string) {
     }
   }
   try {
-    const connection = new WebSocket(url, "trace-v1");
+    if (typeof url !== "string" || !url.startsWith("wss://"))
+      throw new Error("Invalid Cloudflare tail response.");
+    const connection = runtime.connect(url);
     socket = connection;
     connection.binaryType = "arraybuffer";
     connection.addEventListener("message", (event) => {
@@ -85,6 +105,12 @@ export async function openCloudflareTail(worker: string, runId: string) {
               : "";
         const sanitized = sanitizeCostEvent(JSON.parse(text), runId);
         if (sanitized && events.length < 500) events.push(sanitized);
+        else if (
+          sanitized &&
+          !warnings.includes("Tail event limit reached; later events omitted.")
+        ) {
+          warnings.push("Tail event limit reached; later events omitted.");
+        }
       } catch {
         if (!warnings.includes("Unparseable tail event omitted."))
           warnings.push("Unparseable tail event omitted.");
@@ -93,7 +119,7 @@ export async function openCloudflareTail(worker: string, runId: string) {
     await new Promise<void>((resolve, reject) => {
       const timer = setTimeout(
         () => reject(new Error("Cloudflare tail connection timed out.")),
-        15_000,
+        runtime.openTimeoutMs,
       );
       connection.addEventListener(
         "open",

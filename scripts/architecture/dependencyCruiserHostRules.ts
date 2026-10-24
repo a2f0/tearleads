@@ -7,6 +7,36 @@ import {
 
 export const hostDependencyRules = [
   {
+    name: "performance-consumes-only-sdk-and-sqlite",
+    severity: "error",
+    from: {
+      path: packageSourceRoot.performance,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: allPackageSourceRoots.filter(
+        (root) =>
+          ![
+            packageSourceRoot.performance,
+            packageSourceRoot.clientSdk,
+            packageSourceRoot.sqliteWorker,
+          ].includes(root),
+      ),
+    },
+  },
+  {
+    name: "performance-consumes-public-sdk-facades",
+    severity: "error",
+    from: {
+      path: packageSourceRoot.performance,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: packageSourceRoot.clientSdk,
+      pathNot: "^packages/client-sdk/src/(index|sqlite/index)\\.ts$",
+    },
+  },
+  {
     name: "runtime-does-not-depend-on-performance-harness",
     severity: "error",
     comment:

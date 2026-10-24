@@ -69,6 +69,9 @@ Raw invocation URLs, headers, arbitrary console messages, exceptions, SQL,
 request/response bodies, tokens, seeds, and keys are not saved. The runner waits
 up to ten seconds for delayed invocation logs and records unmatched request IDs
 and tail warnings. Missing logs are unavailable measurements, not zero cost.
+Transport failures are also correlated: a lost response may follow a committed
+registration, so an unmatched attempt does not establish whether it reached the
+Worker.
 CPU and invocation wall time are retained only if supplied by the tail; otherwise
 use the response's `cf-ray`, timestamp, and Worker in Workers Logs to investigate.
 
