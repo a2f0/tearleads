@@ -15,6 +15,7 @@
     { "path": "packages/diagnostics" },
     { "path": "packages/encoding" },
     { "path": "packages/loro" },
+    { "path": "packages/performance" },
     { "path": "packages/sqlite-worker" },
     { "path": "packages/sqlite-instance" },
     { "path": "packages/test-utils" },

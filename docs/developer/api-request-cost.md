@@ -65,3 +65,8 @@ and `statements` are available per route. For a live view, run
 
 In a browser, the DevTools Network panel shows the header under each request's
 Timing tab, which separates server time from network time.
+
+For repeatable fresh-account experiments, use the
+[performance harness](../../packages/performance/README.md). It exercises the
+public SDK against an explicitly selected tier and can correlate individual
+requests with these Cloudflare cost logs.

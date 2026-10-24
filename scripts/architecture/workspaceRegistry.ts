@@ -99,6 +99,12 @@ export const workspaceRegistry = [
     role: "shared-library",
   },
   {
+    directory: "performance",
+    key: "performance",
+    packageName: "@tearleads/performance",
+    role: "application",
+  },
+  {
     directory: "sqlite-instance",
     key: "sqliteInstance",
     packageName: "@tearleads/sqlite-instance",

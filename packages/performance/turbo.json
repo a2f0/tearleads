@@ -1,0 +1,14 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      "inputs": [
+        "$TURBO_EXTENDS$",
+        "$TURBO_ROOT$/packages/app/src/stores/systemContainers.ts"
+      ],
+      "dependsOn": ["$TURBO_EXTENDS$", "@tearleads/sqlite-worker#sources"]
+    },
+    "provision": { "cache": false }
+  }
+}

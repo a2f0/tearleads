@@ -177,6 +177,10 @@ const baseConfig = {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
+    "packages/performance": {
+      entry: ["src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+    },
     "packages/ui": {
       project: ["src/**/*.{ts,tsx}"],
     },
@@ -290,6 +294,10 @@ const productionConfig = {
     "packages/diagnostics": { project: productionProject },
     "packages/encoding": { project: productionProject },
     "packages/loro": { project: productionProject },
+    "packages/performance": {
+      entry: ["src/index.ts!"],
+      project: productionProject,
+    },
     "packages/ui": { project: productionProject },
     "packages/validators": {
       // OpenAPI generator implementation/output is checked by the default pass.
