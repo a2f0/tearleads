@@ -15,6 +15,9 @@ import { screenshotPath } from "./screenshotsManifest";
  * adds the bezel. Screens without a light capture are skipped, and the row
  * renders nothing without at least two (phoneCarouselSlides.ts), so the hero
  * must read well without it. The step buttons are phoneCarouselSteps.ts.
+ * Only the first phone, the hero's likely largest paint, loads eagerly and at
+ * high priority; the rest load lazily. Each image declares its capture's size,
+ * so a late image never shifts the layout.
  */
 const screens: readonly PhoneCarouselScreen[] = [
   {
@@ -97,7 +100,7 @@ const shown = phoneCarouselSlides(
                     alt={slide.alt}
                     width={slide.light.width}
                     height={slide.light.height}
-                    loading={index < 5 ? "eager" : "lazy"}
+                    loading={index === 0 ? "eager" : "lazy"}
                     fetchpriority={index === 0 ? "high" : "auto"}
                     decoding="async"
                   />

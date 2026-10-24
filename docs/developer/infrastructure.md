@@ -84,6 +84,16 @@ outputs and the `.secrets/<tier>/` env files, and publishes with the build
 constants from `packages/api/scripts/workerDefines.ts`. The document sync
 cursor HMAC key is generated once per tier into `.secrets/<tier>/worker.env`.
 
+Neither tier deployment applies the downloads stack. After a teardown, apply it
+from a saved plan before publishing a desktop release. The wrapper runs
+Terraform without input, so it cannot approve an apply without a plan file.
+With `TIER` set to `staging` or `prod` and `RUN_DIR` a private directory:
+
+```sh
+terraform/scripts/run-downloads-stack.sh "$TIER" plan -out="$RUN_DIR/downloads.tfplan"
+terraform/scripts/run-downloads-stack.sh "$TIER" apply "$RUN_DIR/downloads.tfplan"
+```
+
 `scripts/deploy/destroyStaging.sh` and `scripts/deploy/destroyProduction.sh`
 remove every resource of their tier, including the downloads bucket and the
 website, through `scripts/deploy/destroyTier.sh`, timing each step. The

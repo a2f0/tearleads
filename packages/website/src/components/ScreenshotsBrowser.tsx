@@ -20,6 +20,7 @@ import {
   type ScreenshotEntry,
   type ScreenshotManifest,
   screenLabel,
+  screenshotPageMeta,
   screenshotPath,
   startingTheme,
 } from "./screenshotsManifest";
@@ -248,10 +249,15 @@ function useArrowKeys(
 }
 
 // Reflect the platform and screen in /screenshots/<platform>/<name> so the
-// current view is shareable. replaceState, not pushState: stepping through
-// screens should not pile history entries onto the Back button. The first
-// render is skipped so merely loading a screenshots URL does not rewrite it.
-function useScreenUrlSync(project: string, activeName: string | undefined) {
+// current view is shareable, and give the page that URL's heading and title.
+// replaceState, not pushState: stepping through screens should not pile
+// history entries onto the Back button. The first render is skipped so merely
+// loading a screenshots URL does not rewrite it.
+function useScreenUrlSync(
+  manifest: ScreenshotManifest,
+  project: string,
+  activeName: string | undefined,
+) {
   const first = useRef(true);
   useEffect(() => {
     if (first.current) {
@@ -264,8 +270,17 @@ function useScreenUrlSync(project: string, activeName: string | undefined) {
         "",
         screenshotPath(project, activeName),
       );
+      const { heading, title } = screenshotPageMeta(
+        manifest,
+        project,
+        activeName,
+      );
+      document.title = title;
+      // PageHeader's h1 on the screenshots route.
+      const pageTitle = document.getElementById("page-title");
+      if (pageTitle) pageTitle.textContent = heading;
     }
-  }, [project, activeName]);
+  }, [manifest, project, activeName]);
 }
 
 function Gallery({
@@ -296,7 +311,7 @@ function Gallery({
   const [expanded, setExpanded] = useState(false);
   const { bySrc, screens, activeName, activeIndex, step, setSelectedName } =
     useGalleryNavigation(manifest, project, containerRef, initialScreen);
-  useScreenUrlSync(project, activeName);
+  useScreenUrlSync(manifest, project, activeName);
 
   if (entries.length === 0) {
     return (

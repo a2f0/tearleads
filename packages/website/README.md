@@ -86,10 +86,17 @@ without a sitemap, a `noindex, nofollow` robots tag on every page, and
 `_headers`. Staging never uses `Disallow`, which would hide the noindex from
 crawlers.
 
-Each screenshot route names its own screen, layout, and captured themes in
-its title and description (`screenshotPageMeta` in
-`src/components/screenshotsManifest.ts`), and the build test fails when two
-pages share a title or description.
+Each screenshot route names its own screen and layout in its h1 and title,
+and adds the captured themes in its description (`screenshotPageMeta` in
+`src/components/screenshotsManifest.ts`). The gallery keeps the h1 and title
+in step with the URL it rewrites as visitors move between screens. The build
+test fails when a page lacks exactly one h1 or when two pages share a heading,
+title, or description.
+
+The home page loads only its first phone capture eagerly, at high priority,
+because it is the hero's likely largest paint. Every other capture loads
+lazily, and each image declares its capture's width and height so late images
+never shift the layout.
 
 Unknown paths answer 404 with `src/pages/404.astro`, through the Worker's
 `not_found_handling: "404-page"`. The host redirects `/pricing` to `/pricing/`,

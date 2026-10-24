@@ -23,7 +23,7 @@ export async function getStaticPaths() {
 }
 
 const { initialPlatform, initialScreen } = Astro.props;
-const { title, description } = screenshotPageMeta(
+const { heading, title, description } = screenshotPageMeta(
   await loadScreenshotManifest(publicDir),
   initialPlatform,
   initialScreen,
@@ -33,7 +33,7 @@ const { title, description } = screenshotPageMeta(
 <Layout title={title} description={description}>
   <div class="site-page">
     <PageHeader
-      title="Screenshots"
+      title={heading}
       lede="Every captured screen in desktop, phone, and tablet layouts, in light and dark themes."
     >
       <StatusNotice />

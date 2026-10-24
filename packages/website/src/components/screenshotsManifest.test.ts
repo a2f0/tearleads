@@ -149,7 +149,7 @@ test("the gallery opens in a theme that captured its opening screen", () => {
   expect(startingTheme(manifest, "mobile", "explorer", false)).toBe("light");
 });
 
-test("each screen page names its screen, layout, and captured themes", () => {
+test("each screen page's heading and metadata name its screen and layout", () => {
   const pages = screenshotRoutes(manifest).map((route) =>
     screenshotPageMeta(
       manifest,
@@ -159,35 +159,39 @@ test("each screen page names its screen, layout, and captured themes", () => {
   );
   expect(pages).toEqual([
     {
+      heading: "Screenshots",
       title: "Screenshots | Tearleads",
       description:
         "Tearleads screens in desktop, tablet, and phone layouts, in light and dark themes.",
     },
     {
+      heading: "Explorer, desktop screenshot",
       title: "Explorer, desktop screenshot | Tearleads",
       description:
         "The Tearleads Explorer screen in the desktop layout, in the light theme.",
     },
     {
+      heading: "Explorer, phone screenshot",
       title: "Explorer, phone screenshot | Tearleads",
       description:
         "The Tearleads Explorer screen in the phone layout, in light and dark themes.",
     },
     {
+      heading: "Home, phone screenshot",
       title: "Home, phone screenshot | Tearleads",
       description:
         "The Tearleads Home screen in the phone layout, in the light theme.",
     },
     {
+      heading: "Explorer, tablet screenshot",
       title: "Explorer, tablet screenshot | Tearleads",
       description:
         "The Tearleads Explorer screen in the tablet layout, in the dark theme.",
     },
   ]);
-  expect(new Set(pages.map((page) => page.title)).size).toBe(pages.length);
-  expect(new Set(pages.map((page) => page.description)).size).toBe(
-    pages.length,
-  );
+  for (const field of ["heading", "title", "description"] as const) {
+    expect(new Set(pages.map((page) => page[field])).size).toBe(pages.length);
+  }
 });
 
 test("screen page descriptions list every captured theme in manifest order", () => {
