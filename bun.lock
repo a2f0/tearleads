@@ -280,6 +280,17 @@
         "@types/bun": "catalog:",
       },
     },
+    "packages/performance": {
+      "name": "@tearleads/performance",
+      "version": "0.1.0",
+      "dependencies": {
+        "@tearleads/client-sdk": "workspace:*",
+        "@tearleads/sqlite-worker": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "catalog:",
+      },
+    },
     "packages/sqlite-instance": {
       "name": "@tearleads/sqlite-instance",
       "version": "0.1.4",
@@ -1108,6 +1119,8 @@
     "@tearleads/encoding": ["@tearleads/encoding@workspace:packages/encoding"],
 
     "@tearleads/loro": ["@tearleads/loro@workspace:packages/loro"],
+
+    "@tearleads/performance": ["@tearleads/performance@workspace:packages/performance"],
 
     "@tearleads/sqlite-instance": ["@tearleads/sqlite-instance@workspace:packages/sqlite-instance"],
 

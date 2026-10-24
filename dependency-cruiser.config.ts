@@ -2,6 +2,7 @@ import type { IConfiguration } from "dependency-cruiser";
 import { appDependencyRules } from "./scripts/architecture/dependencyCruiserAppRules";
 import { clientSdkDependencyRules } from "./scripts/architecture/dependencyCruiserClientSdkRules";
 import { dependencyCruiserDeploymentRules } from "./scripts/architecture/dependencyCruiserDeploymentRules";
+import { hostDependencyRules } from "./scripts/architecture/dependencyCruiserHostRules";
 import { runtimeDependencyRule } from "./scripts/architecture/dependencyCruiserRuntimeRule";
 import {
   allPackageSourceRoots,
@@ -21,7 +22,7 @@ const noOrphanPathExemptionPattern = [
   testFilesPattern,
   "(^|/)tsconfig\\.json$",
   "(^|/)(?:babel|webpack)\\.config\\.(?:js|cjs|mjs|ts|json)$",
-  "^packages/(api-cli|api-shared)/src/index\\.ts$",
+  "^packages/(api-cli|api-shared|performance)/src/index\\.ts$",
   "^packages/app-electrobun/src/(bun/index|renderer/(databaseWorker|index))\\.tsx?$",
   "^packages/app-web/src/index\\.tsx$",
   // Wrangler aliases the development-only database drivers to these stubs.
@@ -492,22 +493,6 @@ const windowingRules = [
   },
 ] satisfies ForbiddenRules;
 
-const websiteRules = [
-  {
-    name: "website-does-not-depend-on-app",
-    severity: "error",
-    comment:
-      "The website may share UI through @tearleads/ui, but it must not import the application implementation package.",
-    from: {
-      path: sourceRoot.website,
-      pathNot: testFilesPattern,
-    },
-    to: {
-      path: sourceRoot.app,
-    },
-  },
-] satisfies ForbiddenRules;
-
 const dependencyCruiserConfig = {
   forbidden: [
     ...standardRules,
@@ -516,10 +501,10 @@ const dependencyCruiserConfig = {
     ...clientSdkDependencyRules,
     ...appDependencyRules,
     ...corePackageRules,
+    ...hostDependencyRules,
     ...dependencyCruiserDeploymentRules,
     ...uiRules,
     ...windowingRules,
-    ...websiteRules,
   ],
   options: {
     // Keep external dependencies as terminal graph nodes so npm declaration

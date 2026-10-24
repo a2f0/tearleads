@@ -103,6 +103,7 @@
     "test:turbo:e2e": "bun scripts/testing/runVerifiedTurbo.ts e2e --filter=app-web",
     "test:turbo:e2e:affected": "bun scripts/testing/runVerifiedTurbo.ts e2e --affected",
     "knip": "bun run lint:knip:all",
+    "perf:provision": "bun run --cwd packages/performance provision",
     "test:knip:production": "bun scripts/testing/testKnipProduction.ts"
   },
   "workspaces": [
@@ -120,6 +121,7 @@
     "packages/diagnostics",
     "packages/encoding",
     "packages/loro",
+    "packages/performance",
     "packages/sqlite-instance",
     "packages/sqlite-worker",
     "packages/test-utils",
