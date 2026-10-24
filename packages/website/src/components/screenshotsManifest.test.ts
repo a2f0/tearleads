@@ -5,6 +5,7 @@ import {
   projectLabel,
   type ScreenshotManifest,
   screenLabel,
+  screenshotPageMeta,
   screenshotPath,
   screenshotRoutes,
   startingTheme,
@@ -146,4 +147,66 @@ test("the gallery opens in a theme that captured its opening screen", () => {
   // A light-scheme visitor still gets dark when only dark was captured.
   expect(startingTheme(manifest, "tablet", "explorer", false)).toBe("dark");
   expect(startingTheme(manifest, "mobile", "explorer", false)).toBe("light");
+});
+
+test("each screen page names its screen, layout, and captured themes", () => {
+  const pages = screenshotRoutes(manifest).map((route) =>
+    screenshotPageMeta(
+      manifest,
+      route.props.initialPlatform,
+      route.props.initialScreen,
+    ),
+  );
+  expect(pages).toEqual([
+    {
+      title: "Screenshots | Tearleads",
+      description:
+        "Tearleads screens in desktop, tablet, and phone layouts, in light and dark themes.",
+    },
+    {
+      title: "Explorer, desktop screenshot | Tearleads",
+      description:
+        "The Tearleads Explorer screen in the desktop layout, in the light theme.",
+    },
+    {
+      title: "Explorer, phone screenshot | Tearleads",
+      description:
+        "The Tearleads Explorer screen in the phone layout, in light and dark themes.",
+    },
+    {
+      title: "Home, phone screenshot | Tearleads",
+      description:
+        "The Tearleads Home screen in the phone layout, in the light theme.",
+    },
+    {
+      title: "Explorer, tablet screenshot | Tearleads",
+      description:
+        "The Tearleads Explorer screen in the tablet layout, in the dark theme.",
+    },
+  ]);
+  expect(new Set(pages.map((page) => page.title)).size).toBe(pages.length);
+  expect(new Set(pages.map((page) => page.description)).size).toBe(
+    pages.length,
+  );
+});
+
+test("screen page descriptions list every captured theme in manifest order", () => {
+  const themed: ScreenshotManifest = {
+    ...manifest,
+    themes: ["light", "dark", "high-contrast"],
+    entries: ["dark", "light", "high-contrast"].map((theme) => ({
+      project: "mobile",
+      theme,
+      name: "notes",
+      src: theme,
+      width: 1170,
+      height: 1992,
+    })),
+  };
+  expect(screenshotPageMeta(themed, "mobile", "notes").description).toBe(
+    "The Tearleads Notes screen in the phone layout, in light, dark, and high contrast themes.",
+  );
+  expect(screenshotPageMeta(themed, "tablet", "notes").description).toBe(
+    "The Tearleads Notes screen in the tablet layout.",
+  );
 });

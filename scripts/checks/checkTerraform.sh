@@ -91,6 +91,7 @@ if check_command terraform; then
     "$TERRAFORM_DIR/modules/r2-object-storage" \
     "$TERRAFORM_DIR/stacks/prod/continuity" \
     "$TERRAFORM_DIR/stacks/prod/postgres" \
+    "$TERRAFORM_DIR/stacks/prod/website" \
     "$TERRAFORM_DIR/stacks/staging/postgres"; do
     if ! run_terraform_tests "$module_dir"; then
       errors=$((errors + 1))

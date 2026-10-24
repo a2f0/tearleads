@@ -150,6 +150,46 @@ export function startingTheme(
   return theme ?? manifest.themes[0] ?? "light";
 }
 
+interface ScreenshotPageMeta {
+  title: string;
+  description: string;
+}
+
+// ", in light and dark themes" or ", in the dark theme", in manifest order.
+function themesClause(themes: readonly string[]): string {
+  const labels = themes.map((theme) => themeLabel(theme).toLowerCase());
+  const last = labels.pop();
+  if (last === undefined) return "";
+  if (labels.length === 0) return `, in the ${last} theme`;
+  const list = labels.length === 1 ? labels[0] : `${labels.join(", ")},`;
+  return `, in ${list} and ${last} themes`;
+}
+
+// Each screen route names its own screen, layout, and captured themes, so the
+// gallery's pages have distinct search titles and descriptions. The index,
+// with no platform/screen pair, describes the whole gallery.
+export function screenshotPageMeta(
+  manifest: ScreenshotManifest,
+  project: string | undefined,
+  screen: string | undefined,
+): ScreenshotPageMeta {
+  if (project === undefined || screen === undefined) {
+    return {
+      title: "Screenshots | Tearleads",
+      description:
+        "Tearleads screens in desktop, tablet, and phone layouts, in light and dark themes.",
+    };
+  }
+  const layout = projectLabel(project).toLowerCase();
+  const themes = manifest.themes.filter(
+    (theme) => findScreenshot(manifest, project, theme, screen) !== undefined,
+  );
+  return {
+    title: `${screenLabel(screen)}, ${layout} screenshot | Tearleads`,
+    description: `The Tearleads ${screenLabel(screen)} screen in the ${layout} layout${themesClause(themes)}.`,
+  };
+}
+
 interface ScreenshotRoute {
   params: { slug: string | undefined };
   props: { initialPlatform?: string; initialScreen?: string };
