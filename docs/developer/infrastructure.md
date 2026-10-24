@@ -29,6 +29,59 @@ Always Use HTTPS setting, which the production website stack owns because it
 is zone-wide. Every client, provider webhook, and billing return URL that
 names a tearleads.com host uses `https://`.
 
+### The www Redirect
+
+`www.tearleads.com` answers 301 to `https://tearleads.com`, keeping the path
+and query, over both `http://` and `https://`. It runs before any Worker and is
+managed outside Terraform: the deployment token lacks Zone → Single Redirect →
+Edit ("Dynamic URL Redirects Write"), so it was created on 2026-10-24 with the
+`cf` CLI under the account owner's login. Two zone objects make it up:
+
+- the zone's `http_request_dynamic_redirect` entry point ruleset, `Redirects`
+  (`f1ae7d2dd8e54b9485a5b5a3e94c0e55`), with one rule, ref `www_to_apex`;
+- a proxied `AAAA` record `www.tearleads.com` → `100::`
+  (`ea96222c9711296a4f4440e278aed4f0`), which gives the name an edge address
+  for the rule to answer.
+
+To recreate it, put the rule in `rules.json`:
+
+```json
+[
+  {
+    "ref": "www_to_apex",
+    "description": "www.tearleads.com to tearleads.com",
+    "expression": "(http.host eq \"www.tearleads.com\")",
+    "action": "redirect",
+    "action_parameters": {
+      "from_value": {
+        "status_code": 301,
+        "preserve_query_string": true,
+        "target_url": {
+          "expression": "concat(\"https://tearleads.com\", http.request.uri.path)"
+        }
+      }
+    }
+  }
+]
+```
+
+Then run:
+
+```sh
+cf rulesets entrypoint update http_request_dynamic_redirect -z tearleads.com \
+  --name Redirects --rules @rules.json
+cf dns records create -z tearleads.com \
+  --body '{"type":"AAAA","name":"www.tearleads.com","content":"100::","proxied":true,"ttl":1,"comment":"Redirected to the apex by the Redirects ruleset (managed with cf)"}'
+```
+
+A zone has one entry point ruleset per phase. Once the token gains that
+permission, a Terraform-managed redirect must import this ruleset and the
+record, not create new ones. Check it live with:
+
+```sh
+curl -sI https://www.tearleads.com/ | grep -i '^location'
+```
+
 ## Infrastructure Lifecycle
 
 Terraform provisions each tier's persistent resources and Wrangler publishes
