@@ -10,6 +10,7 @@ const website = resolve(import.meta.dir, "..");
 let root = "";
 let home = "";
 let gallery = "";
+let screen = "";
 
 // The PNG signature plus an IHDR chunk: the staging script reads only the
 // width and height from the first 24 bytes.
@@ -71,6 +72,9 @@ beforeAll(async () => {
   );
   home = await Bun.file(join(output, "index.html")).text();
   gallery = await Bun.file(join(output, "screenshots", "index.html")).text();
+  screen = await Bun.file(
+    join(output, "screenshots", "mobile", "notes", "index.html"),
+  ).text();
 }, 60_000);
 
 afterAll(async () => {
@@ -91,10 +95,34 @@ test("the Home carousel shows phones with light captures, in order", () => {
   expect(home).toContain('href="/screenshots/mobile/explorer/"');
 });
 
+test("only the first phone loads eagerly, and every phone declares its size", () => {
+  const images = [
+    ...home.matchAll(/<img src="\/screenshot-gallery\/img\/mobile\/[^>]+>/g),
+  ].map((match) => match[0]);
+  expect(images).toHaveLength(2);
+  expect(images[0]).toContain('loading="eager"');
+  expect(images[0]).toContain('fetchpriority="high"');
+  expect(images[1]).toContain('loading="lazy"');
+  expect(images[1]).not.toContain('fetchpriority="high"');
+  for (const image of images) {
+    expect(image).toContain('width="1170" height="1992"');
+    expect(image).toContain('decoding="async"');
+  }
+});
+
 test("the step buttons stay hidden until the script wires them", () => {
   expect(home).toMatch(/class="phone-carousel-steps"[^>]*\shidden/);
   expect(home).toContain('aria-label="Previous screens"');
   expect(home).toContain('aria-label="Next screens"');
+});
+
+test("a screen page's heading names its screen; the index keeps its own", () => {
+  expect(screen).toContain(
+    '<h1 id="page-title" class="site-h1">Notes, phone screenshot</h1>',
+  );
+  expect(gallery).toContain(
+    '<h1 id="page-title" class="site-h1">Screenshots</h1>',
+  );
 });
 
 test("the screenshot gallery carries the release notice", () => {

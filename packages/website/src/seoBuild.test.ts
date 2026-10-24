@@ -148,9 +148,13 @@ for (const environment of ["production", "staging"] as const) {
         ).toBe(staging);
         if (!staging) expect(html, path).not.toContain('name="robots"');
       }
-      // Every page, screenshot routes included, has its own title and
-      // description.
+      // Every page, screenshot routes included, has one h1 and its own
+      // heading, title, and description.
+      for (const [path, html] of pages) {
+        expect(html.match(/<h1[\s>]/g), path).toHaveLength(1);
+      }
       for (const pattern of [
+        /<h1[^>]*>(.*?)<\/h1>/s,
         /<title>([^<]+)<\/title>/,
         /<meta name="description" content="([^"]+)">/,
       ]) {

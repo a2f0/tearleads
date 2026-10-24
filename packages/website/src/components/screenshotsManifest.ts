@@ -151,6 +151,8 @@ export function startingTheme(
 }
 
 interface ScreenshotPageMeta {
+  /** The page's h1; the title adds the site name. */
+  heading: string;
   title: string;
   description: string;
 }
@@ -166,8 +168,8 @@ function themesClause(themes: readonly string[]): string {
 }
 
 // Each screen route names its own screen, layout, and captured themes, so the
-// gallery's pages have distinct search titles and descriptions. The index,
-// with no platform/screen pair, describes the whole gallery.
+// gallery's pages have distinct headings, search titles, and descriptions. The
+// index, with no platform/screen pair, describes the whole gallery.
 export function screenshotPageMeta(
   manifest: ScreenshotManifest,
   project: string | undefined,
@@ -175,6 +177,7 @@ export function screenshotPageMeta(
 ): ScreenshotPageMeta {
   if (project === undefined || screen === undefined) {
     return {
+      heading: "Screenshots",
       title: "Screenshots | Tearleads",
       description:
         "Tearleads screens in desktop, tablet, and phone layouts, in light and dark themes.",
@@ -184,8 +187,10 @@ export function screenshotPageMeta(
   const themes = manifest.themes.filter(
     (theme) => findScreenshot(manifest, project, theme, screen) !== undefined,
   );
+  const heading = `${screenLabel(screen)}, ${layout} screenshot`;
   return {
-    title: `${screenLabel(screen)}, ${layout} screenshot | Tearleads`,
+    heading,
+    title: `${heading} | Tearleads`,
     description: `The Tearleads ${screenLabel(screen)} screen in the ${layout} layout${themesClause(themes)}.`,
   };
 }

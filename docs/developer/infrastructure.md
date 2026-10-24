@@ -78,11 +78,14 @@ the whole sequence: storage, database, API migrations and Worker, app bundles,
 edge hostnames (which need the Workers to exist), API verification, then
 website. Staging applies its storage and Postgres stacks on every full deploy;
 production only checks that they are already provisioned. `--skip-terraform`
-skips every Terraform apply. `packages/api/scripts/deployApi.sh` migrates with
-the PlanetScale migration login, syncs the Worker secrets from the Terraform
-outputs and the `.secrets/<tier>/` env files, and publishes with the build
-constants from `packages/api/scripts/workerDefines.ts`. The document sync
-cursor HMAC key is generated once per tier into `.secrets/<tier>/worker.env`.
+skips every Terraform apply. Neither script applies the downloads stack, so
+after a teardown, run `terraform/scripts/run-downloads-stack.sh <tier> apply`
+before publishing a desktop release. `packages/api/scripts/deployApi.sh`
+migrates with the PlanetScale migration login, syncs the Worker secrets from
+the Terraform outputs and the `.secrets/<tier>/` env files, and publishes with
+the build constants from `packages/api/scripts/workerDefines.ts`. The document
+sync cursor HMAC key is generated once per tier into
+`.secrets/<tier>/worker.env`.
 
 `scripts/deploy/destroyStaging.sh` and `scripts/deploy/destroyProduction.sh`
 remove every resource of their tier, including the downloads bucket and the
