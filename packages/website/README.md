@@ -30,10 +30,12 @@ the explicit Wrangler environment.
 
 Cloudflare credentials use `TF_VAR_cloudflare_api_token` and
 `TF_VAR_cloudflare_account_id`. The token needs Workers Scripts Edit, Workers
-Routes Edit, and Zone Read for the target account/zone. Terraform also needs the
-tier's R2 state key, `TF_STATE_ACCESS_KEY_ID` and `TF_STATE_SECRET_ACCESS_KEY`
-in `app.env`. No other credentials are needed for a standalone website
-deployment.
+Routes Edit, and Zone Read for the target account/zone; production's also needs
+Zone Settings Edit, because its stack owns the zone's Always Use HTTPS setting
+(see [public hostnames](../../docs/developer/infrastructure.md#public-hostnames)).
+Terraform also needs the tier's R2 state key, `TF_STATE_ACCESS_KEY_ID` and
+`TF_STATE_SECRET_ACCESS_KEY` in `app.env`. No other credentials are needed for
+a standalone website deployment.
 
 The full `scripts/deploy/deployStaging.sh` and
 `scripts/deploy/deployProduction.sh` include this website deployment. Their
@@ -83,6 +85,11 @@ without a sitemap, a `noindex, nofollow` robots tag on every page, and
 `X-Robots-Tag: noindex, nofollow` added to the `/*` rule in the built
 `_headers`. Staging never uses `Disallow`, which would hide the noindex from
 crawlers.
+
+Each screenshot route names its own screen, layout, and captured themes in
+its title and description (`screenshotPageMeta` in
+`src/components/screenshotsManifest.ts`), and the build test fails when two
+pages share a title or description.
 
 Unknown paths answer 404 with `src/pages/404.astro`, through the Worker's
 `not_found_handling: "404-page"`. The host redirects `/pricing` to `/pricing/`,

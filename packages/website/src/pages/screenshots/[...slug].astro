@@ -4,8 +4,7 @@ import PageHeader from "../../components/PageHeader.astro";
 import { ScreenshotsBrowser } from "../../components/ScreenshotsBrowser";
 import StatusNotice from "../../components/StatusNotice.astro";
 import {
-  projectLabel,
-  screenLabel,
+  screenshotPageMeta,
   screenshotRoutes,
 } from "../../components/screenshotsManifest";
 import Layout from "../../layouts/Layout.astro";
@@ -24,16 +23,14 @@ export async function getStaticPaths() {
 }
 
 const { initialPlatform, initialScreen } = Astro.props;
-const title =
-  initialScreen && initialPlatform
-    ? `${screenLabel(initialScreen)}, ${projectLabel(initialPlatform).toLowerCase()} screenshot | Tearleads`
-    : "Screenshots | Tearleads";
+const { title, description } = screenshotPageMeta(
+  await loadScreenshotManifest(publicDir),
+  initialPlatform,
+  initialScreen,
+);
 ---
 
-<Layout
-  title={title}
-  description="Tearleads screens in desktop, tablet, and phone layouts, in light and dark themes."
->
+<Layout title={title} description={description}>
   <div class="site-page">
     <PageHeader
       title="Screenshots"

@@ -22,7 +22,8 @@ run "production_domain" {
       cloudflare_workers_custom_domain.website.zone_id == "11111111111111111111111111111111" &&
       cloudflare_workers_custom_domain.website.hostname == "example.test" &&
       cloudflare_workers_custom_domain.website.service == "tearleads-website-prod" &&
-      output.url == "https://example.test"
+      output.url == "https://example.test" &&
+      output.zone_id == "11111111111111111111111111111111"
     )
     error_message = "The website domain must attach to its published Worker in the configured account and zone."
   }

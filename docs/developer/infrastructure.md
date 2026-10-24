@@ -23,6 +23,12 @@ build adds these for `PUBLIC_ENVIRONMENT=staging` (see the
 which `scripts/injectTierMeta.ts` reads, then adds the header while staging
 the assets and refuses a build whose tags do not match its tier.
 
+Every proxied tearleads.com host, staging and continuity included, answers
+`http://` with a 301 to `https://` before any Worker runs. That is the zone's
+Always Use HTTPS setting, which the production website stack owns because it
+is zone-wide. Every client, provider webhook, and billing return URL that
+names a tearleads.com host uses `https://`.
+
 ## Infrastructure Lifecycle
 
 Terraform provisions each tier's persistent resources and Wrangler publishes
@@ -51,9 +57,11 @@ Each tier is four Cloudflare Workers plus independent Terraform stacks:
   Workers. `terraform/stacks/<tier>/downloads` owns the public desktop release
   bucket at `downloads.<domain>` or `downloads-staging.<domain>`, which desktop
   release publication fills. `terraform/stacks/<tier>/website` holds the
-  website's domain. Production also has a `continuity` stack for the
-  `continuity.<domain>` site, whose assets the a2f0/continuity repository
-  publishes.
+  website's domain; production's also turns on the zone's Always Use HTTPS,
+  which needs Zone Settings Edit on its token. The provider's destroy only
+  forgets that setting, so a teardown leaves it on. Production also has a
+  `continuity` stack for the `continuity.<domain>` site, whose assets the
+  a2f0/continuity repository publishes.
 
 Every stack keeps its state in the Cloudflare R2 bucket
 `tearleads-terraform-state`, at `<tier>/<stack>/terraform.tfstate`, through the

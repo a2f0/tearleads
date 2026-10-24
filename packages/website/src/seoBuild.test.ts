@@ -92,6 +92,27 @@ async function unservedLinks(
   return misses;
 }
 
+/** Each page's value of `pattern`'s first group, keyed by site path. */
+function headValues(
+  pages: ReadonlyMap<string, string>,
+  pattern: RegExp,
+): Map<string, string | undefined> {
+  return new Map(
+    [...pages].map(([path, html]) => [path, html.match(pattern)?.[1]]),
+  );
+}
+
+/** Pages with no value, or a value another page shares, so failures name them. */
+function missingOrShared(values: ReadonlyMap<string, string | undefined>) {
+  const counts = new Map<string, number>();
+  for (const value of values.values()) {
+    if (value !== undefined) counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  return [...values]
+    .filter(([, value]) => value === undefined || (counts.get(value) ?? 0) > 1)
+    .map(([path, value]) => `${path}: ${value ?? "(missing)"}`);
+}
+
 for (const environment of ["production", "staging"] as const) {
   test(`${environment} builds publish their tier's crawler metadata`, async () => {
     const output = await mkdtemp(resolve(tmpdir(), "tearleads-seo-build-"));
@@ -126,6 +147,14 @@ for (const environment of ["production", "staging"] as const) {
           path,
         ).toBe(staging);
         if (!staging) expect(html, path).not.toContain('name="robots"');
+      }
+      // Every page, screenshot routes included, has its own title and
+      // description.
+      for (const pattern of [
+        /<title>([^<]+)<\/title>/,
+        /<meta name="description" content="([^"]+)">/,
+      ]) {
+        expect(missingOrShared(headValues(pages, pattern))).toEqual([]);
       }
       // Unknown paths get the 404 page, which never names a URL.
       const notFound = await Bun.file(resolve(output, "404.html")).text();

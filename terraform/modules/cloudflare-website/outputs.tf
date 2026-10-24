@@ -4,3 +4,6 @@ output "url" {
 output "worker_name" {
   value = cloudflare_workers_custom_domain.website.service
 }
+output "zone_id" {
+  value = data.cloudflare_zone.website.id
+}
