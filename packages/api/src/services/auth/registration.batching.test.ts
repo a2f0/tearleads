@@ -65,8 +65,9 @@ for (const full of [false, true]) {
     // PGlite: 646 / 1,570 before, 536 / 1,274 after batching, 471 / 1,088 by
     // the database efficiency audit, 393 / 883 once signer rows are read once
     // per transaction and fresh manifests skip their no-op projection deletes.
+    // Batched current payload/envelopes remove another 20 / 44 statements.
     // Leave room for dialect differences while rejecting the repeated reads.
-    expect(counter.statements).toBeLessThanOrEqual(full ? 900 : 405);
+    expect(counter.statements).toBeLessThanOrEqual(full ? 856 : 385);
     const updates = initialUpdates(request);
     expect(updates).toHaveLength(full ? 6 : 2);
     const stored = await db

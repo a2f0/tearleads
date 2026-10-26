@@ -9,6 +9,7 @@ import type {
   PrincipalPolicySnapshotResponse,
 } from "@tearleads/validators/response";
 import { listPrincipalMemberEnvelopesForState } from "../../access/read/principalMemberEnvelopes";
+import { getPrincipalPolicyArtifactsForState } from "../../access/read/principalPolicyArtifacts";
 import {
   getPrincipalStatePayloadForState,
   listContainerGrantsForState,
@@ -49,12 +50,22 @@ export async function buildPrincipalPolicyCurrentForStateWithExecutor(
   // a concurrent successor cannot change which head a successful PUT
   // acknowledges under READ COMMITTED.
   const pinnedStateHash = currentState.stateHash;
-  const currentPayload = await getPrincipalStatePayloadForState(
-    principalType,
-    principalId,
-    pinnedStateHash,
-    executor,
-  );
+  const artifacts = verifiedHistory
+    ? await getPrincipalPolicyArtifactsForState(
+        principalType,
+        principalId,
+        pinnedStateHash,
+        executor,
+      )
+    : undefined;
+  const currentPayload = artifacts
+    ? artifacts.payload
+    : await getPrincipalStatePayloadForState(
+        principalType,
+        principalId,
+        pinnedStateHash,
+        executor,
+      );
   if (!currentPayload) {
     throw new PrincipalPolicyError("Principal state payload not found", 500);
   }
@@ -77,12 +88,14 @@ export async function buildPrincipalPolicyCurrentForStateWithExecutor(
       pinnedStateHash,
       executor,
     ));
-  const currentMemberEnvelopes = await listPrincipalMemberEnvelopesForState(
-    principalType,
-    principalId,
-    pinnedStateHash,
-    executor,
-  );
+  const currentMemberEnvelopes =
+    artifacts?.memberEnvelopes ??
+    (await listPrincipalMemberEnvelopesForState(
+      principalType,
+      principalId,
+      pinnedStateHash,
+      executor,
+    ));
 
   return {
     currentState: toPrincipalStateResponse(currentState),
