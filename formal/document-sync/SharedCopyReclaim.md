@@ -1,11 +1,11 @@
 # Shared copy reclaim
 
-[`SharedCopyReclaim.tla`](./SharedCopyReclaim.tla) models issue #2365 finding
-18 and issue #2485 finding 2. Hydration stores a blob's bytes under one storage
-key for every slot that holds the blob, so one local copy can back slots in
-several documents. Deleting
-one slot's row must not delete bytes another slot still holds: hydration skips
-a slot that already names a copy, so those bytes would never be downloaded again.
+[`SharedCopyReclaim.tla`](./SharedCopyReclaim.tla) models reclaiming a
+hydrated attachment copy. Hydration stores a blob's bytes under one storage key
+for every slot that holds the blob, so one local copy can back slots in several
+documents. Deleting one slot's row must not delete bytes another slot still
+holds: hydration skips a slot that already names a copy, so those bytes would
+never be downloaded again.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -31,8 +31,7 @@ pending upload; removing that slot, or dropping an unavailable upload, must stil
 queue the copy. Four negative controls fail
 `HeldCopyPresent`:
 
-- deleting without the reference check, which is the direct `deleteBytes` the
-  detach cleanup and discard used to make;
+- deleting with a direct `deleteBytes`, without the reference check;
 - a reclaim whose check and delete are not serialized with hydration, so a slot
   re-hydrated in between loses its bytes;
 - direct byte deletion after removing a local-only slot whose shared copy
@@ -51,7 +50,7 @@ uploads and rolls back a staged key, all against SQLite and a byte store.
 reset, ordinary editing and slot removal against SQLite and a byte store. It
 keeps the other document's pending source, then reclaims after its final reference
 is removed. The no-reset smoke check preserves the other synced copy. The reset
-safety assertion fails with the former direct-delete follow-up. These are runtime
+safety assertion fails if removal deletes the bytes directly. These are runtime
 regressions, not an automated implementation-to-model trace projection.
 
 `UnheldCopyReclaimed` checks that a copy nobody holds is eventually deleted,
@@ -59,5 +58,4 @@ under weak fairness of the reclaim steps. The model abstracts the byte
 content, which is identical for every slot because the key names the blob, and
 the reclaim's retry schedule. Slot removal and queueing are atomic, including
 `deleteLocalAttachment` and `deletePendingAttachment`. Failed byte deletion and
-retry scheduling are covered by runtime reclaim tests. No legacy-format
-transition or migration is modeled.
+retry scheduling are covered by runtime reclaim tests.

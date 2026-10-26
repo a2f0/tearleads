@@ -1,8 +1,8 @@
 # Session retry identity
 
-[`SessionRetryIdentity.tla`](./SessionRetryIdentity.tla) covers issue #2485
-finding 3. A delayed 401 for identity A must never replay its request as identity
-B. Renewal for A, including one completed by a concurrent request, may replay.
+[`SessionRetryIdentity.tla`](./SessionRetryIdentity.tla) checks that a delayed
+401 for identity A never replays its request as identity B. Renewal for A,
+including one completed by a concurrent request, may replay.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -22,7 +22,7 @@ arbitrarily many renewals. Runtime tests cover logout, a switch during renewal,
 and a switch in the renewal notification callback.
 
 Negative controls remove the completion revision check or the dispatch check.
-A third removes both changed-token checks to reproduce the original blind retry.
+A third removes both changed-token checks, reproducing a blind retry.
 A fourth disables joining a pending renewal and must fail the honest replay
 invariant. Weak fairness requires a request to finish; an uninterrupted same-identity
 renewal must successfully replay rather than satisfying safety by refusing all

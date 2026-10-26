@@ -1,8 +1,8 @@
 # Content Write Authority
 
-[ContentWriteAuthority.tla](./ContentWriteAuthority.tla) models findings 3 and 20
-of #2266: a writer gains access after a child's original parent pin, writes,
-and is later removed before the write reaches another device. Advancing the
+[ContentWriteAuthority.tla](./ContentWriteAuthority.tla) models a writer that
+gains access after a child's original parent pin, writes, and is later removed
+before the write reaches another device. Advancing the
 leaf must not replace the signed write-time path with that original pin.
 A current group snapshot must not replace the membership cited by the write.
 
@@ -27,11 +27,12 @@ attachment hydration or key-rewrap run shares one refresh across its decryptions
 | `HonestWritesRemainReadable` | `verifyWriteHeader`, `verifyAttachmentBindingEvent` |
 | `NewWritesUseCurrentAuthority` | `assertCurrentContainerPath` |
 
-Four negative controls restore the pinned-parent fallback, authorize historical
-writes with current membership, disable the API's current-path requirement, or
-refuse a response using stale cached evidence without refreshing it.
-Each must violate its named invariant. Hashes, signatures, exact sorted citation
-sets, document/blob target coverage, and lineage validation are abstracted as
-verified inputs here; runtime tests cover their concrete checks. This model does
-not prove semantic currency against a dishonest server or prevent a removed
-signer and server from supplying a previously valid historical authorization.
+Four negative controls read through the original parent pin, authorize
+historical writes with current membership, disable the API's current-path
+requirement, or refuse a response using stale cached evidence without refreshing
+it. Each must violate its named invariant. Hashes, signatures, exact sorted
+citation sets, document/blob target coverage, and lineage validation are
+abstracted as verified inputs here; runtime tests cover their concrete checks.
+This model does not prove semantic currency against a dishonest server or
+prevent a removed signer and server from supplying a previously valid historical
+authorization.

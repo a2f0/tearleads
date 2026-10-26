@@ -34,6 +34,7 @@ export {
   UserIdentityResponseSchema,
   type UserSessionResponse,
   UserSessionResponseSchema,
+  VERIFY_ERROR_CODES,
   type VerifyFailureResponse,
   VerifyFailureResponseSchema,
   type VerifyResponse,
@@ -484,6 +485,7 @@ export {
   isRootIdentitiesResponse,
   isRootIdentityDetailResponse,
   isRootIdentityOrganizationsResponse,
+  isRootIdentitySuspensionResponse,
   type RootIdentitiesResponse,
   RootIdentitiesResponseSchema,
   type RootIdentityDetailResponse,
@@ -498,6 +500,8 @@ export {
   RootIdentitySessionResponseSchema,
   type RootIdentitySummaryResponse,
   RootIdentitySummaryResponseSchema,
+  type RootIdentitySuspensionResponse,
+  RootIdentitySuspensionResponseSchema,
 } from "./root";
 export {
   ROOT_AUDIT_ACTIONS,
@@ -508,6 +512,15 @@ export {
   type RootAuditEventsResponse,
   RootAuditEventsResponseSchema,
 } from "./rootAudit";
+export {
+  ROOT_OPS_HEALTH_OVERDUE_MINUTES,
+  ROOT_OPS_HEALTH_SECTION_LIMIT,
+  ROOT_OPS_HEALTH_UPCOMING_DAYS,
+  ROOT_SEAT_SYNC_CONDITIONS,
+  type RootOpsHealthReportResponse,
+  RootOpsHealthReportResponseSchema,
+  RootSeatSyncConditionSchema,
+} from "./rootOpsHealth";
 export {
   type RootDataUsageReportResponse,
   RootDataUsageReportResponseSchema,
@@ -522,6 +535,20 @@ export {
   type RootOrganizationsResponse,
   RootOrganizationsResponseSchema,
 } from "./rootOrganizations";
+export {
+  ROOT_REVENUECAT_DISPOSITIONS,
+  ROOT_REVENUECAT_EVENT_ROLES,
+  type RootOrganizationRevenuecatEventResponse,
+  RootOrganizationRevenuecatEventResponseSchema,
+  type RootOrganizationRevenuecatEventsResponse,
+  RootOrganizationRevenuecatEventsResponseSchema,
+  type RootRevenuecatDisposition,
+  RootRevenuecatDispositionSchema,
+  type RootRevenuecatEventResponse,
+  RootRevenuecatEventResponseSchema,
+  type RootRevenuecatEventsReportResponse,
+  RootRevenuecatEventsReportResponseSchema,
+} from "./rootRevenuecat";
 export {
   isStripeCancelResponse,
   isStripeCheckoutIntentResponse,

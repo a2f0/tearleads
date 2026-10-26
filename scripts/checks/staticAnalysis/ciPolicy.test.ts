@@ -1,5 +1,32 @@
 import { expect, test } from "bun:test";
-import { assertCiSuccess, ciDiffRange, ciScopes } from "../ciPolicy";
+import { resolve } from "node:path";
+import { ciDiffRange, ciScopes } from "../ciPolicy";
+
+const repoRoot = resolve(import.meta.dir, "../../..");
+
+function assertCiSuccess(needs: unknown) {
+  const result = Bun.spawnSync(
+    [
+      process.execPath,
+      "node_modules/.bin/agent-tool",
+      "ci",
+      "gate",
+      "-",
+      "--policy",
+      "scripts/checks/ciGate.json",
+    ],
+    {
+      cwd: repoRoot,
+      stdin: Buffer.from(JSON.stringify(needs)),
+      stdout: "pipe",
+      stderr: "pipe",
+    },
+  );
+  if (result.exitCode !== 0) {
+    const report = JSON.parse(result.stdout.toString());
+    throw new Error(report.errors.join("\n"));
+  }
+}
 
 const successful = () => ({
   changes: {
@@ -19,7 +46,9 @@ test("required native and Terraform jobs must succeed, never skip", () => {
   for (const job of ["native", "terraform"]) {
     const needs = successful();
     needs.changes.outputs = { ...needs.changes.outputs, [job]: "true" };
-    expect(() => assertCiSuccess(needs)).toThrow(`${job} must be success`);
+    expect(() => assertCiSuccess(needs)).toThrow(
+      new RegExp(`^${job}: expected (?:success|skipped)[.,]`, "m"),
+    );
     expect(() =>
       assertCiSuccess({
         ...needs,
@@ -27,7 +56,9 @@ test("required native and Terraform jobs must succeed, never skip", () => {
       }),
     ).not.toThrow();
     for (const result of ["failure", "cancelled", "pending"]) {
-      expect(() => assertCiSuccess({ ...needs, [job]: { result } })).toThrow();
+      expect(() => assertCiSuccess({ ...needs, [job]: { result } })).toThrow(
+        job,
+      );
     }
   }
 });
@@ -57,7 +88,7 @@ test("requires every applicable check and permits only explicitly irrelevant ski
     for (const result of ["failure", "cancelled", "pending"]) {
       expect(() =>
         assertCiSuccess({ ...successful(), [job]: { result } }),
-      ).toThrow();
+      ).toThrow(new RegExp(`^${job}: expected (?:success|skipped)[.,]`, "m"));
     }
   }
   for (const job of [
@@ -70,7 +101,7 @@ test("requires every applicable check and permits only explicitly irrelevant ski
   ]) {
     expect(() =>
       assertCiSuccess({ ...successful(), [job]: { result: "skipped" } }),
-    ).toThrow();
+    ).toThrow(new RegExp(`^${job}: expected (?:success|skipped)[.,]`, "m"));
   }
   expect(() => assertCiSuccess({})).toThrow();
   expect(() =>
@@ -196,9 +227,19 @@ test("Lint checks a pull request's branch name without interpolating it", async 
   const { BRANCH_NAME: branchName } = check?.env ?? {};
   expect(check?.if).toBe("github.event_name == 'pull_request'");
   expect(branchName).toMatch(/^\$\{\{ github\.head_ref \}\}$/);
-  expect(check?.run).toBe(
-    'bun scripts/checks/lintBranchName.ts -- "$BRANCH_NAME"',
-  );
+  expect(check?.run).toContain('"$GITHUB_SHA" "$BRANCH_NAME" 0 |');
+  expect(check?.run).toContain("bun run agent-tool branch check --pre-push");
+  if (!check?.run) throw new Error("missing CI branch check");
+  for (const name of ["feat/valid", "--", "--pre-push", "--help"]) {
+    const result = Bun.spawnSync(["sh", "-c", check.run], {
+      cwd: repoRoot,
+      env: { ...process.env, GITHUB_SHA: "a".repeat(40), BRANCH_NAME: name },
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(result.exitCode, name).toBe(name === "feat/valid" ? 0 : 1);
+    expect(JSON.parse(result.stdout.toString()).branches[0].name).toBe(name);
+  }
   const position = names.indexOf("Check branch name");
   expect(position).toBeGreaterThan(names.indexOf("Install dependencies"));
   expect(position).toBeLessThan(names.indexOf("Run lint checks"));

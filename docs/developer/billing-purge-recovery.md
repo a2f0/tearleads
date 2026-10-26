@@ -5,8 +5,8 @@ retention window expires, the server moves billing to `deleting`, rejects sync,
 and purges organization-owned remote data. Sync remains blocked after the state
 reaches `purged`; a replacement organization is required before it can resume.
 
-`clearRemoteSyncState(execSql, { organizationId })` remains available while
-sync is blocked. It clears only that organization's server-derived rows,
+`clearRemoteSyncState(execSql, { organizationId })` works while sync is
+blocked. It clears only that organization's server-derived rows,
 cursors, remote identifiers, and queued remote work. Durable local Loro history
 and attachment sources remain available for republishing. A replacement reset
 also accepts a fresh organization id and root container id and rebinds the
@@ -30,10 +30,8 @@ is fully reset; purged-organization cleanup must not remove them. The discovery
 cache compares each signed head against its own organization's checkpoint, so
 retaining an old organization's pin does not disable caching after recovery.
 The cache is keyed by document and organization, so their epoch counters remain
-independent. Its required organization column is a greenfield schema change:
-this release expects a fresh local database. The existing schema guard rejects
-obsolete caches with a local-database-reset error; there is no schema upgrade,
-backfill, or compatibility path.
+independent; the schema guard rejects a cache without its organization column
+with the local-database-reset error.
 
 Replacement provisioning carries an explicit identity signature under the
 `tearleads.organization-replacement.v1` domain. It binds the old organization,
@@ -59,18 +57,15 @@ bootstrap.
 Missing, malformed, foreign-signed, or mismatched proofs stop recovery and leave
 the old corpus and checkpoints intact. The durable attempt keeps the exact
 original signature and artifacts for retry. Finalization responses are verified
-again before clearing that attempt or switching the session. This is the current
-wire and local attempt contract. Stored server replacement and native-restore
-provisioning responses also require the new field; old server rows require the
-greenfield reset. No legacy artifact decoder or migration exists.
+again before clearing that attempt or switching the session. Stored server
+replacement and native-restore provisioning responses also carry the field.
 Discovery and listing-tombstone verification check each live signed or cached
-head against the listed
-container's current organization, so an old organization's proof cannot populate
-reused local IDs after recovery. Missing organization scope leaves discovery
-pending.
+head against the listed container's current organization, so an old
+organization's proof cannot populate reused local IDs after recovery. Missing
+organization scope leaves discovery pending.
 See [the bounded recovery model](../../formal/local-trust/PurgeRecovery.md).
 
-Re-shared folders also recover on other members' devices (#2389). The client
+Re-shared folders also recover on other members' devices. The client
 pins the organization's verified genesis signer and key fingerprint only after
 matching them to the verified personal root's creation signer. A separately
 signed directory citing genuine group policies cannot nominate a different
@@ -78,13 +73,13 @@ founder. The pin survives cache eviction, logout, and backup restore.
 A replacement chain must be signed by that original founder, and the
 destination folder must be created by the same user. The verified destination's
 organization genesis and root genesis must match the proof. Its root and reserved
-group genesis checkpoints are pinned before adoption. The existing held-folder
-rebind keeps queued edits and resets the remote metadata stream.
+group genesis checkpoints are pinned before adoption. The held-folder rebind
+keeps queued edits and resets the remote metadata stream.
 
 `GET /containers/:id/replacement-authorizations/:replacesOrganizationId` serves
 the chain only to a current reader of the destination container. Former members
-cannot discover replacement IDs merely through the old roster. A previously
-disabled member can follow when deliberately invited and granted access in the
+cannot discover replacement IDs merely through the old roster. A disabled
+member can follow when deliberately invited and granted access in the
 new organization; no old grant or roster status automatically grants new access.
 Missing authority or proof leaves the old binding and queued edits untouched.
 Multiple replacements use a continuous signed chain, without a lifetime cap.

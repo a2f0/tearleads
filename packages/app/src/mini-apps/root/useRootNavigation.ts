@@ -15,6 +15,7 @@ import {
  * that started in the audit trail or Reports still ends back there.
  */
 function returnTo(route: RootRoute): RootReturn {
+  if (route.view === "reports") return { returnView: "reports" };
   if (route.view === "audit")
     return {
       returnView: "audit",
@@ -57,7 +58,10 @@ export function useRootNavigation(
         userId,
         view: "identities",
         ...(route.view === "organizations" && route.organizationId
-          ? { returnOrganizationId: route.organizationId }
+          ? {
+              returnOrganizationId: route.organizationId,
+              returnOrganizationTab: route.tab ?? "overview",
+            }
           : {}),
         ...returnTo(route),
       }),
@@ -74,7 +78,7 @@ export function useRootNavigation(
             ? {
                 view: "organizations",
                 organizationId: route.returnOrganizationId,
-                tab: "identities",
+                tab: route.returnOrganizationTab ?? "identities",
                 ...(route.returnView ? { returnView: route.returnView } : {}),
                 ...(route.returnSubjectId
                   ? { returnSubjectId: route.returnSubjectId }

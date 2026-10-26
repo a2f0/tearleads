@@ -18,7 +18,8 @@ const MAX_EXPIRY_LIMIT = 1000;
 const MAX_EXPIRY_RETRY_MS = 60 * 60 * 1000;
 const EXPIRY_RETRY_BASE_MS = 60 * 1000;
 const MAX_EXPIRY_RETRY_EXPONENT = 6;
-const TRIAL_EXPIRY_ATTENTION_ATTEMPTS = 8;
+/** Failed sweep attempts after which an expiry is reported for an operator. */
+export const TRIAL_EXPIRY_ATTENTION_ATTEMPTS = 8;
 
 function nextExpiryRetryAt(now: Date, attemptCount: number): Date {
   const exponent = Math.min(

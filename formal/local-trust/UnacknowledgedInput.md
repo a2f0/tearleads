@@ -1,9 +1,9 @@
 # Unacknowledged server input and local intent
 
-[`UnacknowledgedInput.tla`](./UnacknowledgedInput.tla) models findings #12
-and #16 in #2266. An unsigned listing must not adopt a pending document create
-or redirect its queued edits. Login must not change an already acknowledged
-user ID for the same signing identity.
+[`UnacknowledgedInput.tla`](./UnacknowledgedInput.tla) checks that an unsigned
+listing cannot adopt a pending document create or redirect its queued edits, and
+that login cannot change an already acknowledged user ID for the same signing
+identity.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -32,6 +32,6 @@ API trust domain. Host-restored context is trusted and was loaded from encrypted
 storage keyed by that fingerprint. Unacknowledged local user selections and
 failed registration pins are not acknowledgments. The model does not prove
 cryptography, storage encryption, first-contact identity assignment, legitimate
-relinking after adoption, or later document synchronization. Finding #18's
-private-key consistency check is below this model's cryptographic abstraction;
-its regression uses real ML-KEM envelopes, including a forged public-key part.
+relinking after adoption, or later document synchronization. The private-key
+consistency check sits below this model's cryptographic abstraction; its
+regression uses real ML-KEM envelopes, including a forged public-key part.

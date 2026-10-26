@@ -32,6 +32,40 @@
     "validate": [["bun", "run", "lint:source-shape", "--", "--staged"]]
   },
   "pr": { "rejectClaudeBranding": true },
+  "branch": {
+    "enforce": true,
+    "types": null,
+    "exempt": ["main"],
+    "maxLength": 50
+  },
+  "commits": {
+    "signatures": "present",
+    "signatureHeaderFallback": false,
+    "rejectCoauthors": true,
+    "subjects": false
+  },
+  "binaries": {
+    "allow": []
+  },
+  "hooks": {
+    "files": [
+      {
+        "source": "scripts/git/hooks/commit-msg",
+        "target": "commit-msg",
+        "executable": true
+      },
+      {
+        "source": "scripts/git/hooks/pre-commit",
+        "target": "pre-commit",
+        "executable": true
+      },
+      {
+        "source": "scripts/git/hooks/pre-push",
+        "target": "pre-push",
+        "executable": true
+      }
+    ]
+  },
   "images": {
     "targets": {
       "website": {
@@ -50,6 +84,15 @@
             "layers": [
               { "fill": "#ffffff" },
               { "source": "logo", "scale": 0.8 }
+            ]
+          },
+          {
+            "path": "og-image.png",
+            "size": [1200, 630],
+            "opaque": true,
+            "layers": [
+              { "fill": "#ffffff" },
+              { "source": "logo", "scale": 0.5 }
             ]
           }
         ]

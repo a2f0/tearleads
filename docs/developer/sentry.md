@@ -32,6 +32,7 @@ instead of `STAGING` in `.secrets/prod/app.env`:
 SENTRY_STAGING_PROJECT='tearleads-web-staging'
 SENTRY_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 SENTRY_API_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
+SENTRY_API_STAGING_PROJECT='tearleads-api-staging'
 SENTRY_ANDROID_STAGING_PROJECT='tearleads-android-staging'
 SENTRY_ANDROID_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 SENTRY_IOS_STAGING_PROJECT='tearleads-ios-staging'
@@ -40,34 +41,31 @@ SENTRY_ELECTROBUN_STAGING_PROJECT='tearleads-electrobun-staging'
 SENTRY_ELECTROBUN_STAGING_DSN='https://PUBLIC_KEY@oORG.ingest.us.sentry.io/PROJECT_ID'
 ```
 
-The DSNs above are placeholders. The DSN is public; the upload token is private.
+The DSNs above are placeholders. DSNs are public; the upload token is private.
+API project slugs default to `tearleads-api-staging` and
+`tearleads-api-production`; the corresponding tier variable can override them.
 
 ## Deployment and releases
 
 `scripts/deploy/deployStaging.sh` and `scripts/deploy/deployProduction.sh`
-publish the API Worker and the web app. The API deploy syncs `API_SENTRY_DSN` as
-a Worker secret and sets `API_SENTRY_ENVIRONMENT` from
-`packages/api/wrangler.jsonc`; the bundle receives its commit, exact source-path
-allowlist, and build number through `wrangler deploy --define` (see
-`packages/api/scripts/workerDefines.ts`). Wrangler also uploads the bundle's
-source map. Frames in the deployed bundle resolve against that map rather than
-the repository paths the allowlist names, so API frame admission under Workers
-is a known gap to close.
+publish the API Worker and web app. The API deploy syncs `API_SENTRY_DSN`,
+builds once with its tier and commit, uploads the matching source map to Sentry,
+then publishes that bundle and map to Cloudflare. Configured diagnostics require
+a clean checkout and a successful map upload before migrations or publication.
+See [API diagnostics](api-sentry.md) for release identity and frame admission.
 
 The build number is `git rev-list --count HEAD` at build time. The default
 branch only gains squash-merged commits, so every deploy from it counts higher
-than the one before; nothing is persisted to track it. The API sends it on
-every response as `X-Tearleads-Api-Version` (exposed to cross-origin clients).
-A shallow clone or source archive builds without it, as does an API run from
-source, and those responses omit the header. A build from a branch counts its
-own commits on top of the merge base, so only default-branch deploys are
-comparable.
+than the one before. The API sends it on every response as
+`X-Tearleads-Api-Version` (exposed to cross-origin clients); shallow clones,
+source archives, and source runs omit it. A branch build counts its own commits
+on top of the merge base, so only default-branch deploys are comparable.
 
 Clients keep the number from the latest response in memory
 (`tearleads.apiVersion`), tag their Sentry reports with it as `api_version`,
 and show it as **API Version** in the System Monitor's Environment tab and
-support report. It is not persisted: it describes the server answering now,
-and a stored value would misattribute the first failures after a redeploy.
+support report. It is not persisted: a stored value would misattribute the
+first failures after a redeploy.
 
 Web deployment selects the tier DSN, builds, uploads maps, then publishes
 assets. Missing upload credentials or an upload failure stop a configured
@@ -82,29 +80,24 @@ the selected public Sentry configuration, uploads maps, and removes them before
 Capacitor packaging. Publishing maps requires a clean Git checkout; staged,
 modified, or untracked sources stop the release before building. Upload failures
 stop packaging. Debug and local Android APK/sideload builds stay local. The root
-`scripts/release/buildAndroidRelease.sh`, `scripts/release/buildIosRelease.sh`,
-their `StagingRelease.sh` counterparts, and all corresponding
-`upload*Release.sh` wrappers reach this step through Fastlane.
-`scripts/deploy/deployEverything.sh` uses those wrappers too. No separate
-source-map command is required.
-
-Existing installed mobile apps need a new release to start reporting.
+native `scripts/release/*Release.sh` wrappers, which
+`scripts/deploy/deployEverything.sh` also runs, reach this step through
+Fastlane; no separate source-map command is required.
 
 ## Collection policy
 
 The adapter uses a private Sentry client and scope with **no automatic SDK
 integrations**. Sentry 11 collection categories are explicitly disabled with
 `dataCollection`, including user information, cookies, headers, bodies, query
-parameters, database queries, AI inputs/outputs, queues, GraphQL, frame variables,
-and source context; its broader defaults must not widen this policy. It rebuilds
-each error from an allowlist before sending and
-repeats that validation at the transport boundary. Both clients select static
-trace lifecycle with a zero trace sampling rate, preventing Sentry 11 from
-adding its SpanStreaming integration. Only error envelopes can
-leave. Repeated sanitized error locations are reported once per page load, with
-limits of five distinct errors per minute and twenty per page load. The API
-resets its twenty-error budget and deduplication once per hour. Excess reports
-are dropped locally to bound retry-loop traffic and protect the project quota.
+parameters, database queries, AI inputs/outputs, queues, GraphQL, frame
+variables, and source context; its broader defaults must not widen this policy.
+It rebuilds each error from an allowlist before sending and repeats that
+validation at the transport boundary. Both clients select static trace
+lifecycle with a zero trace sampling rate, so Sentry 11 adds no SpanStreaming
+integration. Only error envelopes leave. Repeated sanitized error locations
+report once per page load, within five distinct errors per minute and twenty
+per page load; the API resets that budget and deduplication hourly. Excess
+reports drop locally to bound retry-loop traffic and the project quota.
 
 Allowed:
 
@@ -114,6 +107,10 @@ Allowed:
 - API operation names, reviewed driver exception types and error codes, and
   error HTTP statuses (400–599). API titles are constructed from this finite
   vocabulary; raw exception text is never sent. See API coverage below.
+- API-only sanitized cause stacks, bounded pool counters, HTTP methods and
+  response statuses, and route templates from the release's OpenAPI allowlist.
+- API-only aggregate counts of locally discarded errors, emitted as bounded
+  client reports without event content or identifiers.
 - Git release, deployment environment, and target/build variant.
 - On clients, `api_version`: the build number from the API's
   `X-Tearleads-Api-Version` response header (see above), as last heard from.
@@ -131,7 +128,8 @@ Excluded:
 - Full page URLs, path segments, queries, fragments, request/response data,
   cookies, authorization headers, DOM text, and console output.
 - Session tracking, replay, screenshots, attachments, feedback, analytics,
-  performance tracing, profiling, Sentry Logs, and client reports.
+  performance tracing, profiling, Sentry Logs, and automatic SDK client reports.
+  Only the API's locally constructed discard counters are permitted.
 
 Anonymous DevTools and extension-only exceptions have no application code frame
 and are discarded. Boundary failures without a usable stack still produce a
@@ -153,13 +151,13 @@ remounts the failed view. It does not clear the user's cache or identity.
 Unhandled browser errors and promise rejections with application frames are also
 reported.
 
-System Monitor continues to gather its existing local logs through
-`LogProvider`. Actual `Error` objects supplied to `logError` also go through the
-private adapter; formatted messages never become remote breadcrumbs. Safe
-actions appear locally as `Activity: explorer.move-to-trash`. The local report
-and Sentry trail can be compared without exporting raw logs. Mini-app render
-failures also enter the local log when Sentry is disabled. Activity entries
-share the local log's existing 1,000-entry retention limit.
+System Monitor gathers its local logs through `LogProvider`. Actual `Error`
+objects supplied to `logError` also go through the private adapter; formatted
+messages never become remote breadcrumbs. Safe actions appear locally as
+`Activity: explorer.move-to-trash`. The local report and Sentry trail can be
+compared without exporting raw logs. Mini-app render failures also enter the
+local log when Sentry is disabled. Activity entries share the local log's
+1,000-entry retention limit.
 
 Incoming document and container-metadata quarantines pass the original `Error`
 to this logger after recording the durable failure. This covers ordinary sync
@@ -175,8 +173,8 @@ reported.
 
 Failed local document writes and failed sync-lane runs report the same way.
 The document write chain deliberately swallows its errors so an un-awaited
-edit cannot reject, so a failed content, row, or attachment write was
-previously invisible; it now reaches the logger with the original `Error`.
+edit cannot reject; a failed content, row, or attachment write still reaches
+the logger with the original `Error`.
 Sync lanes report through an observability-only lane callback that is separate
 from the lane's own error handling. Both suppress an identical repeat — the
 write chain per document store, a lane per registered lane, and a lane's
@@ -211,16 +209,16 @@ database that went away mid-flight and a projection verification cancelled by
 a newer generation are teardown, not failures, and stay local. Container
 shares are reported inside the SDK, where the thrown failure is still in hand,
 rather than at the panel. The local keyring lock provider mounts outside the
-logger and reports through the host diagnostics directly; clearing a PIN now
+logger and reports through the host diagnostics directly; clearing a PIN
 verifies it first, so a mistyped PIN is a refusal rather than a report.
 
 All mini-apps record opening and route changes. Explorer additionally records
 root/Trash/folder/document views and explicit context-menu actions. Notes
 records moving documents to Trash; Backup / Restore records export/import
 actions. To instrument another action, use `useDiagnosticBreadcrumb()` or the
-typed `diagnosticAction` prop on `MiniAppButton` / `MenuItem`. Add vocabulary to
-`@tearleads/diagnostics/activity` deliberately. Never derive it from text, IDs,
-or routes.
+typed `diagnosticAction` prop on `MiniAppButton` / `DiagnosticMenuItem`. Add
+vocabulary to `@tearleads/diagnostics/activity` deliberately. Never derive it
+from text, IDs, or routes.
 
 ## Mobile, desktop, and API coverage
 
@@ -251,9 +249,10 @@ safe error metadata, fallback stacks, and maintenance reporting in both tiers.
 
 Web releases use `tearleads-web@<git-sha>` and `staging-app` / `production-app`.
 Both tiers require and upload only the app entry and its linked map under
-`app:///`, matching sanitized frames. Workers stay out of uploads. Static sync
-compares bytes, removes stale assets (including older PDFs), and excludes/deletes
-public maps. Maps contain source code; upload tokens never enter Bun builds.
+`app:///`, matching sanitized frames. Web workers stay out of uploads. Each
+Workers Static Assets deployment replaces the previous assets, and
+`.assetsignore` keeps maps out of it. Maps contain source code; upload tokens
+never enter Bun builds.
 
 Mobile events use `tearleads-android@<git-sha>` or `tearleads-ios@<git-sha>` and
 `staging-app` / `production-app`. Vite emits hidden maps; uploads use
@@ -264,20 +263,18 @@ and adds references to uploaded artifacts; matching release, dist, and canonical
 URLs provide symbolication without transmitting debug metadata.
 
 Electrobun events use `tearleads-electrobun@<git-sha>` and a dist per build
-target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs.
-The target is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`,
-`linux-x64`, `linux-arm64`, `win-x64`; others stop).
-`ELECTROBUN_RELEASE_TIER` selects
+target, `<tier>-app-<os>-<arch>`, as a commit's builds share URLs. The target
+is Hutch's `ELECTROBUN_OS`/`ELECTROBUN_ARCH` (`macos-arm64`, `linux-x64`,
+`linux-arm64`, `win-x64`; others stop). `ELECTROBUN_RELEASE_TIER` selects
 `staging` or `production`; unset is a local build that reads no secrets and
 reports nothing. Release from the repository root with
 `scripts/release/{build,upload}{Macos,Linux}{,Staging}Release.sh`.
 `packages/app-electrobun/scripts/withSentryReleaseEnv.ts` resolves that tier's
 DSN and full commit into the public `BUN_PUBLIC_SENTRY_ELECTROBUN_*` defines for
-the Electrobun build and
-its inherited `postBuild` packaging hook. It drops every inherited Sentry name
-first, so exported configuration cannot reroute events and the token never
-reaches a bundle. A configured tier with a missing or malformed DSN stops the
-build.
+the Electrobun build and its inherited `postBuild` packaging hook. It drops
+every inherited Sentry name first, so exported configuration cannot reroute
+events and the token never reaches a bundle. A configured tier with a missing
+or malformed DSN stops the build.
 
 Release builds emit external maps for the renderer chunk and the main-process
 bundle. The main process reads its configuration from a build-time define with
@@ -315,20 +312,20 @@ directory and, before publishing, uploads it via `uploadDeferredSourceMaps.ts`
 (`BUILD_GIT_SHA` must be the clean `HEAD`; exactly two regular-file pairs under
 the `linux-x64` dist).
 
-API releases use `tearleads-api@<git-sha>`
-and `staging` / `production`. Only allowlisted repository-relative paths and
-positions leave the server, without source text or machine paths.
+Before changing this integration, run the tests in `packages/diagnostics/src`,
+the `diagnostics` folders of `packages/app-capacitor/src`, `packages/api/src`,
+and `packages/app-electrobun/src`, `packages/app-electrobun/scripts/sentry*.test.ts`,
+the privacy tests in `packages/app-web/scripts/sentry*.test.ts`, the real
+browser test `packages/app-web/e2e/diagnostics.spec.ts`, and the app
+boundary/logging tests. They inspect emitted envelopes with synthetic private
+values; live verification needs the account configuration above.
 
-API source archives without Git still deploy, with remote diagnostics disabled.
-
-Run the tests in `packages/diagnostics/src`, both native and API diagnostics
-folders, `packages/app-electrobun/scripts/sentry*.test.ts`,
-`packages/app-electrobun/src/diagnostics`, the privacy tests in
-`packages/app-web/scripts/sentry*.test.ts`, the real browser diagnostics test,
-and the app boundary/logging tests before changing this integration. They
-inspect emitted envelopes with synthetic private values. Deploy staging first.
-Confirm a symbolicated event in the expected project and release with only
-approved breadcrumbs before enabling production. Transport tests verify
-sanitization locally; live verification needs the account configuration above.
-
-See [desktop staging evidence](electrobun-diagnostics-verification.md).
+Verify staging before enabling production. After a client release uploads its
+maps, trigger a new handled failure in each process; Sentry does not
+symbolicate events it received before the upload. On desktop, a backup export
+the main process cannot write reports from both the main process and the
+renderer's file saver. Each event must reach the expected project with the
+expected release, environment, and dist, show no processing errors, and map
+its frames to source. It carries only the generic message, `app:///` frames
+with positions, approved breadcrumbs (none from a server client), and user IP
+`0.0.0.0`; file names, contents, host paths, and request details stay out.

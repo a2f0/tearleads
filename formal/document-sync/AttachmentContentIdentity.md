@@ -1,8 +1,8 @@
 # Attachment content identity
 
-[`AttachmentContentIdentity.tla`](./AttachmentContentIdentity.tla) models finding
-10 of issue #2266. A valid old blob binding must not replace the attachment bytes
-selected by the current authenticated document.
+[`AttachmentContentIdentity.tla`](./AttachmentContentIdentity.tla) checks that
+a valid old blob binding never replaces the attachment bytes selected by the
+current authenticated document.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -41,7 +41,7 @@ protect, so `hydrateDocumentAttachmentBlobs` installs a validly signed served
 binding whose digest differs from the document intent when the slot holds no
 local bytes, recording the served digest on the local record so the store
 reports the slot as `intent-mismatch` until the content update carrying that
-digest arrives (#2278 M4). The bind and the content update are two server
+digest arrives. The bind and the content update are two server
 writes; an uploader lost between them must not leave the attachment invisible
 forever. `CheckContentDigest` still governs every replacement: a held copy is
 never overwritten or deleted for a mismatching served binding, and that

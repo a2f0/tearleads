@@ -1,7 +1,8 @@
 import { expect, test } from "bun:test";
-import { cp, mkdir, mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
+import { withStagingNoindex } from "./seo";
 
 async function readReadyUrl(stream: ReadableStream<Uint8Array>) {
   const reader = stream.getReader();
@@ -26,7 +27,12 @@ for (const tier of ["staging", "prod"]) {
     const website = resolve(import.meta.dir, "..");
     const assets = resolve(root, "assets");
     await mkdir(assets);
-    await cp(resolve(website, "public/_headers"), resolve(assets, "_headers"));
+    // Staging builds add their noindex header (src/seoIntegration.ts).
+    const headers = await Bun.file(resolve(website, "public/_headers")).text();
+    await Bun.write(
+      resolve(assets, "_headers"),
+      tier === "staging" ? withStagingNoindex(headers) : headers,
+    );
     for (const [path, content] of [
       ["index.html", "<html>website fixture</html>"],
       ["features/index.html", "<html>feature fixture</html>"],
@@ -34,6 +40,7 @@ for (const tier of ["staging", "prod"]) {
       ["screenshot-gallery/img/tablet/light/example.png", "image fixture"],
       ["_astro/app.abc123.js", "console.log('fixture')"],
       ["favicon.svg", "<svg />"],
+      ["404.html", "<html>not found fixture</html>"],
     ]) {
       const file = resolve(assets, path);
       await mkdir(dirname(file), { recursive: true });
@@ -98,15 +105,26 @@ for (const tier of ["staging", "prod"]) {
         ],
         ["/_astro/app.abc123.js", 200, "public, max-age=31536000, immutable"],
         ["/favicon.svg", 200, "public, no-cache, must-revalidate"],
-        ["/missing-page", 404, null],
+        ["/missing-page", 404, "public, no-cache, must-revalidate"],
+        ["/features", 307, null],
       ] as const) {
         const response = await fetch(new URL(path, base), {
+          redirect: "manual",
           signal: AbortSignal.timeout(5000),
         });
-        await response.arrayBuffer();
+        const body = await response.text();
         expect(response.status, path).toBe(status);
+        // Unknown paths get the site's 404 page; the slashless form of a
+        // page redirects to the served form that links and canonicals use.
+        if (status === 404)
+          expect(body, path).toBe("<html>not found fixture</html>");
+        if (status === 307)
+          expect(response.headers.get("Location"), path).toBe(`${path}/`);
         if (policy)
           expect(response.headers.get("Cache-Control"), path).toBe(policy);
+        expect(response.headers.get("X-Robots-Tag"), path).toBe(
+          tier === "staging" ? "noindex, nofollow" : null,
+        );
       }
     } finally {
       clearTimeout(timer);

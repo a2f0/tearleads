@@ -1,11 +1,11 @@
 # Group references across grants and rekeys
 
 [`PrincipalReferenceProgress.tla`](./PrincipalReferenceProgress.tla) models
-finding #5 in #2266. A container grant or rekey must cite the current group
-policy at API commit. A signed successor also cannot roll a group's reference
-back below its predecessor, even when a dishonest server serves it. Finding 4
-of #2365 adds container deletion: retained signed grants do not require a
-mutation of a deleted container when the group advances.
+group references across container grants and rekeys. A container grant or rekey
+must cite the current group policy at API commit. A signed successor also
+cannot roll a group's reference back below its predecessor, even when a
+dishonest server serves it. With container deletion, retained signed grants do
+not require a mutation of a deleted container when the group advances.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -49,8 +49,8 @@ historical evidence remains usable. Backup restore unions these expectations
 and keeps the live observation when another group retired the same container.
 `deletedContainerGrantReappearance.test.ts` exercises a dishonest 404,
 a successful rotation, and the contradictory old-key reappearance. This durable
-client expectation is tested at runtime, outside this model's honest-API progress
-abstraction. No compatibility or grant-rewriting path is involved.
+client expectation is tested at runtime, outside this model's honest-API
+progress abstraction.
 
 An in-flight projection fetched before retirement can also be refused if it
 finishes verification afterward. This is a consistency refusal: the returned

@@ -1,11 +1,10 @@
 # Keying Design
 
-This document describes the access and key-delivery model for:
-
-- local-first nested container creation
-- container KEK hierarchy for document/blob key delivery
-- `docs/security-guarantees.md`, especially the gaps around unsigned object
- grants, rollback, split views, and first-contact identity keys
+This document describes the access and key-delivery model: signed access
+manifests, the container KEK hierarchy that delivers document and blob keys,
+local-first container creation, and how the protocol treats unauthorized
+grants, rollback, split views, and first-contact identity keys (see
+[security-guarantees.md](./security-guarantees.md)).
 
 HTTP routes use the signed mutation surface summarized in
 [api-architecture.md](./api-architecture.md#http-protocol-surface).
@@ -15,9 +14,8 @@ For shared protocol terminology, see [glossary.md](./glossary.md).
 The signed access-event, access-manifest, container KEK, document
 content-key, blob content-key, principal-policy, write-header, and local
 checkpoint primitives define the executable keying boundary. Transparency
-deployment, first-contact identity trust, complete verifier adoption at every
-client encryption decision, and historical replay are separate deployment
-boundaries.
+deployment, first-contact identity trust, verifier use at every client
+encryption decision, and historical replay are separate deployment boundaries.
 
 ## Design Properties
 
@@ -73,18 +71,16 @@ confidentiality failures.
 
 ## Identity And Principal Policy
 
-Principal policy uses the signed group/organization model and tightens two
-rules.
+Principal policy uses the signed group/organization model with two rules.
 
 First, any principal transition that removes a reader, demotes a role that can
 read, disables a member, or changes a member key in a way that shrinks future
-access must advance the principal key epoch. Clients
-and the API both reject shrinking policy transitions that reuse the old
-principal key epoch. Removing a container grant must advance it too, since
-wraps sealed to the old key are retained; both enforce that (#2365).
+access must advance the principal key epoch. Clients and the API both reject
+shrinking policy transitions that reuse the old principal key epoch. Removing a
+container grant must advance it too, since wraps sealed to the old key are
+retained; both enforce that.
 
-Second, user identity keys need an authority outside mutable API rows. Keying
-should support one of these trust roots:
+Second, user identity keys need an authority outside mutable API rows, such as:
 
 - out-of-band key verification or invitation links that bind `userId` to an
  identity signing key fingerprint;
@@ -92,18 +88,19 @@ should support one of these trust roots:
 - an append-only identity transparency log with client checkpoint pinning;
 - a combination of the above.
 
-Without one of these, first-contact key substitution remains possible. No
-object keying algorithm can fully fix that by itself.
+Production clients rely on a durable trust-on-first-use pin
+([trusted-user-identity.md](./developer/trusted-user-identity.md)), so
+first-contact key substitution remains possible. No object keying algorithm can
+fully fix that by itself.
 
 Organization administration uses reserved groups: `Admins` authorizes admins,
 and `Members` drives the roster. `Admins` is not nested into `Members`; instead
 a managed principal may name only active roster entries. The signed organization
 payload binds both IDs, and `Admins` contains only `admin` users. Each signed
-principal state uses a null
-`externalAuthority` for direct authorization or the exact Admins head for
-external authorization. Citations match exact signed Admins states without
-in-chain rollback; only API commits require the current head.
-Display/read-model projections never provide keying inputs.
+principal state uses a null `externalAuthority` for direct authorization or the
+exact Admins head for external authorization. Citations match exact signed
+Admins states without in-chain rollback; only API commits require the current
+head. Display/read-model projections never provide keying inputs.
 
 ## Signed Access Manifests
 
@@ -137,6 +134,7 @@ type AccessEvent = {
  | "container.move"
  | "document.link"
  | "document.unlink"
+ | "document.purge"
  | "attachment.bind"
  | "attachment.detach";
  objectKind: "container" | "document" | "blob";
@@ -214,8 +212,8 @@ returned a verifiable signed state transition."
 ### Container Access Manifests
 
 A container access manifest is the signed head for the container's direct
-access and structural parent edge. It should not contain a full expanded
-recipient list for every descendant document.
+access and structural parent edge. It does not contain an expanded recipient
+list for every descendant document.
 
 Container manifest inputs:
 
@@ -269,14 +267,16 @@ when their next write target set is derived.
 
 ### Derived Document Access Views
 
-A document access view is a deterministic projection:
+A document access view (`VerifiedDocumentKekTargets`) is a deterministic
+projection:
 
 ```ts
-type DocumentAccessView = {
+type VerifiedDocumentKekTargets = {
  documentId: string;
  linkSetManifestHash: string;
  linkedContainerManifestHashes: string[];
  linkedContainerKeyEpochIds: string[];
+ targets: DocumentContentKeyTarget[];
  documentKeyTargetHash: string;
 };
 ```
@@ -290,8 +290,6 @@ active attachment binding events plus the linked documents' verified target
 sets.
 
 ## Authorization Rules
-
-Use these rules:
 
 - `container.create`: signer must have write access to the parent container.
 - `container.grant` / `container.revoke`: signer must have admin access to the
@@ -372,7 +370,7 @@ preceding KEK encrypted under the new KEK, binding the container id and both
 committed epoch ids as AES-GCM additional data. It is written exactly once by
 the rotator — the only party the protocol guarantees held both keys — and is
 never rewritten by any later rotation. The bridge's wrapping suite and version
-are persisted per row so a future suite rotation is representable.
+are persisted per row so a suite change is representable.
 
 The **sealed keyring** is the snapshot read path: the container's complete
 predecessor key history — one fixed-width record per epoch, in ascending
@@ -395,8 +393,7 @@ version 2, the container id, numeric KEK epoch, and the canonical ML-KEM wrappin
 public key deterministically derived from the 32-byte KEK. Servers and child-only
 writers verify the published key against this commitment without an ancestor
 secret. KEK holders derive that same public key from recovered material and check
-the commitment independently. Only the v2 format is accepted; this is a greenfield
-protocol change with no translation of earlier ids.
+the commitment independently. Only the v2 format is accepted.
 
 The wrapping public-key cache is bounded to 128 entries and indexed by container
 id plus a process-local HMAC token of the key bytes. A second cache retains up to
@@ -471,7 +468,7 @@ to the id signed in the manifest.
 
 Current access is history-inclusive. A newly admitted user receives only a
 current recipient wrap, then opens the sealed keyring for every retained
-historical KEK; old user/principal envelopes are never served. Revocation
+historical KEK; reading history needs no old user/principal envelope. Revocation
 remains forward-only because a user who possessed an old KEK may retain it,
 but a current user does not depend on a retained device, an old principal key,
 or a document rebaseline to read retained history. Fresh baselines remain a
@@ -497,30 +494,24 @@ if the API supplies a valid recovery projection. The API checks the full parent
 path before accepting new container epochs; parent-first repairs remain valid.
 
 History delivery is **one round trip and one decrypt** regardless of rotation
-count — that is the property the chain lacked, where reaching epoch 1 meant a
-serial walk through every intermediate unwrap. The work itself is not free and
-is not O(1): the sealed blob is 64 bytes per retained epoch, so transfer, AEAD
-processing, and per-entry material-id verification all grow linearly with
-epoch count. What changes is the shape — one bulk decrypt plus independent,
-entry checks in batches of 16 that yield to the event loop, rather than a
-dependent chain of round-trip-order
-unwraps where each step gates the next. At the epoch cap the sealed keyring is
-about 4 MB, which is why the kek-log serves at most one historical keyring per
-request. Rotation pays the linear cost instead — the rotator opens the
-previous keyring and re-seals it plus the retiring key under the new KEK —
-which is one decrypt, one seal, and tens of bytes per retained epoch.
+count, whereas walking the bridge log needs one dependent unwrap per epoch. The
+work is still linear: the sealed blob is 64 bytes per retained epoch, so
+transfer, AEAD processing, and per-entry material-id verification all grow with
+epoch count. The difference is shape — one bulk decrypt plus independent entry
+checks in batches of 16 that yield to the event loop, rather than a chain where
+each unwrap gates the next. At the epoch cap the sealed keyring is about 4 MB,
+which is why the kek-log serves at most one historical keyring per request.
+Rotation pays the linear cost instead — the rotator opens the previous keyring
+and re-seals it plus the retiring key under the new KEK — which is one decrypt,
+one seal, and 64 bytes per retained epoch.
 
-The v2 material check derives an ML-KEM public key on a cache miss. A local
-1,024-epoch probe measured about 945 ms cold and 22 ms when reopening the same
-history with fresh byte arrays; a 4,097-epoch regression exceeds the former
-cache capacity and requires zero additional derivations on the second pass.
-The compact commitment cache covers one full history at the protocol epoch
-cap. Interleaving histories larger than the global cache can still evict
-entries. Cold work remains linear and can take tens of seconds near the
-65,536-epoch cap. Bounded batches prevent an unbounded burst of pending
-derivations and keep the event loop responsive. Verification before re-sealing
-is intentional: skipping unused entries would let an honest rotation launder
-poisoned history into its new signed commitment.
+The v2 material check derives an ML-KEM public key on a cache miss. The compact
+commitment cache covers one full history at the protocol epoch cap;
+interleaved histories larger than the cache evict entries. Cold work is linear
+and can take tens of seconds near the 65,536-epoch cap. Bounded batches prevent
+an unbounded burst of pending derivations and keep the event loop responsive.
+Verification before re-sealing is intentional: skipping unused entries would
+let an honest rotation launder poisoned history into its new signed commitment.
 
 There is deliberately no depth cap and no truncation: the keyring for epoch
 `n` must contain exactly `n - 1` entries, over- and under-length payloads are
@@ -566,10 +557,11 @@ addressed to, which resolves only through principal-policy bundles the client
 can reach; after a principal key rotation a pristine client cannot reach the
 older ones. The client fails closed with a distinct
 `HistoricalWrapUnavailableError` (reason `principal-key-unreachable`) rather
-than reporting corruption, so the condition is diagnosable. Serving historical
-principal-policy states — which would close this case — is tracked separately
-and is out of scope for the keyring model. The only wholly unrecoverable case is
-a sole-ever member destroying their own history.
+than reporting corruption, so the condition is diagnosable. The API serves no
+historical principal-key envelopes by design
+([protocol-specification.md](./protocol-specification.md#container-access-and-kek-protocol)).
+The only wholly unrecoverable case is a sole-ever member destroying their own
+history.
 `formal/container-keying/KeyringReachability.tla` model checks this composition:
 the log alone recovers everything while bridges are intact, severance damage is
 bounded to epochs below the broken link, an honest current keyring implies full
@@ -585,8 +577,8 @@ repair deliberately invalid ciphertext that was originally accepted.
 
 A container move creates fresh successor KEK material as well as a new epoch
 identity because the parent binding changes. It carries the same two rotation
-artifacts as rekeys and revocations — the write-once bridge and the re-sealed
-keyring — without an AES-GCM key-dependent self-wrap.
+artifacts as rekeys and revocations: the write-once bridge and the re-sealed
+keyring.
 
 ## Document Content Keys
 
@@ -595,7 +587,7 @@ A document has one canonical content-key bundle per document key epoch.
 Document write targets are the current KEK epochs of every linked container:
 
 ```ts
-type DocumentKekTarget = {
+type DocumentContentKeyTarget = {
  containerId: string;
  containerManifestHash: string;
  containerKeyEpochId: string;
@@ -618,24 +610,26 @@ The API rejects writes when submitted targets do not exactly match current
 verified targets. Readers verify the signed write header before trusting target
 metadata.
 
-Write authorization requires one linked write path. Reusing a current content-key
-bundle needs its document key, not every linked container's KEK. Each write still
-commits to all targets so every linked reader observes the same document state.
+Write authorization requires one linked write path. Reusing a current
+content-key bundle needs its document key, not every linked container's KEK.
+Each write still commits to all targets so every linked reader observes the
+same document state.
 
-This is not an independent-progress guarantee across rotations (#2419). Creating
-or rotating the bundle requires wraps for every current target KEK. The current
-symmetric wrapping protocol needs those target keys. A writer with access to
-only some links can therefore wait for a member able to repair the other targets
-and materialize the complete bundle. Even a readable target can require another
-member's repair when its path is stale and the writer lacks write access there.
-The SDK keeps the queued edit and reports `document_ancestor_repair_inaccessible`
-when another verified linked path still grants write access; losing all linked
-write access remains an authorization refusal. A later sync can resume after repair.
+This is not an independent-progress guarantee across rotations. Creating or
+rotating the bundle requires wraps for every current target KEK, and the
+symmetric content-key wrap needs those target keys. A writer with access to
+only some links can therefore wait for a member able to repair the other
+targets and materialize the complete bundle. Even a readable target can require
+another member's repair when its path is stale and the writer lacks write
+access there. The SDK keeps the queued edit and reports
+`document_ancestor_repair_inaccessible` when another verified linked path still
+grants write access; losing all linked write access remains an authorization
+refusal. A later sync can resume after repair.
 
-This design retains the privacy boundary on inaccessible linked paths. It does
-not disclose their current grants to enable public-key-only repair. Public target
-wrapping or envelope contributions would need a separate authenticated protocol;
-neither is assumed by the current write-liveness claim.
+This design retains the privacy boundary on inaccessible linked paths: it does
+not disclose their current grants to enable public-key-only repair. Public
+target wrapping or envelope contributions would need a separate authenticated
+protocol; the write-liveness claim assumes neither.
 
 ### Content Write Authorization
 
@@ -673,7 +667,7 @@ offline, so must not rely on local counters or implicit library defaults for
 nonce uniqueness.
 
 Every encrypted content record needs a verifier-enforced encryption domain. The
-preferred rule is:
+rule is:
 
 1. assign a globally unique, high-entropy `contentRecordId` for each encrypted
  update, baseline, blob version, or replacement object, such as a UUIDv4 or
@@ -700,21 +694,22 @@ into Loro. Retained history thereby keeps a keyed identity for an authored
 plaintext while retaining its ciphertext, provided the signed header,
 original content-record id and epoch, and corresponding content key remain
 available. A full-history rotation snapshot's commitment is not comparable to
-its constituent per-update commitments, so this does not replace the stronger
-future design of per-update re-encryption with inner author signatures.
+its constituent per-update commitments, so this is weaker than per-update
+re-encryption with inner author signatures, which the protocol does not
+implement.
 
-The initial suite is
-`aes-256-gcm-hkdf-sha256-record-key`. A content writer supplies a UUIDv4
-`contentRecordId`, commits the suite in the signed write header, and commits a
-`nonceDomainHash` over the protocol version, organization id, object kind,
-object id, content-key epoch, suite, and `contentRecordId`. The content record
-domain is the input to per-record key derivation, and the encrypted record
-carries a fresh random AES-GCM IV. Storage enforces uniqueness for both
-`contentRecordId` and `nonceDomainHash` within the same object/content-key
-epoch, while the random IV keeps accidental same-domain re-encryption from
-reusing the same AEAD key/nonce pair before the duplicate write reaches server
-storage. The invariant cannot vary: honest concurrent writers must be unable to
-reuse the same AEAD key/nonce pair for two different plaintexts.
+The content-record suite is `aes-256-gcm-hkdf-sha256-record-key`. A content
+writer supplies a UUIDv4 `contentRecordId`, commits the suite in the signed
+write header, and commits a `nonceDomainHash` over the protocol version,
+organization id, object kind, object id, content-key epoch, suite, and
+`contentRecordId`. The content record domain is the input to per-record key
+derivation, and the encrypted record carries a fresh random AES-GCM IV.
+Storage enforces uniqueness for both `contentRecordId` and `nonceDomainHash`
+within the same object/content-key epoch, while the random IV keeps accidental
+same-domain re-encryption from reusing the same AEAD key/nonce pair before the
+duplicate write reaches server storage. The invariant cannot vary: honest
+concurrent writers must be unable to reuse the same AEAD key/nonce pair for two
+different plaintexts.
 
 For additive changes, the document content key may be reused and wrapped to a
 new target if the target set only grows. For shrink, subsequent writes require a
@@ -736,12 +731,14 @@ suite identifiers are:
   `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek`
 - successor container KEK to predecessor container KEK:
   `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek`
+- predecessor keyring sealed under the current container KEK:
+  `tearleads.container-kek-keyring.aes-256-gcm-current-kek`
 
 Document and blob content-key target envelopes carry `wrappingMetadata.suite`
 and an AES-GCM IV; the AAD binds suite, object id, content-key epoch and
-target. Container KEK wraps are an existing wire format without a
-separate suite field: `recipientKind` selects the user/managed-principal
-ML-KEM wrap path or the parent-container ML-KEM wrap path.
+target. Container KEK wraps carry no suite field: `recipientKind` selects the
+user/managed-principal ML-KEM wrap path or the parent-container ML-KEM wrap
+path.
 
 Every keyed container signs `containerKeyPublicKey` in its access event and
 manifest key-target commitment. Grant and recitation events preserve it with
@@ -757,20 +754,18 @@ as info. Those bytes seed ML-KEM-1024 key generation. Readers check the derived
 public key against the signed current state; retained historical KEKs derive
 the corresponding historical decapsulation keys. A child-only writer can wrap
 a new child KEK to the verified parent public key without learning its secret.
-The parent recipient fingerprint remains the signed epoch-record hash. The
-child epoch's parent pin must equal the parent epoch named by its signed
-creation event's
-verified dependency citation, even when the pin names the current parent.
-A self-consistent epoch record and wrap target cannot substitute another
-parent epoch. A later grant or recitation cannot stand in for the first
-signed manifest of that key epoch. Historical parent resolution is enabled
-only for read/recovery;
-write verification still requires the current parent epoch.
+The parent recipient fingerprint is the signed epoch-record hash. The child
+epoch's parent pin must equal the parent epoch named by its signed creation
+event's verified dependency citation, even when the pin names the current
+parent. A self-consistent epoch record and wrap target cannot substitute
+another parent epoch. A later grant or recitation cannot stand in for the first
+signed manifest of that key epoch. Historical parent resolution is enabled only
+for read/recovery; write verification still requires the current parent epoch.
 
-This is a flag-day contract: all authors and readers use public parent wraps,
-with no symmetric parent-wrap fallback. Each parent KEM ciphertext is 1568
-bytes instead of a 12-byte IV, and each signed public key is 1568 bytes before
-base64 encoding. Public keys add public metadata, not access to ancestor keys.
+All authors and readers use public parent wraps; there is no symmetric
+parent-wrap path. Each parent KEM ciphertext is 1568 bytes, and each signed
+public key is 1568 bytes before base64 encoding. Public keys add public
+metadata, not access to ancestor keys.
 Whole-path write-currency checks remain necessary: a stale intermediate key
 can be known to a revoked ancestor holder, so descendants must not wrap future
 keys to it. Public wrapping enables independent repair immediately below a
@@ -812,8 +807,8 @@ rekey or revoke among a policy's rematerialized containers carries the
 descendants it owes in the same batch, woven in parent-first beneath the
 rotation each rides, and a level the batch's own rotations strand between two
 of its containers is carried without being named.
-[`InaccessibleIntermediateRepair.tla`](../formal/container-keying/InaccessibleIntermediateRepair.md)
-models the rule and the alternatives it rejects.
+The [inaccessible-intermediate repair model](../formal/container-keying/InaccessibleIntermediateRepair.md)
+covers the rule and the alternatives it rejects.
 
 ## Blob Content Keys
 
@@ -845,12 +840,11 @@ applies it to newly wrapped material, additionally requiring the wrapping
 metadata to carry exactly `suite` and `iv`, and rejects a failing submission
 before persistence. Clients apply the same check when reading a stored
 envelope, minus that exact-key requirement, so an unrecognized metadata key can
-never make a decryptable envelope unreadable. Document links and blob relinks
-resubmit retained wraps verbatim alongside newly wrapped ones within their own
-document scope; the API judges the retained half as
-stored for the same reason, since a retained target must be resubmitted
-byte-identical and cannot be re-wrapped while it is active. The exemption is
-scoped to the content-key epoch being written, so a rotation exempts nothing.
+never make a decryptable envelope unreadable. Every submitted envelope is held
+to the strict submission shape, including retained wraps that link, unlink,
+bind, rewrap, and sync writes resubmit verbatim; there is no retained-envelope
+exemption. Stored projection reads remain available for diagnostics, but
+malformed stored material cannot be resubmitted unchanged.
 When a bundle submission is both malformed and stale, staleness usually wins:
 the target hash and current-target checks run first, and only the target-set
 comparison is ordered after the envelope shape check. A blob rewrap has no
@@ -906,32 +900,24 @@ content-key epoch rotation.
 
 ## Local-First Create Intents
 
-Local-first creation should use signed local intents, not fake access hashes.
+Local-first creation queues local intents, not fake access hashes. The SDK's
+durable outbox (`local_intents`) holds container creates, container moves, and
+document placements, one intent per lane and subject, replayed in creation
+order. An intent records its target, sync status, and, once a create is
+accepted, the remote container id and metadata access-state hash.
 
-Local schema should track:
-
-- `local_intent_id`;
-- intent type and canonical body;
-- signer identity/device;
-- local dependencies by remote manifest hash or local intent id;
-- provisional encrypted payload;
-- sync status;
-- remote object id and remote manifest hash after acceptance.
-
-A child under a local-only parent depends on the parent's local create intent.
-Sync uploads intents topologically:
+Replay signs each access event against the latest verified remote manifests.
+A child under a local-only parent waits until the parent's create is accepted:
 
 1. submit parent create against the latest verified remote parent manifest;
-2. receive authoritative parent/child manifest and KEK target state;
-3. re-encrypt or rewrap provisional child metadata if required;
-4. submit child create using the authoritative parent result.
+2. receive authoritative parent manifest and KEK target state;
+3. submit child create signed against that authoritative parent result.
 
-The API never accepts `local:` hashes as access preconditions. Local hashes are
-client dependency markers only.
+Documents created in a pending folder likewise wait for the folder's create.
+The API accepts only server manifest hashes as access preconditions.
 
-If the remote parent changed while offline, the client rebases the pending
-intent by verifying the new parent manifest and re-signing or re-encrypting as
-needed.
+If the remote parent changed while offline, the client verifies the new parent
+manifest and re-signs the pending create against it.
 
 ## Transparency And Checkpointing
 
@@ -946,7 +932,7 @@ Minimum:
 - clients persist highest-seen access manifest epoch/hash per object;
 - clients refuse to move backwards without explicit recovery UX.
 
-Production uses an exact Part B identity TOFU pin plus two checkpoints:
+Production uses an exact durable identity TOFU pin plus two checkpoints:
 
 - `PrincipalPolicyCheckpoint`: `principalType`, `principalId`, `version`,
  `stateHash`.
@@ -960,14 +946,15 @@ Verifier rules are fail-closed:
 - higher version/epoch is accepted only when the returned signed chain or
  predecessor proof extends the local checkpoint.
 
-Stronger:
+Stronger, as optional hardening:
 
 - append identity states, principal policy heads, and object manifest heads to
  an append-only Merkle log;
 - return inclusion and consistency proofs with API responses;
 - let clients gossip or compare signed tree heads across devices.
 
-The transparency scaffold uses signed tree heads plus compact Merkle proofs.
+The shared verifier's transparency primitives use signed tree heads plus
+compact Merkle proofs.
 Identity state heads, principal policy heads, and access manifest heads are
 encoded as domain-separated transparency leaves. Inclusion proofs bind a leaf to
 a signed tree head. Consistency proofs bind a newer signed tree head to a
@@ -981,22 +968,22 @@ anchor only aggregate tree roots, not object ids or metadata-bearing leaves.
 
 ## Client Verification API
 
-All verification should live in a shared package used by both API tests and app
-code.
+Verification lives in `@tearleads/crypto`, shared by the API and the client
+SDK. Each entry point is async and returns
+`KeyingVerificationResult<T>`: `{ ok: true, value: T }` or
+`{ ok: false, error: KeyingVerificationError }`.
 
-Suggested entry points:
-
-```ts
-verifyIdentityStateCheckpoint(input): VerifiedIdentityState | VerificationError;
-verifyPrincipalPolicyBundle(input): VerifiedPrincipalPolicy | VerificationError;
-verifyAccessManifest(input): VerifiedAccessManifest | VerificationError;
-verifyContainerKekState(input): VerifiedContainerKekState | VerificationError;
-deriveDocumentKekTargets(input): DocumentKekTarget[] | VerificationError;
-deriveBlobKekTargets(input): BlobKekTarget[] | VerificationError;
-verifyWriteHeader(input): VerifiedWriteHeader | VerificationError;
-verifyTransparencyProof(input): VerifiedTransparencyProof | VerificationError;
-verifyTransparencyInclusionProof(input): TransparencyTreeCheckpoint | VerificationError;
-verifyTransparencyConsistencyProof(input): TransparencyTreeCheckpoint | VerificationError;
+```text
+verifyIdentityStateCheckpoint(input) -> VerifiedIdentityState;
+verifyPrincipalPolicyBundle(input) -> VerifiedPrincipalPolicy;
+verifyAccessManifest(input) -> VerifiedAccessManifest;
+verifyContainerKekState(input) -> VerifiedContainerKekState;
+deriveDocumentKekTargets(input) -> VerifiedDocumentKekTargets;
+deriveBlobKekTargets(input) -> VerifiedBlobKekTargets;
+verifyWriteHeader(input) -> VerifiedWriteHeader;
+verifyTransparencyProof(input) -> VerifiedTransparencyProof;
+verifyTransparencyInclusionProof(input) -> TransparencyTreeCheckpoint;
+verifyTransparencyConsistencyProof(input) -> TransparencyTreeCheckpoint;
 ```
 
 The two standalone transparency verifiers work on tree checkpoints (log id,
@@ -1004,23 +991,22 @@ size, root) rather than signed heads, so a client can check that a served
 head extends its persisted checkpoint without an unrelated leaf or inclusion
 proof. `verifyTransparencyProof` composes them over signed heads.
 
-These functions should be deterministic and side-effect free. API routes may
-use them for validation, but the security guarantee comes from app clients
-running the same verification before encrypting or decrypting.
+These functions are deterministic and side-effect free. API routes use them
+for validation, but the security guarantee comes from clients running the same
+verification before encrypting or decrypting.
 
 ## Programmable Proof Obligations
 
-Keying should treat verifier functions as the executable security
-specification.
+Keying treats verifier functions as the executable security specification.
 Each verifier returns a branded verified value, and later derivation functions
 only accept those verified values. This keeps unverified API JSON from flowing
 into encryption decisions by type accident.
 
-Required proof obligations:
+Proof obligations:
 
-- The eventual Part C `VerifiedIdentityState` must prove that an identity state
- head is not older than the client's local checkpoint and bind that head to an
- accepted identity trust root.
+- `VerifiedIdentityState` proves that an identity state head is not older than,
+ and extends, the client's local checkpoint. It does not bind that head to an
+ identity trust root; first-contact trust remains a deployment boundary.
 - `VerifiedPrincipalPolicy` proves the group/org policy chain is signed,
  contiguous, projection-bound, payload-bound, and key-epoch-correct for any
  shrink transition.
@@ -1028,8 +1014,9 @@ Required proof obligations:
  user/device authorized under the previous verified manifest.
 - `VerifiedContainerKekState` proves each container KEK wrap is justified by
  the verified manifest, recipient key epoch, and parent KEK edge.
-- `DocumentKekTarget[]` and `BlobKekTarget[]` prove the exact target set
- implied by the verified graph, not by an API-provided recipient list.
+- `VerifiedDocumentKekTargets` and `VerifiedBlobKekTargets` prove the exact
+ target set implied by the verified graph, not by an API-provided recipient
+ list.
 - `VerifiedWriteHeader` proves encrypted content metadata commits to the object
  id, manifest hash, content key epoch, target hash, ciphertext hash, and
  writer identity; that the signer had write access under the committed
@@ -1064,7 +1051,7 @@ remain availability failures. Clients fail closed.
 | Shows split views | Detectable through transparency consistency/gossip/witnessing; otherwise still an availability/equivocation gap. |
 | Withholds state or proofs | Availability failure; clients fail closed. |
 
-## Storage State And Direction
+## Storage State
 
 Core server tables:
 
@@ -1091,11 +1078,8 @@ Projection/cache tables include:
 - `access_manifest_document_link_projection`
 - `attachment_bindings`
 
-Separate storage concerns:
-
-- `identity_states` as a first-contact identity trust boundary
-- transparency log leaves/checkpoints
-- `client_checkpoint_receipts` or local-only checkpoint storage
+Identity TOFU pins and monotonic checkpoints live in client-local storage; the
+server has no identity-state or transparency-log tables.
 
 Projection tables are caches. The verifier must be able to reject a projection
 that does not match signed manifests.
@@ -1199,9 +1183,3 @@ Deployment boundaries:
 - Regression coverage includes malicious API fixtures for forged grants,
  swapped keys, omitted targets, stale manifests, split projection rows, and
  key-epoch reuse after membership shrink.
-
-Every submitted content-key envelope uses the strict current wire shape, including
-retained envelopes on link, unlink, bind, rewrap, and sync writes. There is no
-retained-envelope validation exemption. Stored projection reads remain available
-for diagnostics, but malformed stored material cannot be resubmitted unchanged.
-This assumes the greenfield data reset; no older envelope format is supported.

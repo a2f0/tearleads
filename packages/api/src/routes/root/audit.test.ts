@@ -19,16 +19,23 @@ import { getDefaultApiServiceRuntime } from "../../services/runtime";
 
 const root = createTestUser();
 const member = createTestUser();
+// Suspension revokes sessions, so it targets an identity the other tests skip.
+const suspendee = createTestUser();
 const OPERATOR_IP = "198.51.100.4";
 let memberOrganizationId = "";
 
-function rootRequest(path: string, app = routeApp): Promise<Response> {
+function rootRequest(
+  path: string,
+  app = routeApp,
+  method = "GET",
+): Promise<Response> {
   return Promise.resolve(
     app.request(path, {
       headers: {
         Authorization: `Bearer ${root.token}`,
         "x-forwarded-for": OPERATOR_IP,
       },
+      method,
     }),
   );
 }
@@ -54,6 +61,7 @@ async function latestEvent(action: RootAuditAction, filter?: string) {
 beforeAll(async () => {
   await registerUser(root);
   await registerUser(member);
+  await registerUser(suspendee);
   await authenticate(root);
   await authenticate(member);
   await db.update(users).set({ isRoot: true }).where(eq(users.id, root.userId));
@@ -117,12 +125,39 @@ test("every root operation records who asked for what before it answers", async 
       },
     },
     {
+      action: "root.reports.opsHealth.get",
+      path: "/root/reports/ops-health",
+      expected: {},
+    },
+    {
+      action: "root.organizations.revenuecatEvents.list",
+      path: `/root/organizations/${memberOrganizationId}/revenuecat-events`,
+      expected: { targetOrganizationId: memberOrganizationId },
+    },
+    {
+      action: "root.reports.revenuecatEvents.list",
+      path: "/root/reports/revenuecat-events?disposition=ignored",
+      expected: { filter: "disposition=ignored" },
+    },
+    {
       action: "root.auditEvents.list",
       path: `/root/audit-events?subjectId=${member.userId}`,
       expected: {
         filter: `subjectId=${member.userId}`,
         targetUserId: member.userId,
       },
+    },
+    {
+      action: "root.identities.suspension.put",
+      method: "PUT",
+      path: `/root/identities/${suspendee.userId}/suspension`,
+      expected: { targetUserId: suspendee.userId },
+    },
+    {
+      action: "root.identities.suspension.delete",
+      method: "DELETE",
+      path: `/root/identities/${suspendee.userId}/suspension`,
+      expected: { targetUserId: suspendee.userId },
     },
   ] as const;
 
@@ -139,7 +174,11 @@ test("every root operation records who asked for what before it answers", async 
   );
 
   for (const request of requests) {
-    const response = await rootRequest(request.path);
+    const response = await rootRequest(
+      request.path,
+      routeApp,
+      "method" in request ? request.method : "GET",
+    );
     expect(response.status).toBe(200);
     const event = await latestEvent(request.action);
     expect(event).toMatchObject({

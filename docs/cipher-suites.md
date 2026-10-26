@@ -33,9 +33,9 @@ conventional SSH host keys (Ed25519, and RSA/ECDSA in the Terraform stacks).
 | Use | Location |
 | --- | --- |
 | KEM envelope primitive: encapsulate, then AES-GCM-wrap a DEK to a recipient key | `packages/crypto/src/encapsulation/{wrapDek,unwrapDek,decryptAsRecipient}.ts` |
-| Wrap container KEK to a parent derived public key | `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek` — `packages/crypto/src/keying/containerKekWrapping.ts`, `.../containers/shared/projection.ts` |
+| Wrap container KEK to a parent derived public key | `tearleads.container-kek-wrap.ml-kem-1024-aes-256-gcm-parent-kek` — `packages/crypto/src/keying/containerKekWrapping.ts`, `packages/client-sdk/src/data/containers/shared/projection.ts` |
 | Wrap container KEK to a user or managed principal | `packages/client-sdk/src/data/containers/shared/projection.ts` |
-| Wrap principal (group/org) secret keys to members | `packages/client-sdk/src/workflows/organizations/{principalPolicy*,groupPolicy*}.ts` |
+| Wrap principal (group/org) secret keys to members | `packages/client-sdk/src/workflows/organizations/{principalPolicy,groupPolicy}/` |
 | Identity key-package probe envelope | `packages/client-sdk/src/client/identity/keyPackage.ts` |
 | Identity keypair generation | `packages/crypto/src/encapsulation/generateKeyPair.ts` |
 
@@ -61,9 +61,9 @@ public keys are committed by signed container events and manifests.
 
 | Use | Suite / location |
 | --- | --- |
-| Document & blob content records (per-record HKDF key) | `aes-256-gcm-hkdf-sha256-record-key` — `packages/client-sdk/src/data/documents/shared/crypto.ts`, `.../blob/shared/chunkedBlobCrypto.ts` |
+| Document & blob content records (per-record HKDF key) | `aes-256-gcm-hkdf-sha256-record-key` — `packages/client-sdk/src/data/documents/shared/crypto.ts`, `packages/client-sdk/src/data/blobs/attachments/chunkedBlobCrypto.ts` |
 | Wrap content key to container KEK | `tearleads.{document,blob}.content-key-wrap.aes-256-gcm-container-kek` — `packages/crypto/src/contentKeyEnvelope.ts`; AAD binds the suite, document or blob id, content-key epoch, container id and container key epoch id |
-| Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts`; suite and version are persisted per bridge row so a future suite rotation is representable |
+| Wrap predecessor container KEK to successor KEK | `tearleads.container-kek-wrap.aes-256-gcm-predecessor-kek` — `packages/crypto/src/keying/containerKekPredecessor.ts`; suite and version are persisted per bridge row |
 | Seal container KEK history keyring under current KEK | `tearleads.container-kek-keyring.aes-256-gcm-current-kek` — `packages/crypto/src/keying/containerKekKeyring.ts`; fixed-width plaintext (8-byte header + 64 bytes per predecessor epoch) makes the sealed length an equality in the epoch number |
 | DEK wrapping under a KEM shared secret | `packages/crypto/src/encapsulation/wrapDek.ts` |
 | Local keyring root-key wrapping (`account-root` envelope) | `packages/client-sdk/src/client/localKeyring/aesGcmWrapping.ts` |
@@ -74,11 +74,12 @@ Core helpers: `packages/crypto/src/symmetric.ts` (32-byte key, 12-byte IV,
 16-byte tag).
 
 Note: the principal policy payload carries a `cipherSuite: "aes-256-gcm"` label
-(`packages/crypto/src/principalStateTypes.ts`), but the current
-`payloadCiphertextForProjection` in
-`packages/client-sdk/src/workflows/organizations/principalPolicy/principalPolicyRequest.ts`
-base64-encodes the projection JSON rather than encrypting it — the projection is
-server-visible today, so treat that suite label as reserved, not yet applied.
+(`PrincipalStatePayloadCipherSuite` in `packages/crypto/src/principalStateTypes.ts`),
+but the payload itself is base64 JSON the server can read. The organization
+authority descriptor and the built-in `Admins`/`Members` role markers are
+plaintext; only a custom group's name is AES-256-GCM-encrypted inside it, under
+an HKDF-SHA-256 key derived from the organization metadata container KEK
+(`packages/crypto/src/groupMetadata.ts`).
 
 ### Key derivation
 
@@ -86,7 +87,7 @@ server-visible today, so treat that suite label as reserved, not yet applied.
 | --- | --- | --- |
 | HKDF-SHA-256 | Identity signing/KEM seeds from BIP39 entropy | `packages/crypto/src/identitySeedPhrase.ts` |
 | HKDF-SHA-256 | Per-purpose local keys (sqlite, blob-store, identity-persistence) from the random root | `packages/client-sdk/src/client/localKeyring/rootKey.ts` |
-| HKDF-SHA-256 | Per-content-record AES-GCM keys | `.../documents/shared/crypto.ts`, `.../blob/shared/blobRecordCrypto.ts` |
+| HKDF-SHA-256 | Per-content-record AES-GCM keys | `packages/client-sdk/src/data/documents/shared/crypto.ts`, `packages/client-sdk/src/data/blobs/attachments/blobRecordCrypto.ts` |
 | PBKDF2-SHA-256 | PIN-code wrapping key (310k iters) | `packages/client-sdk/src/client/localKeyring/localKeyringPinCodeSupport.ts` |
 | PBKDF2-SHA-256 | Local blob-store key from passphrase (310k iters) | `packages/client-sdk/src/data/blobs/encryptedBlobStore.ts` |
 | PBKDF2-SHA-256 | Password-protected local DB backup key (250k iters) | `packages/app/src/providers/db/localBackupFormat.ts` |

@@ -35,7 +35,8 @@ import type { PaneSide } from "../dual-pane";
 // Separate navigation from mutation so UI reads cannot conceal sync churn.
 // The deferred author-echo release still reads the feed: a sibling client can
 // share this login session, so session origin alone cannot prove an own echo.
-// Keep that correctness read; #1512's speculative protocol work is retired.
+// Keep that correctness read; see
+// docs/request-budgets.md#authoritative-reconciliation.
 const ADMIN_GROUP_OPEN_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Cold bounded recovery discovers/verifies the directory and Admins head.
   total: 3,

@@ -11,10 +11,10 @@ drain through a phase barrier:
 1. Structural lanes.
 2. Up to four document lanes concurrently.
 
-The current structural lane is `container-contents`. The current document
-lanes are `documents:${localId}` lanes. Queued structural work drains before
-queued document work, and a structural follow-up requested during a structural
-pass runs before any queued document pass.
+The structural lane is `container-contents`; each document store has a
+`documents:${localId}` lane. Queued structural work drains before queued
+document work, and a structural follow-up requested during a structural pass
+runs before any queued document pass.
 
 Diagnostics also expose `blob-upload:${blobId}` rows with a `blob` phase. These
 are observational upload telemetry, not a third pump phase: the owning document
@@ -25,10 +25,9 @@ rows themselves.
 The coordinator is non-preemptive. If a document pass has already started, a
 new structural request waits for the running document passes to finish and
 blocks additional document starts until structural work drains. The ordering
-guarantee is
-for queued work on one client runtime and one domain scope; other devices and
-other domain scopes still synchronize independently and are validated by the
-server protocol.
+guarantee is for queued work on one client runtime and one domain scope; other
+devices and other domain scopes synchronize independently and are validated by
+the server protocol.
 
 **Watchdog exception.** A lane exceeding its watchdog is abandoned, not
 cancelled, so the pump may advance while its tail remains in flight. Its run
@@ -50,11 +49,15 @@ metadata state. A pass runs in this order:
 1. Sync pending local container create intents.
 2. Sync pending local container move intents.
 3. Sync container metadata document state.
+4. Recover a stale root, replay pending document placement intents, and prime
+   document stores when needed.
 
 Container creates run before moves so an offline-created destination can exist
-remotely before a later move targets it. Moves run before document lanes so
-document creates, document Loro updates, and blob attachment binds derive their
-writer projections from the latest synced container path.
+remotely before a later move targets it. Document placements replay in this
+phase because they may target containers created locally in the same session,
+such as Trash. Moves run before document lanes so document creates, document
+Loro updates, and blob attachment binds derive their writer projections from
+the latest synced container path.
 
 These intents wait in one durable local outbox, the `local_intents` table. Each
 row belongs to a lane: `container.create`, `container.move`, or
@@ -103,30 +106,31 @@ a remote-revalidation signal. The following signals require a probe:
 - a matching remote event, explicit document revalidation, or forced
   reconciliation requests a probe through the registered document store.
 
-Document update hints require the current shared websocket contract, including
-`containerIds`. Obsolete unscoped events are rejected. A scoped remote event
-reconciles its known containers for discovery and membership changes, while
-content revalidation targets only the named document. The app filters known
-ordinary content hints out of discovery; their registered stores receive them
-directly. Hints routed to the reconciler still list their named containers. Hints
-queued during a listing collapse into one trailing listing, retaining the union
-of named documents. Explicit Refresh, reconnect, and resync-required events
-force every registered document. Force is acknowledged only after
-successful reconciliation, so the lossy hint cannot be discarded by discovery
-suppression, temporary ineligibility, a transient request failure, or database
-loss mid-request. A fulfilled discovery that reports an incompletely listed
-remote lane also retains the force for the next reconciliation signal.
-Discovery lists containers in batches through `POST /containers/documents/query`:
-a reconciliation lane run lists up to four queued containers and a sweep up to
-32 per request. Each container keeps its own watermark and page bound, then
-verifies and applies on its own, in order; a rejected lane or a failed apply
-leaves the other containers' results intact. Force generations are captured
-before the batched request is sent, so a hint arriving while it is in flight is
-never acknowledged by that batch.
-Rejected forced discovery receives one backoff-delayed automatic retry per
-force generation. A second failure settles the coordinator while retaining the
-force for a later event, reconnect, hydration, navigation, or manual sync
-signal; persistent failures therefore cannot keep synchronization non-idle.
+Document update hints must carry `containerIds`; an unscoped event is rejected.
+A scoped remote event reconciles its known containers for discovery and
+membership changes, while content revalidation targets only the named document.
+The app filters known ordinary content hints out of discovery; their registered
+stores receive them directly. Hints routed to the reconciler still list their
+named containers. Hints queued during a listing collapse into one trailing
+listing, retaining the union of named documents. Explicit Refresh, reconnect,
+and resync-required events force every registered document. Force is
+acknowledged only after successful reconciliation, so the lossy hint cannot be
+discarded by discovery suppression, temporary ineligibility, a transient request
+failure, or database loss mid-request. A fulfilled discovery that reports an
+incompletely listed remote lane also retains the force for the next
+reconciliation signal.
+
+Discovery lists containers in batches through
+`POST /containers/documents/query`: a reconciliation lane run lists up to four
+queued containers and a sweep up to 32 per request. Each container keeps its own
+watermark and page bound, then verifies and applies on its own, in order; a
+rejected lane or a failed apply leaves the other containers' results intact.
+Force generations are captured before the batched request is sent, so a hint
+arriving while it is in flight is never acknowledged by that batch. Rejected
+forced discovery receives one backoff-delayed automatic retry per force
+generation. A second failure settles the coordinator while retaining the force
+for a later event, reconnect, hydration, navigation, or manual sync signal;
+persistent failures therefore cannot keep synchronization non-idle.
 
 Ordinary unopened documents remain lazy: container reconciliation updates their
 local summaries and links but does not instantiate every document store. Forced

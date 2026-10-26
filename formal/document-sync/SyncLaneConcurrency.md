@@ -1,7 +1,8 @@
 # Bounded document scheduling
 
-[`SyncLaneConcurrency.tla`](./SyncLaneConcurrency.tla) models the scheduler
-changed by #2512: three document lanes, one structural lane, and two workers.
+[`SyncLaneConcurrency.tla`](./SyncLaneConcurrency.tla) models the sync
+coordinator's scheduler with three document lanes, one structural lane, and two
+workers.
 The production pool has four workers; two exposes both overlap and saturation
 with a smaller state space. Each lane can receive one additional request,
 including during an active or watchdog-abandoned callback. One document can
@@ -23,15 +24,16 @@ Eventual quiescence also requires every trailing or retried request to settle.
 Liveness assumes weak fairness of starting eligible work, callback settlement,
 and backoff expiry, with the bounded requests/failure above. Watchdog tails may
 overlap later phases; the barrier deliberately excludes abandoned callbacks,
-matching the existing exception documented in client sync ordering.
+matching the watchdog exception in
+[client sync ordering](../../docs/client-sync-ordering.md).
 Byte transfers separately enforce download idle and upload size-based deadlines;
 aborted results are discarded. Runtime regressions cover the permit lifecycle
 outside this model.
 
 Six negative controls disable the worker cap, phase barrier, exclusive token,
-trailing request retention, backoff isolation, or timer expiry and require the corresponding
-property to fail. Runtime regressions in the coordinator concurrency and watchdog
-tests exercise those production seams.
+trailing request retention, backoff isolation, or timer expiry and require the
+corresponding property to fail. Runtime regressions in the coordinator
+concurrency and watchdog tests exercise those production seams.
 
 The model abstracts timestamps, dynamic lane registration, disposal, priority
 ranking, byte transfers, and document/SQL/cryptographic behavior. It does not

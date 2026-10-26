@@ -6,8 +6,8 @@ billing catalog. The implementation contract lives in
 provider tools an agent can use and which account-owner steps remain outside
 those tools.
 
-The system is greenfield. Do not add migration, receipt-rebinding, or legacy
-catalog work unless real subscribers exist when the change is made.
+The catalog has no migration, receipt-rebinding, or alias path. Add one only
+when real subscribers depend on it.
 
 ## Product invariant
 
@@ -30,11 +30,10 @@ catalog work unless real subscribers exist when the change is made.
 | Team 5 | $10 | 5 | `sync_team_5_monthly` | `team_5` | 2 |
 | Team 10 | $20 | 10 | `sync_team_10_monthly` | `team_10` | 1 |
 
-Tearleads App Store records use the unprefixed product stems above.
-Superseded product aliases are rejected. Staging Apple and Google product IDs
-append `_staging`.
-Google appends the `monthly` base-plan ID when the product is represented in
-RevenueCat, for example `sync_solo_monthly_staging:monthly`.
+Tearleads App Store records use the unprefixed product stems above, and any
+other product identifier is rejected. Staging Apple and Google product IDs
+append `_staging`. Google appends the `monthly` base-plan ID when the product
+is represented in RevenueCat, for example `sync_solo_monthly_staging:monthly`.
 
 Configure each deployment's RevenueCat and Stripe webhook integrations with
 its Tearleads API hostname, matching RevenueCat authorization header, and
@@ -102,7 +101,7 @@ Official references:
   the matching tier environment without printing it.
 - RevenueCat MCP can configure Test Store prices with
   `create_product_prices`; amounts are currency micros (`5000000` = USD $5).
-  Read the prices back with `list_prices`, then verify the product remains
+  Read the prices back with `list_prices`, then verify the product is still
   attached to both its fixed-tier package and the `sync` entitlement.
 - RevenueCat may omit production `strp_…` and `rcb_…` public keys while the
   connected Stripe account is not activated for live charges. Re-list the app
@@ -131,8 +130,8 @@ Official references:
 
 ## CLI and API fallbacks
 
-The MCPs cover Stripe and RevenueCat well. Apple and Google currently need API
-or CLI tooling.
+The MCPs cover Stripe and RevenueCat. Apple and Google need API or CLI
+tooling.
 
 | Provider | Preferred automation | Existing API/CLI credential source | Notes |
 | --- | --- | --- | --- |
@@ -150,7 +149,7 @@ export ASC_PRIVATE_KEY_PATH=".secrets/prod/AuthKey_${APP_STORE_CONNECT_KEY_ID}.p
 asc auth status --validate
 ```
 
-Useful read-only store checks already live in the repository:
+Read-only store checks:
 
 ```sh
 bun run --cwd packages/app-capacitor store:build-numbers
@@ -186,9 +185,8 @@ Treat provider configuration as a declarative reconciliation job:
    redelivery in staging before enabling live checkout.
 
 Provider resources often cannot be renamed or their identifiers reused. Never
-delete or archive a product as an incidental cleanup. In a truly greenfield
-account, confirm that no receipt or subscriber exists before removing a legacy
-resource.
+delete or archive a product as an incidental cleanup, and confirm that no
+receipt or subscriber references a resource before removing it.
 
 ## Required provider shape
 

@@ -6,8 +6,9 @@ description: Complete an authorized commit, independent review, repair, PR, CI, 
 # Ship PR
 
 Use the installed `agent-tool`. Read repository guidance and policy first;
-validation, versioning, package management, and hook installation remain project
-concerns. Shipping authorizes this workflow within the user's stated scope.
+validation, versioning, package management, and hook bodies remain project
+concerns. Use shared branch, hook, check, cleanup, and release commands where
+configured; keep application-specific commands in repository guidance. Shipping authorizes this workflow within the user's stated scope.
 Preserve unrelated edits and honor requested stopping points such as open-PR
 only, report-only review, or keeping the feature branch.
 
@@ -23,13 +24,16 @@ prepare`, `review`, and other commands whose output drives a decision directly.
 Prefer documented compact test reporters when they preserve required evidence;
 do not reduce test scope, skip checks, silence warnings, or mask failures.
 
-1. Finish the requested change on a feature branch. Create it with
-   `git switch --no-track -c <branch>`; settings such as
-   `branch.autosetupmerge=always` otherwise make it track a local branch.
+1. Finish the requested change on a feature branch. Use
+   `agent-tool branch create <branch> --base <base-branch> --remote <remote>`
+   from a clean checkout; it fetches and pins the base, checks naming policy and
+   collisions, and creates without a local upstream. Use `branch check` with
+   explicit destination names in CI or hooks.
    Validate it with appropriate project checks and commit only the intended
    files.
-2. Determine the current PR's base repository and branch, or the repository's
-   default branch when no PR exists. Fetch and pin its exact base. Integrate it
+2. Use `agent-tool repo context --fetch` to resolve the PR's base repository
+   and branch, or the default branch when no PR exists, and fetch its exact base.
+   Record the returned base/head identities. Integrate the fetched base
    using the repository's normal workflow, resolving conflicts without losing
    user work. If project policy versions packages, prepare versions against the
    pinned base after every integration or repair and before each review, using
@@ -39,21 +43,28 @@ do not reduce test scope, skip checks, silence warnings, or mask failures.
    version fields. Review the resulting committed HEAD with an independent
    reviewer using the bundled cross-agent-review skill. Repair blocking findings
    and review every changed HEAD again. Review failure blocks shipping.
-3. Push the reviewed HEAD through normal hooks, then verify the pushed SHA still
-   equals the reviewed SHA. If a hook changed content or HEAD, review that result.
+3. Run `agent-tool branch push <reviewed-head> --remote <remote>` through
+   normal hooks; it verifies local and remote identity afterward. If a hook
+   changed content or HEAD, review that result.
    Open the PR using the open-pr skill, or update the existing PR as needed.
-4. Allow any configured review bots time to respond, then fetch unresolved PR
-   review threads. Follow repository policy for feedback: fix valid findings,
-   reply in the original threads, and resolve only fully addressed comments.
+4. Allow configured review bots time to respond, then use
+   `agent-tool pr threads list` to fetch review threads and all comments. Follow repository policy for feedback: fix valid findings,
+   reply with `pr threads reply <comment-id>` (body file or stdin), and use
+   `pr threads resolve <thread-id>` only for fully addressed findings.
    Validate, commit, push, and independently review every feedback or CI repair.
-   Wait for CI, recheck the live base, PR base branch, and local and remote heads.
+   Wait with `agent-tool pr checks --wait --head <reviewed-head>`, then run
+   `agent-tool pr preflight <reviewed-head> <base-branch> <reviewed-base>` to
+   recheck CI, live base, PR identity, local state, and explicit version policy.
    A changed base requires integration, validation, and another review. When
    versions are managed, `agent-tool versions check <base-oid>` must pass for the
    live base. Use the squash-merge skill to merge the exact reviewed HEAD.
 5. After confirmed MERGED, honor keep-branch; otherwise use the reset skill to
    return to the updated default branch and apply any documented project setup.
-6. When the project deploys the merged branch, verify the deployment for the
-   merge commit and run its documented live checks. Report deployment failures
+6. When the project publishes npm packages, use `agent-tool release verify
+   <package> <version> <merge-oid> --workflow <publish-workflow>` to verify the
+   exact workflow and tarball, allowing registry propagation time. When the
+   project deploys the merged branch, verify that deployment and documented
+   live checks. Report deployment failures
    separately from a successful merge; follow project policy for repairs.
 
 Never infer a clean review from process success alone or carry a review across

@@ -29,11 +29,15 @@ export default { async fetch() {
   const config = resolveApiSentryConfig({ ...${JSON.stringify(build)}, dsn: "https://${"a".repeat(32)}@o1.ingest.us.sentry.io/1", environment: "staging" });
   if (!config) throw new Error("Expected diagnostics config");
   const client = createServerDiagnostics(config);
-  const captured = new Error("PRIVATE_WORKER_REQUEST_VALUE");
+  const captured = new Error("PRIVATE_WORKER_REQUEST_VALUE", { cause: new Error("PRIVATE_CAUSE_VALUE") });
   client.captureError(captured, "request-error", "http.request");
+  let customGetterCalled = false;
+  const customCause = new Error("PRIVATE_CUSTOM_CAUSE");
+  Object.defineProperty(customCause, "stack", { get() { customGetterCalled = true; throw new Error("custom getter ran"); } });
+  client.captureError(new Error("PRIVATE_CUSTOM_ROOT", { cause: customCause }), "background-error");
   await client.flush();
   await client.close();
-  return Response.json({sent, stack: captured.stack});
+  return Response.json({sent, stack: captured.stack, customGetterCalled});
 }};
 `,
     );
@@ -89,9 +93,18 @@ finally { await worker.dispose(); }
       .split("\n")
       .find((line) => line.startsWith("ENVELOPES:"));
     if (!line) throw new Error(`No envelopes: ${output} ${errors}`);
-    const { sent: envelopes, stack }: { sent: string[]; stack: string } =
-      JSON.parse(line.slice("ENVELOPES:".length));
-    expect(envelopes).toHaveLength(1);
+    const {
+      sent: envelopes,
+      stack,
+      customGetterCalled,
+    }: {
+      sent: string[];
+      stack: string;
+      customGetterCalled: boolean;
+    } = JSON.parse(line.slice("ENVELOPES:".length));
+    expect(envelopes).toHaveLength(2);
+    expect(customGetterCalled).toBe(false);
+    expect(envelopes.join("\n")).not.toContain("PRIVATE_");
     const envelope = envelopes[0] ?? "";
     expect(envelope).not.toContain("PRIVATE_WORKER_REQUEST_VALUE");
     expect(envelope).not.toContain(directory);
@@ -99,6 +112,9 @@ finally { await worker.dispose(); }
     expect(stack).toContain("index.js:");
     expect(stack).not.toContain("file://");
     expect(event.tags.api_stack).toBe("original");
+    expect(event.exception.values).toHaveLength(2);
+    for (const value of event.exception.values)
+      expect(value.stacktrace.frames.length).toBeGreaterThan(0);
     expect(event.exception.values[0].stacktrace.frames).toContainEqual({
       filename: "app:///index.js",
       lineno: expect.any(Number),

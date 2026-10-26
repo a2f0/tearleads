@@ -29,7 +29,7 @@ prior document DEK, materialize a current-epoch content-key bundle for the
 expanded target set, and retry any local pending Loro updates under the new
 epoch.
 
-This is the additive-access path. It should not require a fresh baseline solely
+This is the additive-access path. It does not require a fresh baseline solely
 because the access epoch changed.
 
 ### Rotate Means Fresh Baseline For Later Writes
@@ -79,10 +79,10 @@ referenced.
 
 ## Rekey / Rebaseline Model
 
-### Any Retained Authorized Client Should Be Able To Win
+### Any Retained Authorized Client Can Win
 
 If access changes force a rotate, any still-authorized client that can read the
-prior epoch should be able to:
+prior epoch can:
 
 1. rematerialize document state from the last readable baseline plus accepted
  diffs
@@ -90,8 +90,8 @@ prior epoch should be able to:
 3. encrypt a fresh baseline under that DEK
 4. submit the new current-epoch bundle and baseline
 
-The first valid writer for the new epoch should become the canonical baseline
-winner for that epoch.
+The first valid writer for the new epoch becomes the canonical baseline winner
+for that epoch.
 
 ### Epoch Bump Happens Before The Winning Baseline
 
@@ -114,7 +114,7 @@ canonical bundle and re-emits from local CRDT state if needed.
 
 ### Declared Coverage Is Trusted, Not Verified
 
-Normal sync can omit older ciphertext when an authenticated v2 baseline
+Normal sync can omit older ciphertext when an authenticated replayable baseline
 (`isAuthenticatedReplayableBaseline`) declares coverage that dominates every
 older update. The server retains every original encrypted document update;
 there is no document-payload GC or pruner.
@@ -222,7 +222,7 @@ later writes serves ordinary sync optimization.
 
 ## Write Integrity
 
-Signed policy-state work protects authorization inputs:
+Signed policy state protects authorization inputs:
 
 - signed group / organization snapshots
 - hash-chained policy-state versions
@@ -265,13 +265,10 @@ served every record. Tail deletion (the server dropping the newest updates) and
 a database restored from backup are not detectable by a fresh device, which has
 no earlier view to compare against. A retained device keeps its local history.
 
-Closing that gap needs a transparency log whose signed tree heads clients pin,
-tracked in [#2186](https://github.com/a2f0/tearleads/issues/2186). If content
-writes join that log, the natural leaf is
-`document_content_write_headers.header_hash`. The server keeps no unsigned
-per-document hash chain: a chain the server computes, stores, and never serves
-is no stronger than the rows it covers, and a restored backup carries a
-self-consistent chain.
+Detecting either needs a transparency log whose signed tree heads clients pin.
+The server keeps no unsigned per-document hash chain: a chain the server
+computes, stores, and never serves is no stronger than the rows it covers, and a
+restored backup carries a self-consistent chain.
 
 ## Storage Decomposition
 
@@ -340,10 +337,8 @@ Columns:
 - `object_deleted_at TIMESTAMP`
 - `created_at TIMESTAMP NOT NULL DEFAULT now()`
 
-The initial value is:
-
-- `retention_mode = 'live_only'`
-- `historical_bytes_retained = false`
+The only supported values are `retention_mode = 'live_only'` and
+`historical_bytes_retained = false`.
 
 The registry keeps blob metadata, not old bytes. After `pruned_at`, the key is
 pending work. `object_delete_attempted_at` rotates retries; success clears the

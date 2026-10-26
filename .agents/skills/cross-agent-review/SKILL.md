@@ -30,7 +30,8 @@ remote-tracking ref like `origin/main`), and `AGENT_TOOL_REVIEW_BASE_OID`, its
 fetched commit. Fetch from the repository that owns the PR, which can differ
 from the checkout's origin.
 
-Record the exact base and HEAD before reviewing. The tool reviews raw committed
+Use `agent-tool repo context --fetch` to resolve and fetch the PR's own base,
+then record the exact base and HEAD before reviewing. The tool reviews raw committed
 files and excludes worktree edits. A zero exit means a complete review was
 returned; it does not mean the findings are non-blocking. Read the final
 `VERDICT: BLOCKER|MAJOR|MINOR|SUGGESTION|CLEAN` and the findings. A reviewer

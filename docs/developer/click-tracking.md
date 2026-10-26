@@ -31,7 +31,9 @@ is disabled and accounts are provisioned through CT's CLI. See the
 
 `packages/app-web/e2e/click-tracking.spec.ts` tests all six origins and privacy
 signals with real browser clicks and intercepted HTTP requests. The website's
-publication test checks the deployed privacy notice. Frontend-only deployment
+publication test (`packages/website/src/legalPublication.test.ts`) checks that
+built pages load the CT initializer and publish the full privacy notice.
+Frontend-only deployment
 uses `packages/app-web/scripts/deployAppWeb.sh <prod|staging>` and
 `packages/website/scripts/deployWebsite.sh <prod|staging> --skip-terraform`.
 The collector's registered origins must be deployed before these clients.

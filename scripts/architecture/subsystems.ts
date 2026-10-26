@@ -60,7 +60,7 @@ export const subsystems: readonly Subsystem[] = [
     package: "api",
     responsibility:
       "Container CRUD, grant/revoke/rekey/move, accessible-container listing with sync paging, and writer-projection access resolution.",
-    seam: "routes/containers via createContainerRouter; services/containers facade",
+    seam: "routes/containers via createContainersRouter; services/containers facade",
     paths: [
       `${api}/routes/containers/`,
       `${api}/services/containers/`,
@@ -152,7 +152,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Administration",
     package: "api",
     responsibility:
-      "Root-gated, read-only staff lookups of identities, activity, sessions, organizations, billing, and synced data usage, each recorded in the root audit trail before it is answered, plus the audit trail listing.",
+      "Root-gated staff lookups of identities, activity, sessions, organizations, billing, synced data usage, RevenueCat webhook deliveries, and cross-organization billing maintenance health, plus suspension of non-root identities, each recorded in the root audit trail before it is answered, and the audit trail listing.",
     seam: "routes/root via createRootRouter; services/root facade; middleware/root.ts",
     paths: [
       `${api}/routes/root/`,
@@ -205,14 +205,16 @@ export const subsystems: readonly Subsystem[] = [
     name: "Session Lifecycle",
     package: "api",
     responsibility:
-      "Bearer-token session storage, activity/IP tracking, history request lifetime, request-IP binding, and session revocation (publish session_revoked).",
+      "Bearer-token session storage, activity/IP tracking with a suspended-account re-check, history request lifetime, request-IP binding, and session revocation (publish session_revoked).",
     seam: "middleware/session.ts (requireAuth) and realtime/sessionRevocation.ts",
     paths: [
       `${api}/middleware/requestIp.ts`,
       `${api}/middleware/requestLifetime.ts`,
       `${api}/utils/principalHistoryWork.ts`,
       `${api}/middleware/session.ts`,
+      `${api}/middleware/sessionActivity.ts`,
       `${api}/middleware/userActivity.ts`,
+      `${api}/middleware/userSuspension.ts`,
       `${api}/realtime/sessionRevocation.ts`,
       `${api}/validators/session.ts`,
     ],
@@ -267,7 +269,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Shared Utilities",
     package: "api",
     responsibility:
-      "Package-neutral helpers reused across subsystems: arrays, canonical JSON, cursor encoding, SHA-256, server secrets, manifest dependency traversal, bounded verification caching, SQL dialect, UUID generation, database error classification, and best-effort event publishing.",
+      "Package-neutral helpers reused across subsystems: arrays, canonical JSON, cursor encoding, SHA-256, server secrets, manifest dependency traversal, bounded verification caching, SQL dialect, database error classification, and best-effort event publishing.",
     seam: "utils/* direct import",
     paths: [
       `${api}/utils/array.ts`,
@@ -282,7 +284,6 @@ export const subsystems: readonly Subsystem[] = [
       `${api}/utils/sqlDialect.ts`,
       `${api}/utils/storedAccessEventVerification.ts`,
       `${api}/utils/storedManifestGraph.ts`,
-      `${api}/utils/uuid.ts`,
     ],
   },
   ...clientSdkSubsystems,
@@ -322,7 +323,7 @@ export const subsystems: readonly Subsystem[] = [
     name: "Root Console",
     package: "app",
     responsibility:
-      "The root mini-app: identity and organization directories, live sessions, rosters, tabbed billing/history and data usage, organization usage reports, and the root audit trail. Offered only to sessions the server reports as root.",
+      "The root mini-app: identity and organization directories, live sessions, account suspension, rosters, tabbed billing/history and data usage, RevenueCat webhook deliveries, organization usage, operations-health and RevenueCat webhook reports, and the root audit trail. Offered only to sessions the server reports as root.",
     seam: "mini-apps/root",
     paths: [`${app}/mini-apps/root/`],
   },

@@ -1,8 +1,9 @@
 # Repair below an inaccessible stale intermediate
 
 [`InaccessibleIntermediateRepair.tla`](./InaccessibleIntermediateRepair.tla)
-covers finding 1 in #2340. On a path root → mid → leaf, a root rotation would
-leave `mid` pinned to the retired root epoch. A writer whose only grant is on
+models repair below an intermediate the writer cannot access. On a path
+root → mid → leaf, a root rotation that does not re-key `mid` leaves it pinned
+to the retired root epoch. A writer whose only grant is on
 `leaf` cannot re-key `mid`, and must not be given its key. The model shows that
 the writer's writes nevertheless never depend on another device.
 
@@ -31,20 +32,20 @@ behavior where no other member writes beneath `mid` again. A best-effort repair
 by the rotating device afterwards would not change that verdict.
 
 `RotatorRetainsAccess = FALSE` models a self-revoke that removes its signer's
-last write authority on `mid` (#2403). The self-revoke configuration disables
-that committing action, abstracting the API's atomic refusal, and the leaf writer
+last write authority on `mid`. The self-revoke configuration disables that
+committing action, abstracting the API's atomic refusal, and the leaf writer
 stays able to write. For the SDK's initial revoke without carried repairs, the
 API returns `container_descendant_rekeys_inaccessible` with the unwritable owed
 levels. A custom client submitting self-signed carried repairs is rejected with
-403 by cryptographic batch preflight, before mutation or the missing-repair check.
-This existing authorization guard is covered by a post-revoke-path signature
-regression; the new error code does not replace signature-verification failures.
-The SDK reports the terminal API refusal
+403 by cryptographic batch preflight, before mutation or the missing-repair
+check. A post-revoke-path signature regression covers that authorization guard;
+`container_descendant_rekeys_inaccessible` does not replace
+signature-verification failures. The SDK reports the terminal API refusal
 through the request error reporter and returns null. The separate
 `AuthorizedRotateRoot` action models another authorized member completing the
 revoke. Fairness on that member's own action establishes
-`AuthorizedRevokeEventuallyCommits`; it adds
-no fairness assumption to the leaf writer's no-brick property. The route test
+`AuthorizedRevokeEventuallyCommits`; it adds no fairness assumption to the leaf
+writer's no-brick property. The route test
 `selfRevokeDescendants.test.ts` covers refusal, atomic rollback, completion by
 the owner, a proactively carried batch, and a self-revoker retaining a separate
 grant on `mid`. Without the authority guard, an incapable rotator leaves `mid`

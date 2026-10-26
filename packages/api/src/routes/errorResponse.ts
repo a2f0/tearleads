@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { apiRequestContext } from "../diagnostics/requestContext";
 import { captureApiError } from "../diagnostics/sentry";
 
 type StatusErrorClass = abstract new (
@@ -28,7 +29,13 @@ export function respondToStatusError(
     // deliberately unchanged: `onError` would answer a deliberate 503 with a
     // generic 500 unless its cause chain happens to look like driver
     // contention, turning a retryable outcome into a permanent one.
-    if (error.status >= 500) captureApiError(error, "request-error");
+    if (error.status >= 500)
+      captureApiError(
+        error,
+        "request-error",
+        undefined,
+        apiRequestContext(c, error.status),
+      );
     return c.json(
       {
         ...(codedStatus?.status === error.status

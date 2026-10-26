@@ -12,11 +12,13 @@ registered for different scopes do not share pending-work state.
 A coordinator manages named lanes. Each lane supplies a `run()` callback, and
 callers trigger that callback through `requestSync()`.
 
-Current production lanes include:
+Production lanes are:
 
 - `container-contents`, a `structural` lane registered by the
   explorer/container contents store.
 - `documents:${localId}`, `document` lanes registered by document stores.
+- `reconciliation:documents`, a `document` lane registered by the device-first
+  reconciler for remote document discovery.
 - `blob-upload:${blobId}`, observational rows updated by attachment upload
   callbacks for diagnostics. These are not coordinator-pumped lanes.
 
@@ -25,9 +27,8 @@ itself. If `requestSync()` is called while that lane is already running, the
 request is coalesced into one follow-up pass after the current pass finishes.
 The coordinator drains structural lanes serially, then runs up to four
 document lanes concurrently. All queued `structural` work runs before queued
-`document` work. This
-keeps container creates, moves, and container metadata sync ahead of document
-creation, Loro update sync, and attachment blob binding.
+`document` work. This keeps container creates, moves, and container metadata
+sync ahead of document creation, Loro update sync, and attachment blob binding.
 
 The pump is non-preemptive: a lane pass that has already started is allowed to
 finish. New higher-priority requests are selected before the next lower-priority
@@ -35,8 +36,8 @@ lane pass starts. A structural request pauses new document starts and waits for
 running documents before crossing the phase barrier. Equal-priority work rotates
 by last run order; remote hints and fresh document discovery take priority over
 ordinary background work. Failure backoff and watchdogs belong to each lane.
-Delayed structural requests also reserve this barrier until their timer expires;
-production structural lanes currently request immediate work only.
+Delayed structural requests, such as the container-contents lane's
+accepted-move retries, also reserve this barrier until their timer expires.
 
 The coordinator also maintains cached read-only telemetry snapshots. A snapshot
 contains lane phase, status, request/run/error counts, last action timestamps,
@@ -63,7 +64,7 @@ the lane wedged.
 The coordinator is not specifically read-only or write-only. It can schedule
 either because it only calls the lane's `run()` callback.
 
-The current document lanes do both sides of document sync:
+Document lanes do both sides of document sync:
 
 - pushes local pending document updates through the document sync workflow;
 - pulls and applies remote document updates returned by that workflow;
@@ -78,7 +79,7 @@ envelopes, and attachment persistence live elsewhere under `data/blobs`,
 `data/blob*`, and document persistence modules. This coordinator never reads or
 writes blob bytes directly.
 
-Downloads currently buffer each document's encrypted attachment set before
+Downloads buffer each document's encrypted attachment set before
 decryption. Four ordinary workers can retain such sets concurrently, and
 watchdog-abandoned callbacks can outlive those workers. The separate
 four-permit transfer pool limits logical byte I/O, not retained bytes or
@@ -87,9 +88,9 @@ Deadlines start after a transfer acquires a permit. Downloads have a two-minute
 idle deadline renewed by received chunks. Upload parts allow two minutes plus
 their byte length at an aggregate 8 KiB/s divided among all four transfer
 permits, accommodating a saturated slow uplink without upload progress events.
-Expiry aborts fetch and stream reads and releases
-logical permits even if a native transport ignores abort.
-Such abandoned transport tails cannot publish upload progress or hydrated bytes.
+Expiry aborts fetch and stream reads and releases logical permits even if a
+native transport ignores abort. Such abandoned transport tails cannot publish
+upload progress or hydrated bytes.
 
 Container contents also uses lanes for domain-specific sync work. Container
 contents sync creates pending remote containers, applies pending container move
@@ -108,13 +109,13 @@ runtime helpers:
   store records and reconciliation consumes so the server's echo of the
   write is skipped once (`originatedDocuments.ts`).
 
-Do not add domain-specific document, container, blob, or persistence
-logic here. Add that to the owning workflow/store lane and register it with the
+Do not add domain-specific document, container, blob, or persistence logic
+here. Add that to the owning workflow/store lane and register it with the
 coordinator.
 
 ## Import Boundary
 
 Production workflow modules may import this internal data helper to register
 their lanes. Cross-package callers and host tests should use the sync workflow
-facade at `@tearleads/client-sdk` when they need to observe
-pending sync work or wait for sync to settle.
+facade at `@tearleads/client-sdk` when they need to observe pending sync work or
+wait for sync to settle.

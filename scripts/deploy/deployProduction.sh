@@ -33,7 +33,7 @@ Options:
   -h, --help        Show this help and exit.
 
 Configured Sentry source maps are handled by the API and app-web deploy steps.
-Web map upload failures stop publication; API maps upload with the Worker.
+Map upload failures stop publication for both the API and web app.
 USAGE
 }
 

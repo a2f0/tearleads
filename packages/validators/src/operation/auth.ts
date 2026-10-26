@@ -67,10 +67,11 @@ export const verifyOperation = defineJsonOperation({
   failureResponses: {
     400: ChallengeErrorResponseSchema,
     401: VerifyFailureResponseSchema,
+    403: VerifyFailureResponseSchema,
     404: VerifyFailureResponseSchema,
     500: ErrorResponseSchema,
   },
-  failureStatuses: [400, 401, 404, 500],
+  failureStatuses: [400, 401, 403, 404, 500],
   id: "auth.verify",
   method: "POST",
   params: AuthPathParamsSchema,

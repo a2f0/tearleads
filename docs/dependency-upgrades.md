@@ -9,27 +9,31 @@ Linux and macOS CI install each job's required tools from `.mise.toml` and
 `mise.lock` through the pinned mise action. Keep Bun's `packageManager`
 declaration aligned with its mise pin. Ruby keeps `ruby/setup-ruby` for Bundler
 caching, and npm trusted publishing keeps `actions/setup-node`. Windows jobs
-keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since the mise
-lockfile currently covers macOS arm64 and Linux x64, not Windows.
+keep `oven-sh/setup-bun`; their Bun pins must match `.mise.toml`, since
+`mise.lock` covers macOS arm64 and Linux x64, not Windows.
 
 Astro's CLI uses Node even when Bun starts the website tests. Keep a supported
 Node on `PATH` for local website builds; Astro 7.4.2 requires at least 22.23.4.
 The CI build lane selects Node 24.22.1 LTS explicitly and includes its version
 in `CI_TOOLCHAIN`, so a runner's ambient Node cannot determine or cache those
-build results. The uncached workflow reuses that same lane.
+build results. The nightly `Uncached tests` workflow reuses that lane.
+
+Shared agent workflows use an exact npm version of `@a2f0/agent-tool`.
+After changing it, run `bun run agents:sync` and commit the lockfile and managed
+skill manifest with the skills. Check hook installation and the branch, commit,
+CI-gate, and release-policy fixtures; the repository's own Turbo verification
+and Java/TLA toolchain checks stay in place. Run `bun run test:static-analysis`
+and `bun run test:npm-publish` before the normal full gate.
 
 ## Current constraints
 
-The compatibility decisions were last reconciled in
-[#2615](https://github.com/a2f0/tearleads/pull/2615). That PR and the earlier
-[#2225](https://github.com/a2f0/tearleads/pull/2225) and
-[#2474](https://github.com/a2f0/tearleads/pull/2474) retain migration and validation
-history. Revisit these constraints when updating their owning package or runtime,
-and remove them when the stated checks pass without the pin.
+Revisit these constraints when updating their owning package or runtime, and
+remove them when the stated checks pass without the pin.
 
-- Biome stays on 2.5.15 until [grid-cell counting](https://github.com/biomejs/biome/issues/12502)
-  is fixed: 2.6.2 compares CSS grid row text lengths and rejects valid layouts.
-  Revisit with `bun run lint:biome`; keep the layout rules enabled.
+- Biome stays on 2.5.15: in 2.6.2, `noInvalidGridAreas` compares grid row byte
+  lengths instead of grid-cell counts and rejects valid layouts. Revisit with
+  `bun run lint:biome` on a release that fixes the rule; keep the layout rules
+  enabled.
 - TypeScript stays on 6.0.3 while the lint scripts use its JavaScript compiler
   API. Move beyond that line only after those consumers and the static gates
   work with the replacement API; a passing compiler alone is insufficient.
@@ -52,9 +56,9 @@ and remove them when the stated checks pass without the pin.
   the pair only after upstream compatibility and the Android build are verified.
 - LocalStack 4.14.0 supports the local workflow without account credentials.
   Preserve that workflow when considering a newer release.
-- CI uses PostgreSQL 18.6; staging uses distribution-managed PostgreSQL 16.
-  Production uses the independent PlanetScale PostgreSQL stack. Validate each
-  affected deployment's supported database version when changing this matrix.
+- CI uses PostgreSQL 18.6; staging and production each use an independent
+  PlanetScale PostgreSQL stack. Validate each affected deployment's supported
+  database version when changing this matrix.
 - The Knip production-entry and Capacitor Swift-manifest patches retain their
   rationale and removal checks in [dependency patches](../patches/README.md).
   Security overrides and the Markdownlint patch are maintained with the
@@ -97,11 +101,11 @@ and macOS arm64. SQLite archive updates require a verified checksum and a rebuil
 wasm artifact. Preserve encrypted databases across SQLite runtime updates:
 `packages/sqlite-worker/tests/cipherUpgrade.test.ts` opens historical encrypted
 bytes through the production loader, checks the wrong-key boundary, and verifies
-reads and writes after reopening. Keep that fixture when upgrading. ChaCha20's
-[2.5.1](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.5.1/src/cipher_chacha20.c#L14-L48)
-and [2.6.1](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.6.1/src/cipher_chacha20.c#L14-L48)
-parameter tables retain legacy mode 0 and 64007 key-derivation iterations; revisit
-those defaults and persisted-file compatibility before changing the cipher.
+reads and writes after reopening. Keep that fixture when upgrading. The
+pinned SQLite3MultipleCiphers 2.6.1
+[ChaCha20 parameter table](https://github.com/utelle/SQLite3MultipleCiphers/blob/v2.6.1/src/cipher_chacha20.c#L14-L48)
+keeps legacy mode 0 and 64007 key-derivation iterations; check those defaults
+and persisted-file compatibility before changing the cipher or its version.
 The memory OPFS shim exercises the real codec; browser OPFS checks remain
 necessary for changes to the browser storage integration.
 Native updates require their platform builds in addition to the

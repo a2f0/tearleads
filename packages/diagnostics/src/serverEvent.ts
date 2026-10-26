@@ -1,4 +1,9 @@
 import type { Event, StackParser } from "@sentry/core";
+import {
+  diagnosticErrorChain,
+  diagnosticErrorStack,
+  errorDataProperty,
+} from "./errorProperties";
 import { type SentryPrivacyConfig, sanitizeSentryEvent } from "./privacy";
 
 const REPORTER_FRAME =
@@ -9,8 +14,34 @@ export function sanitizeServerEvent(
   config: SentryPrivacyConfig,
   parseStack: StackParser,
   captureSite?: Error | null,
+  originalError?: unknown,
 ) {
   if (config.runtime !== "api") return sanitizeSentryEvent(event, config);
+  const chain = diagnosticErrorChain(originalError);
+  if (chain.length > 1) {
+    const root = event.exception?.values?.[0] ?? {};
+    event = {
+      ...event,
+      exception: {
+        // Sentry orders causes before their enclosing exception.
+        values: chain
+          .map((error, index) => {
+            if (index === 0) return root;
+            const stack = diagnosticErrorStack(error);
+            const name =
+              errorDataProperty(error, "name") ??
+              errorDataProperty(Object.getPrototypeOf(error), "name");
+            return {
+              type: typeof name === "string" ? name : "Error",
+              stacktrace: {
+                frames: parseStack(typeof stack === "string" ? stack : ""),
+              },
+            };
+          })
+          .reverse(),
+      },
+    };
+  }
   const original = sanitizeSentryEvent(
     {
       ...event,
@@ -18,7 +49,12 @@ export function sanitizeServerEvent(
     },
     config,
   );
-  if (!original || original.exception?.values?.[0]?.stacktrace?.frames?.length)
+  if (
+    !original ||
+    original.exception?.values?.some(
+      (value) => value.stacktrace?.frames?.length,
+    )
+  )
     return original;
 
   // Async driver/network errors often contain only third-party/runtime frames.
@@ -32,7 +68,9 @@ export function sanitizeServerEvent(
       ...event,
       tags: { ...event.tags, api_stack: "capture-site" },
       exception: {
-        values: [{ ...event.exception?.values?.[0], stacktrace: { frames } }],
+        values: [
+          { ...event.exception?.values?.at(-1), stacktrace: { frames } },
+        ],
       },
     },
     config,

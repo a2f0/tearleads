@@ -13,12 +13,12 @@ wrappers. Resolve tooling from `.mise.toml` and verify the processes actually
 use it: Bun, Ruby, Bundler/Fastlane, Java, Xcode, and Docker where applicable.
 Check `bundle check` in the native package's documented context. Check signing
 assets and authenticated read access to the Match repository, Apple API
-credentials, Google Play service account and track access,
-Sentry source-map upload credentials, and both selected download buckets. Match
-preflight must use the configured release authentication, including
-`MATCH_GIT_BASIC_AUTHORIZATION` from the release environment when set;
-an unauthenticated `git ls-remote`
-is not an equivalent probe. Keep authorization out of logs and command arguments.
+credentials, Google Play service account and track access, Sentry source-map
+upload credentials, and both selected download buckets. Match preflight must
+use the configured release authentication, including
+`MATCH_GIT_BASIC_AUTHORIZATION` from the release environment when set; an
+unauthenticated `git ls-remote` is not an equivalent probe. Keep authorization
+out of logs and command arguments.
 
 If Bundler resolves a different Ruby from `mise which ruby`, prepend the
 directories returned by `mise which ruby` and `mise which bun` to this run's
@@ -53,8 +53,8 @@ macOS ARM64, Linux x64, and Windows x64.
 
 `scripts/deploy/deployEverything.sh` deploys both environments and uploads both
 mobile tiers, but omits desktop uploads. `scripts/release/uploadAllReleases.sh`
-currently uploads only production mobile builds and redeploys web artifacts for
-both tiers. Neither script alone completes this matrix. Prefer individual tier
+uploads only production mobile builds and redeploys web artifacts for both
+tiers. Neither script alone completes this matrix. Prefer individual tier
 deployments before store uploads so both environments regain service sooner.
 
 ## Windows build and publication
@@ -115,8 +115,7 @@ An `errSecInternalComponent` failure may mean this tool session cannot use the
 signing key even when it is unlocked. Inspect the signing failure; the OS log
 may report `CSSMERR_CSP_NO_USER_INTERACTION`. First repeat a minimal signing and
 verification probe on a private disposable binary in the owner's Terminal. If
-that works, run the release there without changing keychain permissions. The
-existing
+that works, run the release there without changing keychain permissions.
 `scripts/keychain/authorizeCodesignPartitionList.sh` requires the owner's
 interactive Terminal. Never request or capture a keychain password in chat.
 
@@ -130,7 +129,7 @@ restriction. If the user is already running it, monitor that run or await its
 result instead of launching another.
 
 Notarization can remain quiet for minutes, with no desktop prompt. Poll the
-existing process/log and Apple's submission status where available. Distinguish
+running process/log and Apple's submission status where available. Distinguish
 queued processing from an explicit signing/notarization rejection. Do not kill
 or retry a live submission based on silence. Verify app and DMG notarization,
 stapling, and final validation, followed by successful publication. Report a
@@ -144,8 +143,7 @@ independent targets.
    Success in a build phase does not establish successful publication.
 2. Fetch each tier's `canary` (staging) or `stable` (production) discovery JSON
    for `macos-arm64`, `linux-x64`, and `win-x64`. Resolve public bucket endpoints
-   from the release scripts; currently they are
-   `https://downloads.tearleads.com/` and
+   from the release scripts: `https://downloads.tearleads.com/` and
    `https://downloads-staging.tearleads.com/`, backed by R2 custom domains.
 3. Validate each discovery document names a matching immutable installer and
    `.sha256` file. Download the actual public installer bytes and compare the

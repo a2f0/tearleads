@@ -38,11 +38,28 @@ testApiClient(
   },
 );
 
-testApiClient("root audit transport rejects unknown actions", async () => {
+testApiClient(
+  "root audit transport accepts actions newer than this client",
+  async () => {
+    const newer = { ...event, action: "root.identities.suspension.put" };
+    server.use(
+      http.get(`${apiBaseUrl}/root/audit-events`, () =>
+        HttpResponse.json({ events: [newer], nextCursor: null }),
+      ),
+    );
+    const client = new ApiClient(apiBaseUrl);
+    expect(await client.listRootAuditEventsResult()).toEqual({
+      ok: true,
+      data: { events: [newer], nextCursor: null },
+    });
+  },
+);
+
+testApiClient("root audit transport rejects a non-string action", async () => {
   server.use(
     http.get(`${apiBaseUrl}/root/audit-events`, () =>
       HttpResponse.json({
-        events: [{ ...event, action: "root.unknown" }],
+        events: [{ ...event, action: 42 }],
         nextCursor: null,
       }),
     ),

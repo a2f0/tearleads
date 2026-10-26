@@ -30,10 +30,10 @@ After the old organization reports `purged`, `recoverPurgedOrganization`
 provisions a fresh organization id and root container in local-only billing
 state. It throws `PurgedOrganizationRecoveryBillingRequiredError` with that id
 and its root-container id until the host activates sync billing and the current
-user has a seat. A retry
-then rebinds the old local root beneath the fresh root. The old organization
-remains the server default until that local reset commits; a final provisioning
-replay rechecks sync eligibility and atomically moves the default pointer.
+user has a seat. A retry then rebinds the old local root beneath the fresh
+root. The old organization remains the server default until that local reset
+commits; a final provisioning replay rechecks sync eligibility and atomically
+moves the default pointer.
 Retained documents are recreated using their former server document ids as
 deterministic recovery identities. This lets multiple devices race safely: the
 first create wins and the other clients adopt the same remote document rather

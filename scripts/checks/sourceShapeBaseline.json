@@ -39,48 +39,48 @@
       "bytes": 16294
     },
     "docs/developer/client-sdk.md": {
-      "lines": 990,
-      "bytes": 55012
+      "lines": 993,
+      "bytes": 55522
     },
     "docs/developer/device-first.md": {
-      "lines": 375,
-      "bytes": 20771
+      "lines": 354,
+      "bytes": 20767
     },
     "docs/developer/revenuecat-native-stores.md": {
-      "lines": 361,
-      "bytes": 20661
+      "lines": 358,
+      "bytes": 20617
     },
     "docs/glossary.md": {
       "lines": 533,
-      "bytes": 19335
+      "bytes": 19301
     },
     "docs/keying-design.md": {
-      "lines": 1207,
-      "bytes": 59073
+      "lines": 1185,
+      "bytes": 58217
     },
     "docs/limits.md": {
-      "lines": 196,
-      "bytes": 20775
+      "lines": 195,
+      "bytes": 20737
     },
     "docs/loro-e2ee-sync-protocol.md": {
-      "lines": 555,
-      "bytes": 23986
+      "lines": 481,
+      "bytes": 21864
     },
     "docs/openapi.json": {
-      "lines": 66714,
-      "bytes": 2698969
+      "lines": 68426,
+      "bytes": 2755933
     },
     "docs/protocol-specification.md": {
-      "lines": 748,
-      "bytes": 39913
+      "lines": 739,
+      "bytes": 39297
     },
     "docs/security-guarantees.md": {
-      "lines": 842,
-      "bytes": 48870
+      "lines": 839,
+      "bytes": 48704
     },
     "docs/subsystems.md": {
       "lines": 114,
-      "bytes": 20304
+      "bytes": 20597
     },
     "formal/document-sync/BaselineDominanceTraces.json": {
       "lines": 2059,
@@ -91,8 +91,8 @@
       "bytes": 24635
     },
     "packages/api-client/src/ApiClient.ts": {
-      "lines": 2033,
-      "bytes": 65166
+      "lines": 2094,
+      "bytes": 67136
     },
     "packages/api/src/access/read/documentKekTargets.test.ts": {
       "lines": 574,
@@ -247,16 +247,16 @@
       "bytes": 16817
     },
     "packages/client-sdk/src/index.ts": {
-      "lines": 600,
-      "bytes": 17694
+      "lines": 615,
+      "bytes": 18189
     },
     "packages/client-sdk/src/stores/container-contents/containerContentsStore.rootRefresh.test.ts": {
       "lines": 559,
       "bytes": 19610
     },
     "packages/client-sdk/src/workflows/README.md": {
-      "lines": 455,
-      "bytes": 34073
+      "lines": 453,
+      "bytes": 32203
     },
     "packages/client-sdk/src/workflows/blobs/hydration/hydrate.test.ts": {
       "lines": 572,
@@ -319,24 +319,24 @@
       "bytes": 32167
     },
     "packages/validators/src/operation/generatedOpenApi.ts": {
-      "lines": 24106,
-      "bytes": 981989
+      "lines": 24834,
+      "bytes": 1006424
     },
     "packages/validators/src/response/index.ts": {
-      "lines": 554,
-      "bytes": 19428
+      "lines": 581,
+      "bytes": 20358
     },
     "packages/validators/src/response/response.test.ts": {
       "lines": 508,
       "bytes": 15627
     },
     "packages/windowing/README.md": {
-      "lines": 465,
-      "bytes": 20435
+      "lines": 464,
+      "bytes": 20422
     },
     "scripts/architecture/subsystems.ts": {
-      "lines": 625,
-      "bytes": 23750
+      "lines": 627,
+      "bytes": 24074
     }
   },
   "suppressions": {

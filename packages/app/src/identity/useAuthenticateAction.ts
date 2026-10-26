@@ -7,20 +7,33 @@ import {
   isIdentityAcknowledgmentMismatch,
 } from "./identityAcknowledgmentMismatch";
 
+export const ACCOUNT_SUSPENDED_MESSAGE =
+  "This account is suspended. Contact support to restore access.";
+
+/** The SDK's terminal refusal for an account a platform operator suspended. */
+function isAccountSuspended(error: unknown): boolean {
+  return error instanceof Error && error.name === "AccountSuspendedError";
+}
+
 /**
- * Human-facing reason for a failed authentication attempt. Two causes are worth
- * calling out on their own. A server that answered this identity with a
- * different account is an integrity refusal, never a connectivity problem. A
- * lost connection: browser and native shells bind a live connectivity source,
- * so an offline store means that source observed a device connectivity loss. A
- * backend request failure alone keeps the store online and reports the generic
- * reason — an unreachable backend is a server problem, not proof that the
- * device has no network.
+ * Human-facing reason for a failed authentication attempt. Three causes are
+ * worth calling out on their own. A suspended account cannot sign in until the
+ * suspension is lifted, so retrying will not help. A server that answered this
+ * identity with a different account is an integrity refusal, never a
+ * connectivity problem. A lost connection: browser and native shells bind a
+ * live connectivity source, so an offline store means that source observed a
+ * device connectivity loss. A backend request failure alone keeps the store
+ * online and reports the generic reason — an unreachable backend is a server
+ * problem, not proof that the device has no network.
  */
 export function describeAuthenticationFailure(input: {
+  readonly accountSuspended?: boolean | undefined;
   readonly identityMismatch?: boolean | undefined;
   readonly online: boolean;
 }): string {
+  if (input.accountSuspended) {
+    return ACCOUNT_SUSPENDED_MESSAGE;
+  }
   if (input.identityMismatch) {
     return IDENTITY_ACKNOWLEDGMENT_MISMATCH_MESSAGE;
   }
@@ -75,6 +88,7 @@ export function useAuthenticateAction(): AuthenticateAction {
       );
       setError(
         describeAuthenticationFailure({
+          accountSuspended: isAccountSuspended(caught),
           identityMismatch,
           online: tearleads.network.online,
         }),

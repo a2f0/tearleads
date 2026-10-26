@@ -15,7 +15,8 @@ Run the smallest command that matches the handoff risk:
 
 - `bun run check:fast`: formatting, OpenAPI generation and compatibility,
   bounded protocol models, package assertions, canonical ordering, Knip,
-  architecture, file names, source shape, binary-file, and Markdown checks.
+  architecture, file names, source shape, binary-file, ShellCheck, and Markdown
+  checks.
 - `bun run check:protocol-models`: all bounded TLC checks registered in
   `formal/protocol-models.txt`, using the Java and TLA+ tools pinned in
   `.mise.toml`. It and `bun run check:protocol-negative-controls` run two TLC
@@ -30,17 +31,18 @@ Run the smallest command that matches the handoff risk:
   For example, use `@tearleads/api`, `app`, or `@tearleads/client-sdk`.
   This focused test command does not replace the static or TypeScript gates.
 - `bun run lint:biome:promises`: builds the SDK's public declarations, then
-  checks production promises in API, SDK, app, and crypto. Included in
+  checks production promises in API, SDK, app, crypto, and diagnostics. In
   `lint:biome`, `check:fast`, and pre-push; its separate `biome.promises.jsonc`
   keeps type scanning out of formatting hooks.
 - `bun run test:biome:promises`: builds SDK declarations and proves the promise
-  gate resolves SDK calls through gitignored build output. Included in the
-  production promise lint command.
-- `bun run lint:knip:production`: production-only dependency and source reachability.
+  gate resolves SDK calls through gitignored build output. Runs inside
+  `lint:biome:promises`.
+- `bun run lint:knip:production`: production-only dependency and source
+  reachability.
 - `bun run test:knip:production`: production entrypoint regression fixtures.
   Run `bun install` to apply the pinned dependency patch in `patches/`.
 - `bun run test:architecture`: graph health and runtime dependency regression
-  fixtures; also included in `check:fast`.
+  fixtures; included in `check:fast`.
 - `bun run test:static-analysis`: Git snapshot, source-shape baseline, and
   ShellCheck inventory fixtures; included in `check:fast` and pre-push.
 - `bun run lint:canonical-ordering`: bans `localeCompare` without a locale and
@@ -50,33 +52,23 @@ Run the smallest command that matches the handoff risk:
   See [static-analysis maintenance](docs/developer/static-analysis.md) for
   snapshot semantics and explicit script exceptions, and
   [dependency maintenance](docs/dependency-upgrades.md) for upgrade policy.
-- `bun run report:dependencies:json`: dependency-cruiser diagnostics for
-  architecture debugging.
-- `bun run report:dependencies:mermaid`: graph output for quick dependency visualization.
-- `bun run report:dependencies:archi`: collapsed Graphviz DOT output for
-  package/module reports.
+- `bun run report:dependencies:json`, `report:dependencies:mermaid`, and
+  `report:dependencies:archi`: architecture diagnostics and graphs.
 
 ### Rebuild the SDK before trusting app or api tests
 
 `packages/app` and `packages/api` resolve `@tearleads/client-sdk` from
 `packages/client-sdk/dist`, so after editing SDK source their tests run against
 the previous build. The app test preload refuses to start on a stale dist;
-**`packages/api` has no such guard and simply passes against the old code.**
-Rebuild with `bun run --filter='@tearleads/client-sdk' build` between an SDK edit
-and any api test run, or treat the result as meaningless.
+**`packages/api` has no such guard and passes against the old code.** Rebuild
+with `bun run --filter='@tearleads/client-sdk' build` between an SDK edit and
+any api test run, or treat the result as meaningless.
 
-Prefer `bun run check:package @tearleads/api` for a focused API test run with
-that build prerequisite handled automatically. It, `check`, and `check:affected`
-write per-run JSON reports under `git rev-parse --git-path verification`, with
+Prefer `bun run check:package @tearleads/api` for a focused API test run; it
+handles that build prerequisite. It, `check`, and `check:affected` write
+per-run JSON reports under `git rev-parse --git-path verification`, with
 revision, working-tree fingerprints, step timings, and outcomes. A source or
-revision change during the run fails verification; see the
-[verification harness](docs/developer/verification.md).
-
-The same holds for `packages/client-sdk`'s own tests: `distArtifacts.test.ts`
-inspects `dist`, and a few tests import `@tearleads/client-sdk`. `turbo run test`
-builds the SDK first; a bare `bun run test` in the package does not, because a
-test script that rebuilt `dist` would delete it under other packages' tests
-running alongside it in turbo.
+revision change during the run fails verification.
 
 ### Declare what a Turbo task reads
 
@@ -101,10 +93,10 @@ Use `bun run lint:source-shape -- --staged` before committing, and
 `bun run lint:source-shape -- --range <base>..<head>` before handing off a
 larger branch.
 
-The pre-push hook times every check it runs and records the run in the git
-directory. `scripts/git/showPushGateTimings.sh` prints the last run's per-check
-timings — `--head <sha>` for the run that pushed a particular commit — so a slow
-or failed push can be dissected without re-running the gate.
+The pre-push hook records every run's per-check timings in the Git directory.
+`scripts/git/showPushGateTimings.sh` prints the last run (`--head <sha>` selects
+the run that pushed a commit), so a slow or failed push can be inspected
+without rerunning the gate.
 
 OpenAPI compatibility, protocol-model, and infrastructure checks use mise-pinned
 tooling. After cloning, run:
@@ -114,21 +106,21 @@ mise install java github:oasdiff/oasdiff github:tlaplus/tlaplus
 ```
 
 When local mise configuration cannot be trusted, the check scripts accept
-`OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths. Point them
-to the versions installed under mise's `.mise.toml` pins. The TLA+ jar digest
-is checked against `scripts/checks/tlaToolsPin.sh` in both paths; CI uses mise
-when the overrides are unset. The protocol-model check validates the pinned
-Java version and TLA+ jar digest on every run. The OpenAPI check validates the
-reported oasdiff version for `OASDIFF_BIN`; use only a trusted binary at that
-path. These direct checks do not depend on Turbo's task cache.
+`OASDIFF_BIN`, `JAVA_BIN`, and `TLA_TOOLS_ROOT` as explicit paths; point them
+at the versions pinned in `.mise.toml`. CI uses mise. The protocol-model check
+validates the pinned Java version and the TLA+ jar digest from
+`scripts/checks/tlaToolsPin.sh` on every run, either way. The OpenAPI check
+validates the reported oasdiff version for `OASDIFF_BIN`; use only a trusted
+binary at that path. These direct checks do not depend on Turbo's task cache.
 
-Fetch `origin/main` or set `OPENAPI_BASE_REF` when checking OpenAPI against another
+Fetch `origin/main`, or set `OPENAPI_BASE_REF` to check OpenAPI against another
 base commit.
 
 After `bun install`, run `bun run --cwd packages/app-electrobun prepare:devkit`
-before standalone TypeScript, Knip, or editor checks. Electrobun 2 generates the
-SDK configuration they consume. `check:fast` and `build:packages` already do this;
-see [desktop setup](packages/app-electrobun/README.md) for cache and offline use.
+before standalone TypeScript, Knip, or editor checks: Electrobun 2 generates the
+SDK configuration they consume. `check:fast` and `build:packages` already do
+this; see [desktop setup](packages/app-electrobun/README.md) for cache and
+offline use.
 
 Intentional flag-day OpenAPI breaks may temporarily list an exact oasdiff
 diagnostic in `scripts/checks/openApiCompatibilityErrors.ignore`. Each entry
@@ -137,8 +129,10 @@ deleted as soon as the default branch contains the new contract.
 
 ## Ownership Lanes
 
-- `packages/api`: HTTP routes, service facades, workflow orchestration,
-  persistence schema, and server adapters.
+- `packages/api`: HTTP routes, service facades, workflow orchestration, and
+  server adapters.
+- `packages/api-shared`: API persistence schema, migrations, and database
+  adapters, shared with `packages/api-cli` (the migration and admin CLI).
 - `packages/api-client`: typed API client and request/response boundary helpers.
 - `packages/client-sdk`: React-free client runtime, local persistence, sync,
   workflow facades, and public SDK exports.
@@ -146,10 +140,10 @@ deleted as soon as the default branch contains the new contract.
   document projections, and product UI.
 - `packages/app-web`, `packages/app-capacitor`, and `packages/app-electrobun`:
   deployment targets. Do not turn these into reusable libraries.
-- `packages/crypto`, `packages/encoding`, `packages/loro`,
-  `packages/sqlite-instance`, `packages/sqlite-worker`, `packages/validators`:
-  lower-level support packages. Keep imports directed upward from apps into
-  these packages, not back into apps.
+- `packages/crypto`, `packages/diagnostics`, `packages/encoding`,
+  `packages/loro`, `packages/sqlite-instance`, `packages/sqlite-worker`,
+  `packages/validators`: lower-level support packages. Apps import these
+  packages, never the reverse.
 - `packages/test-utils` and `packages/bob-and-alice`: test support only.
   Production source must not depend on them.
 - `packages/ui`: product-neutral shared UI used by the website and app.
@@ -161,6 +155,7 @@ deleted as soon as the default branch contains the new contract.
   `ContentBoundary` and `RoutedPane`'s chrome props.
 - `packages/website`: marketing/docs site. It may share UI, but must not import
   application implementation code.
+- `packages/performance`: SDK/DB probes; no inbound imports or live CI runs.
 
 ## Dependency Direction
 
@@ -173,8 +168,10 @@ deleted as soon as the default branch contains the new contract.
   keep per-database or per-scope state in one `getOrCreate*` scoped singleton.
   Follow [client SDK seams](docs/developer/client-sdk-seams.md) and the
   `isolate-sdk-component` skill.
-- `@tearleads/validators`, `@tearleads/encoding`, and
-  `@tearleads/sqlite-instance` are leaf-level support packages.
+- `@tearleads/validators`, `@tearleads/diagnostics`, `@tearleads/encoding`,
+  and `@tearleads/sqlite-instance` are leaf-level support packages.
+- `@tearleads/api-shared` stays below `packages/api` and `packages/api-cli`,
+  which do not import each other.
 - `@tearleads/sqlite-worker` may depend on `@tearleads/sqlite-instance`, but not
   app, API, SDK, UI, or other support implementation code.
 - `@tearleads/api-client` may share crypto and validator contracts, but must not
@@ -223,8 +220,7 @@ These are distinct axes — do not conflate them:
 
 ### Overloaded nouns (same word, different layer per package)
 
-Three layer nouns mean different things depending on the package; read them by
-their package, not the bare word:
+Read these layer nouns by their package, not the bare word:
 
 - **workflow** — api: the _low_ transaction-orchestration layer **below**
   services. client-sdk: the _top_ public domain-operations facade. Opposite ends
@@ -251,7 +247,8 @@ Do not edit generated or build output directly:
   lanes, explain the dependency direction in the PR body.
 - Prefer small source files and focused modules. New or modified files are
   checked by `scripts/checks/lintSourceShape.ts`.
-- File-size, suppression, and approved barrel baselines live in `scripts/checks/sourceShapeBaseline.json`.
+- File-size, suppression, and approved barrel baselines live in
+  `scripts/checks/sourceShapeBaseline.json`.
 - Do not grow an over-limit file as an incidental edit. Split by behavior,
   storage concern, workflow step, or UI subcomponent. If an over-limit file
   intentionally grows, update its line/byte budget in
@@ -271,12 +268,12 @@ Do not edit generated or build output directly:
   `bun run lint:knip:production`.
 - Skill documents (the Markdown under `.claude/skills` and `.agents/skills`)
   must not contain `$0` through `$9` or `$ARGUMENTS`, braced or not. Claude
-  Code substitutes skill arguments into those tokens — `$0` is the first
-  argument — so a snippet such as `awk '{ print $1 }'` reaches the agent
-  corrupted whenever the skill is invoked with arguments, while the file on disk
-  still looks correct. Use `cut`, `sed`, or named variables instead; these
-  skills read their arguments from the appended argument block. Enforced by
-  `bun run lint:skill-placeholders` in `check:fast`.
+  Code substitutes skill arguments into those tokens, so a snippet such as
+  `awk '{ print $1 }'` reaches the agent corrupted whenever the skill is
+  invoked with arguments, while the file on disk still looks correct. Use
+  `cut`, `sed`, or named variables instead; these skills read their arguments
+  from the appended argument block. Enforced by `bun run lint:skill-placeholders`
+  in `check:fast`.
 
 ## Script And Documentation Layout
 
@@ -291,19 +288,20 @@ in the [infrastructure guide](docs/developer/infrastructure.md).
 
 ## Agent Tooling And Shipping
 
-Review, PR, merge, and version helpers come from the commit-pinned
-[`a2f0/agent-tool`](https://github.com/a2f0/agent-tool) dev dependency; run it
-with `bun run agent-tool`. Title, required-check, base-freshness, and version
-policy is in `agent-tool.json`. The shared `cross-agent-review`, `open-pr`,
-`squash-merge`, `ship-pr`, `reset`, and `update-dependencies` skills are managed
-copies in `.agents/skills` and `.claude/skills`, tracked by
-`.agent-tool-skills.json`. Do not edit them; change the shared skill upstream
-instead. After changing the pin, run `bun run agents:sync` and commit the
-lockfile, skills, and manifest together. The Markdown linter excludes exact
-managed skill paths; their upstream formatting is preserved while project
-skills still follow local rules. `bun run agents:check`, part of `check:fast`,
-fails on missing, outdated, or edited managed skills. Project skills keep a
-Claude copy in `.claude/skills` and a Codex copy in `.agents/skills`.
+Shared branch, hook, validation, release, review, PR, and version helpers come
+from the exact npm-pinned [`@a2f0/agent-tool`](https://github.com/a2f0/agent-tool)
+dev dependency; run it with `bun run agent-tool`. Branch, commit trust, binary,
+hook, title, required-check, base-freshness, and version policy is in
+`agent-tool.json`. The shared `cross-agent-review`, `open-pr`, `squash-merge`,
+`ship-pr`, `reset`, and `update-dependencies` skills are managed copies in
+`.agents/skills` and `.claude/skills`, tracked by `.agent-tool-skills.json`. Do
+not edit them; change the shared skill upstream instead. After changing the
+pin, run `bun run agents:sync` and commit the lockfile, skills, and manifest
+together. The Markdown linter skips the exact managed skill paths, preserving
+their upstream formatting; project skills follow local rules.
+`bun run agents:check`, part of `check:fast`, fails on missing, outdated, or
+edited managed skills. Project skills keep a Claude copy in `.claude/skills`
+and a Codex copy in `.agents/skills`.
 
 Shipping rules on top of the shared skills:
 
@@ -326,16 +324,23 @@ Shipping rules on top of the shared skills:
   pull request's branch. If a session starts on a nonconforming branch, move
   the work to a conforming branch before the first commit.
 - **Push**: the pre-push gate takes over ten minutes, so run it in the
-  background. It rejects `Co-authored-by` trailers. A rewrite that only removes
+  background. It checks signatures and rejects `Co-authored-by` trailers on
+  commits not already reachable from the push remote. A rewrite that only removes
   them needs no re-review if the tree and the merge base with the PR base are
   unchanged; re-pin the reviewed SHA to the rewritten head.
+- **Branches**: create from the current base with
+  `bun run agent-tool branch create <name> --base main --remote origin`. Push
+  with `branch push <reviewed-sha> --remote origin` through the output harness;
+  normal hooks remain mandatory.
 - **Merge**: run
   `node_modules/.bin/agent-tool pr merge '' "$REVIEWED_SHA" "$BASE_REF"`
   directly, because `bun run` drops empty arguments. It requires the core
   checks in the [merge gate policy](docs/developer/ci-merge-gate.md) and a
   strict, non-bypassable `protect-main` ruleset. Never use `gh pr merge`.
 - **Reset**: after returning to `main`, run `sh scripts/git/install-hooks.sh`
-  so merged hook changes take effect. First require that `scripts/git/hooks`
-  has no untracked or ignored files, since the installer copies every file.
+  so merged hook changes take effect. It installs only the tracked files
+  declared in `agent-tool.json`; inspect existing hooks before the one-time
+  `--adopt` migration described in the
+  [static-analysis guide](docs/developer/static-analysis.md#ci-and-the-push-gate).
 - **Report** the push gate cost with
   `scripts/git/showPushGateTimings.sh --head "$REVIEWED_SHA"` after the merge.

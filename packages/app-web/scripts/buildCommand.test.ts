@@ -12,12 +12,15 @@ test("production build renders and links brand images before precaching", () => 
   const steps = packageJson.scripts.build.split(" && ");
   const images = steps.indexOf("agent-tool --repo ../.. images build app-web");
   const links = steps.indexOf("bun scripts/injectFaviconLinks.ts");
+  const tierTags = steps.indexOf("bun scripts/injectTierMeta.ts");
   const precache = steps.indexOf("bun scripts/buildServiceWorker.ts");
   expect(images).toBeGreaterThan(
     steps.indexOf("bun scripts/buildStaticAssets.ts"),
   );
   expect(links).toBeGreaterThan(0);
-  expect(precache).toBeGreaterThan(Math.max(images, links));
+  // The precached shell must be the tier's final document.
+  expect(tierTags).toBeGreaterThan(0);
+  expect(precache).toBeGreaterThan(Math.max(images, links, tierTags));
 });
 
 test("app-web deploy builds against the websocket events endpoint", async () => {

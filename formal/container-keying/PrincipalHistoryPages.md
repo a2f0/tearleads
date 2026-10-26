@@ -24,7 +24,7 @@ connection, exact-head matching, concurrent calls, and server/client storage are
 outside this model. Real signed crypto tests exercise the corresponding verifier
 checks and prove their regressions with disabled checks. This model makes no
 HTTP latency, durable-resumption, or atomic application-mutation guarantee;
-those require the transport and storage integration tracked in #2448.
+those belong to the API and SDK integration, outside this model.
 
 [Authenticated resumption](./PrincipalHistoryResume.md) separately models the
 local progress envelope and restoration of its authority citation.

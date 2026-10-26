@@ -55,7 +55,8 @@ import { documentSyncIntentCounts } from "../../../../test/helpers/proxiedApiReq
 const OWNER_GRANTED_ROOT_ATTACHMENT_REQUEST_BUDGET: ProxiedApiRequestBudget = {
   // Measure after provisioning/roster import, including background settlement.
   // Retain headroom for independently scheduled verification/recovery pulls.
-  // See docs/request-budget-closeout.md for phase, byte and sync-intent data.
+  // See docs/request-budgets.md; DUAL_PANE_REQUEST_PROFILE=1 prints phase,
+  // byte and sync-intent data.
   // Private metadata-root authority adds one directory discovery read per
   // operation; completed policy stages need no confirmation read. The
   // attachment's stage carries its part upload source and the bind completes

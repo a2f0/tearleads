@@ -95,8 +95,8 @@ and a window on a hidden surface fits once the surface shows.
 - **`ContentBoundary`** — `Window` renders a window's component inside this
   optional wrapper, which receives the `WindowEntry`. Hosts use it to give
   content app-specific context (a route provider, an error boundary) without the
-  window layer knowing about apps. Tearleads fills it in
-  `packages/app/src/mini-apps/MiniAppWindow.tsx`.
+  window layer knowing about apps. `MiniAppWindow` fills it for launcher apps
+  (see [Launching mini-apps](#launching-mini-apps)).
 - **`appId`** — an opaque string a host attaches when creating a window. The
   window layer only stores and compares it; the host interprets it.
 
@@ -410,9 +410,9 @@ declarations with TypeScript's defaults, and bundles a named import with webpack
 
 Merging to `main` publishes. When `packages/windowing` changes there,
 `.github/workflows/windowing-publish.yml` publishes the version in
-`package.json` if it is newer than npm's `latest`; a merge that leaves the
-version alone, a re-run, or a run that finishes after a newer release succeeds
-without publishing, as decided by `scripts/release/npmPublishDecision.ts`.
+`package.json` if it is a stable `x.y.z` newer than npm's `latest`; a merge that
+leaves the version alone, a re-run, or a run that finishes after a newer release
+succeeds without publishing, as decided by `agent-tool release plan`.
 The workflow authenticates with
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers): npm accepts
 the job's GitHub OIDC token instead of an npm token, and attaches provenance to
@@ -455,7 +455,7 @@ an external consumer. It needs the network to install the consumer dependencies.
 manifest copies `version` from `package.json`. For a release outside that flow,
 bump the version yourself before publishing. The manifest names this repository,
 which npm requires of a version with provenance, and declares
-`"license": "UNLICENSED"` until a license is chosen.
+`"license": "UNLICENSED"`.
 
 ## Dependency compatibility
 

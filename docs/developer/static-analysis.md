@@ -15,26 +15,45 @@ retains its own push timing row. The branch check reads the pushed refs, not
 the checked-out branch, so `git push origin HEAD:<name>` and detached pushes
 are covered while deletions and tags are skipped. Hooks act only in a clone
 where `install-hooks.sh` ran, so CI's `Lint` job checks every pull request's
-branch name as well.
+branch name as well. Detached pre-commit checks skip only branch naming; the
+file, source-shape, binary, and staged-content checks still run. Push through a
+configured named remote such as `origin`; URL pushes fail before the full gate.
 
 Both gates need the mise-pinned Java, TLA+, and oasdiff tools listed in
 `AGENTS.md`, plus a fetched `origin/main` (or an explicit `OPENAPI_BASE_REF`).
 The bounded protocol models add minutes to each push; use the timing log to
 inspect the cost of individual checks.
 
-`sh scripts/git/install-hooks.sh` installs the checked-out hooks and configures
-Git to use them. `ship-pr` runs this through `reset` after a successful merge
-and fast-forward. Linked worktrees install into the common Git directory because
-they share hooks and configuration. Pre-push refuses to run a stale installed
-copy; update the branch from its base before reinstalling. Installing from an
-older branch can restore a hook that predates this guard and silently remove
-the protection. Use `scripts/git/showPushGateTimings.sh --head <sha>`
-to find the checks recorded for a particular push in this checkout.
+`sh scripts/git/install-hooks.sh` installs the tracked hooks declared in
+`agent-tool.json` through `agent-tool hooks install --apply`. On an existing
+checkout, first compare the installed hooks with `scripts/git/hooks`, then run
+`sh scripts/git/install-hooks.sh --adopt` once to migrate the inspected hooks.
+The installer backs up replacements, records ownership, preserves unrelated
+hooks, and refuses later local edits. `bun run agent-tool hooks check` detects
+missing, edited, or stale copies. The installer honors repository/worktree
+`core.hooksPath`; linked worktrees share the common Git directory by default.
+
+`ship-pr` refreshes hooks through `reset` after a successful merge and
+fast-forward. Pre-push refuses a stale installed copy; update the branch from
+its base before reinstalling. Installing from an older branch can restore a
+hook that predates the guard. Use
+`scripts/git/showPushGateTimings.sh --head <sha>` to inspect each push.
+
+Branch names and binary checks use shared agent-tool commands with the policy
+in `agent-tool.json`. Commit trust checks require a present signature and reject
+coauthor trailers on commits newly admitted to the push remote; commits already
+reachable from any of that remote's branches are excluded. New branches also
+exclude local `main`, so the check still has a baseline when the remote has no
+tracking refs.
+Commit messages retain the full pinned commitlint rules; the committed message
+is authoritative for the pre-push trailer check after Git's cleanup.
+Binary and source-shape checks still inspect each pushed tree range.
 
 OpenAPI compatibility exceptions expire when the comparison base contains the
 new contract. Remove their entries from
-`scripts/checks/openApiCompatibilityErrors.ignore` at that point; an unused
-exception deliberately fails both gates.
+`scripts/checks/openApiCompatibilityErrors.ignore` (present only while an
+exception is active) at that point; an unused exception deliberately fails both
+gates.
 
 ## Source shape
 
@@ -48,19 +67,15 @@ grant an unstaged allowance. Renames check both the old and new path.
 Changing `scripts/checks/sourceShapeBaseline.json` triggers a full scan of the
 selected snapshot, including unchanged source. The baseline rejects unknown
 fields, invalid counts, empty or duplicate export allowances, and unused
-permissions. Remove obsolete suppression counts and star-export specifiers when
-removing
-the corresponding source constructs.
+permissions. Remove suppression counts and star-export specifiers together
+with the source constructs they allow.
 
-File-size allowances remain ceilings: shrinking an over-limit file does not
+File-size allowances are ceilings: shrinking an over-limit file does not
 require updating its exact line and byte counts. Once a file fits the default
-budget, remove its allowance. Increases still require reviewer context.
-
-The old, unenforced `categories` metadata has moved out of the baseline. Its
-rationale remains: holistic dependency-cruiser configuration and long-form
-design/reference documents can warrant larger budgets when splitting would
-obscure the relationships they describe. The numeric allowance is the enforced
-policy; a category never exempts a file from checking.
+budget, remove its allowance. Increases require reviewer context. Holistic
+dependency-cruiser configuration and long-form design or reference documents
+can warrant larger budgets when splitting would obscure the relationships they
+describe; the numeric allowance is still the enforced limit.
 
 ## Canonical ordering
 
@@ -82,21 +97,18 @@ subdirectory still checks the repository root. The inventory reads only a file
 prefix to identify shebangs and skips missing working files and directories.
 Stage new files before running the command.
 
-Explicit exceptions live in `scripts/checks/shellScripts.ts`: currently only
-the generated Gradle wrapper, which is maintained upstream. New templates or
-generated files need an explicit decision rather than a directory-wide
-exclusion.
+Explicit exceptions live in `scripts/checks/shellScripts.ts`; the only one is
+the upstream-maintained Gradle wrapper,
+`packages/app-capacitor/android/gradlew`. New templates or generated files need
+an explicit decision rather than a directory-wide exclusion.
 
-## Scope decision for issue #1441
+## Scope
 
-Keep the existing production Knip dead-file check, scoped promise lint,
-architecture checks, and on-demand CodeQL skill. The closeout fixes inaccurate
-Git-content checking, stale allowances, shell coverage, and the dependencies
-classified in [the audit record](dependency-audit.md).
-
-Blanket strict Knip adoption, root-tooling/private-export expansion, exact
-file-size ratcheting, full subsystem-table generation/validation, and grouped
-dependency bots are intentionally not completion requirements. Add focused
-architecture regression tests when changing important boundary rules; an
-exhaustive fixture matrix is deferred. These are scope decisions, not claims
-that the declined work was implemented.
+The gates include the production Knip dead-file check, the scoped promise
+lint, and the architecture checks; CodeQL runs on demand through the
+`run-code-ql-scan` skill, not in CI. Strict Knip mode, private-export checks for
+root tooling, exact file-size ratcheting, full subsystem-table generation, and
+grouped dependency bots are deliberately out of scope. Add focused architecture
+regression tests when changing important boundary rules, rather than an
+exhaustive fixture matrix. Dependency advisories are triaged in the
+[dependency audit policy](dependency-audit.md).

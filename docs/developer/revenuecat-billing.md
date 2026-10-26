@@ -11,7 +11,7 @@ project/app/offering IDs, and operational state live in the git-ignored
 `.secrets/prod/revenuecat.md`, not here.
 
 Provider MCP registration, CLI fallbacks, the declarative provisioning order,
-and the current external-account handoff live in
+and the external-account handoff live in
 [payment-provider-mcp.md](./payment-provider-mcp.md).
 
 ## Provider responsibilities
@@ -34,8 +34,8 @@ purchases are personal-org only; restore always creates a new org.
 
 Organization billing has no separate `past_due` state. RevenueCat
 `BILLING_ISSUE` is informational; access continues only while the current
-paid period remains valid, and expiration follows the existing disabled and
-retention lifecycle. Stripe's upstream `past_due` status still prevents
+paid period remains valid, and expiration follows the disabled and retention
+lifecycle. Stripe's upstream `past_due` status still prevents
 competing subscriptions and unsafe seat prorations.
 
 ## Native restore and subscription moves
@@ -67,13 +67,13 @@ billing. The provider subscription id has a unique database index, so only one
 organization can own it. Billing history shows `TRANSFER_OUT` on the source and
 `TRANSFER_IN` on the destination.
 
-Both database dialects enforce one owner per provider subscription with a
-unique index. One store subscription funds one
-organization even when Apple or Google exposes the receipt through family
-sharing; restoring it moves that single billing entitlement rather than minting
-capacity for another organization. A stale lifecycle grant for the old
-organization is stored as ignored and emits an operator warning. Native grants
-require the personal org unless continuing a verified restore binding.
+Both database dialects enforce one owner per provider subscription with a unique
+index. One store subscription funds one organization even when Apple or Google
+exposes the receipt through family sharing; restoring it moves that single
+billing entitlement rather than minting capacity for another organization. A
+stale lifecycle grant for the old organization is stored as ignored and emits an
+operator warning. Native grants require the personal org unless continuing a
+verified restore binding.
 
 This moves billing entitlement only. It does not copy the old organization's
 encrypted documents, keys, or identity. The store restore must be initiated on
@@ -98,8 +98,8 @@ products. `organization_billing.seat_count` stores the tier capacity (1, 5, or
 10), not the number of currently active members.
 
 The Tearleads App Store, Google, and Test Store catalogs use only the stems
-above, with staging and Play base-plan suffixes. Superseded product identifiers
-are rejected; there is no receipt alias translation.
+above, with staging and Play base-plan suffixes. Any other product identifier
+is rejected; there is no receipt alias translation.
 
 ## Entitlement
 
@@ -129,8 +129,8 @@ BUN_PUBLIC_STRIPE_PUBLISHABLE_KEY=<key> bun run --filter=app-web dev
 ```
 
 A RevenueCat **Web Billing** key (`rcb_…`) has no consumer in this repository.
-Do not reintroduce a web RevenueCat adapter without the same
-server-authoritative tier contract that direct checkout enforces.
+Do not add a web RevenueCat adapter without the same server-authoritative tier
+contract that direct checkout enforces.
 
 ## Provider deadlines
 
@@ -161,19 +161,18 @@ effective Members roster; revoke events disable sync. For Stripe-store events,
 the webhook first resolves exact `sub_…`/`si_…` IDs through the durable seat
 binding, with exact Stripe subscription metadata as the `sub_…` fallback.
 Mutable attributes are never trusted; unresolved state changes return 503
-unclaimed for retry. Event
-quantities never update Stripe seats.
+unclaimed for retry. Event quantities never update Stripe seats.
 
 Paid grant events with an unknown product stem also return 503 without claiming
 the event id. This lets a corrected catalog mapping recover through RevenueCat
-redelivery instead of permanently recording a charged purchase as ignored.
-New native purchases stay unclaimed when the locked organization has an active
-web checkout attempt, non-native billing identity, or durable Stripe identity.
+redelivery instead of permanently recording a charged purchase as ignored. New
+native purchases stay unclaimed when the locked organization has an active web
+checkout attempt, non-native billing identity, or durable Stripe identity.
 Resolve the conflict and redeliver the event. Ordinary native renewals bypass
-this new-purchase guard.
-Promotional grants must cite one of the same tier stems. The server stores them
-as `promotional:<stem>` so they remain non-native, then derives their capacity
-from the canonical active-roster tiers rather than imposing a store-purchase cap.
+this new-purchase guard. Promotional grants must cite one of the same tier
+stems. The server stores them as `promotional:<stem>` so they remain non-native,
+then derives their capacity from the canonical active-roster tiers rather than
+imposing a store-purchase cap.
 
 RevenueCat Web Billing grants are unsupported and are recorded as ignored; web
 enrollment must arrive through the Stripe integration. A valid native grant is
@@ -233,8 +232,8 @@ leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
     `X-Platform: stripe`, authenticated with the Stripe app public key).
   - On a paid renewal invoice, the server refreshes the Stripe binding and
     resets that period's paid-capacity baseline to the capacity represented by
-    the renewed Price. The invoice id makes the baseline update idempotent. No RevenueCat
-    association call is needed again.
+    the renewed Price. The invoice id makes the baseline update idempotent, and
+    no further RevenueCat association call is needed.
   - Stripe-store RevenueCat events use the durable exact item/subscription
     binding, or exact `sub_…` metadata lookup. They never fall back to the
     mutable RevenueCat customer attribute.
@@ -247,8 +246,8 @@ leaves RevenueCat responsible for mirroring the resulting entitlement lifecycle:
   key). The customer/attribute half of the association reuses the
   `REVENUECAT_V2_SECRET_KEY` + `REVENUECAT_PROJECT_ID` pair already
   configured for the management-URL lookup (shared via
-  [`revenueCatConfig.ts`](../../packages/api/src/billing/revenueCatConfig.ts))
-  — no separate legacy v1 secret key. Shared provider credentials may live in
+  [`revenueCatConfig.ts`](../../packages/api/src/billing/revenueCatConfig.ts)).
+  Shared provider credentials may live in
   `.secrets/<tier>/shared.env`, while each `STRIPE_WEBHOOK_SECRET` must live in
   the matching `.secrets/<tier>/app.env`; the API deploy syncs the merged
   values as Worker secrets. End-to-end entitlement activation also requires
@@ -306,9 +305,9 @@ temporarily unavailable.
 
 ## Billing maintenance worker
 
-[`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) first
-persists due free-trial expirations, then drains durable Stripe capacity
-targets. Trial failures persist error and backoff state without starving the
+Billing maintenance persists due free-trial expirations, advances lapsed
+organizations through purge, then drains durable Stripe capacity targets.
+Trial failures persist error and backoff state without starving the
 batch. Retries start at one minute, cap at one hour, and continue until success.
 After eight attempts, the JSON summary flags the row; its count and error stay
 durable. Paid activation clears that retry state. Stripe reconciliation
@@ -322,23 +321,15 @@ rows are claimed, and capacity growth is prorated only while Stripe reports the
 subscription `active` or `trialing`; a `past_due` subscription backs off without
 creating another charge.
 
-Both database dialects initialize billing and lifecycle tables from the current
-`0000_greenfield_baseline`.
-
 The API Worker's per-minute Cron Trigger (`* * * * *` in
-`packages/api/wrangler.jsonc`) runs the same phases through
-`worker/maintenance.ts`; `packages/api/scripts/stripeSeatSync.ts` remains the
-out-of-process entrypoint for local runs. Each run processes up to 100 trials
-plus 100 Stripe targets and logs `{organizationPurge, stripeSeatSync, trialExpiry}`.
-Full deployments initialize the API schema before publishing the Worker.
-
-Operational checks:
-
-```sh
-sudo systemctl status tearleads-stripe-seat-sync.timer
-sudo systemctl start tearleads-stripe-seat-sync.service
-sudo journalctl -u tearleads-stripe-seat-sync.service
-```
+`packages/api/wrangler.jsonc`) runs these phases through
+`src/worker/maintenance.ts`;
+[`stripeSeatSync.ts`](../../packages/api/scripts/stripeSeatSync.ts) is the
+out-of-process entrypoint for local or on-demand runs (`--limit <n>`). By
+default each run processes up to 100 trial expiries, 25 purge candidates, and
+100 Stripe targets, and logs `{organizationPurge, stripeSeatSync, trialExpiry}`
+as one JSON line. Full deployments initialize the API schema before publishing
+the Worker.
 
 ## Direct Stripe checkout (client side)
 

@@ -1,9 +1,10 @@
-# Favicon assets rendered from assets/brand by the agent-tool `website` image
-# target (runs on predev/prebuild). Regenerated on every dev/build, so not
-# committed.
+# Favicon and social preview assets rendered from assets/brand by the
+# agent-tool `website` image target (runs on predev/prebuild). Regenerated on
+# every dev/build, so not committed.
 /public/favicon.svg
 /public/favicon.ico
 /public/apple-touch-icon.png
+/public/og-image.png
 
 # Screenshot gallery assets staged from `.screenshots/` by
 # scripts/buildScreenshots.ts (runs on predev/prebuild). Regenerated on every

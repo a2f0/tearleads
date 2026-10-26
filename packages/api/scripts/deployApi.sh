@@ -3,10 +3,11 @@
 #
 # Runs in order:
 #   1. Read the tier's Hyperdrive, migration, and blob storage outputs
-#   2. Run database migrations with the migration login
-#   3. Sync the Worker's secrets from those outputs and the tier secrets
-#   4. Publish the Worker with its Hyperdrive binding and build constants
-#   5. Remove stale Worker secrets after the new code is live
+#   2. Build the Worker and upload its matching source map to Sentry
+#   3. Run database migrations with the migration login
+#   4. Sync the Worker's secrets from those outputs and the tier secrets
+#   5. Publish that exact Worker with its Hyperdrive binding
+#   6. Remove stale Worker secrets after the new code is live
 #
 # Migrations precede the Worker so the schema is never behind the code that
 # reads it; the schema baseline is additive and the previous Worker keeps
@@ -22,8 +23,7 @@ fi
 
 TIER="$1"
 case "$TIER" in
-  staging) SENTRY_DSN_VARIABLE="SENTRY_API_STAGING_DSN" ;;
-  prod) SENTRY_DSN_VARIABLE="SENTRY_API_PRODUCTION_DSN" ;;
+  staging|prod) ;;
   *)
     echo "ERROR: unknown API deploy tier: $TIER" >&2
     exit 1
@@ -51,6 +51,11 @@ if [[ "$-" == *x* ]]; then
   XTRACE_WAS_ENABLED=1
   set +x
 fi
+
+# shellcheck source=./sentryBuild.sh
+# shellcheck disable=SC1091
+. "$API_DIR/scripts/sentryBuild.sh"
+configure_api_sentry "$TIER"
 
 # Blob garbage collection pings Healthchecks around every hourly run; a tier
 # without a check would fail silently, as the retired timer refused to.
@@ -123,6 +128,9 @@ read_connection() {
   jq -r --arg key "$2" '.[$key] // empty' "$CONNECTION_DIR/$1.json"
 }
 
+BUNDLE_DIR="$CONNECTION_DIR/bundle"
+build_api_worker "$API_DIR" "$TIER" "$DEPLOY_CONFIG" "$BUNDLE_DIR"
+
 echo "Running $TIER database migrations..."
 (
   # The shared database module prefers a connection URL over the parts, so an
@@ -144,8 +152,6 @@ echo "Running $TIER database migrations..."
 
 echo "Syncing $TIER Worker secrets..."
 SECRETS_FILE="$CONNECTION_DIR/secrets.json"
-API_SENTRY_DSN="${!SENTRY_DSN_VARIABLE:-}"
-export API_SENTRY_DSN
 # The sandbox flag is written on every deploy so a tier that stops opting in
 # cannot keep an earlier "true" secret.
 export REVENUECAT_ALLOW_SANDBOX_EVENTS="${REVENUECAT_ALLOW_SANDBOX_EVENTS:-}"
@@ -187,17 +193,10 @@ fi
 (cd "$API_DIR" && bunx --no-install wrangler secret bulk "$SECRETS_FILE" --env "$TIER" --config "$DEPLOY_CONFIG")
 
 echo "Publishing $TIER API Worker..."
-DEFINE_ARGS=()
-# Captured first so a failing printer stops the deploy; a process
-# substitution's exit status is never checked.
-DEFINES_OUTPUT="$(cd "$API_DIR" && bun scripts/workerDefines.ts)"
-while IFS= read -r define; do
-  [[ -n "$define" ]] && DEFINE_ARGS+=(--define "$define")
-done <<<"$DEFINES_OUTPUT"
 if [[ "$XTRACE_WAS_ENABLED" -eq 1 ]]; then
   set -x
 fi
-(cd "$API_DIR" && bunx --no-install wrangler deploy --env "$TIER" --config "$DEPLOY_CONFIG" "${DEFINE_ARGS[@]}" \
+(cd "$API_DIR" && bunx --no-install wrangler deploy "$BUNDLE_DIR/index.js" --no-bundle --env "$TIER" --config "$DEPLOY_CONFIG" \
   --var "BLOB_OBJECT_STORE_S3_BUCKET:$(read_connection storage blob_s3_bucket)" \
   --var "BLOB_OBJECT_STORE_S3_REGION:$(read_connection storage blob_s3_region)" \
   --var "BLOB_OBJECT_STORE_S3_ENDPOINT:$(read_connection storage blob_s3_endpoint)" \

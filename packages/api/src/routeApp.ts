@@ -244,6 +244,7 @@ function mountRouters(
   routeApp.route(
     "/",
     createRootRouter({
+      destroyUserSession: deps.destroyUserSession,
       listUserSessions: deps.listUserSessions,
       requireAuth: deps.requireAuth,
       requireRoot: deps.requireRoot,

@@ -19,19 +19,21 @@ After registration, every user has:
 
 - a default organization
 - reserved `Admins` and `Members` groups for that organization
-- a root container for that organization
-- a signed root container manifest and container KEK wrap
+- a root container for that organization, with a signed manifest and a
+  container KEK wrapped to the `Admins` group
 - an initialized root metadata document with content-key targets
-- reserved roster and organization-profile containers, encrypted initial profile
-  documents, and persisted local container metadata in SQLite
+- an organization metadata container, plus roster-profile and
+  organization-profile documents and any app-provisioned system containers
+- the resulting container, document, and policy state persisted to local SQLite
 
 The server never sees plaintext container KEKs or document/blob content keys.
 
 ## Containers
 
 Containers are plain relational data, not Loro documents. They form a tree of
-folders where each container has exactly one parent, except the root container
-for an organization which has `parent_id = NULL`.
+folders where each container has exactly one parent, except the organization's
+root container and its independent metadata root (a system-slot container),
+which have `parent_id = NULL`.
 
 Documents can appear in multiple containers but only within a single
 organization. The organization owns the data and governs the access plane.
@@ -42,7 +44,8 @@ organization:
 
 ```sql
 CREATE UNIQUE INDEX containers_org_root_idx
- ON containers (organization_id) WHERE parent_id IS NULL;
+ ON containers (organization_id)
+ WHERE parent_id IS NULL AND system_slot IS NULL;
 ```
 
 This avoids a circular foreign key between organizations and containers.
@@ -51,21 +54,24 @@ This avoids a circular foreign key between organizations and containers.
 
 ### Client Side (before request)
 
-1. Generate signing and encapsulation key pairs (already existed).
-2. Create the initial reserved `Admins` group policy.
-3. Create the initial reserved `Members` group policy, holding the registering
- user. Bootstrap has exactly one user, who is also the initial admin.
-4. Create the initial organization policy and member envelope. The
+1. Use the identity's ML-DSA-87 signing and ML-KEM-1024 encapsulation key
+ pairs.
+2. Create the initial reserved `Admins` and `Members` group policies. Each
+ projects the registering user as its sole admin member, with one member
+ envelope wrapping the group key to that user.
+3. Create the initial organization policy and member envelope. Its authority
+ descriptor binds both reserved group IDs and their initial heads. The
  organization policy is cryptographic principal state, not the org-manager
  product role source.
-5. Create the initial root metadata Loro update locally.
-6. Create the initial roster and organization-profile container metadata and
- encrypted profile document material.
-7. Build and sign the root container create request, including the initial
- container KEK epoch and wrap for the registering user.
-8. Build and sign the root metadata document create request, wrapping its
+4. Create the initial root metadata Loro update locally.
+5. Build and sign the root container create request, including the initial
+ container KEK epoch wrapped to the `Admins` group.
+6. Build and sign the root metadata document create request, wrapping its
  content key to the root container KEK target.
-9. Send all material in a single `POST /auth/register`.
+7. Build the organization metadata container, the roster-profile and
+ organization-profile containers and encrypted documents, and any
+ app-provisioned system containers.
+8. Send all material in a single `POST /auth/register`.
 
 ### Server Side (atomic transaction)
 
@@ -73,32 +79,36 @@ The register endpoint creates the identity, organization, root container,
 signed root access manifest, and root metadata document rows in one
 transaction:
 
-1. Insert organization (name: `"Personal"`) with `admin_group_id` and
- `member_group_id`.
-2. Insert container (`organization_id = org.id`, `parent_id = NULL`).
-3. Insert user (`default_organization_id = org.id`).
+1. Insert the organization with `admin_group_id` and `member_group_id`, and
+ its initial billing row.
+2. Insert the root container (`organization_id = org.id`, `parent_id = NULL`).
+3. Insert the user (`default_organization_id = org.id`).
 4. Insert the reserved `Admins` and `Members` group rows.
-5. Store the initial `Admins`, `Members`, and organization policies.
-6. Verify and store the root container manifest and KEK state.
+5. Store the initial `Admins`, `Members`, and organization policies and the
+ initial roster.
+6. Verify and store the root container manifest and KEK state, and grant
+ `Admins` admin access to the root.
 7. Verify and store the root metadata document manifest, content-key
  targets, and initial encrypted update.
-8. Verify and store the roster and organization-profile containers, their
- metadata documents, and the encrypted initial profile updates.
+8. Verify and store the roster-profile, organization metadata, and system
+ containers, their metadata documents, and the encrypted initial profile
+ updates.
 
 If the user's fingerprint already exists, the transaction rolls back and the
 endpoint returns 409.
 
 ### Client Side (after response)
 
-The response includes `userId`, `organizationId`, `rootContainerId`,
-`rootMetadataDocumentId`, `rootMetadataAccessEpoch`,
-`rootMetadataAccessStateHash`, optional roster-profile bootstrap responses, and
-`challenge`.
+The response carries the created ids, the root metadata document's access
+epoch and state hash, the organization metadata, profile, and system container
+results, the committed update ids, and `challenge`.
 
-1. Set `userId`, `organizationId`, and `rootContainerId` in session state.
-2. Persist the root and profile containers, their initialized document states,
- and the initial principal policy bundles to local SQLite.
-3. Authenticate using the challenge.
+1. Pin the registering identity once the response confirms its `userId`.
+2. Persist the root, metadata, profile, and system containers, their
+ initialized document states, and the initial principal policy bundles to
+ local SQLite.
+3. Set `userId`, `organizationId`, and `rootContainerId` in session state.
+4. Authenticate using the challenge.
 
 The root metadata content key is recovered through the document content-key
 target bundle and root container KEK state.
@@ -119,8 +129,8 @@ async function wrapDekForRecipients(
 Each `RecipientEntry` contains:
 
 - `keyFingerprint`: SHA-256 hex of the recipient's public key.
-- `kemCipherText`: ML-KEM-1024 ciphertext (~1568 bytes).
-- `wrappedKey`: AES-256-GCM encrypted DEK (~48 bytes).
+- `kemCipherText`: ML-KEM-1024 ciphertext (1568 bytes).
+- `wrappedKey`: AES-256-GCM encrypted DEK (48 bytes for a 32-byte DEK).
 
 The wrapping IV is derived from `kemCipherText.slice(0, 12)`, matching the
 convention used by `encryptForRecipients`.
@@ -144,6 +154,11 @@ ML-KEM-1024, and decrypts the wrapped key via AES-256-GCM.
 
 ## Request And Response Shapes
 
+The shapes below summarize the validators in
+`packages/validators/src/request/organizationProvisioning.ts` and
+`packages/validators/src/response/organizationProvisioning.ts`, which
+registration shares with creating an additional organization.
+
 ### `POST /auth/register` request
 
 ```ts
@@ -151,23 +166,26 @@ interface RegistrationRequest {
  userId: string;
  organizationId: string;
  rootContainerId: string;
- signingPublicKey: number[];
- encapsulationPublicKey: number[];
+ signingPublicKey: number[]; // ML-DSA-87 public key bytes
+ encapsulationPublicKey: number[]; // ML-KEM-1024 public key bytes
  initialAdminGroup: CreateOrganizationGroupRequest;
  initialMemberGroup: CreateOrganizationGroupRequest;
- initialOrganizationPolicy: InitialOrganizationPolicyRequest;
+ initialOrganizationPolicy: OrganizationPrincipalPolicyRequest;
  initialRootContainer: ContainerMutationRequest;
- initialRootMetadataDocument: DocumentCreateRequest;
- initialRosterProfileContainer?: ContainerCreateWithMetadataDocumentRequest;
- initialRosterProfileDocument?: DocumentCreateRequest;
+ initialRootMetadataDocument: ProvisionedDocumentRequest;
+ initialOrganizationMetadataContainer: ProvisionedSystemContainerRequest;
+ initialOrganizationProfileDocument?: ProvisionedDocumentRequest;
+ initialRosterProfileContainer?: ProvisionedSystemContainerRequest;
+ initialRosterProfileDocument?: ProvisionedDocumentRequest;
+ initialSystemContainers?: ProvisionedSystemContainerRequest[];
 }
 ```
 
-`initialAdminGroup.name` must be `"Admins"` and its first policy projects the
-registering user as the sole admin. `initialMemberGroup.name` must be
-`"Members"` and its first policy projects the registering user as admin plus
-the `Admins` group as a member. This makes every admin reachable as an
-organization member while preserving a distinct org-admin authority group.
+The API never receives a group display name. `initialAdminGroup` and
+`initialMemberGroup` must be distinct groups whose metadata carries the
+built-in `admins` and `members` roles. Each group's first policy, like the
+organization's, must be signed by the registering user and project that user
+as its sole admin member. `Admins` is not nested into `Members`.
 
 ### `POST /auth/register` response
 
@@ -180,10 +198,17 @@ interface RegistrationResponse {
  rootMetadataAccessEpoch: number;
  rootMetadataAccessStateHash: string;
  rootMetadataDocument: DocumentCreateResponse;
- rosterProfileContainer?: ContainerCreateWithMetadataDocumentResponse;
+ organizationMetadataContainerId: string;
+ organizationMetadataContainer: ContainerCreateWithMetadataDocumentResponse;
+ organizationProfileDocumentId?: string;
+ organizationProfileDocument?: DocumentCreateResponse;
  rosterProfileContainerId?: string;
- rosterProfileDocument?: DocumentCreateResponse;
+ rosterProfileContainer?: ContainerCreateWithMetadataDocumentResponse;
  rosterProfileDocumentId?: string;
+ rosterProfileDocument?: DocumentCreateResponse;
+ systemContainers: ContainerCreateWithMetadataDocumentResponse[];
+ committedCoreMetadataUpdateIds: string[];
+ committedProfileUpdateIds: string[];
  challenge: string;
 }
 ```
@@ -204,7 +229,8 @@ CREATE TABLE IF NOT EXISTS containers (
 );
 
 CREATE UNIQUE INDEX containers_org_root_idx
- ON containers (organization_id) WHERE parent_id IS NULL;
+ ON containers (organization_id)
+ WHERE parent_id IS NULL AND system_slot IS NULL;
 CREATE UNIQUE INDEX containers_org_system_slot_idx
  ON containers (organization_id, system_slot) WHERE system_slot IS NOT NULL;
 ```
@@ -224,10 +250,12 @@ CREATE TABLE IF NOT EXISTS users (
 );
 ```
 
-`users_fingerprint_unique` is the auth lookup path for
-`verifyChallenge(fingerprint, signature)`: PostgreSQL backs the unique
-constraint with a btree index, so each challenge verification can load the
-canonical signing key by fingerprint without scanning `users`.
+The excerpt omits operational columns such as `is_root` and `suspended_at`.
+`users_fingerprint_unique` is the auth lookup path for challenge verification
+(`verifyChallenge` in `packages/api/src/services/auth/verifyChallenge.ts`):
+PostgreSQL backs the unique constraint with a btree index, so each challenge
+verification can load the canonical signing key by fingerprint without
+scanning `users`.
 
 ### Server: `organizations`
 
@@ -236,10 +264,13 @@ CREATE TABLE IF NOT EXISTS organizations (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  admin_group_id UUID NOT NULL,
  member_group_id UUID NOT NULL,
- name TEXT NOT NULL,
+ profile_document_id UUID,
  created_at TIMESTAMP NOT NULL DEFAULT now()
 );
 ```
+
+The organization has no server-visible name column; its name lives in the
+encrypted organization profile document.
 
 `admin_group_id` points to the reserved `Admins` group. Reachability through
 that group is organization-admin authority. `member_group_id` points to the
@@ -289,10 +320,6 @@ CREATE TABLE contact_projection (
  updated_at TEXT NOT NULL
 );
 
-CREATE UNIQUE INDEX contact_projection_self_idx
- ON contact_projection (is_self) WHERE is_self = 1;
-CREATE UNIQUE INDEX contact_projection_user_idx
- ON contact_projection (user_id) WHERE user_id IS NOT NULL;
 CREATE INDEX contact_projection_container_idx
  ON contact_projection (container_id);
 ```
@@ -332,7 +359,7 @@ decrypts the retained document history from the current recipient wrap in one
 keyring open; adding that user does not require old user/principal envelopes
 or a rebaseline.
 
-For the broader hierarchy direction, see:
+Related:
 
-- `docs/access-plane.md`
-- `docs/loro-e2ee-sync-protocol.md`
+- [access-plane.md](./access-plane.md)
+- [loro-e2ee-sync-protocol.md](./loro-e2ee-sync-protocol.md)

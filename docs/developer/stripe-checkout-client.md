@@ -1,7 +1,7 @@
 # Stripe Checkout Client
 
 The web client runs the card form inside the Tearleads billing panel. Stripe
-still hosts the sensitive fields in iframes, but the app owns the surrounding
+hosts the sensitive fields in iframes, but the app owns the surrounding
 flow and can style it from its theme tokens.
 
 ## Platform seam and configuration
@@ -59,7 +59,7 @@ independent of `subscriptionSource`: a native takeover can retain a Stripe
 subscription that still needs cancellation. The management endpoint returns
 only a native store URL; a failed lookup does not hide Stripe cancel. Members
 can read the organization-level cancellation flag; the cancellation endpoint
-still requires an administrator.
+requires an administrator.
 
 Lost-key cancellation uses Stripe's shareable no-code portal login from the
 public website's **Manage subscription** footer link. Stripe emails a secure
@@ -75,7 +75,7 @@ URL is missing or is not hosted at `https://billing.stripe.com`. Local builds
 may omit it and render the not-configured fallback.
 
 Stripe selects the most recently created active Customer when several Customer
-objects share an email. Tearleads currently creates a Customer per buyer and
+objects share an email. Tearleads creates a Customer per buyer and
 organization to keep authenticated portal sessions organization-scoped. A
 buyer with several simultaneous web subscriptions might therefore need to
 cancel them from newest to oldest as each ceases to be active, or contact
@@ -91,6 +91,7 @@ For a native-store subscription, the panel opens RevenueCat's exact management
 URL, which routes to the App Store or Play subscription page. The server never
 tries to cancel a store subscription through Stripe.
 
-The `/billing/stripe/portal` route remains available for future card-update or
-invoice-history UI. A portal session must be minted on click because its URL is
+`POST /organizations/:id/billing/stripe/portal` mints an authenticated Stripe
+portal session (`ApiClient.createStripePortal`); the billing panel does not
+use it. A portal session must be minted on click because its URL is
 short-lived.

@@ -163,7 +163,7 @@ test("a failing check stops the gate, and is recorded as the last step", async (
   expect(result.exitCode).toBe(3);
   const output = result.stdout.toString();
   expect(output).toContain(
-    "--- [branch-name] bun scripts/checks/lintBranchName.ts -- x ---",
+    "--- [branch-name] bun run agent-tool branch check --pre-push ---",
   );
   expect(output).not.toContain("[shellcheck]");
   expect(output).not.toContain("All checks passed.");

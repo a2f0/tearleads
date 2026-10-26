@@ -1,12 +1,16 @@
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 import {
+  liftRootIdentitySuspension,
   listRootAuditEvents,
   listRootDataUsageReport,
   listRootIdentities,
   listRootIdentityOrganizations,
   listRootOrganizationIdentities,
+  listRootOrganizationRevenuecatEvents,
   listRootOrganizations,
+  listRootRevenuecatEventsReport,
   loadRootIdentity,
+  loadRootOpsHealthReport,
   loadRootOrganization,
   loadRootOrganizationDataUsage,
   type RootAuditApi,
@@ -17,15 +21,25 @@ import {
   type RootIdentitiesApi,
   type RootIdentitiesPage,
   type RootIdentitiesQueryInput,
+  type RootIdentity,
   type RootIdentityDetail,
   type RootIdentityOrganization,
+  type RootOpsHealthApi,
+  type RootOpsHealthReport,
   type RootOrganizationDetail,
   type RootOrganizationIdentitiesPage,
   type RootOrganizationPageQueryInput,
+  type RootOrganizationRevenuecatEventsPage,
   type RootOrganizationsApi,
   type RootOrganizationsPage,
   type RootOrganizationsQueryInput,
   type RootRequestOutcome,
+  type RootRevenuecatApi,
+  type RootRevenuecatEventsQueryInput,
+  type RootRevenuecatEventsReportPage,
+  type RootRevenuecatEventsReportQueryInput,
+  type RootSuspensionApi,
+  suspendRootIdentity,
 } from "../../workflows/root";
 import type {
   WorkflowRuntimeAuthInput,
@@ -42,7 +56,10 @@ import type { Session } from "../session/sessionTypes";
 type RootApi = RootIdentitiesApi &
   RootOrganizationsApi &
   RootDataUsageApi &
-  RootAuditApi;
+  RootOpsHealthApi &
+  RootRevenuecatApi &
+  RootAuditApi &
+  RootSuspensionApi;
 
 export interface Root {
   /** Recorded operator actions, newest first; each listing is recorded too. */
@@ -55,6 +72,17 @@ export interface Root {
   listDataUsageReport(
     query?: RootOrganizationsQueryInput,
   ): Promise<RootRequestOutcome<RootDataUsageReportPage>>;
+  /** Seat-sync, trial-expiry and purge trouble across every organization. */
+  loadOpsHealthReport(): Promise<RootRequestOutcome<RootOpsHealthReport>>;
+  /** RevenueCat deliveries that resolved to no organization or were ignored. */
+  listRevenuecatEventsReport(
+    query?: RootRevenuecatEventsReportQueryInput,
+  ): Promise<RootRequestOutcome<RootRevenuecatEventsReportPage>>;
+  /** An organization's RevenueCat deliveries, including transfers away. */
+  listOrganizationRevenuecatEvents(
+    organizationId: string,
+    query?: RootRevenuecatEventsQueryInput,
+  ): Promise<RootRequestOutcome<RootOrganizationRevenuecatEventsPage>>;
   listOrganizations(
     query?: RootOrganizationsQueryInput,
   ): Promise<RootRequestOutcome<RootOrganizationsPage>>;
@@ -74,6 +102,16 @@ export interface Root {
     userId: string,
   ): Promise<RootRequestOutcome<RootIdentityOrganization[]>>;
   loadIdentity(userId: string): Promise<RootRequestOutcome<RootIdentityDetail>>;
+  /** Lets a suspended identity's devices sign in again. */
+  liftIdentitySuspension(
+    userId: string,
+  ): Promise<RootRequestOutcome<RootIdentity>>;
+  /**
+   * Signs the identity out of every device and refuses its sign-in until the
+   * suspension is lifted. The server refuses root identities. A session change
+   * mid-flight leaves the outcome unknown; reload the identity to see it.
+   */
+  suspendIdentity(userId: string): Promise<RootRequestOutcome<RootIdentity>>;
 }
 
 /**
@@ -178,9 +216,7 @@ export function createRoot(runtimeService: RootRuntime): Root {
       : null;
   };
 
-  const guarded = async <Data>(
-    request: (api: RootApi) => Promise<RootRequestOutcome<Data>>,
-  ): Promise<RootRequestOutcome<Data>> => {
+  const guarded: GuardedRootRequest = async (request) => {
     const api = activeApi();
     if (!api) {
       return NOT_AVAILABLE;
@@ -197,12 +233,32 @@ export function createRoot(runtimeService: RootRuntime): Root {
     get isAvailable() {
       return activeApi() !== null;
     },
+    ...guardedRootCalls(guarded),
+  };
+}
+
+type GuardedRootRequest = <Data>(
+  request: (api: RootApi) => Promise<RootRequestOutcome<Data>>,
+) => Promise<RootRequestOutcome<Data>>;
+
+/** Every facade call, each run through the session's root gate. */
+function guardedRootCalls(
+  guarded: GuardedRootRequest,
+): Omit<Root, "isAvailable"> {
+  return {
     listAuditEvents: (query) =>
       guarded((api) => listRootAuditEvents(api, query)),
     loadOrganizationDataUsage: (organizationId) =>
       guarded((api) => loadRootOrganizationDataUsage(api, organizationId)),
     listDataUsageReport: (query) =>
       guarded((api) => listRootDataUsageReport(api, query)),
+    loadOpsHealthReport: () => guarded((api) => loadRootOpsHealthReport(api)),
+    listRevenuecatEventsReport: (query) =>
+      guarded((api) => listRootRevenuecatEventsReport(api, query)),
+    listOrganizationRevenuecatEvents: (organizationId, query) =>
+      guarded((api) =>
+        listRootOrganizationRevenuecatEvents(api, organizationId, query),
+      ),
     listOrganizations: (query) =>
       guarded((api) => listRootOrganizations(api, query)),
     loadOrganization: (organizationId) =>
@@ -215,5 +271,9 @@ export function createRoot(runtimeService: RootRuntime): Root {
     listIdentityOrganizations: (userId) =>
       guarded((api) => listRootIdentityOrganizations(api, userId)),
     loadIdentity: (userId) => guarded((api) => loadRootIdentity(api, userId)),
+    liftIdentitySuspension: (userId) =>
+      guarded((api) => liftRootIdentitySuspension(api, userId)),
+    suspendIdentity: (userId) =>
+      guarded((api) => suspendRootIdentity(api, userId)),
   };
 }

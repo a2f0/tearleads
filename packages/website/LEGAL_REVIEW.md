@@ -1,24 +1,20 @@
 # Legal document publication review
 
-The owner authorized publication of the Privacy Policy and Terms of Service
-on September 14, 2026, and the CT rollout with browser privacy preferences honored
-on October 22, 2026. The current revision discloses CT click analytics, its
-Tearleads, LLC operator, Cloudflare hosting, IP/geography, and 90-day retention.
-`src/legal.ts` records the current effective date and sets
-`isDraft: false`. Both documents render in full in production, staging, and local
-builds, with an effective date and no draft notice. Staging remains non-indexable.
+The owner authorized publication of the Privacy Policy and Terms of Service on
+September 14, 2026, and of the click-analytics (CT) disclosure, with browser
+privacy preferences honored, on October 22, 2026. The current revision
+discloses CT click analytics, its Tearleads, LLC operator, Cloudflare hosting,
+IP/geography, and 90-day retention.
+`src/legal.ts` records the current effective date and sets `isDraft: false`.
+Both documents render in full in production, staging, and local builds, with an
+effective date and no draft notice. Staging remains non-indexable. The
+publication build tests (`src/legalPublication.test.ts`) require the full
+documents independently of the draft flag, so a return to placeholders fails
+validation.
 
-The owner's publication instruction was: “can you ship them please? find out
-what reverted them and take the documents live.”
-
-PR #2283 introduced the documents with `isDraft: true`; its review repair
-`5d06efe7` added the production placeholder. Later deployments retained that
-setting. The publication build tests now require the full documents independently
-of the draft flag so a return to placeholders fails validation.
-
-The original review topics below remain background for future revisions and
-operational follow-up. Publication authorization does not record completion of
-every check or constitute a legal opinion.
+Revisit the review topics below when revising the documents. Publication
+authorization does not record completion of every check or constitute a legal
+opinion.
 
 ## Confirmed by the owner
 
@@ -28,10 +24,9 @@ every check or constitute a legal opinion.
 - Sync and Sharing are available, not coming soon.
 - No street mailing address was supplied; none has been invented.
 
-## Original review topics
+## Review topics
 
-The original drafts called for review of the following terms. Revisit these
-topics when revising the documents:
+These terms need review whenever the documents change:
 
 - **Eligibility:** age 18 and legal capacity, including organizational authority.
 - **Refunds:** no ordinary partial-period refunds, with statutory and store
@@ -76,8 +71,7 @@ topics when revising the documents:
 7. Surface the finalized policies at identity registration and checkout, provide
    conspicuous recurring-payment disclosures, and implement/version acceptance
    where appropriate. Footer links alone do not establish contractual assent or
-   recurring-payment consent. No app, API, or checkout-consent flow was changed
-   here.
+   recurring-payment consent. Registration and checkout record no acceptance.
 8. Verify Stripe and native-store cancellation and refund behavior, including
    cancellation without identity keys. Confirm billing-lapse warnings and the
    promised notice, export, and refund procedures are operationally supported.

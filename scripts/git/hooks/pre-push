@@ -18,6 +18,10 @@ fi
 cd "$REPO_ROOT"
 
 push_remote=${1:-}
+if ! git remote get-url "$push_remote" >/dev/null 2>&1; then
+  echo "Error: push through a configured named remote (for example origin), not a URL." >&2
+  exit 1
+fi
 zero_sha="0000000000000000000000000000000000000000"
 
 refs_file=$(mktemp)
@@ -73,12 +77,7 @@ pushed_branches=$(awk -v zero="$zero_sha" '
   $2 != zero && index($3, "refs/heads/") == 1 { print substr($3, 12) }
 ' "$refs_file")
 if [ -n "$pushed_branches" ]; then
-  # Deliberately unquoted: one name per line, and Git ref names cannot contain
-  # whitespace or glob characters. Bun drops one leading `--`, so every name
-  # after it arrives verbatim, even a branch named `--`. `bun run` would drop a
-  # second one and leave the linter checking the checked-out branch instead.
-  # shellcheck disable=SC2086
-  step_timings_run branch-name bun scripts/checks/lintBranchName.ts -- $pushed_branches
+  step_timings_run branch-name bun run agent-tool branch check --pre-push <"$refs_file"
 else
   step_timings_skip branch-name "no branch created or updated"
 fi
@@ -96,13 +95,15 @@ while read -r _ local_sha _ remote_sha; do
     continue
   fi
 
+  # Only new-to-remote commits need admission checks. A normal base merge can
+  # include commits already accepted on another remote branch.
   if [ "$remote_sha" = "$zero_sha" ]; then
-    range="main..$local_sha"
+    bun run agent-tool commits check --range "$local_sha" \
+      --exclude main --exclude-remotes "$push_remote" </dev/null
   else
-    range="$remote_sha..$local_sha"
+    bun run agent-tool commits check --range "$local_sha" \
+      --exclude "$remote_sha" --exclude-remotes "$push_remote" </dev/null
   fi
-
-  "$REPO_ROOT/scripts/checks/checkCommitTrust.sh" --range "$range" </dev/null
 done <"$refs_file"
 step_timings_end
 
@@ -136,7 +137,7 @@ while read -r _ local_sha _ remote_sha; do
     range="$remote_sha..$local_sha"
   fi
 
-  "$REPO_ROOT/scripts/checks/checkBinaryFiles.sh" --range "$range" </dev/null
+  bun run agent-tool checks binaries --range "$range" </dev/null
 done <"$refs_file"
 step_timings_end
 

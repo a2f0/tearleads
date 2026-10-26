@@ -181,6 +181,10 @@ const baseConfig = {
       entry: ["src/**/*.test.ts"],
       project: ["src/**/*.ts"],
     },
+    "packages/performance": {
+      entry: ["src/**/*.test.ts", "src/database/worker.ts"],
+      project: ["src/**/*.ts"],
+    },
     "packages/ui": {
       project: ["src/**/*.{ts,tsx}"],
     },
@@ -294,6 +298,14 @@ const productionConfig = {
     "packages/diagnostics": { project: productionProject },
     "packages/encoding": { project: productionProject },
     "packages/loro": { project: productionProject },
+    "packages/performance": {
+      entry: [
+        "src/index.ts!",
+        "src/database/index.ts!",
+        "src/database/worker.ts!",
+      ],
+      project: productionProject,
+    },
     "packages/ui": { project: productionProject },
     "packages/validators": {
       // OpenAPI generator implementation/output is checked by the default pass.
@@ -305,7 +317,13 @@ const productionConfig = {
       ],
     },
     "packages/website": {
-      entry: ["astro.config.ts!", "src/pages/**/*.astro!"],
+      // Knip reads astro.config.ts as plugin configuration rather than as a
+      // production root, so list the build integration it loads explicitly.
+      entry: [
+        "astro.config.ts!",
+        "src/pages/**/*.astro!",
+        "src/seoIntegration.ts!",
+      ],
       project: ["src/**/*.{astro,ts,tsx}!", "!src/**/*.test.ts"],
       ignoreDependencies: ["@astrojs/react", "react-dom"],
     },

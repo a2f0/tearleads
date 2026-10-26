@@ -5,6 +5,7 @@ import {
   projectLabel,
   type ScreenshotManifest,
   screenLabel,
+  screenshotPageMeta,
   screenshotPath,
   screenshotRoutes,
   startingTheme,
@@ -62,9 +63,9 @@ test("deep links preserve the selected platform when several captured the same s
   const routes = screenshotRoutes(manifest);
   for (const platform of ["windowed", "mobile", "tablet"]) {
     const path = screenshotPath(platform, "explorer");
-    expect(path).toBe(`/screenshots/${platform}/explorer`);
+    expect(path).toBe(`/screenshots/${platform}/explorer/`);
     const route = routes.find(
-      (candidate) => `/screenshots/${candidate.params.slug}` === path,
+      (candidate) => `/screenshots/${candidate.params.slug}/` === path,
     );
     expect(route).toBeDefined();
     expect(route?.props.initialScreen).toBe("explorer");
@@ -106,7 +107,7 @@ test("a build without captures retains only the gallery index", () => {
 
 test("screenshot names cannot add path segments, queries, or fragments to links", () => {
   expect(screenshotPath("mobile", "notes/shared?view=full#detail")).toBe(
-    "/screenshots/mobile/notes%2Fshared%3Fview%3Dfull%23detail",
+    "/screenshots/mobile/notes%2Fshared%3Fview%3Dfull%23detail/",
   );
 });
 
@@ -146,4 +147,70 @@ test("the gallery opens in a theme that captured its opening screen", () => {
   // A light-scheme visitor still gets dark when only dark was captured.
   expect(startingTheme(manifest, "tablet", "explorer", false)).toBe("dark");
   expect(startingTheme(manifest, "mobile", "explorer", false)).toBe("light");
+});
+
+test("each screen page's heading and metadata name its screen and layout", () => {
+  const pages = screenshotRoutes(manifest).map((route) =>
+    screenshotPageMeta(
+      manifest,
+      route.props.initialPlatform,
+      route.props.initialScreen,
+    ),
+  );
+  expect(pages).toEqual([
+    {
+      heading: "Screenshots",
+      title: "Screenshots | Tearleads",
+      description:
+        "Tearleads screens in desktop, tablet, and phone layouts, in light and dark themes.",
+    },
+    {
+      heading: "Explorer, desktop screenshot",
+      title: "Explorer, desktop screenshot | Tearleads",
+      description:
+        "The Tearleads Explorer screen in the desktop layout, in the light theme.",
+    },
+    {
+      heading: "Explorer, phone screenshot",
+      title: "Explorer, phone screenshot | Tearleads",
+      description:
+        "The Tearleads Explorer screen in the phone layout, in light and dark themes.",
+    },
+    {
+      heading: "Home, phone screenshot",
+      title: "Home, phone screenshot | Tearleads",
+      description:
+        "The Tearleads Home screen in the phone layout, in the light theme.",
+    },
+    {
+      heading: "Explorer, tablet screenshot",
+      title: "Explorer, tablet screenshot | Tearleads",
+      description:
+        "The Tearleads Explorer screen in the tablet layout, in the dark theme.",
+    },
+  ]);
+  for (const field of ["heading", "title", "description"] as const) {
+    expect(new Set(pages.map((page) => page[field])).size).toBe(pages.length);
+  }
+});
+
+test("screen page descriptions list every captured theme in manifest order", () => {
+  const themed: ScreenshotManifest = {
+    ...manifest,
+    themes: ["light", "dark", "high-contrast"],
+    entries: ["dark", "light", "high-contrast"].map((theme) => ({
+      project: "mobile",
+      theme,
+      name: "notes",
+      src: theme,
+      width: 1170,
+      height: 1992,
+    })),
+  };
+  expect(screenshotPageMeta(themed, "mobile", "notes").description).toBe(
+    "The Tearleads Notes screen in the phone layout, in light, dark, and high contrast themes.",
+  );
+  expect(screenshotPageMeta(themed, "tablet", "notes").description).toBe(
+    "The Tearleads Notes screen in the tablet layout.",
+  );
 });

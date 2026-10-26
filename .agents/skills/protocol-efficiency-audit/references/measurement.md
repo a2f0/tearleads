@@ -40,9 +40,10 @@ empty. The ceilings asserted inside each canary are the current contract; a
 shipped proposal must lower them, so the report names the ceiling each proposal
 changes.
 
-`docs/request-budget-closeout.md` holds ten-run byte profiles per endpoint
-for the sharing and Admins scenarios. Reuse them for byte claims unless the
-response shape changed since; say which.
+`docs/request-budgets.md` holds no byte profiles; it explains how to print
+them with `DUAL_PANE_REQUEST_PROFILE=1` and
+`DUAL_PANE_REQUEST_PROFILE_DETAIL=1`. Measure several runs for byte claims; the
+sharing and Admins fixtures also assert body-byte ceilings.
 
 ## Statements per request
 

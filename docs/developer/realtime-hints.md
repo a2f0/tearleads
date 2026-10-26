@@ -36,7 +36,6 @@ HTTP after that acknowledgement (see
 
 A parent refresh still reveals that something changed and when the notification
 arrived. This contract minimizes event details; it does not hide traffic timing.
-It is a greenfield wire change with no compatibility translation.
 
 SDK hosts must forward `resync_required` into `tearleads.events` with a fresh
 local event `id` and the frame's `containerIds` before starting HTTP refreshes.
@@ -87,10 +86,11 @@ Cloudflare's [state API](https://developers.cloudflare.com/durable-objects/api/s
 documents that `waitUntil` prevents eviction until completion, up to fifteen
 minutes. Every event also retains its temporary deadline timer until cleanup.
 
-The Postgres concurrency lane runs `workerRuntime.hibernation.pg.test.ts` against
-the real Worker configuration through Wrangler's test harness. It evicts the
-object while retaining sockets, exercises publication and logout after wake-up,
-checks distinct per-tab interest, and proves a durable alarm detects session
-expiry without a revocation notification. It also verifies that expired proofs
-cannot route the event that wakes the hub. Test control endpoints live in a
-separate local-only helper Worker, outside the deployed API entry point.
+`bun run test:postgres-concurrency` runs
+`packages/api/src/worker/workerRuntime.hibernation.pg.test.ts` against the real
+Worker configuration through Wrangler's test harness. It evicts the object while
+retaining sockets, exercises publication and logout after wake-up, checks
+distinct per-tab interest, and proves a durable alarm detects session expiry
+without a revocation notification. It also verifies that expired proofs cannot
+route the event that wakes the hub. Test control endpoints live in a separate
+local-only helper Worker, outside the deployed API entry point.

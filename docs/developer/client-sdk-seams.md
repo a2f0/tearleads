@@ -20,7 +20,7 @@ reference it follows.
 - **Scoped singleton**: one object per database or per domain scope, returned
   by a `getOrCreate…(scope)` function backed by a module-private `WeakMap`.
 
-## Current seams
+## Seams
 
 | Seam | Port or singleton | Production adapter | Other implementations |
 | --- | --- | --- | --- |
@@ -49,9 +49,9 @@ other file there.
   subsystem of their own: `DomainScope`, the `SecurityIncidentReporter` port,
   `errorMessage`, record readers, and User Timing marks. A helper one
   subsystem uses goes in that subsystem's folder instead.
-- `blobs/`, `contacts/`, `persistence/`, `sqlite/`, and `sync/` are internal
-  to stores. A store reaches a module there through the matching workflow
-  facade, such as `workflows/blobs` or `workflows/sync`.
+- `blobs/`, `persistence/`, `sqlite/`, and `sync/` are internal to stores. A
+  store reaches a module there through the matching workflow facade, such as
+  `workflows/blobs` or `workflows/sync`.
 
 In `workflows/`, the root holds only its README. Each folder is a workflow
 facade except `shared/`, which holds the runtime input contract that the
@@ -143,9 +143,9 @@ principal currents, but only the organization workflows that authored a
 mutation can check its receipt, so they pass those checks in as
 `PrincipalAcknowledgementChecks` rather than recovery importing them.
 
-State that a lower layer also writes moves to a neutral lower module, reached
+State that a lower layer also writes lives in a neutral lower module, reached
 by upper layers through a `workflows/*` facade. The originated-documents
-registry moved to `data/sync/` for this reason.
+registry lives in `data/sync/` for this reason.
 
 ## Scoped singletons
 
@@ -197,10 +197,10 @@ checkpoint persistence or admin-signer verification. SQLite Runtime and SDK
 Shared Utilities declare none, so any of their files may be imported.
 
 `bun run lint:architecture` fails when an import enters another subsystem
-outside its surface, type-only imports included. Deep imports that predate the
-check are listed by target file in
-`scripts/architecture/subsystemSurfaceBaseline.json`. The check also fails on an
-entry that no longer occurs, so the list only shrinks.
+outside its surface, type-only imports included. Tolerated deep imports are
+listed by target file in `scripts/architecture/subsystemSurfaceBaseline.json`.
+The check also fails on an entry whose import is gone, so the list only
+shrinks.
 
 - When you change code that imports through the baseline, import from the
   surface instead, or export the symbol from a facade, and delete the entry.
@@ -246,7 +246,7 @@ every table when its type is `any` or `unknown`. Schema modules are exempt, and
 so is the schema SQLite Runtime passes to `drizzle`, whose `db.query` reads are
 checked where they happen. The surface check sees none of this: schema imports
 land in SQLite Runtime, which declares no surface, and raw SQL imports nothing.
-Older uses are listed by table in
+Tolerated uses are listed by table in
 `scripts/architecture/subsystemTableBaseline.json`, which only shrinks like the
 surface baseline.
 

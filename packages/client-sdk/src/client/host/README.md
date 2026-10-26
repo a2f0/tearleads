@@ -19,5 +19,5 @@ A contract that one facade consumes stays beside that facade instead:
   `../runtime/principalHistoryProtection.ts`
 
 Add a contract here only when no single facade owns it. See
-`docs/developer/client-sdk-seams.md` for how ports and adapters are named and
-wired.
+[client SDK seams](../../../../../docs/developer/client-sdk-seams.md) for how
+ports and adapters are named and wired.

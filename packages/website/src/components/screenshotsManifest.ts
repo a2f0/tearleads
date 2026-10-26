@@ -103,8 +103,9 @@ export function entryKey(project: string, theme: string, name: string): string {
   return `${project} ${theme} ${name}`;
 }
 
+// The trailing slash is the form the host serves without a redirect.
 export function screenshotPath(project: string, name: string): string {
-  return `/screenshots/${encodeURIComponent(project)}/${encodeURIComponent(name)}`;
+  return `/screenshots/${encodeURIComponent(project)}/${encodeURIComponent(name)}/`;
 }
 
 // Deep links always include the capture platform; the index uses the first.
@@ -147,6 +148,51 @@ export function startingTheme(
       (opening === undefined || captured(candidate, opening)),
   );
   return theme ?? manifest.themes[0] ?? "light";
+}
+
+interface ScreenshotPageMeta {
+  /** The page's h1; the title adds the site name. */
+  heading: string;
+  title: string;
+  description: string;
+}
+
+// ", in light and dark themes" or ", in the dark theme", in manifest order.
+function themesClause(themes: readonly string[]): string {
+  const labels = themes.map((theme) => themeLabel(theme).toLowerCase());
+  const last = labels.pop();
+  if (last === undefined) return "";
+  if (labels.length === 0) return `, in the ${last} theme`;
+  const list = labels.length === 1 ? labels[0] : `${labels.join(", ")},`;
+  return `, in ${list} and ${last} themes`;
+}
+
+// Each screen route names its own screen, layout, and captured themes, so the
+// gallery's pages have distinct headings, search titles, and descriptions. The
+// index, with no platform/screen pair, describes the whole gallery.
+export function screenshotPageMeta(
+  manifest: ScreenshotManifest,
+  project: string | undefined,
+  screen: string | undefined,
+): ScreenshotPageMeta {
+  if (project === undefined || screen === undefined) {
+    return {
+      heading: "Screenshots",
+      title: "Screenshots | Tearleads",
+      description:
+        "Tearleads screens in desktop, tablet, and phone layouts, in light and dark themes.",
+    };
+  }
+  const layout = projectLabel(project).toLowerCase();
+  const themes = manifest.themes.filter(
+    (theme) => findScreenshot(manifest, project, theme, screen) !== undefined,
+  );
+  const heading = `${screenLabel(screen)}, ${layout} screenshot`;
+  return {
+    heading,
+    title: `${heading} | Tearleads`,
+    description: `The Tearleads ${screenLabel(screen)} screen in the ${layout} layout${themesClause(themes)}.`,
+  };
 }
 
 interface ScreenshotRoute {

@@ -1,9 +1,9 @@
 # Production PlanetScale Postgres
 
-This stack owns `tearleads/tearleads-prod`, branch `main`, its API roles, and the
-API Hyperdrive configuration.
-Its independent R2 state key is `prod/postgres/terraform.tfstate`. Worker
-redeploys preserve the database; the API deploy reads its connection output.
+This stack owns `tearleads/tearleads-prod`, branch `main`, its API roles, and
+the API Hyperdrive configuration. Its independent R2 state key is
+`prod/postgres/terraform.tfstate`. Worker redeploys preserve the database; the
+API deploy reads its connection output.
 
 ## Provisioning
 
@@ -68,12 +68,12 @@ Terraform output into a mode-0600 temporary directory and removes it on exit.
 Reading the output needs backend access; it does not apply this stack or need
 a PlanetScale API call. The deploy runs migrations through the API CLI with the
 migration login, then reads the non-secret `hyperdrive_id` output into the
-selected environment's temporary Wrangler configuration. It deletes obsolete
-Worker secrets, including `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`,
-`POSTGRES_PASSWORD`, and `POSTGRES_DATABASE`. The runtime credentials stay in
-this Terraform state and Hyperdrive; they are no longer exported through
-`api_connection`. The Worker never receives the migration login, the PlanetScale
-service token, or the R2 state key.
+selected environment's temporary Wrangler configuration. It deletes any Worker
+secret it does not manage, so no `POSTGRES_*` connection secret survives on the
+Worker. The runtime credentials stay in this Terraform state and Hyperdrive;
+`api_connection` exports only the host, database, and migration login. The
+Worker never receives the migration login, the PlanetScale service token, or
+the R2 state key.
 
 The runtime login inherits `pg_read_all_data` and `pg_write_all_data`. Hyperdrive
 connects with it through the included PgBouncer on port 6432. Its `require` SSL
@@ -87,13 +87,11 @@ connects directly on port 5432 for the duration of the deploy only.
 
 Staging has its own copy of this stack under
 `terraform/stacks/staging/postgres` without `prevent_destroy`;
-`scripts/deploy/destroyStaging.sh` empties and destroys it, including Hyperdrive.
-`scripts/deploy/destroyProduction.sh` does the same for production, lifting
-`prevent_destroy` for that run with temporary overrides.
-Both tiers are greenfield; recreating a Hyperdrive configuration requires only
-a Worker redeploy to bind its new ID. There is no dual connection path or
-compatibility cutover. See [PlanetScale roles], [connection options], and
-[Hyperdrive TLS].
+`scripts/deploy/destroyStaging.sh` empties and destroys it, including
+Hyperdrive. `scripts/deploy/destroyProduction.sh` does the same for production,
+lifting `prevent_destroy` for that run with temporary overrides. Recreating a
+Hyperdrive configuration requires only a Worker redeploy to bind its new ID.
+See [PlanetScale roles], [connection options], and [Hyperdrive TLS].
 
 ## Deployment order
 
@@ -103,10 +101,10 @@ compatibility cutover. See [PlanetScale roles], [connection options], and
    API Worker with its Hyperdrive binding, publish the app and demo Workers,
    and attach the hostnames.
 
-Staging has its own copies of this stack and the R2 storage stack.
-Neither environment has a data conversion or backfill step. The API baseline
-initializes a fresh database; schema resets replace the database and client
-caches together.
+Staging has its own copies of this stack and the R2 storage stack, and
+`scripts/deploy/deployStaging.sh` applies both itself. Neither environment has
+a data conversion or backfill step: the API baseline initializes a fresh
+database, and schema resets replace the database and client caches together.
 
 ## Validation
 

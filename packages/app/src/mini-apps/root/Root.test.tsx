@@ -1,83 +1,14 @@
 import { ROOT_TEST_ORGANIZATION } from "../../../test/helpers/rootConsoleFixtures";
 import "../../../test/helpers/mswServer";
 import { afterEach, expect, spyOn, test } from "bun:test";
-import type { Tearleads } from "@tearleads/client-sdk";
-import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
-import {
-  act,
-  fireEvent,
-  render,
-  waitFor,
-  within,
-} from "@testing-library/react";
-import {
-  cleanupIdentityManagerTestEnvironment,
-  createIdentityManagerHostConfig,
-  IdentityManagerTestRuntime,
-  TestWebSocket,
-} from "../../../test/helpers/identityManagerTestRuntime";
+import { fireEvent, waitFor, within } from "@testing-library/react";
+import { cleanupIdentityManagerTestEnvironment } from "../../../test/helpers/identityManagerTestRuntime";
+import { renderRootWithSession } from "../../../test/helpers/renderRootConsole";
 import { ROOT_TEST_IDENTITIES } from "../../../test/helpers/rootConsoleFixtures";
-import { Root } from "./Root";
-
-const TEST_HOST_CONFIG = createIdentityManagerHostConfig();
 
 afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
 });
-
-async function renderRootWithSession(isRoot: boolean) {
-  const originalWebSocket = globalThis.WebSocket;
-  Reflect.set(globalThis, "WebSocket", TestWebSocket);
-  const tearleadsRef: { current: Tearleads | null } = { current: null };
-  const view = render(
-    <IdentityManagerTestRuntime
-      hostConfig={TEST_HOST_CONFIG}
-      onTearleadsReady={(sdk) => {
-        tearleadsRef.current = sdk;
-      }}
-    />,
-  );
-  await waitFor(() => {
-    expect(tearleadsRef.current).toBeTruthy();
-  });
-  const tearleads = tearleadsRef.current;
-  if (!tearleads) {
-    throw new Error("Expected Tearleads SDK to be available after render.");
-  }
-  spyOn(tearleads, "requestWebSocketTicket").mockResolvedValue(null);
-  await act(async () => {
-    // Root standing is bound to the signing identity that logged in, so the
-    // session needs a loaded key pair just as a real login would.
-    await tearleads.identity.setKeyPairs({
-      encapsulationKeyPair: null,
-      signingFingerprint: "c".repeat(64),
-      signingKeyPair: generateSigningSeedAndKeyPair(),
-    });
-    tearleads.session.setContext({
-      authToken: "test-token",
-      containerId: "container-1",
-      isAuthenticated: true,
-      isRoot,
-      organizationId: "org-1",
-      userId: "user-1",
-    });
-  });
-  view.rerender(
-    <IdentityManagerTestRuntime
-      hostConfig={TEST_HOST_CONFIG}
-      onTearleadsReady={(sdk) => {
-        tearleadsRef.current = sdk;
-      }}
-    >
-      <Root />
-    </IdentityManagerTestRuntime>,
-  );
-  return {
-    tearleads,
-    restore: () => Reflect.set(globalThis, "WebSocket", originalWebSocket),
-    view,
-  };
-}
 
 test("the root console refuses non-root sessions", async () => {
   const { restore, view } = await renderRootWithSession(false);

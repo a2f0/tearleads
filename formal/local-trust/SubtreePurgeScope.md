@@ -1,6 +1,6 @@
 # Subtree purge scope
 
-[`SubtreePurgeScope.tla`](./SubtreePurgeScope.tla) covers issue #2485 finding 1:
+[`SubtreePurgeScope.tla`](./SubtreePurgeScope.tla) models subtree purge, where
 unsigned listing edges may select candidates outside a user-selected subtree.
 The bounded model separates that listing from authenticated ancestry, the path
 signed into a document purge or unlink, and the path at the server commit.
@@ -27,13 +27,13 @@ root's own DELETE requires its non-null captured parent to remain an ancestor
 at the server commit. This is not an exact-parent constraint: moving an empty
 root deeper beneath that ancestor still permits its DELETE, and a parentless
 root has no server-side parent binding. Those moves are outside this model's
-settled-root restore abstraction. A document
-manifest-path comparison rejects a remote request prepared before the move.
+settled-root restore abstraction. A document manifest-path comparison rejects
+a remote request prepared before the move.
 Container deletion checks its current signed ancestry under the organization
 lock. For local-only candidates, `assertLocalPurgeScope` and the document
 placement comparisons run inside document and folder deletion transactions.
-The captured
-placement version abstracts both the document row and its ancestor chain.
+The captured placement version abstracts both the document row and its ancestor
+chain.
 Implementation tests also cover local ancestors changing during remote
 verification.
 
@@ -41,7 +41,7 @@ Before the scope runs, `settlePurgeScopeMoves` waits for the moves this device
 queued inside it to reach the server, so a purge soon after Move to Trash does
 not meet `RestoreIntent` refusals for its own trashing. The wait only delays
 `CheckCandidate` and changes no guard, so it adds no model action: any intent
-still queued afterwards is refused exactly as before.
+still queued afterwards is refused.
 
 Cryptographic verification is abstracted as an authenticated membership fact;
 this model does not prove signature correctness or multiple concurrent moves.
@@ -57,6 +57,6 @@ Nine negative controls remove the candidate proof, exact document request path,
 container commit check, late candidate placement-intent check, selected-root
 restore check, document or folder transaction placement comparison, immutable
 scope capture, or settled-root placement. Each must violate scope containment
-or pending-work preservation. A quiescent in-scope candidate
-must delete successfully, and every candidate terminates under weak fairness
+or pending-work preservation. A quiescent in-scope candidate must delete
+successfully, and every candidate terminates under weak fairness
 of verification, preparation, and commit.

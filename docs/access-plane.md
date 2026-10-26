@@ -33,6 +33,7 @@ The durable tables are:
 - `access_manifests` (its `verification_mac` column holds the MAC'd
   stored-history verification marker)
 - `access_manifest_heads`
+- `access_manifest_container_grant_projection`
 - `access_manifest_principal_head_projection`
 - `access_manifest_document_link_projection`
 - `container_key_epochs`
@@ -75,9 +76,10 @@ authority descriptor before trusting the database's reserved `Admins` and
 `Members` identifiers, so repointing either identifier to another valid group
 fails closed.
 
-The version-2 organization authority descriptor also commits the exact current
-head of every organization group. Supported clients pair every group successor
-with an organization-policy successor through one atomic policy commit. Before
+The organization authority descriptor also commits the exact current head of
+every organization group. It is version 2, and verification rejects other
+versions. Clients pair every group successor with an organization-policy
+successor through one atomic policy commit. Before
 using a group for sharing or rotation-staleness decisions, a client verifies
 the organization policy and reserved `Admins` head, then requires the served
 group bundle to match the directory's exact head. Serving an older, otherwise
@@ -86,9 +88,8 @@ checkpoint for that group. Group deletion requires a signed organization-policy
 successor that removes the deleted group from the directory; the API rejects
 directory entries for groups that are not active organization rows.
 
-The organization descriptor uses version 2. Verification rejects other versions.
-
-The generic principal-policy write route rejects group updates. Group creation
+The generic principal-policy write route rejects group updates; they go through
+`PUT /organizations/:organizationId/groups/:groupId/policy-commit`. Group creation
 atomically stores the new row and initial policy with the matching signed
 organization-directory successor, so a failed second artifact cannot leave an
 active but undiscoverable group.
@@ -145,7 +146,7 @@ Optional roster profile details are bound by `profileDocumentId` and live in
 encrypted documents, not in plaintext directory responses. The organization
 profile pointer may name only a document whose current links place it solely in
 the organization metadata container. Org-manager hides both reserved groups from
-the normal group list. The organization principal policy is still signed
+the normal group list. The organization principal policy is signed
 managed-principal state, but org-manager does not expose
 `directory.users[].role` or treat organization-principal roles as product
 authorization.
@@ -166,8 +167,9 @@ Containers form a tree. A container access manifest includes:
 
 Effective access is resolved across the manifest path from root to target.
 Grants are additive along that path. A read grant authorizes listing and reading
-objects under the container. Write/admin grants are required for writer
-projections because those responses include KEK material for future writes.
+objects under the container. Writer projections, which carry the KEK material
+a client needs to prepare writes, are served with current read access; write
+authorization is checked when the write commits.
 
 ## Documents
 
@@ -229,13 +231,14 @@ Blob bind writes submit:
 - optional staged blob write header
 
 Blob stages are created through the multipart staging routes. Each encrypted
-part receives a five-minute S3/R2 upload URL after stage-owner and identity
-checks: the parts sent first in the stage initiation response, later parts
-just before they are sent. URLs renew independently between chunks without
-changing the upload ID or earlier part ETags. Non-signing stores use the API
-binary-part route. The bind path treats a stage as a temporary encrypted upload
-owned by the authenticated user: it assembles the uploaded parts, verifies the
-assembled length and SHA-256, and promotes only that verified, unexpired stage.
+part receives an S3/R2 upload URL that lasts at most five minutes and never
+outlives the stage, issued after stage-owner and identity checks: the parts sent
+first in the stage initiation response, later parts just before they are sent.
+URLs renew independently between chunks without changing the upload ID or
+earlier part ETags. Non-signing stores use the API binary-part route. The bind
+path treats a stage as a temporary encrypted upload owned by the authenticated
+user: it assembles the uploaded parts, verifies the assembled length and
+SHA-256, and promotes only that verified, unexpired stage.
 
 ## Read Surfaces
 
@@ -254,9 +257,10 @@ Read/list routes use the same signed manifest state:
     list. Only the lane container's own absence carries `container_not_found`
 - `GET /documents/:documentId/attachments`
   - requires read access through at least one linked container path
-- `GET /blobs/:blobId`
+- `GET /blobs/:blobId/download`
   - requires read access through at least one active binding's document
-  - returns committed encrypted blob metadata and string-encoded bytes
+  - returns committed blob metadata and either an API byte source or a
+    signed object-store URL
 - `GET /blobs/:blobId/bytes`
   - requires read access through at least one active binding's document
   - streams committed encrypted blob bytes with digest headers

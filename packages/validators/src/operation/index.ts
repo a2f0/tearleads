@@ -291,6 +291,7 @@ export {
   listRootAuditEventsOperation,
   type RootAuditEventsQuery,
 } from "./rootAudit";
+export { getRootOpsHealthReportOperation } from "./rootOpsHealth";
 export {
   getRootOrganizationDataUsageOperation,
   getRootOrganizationOperation,
@@ -300,6 +301,16 @@ export {
   type RootOrganizationPageQuery,
   type RootOrganizationsQuery,
 } from "./rootOrganizations";
+export {
+  listRootOrganizationRevenuecatEventsOperation,
+  listRootRevenuecatEventsReportOperation,
+  type RootRevenuecatEventsQuery,
+  type RootRevenuecatEventsReportQuery,
+} from "./rootRevenuecat";
+export {
+  liftRootIdentitySuspensionOperation,
+  suspendRootIdentityOperation,
+} from "./rootSuspension";
 export {
   cancelStripeSubscriptionOperation,
   createStripeCheckoutOperation,

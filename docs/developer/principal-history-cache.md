@@ -9,12 +9,11 @@ stage row's `scope_id` and `touched_at` columns are eviction hints; only private
 authentication permits recovery reuse. An authenticated completed stage or
 prefix of the exact pinned head serves online recovery without a confirmation
 read; if its stored current artifacts fail verification, the stage is discarded
-and signed history is replayed online once
-([#2522](https://github.com/a2f0/tearleads/issues/2522)). Evicting such a stage
-costs only requests while online. Above these durable rows, one workflow
-operation keeps its recovered directory and Admins views in memory only; an
-organization read-model hint, a durable pin past a memoized head, or the end of
-the producing lease evicts them, and nothing is persisted from that memo.
+and signed history is replayed online once. Evicting such a stage costs only
+requests while online. The per-operation directory and Admins memo above these
+rows lives in memory only and persists nothing; see
+[current-policy consumers](current-principal-consumers.md) for its eviction
+rules.
 
 Organization provisioning (registration and each additional organization)
 writes the first completed stages for the founding organization, Admins and
@@ -46,9 +45,9 @@ protocol: removing or demoting a member requires new principal key material,
 and a remaining user's signing and encapsulation keys cannot change within its
 [identity trust domain](trusted-user-identity.md). Valid same-key updates retain
 the existing members and their recipient identities. Missing member envelopes
-fail projection verification. A future user-key rotation protocol would need
-to revisit this retention rule. Matching fingerprints alone do not authenticate
-arbitrary archived candidates or guarantee availability after local corruption.
+fail projection verification. This retention rule depends on that key
+stability. Matching fingerprints alone do not authenticate arbitrary archived
+candidates or guarantee availability after local corruption.
 
 Each accepted page also reclaims abandoned incomplete progress in its own scope.
 It keeps the current writer and the seven most recently touched other incomplete
@@ -85,8 +84,9 @@ Cancellation rolls back page acceptance, key archival and reclamation. Incomplet
 cleanup reads only stage identifiers; completed cleanup reads current artifacts
 only for its bounded archival/deletion batch. Both use the scoped recency index.
 
-Proof nodes present before graph indexing remain available. Their previous
-owners cannot be reconstructed from unauthenticated metadata alone.
+Stored proof nodes that lack graph edges when a write indexes them stay
+unmanaged and are never reclaimed; their owners cannot be reconstructed from
+unauthenticated metadata alone.
 
 Accepted pages record their computed proof root and each new node's outgoing
 edges. Saved stages and prefixes own roots; replacing or removing their exact
@@ -107,13 +107,12 @@ proofs; they cannot establish a new trusted history. The existing online replay
 path can repair missing proof material, while offline callers may need to retry
 online. Organization reset clears graph hints together with its cached evidence.
 
-The encrypted archive is key material, not an authorization cache. Its candidates
-can only open wraps addressed to the caller's private keys; projection and policy
-verification still establish authority independently. Duplicate encoded candidates
-from the archive, prefix and stage sources are tried only once.
-Archive persistence does not authenticate the old progress record. Corrupted local
-artifacts can replace useful candidates and make offline decryption unavailable;
-their consistency checks do not establish a new trust boundary.
+The encrypted archive is key material, not an authorization cache; see
+[key envelope candidates](principal-key-envelope-candidates.md) for its trust
+boundary. Archive persistence does not authenticate the old progress record.
+Corrupted local artifacts can replace useful candidates and make offline
+decryption unavailable; their consistency checks do not establish a new trust
+boundary.
 
 The archive rows and stage recency hints join the same guarded transaction as
 prefix publication or coupled receipt/checkpoint admission. Cancellation and
@@ -127,8 +126,8 @@ its unpublished stage is evicted.
 
 This bounds staged recovery attempts and cleanup batches, not total cache bytes.
 Retained key epochs, signed entries, leaf-reference hints and the shared nodes
-needed to prove them still grow with history. In real HTTP tests, 128 successive
-private heads retain 133 proof nodes for the current head and predecessor; public
-recovery retains 127 nodes for its single published root. Both paths retained
-448 nodes with reclamation disabled. Every historical version remains provable
-offline.
+needed to prove them still grow with history. In
+`principalHistoryNodeRetention.test.ts`, 128 successive private heads retain 133
+proof nodes for the current head and predecessor, and public recovery retains
+127 nodes for its single published root; every historical version remains
+provable offline.

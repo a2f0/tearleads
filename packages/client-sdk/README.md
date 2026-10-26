@@ -92,25 +92,25 @@ dependencies are the packages that output imports, at the versions the
 workspace pins, as caret ranges. Source maps carry their sources inline and
 name them by file name alone.
 
-`scripts/publishedPackage.test.ts` builds the package and checks its manifest, that
-every module imports only its own files or a declared dependency, and that no
-build path or test module ships. The smoke script imports every entry point
+`scripts/publishedPackage.test.ts` builds the package and checks its manifest,
+that every module imports only its own files or a declared dependency, and that
+no build path or test module ships. The smoke script imports every entry point
 under Bun and Node, resolves and parses the SQLite worker files, and bundles
-the entry points for the browser. It typechecks a consumer
-under `bundler` and `nodenext` resolution with `skipLibCheck: true`, then again
-without it, failing on errors in the SDK's declarations and ignoring those in
-drizzle-orm's and loro-crdt's own. It needs the network to install the
-consumer's dependencies.
+the entry points for the browser. It typechecks a consumer under `bundler` and
+`nodenext` resolution with `skipLibCheck: true`, then again without it, failing
+on errors in the SDK's declarations and ignoring those in drizzle-orm's and
+loro-crdt's own. It needs the network to install the consumer's dependencies.
 
 Merging to `main` publishes. When `packages/client-sdk` changes there,
 `.github/workflows/client-sdk-publish.yml` publishes the version in
-`package.json` if it is newer than npm's `latest`, after running the smoke
-script; a merge that leaves the version alone, a re-run, or a run that finishes
-after a newer release succeeds without publishing
-(`scripts/release/npmPublishDecision.ts` makes that call). Because the package
-ships the workspace packages above, `agent-tool.json` lists it under
-`versions.bundles`: a change to any of them also bumps the SDK's version, so it
-publishes too. The workflow authenticates with
+`package.json` if it is a stable `x.y.z` newer than npm's `latest`, after the
+smoke script passes. A merge that leaves the version alone, a re-run, or a run
+that finishes after a newer release succeeds without publishing
+(`agent-tool release plan` makes that call). Because the package ships the
+workspace packages above, `agent-tool.json` lists it under `versions.bundles`:
+a change to any of them also bumps the SDK's version, so it publishes too.
+
+The workflow authenticates with
 [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) and
 attaches provenance to each version. On npmjs.com the package's trusted
 publisher names the `a2f0` owner, the `tearleads` repository, the
@@ -127,14 +127,13 @@ bun run publish:npm:dry-run client-sdk
 bun run publish:npm client-sdk --otp 123456
 ```
 
-`scripts/release/publishNpmPackage.sh` rebuilds into a fresh temporary directory,
-publishes its generated manifest with public access to
+`scripts/release/publishNpmPackage.sh` rebuilds into a fresh temporary
+directory, publishes its generated manifest with public access to
 `https://registry.npmjs.org`, and removes the directory on success or failure.
 A temporary `.npmrc` overrides any scope-specific registry without changing
 your npm configuration. It accepts `--dry-run`, `--tag <tag>` (default
 `latest`), and `--otp <code>`.
 
-`ship-pr` bumps changed workspace packages before review and merge; the
-generated manifest copies `version` from `package.json`. The manifest names
-this repository, which npm requires of a version with provenance, and declares
-`"license": "UNLICENSED"` until a license is chosen.
+The generated manifest copies `version` from `package.json`, names this
+repository (npm requires that of a version with provenance), and declares
+`"license": "UNLICENSED"`.

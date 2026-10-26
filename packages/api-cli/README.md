@@ -27,10 +27,9 @@ prints only `Unknown command: <name>` — no usage — and exits `1`. `-h` /
 ### `migrate`
 
 Initializes the current Drizzle baseline for the API's Postgres, local SQLite,
-or remote
-Turso database. Defaults `API_DATABASE` to `postgres` when unset, then calls
-`initializeApiDatabase` from `@tearleads/api-shared/postgres`. Turso uses the
-SQLite migration bundle.
+or remote Turso database. Defaults `API_DATABASE` to `postgres` when unset,
+then calls `initializeApiDatabase` from `@tearleads/api-shared/postgres`. Turso
+uses the SQLite migration bundle.
 
 In the compiled executable both dialects' migration files are **embedded** — the
 build bundles `packages/api-shared/{drizzle,drizzle-sqlite}/**/*.{sql,json}` as
@@ -111,12 +110,9 @@ scripts/admin/listBlobBucketKeys.sh <staging|prod> [prefix] [--with-size]
 Sets or clears `users.is_root` for the identity registered with the given
 signing key fingerprint (the 64-character lowercase hex value shown as
 `signingKeyFingerprint` in the app and API). Root identities may call the
-API's internal, read-only `/root` operator routes: the identity directory
-(filterable by fingerprint prefix, user ID, or root standing) with last
-activity, live sessions, and organization memberships; the organization
-directory with persisted billing and Stripe state, the latest billing events,
-and rosters; and synced data usage per organization and across organizations
-(see the operator table in `docs/api-architecture.md`). Root is a plain
+API's internal `/root` operator routes, which back the root console's identity
+and organization lookups, reports, audit trail, and account suspension (see
+the [root operator API](../../docs/root-operator-api.md)). Root is a plain
 operational boolean for internal staff and technical support; it grants no
 access-plane keys and is never exposed as a user-facing feature.
 
@@ -132,8 +128,10 @@ non-zero exit when the fingerprint is malformed, extra arguments are passed, or
 no identity is registered under that fingerprint. A change is recorded in the
 root audit trail (`root_audit_events`, action `root.access.grant` or
 `root.access.revoke`, with no actor) in the transaction that changes the flag;
-a run that changes nothing records nothing. Against a deployed tier,
-export the runtime connection from the `postgres` Terraform stack output
+a run that changes nothing records nothing. Root identities cannot be
+suspended, and granting root does not lift an existing suspension; lift it
+from the root console. Against a deployed tier, export the runtime connection
+from the `postgres` Terraform stack output
 (`terraform/scripts/run-postgres-stack.sh <tier> output -json api_connection`)
 in a private shell, then run the command from source:
 

@@ -1,10 +1,11 @@
 # Blob envelope write authority
 
-[`BlobEnvelopeAuthority.tla`](./BlobEnvelopeAuthority.tla) models findings 9 and
-11 of #2365. A writer binding an existing blob to document B may read document A,
-but that read does not authorize replacing A's stored envelopes. The transaction
-validates B's exact binding targets, retains every other stored envelope byte for
-byte, and recomputes the merged bundle hash while holding the blob lock.
+[`BlobEnvelopeAuthority.tla`](./BlobEnvelopeAuthority.tla) models blob
+envelope write authority. A writer binding an existing blob to document B may
+read document A, but that read does not authorize replacing A's stored
+envelopes. The transaction validates B's exact binding targets, retains every
+other stored envelope byte for byte, and recomputes the merged bundle hash while
+holding the blob lock.
 
 | Model action or predicate | Production seam |
 | --- | --- |
@@ -26,6 +27,6 @@ to replace the source's first envelope after rotation. The refused request rolls
 back, a binding-only retry preserves the source bytes, and the source's own later
 rewrap still succeeds. The full SDK relink regression uploads a fresh attachment
 after rotation, omits that linked container's current path, and offers its retired
-key through the new destination's verified parent history. It proves the unfixed
-planner discloses the fresh DEK under that retired key. An honest partial view
+key through the new destination's verified parent history; it fails if the
+planner wraps the fresh DEK under that retired key. An honest partial view
 continues to retain authenticated existing envelopes without needing a new wrap.

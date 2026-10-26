@@ -34,7 +34,8 @@ falls back to login, as it does when a registration's response is lost.
 
 After an environment reset, a device keeps its trust store while the server
 forgets every key, so such a device can neither register nor log in until its
-local app data is cleared. The greenfield-reset runbook covers this.
+local app data is cleared, as the
+[environment reset runbook](greenfield-reset.md) describes.
 
 Pins default to the canonical absolute `apiBaseUrl`, including its base path.
 When a non-browser host uses a relative API URL, it must provide an absolute
@@ -52,21 +53,21 @@ Pins survive SDK recreation, ordinary logout, remote-state reset, and
 current-format local backup restore. Restore monotonically merges identity pins,
 principal policy checkpoints, and access manifest checkpoints, and aborts on
 overlapping conflicts, including a backup that binds a pinned signing key to a
-different user. Older backup formats are rejected. Deliberately purging
-or recreating the local database resets this security history and should be
+different user. Older backup formats are rejected. Deliberately purging or
+recreating the local database resets this security history and should be
 presented to users as a security reset.
 
-Local content backup restore does not establish a remote login (#2419). After
+Local content backup restore does not establish a remote login. After
 restoring data, the user signs in with the matching identity to resume sync.
 Restored trust pins and checkpoints still constrain that login and subsequent
-projections. Keeping this explicit sign-in is intentional: restoring content
-must not silently select an account or resume a remote session. Identity recovery
-and data restoration remain separate user actions.
+projections. The explicit sign-in is intentional: restoring content must not
+silently select an account or resume a remote session. Identity recovery and
+data restoration are separate user actions.
 
 Password-protected backups authenticate their contents with AES-GCM. Opting out
 of a password removes both encryption and integrity protection: anyone with the
-file can read or modify it. Restore still enforces the existing device's pin
-and checkpoint conflict rules, but imports previously unseen trust scopes from
+file can read or modify it. Restore enforces the device's existing pin and
+checkpoint conflict rules, but imports previously unseen trust scopes from
 the backup. A modified unencrypted backup can therefore seed new trust pins or
 checkpoints, especially on a fresh device. Such a restore relies on the user
 trusting the file's origin and integrity; structural validation does not
@@ -84,8 +85,8 @@ from the current user's local keys and registered user ID. It performs no
 remote identity lookup. Give the link to peers through an authenticated channel.
 It is reusable for anyone verifying this exact identity; it grants no access.
 
-`await tearleads.userIdentities.verifyLink(link)` fetches through the existing
-identity endpoint, validates both keys, checks the independently supplied bundle
+`await tearleads.userIdentities.verifyLink(link)` fetches through the identity
+endpoint, validates both keys, checks the independently supplied bundle
 fingerprint, and only then compares or inserts the durable pin. A foreign
 service is refused before fetching. A mismatch, unavailable identity, or changed
 active identity fails without inserting a pin. Existing conflicting pins remain
@@ -95,8 +96,7 @@ Contacts or Roster. Links do not override pin conflicts.
 `userIdentities.resolvePinned(userId)` reads an existing durable pin without a
 network lookup or first-use trust. Roster selections and Import Into Contacts
 reuse any existing pin, regardless of how or when it was established. Explorer
-sharing, ordinary SDK `resolve`, and signer lookups still establish TOFU pins;
-this includes resolutions made after identity links were introduced. A pin
+sharing, ordinary SDK `resolve`, and signer lookups establish TOFU pins. A pin
 created by one of these flows can therefore be reused for a roster selection or
 contact import without exchanging a link. This preserves continuity with the
 earlier accepted key; it does not establish out-of-band authentication.
@@ -130,8 +130,8 @@ identity link. Native hosts use the corresponding production or staging web
 app; custom deployments may configure `AppHostConfig.identityLinkWebUrl`.
 
 A link authenticates the exact identity bundle provided by its owner. Rotation
-requires a new authenticated exchange; this format does not prove currentness,
-revocation, or the freshness of signed policies. It does not replace #2186's
-remaining transparency and currentness work. Link-verification errors are
-shown to the user; a mismatched supplied link alone is not attributed as a
-server security incident.
+requires a new authenticated exchange. This format does not prove currentness,
+revocation, or the freshness of signed policies; transparency and currentness
+remain open in [#2186](https://github.com/a2f0/tearleads/issues/2186).
+Link-verification errors are shown to the user; a mismatched supplied link
+alone is not attributed as a server security incident.

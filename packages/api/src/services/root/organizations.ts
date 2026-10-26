@@ -28,7 +28,7 @@ export class RootOrganizationError extends Error {
     super(message);
   }
 }
-function pageInput(query: RootOrganizationPageQuery, scope: string) {
+export function pageInput(query: RootOrganizationPageQuery, scope: string) {
   const cursor =
     query.cursor === undefined
       ? undefined
