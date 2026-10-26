@@ -28,7 +28,7 @@ switch (args[0]) {
   install                 Install pinned native services (macOS arm64)
   start / stop            Start or stop background services
   portal                  Run the portal in the foreground
-  register [git-ref]       Upload a committed snapshot (default HEAD)
+  register [ref] [base]    Upload a Git checkout (defaults HEAD, origin/main)
   calibrate               Check known correct/incorrect answers with Codex
   benchmark [count]       Run three agent-friendliness tasks, sequentially
   regrade <receipt>        Regrade saved one-turn outputs without rerunning agents
@@ -48,9 +48,9 @@ Other commands are forwarded to the upstream CLI with this project selected.`);
     );
     break;
   case "register":
-    if (args.length > 2)
-      throw new Error("Usage: bun run scope:register [git-ref]");
-    await register(args[1] ?? "HEAD");
+    if (args.length > 3)
+      throw new Error("Usage: bun run scope:register [git-ref] [base-ref]");
+    await register(args[1] ?? "HEAD", args[2] ?? "origin/main");
     break;
   case "calibrate":
     if (args.length !== 1) throw new Error("Usage: bun run scope calibrate");

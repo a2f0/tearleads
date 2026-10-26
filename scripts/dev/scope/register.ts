@@ -2,6 +2,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
+import { createCodebaseArchive } from "./archive";
 import { apiRequest, root, settings, stateDir } from "./settings";
 import { configSchema } from "./types";
 
@@ -16,13 +17,15 @@ export function git(...args: string[]): string {
   return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
 }
 
-/** Upload committed source only; ignored credentials and local state never enter the archive. */
-export async function register(ref: string): Promise<void> {
-  const commit = git(
-    "rev-parse",
-    "--verify",
-    "--end-of-options",
-    `${ref}^{commit}`,
+/** Upload committed source and fresh Git metadata, excluding host/local state. */
+export async function register(ref: string, baseRef: string): Promise<void> {
+  await mkdir(stateDir, { recursive: true, mode: 0o700 });
+  const archive = join(stateDir, "tearleads2.tar.gz");
+  const { commit, baseCommit } = await createCodebaseArchive(
+    root,
+    archive,
+    ref,
+    baseRef,
   );
   const projects = z.array(entity).parse(await apiRequest("/projects"));
   const matches = projects.filter((project) => project.name === "Tearleads");
@@ -48,9 +51,6 @@ export async function register(ref: string): Promise<void> {
   const codebase = existing[0];
   if (codebase && codebase.sourceType !== "archive")
     throw new Error("Expected archive codebase");
-  await mkdir(stateDir, { recursive: true, mode: 0o700 });
-  const archive = join(stateDir, "tearleads2.tar.gz");
-  git("archive", "--format=tar.gz", `--output=${archive}`, commit);
   const form = new FormData();
   form.set("archive", Bun.file(archive), "tearleads2.tar.gz");
   let codebaseId: string;
@@ -81,6 +81,7 @@ export async function register(ref: string): Promise<void> {
     codebaseId,
     revisionId,
     commit,
+    baseCommit,
   });
   await writeFile(
     join(stateDir, "config.json"),
@@ -88,6 +89,6 @@ export async function register(ref: string): Promise<void> {
     { mode: 0o600 },
   );
   console.log(
-    `Registered ${commit} at ${settings.apiUrl}; revision ${config.revisionId}`,
+    `Registered ${commit} (base ${baseCommit}) at ${settings.apiUrl}; revision ${config.revisionId}`,
   );
 }

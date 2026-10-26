@@ -111,6 +111,21 @@ setup benchmark, first provide a real Git checkout, explicit tool trust, and
 captured command output; then measure installation and a focused verification
 command. Keep those execution results separate from this inspection pilot.
 
+## Follow-up fixes
+
+The SDK README and advanced example now initialize SQLite before configuring
+the SDK, opt into OPFS explicitly, and explain the memory default. The
+[document creation guide](document-creation.md) distinguishes the normal store
+path from custom workflow APIs. Architecture guidance assigns document mutation
+transactions to workflows. Setup now includes reviewed mise trust and separate
+[verification prerequisites](verification.md#prerequisites).
+
+New Scope registrations include fresh Git metadata, the exact source commit,
+and a pinned `origin/main` with their common ancestor. They exclude host Git
+configuration, hooks, local edits, and ignored files. These fixes do not change
+the pilot's archived reports, grades, or conditions. A repeated discoverability
+experiment and an actual execution benchmark remain separate follow-up work.
+
 ## Tooling verification
 
 Offline verdict, archive, run-state and native-evidence tests passed, along with

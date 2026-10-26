@@ -21,6 +21,7 @@ export const configSchema = z.object({
   codebaseId: z.string(),
   revisionId: z.string(),
   commit: z.string(),
+  baseCommit: z.string().optional(),
 });
 
 export const suiteSchema = z.object({

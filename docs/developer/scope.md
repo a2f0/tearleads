@@ -74,15 +74,29 @@ coding worker into an isolation boundary.
 
 ## Run the discoverability baseline
 
-Registration uploads **committed source only**, using `git archive`. Uncommitted
-edits, ignored files, dependencies and credentials are excluded. Re-register
-after committing a change that you want to measure; a git ref may be supplied.
+Registration uploads a **clean checkout of committed source**, with fresh Git
+metadata and bounded history connecting the source and base commits. It pins
+the base as `origin/main` inside the snapshot, regardless of the supplied base
+ref's name. Both refs must resolve locally and have a common ancestor. Fetch
+the intended base first; registration does not fetch from the network.
+
+Local edits, ignored files, installed dependencies, host Git configuration,
+credentials, hooks and object alternates are excluded. Only committed files
+and the required Git objects enter the archive. Re-register after committing a
+change that you want to measure. Defaults are `HEAD` and local `origin/main`;
+pass exact commits to reproduce an older comparison.
 
 ```sh
-bun run scope:register HEAD
+bun run scope:register HEAD origin/main
 bun run agent:run --label scope-calibrate -- bun run scope calibrate
 bun run agent:run --label scope-baseline -- bun run scope benchmark
 ```
+
+New registrations record both commit IDs in `.scope/config.json`. The initial
+pilot's source-only archive remains historical evidence. Git-capable snapshots
+remove that harness limitation, but the inspection suite still does not install
+tools or run builds. Future execution tasks must explicitly review mise trust
+and provision the [verification prerequisites](verification.md#prerequisites).
 
 Calibration sends a known correct report and a deliberately incorrect report
 to the Judge against source evidence. It expects 4/4 and 1/4 criteria to pass,
