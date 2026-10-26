@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   type ContainerKekLogResponse,
   isContainerKekLogResponse,

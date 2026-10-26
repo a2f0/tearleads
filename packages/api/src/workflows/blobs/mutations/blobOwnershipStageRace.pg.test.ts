@@ -5,8 +5,8 @@ import {
   blobStages,
   blobs,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { parseBlobEnvelopeV2Header } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq, inArray } from "drizzle-orm";
 import { authenticate } from "../../../../test/helpers/authenticate";
 import {

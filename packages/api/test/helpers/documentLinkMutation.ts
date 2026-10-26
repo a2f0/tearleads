@@ -1,4 +1,3 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   DocumentAccessEventBody,
   DocumentLinkAccessEventBody,
@@ -9,6 +8,7 @@ import {
   computeDocumentContentKeyTargetHash,
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   DocumentLinkSetMutationRequest,

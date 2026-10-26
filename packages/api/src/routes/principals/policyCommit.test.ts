@@ -6,13 +6,13 @@ import {
   principalPolicyCommits,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";

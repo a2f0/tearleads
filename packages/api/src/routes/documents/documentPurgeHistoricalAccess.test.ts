@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { documentManifestObservations } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { VerifiedContainerKekState } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   isContainerMutationResponse,

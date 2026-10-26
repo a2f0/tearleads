@@ -1,7 +1,7 @@
 import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
-import type { TestUser } from "@tearleads/bob-and-alice";
+import type { TestUser } from "@tearleads/test-utils";
 import { startPrincipalHistoryHttpProbe } from "./principalHistoryHttpProbe";
 import type {
   PrincipalHistoryHttpMetrics,

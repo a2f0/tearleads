@@ -1,6 +1,6 @@
 import { db } from "@tearleads/api-shared/postgres";
 import { blobAuditObjects, blobs, users } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { sha256Hex } from "../../src/utils/sha256";

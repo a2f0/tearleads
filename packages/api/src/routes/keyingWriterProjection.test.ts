@@ -15,7 +15,6 @@ import {
   documents,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   DocumentAccessEventBody,
   DocumentLinkAccessEventBody,
@@ -28,6 +27,7 @@ import {
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import { emptyVersionVector } from "@tearleads/loro";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type {
   ContainerManifestRef,
   DocumentLinkSetMutationRequest,

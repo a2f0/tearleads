@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { principalPolicyCommits } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { CommitOrganizationGroupPolicyRequestSchema } from "@tearleads/validators/request";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";

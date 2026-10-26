@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { documents, documentUpdates } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   computeDocumentContentRecordCiphertextHash,
   signWriteHeader,
   type UnsignedWriteHeader,
 } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { DocumentCreateRequest } from "@tearleads/validators/request";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_REQUEST_BYTES } from "@tearleads/validators/util";

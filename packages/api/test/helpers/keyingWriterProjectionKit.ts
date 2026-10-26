@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { containers, organizations, users } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   AttachmentAccessEventBody,
   ContainerAccessEventBody,
@@ -28,6 +27,7 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   DocumentCreateRequest,

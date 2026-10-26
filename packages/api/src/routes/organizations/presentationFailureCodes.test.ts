@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { ORGANIZATION_PRESENTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";

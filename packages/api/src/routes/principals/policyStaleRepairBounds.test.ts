@@ -1,5 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { isPrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";

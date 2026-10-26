@@ -1,4 +1,3 @@
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   buildMaterializedContainerRekeyPlan,
   createRemoteContainer,
@@ -7,6 +6,7 @@ import {
   revokeRemoteContainer,
   shareRemoteContainer,
 } from "@tearleads/client-sdk";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { createAncestorSdkContext } from "./ancestorSdkRepair";
 import { authenticate } from "./authenticate";

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { createRegistrationRequestBody } from "../../test/helpers/api/submitRegistration";
 import { authenticate } from "../../test/helpers/authenticate";
 import { startFakeStartTlsPostgres } from "../../test/helpers/fakeStartTlsPostgres";

@@ -1,5 +1,4 @@
 import { expect } from "bun:test";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   VerifiedContainerKekState,
@@ -7,6 +6,7 @@ import type {
 } from "@tearleads/crypto";
 import { computeContainerKekPredecessorBridgeHash } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,

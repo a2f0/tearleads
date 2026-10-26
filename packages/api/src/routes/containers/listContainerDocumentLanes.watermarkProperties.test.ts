@@ -6,8 +6,8 @@ import {
   containers,
   documents,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import type { SyncWatermark } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";

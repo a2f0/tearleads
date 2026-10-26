@@ -5,11 +5,10 @@ import {
   principalHistoryIndexNodes,
   principalHistoryProgress,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { recoverProjectionPolicyHistory } from "@tearleads/client-sdk";
 import { principalPolicyMatchesReference } from "@tearleads/crypto";
 import { clearPrincipalPolicySignatureCaches } from "@tearleads/crypto/principal-policy-test-fixtures";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import { trustedResolver } from "../../../test/helpers/coldSdkRematerialization";
 import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHistory";

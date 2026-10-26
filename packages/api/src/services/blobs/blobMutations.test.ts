@@ -7,7 +7,6 @@ import {
   containers,
   documents,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   AttachmentBindAccessEventBody,
   AttachmentDetachAccessEventBody,
@@ -37,6 +36,7 @@ import {
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { BlobAttachmentBindRequest } from "@tearleads/validators/request";
 import { eq, inArray } from "drizzle-orm";
 import { fixtureBlobMetadataHash } from "../../../test/helpers/blobEnvelope";

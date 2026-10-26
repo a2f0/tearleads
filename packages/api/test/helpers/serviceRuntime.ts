@@ -1,5 +1,5 @@
 import { db as defaultDb } from "@tearleads/api-shared/postgres";
-import type { TestUser } from "@tearleads/bob-and-alice";
+import type { TestUser } from "@tearleads/test-utils";
 import type { RegistrationRequest } from "@tearleads/validators/request";
 import {
   type BlobObjectStore,

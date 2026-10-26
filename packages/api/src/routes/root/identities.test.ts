@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { registerUser } from "../../../test/helpers/registerUser";

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type { VerifiedContainerKekState } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";

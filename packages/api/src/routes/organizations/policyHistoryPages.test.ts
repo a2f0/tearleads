@@ -5,10 +5,10 @@ import {
   principalHistoryProgress,
   principalStatePayloads,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { computePrincipalStatePayloadCiphertextHash } from "@tearleads/crypto";
 import { clearPrincipalPolicySignatureCaches } from "@tearleads/crypto/principal-policy-test-fixtures";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   OrganizationPolicyHistoryResponseSchema,
   PrincipalPolicyBundleResponseSchema,

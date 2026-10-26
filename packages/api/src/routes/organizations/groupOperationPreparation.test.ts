@@ -6,8 +6,8 @@ import {
   principalHistoryProgress,
   principalPolicyCommits,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { clearPrincipalPolicySignatureCaches } from "@tearleads/crypto/principal-policy-test-fixtures";
+import { createTestUser } from "@tearleads/test-utils";
 import { putPrincipalPolicyOperation } from "@tearleads/validators/operation";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";

@@ -6,8 +6,8 @@ import {
   containerKeyWraps,
   organizationBilling,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { buildMaterializedDocumentCreatePlan } from "@tearleads/client-sdk";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   isContainerMutationResponse,
   isContainerReciteResponse,

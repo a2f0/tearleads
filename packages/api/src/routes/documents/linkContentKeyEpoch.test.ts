@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { currentDocumentLinkRows } from "../../../test/helpers/currentDocumentLinks";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";

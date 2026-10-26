@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
+import type { TestUser } from "@tearleads/test-utils";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import { and, asc, eq, isNull } from "drizzle-orm";
 

@@ -4,7 +4,7 @@ import {
   organizationBilling,
   organizationBillingStripeSeats,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";
 import { runRevenueCatWebhookWorkflow } from "./revenuecatWebhook";

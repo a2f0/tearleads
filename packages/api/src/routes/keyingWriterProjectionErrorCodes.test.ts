@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { containerKeyEpochs } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { DOCUMENT_PROJECTION_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../test/helpers/authenticate";

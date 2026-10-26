@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { TestUser } from "@tearleads/bob-and-alice";
+import type { TestUser } from "@tearleads/test-utils";
 import {
   DocumentPurgeProofResponseSchema,
   PrincipalPolicySnapshotPageResponseSchema,

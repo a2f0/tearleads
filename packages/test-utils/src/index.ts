@@ -21,6 +21,7 @@ export {
   initTestSqliteDatabase,
   type TestExecSql,
 } from "./createTestExecSql";
+export { createTestUser, type TestUser } from "./createTestUser";
 export { createTransportFaultHarness } from "./createTransportFaultHarness";
 export { createTransportGate, type TransportGate } from "./createTransportGate";
 export {

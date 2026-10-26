@@ -4,8 +4,8 @@ import {
   documentContentKeyEpochs,
   documentContentKeyTargets,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { DOCUMENT_CONTENT_KEY_WRAP_SUITE } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";

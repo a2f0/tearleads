@@ -6,7 +6,6 @@ import {
   organizations,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type AccessEvent,
   type ContainerAccessManifestState,
@@ -25,6 +24,7 @@ import {
 } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import { createPrincipalMemberEnvelopes } from "../../../test/helpers/principalMemberEnvelopes";
 import {
   createProjectionWithAdminSigner,

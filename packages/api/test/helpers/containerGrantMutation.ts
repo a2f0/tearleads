@@ -1,4 +1,3 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   ContainerKeyWrap,
@@ -7,6 +6,7 @@ import type {
   VerifiedContainerKekState,
 } from "@tearleads/crypto";
 import { toFingerprint } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,

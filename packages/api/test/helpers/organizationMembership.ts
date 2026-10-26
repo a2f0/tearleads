@@ -1,9 +1,9 @@
 import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizations, users } from "@tearleads/api-shared/schema";
-import type { createTestUser, TestUser } from "@tearleads/bob-and-alice";
 import { generateKemSeedAndKeyPair, toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { createTestUser, TestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { getPrincipalStatePayloadForState } from "../../src/access/read/principalStateStore";

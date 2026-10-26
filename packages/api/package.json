@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/api",
-  "version": "0.1.65",
+  "version": "0.1.66",
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
@@ -34,7 +34,6 @@
   "devDependencies": {
     "@sentry/cli": "3.8.1",
     "@tearleads/api-client": "workspace:*",
-    "@tearleads/bob-and-alice": "workspace:*",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:",

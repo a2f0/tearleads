@@ -1,5 +1,5 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type { BlobEnvelopeV2Header } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import {
   initiateMultipartBlobStage,
   uploadMultipartBlobPartBytes,

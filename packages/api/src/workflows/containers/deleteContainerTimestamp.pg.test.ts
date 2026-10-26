@@ -5,7 +5,7 @@ import {
   blobs,
   documents,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import { eq, sql } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
