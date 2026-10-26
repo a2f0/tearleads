@@ -8,6 +8,7 @@ const strictConfigDefaults = {
 
 const rootToolingWorkspace = {
   entry: [
+    "scripts/dev/scope/browser-guard.ts",
     "scripts/dev/scope/judge/server.ts",
     "scripts/dev/scope/**/*.test.ts",
   ],
