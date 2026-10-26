@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import {
+  principalMemberEnvelopes,
   principalMembershipProjection,
   principalStatePayloads,
   principalStates,
@@ -10,7 +11,7 @@ import { principalHistoryPreparationFixture } from "../../../test/helpers/princi
 import { getCurrentPrincipalState } from "../../access/read/principalStateStore";
 import { getVerifiedPrincipalPolicyForStateWithExecutor } from "./getCurrentPrincipalPolicy";
 
-for (const artifact of ["members", "grants", "payload"] as const) {
+for (const artifact of ["members", "grants", "payload", "envelopes"] as const) {
   test(`verified policy reuse rechecks ${artifact} on the next call in the same transaction`, async () => {
     const { head } = await principalHistoryPreparationFixture({
       versions: 1,
@@ -43,11 +44,16 @@ for (const artifact of ["members", "grants", "payload"] as const) {
             ],
           })
           .where(eq(principalStates.stateHash, head.stateHash));
-      } else {
+      } else if (artifact === "payload") {
         await tx
           .update(principalStatePayloads)
           .set({ ciphertext: "tampered" })
           .where(eq(principalStatePayloads.principalId, head.principalId));
+      } else {
+        await tx
+          .update(principalMemberEnvelopes)
+          .set({ wrappedKey: "tampered" })
+          .where(eq(principalMemberEnvelopes.principalId, head.principalId));
       }
       await expect(read()).rejects.toMatchObject({ status: 409 });
     });
