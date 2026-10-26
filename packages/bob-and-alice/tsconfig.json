@@ -3,5 +3,7 @@
   "compilerOptions": {
     "composite": true
   },
-  "include": ["src"]
+  // The harness type-checks API source through `@tearleads/api/test-runtime`,
+  // which needs the Worker ambient declarations the API compiles with.
+  "include": ["src", "../api/src/worker/cloudflare.d.ts"]
 }
