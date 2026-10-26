@@ -36,6 +36,15 @@ test("a move takes the subtree's inherited access with it", () => {
   expect(model.containerLevel("carol", "b")).toBe("read");
 });
 
+test("a reader admitted late may keep the history that predates it", () => {
+  const model = tree();
+  model.addDocument("doc", "b", "v1");
+  model.grant("a", { kind: "user", id: "bob" }, "read");
+  model.revoke("a", { kind: "user", id: "bob" });
+  model.edit("doc", "alice", "v2");
+  expect(model.textsVisibleWithoutAccess("bob", "doc")).toEqual(["v1"]);
+});
+
 test("edits apply only for writers, and a lost reader keeps only what it could read", () => {
   const model = tree();
   model.grant("a", { kind: "user", id: "bob" }, "read");

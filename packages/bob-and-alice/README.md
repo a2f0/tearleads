@@ -15,14 +15,20 @@ can only do and observe what a deployed client could.
   read and write each document, from parent pointers, grants, and group
   memberships alone.
 - `src/harness/world.ts` applies each operation to a device and, once the
-  device has settled, to the model.
+  device has settled, to the model. A member added to another user's
+  organization works inside it from then on, on every device, as a member
+  switching to that organization would.
 - `expectAccess` reads a document on every device of every user and compares
   the result with the model. A current reader must see the latest text. Anyone
   else may see nothing written after they lost access. `expectNoSecurityIncidents`
   requires an honest API to trip no device's trust-boundary checks.
 
-Scenarios live in `src/scenarios`. Set `HARNESS_TRACE=1` to print each device's
-read and each scenario's key-epoch series.
+Scenarios live in `src/scenarios`. Set `HARNESS_TRACE=1` to print each
+operation, each device's read, and each scenario's key-epoch series.
+
+`src/scenarios/knownIssues.test.ts` holds reproductions of open issues, each
+marked `test.failing`. They pass while the bug stands and fail once it is
+fixed; convert a test into an ordinary scenario then.
 
 ```sh
 bun run --filter='@tearleads/client-sdk' build

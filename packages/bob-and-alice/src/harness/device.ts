@@ -106,6 +106,18 @@ export class Device {
     return containerId;
   }
 
+  get organizationId(): string {
+    const organizationId = this.sdk.session.organizationId;
+    if (!organizationId) throw new Error(`${this.label} has no organization`);
+    return organizationId;
+  }
+
+  /** Works inside `organizationId`, as a member switching to it would. */
+  enterOrganization(organizationId: string): void {
+    this.sdk.session.setOrganizationId(organizationId);
+    this.treeStore?.updateRuntime(this.sdk.containerContents.workflowRuntime());
+  }
+
   async tree(): Promise<ContainerContentsStore> {
     if (!this.treeStore) {
       const store = this.sdk.containerContents.openTree();
@@ -124,6 +136,17 @@ export class Device {
     if (!(await coordinator.waitForIdle({ timeoutMs: 20_000 }))) {
       throw new Error(`${this.label} did not settle`);
     }
+  }
+
+  /** An error naming `what` failed, with what this device logged meanwhile. */
+  failure(what: string): Error {
+    const logged = this.errors.map((entry) => {
+      const { message, cause } = entry as { message: unknown; cause: unknown };
+      return `${String(message)}${cause === undefined ? "" : `: ${String(cause)}`}`;
+    });
+    return new Error(
+      `${this.label}: ${what}${logged.length ? ` (logged: ${logged.join(" | ")})` : ""}`,
+    );
   }
 
   dispose(): void {

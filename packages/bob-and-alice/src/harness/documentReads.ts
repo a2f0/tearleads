@@ -3,37 +3,58 @@ import type { Device } from "./device";
 
 interface DocumentRef {
   readonly documentId: string;
-  readonly containerId: string;
+  /** Every container the document is linked into, any of which may grant. */
+  readonly containerIds: readonly string[];
+}
+
+async function discover(
+  device: Device,
+  document: DocumentRef,
+): Promise<{ containerId: string; localId: string } | null> {
+  const tree = await device.tree();
+  await tree.refresh().catch(() => false);
+  for (const containerId of document.containerIds) {
+    const discovered = await device.sdk.containerContents
+      .discoverContainerDocuments(containerId)
+      .catch(() => null);
+    const summary = discovered?.find(
+      (candidate) => candidate.documentId === document.documentId,
+    );
+    if (summary) return { containerId, localId: summary.id };
+  }
+  return null;
 }
 
 /**
  * Opens `document` on `device` the way a host would: the copy already held
- * locally, or else the one discovery finds in its container. Returns null
- * when the device has never seen the document and cannot discover it.
+ * locally, or else the one discovery finds through a linked container.
+ * Returns null when the device has never seen the document and cannot
+ * discover it.
  */
 export async function readDocument(
   device: Device,
   document: DocumentRef,
 ): Promise<DocumentStore | null> {
-  let localId = await device.sdk.documents.findLocalIdByDocumentId(
+  const localId = await device.sdk.documents.findLocalIdByDocumentId(
     document.documentId,
   );
-  if (!localId) {
-    const tree = await device.tree();
-    await tree.refresh().catch(() => false);
-    const discovered = await device.sdk.containerContents
-      .discoverContainerDocuments(document.containerId)
-      .catch(() => null);
-    localId =
-      discovered?.find((summary) => summary.documentId === document.documentId)
-        ?.id ?? null;
-  }
-  if (!localId) return null;
+  const held = localId
+    ? (await device.sdk.documents.list())?.rows.find(
+        (row) => row.id === localId,
+      )
+    : undefined;
+  const found = localId
+    ? {
+        containerId: held?.containerId ?? document.containerIds[0] ?? null,
+        localId,
+      }
+    : await discover(device, document);
+  if (!found) return null;
   const store = device.sdk.documents.open(
     {
-      containerId: document.containerId,
+      containerId: found.containerId,
       documentId: document.documentId,
-      localId,
+      localId: found.localId,
     },
     { remoteSyncMode: "on-demand" },
   );

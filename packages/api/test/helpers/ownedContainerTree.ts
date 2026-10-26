@@ -3,7 +3,6 @@ import {
   createRemoteContainer,
   moveRemoteContainer,
   rekeyRemoteContainer,
-  revokeRemoteContainer,
   shareRemoteContainer,
 } from "@tearleads/client-sdk";
 import { createTestUser, type TestUser } from "@tearleads/test-utils";
@@ -54,9 +53,6 @@ interface OwnedContainerTree {
   ) => Promise<readonly string[] | null>;
   readonly organizationId: string;
   readonly owner: TestUser;
-  readonly revokeFromRoot: (
-    userId: string,
-  ) => Promise<readonly string[] | null>;
   readonly rootId: string;
   readonly rotateRoot: () => Promise<readonly string[] | null>;
   readonly share: (containerId: string, userId: string) => Promise<void>;
@@ -163,14 +159,6 @@ export async function createOwnedTree(
       ),
     organizationId,
     owner,
-    revokeFromRoot: async (userId) =>
-      carriedIds(
-        await revokeRemoteContainer({
-          ...sdk,
-          containerId: rootId,
-          revokedSubject: { subjectId: userId, subjectType: "user" },
-        }),
-      ),
     rootId,
     rotateRoot: async () =>
       carriedIds(await rekeyRemoteContainer({ ...sdk, containerId: rootId })),

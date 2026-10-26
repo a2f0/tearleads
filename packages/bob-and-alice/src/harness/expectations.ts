@@ -23,7 +23,7 @@ export async function expectAccess(
       ),
     ]);
     for (const device of user.devices) {
-      const text = await readText(device, document);
+      const text = await readText(device, world.documentRef(document));
       trace(`${device.label} canRead=${canRead} read=${text}`);
       if (canRead) {
         expect({ device: device.label, text }).toEqual({

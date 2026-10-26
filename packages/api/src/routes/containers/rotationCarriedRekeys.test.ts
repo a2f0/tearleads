@@ -9,6 +9,8 @@ import { routeApp } from "../../routeApp";
 
 // #2340 finding 1, continued from `documents/inaccessibleIntermediateRepair`:
 // every rotation source, the share precondition, and the shape of the owed set.
+// A revoke's carried set, and the grantee's repair after it, are covered end to
+// end by the bob-and-alice `nestedTree` scenario.
 
 // With nothing granted beneath it a chain may sit lazily stale, and the API
 // refuses a first grant below one (`grantBelowStaleChain.test.ts`). The sharer
@@ -48,23 +50,6 @@ test("sharing below a lazily stale chain repairs the path first", async () => {
     } finally {
       edit.close();
     }
-  } finally {
-    tree.close();
-  }
-}, 180_000);
-
-test("a revoke carries the levels above a granted container", async () => {
-  const tree = await createOwnedTree(2);
-  const [writer, revoked] = tree.members;
-  if (!writer || !revoked) throw new Error("Expected two members");
-  try {
-    const upper = await tree.createChild(tree.rootId);
-    const lower = await tree.createChild(upper);
-    await tree.share(lower, writer.userId);
-    await tree.share(tree.rootId, revoked.userId);
-
-    expect(await tree.revokeFromRoot(revoked.userId)).toEqual([upper]);
-    expect(isPathCurrent((await tree.keksOf(lower)).slice(0, -1))).toBe(true);
   } finally {
     tree.close();
   }
