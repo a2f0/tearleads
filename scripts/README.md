@@ -44,6 +44,15 @@ or `bun run test:static-analysis`, to run checks and tooling tests.
 | `release/` | Native and desktop release builds/uploads, npm publishing, and their helpers and tests. |
 | `testing/` | Test runners, screenshots, device-test launchers, and verification evidence. |
 
+## Scope evaluations
+
+For repository discoverability probes with Claude Code and a Codex Judge, see
+the [Scope setup guide](../docs/developer/scope.md). Reusable tooling and benchmark
+definitions live in `scripts/dev/scope/`; local state and artifacts stay in the
+ignored `.scope/` directory. `bun run scope install`, `start`, and `portal` manage
+the local stack. `bun run scope:register` uploads committed source; `calibrate`
+checks the Judge and `benchmark` runs the three inspection tasks.
+
 ## Screenshot seed and capture
 
 `bun run screenshots:seed` verifies the pinned Continuity manifest, validates its

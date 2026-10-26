@@ -9,6 +9,8 @@
     "ignoreUnknown": true,
     "includes": [
       "**",
+      // Scope artifacts contain complete repository snapshots with their own roots.
+      "!!.scope",
       "!!docs/openapi.json",
       // Generated, fully inlined, and neither formatted nor linted below: do
       // not read it at all rather than warn about its size as the API grows.

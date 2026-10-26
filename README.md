@@ -79,3 +79,9 @@ outside its package declares them in that package's `turbo.json`.
 - [RevenueCat Billing](./docs/developer/revenuecat-billing.md)
 - [RevenueCat Native Stores](./docs/developer/revenuecat-native-stores.md)
 - [Stripe Checkout Client](./docs/developer/stripe-checkout-client.md)
+
+## Repository discoverability
+
+Use the [local Scope guide](docs/developer/scope.md) to run repeatable agent
+onboarding probes against committed Tearleads snapshots. The tracked suite
+measures setup discovery, architecture navigation, and public SDK usage.

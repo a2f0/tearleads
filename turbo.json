@@ -8,6 +8,20 @@
   "globalDependencies": ["tsconfig.base.json", "patches/**"],
   "globalEnv": ["CI_TOOLCHAIN"],
   "tasks": {
+    "//#scope": {
+      "cache": false,
+      "passThroughEnv": [
+        "SCOPE_API_URL",
+        "SCOPE_SOURCE_DIR",
+        "SCOPE_TOKEN",
+        "CODEX_JUDGE_MODEL",
+        "CODEX_HOME"
+      ]
+    },
+    "//#scope:register": {
+      "cache": false,
+      "passThroughEnv": ["SCOPE_API_URL", "SCOPE_TOKEN"]
+    },
     "//#check:protocol-models": {
       "inputs": [
         "formal/**",

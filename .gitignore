@@ -4,6 +4,7 @@
 # Local private files
 .secrets
 .test_files/
+.scope/
 
 target/
 
