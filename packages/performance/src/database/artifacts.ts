@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmod, mkdir, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 export function sourceIdentity() {
@@ -23,11 +23,16 @@ export async function databaseReport(
   return {
     path,
     async save(report: object) {
-      await writeFile(`${path}.tmp`, `${JSON.stringify(report, null, 2)}\n`, {
-        mode: 0o600,
-        flag: "wx",
-      });
-      await rename(`${path}.tmp`, path);
+      const temporary = `${path}.${crypto.randomUUID()}.tmp`;
+      try {
+        await writeFile(temporary, `${JSON.stringify(report, null, 2)}\n`, {
+          mode: 0o600,
+          flag: "wx",
+        });
+        await rename(temporary, path);
+      } finally {
+        await rm(temporary, { force: true });
+      }
     },
   };
 }

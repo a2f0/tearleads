@@ -1,4 +1,5 @@
 import { jsonRecord } from "../jsonRecord";
+import type { Options } from "../options";
 import type { CloudflareApi } from "./cloudflareApi";
 import { readUploadPlacement } from "./placement";
 
@@ -12,7 +13,7 @@ function requiredString(record: unknown, key: string): string {
 export async function readDeployedConfig(
   api: CloudflareApi,
   worker: string,
-  environment = "staging",
+  environment: Options["environment"],
 ) {
   const settings = await api(`/workers/scripts/${worker}/settings`);
   const rawBindings = Reflect.get(jsonRecord(settings), "bindings");
@@ -24,6 +25,8 @@ export async function readDeployedConfig(
   if (Reflect.get(jsonRecord(drive), "type") !== "hyperdrive")
     throw new Error("API must use a Hyperdrive binding.");
   const hyperdriveId = requiredString(drive, "id");
+  if (!/^[a-f0-9]{32}$/.test(hyperdriveId))
+    throw new Error("Invalid deployed Hyperdrive ID.");
   const configuration = await api(`/hyperdrive/configs/${hyperdriveId}`);
   if (
     Reflect.get(
@@ -45,7 +48,10 @@ export async function readDeployedConfig(
       "text",
     ),
   }));
-  if (poolBindings[0]?.text !== "true")
+  if (
+    poolBindings.find(({ name }) => name === "POSTGRES_COALESCE_WRITES")
+      ?.text !== "true"
+  )
     throw new Error(
       "The probe expects the API's coalesced PostgreSQL transport.",
     );
@@ -63,6 +69,9 @@ export async function readDeployedConfig(
   );
   if (
     !Array.isArray(compatibilityFlags) ||
+    !compatibilityFlags.every(
+      (flag: unknown): flag is string => typeof flag === "string",
+    ) ||
     !compatibilityFlags.includes("nodejs_compat")
   )
     throw new Error("API Node compatibility configuration missing.");

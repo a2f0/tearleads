@@ -1,5 +1,12 @@
 import { expect, test } from "bun:test";
-import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
+import {
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { databaseReport } from "./artifacts";
@@ -18,6 +25,21 @@ test("reports are replaced atomically with private file and directory permission
     expect((await stat(writer.path)).mode & 0o777).toBe(0o600);
     expect((await stat(directory)).mode & 0o777).toBe(0o700);
     expect(await readdir(directory)).toEqual(["database-staging-run.json"]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("an interrupted earlier temporary write cannot block the final report", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "database-probe-report-"));
+  try {
+    const writer = await databaseReport("staging", "run", directory);
+    await writeFile(`${writer.path}.tmp`, "interrupted", { mode: 0o600 });
+    await writer.save({ status: "failed", cleanup: "deleted" });
+    expect(JSON.parse(await readFile(writer.path, "utf8"))).toEqual({
+      status: "failed",
+      cleanup: "deleted",
+    });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

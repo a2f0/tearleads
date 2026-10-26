@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 
 export async function buildProbe() {
   const build = await Bun.build({
-    entrypoints: [new URL("./worker.ts", import.meta.url).pathname],
+    entrypoints: [`${import.meta.dir}/worker.ts`],
     // Workers' nodejs_compat supplies built-ins; node target also emits the
     // createRequire bridge needed by pg's CommonJS dependencies.
     target: "node",

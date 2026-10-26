@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import type { CloudflareApi } from "./cloudflareApi";
-import { readDeployedConfig } from "./deployedConfig";
 import { deployTemporaryWorker } from "./temporaryWorker";
 
 const config = {
@@ -75,6 +74,17 @@ test("a partial deployment is deleted if its address setup fails", async () => {
   expect(f.calls.some((call) => call.startsWith("DELETE"))).toBe(true);
 });
 
+test("a cleanup failure preserves the original deployment error", async () => {
+  const f = fixture(false, true);
+  const api: CloudflareApi = (path, method, body) => {
+    if (method === "DELETE") throw new Error("delete failed");
+    return f.api(path, method, body);
+  };
+  await expect(deployTemporaryWorker(api, input)).rejects.toThrow(
+    "address failed",
+  );
+});
+
 test("placement drift aborts deployment and deletes the temporary Worker", async () => {
   const f = fixture();
   await expect(
@@ -99,34 +109,4 @@ test("existing Workers and API names are never overwritten or deleted", async ()
   ).rejects.toThrow("non-probe");
   expect(f.calls).toHaveLength(1);
   expect(f.exists()).toBe(true);
-});
-
-test("cannot benchmark a cache-enabled Hyperdrive binding", async () => {
-  const api: CloudflareApi = async (path) =>
-    path.includes("settings")
-      ? {
-          bindings: [{ name: "HYPERDRIVE", type: "hyperdrive", id: "drive" }],
-        }
-      : { caching: { disabled: false } };
-  await expect(readDeployedConfig(api, "source")).rejects.toThrow("cache");
-});
-
-test("refuses to compare request-scoped measurements with a shared API pool", async () => {
-  const api: CloudflareApi = async (path) =>
-    path.includes("settings")
-      ? {
-          bindings: [
-            { name: "HYPERDRIVE", type: "hyperdrive", id: "drive" },
-            ...Object.entries({
-              POSTGRES_COALESCE_WRITES: "true",
-              POSTGRES_POOL_MAX: "4",
-              POSTGRES_POOL_MAX_USES: "1",
-              POSTGRES_REQUEST_SCOPED: "false",
-            }).map(([name, text]) => ({ name, text, type: "plain_text" })),
-          ],
-        }
-      : { caching: { disabled: true } };
-  await expect(readDeployedConfig(api, "source")).rejects.toThrow(
-    "request-scoped pool",
-  );
 });

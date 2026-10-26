@@ -12,21 +12,8 @@ interface WorkerInput {
   config: DeployedConfig;
 }
 
-export async function deployTemporaryWorker(
-  api: CloudflareApi,
-  input: WorkerInput,
-) {
-  const { name, config } = input;
-  if (!/^tl-db-probe-(staging|production)-[a-f0-9-]{36}$/.test(name))
-    throw new Error("Refusing to manage a non-probe Worker.");
-  const path = `/workers/scripts/${name}`;
-  if (await api(`${path}/settings`))
-    throw new Error("Probe Worker already exists; refusing to overwrite it.");
-  async function close() {
-    await api(path, "DELETE");
-    if (await api(`${path}/settings`))
-      throw new Error(`Probe Worker deletion not confirmed: ${name}`);
-  }
+function uploadForm(input: WorkerInput) {
+  const { config } = input;
   const form = new FormData();
   form.set(
     "metadata",
@@ -51,8 +38,26 @@ export async function deployTemporaryWorker(
     }),
   );
   form.set("index.js", input.bundle, "index.js");
+  return form;
+}
+
+export async function deployTemporaryWorker(
+  api: CloudflareApi,
+  input: WorkerInput,
+) {
+  const { name, config } = input;
+  if (!/^tl-db-probe-(staging|production)-[a-f0-9-]{36}$/.test(name))
+    throw new Error("Refusing to manage a non-probe Worker.");
+  const path = `/workers/scripts/${name}`;
+  if (await api(`${path}/settings`))
+    throw new Error("Probe Worker already exists; refusing to overwrite it.");
+  async function close() {
+    await api(path, "DELETE");
+    if (await api(`${path}/settings`))
+      throw new Error(`Probe Worker deletion not confirmed: ${name}`);
+  }
   try {
-    if (!(await api(path, "PUT", form)))
+    if (!(await api(path, "PUT", uploadForm(input))))
       throw new Error("Worker upload failed.");
     if (
       !(await api(`${path}/subdomain`, "POST", {
@@ -70,7 +75,20 @@ export async function deployTemporaryWorker(
     )
       throw new Error("Probe placement differs from the API.");
   } catch (error) {
-    await close();
+    try {
+      await close();
+    } catch (cleanupError) {
+      const original =
+        error instanceof Error ? error.message : "Worker deployment failed.";
+      const cleanup =
+        cleanupError instanceof Error
+          ? cleanupError.message
+          : "Worker deletion failed.";
+      throw new AggregateError(
+        [error, cleanupError],
+        `${original}; cleanup failed: ${cleanup}`,
+      );
+    }
     throw error;
   }
   return { origin: `https://${name}.${config.subdomain}.workers.dev`, close };

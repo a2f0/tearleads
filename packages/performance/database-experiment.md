@@ -82,6 +82,7 @@ suggests setup/pool acquisition; a large simple/parameterized difference may
 indicate protocol overhead. The batch intentionally uses the simple protocol.
 
 Reports record the `cf-placement` execution-location header when available.
+Cloudflare documents this as a request header, read by the Worker.
 `request.cf.colo` and the response's `cf-ray` suffix identify ingress and must
 not substitute for it. See Cloudflare's
 [placement documentation](https://developers.cloudflare.com/workers/configuration/placement/).
