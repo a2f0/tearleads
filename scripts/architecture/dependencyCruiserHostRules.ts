@@ -7,7 +7,7 @@ import {
 
 export const hostDependencyRules = [
   {
-    name: "performance-consumes-only-sdk-and-sqlite",
+    name: "performance-consumes-only-runtime-facades",
     severity: "error",
     from: {
       path: packageSourceRoot.performance,
@@ -18,6 +18,7 @@ export const hostDependencyRules = [
         (root) =>
           ![
             packageSourceRoot.performance,
+            packageSourceRoot.apiShared,
             packageSourceRoot.clientSdk,
             packageSourceRoot.sqliteWorker,
           ].includes(root),
@@ -34,6 +35,18 @@ export const hostDependencyRules = [
     to: {
       path: packageSourceRoot.clientSdk,
       pathNot: "^packages/client-sdk/src/(index|sqlite/index)\\.ts$",
+    },
+  },
+  {
+    name: "performance-consumes-public-postgres-transport",
+    severity: "error",
+    from: {
+      path: packageSourceRoot.performance,
+      pathNot: testFilePattern.source,
+    },
+    to: {
+      path: packageSourceRoot.apiShared,
+      pathNot: "^packages/api-shared/src/adapters/postgresTransport\\.ts$",
     },
   },
   {

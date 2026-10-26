@@ -155,7 +155,7 @@ deleted as soon as the default branch contains the new contract.
   `ContentBoundary` and `RoutedPane`'s chrome props.
 - `packages/website`: marketing/docs site. It may share UI, but must not import
   application implementation code.
-- `packages/performance`: SDK experiment CLI; no inbound imports or live CI runs.
+- `packages/performance`: SDK/DB probes; no inbound imports or live CI runs.
 
 ## Dependency Direction
 

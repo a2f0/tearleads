@@ -5,10 +5,20 @@
     "test": {
       "inputs": [
         "$TURBO_EXTENDS$",
-        "$TURBO_ROOT$/packages/app/src/stores/systemContainers.ts"
+        "$TURBO_ROOT$/packages/app/src/stores/systemContainers.ts",
+        "$TURBO_ROOT$/packages/api/wrangler.jsonc"
       ],
-      "dependsOn": ["$TURBO_EXTENDS$", "@tearleads/sqlite-worker#sources"]
+      "dependsOn": [
+        "$TURBO_EXTENDS$",
+        "@tearleads/sqlite-worker#sources",
+        "@tearleads/api-shared#sources"
+      ]
     },
-    "provision": { "cache": false }
+    "provision": {
+      "cache": false
+    },
+    "database": {
+      "cache": false
+    }
   }
 }

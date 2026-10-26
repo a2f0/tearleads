@@ -70,3 +70,8 @@ For repeatable fresh-account experiments, use the
 [performance harness](../../packages/performance/README.md). It exercises the
 public SDK against an explicitly selected tier and can correlate individual
 requests with these Cloudflare cost logs.
+
+The [database round-trip probe](../../packages/performance/database-experiment.md)
+separates connection acquisition, warm driver calls, and constant-query server
+execution using the same PostgreSQL transport and Hyperdrive binding. It runs
+in a temporary Worker whose persisted placement must match the live API.
