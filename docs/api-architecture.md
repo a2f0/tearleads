@@ -187,7 +187,9 @@ This layer:
 App tests that need real backend behavior call `useTestApiAppHandlers`
 (`packages/app/test/helpers/mswServer.ts`), which proxies every API request
 into `createRouteApp`, so they exercise these services without a second
-backend implementation.
+backend implementation. The multi-party scenarios in `packages/bob-and-alice`
+serve the same route app over real HTTP through the `@tearleads/api/test-runtime`
+export and drive full SDK clients against it.
 
 ### 4. Workflow Layer
 
