@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   ContainerWriterProjectionWireResponseSchema,
   PrincipalPolicyBundleResponseSchema,

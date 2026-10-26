@@ -7,8 +7,8 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";

@@ -5,7 +5,7 @@ import {
   documentUpdates,
   organizationReadModelHeads,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import {

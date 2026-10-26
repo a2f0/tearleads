@@ -5,8 +5,8 @@ import {
   accessManifests,
   containerKeyEpochs,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { MAX_CONTAINER_RECITATION_EPOCH } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import {
   asVerifiedContainerManifest,

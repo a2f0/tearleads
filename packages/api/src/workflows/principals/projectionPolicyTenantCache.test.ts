@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import * as crypto from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { isAccessManifestBundleWireResponse } from "@tearleads/validators/response";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";

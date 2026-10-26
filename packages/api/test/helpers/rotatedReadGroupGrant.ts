@@ -1,5 +1,4 @@
 import { db } from "@tearleads/api-shared/postgres";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   ContainerGrantPrincipalHead,
@@ -15,6 +14,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   ContainerMutationRequest,
   PutPrincipalPolicyRequest,

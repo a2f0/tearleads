@@ -1,9 +1,9 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   VerifiedContainerKekState,
   VerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,

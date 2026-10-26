@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   CONTAINER_KEK_KEYRING_SEAL_SUITE,
   type ContainerKekKeyring,
   openContainerKekKeyring,
   verifyContainerKekKeyringEntry,
 } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   type DocumentWriterProjectionResponse,
   isContainerMutationResponse,

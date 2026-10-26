@@ -1,5 +1,4 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   syncRemoteDocument,
   validateDocumentSyncUpdateImports,
@@ -14,6 +13,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
+import type { TestUser } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { createAncestorSdkContext } from "./ancestorSdkRepair";
 import { writerResolver } from "./coldSdkRematerialization";

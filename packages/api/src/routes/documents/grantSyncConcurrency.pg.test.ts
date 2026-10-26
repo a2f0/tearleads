@@ -4,7 +4,7 @@ import {
   accessManifestHeads,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { DOCUMENT_SYNC_ERROR_CODES } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";

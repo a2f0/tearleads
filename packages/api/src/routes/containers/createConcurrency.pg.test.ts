@@ -4,7 +4,7 @@ import {
   containers,
   organizationReadModelHeads,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";

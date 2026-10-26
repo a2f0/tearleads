@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computeAccessManifestHash,
   deriveContainerAccessManifest,
   deriveContainerKekWrappingPublicKey,
   normalizeContainerAccessEventBody,
 } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../../test/helpers/containerRekey";

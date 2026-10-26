@@ -46,7 +46,6 @@
       "devDependencies": {
         "@sentry/cli": "3.8.1",
         "@tearleads/api-client": "workspace:*",
-        "@tearleads/bob-and-alice": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
@@ -214,10 +213,9 @@
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
       "version": "0.1.2",
-      "dependencies": {
-        "@tearleads/crypto": "workspace:*",
-      },
       "devDependencies": {
+        "@tearleads/crypto": "workspace:*",
+        "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
       },
     },

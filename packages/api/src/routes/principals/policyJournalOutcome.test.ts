@@ -2,14 +2,13 @@ import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
 import { db } from "@tearleads/api-shared/postgres";
 import { principalPolicyCommits } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type PrincipalMutationJournalContext,
   PrincipalMutationOutcomeUnknownError,
   recoverJournaledPrincipalMutation,
   submitJournaledPrincipalMutation,
 } from "@tearleads/client-sdk";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import { isCommitOrganizationGroupPolicyResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import {

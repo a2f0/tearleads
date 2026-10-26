@@ -1,5 +1,5 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import { isRegistrationResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { submitRegistration } from "./api";

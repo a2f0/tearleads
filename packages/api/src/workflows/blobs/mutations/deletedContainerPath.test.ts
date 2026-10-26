@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { CONTAINER_UNAVAILABLE_ERROR_CODE } from "@tearleads/validators/response";
 import { createMiddleware } from "hono/factory";
 import { authenticate } from "../../../../test/helpers/authenticate";

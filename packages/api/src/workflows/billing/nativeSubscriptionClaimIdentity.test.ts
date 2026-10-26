@@ -5,7 +5,7 @@ import {
   revenuecatWebhookEvents,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { runClaimNativeSubscriptionWorkflow } from "./nativeSubscriptionClaim";

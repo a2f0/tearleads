@@ -1,6 +1,6 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type { ContainerAccessEventBody } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,

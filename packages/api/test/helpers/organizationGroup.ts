@@ -1,6 +1,5 @@
 import { db } from "@tearleads/api-shared/postgres";
 import { organizations, users } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   encryptGroupMetadata,
   type GroupMetadataKey,
@@ -9,6 +8,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { TestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import { getCurrentPrincipalState } from "../../src/access/read/principalStateStore";

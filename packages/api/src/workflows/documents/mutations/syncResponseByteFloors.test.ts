@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { Buffer } from "node:buffer";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { isDocumentCreateResponse } from "@tearleads/validators/response";
 import invariant from "invariant";
 import { authenticate } from "../../../../test/helpers/authenticate";

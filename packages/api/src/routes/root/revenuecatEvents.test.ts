@@ -7,7 +7,7 @@ import {
   rootAuditEvents,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   RootOrganizationRevenuecatEventsResponseSchema,
   RootRevenuecatEventsReportResponseSchema,

@@ -6,7 +6,7 @@ import {
   organizationBillingSeatAssignments,
   organizationBillingSeatEvents,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { isOrganizationBillingHistoryResponse } from "@tearleads/validators/response";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import invariant from "invariant";

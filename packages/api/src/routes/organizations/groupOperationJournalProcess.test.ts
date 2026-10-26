@@ -4,9 +4,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import type { AuthoredPrincipalMutation } from "@tearleads/client-sdk";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   isCreateOrganizationGroupResponse,
   isDeleteOrganizationGroupResponse,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { withDatabaseStatementCounter } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { isDocumentCreateResponse } from "@tearleads/validators/response";
 import { MAX_DOCUMENT_SYNC_RESPONSE_PAGE_UPDATES } from "@tearleads/validators/util";
 import invariant from "invariant";

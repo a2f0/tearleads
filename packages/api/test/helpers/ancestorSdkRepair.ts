@@ -1,4 +1,3 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   cacheReferencedPrincipalPolicies,
   syncRemoteDocument,
@@ -14,6 +13,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
+import type { TestUser } from "@tearleads/test-utils";
 import {
   createMockRequestFailure,
   createTestExecSql,

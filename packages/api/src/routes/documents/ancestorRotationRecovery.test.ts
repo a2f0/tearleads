@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { signWriteHeader, type WriteHeader } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import { isDocumentSyncResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";

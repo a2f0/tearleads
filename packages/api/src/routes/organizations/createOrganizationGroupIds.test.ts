@@ -4,7 +4,7 @@ import {
   organizationGroupTombstones,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import {
   createOrganizationRequestBody,

@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { withGroupMembershipContainerMutations } from "../../../test/helpers/organizationMembershipGrants";
 import { prepareOrganizationPolicyAdvance } from "../../../test/helpers/organizationPolicyOutcome";

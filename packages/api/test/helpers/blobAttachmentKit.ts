@@ -1,5 +1,4 @@
 import { expect } from "bun:test";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   AttachmentBindAccessEventBody,
   AttachmentDetachAccessEventBody,
@@ -16,6 +15,7 @@ import {
   signWriteHeader,
   verifyAttachmentBindingEvent,
 } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   BlobAttachmentBindRequest,
