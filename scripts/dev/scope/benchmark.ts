@@ -57,6 +57,7 @@ export async function benchmark(
     suite,
     snapshot: config,
     toolingCommit: git("rev-parse", "HEAD"),
+    toolingDirty: git("status", "--porcelain").length > 0,
     judgeModel: settings.judgeModel,
     coderModel: "provider default; inspect recorded run metadata",
     startedAt: new Date().toISOString(),

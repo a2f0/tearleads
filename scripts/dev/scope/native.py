@@ -64,6 +64,7 @@ for port in ([pins['ports']['judge']] if judge_only else
         listener.bind(('127.0.0.1', port))
 
 from native_config import environment
+from native_network import verify_listeners
 
 env, claude_version, credentials = environment(runtime, pins)
 node = ['node', '--require', str(tooling / 'loopback.cjs'), '--import', 'tsx']
@@ -93,6 +94,7 @@ def start_judge():
 
 if judge_only:
     start_judge()
+    verify_listeners({'judge': ports['judge']})
     raise SystemExit(0)
 
 for folder in ['mongodb', 'redis', 'azurite']:
@@ -135,7 +137,15 @@ start('scheduler', node + ['apps/scheduler/src/index.ts'], overrides={'PORT': st
 start('post-processor', node + ['apps/workers/post-processor/src/index.ts'])
 start_judge()
 start('worker', node + ['apps/workers/coder-acp-claude-code/src/index.ts'], overrides={
-    'CLAUDE_CODE_OAUTH_TOKEN': credentials['accessToken'], 'PORT': str(ports['worker']),
+    'CLAUDE_CODE_OAUTH_TOKEN': credentials['accessToken'],
     'WORKER_NAME': 'coder-acp-claude-code', 'QUEUE_NAME': 'queue-coder-acp-claude-code',
 })
-print(f'Native Scope API: {api}. Services started; inspect logs for worker readiness.')
+try:
+    # The coding worker and post-processor poll queues; they expose no HTTP listener.
+    verify_listeners({name: port for name, port in ports.items() if name != 'portal'})
+except RuntimeError:
+    for name, pid in state.items():
+        if owns_process(name, pid):
+            os.killpg(pid, signal.SIGTERM)
+    raise
+print(f'Native Scope API: {api}. All service listeners verified on loopback.')

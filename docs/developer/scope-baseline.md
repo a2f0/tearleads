@@ -27,11 +27,11 @@ document is committed.
 
 ## Results
 
-| Task | Criteria passed | Wall time, including Judge | Local run |
+| Task | Criteria passed | Wall time, including Judge | Run ID |
 | --- | --- | --- | --- |
-| Setup and verification discovery | 2/2 | 4m47s | [Run](http://127.0.0.1:5100/runs/7d420cde-ffb9-4f2a-bb28-4cbb4368a4ee) |
-| Architecture navigation | 2/2 | 7m15s | [Run](http://127.0.0.1:5100/runs/d7039c3d-87b1-4cfd-be8f-4a910409071f) |
-| SDK onboarding | 1/2 initially | 7m13s | [Run](http://127.0.0.1:5100/runs/ebc04a05-be44-46be-b41b-c39bbff99120) |
+| Setup and verification discovery | 2/2 | 4m47s | `7d420cde-ffb9-4f2a-bb28-4cbb4368a4ee` |
+| Architecture navigation | 2/2 | 7m15s | `d7039c3d-87b1-4cfd-be8f-4a910409071f` |
+| SDK onboarding | 1/2 initially | 7m13s | `ebc04a05-be44-46be-b41b-c39bbff99120` |
 
 These are single-run observations, not stable latency estimates or an overall
 repository score. The architecture agent recovered from conflicting guidance;

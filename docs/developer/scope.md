@@ -35,8 +35,10 @@ field selects its pinned pnpm version. The host agent CLIs are supplied by the
 operator; their versions are recorded rather than installed by this command.
 
 Sign in to Claude Code and run `codex login` using ChatGPT authentication first.
-This adapter reads Claude's `~/.claude/.credentials.json` OAuth login at worker
-startup. Refresh that login and restart if it expires. Codex uses its saved
+This adapter accepts `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), or
+reads Claude's `~/.claude/.credentials.json` OAuth login at worker startup.
+Use the explicit token when the host login is stored only in the Keychain.
+Refresh that login and restart if it expires. Codex uses its saved
 ChatGPT login; the Judge does not require Copilot SDK authentication or an
 OpenAI API key. Subscription access and available models still apply.
 
@@ -58,10 +60,13 @@ records so `stop` can clean up before retrying.
 `install` verifies the upstream commit and refuses to change a dirty or different
 checkout. Set `SCOPE_SOURCE_DIR` to use another location, consistently for all
 commands. MongoDB downloads have a pinned SHA-256 checksum. Runtime tool versions
-are pinned; their transitive npm dependencies resolve at installation time.
+are pinned; their transitive npm dependencies resolve at installation time,
+with lifecycle scripts disabled for the separate native tools installation.
 No upstream source patches or dependency symlinks into this repository are used.
 
-The stack binds services to loopback and disables application authentication.
+The stack binds services to loopback, verifies their actual listening sockets,
+and disables application authentication. Services inherit only a small set of
+host environment variables; only the worker receives the Claude OAuth token.
 It is a development stack for trusted source on your machine. The native Claude
 worker runs outside a container with host access and upstream Scope owns
 `/tmp/workspaces`; run only one native worker on the host. Startup refuses a

@@ -8,16 +8,23 @@ import { extract } from "tar";
 import { createCodebaseArchive } from "./archive";
 
 function git(cwd: string, ...args: string[]): string {
-  return execFileSync("git", ["-c", "commit.gpgsign=false", ...args], {
-    cwd,
-    env: {
-      ...process.env,
-      GIT_CONFIG_GLOBAL: "/dev/null",
-      GIT_CONFIG_NOSYSTEM: "1",
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
+  );
+  return execFileSync(
+    "git",
+    ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args],
+    {
+      cwd,
+      env: {
+        ...env,
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        GIT_CONFIG_NOSYSTEM: "1",
+      },
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
     },
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
-  }).trim();
+  ).trim();
 }
 
 test("snapshot preserves a divergent Git base without host configuration or dirty files", async () => {

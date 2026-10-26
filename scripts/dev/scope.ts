@@ -6,7 +6,7 @@ import { benchmark } from "./scope/benchmark";
 import { calibrate } from "./scope/calibrate";
 import { register } from "./scope/register";
 import { regrade } from "./scope/regrade";
-import { root, savedConfig, settings } from "./scope/settings";
+import { getSavedConfig, root, settings } from "./scope/settings";
 import { projectConfig } from "./scope/suites";
 
 const args = process.argv.slice(2);
@@ -103,7 +103,7 @@ Other commands are forwarded to the upstream CLI with this project selected.`);
     run("node", [cli, ...cliArgs], {
       ...process.env,
       SCOPE_API_URL: settings.apiUrl,
-      SCOPE_PROJECT: savedConfig?.projectId ?? "",
+      SCOPE_PROJECT: getSavedConfig()?.projectId ?? "",
       SCOPE_NO_UPDATE_CHECK: "1",
     });
   }

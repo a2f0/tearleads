@@ -56,6 +56,7 @@ export async function regrade(path: string): Promise<void> {
     sourceReceipt: path,
     snapshot: receipt.snapshot,
     judgeToolingCommit: git("rev-parse", "HEAD"),
+    toolingDirty: git("status", "--porcelain").length > 0,
     judgeModel: settings.judgeModel,
     cases,
   };

@@ -25,7 +25,7 @@ if (platform.system(), platform.machine()) != ('Darwin', 'arm64'):
     raise SystemExit('This native installer supports macOS arm64. See docs/developer/scope.md.')
 if sys.version_info < (3, 12):
     raise SystemExit('Python 3.12 or newer is required for filtered archive extraction.')
-for executable in ['bun', 'node', 'npm', 'pnpm', 'git', 'redis-server', 'claude', 'codex']:
+for executable in ['bun', 'node', 'npm', 'pnpm', 'git', 'redis-server', 'claude', 'codex', 'lsof']:
     if not shutil.which(executable):
         raise SystemExit(f'Missing prerequisite: {executable}')
 runtime.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -49,7 +49,7 @@ run('pnpm', 'build:cli', cwd=source)
 tools = runtime / 'tools'
 tools.mkdir(exist_ok=True)
 (tools / 'package.json').write_text(json.dumps({'private': True, **pins['tools']}, indent=2) + '\n')
-run('npm', 'install', '--omit=optional', '--no-audit', '--no-fund', cwd=tools)
+run('npm', 'install', '--ignore-scripts', '--omit=optional', '--no-audit', '--no-fund', cwd=tools)
 mongo = pins['mongodb']
 binary = runtime / f"mongodb-macos-aarch64-{mongo['version']}/bin/mongod"
 if not binary.exists():

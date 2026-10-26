@@ -20,9 +20,11 @@ const pins = z
 const { SCOPE_SOURCE_DIR, SCOPE_API_URL, SCOPE_TOKEN, CODEX_JUDGE_MODEL } =
   process.env;
 const configPath = join(stateDir, "config.json");
-export const savedConfig = existsSync(configPath)
-  ? configSchema.parse(JSON.parse(readFileSync(configPath, "utf8")))
-  : undefined;
+export function getSavedConfig() {
+  return existsSync(configPath)
+    ? configSchema.parse(JSON.parse(readFileSync(configPath, "utf8")))
+    : undefined;
+}
 
 function loopbackOrigin(value: string): string {
   const url = new URL(value);
@@ -42,11 +44,13 @@ function loopbackOrigin(value: string): string {
 
 export const settings = {
   sourceDir: SCOPE_SOURCE_DIR ?? join(homedir(), ".local/share/scope/source"),
-  apiUrl: loopbackOrigin(
-    SCOPE_API_URL ??
-      savedConfig?.apiUrl ??
-      `http://127.0.0.1:${pins.ports.api}`,
-  ),
+  get apiUrl() {
+    return loopbackOrigin(
+      SCOPE_API_URL ??
+        getSavedConfig()?.apiUrl ??
+        `http://127.0.0.1:${pins.ports.api}`,
+    );
+  },
   blobOrigin: `http://127.0.0.1:${pins.ports.blob}`,
   judgePort: pins.ports.judge,
   portalPort: pins.ports.portal,

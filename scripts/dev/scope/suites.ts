@@ -3,10 +3,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { orderCriteria } from "./judge/criteria";
-import { apiRequest, savedConfig, settings } from "./settings";
+import { apiRequest, getSavedConfig, settings } from "./settings";
 import { criterionSchema, type Suite, suiteSchema } from "./types";
 
 export function projectConfig() {
+  const savedConfig = getSavedConfig();
   if (!savedConfig || savedConfig.apiUrl !== settings.apiUrl)
     throw new Error("Run bun run scope:register first");
   return savedConfig;

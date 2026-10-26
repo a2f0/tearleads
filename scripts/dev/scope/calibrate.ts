@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { z } from "zod";
 import { root, settings, stateDir } from "./settings";
 import { uploadFixture } from "./storage";
 import { projectConfig, readSuite, seedCriteria } from "./suites";
@@ -15,6 +16,11 @@ const incorrectReport = `The package manager is npm (package.json).
 The focused API test command is npm test (AGENTS.md).
 API imports SDK TypeScript directly, so no rebuild is needed. API tests refuse stale output (AGENTS.md).
 `;
+
+const calibrationVerdict = z.object({
+  passed: z.boolean(),
+  criteriaResults: z.array(z.object({ passed: z.boolean() })),
+});
 
 async function fixture(directory: string, report: string): Promise<string> {
   // Random identities keep expected outcomes out of the Judge's evidence.
@@ -67,19 +73,17 @@ export async function calibrate(): Promise<void> {
       snapshotUrl,
       suite.criteria.map((c) => c.id),
     );
-    const verdict = (await response.json()) as {
-      passed: boolean;
-      criteriaResults: Array<{ passed: boolean }>;
-    };
+    const raw: unknown = await response.json();
     await writeFile(
       join(directory, `${label}.json`),
       JSON.stringify(
-        { status: response.status, expectedPassed, verdict },
+        { status: response.status, expectedPassed, verdict: raw },
         null,
         2,
       ),
     );
-    assert.equal(response.status, 200, JSON.stringify(verdict));
+    assert.equal(response.status, 200, JSON.stringify(raw));
+    const verdict = calibrationVerdict.parse(raw);
     assert.equal(verdict.passed, expectedPassed);
     assert.equal(verdict.criteriaResults.length, 4);
     const criteriaPassed = verdict.criteriaResults.filter(
