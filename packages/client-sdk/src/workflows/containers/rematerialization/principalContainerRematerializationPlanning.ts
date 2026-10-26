@@ -21,6 +21,7 @@ import {
   rebaseOnDeepestAncestor,
   type SpeculativePath,
 } from "../child/rekey/carriedDescendantRekeys";
+import { isSpeculativeContainerWriterProjection } from "../child/rekey/rekeyProjection";
 import type { PlannedRematerialization } from "./principalContainerRematerializationTargets";
 
 export interface RematerializationApi
@@ -139,6 +140,9 @@ export async function carryLevel(
  * as a carried rekey's is. The batch is acknowledged against the latest
  * durable pin, and a re-rooted path pins nothing, so a device that never
  * pinned this container would refuse its own batch once the server took it.
+ * Only what the API served is pinned: in a compound transaction the target
+ * may already sit on the preceding batch's heads, which a refused commit
+ * never makes real.
  */
 export async function rerootOnAuthoredPaths(
   batch: BatchPlanning,
@@ -146,6 +150,9 @@ export async function rerootOnAuthoredPaths(
 ): Promise<ContainerWriterProjectionResponse> {
   const rebased = rebaseOnDeepestAncestor(served, batch.authoredAbove);
   if (!rebased) return served;
+  if (isSpeculativeContainerWriterProjection(served)) {
+    return rebased.projection;
+  }
   const { rematerialization } = batch;
   await verifyContainerWriterProjection({
     execSql: rematerialization.execSql,
