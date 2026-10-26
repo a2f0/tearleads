@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { benchmark } from "./scope/benchmark";
 import { calibrate } from "./scope/calibrate";
 import { register } from "./scope/register";
+import { regrade } from "./scope/regrade";
 import { root, savedConfig, settings } from "./scope/settings";
 import { projectConfig } from "./scope/suites";
 
@@ -30,6 +31,7 @@ switch (args[0]) {
   register [git-ref]       Upload a committed snapshot (default HEAD)
   calibrate               Check known correct/incorrect answers with Codex
   benchmark [count]       Run three agent-friendliness tasks, sequentially
+  regrade <receipt>        Regrade saved one-turn outputs without rerunning agents
   smoke                   Run a scored repository inspection smoke test
   cli [arguments]         Forward arguments to the upstream Scope CLI
 Other commands are forwarded to the upstream CLI with this project selected.`);
@@ -53,6 +55,11 @@ Other commands are forwarded to the upstream CLI with this project selected.`);
   case "calibrate":
     if (args.length !== 1) throw new Error("Usage: bun run scope calibrate");
     await calibrate();
+    break;
+  case "regrade":
+    if (args.length !== 2 || !args[1])
+      throw new Error("Usage: bun run scope regrade <receipt.json>");
+    await regrade(args[1]);
     break;
   case "benchmark":
   case "smoke":

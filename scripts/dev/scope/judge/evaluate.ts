@@ -2,7 +2,14 @@ import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
 import { stateDir } from "../settings";
-import { blobName, extractSnapshot, readToolCalls } from "../storage";
+import {
+  blobName,
+  extractSnapshot,
+  readToolCalls,
+  readWorkerLog,
+  selectToolEvents,
+} from "../storage";
+import { readClaudeTranscript } from "./claude-evidence";
 import { grade, model } from "./codex";
 import { loadCriteria } from "./criteria";
 
@@ -99,6 +106,27 @@ export async function evaluate(input: EvaluationInput) {
 }
 
 async function captureToolOutputs(input: EvaluationInput, evidence: string) {
+  const log = await readWorkerLog(input.snapshotUrl);
+  await writeFile(
+    join(evidence, "native-tools.json"),
+    JSON.stringify(
+      await readClaudeTranscript(log?.events ?? [], log?.iteration ?? 1),
+      null,
+      2,
+    ),
+  );
+  await writeFile(
+    join(evidence, "tool-events.json"),
+    JSON.stringify(
+      {
+        format:
+          "Scope ACP display events; command/output text can be truncated. These are not complete tool transcripts.",
+        events: selectToolEvents(log?.events ?? [], log?.iteration ?? 1),
+      },
+      null,
+      2,
+    ),
+  );
   const logs = input.conversationHistory.flatMap((turn, index) =>
     turn.toolCallsUrl
       ? [{ iteration: turn.iteration || index + 1, url: turn.toolCallsUrl }]

@@ -9,10 +9,8 @@ import { settings } from "./settings";
 const emulatorKey =
   "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
 const connection = `DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=${emulatorKey};BlobEndpoint=${settings.blobOrigin}/devstoreaccount1;`;
-const container =
-  BlobServiceClient.fromConnectionString(connection).getContainerClient(
-    "snapshots",
-  );
+const service = BlobServiceClient.fromConnectionString(connection);
+const container = service.getContainerClient("snapshots");
 
 export function blobName(value: string): string {
   const url = new URL(value);
@@ -84,6 +82,48 @@ export async function readToolCalls(url: string): Promise<unknown[]> {
     .split("\n")
     .filter((line) => line.trim())
     .map((line) => JSON.parse(line) as unknown);
+}
+
+/** Native ACP runs have no HAR; their saved display events still contain tool errors. */
+export async function readWorkerLog(
+  snapshotUrl: string,
+): Promise<{ iteration: number; events: unknown[] } | undefined> {
+  const match =
+    /^([^/]+)\/runs\/([^/]+)\/iteration-(\d+)\/workspace\.tar\.gz$/.exec(
+      blobName(snapshotUrl),
+    );
+  if (!match) return undefined;
+  const blob = service
+    .getContainerClient("logs")
+    .getBlobClient(`${match[1]}/runs/${match[2]}/run.jsonl`);
+  if (!(await blob.exists())) return undefined;
+  const values: unknown[] = (await blob.downloadToBuffer())
+    .toString("utf8")
+    .split("\n")
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line) as unknown);
+  return { iteration: Number(match[3]), events: values };
+}
+
+/** Exclude prior turns and Judge feedback, including when replaying an evaluation. */
+export function selectToolEvents(
+  values: unknown[],
+  iteration: number,
+): unknown[] {
+  return values.filter((value) => {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      !("message" in value) ||
+      typeof value.message !== "string" ||
+      !/^Tool (call|update):/.test(value.message) ||
+      !("data" in value) ||
+      !value.data ||
+      typeof value.data !== "object"
+    )
+      return false;
+    return "iteration" in value.data && value.data.iteration === iteration;
+  });
 }
 
 export async function uploadFixture(

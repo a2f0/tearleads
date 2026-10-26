@@ -1,6 +1,6 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { blobName, safeArchiveEntry } from "./storage";
+import { blobName, safeArchiveEntry, selectToolEvents } from "./storage";
 
 test("snapshot paths reject traversal, absolute paths and links", () => {
   for (const path of [
@@ -34,4 +34,24 @@ test("artifact downloads accept only the local snapshots container", () => {
   ]) {
     assert.throws(() => blobName(url));
   }
+});
+
+test("Judge replay receives observed tool errors without old verdicts or prior turns", () => {
+  const observed = {
+    message: "Tool update: Terminal mise config not trusted",
+    data: { iteration: 2 },
+  };
+  assert.deepEqual(
+    selectToolEvents(
+      [
+        observed,
+        { ...observed, data: { iteration: 1 } },
+        { message: "Judge passed all criteria", data: { iteration: 2 } },
+        { message: "Tool update: Terminal", data: null },
+        null,
+      ],
+      2,
+    ),
+    [observed],
+  );
 });
