@@ -26,6 +26,11 @@ test("a direct grant keeps access after the overlapping group grant goes", async
   const team = await world.createGroup(alice, "Team");
   await world.addToGroup(alice, team, bob);
   await world.shareWithGroup(alice, folder, team, "read");
+  // Read access alone refuses an edit; a fresh install of the owner shows
+  // only what the API committed.
+  await world.editDocument(bob, document, "bob with read access only");
+  await world.newDevice(alice);
+  await expectAccess(world, document);
   await world.shareWithUser(alice, folder, bob);
   await expectAccess(world, document);
 
@@ -43,6 +48,8 @@ test("a direct grant keeps access after the overlapping group grant goes", async
     "v3 after bob lost the direct grant",
   );
   await world.newDevice(bob);
+  await world.editDocument(bob, document, "bob after losing access");
+  await world.newDevice(alice);
   await expectAccess(world, document);
   expectNoSecurityIncidents(world);
 }, 180_000);

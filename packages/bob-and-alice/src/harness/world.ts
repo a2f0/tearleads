@@ -66,6 +66,8 @@ export class World {
   private readonly users: User[] = [];
   /** The organization each joined member works in, by user id. */
   private readonly workingOrganizations = new Map<string, string>();
+  /** Texts each device tried to write without write access. */
+  private readonly refusedEdits = new Map<Device, Set<string>>();
 
   private constructor(private readonly origin: string) {}
 
@@ -167,8 +169,10 @@ export class World {
   }
 
   /**
-   * Edits from `device` (the actor's first device by default). The model
-   * records the edit only if the actor may write, so a refused edit that
+   * Edits from `device` (the actor's first device by default). An edit the
+   * actor may make must settle with nothing left pending, so a write that
+   * only ever landed locally fails here rather than passing on optimistic
+   * local text. A refused edit may stay parked; the model ignores it, so one
    * the system wrongly accepted shows up as a mismatch in `expectAccess`.
    */
   async editDocument(
@@ -179,10 +183,22 @@ export class World {
   ): Promise<void> {
     trace(`editDocument`);
     const store = await readDocument(device, this.documentRef(document));
-    if (!store) throw new Error(`${device.label} cannot open the document`);
+    if (!store) throw device.failure("cannot open the document");
     await store.setText(text);
-    await device.idle().catch(() => undefined);
-    this.model.edit(document.documentId, actor.userId, text);
+    if (!this.model.edit(document.documentId, actor.userId, text)) {
+      const refused = this.refusedEdits.get(device) ?? new Set();
+      refused.add(text);
+      this.refusedEdits.set(device, refused);
+      await device.idle().catch(() => undefined);
+      return;
+    }
+    await device.idle();
+    const pending = await device.sdk.containerContents
+      .documentQueries()
+      .listPendingWrites();
+    if (pending.some((item) => item.remoteId === document.documentId)) {
+      throw device.failure("edit did not reach the API");
+    }
   }
 
   /** The document with every container it is currently linked into. */
@@ -342,6 +358,32 @@ export class World {
     const epoch = info.remoteInfo?.contentKeyEpoch;
     if (epoch === undefined) throw new Error("No content-key epoch");
     return epoch;
+  }
+
+  /**
+   * The folder key epochs the document's current content key is wrapped
+   * to, as the API serves them to `actor`. Behind the folder's own epoch,
+   * a reader needs the folder keyring to open the document at all.
+   */
+  async bundleKeyEpochs(
+    actor: User,
+    document: SharedDocument,
+  ): Promise<number[]> {
+    const projection = await primary(actor)
+      .sdk.containerContents.workflowRuntime()
+      .apiClient.getDocumentWriterProjection(document.documentId);
+    if (!projection) throw new Error("No document writer projection");
+    return projection.contentKeyBundle.targets.map(
+      (target) => target.containerKeyEpoch,
+    );
+  }
+
+  /**
+   * Texts `device` tried to write without write access. A device that lost
+   * access may still show its own refused edit; that discloses nothing.
+   */
+  refusedEditsOn(device: Device): ReadonlySet<string> {
+    return this.refusedEdits.get(device) ?? new Set();
   }
 
   get allUsers(): readonly User[] {

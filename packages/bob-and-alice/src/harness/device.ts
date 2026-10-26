@@ -15,6 +15,12 @@ export type DeviceKeys = Parameters<Tearleads["identity"]["setKeyPairs"]>[0];
 
 type DeviceDatabase = Awaited<ReturnType<typeof createTestExecSql>>;
 
+/** One `logError` report from the SDK. */
+export interface LoggedError {
+  readonly message: string | Error;
+  readonly cause: unknown;
+}
+
 /**
  * One installed client: its own SQLite database and a full `Tearleads`
  * runtime. Nothing here reaches past the SDK's public surface, so a device
@@ -28,7 +34,7 @@ export class Device {
     readonly sdk: Tearleads,
     private readonly database: DeviceDatabase,
     /** `logError` reports; an honest run should leave this empty. */
-    readonly errors: readonly unknown[],
+    readonly errors: readonly LoggedError[],
     /** Trust-boundary failures; an honest API must never cause one. */
     readonly incidents: readonly unknown[],
   ) {}
@@ -62,7 +68,7 @@ export class Device {
 
   private static async open(origin: string, label: string, keys: DeviceKeys) {
     const database = await createTestExecSql(`${label}-${crypto.randomUUID()}`);
-    const errors: unknown[] = [];
+    const errors: LoggedError[] = [];
     const incidents: unknown[] = [];
     const sdk = new Tearleads({
       apiBaseUrl: origin,
@@ -140,13 +146,13 @@ export class Device {
 
   /** An error naming `what` failed, with what this device logged meanwhile. */
   failure(what: string): Error {
-    const logged = this.errors.map((entry) => {
-      const { message, cause } = entry as { message: unknown; cause: unknown };
-      return `${String(message)}${cause === undefined ? "" : `: ${String(cause)}`}`;
-    });
-    return new Error(
-      `${this.label}: ${what}${logged.length ? ` (logged: ${logged.join(" | ")})` : ""}`,
+    const logged = this.errors.map(({ message, cause }) =>
+      cause === undefined
+        ? String(message)
+        : `${String(message)}: ${String(cause)}`,
     );
+    const detail = logged.length ? ` (logged: ${logged.join(" | ")})` : "";
+    return new Error(`${this.label}: ${what}${detail}`);
   }
 
   dispose(): void {

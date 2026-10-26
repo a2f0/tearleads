@@ -104,6 +104,8 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 - [Dependency maintenance](dependency-upgrades.md) and
   [dependency audit policy](developer/dependency-audit.md).
 - [Test optimization findings](developer/test-optimization.md).
+- [Multi-party keying scenarios](../packages/bob-and-alice/README.md): real
+  SDK clients against the real API, checked against a reference access model.
 - [Local Scope evaluations](developer/scope.md) and the
   [discoverability pilot findings](developer/scope-baseline.md).
 - [Formal models](../formal/README.md) and the
