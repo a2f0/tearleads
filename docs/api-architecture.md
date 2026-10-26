@@ -325,8 +325,10 @@ responses.
 
 Document creation and sync writes are implemented by signed mutation
 services. The document route validates request shape and maps service
-errors to HTTP responses; `documentMutations` owns manifest verification,
-content-key target validation, write-header verification, and update storage.
+errors to HTTP responses. The `services/documents/documentMutations` facade
+delegates to `workflows/documents/mutations`, which owns transaction boundaries
+and composes manifest verification, content-key target validation, write-header
+verification, and update storage through the access layer.
 The neutral `documentUpdateStore` owns causally-missing update reads for
 sync responses.
 

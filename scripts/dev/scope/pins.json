@@ -1,0 +1,31 @@
+{
+  "source": {
+    "url": "https://github.com/microsoft/scope.git",
+    "commit": "16544702d9dd4f0f5a7991fa4dbdf07a9247fedc",
+    "pnpm": "10.29.1"
+  },
+  "mongodb": {
+    "version": "7.0.45",
+    "url": "https://fastdl.mongodb.org/osx/mongodb-macos-arm64-7.0.45.tgz",
+    "sha256": "23fa267630e47fb8b95935a4bbb6fed5f43f313735b6e17fe55cacce98403deb"
+  },
+  "judgeModel": "gpt-6-astra",
+  "ports": {
+    "api": 3101,
+    "judge": 3201,
+    "scheduler": 3401,
+    "portal": 5100,
+    "redis": 6301,
+    "blob": 10101,
+    "queue": 10201,
+    "table": 10301,
+    "mongo": 27001
+  },
+  "tools": {
+    "dependencies": {
+      "@agentclientprotocol/claude-agent-acp": "0.52.0",
+      "@anthropic-ai/claude-agent-sdk": "0.3.191",
+      "azurite": "3.29.0"
+    }
+  }
+}

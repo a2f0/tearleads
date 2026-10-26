@@ -13,7 +13,8 @@ import { Tearleads } from "@tearleads/client-sdk";
 const tearleads = new Tearleads();
 ```
 
-Configure SQLite before using persistence, sync, or identity generation:
+Initialize a SQLite runtime as shown in [SQLite setup](sqlite-setup.md),
+then configure the SDK before using persistence, sync, or identity generation:
 
 ```ts
 tearleads.database.configure({
@@ -26,6 +27,8 @@ const { rootContainerId } = await tearleads.identity.generate();
 
 Single-identity clients can pass `identityProvisioning: "auto"` instead of
 calling `generate()`; see [Constructor Options](#constructor-options).
+For local editing versus custom remote creation workflows, see
+[Choosing a document creation API](document-creation.md).
 
 ## Host Contract
 
@@ -62,41 +65,9 @@ custom adapter details.
 
 ## Advanced Configuration
 
-Hosts that own API routing, encrypted blob storage, keyring-derived
-`localKeys`, and logging can pass those adapters explicitly:
-
-```ts
-import {
-  createEncryptedBlobStore,
-  Tearleads,
-} from "@tearleads/client-sdk";
-import {
-  createSQLiteRuntime,
-} from "@tearleads/client-sdk/sqlite";
-
-const sqliteRuntime = createSQLiteRuntime();
-await sqliteRuntime.client.init({
-  dbName: "/app-identity.db",
-  cipher: "chacha20",
-  key: localKeys.sqliteKey,
-});
-
-const tearleads = new Tearleads({
-  apiBaseUrl: "http://localhost:3000",
-  blobStoreFactory: (namespace) =>
-    createEncryptedBlobStore(namespace, { key: localKeys.blobStoreKey }),
-  database: {
-    client: sqliteRuntime.client,
-    id: sqliteRuntime.id,
-  },
-  logger: {
-    log: console.log,
-    logError: console.error,
-  },
-});
-
-const { rootContainerId } = await tearleads.identity.generate();
-```
+The [SQLite setup guide](sqlite-setup.md) shows explicit durable storage,
+keyring-derived keys, custom API routing, and encrypted blob adapters.
+Initialize the worker before passing its runtime to the SDK.
 
 Client capabilities:
 

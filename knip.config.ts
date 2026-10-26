@@ -7,14 +7,19 @@ const strictConfigDefaults = {
 } as const;
 
 const rootToolingWorkspace = {
-  entry: [],
-  project: [],
+  entry: [
+    "scripts/dev/scope/browser-guard.ts",
+    "scripts/dev/scope/judge/server.ts",
+    "scripts/dev/scope/**/*.test.ts",
+  ],
+  project: ["scripts/dev/scope/**/*.ts"],
   // `markdownlint-cli2` is invoked as `bun --bun x markdownlint-cli2` so it runs
   // on Bun rather than an unpinned Node (its bin declares `engines.node >=22`,
   // and neither `.mise.toml` nor CI installs Node). Knip cannot resolve the
   // binary through `bun x`, so the dependency has to be declared used here.
   ignoreDependencies: ["@commitlint/cli", "lint-staged", "markdownlint-cli2"],
-  ignoreBinaries: ["du", "pwsh", "shellcheck", "tokei"],
+  // Codex is an operator-installed CLI, checked during Judge startup.
+  ignoreBinaries: ["codex", "du", "pwsh", "shellcheck", "tokei"],
 };
 
 const capacitorNativePluginDependencies = [

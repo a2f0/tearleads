@@ -1,0 +1,42 @@
+{
+  "id": "smoke-v1",
+  "description": "Judge calibration and transport smoke test; not a repository readiness score.",
+  "criteria": [
+    {
+      "id": "tearleads_smoke_report",
+      "prompt": "The workspace contains a non-empty, readable scope-smoke.txt report at its root.",
+      "dependsOn": [],
+      "gates": ["select"]
+    },
+    {
+      "id": "tearleads_smoke_bun",
+      "prompt": "scope-smoke.txt correctly identifies Bun as the repository package manager, cites package.json, and agrees with the packageManager field in that file.",
+      "dependsOn": ["tearleads_smoke_report"],
+      "gates": ["select"]
+    },
+    {
+      "id": "tearleads_smoke_api",
+      "prompt": "scope-smoke.txt gives the focused API test command as bun run check:package @tearleads/api and cites AGENTS.md or scripts/README.md as evidence. Check the cited source.",
+      "dependsOn": ["tearleads_smoke_report"],
+      "gates": ["select"]
+    },
+    {
+      "id": "tearleads_smoke_sdk",
+      "prompt": "scope-smoke.txt explains that API tests resolve @tearleads/client-sdk from its built dist, so SDK source edits require rebuilding before API tests; the API has no stale-dist guard and can pass against old code. It cites AGENTS.md and agrees with that source.",
+      "dependsOn": ["tearleads_smoke_report"],
+      "gates": ["select"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "smoke",
+      "prompt": "Inspect package.json, AGENTS.md, and scripts/README.md. Create scope-smoke.txt with the repository package manager, focused API test command, and why the SDK must be rebuilt before API tests. Cite source files. Do not install, run tests, access external services, or modify other files.",
+      "criteria": [
+        "tearleads_smoke_report",
+        "tearleads_smoke_bun",
+        "tearleads_smoke_api",
+        "tearleads_smoke_sdk"
+      ]
+    }
+  ]
+}
