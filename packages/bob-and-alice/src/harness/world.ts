@@ -276,6 +276,24 @@ export class World {
     return epoch;
   }
 
+  /**
+   * The folder key epochs the document's current content key is wrapped
+   * to, as the API serves them to `actor`. Behind the folder's own epoch,
+   * a reader needs the folder keyring to open the document at all.
+   */
+  async bundleKeyEpochs(
+    actor: User,
+    document: SharedDocument,
+  ): Promise<number[]> {
+    const projection = await primary(actor)
+      .sdk.containerContents.workflowRuntime()
+      .apiClient.getDocumentWriterProjection(document.documentId);
+    if (!projection) throw new Error("No document writer projection");
+    return projection.contentKeyBundle.targets.map(
+      (target) => target.containerKeyEpoch,
+    );
+  }
+
   get allUsers(): readonly User[] {
     return this.users;
   }

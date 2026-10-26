@@ -58,8 +58,6 @@ test("fresh devices read a document across mixed key rotations", async () => {
 
   await world.moveFolder(alice, folder, archive);
   epochs.push(await world.keyEpoch(alice, folder));
-  await world.editDocument(alice, document, "v5 alice after the move");
-
   trace(`folder epochs ${epochs}; content-key epochs ${contentEpochs}`);
   // Every subtractive step above minted a new folder key, and every shrink
   // a new document content key for the writes after it.
@@ -69,8 +67,21 @@ test("fresh devices read a document across mixed key rotations", async () => {
     }
   }
 
-  // A member admitted only now reads through the current wrap alone.
+  // Nobody has written since the move, so the document's content key is
+  // still wrapped only to the pre-move folder key. A member admitted now
+  // holds only the current wrap and must reach that key through the
+  // folder's keyring.
+  const currentFolderEpoch = epochs.at(-1) ?? 0;
+  expect(
+    (await world.bundleKeyEpochs(alice, document)).every(
+      (epoch) => epoch < currentFolderEpoch,
+    ),
+  ).toBe(true);
   await world.shareWithUser(alice, folder, erin);
+  await world.newDevice(erin);
+  await expectAccess(world, document);
+
+  await world.editDocument(alice, document, "v5 alice after the move");
   for (const user of [alice, carol, dave, erin]) {
     await world.newDevice(user);
   }
