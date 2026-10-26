@@ -73,13 +73,15 @@ Other commands are forwarded to the upstream CLI with this project selected.`);
   case "portal":
     if (args.length !== 1) throw new Error("Usage: bun run scope portal");
     run(
-      "pnpm",
+      "node",
       [
-        "--dir",
-        settings.sourceDir,
-        "--filter",
-        "portal",
-        "dev",
+        "--require",
+        join(root, "scripts/dev/scope/loopback.cjs"),
+        "--import",
+        join(settings.sourceDir, "node_modules/tsx/dist/loader.mjs"),
+        "--import",
+        join(root, "scripts/dev/scope/browser-guard.ts"),
+        join(settings.sourceDir, "apps/portal/node_modules/vite/bin/vite.js"),
         "--host",
         "127.0.0.1",
         "--port",
@@ -91,7 +93,7 @@ Other commands are forwarded to the upstream CLI with this project selected.`);
         VITE_API_PROXY_TARGET: settings.apiUrl,
         VITE_AUTH_ENABLED_LOCAL: "false",
       },
-      settings.sourceDir,
+      join(settings.sourceDir, "apps/portal"),
     );
     break;
   default: {

@@ -67,7 +67,8 @@ from native_config import environment
 from native_network import verify_listeners, wait_tcp
 
 env, claude_version, credentials = environment(runtime, pins)
-node = ['node', '--require', str(tooling / 'loopback.cjs'), '--import', 'tsx']
+node = ['node', '--require', str(tooling / 'loopback.cjs'), '--import', 'tsx',
+        '--import', str(tooling / 'browser-guard.ts')]
 
 def start(name, command, cwd=source, overrides=None):
     with (runtime / f'{name}.log').open('ab') as log:
@@ -104,7 +105,7 @@ start('mongodb', [str(mongo), '--bind_ip', '127.0.0.1', '--port', str(ports['mon
     '--dbpath', str(runtime / 'mongodb'), '--quiet'])
 start('redis', ['redis-server', '--bind', '127.0.0.1', '--port', str(ports['redis']),
     '--dir', str(runtime / 'redis'), '--save', '', '--appendonly', 'no'])
-start('azurite', ['node', str(runtime / 'tools/node_modules/azurite/dist/src/azurite.js'),
+start('azurite', node + [str(runtime / 'tools/node_modules/azurite/dist/src/azurite.js'),
     '--blobHost', '127.0.0.1', '--blobPort', str(ports['blob']), '--queueHost', '127.0.0.1',
     '--queuePort', str(ports['queue']), '--tableHost', '127.0.0.1', '--tablePort', str(ports['table']),
     '--location', str(runtime / 'azurite'), '--skipApiVersionCheck', '--loose', '--silent'])

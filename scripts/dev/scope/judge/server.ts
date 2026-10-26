@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { browserRequestAllowed } from "../browser-policy";
 import { settings } from "../settings";
 import { model } from "./codex";
 import { evaluate, inputSchema } from "./evaluate";
@@ -18,6 +19,18 @@ Bun.serve({
   idleTimeout: 0,
   maxRequestBodySize: 10 * 1024 * 1024,
   async fetch(request) {
+    if (
+      !browserRequestAllowed(
+        {
+          host: request.headers.get("host"),
+          origin: request.headers.get("origin"),
+          site: request.headers.get("sec-fetch-site"),
+        },
+        settings.judgePort,
+        settings.portalPort,
+      )
+    )
+      return new Response("Forbidden browser origin", { status: 403 });
     const path = new URL(request.url).pathname;
     if (path === "/health" && request.method === "GET") {
       return Response.json({
@@ -33,6 +46,11 @@ Bun.serve({
     if (path !== "/api/v1/evaluate" || request.method !== "POST") {
       return new Response("Not found", { status: 404 });
     }
+    if (
+      request.headers.get("content-type")?.split(";")[0]?.trim() !==
+      "application/json"
+    )
+      return new Response("Expected application/json", { status: 415 });
     const parsed = inputSchema.safeParse(
       await request.json().catch(() => null),
     );

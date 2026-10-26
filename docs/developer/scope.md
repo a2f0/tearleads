@@ -67,7 +67,13 @@ with lifecycle scripts disabled for the separate native tools installation.
 No upstream source patches or dependency symlinks into this repository are used.
 
 The stack binds services to loopback, verifies their actual listening sockets,
-and disables application authentication. Services inherit only a small set of
+and disables application authentication. HTTP services and the portal reject
+unexpected Host headers, cross-site browser requests, and Origins other than
+their own address or the exact local portal. The Judge also requires JSON.
+These guards run before upstream request and WebSocket handlers: loopback alone
+does not prevent a malicious website from reaching an unauthenticated API via
+CORS or DNS rebinding. Open the portal using its `127.0.0.1` URL.
+Services inherit only a small set of
 host environment variables; only the worker receives the Claude OAuth token.
 It is a development stack for trusted source on your machine. The native Claude
 worker runs outside a container with host access and upstream Scope owns
@@ -109,7 +115,10 @@ bun run agent:run --label scope-baseline -- bun run scope benchmark
 New registrations record both commit IDs in `.scope/config.json`. The initial
 pilot's source-only archive remains historical evidence. Git-capable snapshots
 remove that harness limitation, but the inspection suite still does not install
-tools or run builds. Future execution tasks must explicitly review mise trust
+tools or run builds. The Judge rejects symlinks in result archives, including
+links generated under `node_modules/.bin`; an execution harness must exclude
+installed dependencies when packaging its grading evidence.
+Future execution tasks must explicitly review mise trust
 and provision the [verification prerequisites](verification.md#prerequisites).
 
 Calibration sends a known correct report and a deliberately incorrect report
