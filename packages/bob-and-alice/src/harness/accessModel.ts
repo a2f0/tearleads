@@ -19,8 +19,12 @@ interface ModelContainer {
 
 interface ModelDocument {
   readonly containerIds: Set<string>;
-  /** Every text the document has held, oldest first. */
-  readonly versions: { text: string; readers: ReadonlySet<string> }[];
+  /**
+   * Every text the document has held, oldest first, with each user who has
+   * had read access at any moment since it was written: access includes
+   * history, so any of them may have it.
+   */
+  readonly versions: { text: string; observers: Set<string> }[];
 }
 
 const LEVEL_RANK: Record<AccessLevel, number> = { read: 1, write: 2, admin: 3 };
@@ -56,6 +60,7 @@ export class AccessModel {
 
   moveContainer(containerId: string, parentId: string): void {
     this.requireContainer(containerId).parentId = parentId;
+    this.observeCurrentAccess();
   }
 
   grant(containerId: string, subject: GrantSubject, level: AccessLevel): void {
@@ -63,6 +68,7 @@ export class AccessModel {
       subject,
       level,
     });
+    this.observeCurrentAccess();
   }
 
   revoke(containerId: string, subject: GrantSubject): void {
@@ -75,6 +81,7 @@ export class AccessModel {
 
   addGroupMember(groupId: string, userId: string): void {
     this.requireGroup(groupId).add(userId);
+    this.observeCurrentAccess();
   }
 
   removeGroupMember(groupId: string, userId: string): void {
@@ -150,15 +157,26 @@ export class AccessModel {
    */
   textsVisibleWithoutAccess(userId: string, documentId: string): string[] {
     return this.requireDocument(documentId)
-      .versions.filter((version) => version.readers.has(userId))
+      .versions.filter((version) => version.observers.has(userId))
       .map((version) => version.text);
   }
 
   private recordVersion(documentId: string, text: string): void {
-    const readers = new Set(
-      [...this.users].filter((userId) => this.canRead(userId, documentId)),
-    );
-    this.requireDocument(documentId).versions.push({ text, readers });
+    this.requireDocument(documentId).versions.push({
+      text,
+      observers: new Set(),
+    });
+    this.observeCurrentAccess();
+  }
+
+  /** Every current reader may now hold every version written so far. */
+  private observeCurrentAccess(): void {
+    for (const [documentId, document] of this.documents) {
+      for (const userId of this.users) {
+        if (!this.canRead(userId, documentId)) continue;
+        for (const version of document.versions) version.observers.add(userId);
+      }
+    }
   }
 
   private subjectIncludes(subject: GrantSubject, userId: string): boolean {

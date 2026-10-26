@@ -43,6 +43,8 @@ test("fresh devices read a document across mixed key rotations", async () => {
   epochs.push(await world.keyEpoch(alice, folder));
   await world.editDocument(alice, document, "v3 alice after carol left");
   contentEpochs.push(await world.contentKeyEpoch(alice, document));
+  // Checked before the next rotation, which could otherwise hide a leak.
+  await expectAccess(world, document);
 
   await world.revoke(alice, folder, dave);
   epochs.push(await world.keyEpoch(alice, folder));
@@ -52,6 +54,7 @@ test("fresh devices read a document across mixed key rotations", async () => {
   const bobFresh = await world.newDevice(bob);
   await world.editDocument(bob, document, "v4 bob's fresh install", bobFresh);
   contentEpochs.push(await world.contentKeyEpoch(alice, document));
+  await expectAccess(world, document);
 
   await world.moveFolder(alice, folder, archive);
   epochs.push(await world.keyEpoch(alice, folder));
