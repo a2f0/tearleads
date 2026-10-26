@@ -12,6 +12,7 @@ import {
 import { readClaudeTranscript } from "./claude-evidence";
 import { grade, model } from "./codex";
 import { loadCriteria } from "./criteria";
+import { evidenceJson, redactText } from "./redaction";
 
 const turnSchema = z
   .object({
@@ -74,11 +75,11 @@ export async function evaluate(input: EvaluationInput) {
     await extractSnapshot(input.snapshotUrl, workspace);
     await writeFile(
       join(evidence, "agent-response.txt"),
-      input.currentAgentResponse || "(No response supplied)",
+      redactText(input.currentAgentResponse || "(No response supplied)"),
     );
     await writeFile(
       join(evidence, "conversation.json"),
-      JSON.stringify(input.conversationHistory, null, 2),
+      evidenceJson(input.conversationHistory),
     );
     await captureToolOutputs(input, evidence);
     const result = await grade(jobDir, criteria);
@@ -109,23 +110,17 @@ async function captureToolOutputs(input: EvaluationInput, evidence: string) {
   const log = await readWorkerLog(input.snapshotUrl);
   await writeFile(
     join(evidence, "native-tools.json"),
-    JSON.stringify(
+    evidenceJson(
       await readClaudeTranscript(log?.events ?? [], log?.iteration ?? 1),
-      null,
-      2,
     ),
   );
   await writeFile(
     join(evidence, "tool-events.json"),
-    JSON.stringify(
-      {
-        format:
-          "Scope ACP display events; command/output text can be truncated. These are not complete tool transcripts.",
-        events: selectToolEvents(log?.events ?? [], log?.iteration ?? 1),
-      },
-      null,
-      2,
-    ),
+    evidenceJson({
+      format:
+        "Scope ACP display events; command/output text can be truncated. These are not complete tool transcripts.",
+      events: selectToolEvents(log?.events ?? [], log?.iteration ?? 1),
+    }),
   );
   const logs = input.conversationHistory.flatMap((turn, index) =>
     turn.toolCallsUrl
@@ -145,8 +140,5 @@ async function captureToolOutputs(input: EvaluationInput, evidence: string) {
       toolCalls: await readToolCalls(log.url),
     });
   }
-  await writeFile(
-    join(evidence, "tool-outputs.json"),
-    JSON.stringify(captured, null, 2),
-  );
+  await writeFile(join(evidence, "tool-outputs.json"), evidenceJson(captured));
 }

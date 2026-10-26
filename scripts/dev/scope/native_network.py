@@ -1,6 +1,17 @@
 """Confirm actual sockets before declaring the native stack ready."""
 import subprocess
+import socket
 import time
+
+
+def wait_tcp(port):
+    for _ in range(60):
+        try:
+            with socket.create_connection(('127.0.0.1', port), timeout=1):
+                return
+        except OSError:
+            time.sleep(1)
+    raise RuntimeError(f'Service on port {port} did not become ready')
 
 
 def verify_listeners(ports):

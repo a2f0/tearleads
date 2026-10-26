@@ -1,4 +1,3 @@
-import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
@@ -12,10 +11,6 @@ const entity = z.object({
   sourceType: z.string().optional(),
   latestRevisionId: z.string().optional(),
 });
-
-export function git(...args: string[]): string {
-  return execFileSync("git", args, { cwd: root, encoding: "utf8" }).trim();
-}
 
 /** Upload committed source and fresh Git metadata, excluding host/local state. */
 export async function register(ref: string, baseRef: string): Promise<void> {

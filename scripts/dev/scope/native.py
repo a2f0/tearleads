@@ -64,7 +64,7 @@ for port in ([pins['ports']['judge']] if judge_only else
         listener.bind(('127.0.0.1', port))
 
 from native_config import environment
-from native_network import verify_listeners
+from native_network import verify_listeners, wait_tcp
 
 env, claude_version, credentials = environment(runtime, pins)
 node = ['node', '--require', str(tooling / 'loopback.cjs'), '--import', 'tsx']
@@ -108,7 +108,8 @@ start('azurite', ['node', str(runtime / 'tools/node_modules/azurite/dist/src/azu
     '--blobHost', '127.0.0.1', '--blobPort', str(ports['blob']), '--queueHost', '127.0.0.1',
     '--queuePort', str(ports['queue']), '--tableHost', '127.0.0.1', '--tablePort', str(ports['table']),
     '--location', str(runtime / 'azurite'), '--skipApiVersionCheck', '--loose', '--silent'])
-time.sleep(3)
+for name in ['mongo', 'redis', 'blob', 'queue', 'table']:
+    wait_tcp(ports[name])
 subprocess.run(node + ['packages/db-migrations/src/migrate.ts', 'up'], cwd=source, env=env, check=True)
 start('api', node + ['apps/api/src/index.ts'], overrides={'PORT': str(ports['api'])})
 wait_http(api + '/health')

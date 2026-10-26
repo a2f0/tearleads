@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { z } from "zod";
-import { git } from "./register";
+import { git } from "./git";
 import { apiRequest, settings, stateDir } from "./settings";
 import { configSchema } from "./types";
 

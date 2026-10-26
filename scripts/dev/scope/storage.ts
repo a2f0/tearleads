@@ -56,28 +56,35 @@ export async function extractSnapshot(
   const file = join(temp, "snapshot.tar.gz");
   try {
     await container.getBlobClient(blobName(url)).downloadToFile(file);
-    const rejected: string[] = [];
-    await t({
-      file,
-      onReadEntry: (entry) => {
-        if (!safeArchiveEntry(entry.path, entry.type))
-          rejected.push(entry.path);
-      },
-    });
-    if (rejected.length)
-      throw new Error(
-        `Unsafe snapshot entries: ${rejected.slice(0, 5).join(", ")}`,
-      );
-    await x({
-      file,
-      cwd: target,
-      strict: true,
-      preservePaths: false,
-      noChmod: true,
-    });
+    await extractArchiveFile(file, target);
   } finally {
     await rm(temp, { recursive: true, force: true });
   }
+}
+
+/** Validate the complete archive before extracting any evidence. */
+export async function extractArchiveFile(
+  file: string,
+  target: string,
+): Promise<void> {
+  const rejected: string[] = [];
+  await t({
+    file,
+    onReadEntry: (entry) => {
+      if (!safeArchiveEntry(entry.path, entry.type)) rejected.push(entry.path);
+    },
+  });
+  if (rejected.length)
+    throw new Error(
+      `Unsafe snapshot entries: ${rejected.slice(0, 5).join(", ")}`,
+    );
+  await x({
+    file,
+    cwd: target,
+    strict: true,
+    preservePaths: false,
+    noChmod: true,
+  });
 }
 
 export async function readToolCalls(url: string): Promise<unknown[]> {

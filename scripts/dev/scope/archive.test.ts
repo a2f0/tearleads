@@ -1,30 +1,14 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { extract } from "tar";
 import { createCodebaseArchive } from "./archive";
+import { gitAt } from "./git";
 
 function git(cwd: string, ...args: string[]): string {
-  const env = Object.fromEntries(
-    Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_")),
-  );
-  return execFileSync(
-    "git",
-    ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=/dev/null", ...args],
-    {
-      cwd,
-      env: {
-        ...env,
-        GIT_CONFIG_GLOBAL: "/dev/null",
-        GIT_CONFIG_NOSYSTEM: "1",
-      },
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  ).trim();
+  return gitAt(cwd, "-c", "commit.gpgsign=false", ...args);
 }
 
 test("snapshot preserves a divergent Git base without host configuration or dirty files", async () => {

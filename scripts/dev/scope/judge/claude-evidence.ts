@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
+import { redactEvidence } from "./redaction";
 
 const eventSchema = z.object({
   source: z.literal("coder-acp-claude-code"),
@@ -72,7 +73,13 @@ export function toolRecords(values: unknown[], session: string) {
     const record = parsed.data;
     const content = record.message.content.flatMap((part) => {
       const parsedPart = partSchema.safeParse(part);
-      return parsedPart.success ? [parsedPart.data] : [];
+      if (!parsedPart.success) return [];
+      const data = parsedPart.data;
+      return [
+        data.type === "tool_use"
+          ? { ...data, input: redactEvidence(data.input) }
+          : { ...data, content: redactEvidence(data.content) },
+      ];
     });
     return content.length
       ? [{ timestamp: record.timestamp, model: record.message.model, content }]

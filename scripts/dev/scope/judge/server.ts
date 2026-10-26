@@ -14,7 +14,8 @@ let active = false;
 Bun.serve({
   hostname: "127.0.0.1",
   port: settings.judgePort,
-  idleTimeout: 255,
+  // Codex has its own deadline; artifact I/O must not consume that same window.
+  idleTimeout: 0,
   maxRequestBodySize: 10 * 1024 * 1024,
   async fetch(request) {
     const path = new URL(request.url).pathname;

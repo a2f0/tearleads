@@ -24,7 +24,9 @@ it does not test a clean install, compilation, or bug-fix quality.
 
 Application source does not depend on Scope. Development dependencies support
 artifact handling and schema validation. `bun run test:scope` runs offline unit
-tests and is included in `check:fast`; live evaluations remain opt-in.
+tests using Bun and Git and is included in `check:fast`. Native integration tests
+run separately with `bun run test:scope:native` and require Node and Python from
+the installation prerequisites below. Live evaluations remain opt-in.
 
 ## Install and start
 
@@ -71,11 +73,18 @@ It is a development stack for trusted source on your machine. The native Claude
 worker runs outside a container with host access and upstream Scope owns
 `/tmp/workspaces`; run only one native worker on the host. Startup refuses a
 nonempty existing workspace directory. Do not put unrelated work there.
+If a failed run leaves a workspace there, stop Scope, confirm its path against
+the worker log, and move that run's directory into `.scope/` before restarting.
+The launcher deliberately does not delete unknown workspaces.
 
 The Codex Judge runs with a read-only sandbox and no approval prompts, checks
 only local emulator artifact URLs, rejects archive links and escaping paths,
 and validates every requested verdict. These controls do not turn the native
-coding worker into an isolation boundary.
+coding worker into an isolation boundary. The Judge's read-only mode limits
+writes; it is not a host-file confidentiality boundary. Treat both agents as
+processes with host-file visibility. Captured textual evidence redacts common
+token fields and provider-token formats before grading, but this is best-effort
+hygiene and does not sanitize arbitrary secrets embedded in source snapshots.
 
 ## Run the discoverability baseline
 

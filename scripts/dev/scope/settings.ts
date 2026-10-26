@@ -26,7 +26,7 @@ export function getSavedConfig() {
     : undefined;
 }
 
-function loopbackOrigin(value: string): string {
+export function loopbackOrigin(value: string): string {
   const url = new URL(value);
   if (
     !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname) ||
