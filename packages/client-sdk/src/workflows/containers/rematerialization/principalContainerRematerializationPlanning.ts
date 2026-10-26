@@ -75,6 +75,8 @@ export interface BatchPlanning {
     typeof createProjectionUserKeyResolver
   >;
   readonly rotatedAbove: SpeculativePath[];
+  /** Every path the batch authored, a grant's included, in signing order. */
+  readonly authoredAbove: SpeculativePath[];
 }
 
 /** How many rekeys the batch carries beyond its rematerializations. */
@@ -133,6 +135,7 @@ export function addPlan(
   entry: PlannedRematerialization,
 ): void {
   batch.plans.push(entry);
+  if (entry.nextProjection) batch.authoredAbove.push(entry.nextProjection);
   if (!entry.rotated) return;
   batch.rotatedAbove.push(entry.rotated);
   const minted = entry.rotated.containerKeks.at(-1)?.containerKeyEpochId;

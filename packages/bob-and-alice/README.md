@@ -29,7 +29,8 @@ can only do and observe what a deployed client could.
 ## Scenarios
 
 Scenarios live in `src/scenarios`. Set `HARNESS_TRACE=1` to print each
-operation, each device's read, and each scenario's key-epoch series.
+operation, each device's read, each scenario's key-epoch series, and every
+request the API refuses with its error body.
 
 | Scenario | Establishes |
 | --- | --- |
@@ -38,14 +39,13 @@ operation, each device's read, and each scenario's key-epoch series.
 | `nestedTree` | A revoke rotates exactly the folder and the level above a deeper direct grant. The grantee repairs its own subtree with its first write. A move takes a group's access away from the moved subtree. |
 | `multiLinkDocument` | A document linked into two folders follows each link's access through a write via either link, a group shrink, and an unlink. |
 | `groupPaths` | A member keeps access, and write access, while any of its groups still grants it. |
+| `groupShrinkCarry` | A group shrink above a deeper direct grant carries the level between in its policy commit. One group granted at two levels of a chain, in either order, re-signs both grants and shrinks in one commit. |
 
 `src/scenarios/knownIssues.test.ts` holds reproductions of open issues, each
 marked `test.failing`. They pass while the bug stands and fail once it is
 fixed; convert a test into an ordinary scenario then. The scenarios above route
 around these:
 
-- [#2646](https://github.com/a2f0/tearleads/issues/2646): removing a group
-  member fails when the policy commit must carry a descendant rekey.
 - [#2647](https://github.com/a2f0/tearleads/issues/2647): a share shortly
   after a group share on an ancestor can race the SDK's own descendant
   re-cite. It is intermittent, so it has no `test.failing` reproduction.

@@ -25,6 +25,7 @@ test("carryLevel refuses past the carried-rekey cap before touching the API", as
     },
     resolveProjectionUserKey: async () => null,
     rotatedAbove: [],
+    authoredAbove: [],
   } as unknown as BatchPlanning;
   await expect(carryLevel(batch, {} as never)).rejects.toThrow(
     `Policy change would carry more than ${MAX_ROTATION_CONTAINER_REKEYS} descendant rekeys`,

@@ -141,31 +141,33 @@ async function prepareChange(
     localPolicyCheckpoint: change.context.localPolicyCheckpoint,
     stillCurrent: change.context.stillCurrent,
   });
-  const prepared = await change.prepareContainerMutations(
-    nextPolicy,
-    preceding,
-  );
+  const authored = [
+    ...(preceding?.authored ?? []),
+    {
+      organizationId: change.context.organizationDescriptor.organizationId,
+      policy: nextPolicy,
+      dependencies: [
+        change.context.organizationCurrent.policy,
+        change.context.adminCurrent.policy,
+      ],
+      stillCurrent: change.context.stillCurrent,
+    },
+  ];
+  // A level the batch plans under its own rotation cites this successor
+  // before the transaction commits, so the batch resolves it as authored,
+  // exactly as the next group in a compound transaction does (#2646).
+  const prepared = await change.prepareContainerMutations(nextPolicy, {
+    policies: preceding?.policies ?? [],
+    projections: preceding?.projections ?? [],
+    knownContainerKeks: preceding?.knownContainerKeks ?? new Map(),
+    authored,
+  });
   change.request.containerMutations = [...prepared.requests];
   return {
     expectedHead,
     prepared,
     preceding: prepared.preceding
-      ? {
-          ...prepared.preceding,
-          authored: [
-            ...(preceding?.authored ?? []),
-            {
-              organizationId:
-                change.context.organizationDescriptor.organizationId,
-              policy: nextPolicy,
-              dependencies: [
-                change.context.organizationCurrent.policy,
-                change.context.adminCurrent.policy,
-              ],
-              stillCurrent: change.context.stillCurrent,
-            },
-          ],
-        }
+      ? { ...prepared.preceding, authored }
       : undefined,
   };
 }

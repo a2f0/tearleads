@@ -6,28 +6,6 @@ import { World } from "../harness/world";
 // passes while the bug stands and fails once it is fixed: convert it into an
 // ordinary scenario then.
 
-test.failing("#2646: removing a group member that must carry a descendant rekey", async () => {
-  const world = await World.create();
-  try {
-    const alice = await world.register("alice");
-    const carol = await world.register("carol");
-    const dave = await world.register("dave");
-    await world.addToOrganization(alice, carol);
-    await world.addToOrganization(alice, dave);
-    const a = await world.createFolder(alice, world.root(alice), "a");
-    const b = await world.createFolder(alice, a, "b");
-    const c = await world.createFolder(alice, b, "c");
-    const team = await world.createGroup(alice, "Team");
-    await world.addToGroup(alice, team, carol);
-    await world.shareWithUser(alice, c, dave);
-    await world.shareWithGroup(alice, a, team, "write");
-    // `b` sits between the rotated `a` and the directly granted `c`.
-    await world.removeFromGroup(alice, team, carol);
-  } finally {
-    world.dispose();
-  }
-}, 120_000);
-
 test.failing("#2648: a writer whose device synced before an ancestor revoke", async () => {
   const world = await World.create();
   try {
