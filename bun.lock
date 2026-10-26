@@ -78,7 +78,7 @@
     },
     "packages/api-shared": {
       "name": "@tearleads/api-shared",
-      "version": "0.1.23",
+      "version": "0.1.24",
       "dependencies": {
         "@electric-sql/pglite": "0.5.11",
         "@libsql/client": "0.18.0",
@@ -282,7 +282,7 @@
     },
     "packages/performance": {
       "name": "@tearleads/performance",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "dependencies": {
         "@tearleads/api-shared": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
