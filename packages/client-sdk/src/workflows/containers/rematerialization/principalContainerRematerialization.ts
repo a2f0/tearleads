@@ -38,6 +38,7 @@ import {
   carryLevel,
   type PrincipalContainerRematerializationInput,
   type PrincipalRematerializationPredecessor,
+  rerootOnAuthoredPaths,
   staleLevelsAbove,
 } from "./principalContainerRematerializationPlanning";
 import {
@@ -294,12 +295,11 @@ async function planRematerializationTarget(
     await carryLevel(batch, target.projection);
     return;
   }
-  // Re-root on the deepest path the batch authored above, a grant's too: the
-  // server applies the batch in order, so the target cites every head an
-  // earlier entry advances, and each carried level re-roots it a step deeper.
-  const previousProjection =
-    rebaseOnDeepestAncestor(target.projection, batch.authoredAbove)
-      ?.projection ?? target.projection;
+  // Each level carried above re-roots the target one step deeper.
+  const previousProjection = await rerootOnAuthoredPaths(
+    batch,
+    target.projection,
+  );
   const planned = await buildPrincipalContainerRematerializationPlan({
     grantRow: target.grantRow,
     knownContainerKeks: batch.knownContainerKeks,

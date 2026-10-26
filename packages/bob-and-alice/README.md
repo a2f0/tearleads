@@ -25,6 +25,11 @@ can only do and observe what a deployed client could.
   device's trust-boundary checks.
 - An edit the actor may make must settle with nothing left pending, so a write
   that only ever landed locally fails the operation.
+- An operation runs on the actor's first device unless a scenario names
+  another. A device acts on a folder only once its own tree holds it, so a
+  fresh install first pulls the folder from the API.
+- `keyEpoch` reads a folder's current key epoch from the API, bypassing the
+  reading device's cached projection.
 
 ## Scenarios
 
@@ -39,7 +44,7 @@ request the API refuses with its error body.
 | `nestedTree` | A revoke rotates exactly the folder and the level above a deeper direct grant. The grantee repairs its own subtree with its first write. A move takes a group's access away from the moved subtree. |
 | `multiLinkDocument` | A document linked into two folders follows each link's access through a write via either link, a group shrink, and an unlink. |
 | `groupPaths` | A member keeps access, and write access, while any of its groups still grants it. |
-| `groupShrinkCarry` | A group shrink above a deeper direct grant carries the level between in its policy commit. One group granted at two levels of a chain, in either order, re-signs both grants and shrinks in one commit. |
+| `groupShrinkCarry` | A group shrink above a deeper direct grant carries the level between in its policy commit. One group granted at two levels of a chain, in either order, re-signs both grants and shrinks in one commit, from fresh admin installs. |
 
 `src/scenarios/knownIssues.test.ts` holds reproductions of open issues, each
 marked `test.failing`. They pass while the bug stands and fail once it is

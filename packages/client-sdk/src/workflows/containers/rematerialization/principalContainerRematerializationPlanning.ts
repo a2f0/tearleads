@@ -4,9 +4,10 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type { ContainerReciteApi } from "../../../data/containers/shared/reciteApi";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
-import type {
-  PrincipalPolicyCache,
-  ReferencedPrincipalPolicyWarmer,
+import {
+  type PrincipalPolicyCache,
+  type ReferencedPrincipalPolicyWarmer,
+  verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
 import type { ResolvedPrincipalPolicyEvidence } from "../../../data/keyingProjectionVerification/types";
 import type { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
@@ -17,6 +18,7 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import {
   planCarriedDescendantRekey,
+  rebaseOnDeepestAncestor,
   type SpeculativePath,
 } from "../child/rekey/carriedDescendantRekeys";
 import type { PlannedRematerialization } from "./principalContainerRematerializationTargets";
@@ -128,6 +130,33 @@ export async function carryLevel(
     rotated: planned.writerProjection,
     nextProjection: planned.writerProjection,
   });
+}
+
+/**
+ * Re-root a granted target on the deepest path the batch authored above it, a
+ * grant's included: the server applies the batch in order, so the target
+ * cites every head an earlier entry advances. Its served head is pinned first,
+ * as a carried rekey's is. The batch is acknowledged against the latest
+ * durable pin, and a re-rooted path pins nothing, so a device that never
+ * pinned this container would refuse its own batch once the server took it.
+ */
+export async function rerootOnAuthoredPaths(
+  batch: BatchPlanning,
+  served: ContainerWriterProjectionResponse,
+): Promise<ContainerWriterProjectionResponse> {
+  const rebased = rebaseOnDeepestAncestor(served, batch.authoredAbove);
+  if (!rebased) return served;
+  const { rematerialization } = batch;
+  await verifyContainerWriterProjection({
+    execSql: rematerialization.execSql,
+    principalPolicyCache: batch.principalPolicyCache,
+    projection: served,
+    resolveUserKey: batch.resolveProjectionUserKey,
+    stillCurrent: rematerialization.stillCurrent,
+    warmReferencedPrincipalPolicies:
+      rematerialization.warmReferencedPrincipalPolicies,
+  });
+  return rebased.projection;
 }
 
 export function addPlan(

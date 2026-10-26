@@ -72,7 +72,9 @@ test("a group shrink above a deeper direct grant carries the level between", asy
 // One group granted at two levels of a chain, write on `a` and read on `c`,
 // in either order. Each share re-cites the other grant under the head the
 // same commit advances, and a shrink rotates `a`, carries `b` without being
-// told, and rematerializes `c` under the carried `b`, all in one commit.
+// told, and rematerializes `c` under the carried `b`, all in one commit. The
+// second share and the shrink run on fresh installs of the admin, which hold
+// no pin for the containers the batch re-signs.
 test.each([
   ["the lower grant first", true],
   ["the upper grant first", false],
@@ -95,15 +97,18 @@ test.each([
     const team = await world.createGroup(alice, "Team");
     await world.addToGroup(alice, team, bob);
     await world.addToGroup(alice, team, carol);
-    if (lowerFirst) await world.shareWithGroup(alice, c, team, "read");
-    await world.shareWithGroup(alice, a, team, "write");
-    if (!lowerFirst) await world.shareWithGroup(alice, c, team, "read");
+    const [first, second] = lowerFirst ? [c, a] : [a, c];
+    const level = (folder: Folder) => (folder === a ? "write" : "read");
+    await world.shareWithGroup(alice, first, team, level(first));
+    const sharer = await world.newDevice(alice);
+    await world.shareWithGroup(alice, second, team, level(second), sharer);
     await expectAccess(world, upper);
     await expectAccess(world, lower);
 
     const path = [a, b, c];
     const before = await epochsOf(world, alice, path);
-    await world.removeFromGroup(alice, team, carol);
+    const shrinker = await world.newDevice(alice);
+    await world.removeFromGroup(alice, team, carol, shrinker);
     const afterShrink = await epochsOf(world, alice, path);
     trace(`a b c epochs ${before} -> ${afterShrink}`);
     expect(afterShrink).toEqual(before.map((epoch) => epoch + 1));
