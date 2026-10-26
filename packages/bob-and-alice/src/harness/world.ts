@@ -103,7 +103,7 @@ export class World {
   ): Promise<Folder> {
     const device = primary(actor);
     const created = await (await device.tree()).createChild(parent.id, name);
-    if (!created) throw new Error(`${actor.name} could not create ${name}`);
+    if (!created) throw device.failure(`could not create ${name}`);
     await device.idle();
     this.model.addContainer({ containerId: created.id, parentId: parent.id });
     return { id: created.id, name };
@@ -115,7 +115,7 @@ export class World {
       folder.id,
       parent.id,
     );
-    if (!moved) throw new Error(`${actor.name} could not move ${folder.name}`);
+    if (!moved) throw device.failure(`could not move ${folder.name}`);
     await device.idle();
     this.model.moveContainer(folder.id, parent.id);
   }
@@ -139,8 +139,10 @@ export class World {
   }
 
   /**
-   * Edits from `device` (the actor's first device by default). The model
-   * records the edit only if the actor may write, so a refused edit that
+   * Edits from `device` (the actor's first device by default). An edit the
+   * actor may make must settle with nothing left pending, so a write that
+   * only ever landed locally fails here rather than passing on optimistic
+   * local text. A refused edit may stay parked; the model ignores it, so one
    * the system wrongly accepted shows up as a mismatch in `expectAccess`.
    */
   async editDocument(
@@ -150,10 +152,19 @@ export class World {
     device: Device = primary(actor),
   ): Promise<void> {
     const store = await readDocument(device, document);
-    if (!store) throw new Error(`${device.label} cannot open the document`);
+    if (!store) throw device.failure("cannot open the document");
     await store.setText(text);
-    await device.idle().catch(() => undefined);
-    this.model.edit(document.documentId, actor.userId, text);
+    if (!this.model.edit(document.documentId, actor.userId, text)) {
+      await device.idle().catch(() => undefined);
+      return;
+    }
+    await device.idle();
+    const pending = await device.sdk.containerContents
+      .documentQueries()
+      .listPendingWrites();
+    if (pending.some((item) => item.remoteId === document.documentId)) {
+      throw device.failure("edit did not reach the API");
+    }
   }
 
   async shareWithUser(actor: User, folder: Folder, recipient: User) {
@@ -162,8 +173,7 @@ export class World {
       folder.id,
       recipient.userId,
     );
-    if (!shared)
-      throw new Error(`${actor.name} could not share ${folder.name}`);
+    if (!shared) throw device.failure(`could not share ${folder.name}`);
     await device.idle();
     // The product's direct user share always grants write.
     this.model.grant(
@@ -216,8 +226,7 @@ export class World {
       level,
       { expectedGroupName: group.name },
     );
-    if (!shared)
-      throw new Error(`${actor.name} could not share with ${group.name}`);
+    if (!shared) throw device.failure(`could not share with ${group.name}`);
     await device.idle();
     this.model.grant(folder.id, { kind: "group", id: group.id }, level);
   }
@@ -257,7 +266,7 @@ export class World {
     const localId = await device.sdk.documents.findLocalIdByDocumentId(
       document.documentId,
     );
-    if (!localId) throw new Error(`${actor.name} does not hold the document`);
+    if (!localId) throw device.failure(`does not hold the document`);
     const info = await device.sdk.containerContents.loadDocumentInfo({
       localId,
       remoteInfoMode: "if-synced",
