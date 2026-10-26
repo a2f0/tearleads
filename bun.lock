@@ -284,6 +284,7 @@
       "name": "@tearleads/performance",
       "version": "0.1.0",
       "dependencies": {
+        "@tearleads/api-shared": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/sqlite-worker": "workspace:*",
       },

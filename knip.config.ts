@@ -178,7 +178,7 @@ const baseConfig = {
       project: ["src/**/*.ts"],
     },
     "packages/performance": {
-      entry: ["src/**/*.test.ts"],
+      entry: ["src/**/*.test.ts", "src/database/worker.ts"],
       project: ["src/**/*.ts"],
     },
     "packages/ui": {
@@ -295,7 +295,11 @@ const productionConfig = {
     "packages/encoding": { project: productionProject },
     "packages/loro": { project: productionProject },
     "packages/performance": {
-      entry: ["src/index.ts!"],
+      entry: [
+        "src/index.ts!",
+        "src/database/index.ts!",
+        "src/database/worker.ts!",
+      ],
       project: productionProject,
     },
     "packages/ui": { project: productionProject },

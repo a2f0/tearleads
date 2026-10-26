@@ -6,9 +6,11 @@
   "type": "module",
   "scripts": {
     "provision": "bun src/index.ts",
+    "database": "bun src/database/index.ts",
     "test": "bun test src"
   },
   "dependencies": {
+    "@tearleads/api-shared": "workspace:*",
     "@tearleads/client-sdk": "workspace:*",
     "@tearleads/sqlite-worker": "workspace:*"
   },

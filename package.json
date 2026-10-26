@@ -104,7 +104,8 @@
     "test:turbo:e2e:affected": "bun scripts/testing/runVerifiedTurbo.ts e2e --affected",
     "knip": "bun run lint:knip:all",
     "perf:provision": "bun run --cwd packages/performance provision",
-    "test:knip:production": "bun scripts/testing/testKnipProduction.ts"
+    "test:knip:production": "bun scripts/testing/testKnipProduction.ts",
+    "perf:database": "bun run --cwd packages/performance database"
   },
   "workspaces": [
     "packages/api",

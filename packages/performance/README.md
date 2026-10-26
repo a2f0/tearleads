@@ -1,11 +1,15 @@
 # Performance experiments
 
 `@tearleads/performance` is an executable SDK host for small, repeatable
-experiments against staging and production. It imports public SDK and SQLite
-adapter entry points. The app, SDK, and API do not depend on it.
+experiments against staging and production. It imports public SDK, SQLite,
+and PostgreSQL transport entry points. The app, SDK, and API do not depend on it.
 
 The [initial production baseline](baseline.md) records three registrations and
 their correlated database and CPU measurements.
+
+The [database round-trip experiment](database-experiment.md) separates connection
+setup, repeated warm queries, batched queries, and server execution time through
+the API's existing Hyperdrive binding. Run it with `bun run perf:database`.
 
 ## Account provisioning
 
