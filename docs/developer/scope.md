@@ -114,7 +114,12 @@ new versioned ID: seeding refuses to silently overwrite existing definitions.
 
 Receipts under `.scope/benchmarks/` record the source commit, tooling commit,
 suite definitions, run links, agent version, timings, reports and verdicts.
-Raw Judge evidence stays under `.scope/judge/evaluations/`. Inspect failures to
+Raw Judge evidence stays under `.scope/judge/evaluations/`. The native adapter
+uses Scope's workspace/session IDs to attach tool calls and results from the
+matching host Claude session. It excludes reasoning content and other sessions.
+If that session file is unavailable, only truncated Scope tool events may remain;
+missing execution evidence cannot establish a passing execution criterion.
+Inspect failures to
 distinguish repository friction from agent mistakes and environment failures.
 If polling times out, the request may remain active: inspect its link before
 submitting again. A failed evaluation is a finding; an infrastructure error
@@ -124,6 +129,19 @@ Keep a small reviewed findings document in Git when comparing repository
 improvements. Keep full transcripts and large snapshots in `.scope/`. For a
 controlled comparison, hold task definitions, agent/model, Judge, iteration
 budget and environment constant, then change one repository condition.
+
+See the [initial discoverability findings](scope-baseline.md) for the first
+pilot, its environment limitations, and the proposed comparison.
+
+Completed one-iteration outputs can be regraded after a Judge integration fix:
+
+```sh
+bun run scope regrade .scope/benchmarks/<run-directory>/receipt.json
+```
+
+This writes a separate receipt under `.scope/regrades/` and preserves the
+original portal grades. It invokes the Judge again without rerunning the coder.
+Keep the original and corrected grades together when reporting a baseline.
 
 ## Other commands
 
