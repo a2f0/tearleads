@@ -30,17 +30,20 @@ The middleware lives in `packages/api/src/diagnostics/requestCost.ts`.
 
 ## What the numbers mean
 
-- On Workers the clock advances only across I/O. Both durations therefore
-  measure I/O waits: Postgres, R2, Durable Objects, and other fetches.
-  CPU-bound work reads as zero; read it from the invocation record's CPU time
-  for the same request in Workers Logs.
+- [Worker clocks advance only after I/O](https://developers.cloudflare.com/workers/runtime-apis/performance/),
+  so a synchronous CPU-only span can read as zero. These are elapsed clock
+  readings, not I/O-only counters: an interval ending on I/O can include CPU
+  since the previous clock update. Read CPU from the invocation record for
+  the same request in Workers Logs. The measurements overlap; subtracting CPU
+  from `dbMs` does not yield network time.
 - `dbMs` sums every driver call, including acquiring a connection. A
   request-scoped Worker connection opens on its first query, so that query
   includes the Hyperdrive handshake. Concurrent queries can make `dbMs`
   exceed `wallMs`.
-- A large `wallMs` with a small `dbMs` is waiting on something other than
-  Postgres. A large `dbMs` with many `statements` is round trips; with few
-  statements it is slow queries.
+- A large `wallMs` with a small `dbMs` points outside the instrumented database
+  calls. A large `dbMs` with many `statements` makes serial round trips a useful
+  hypothesis, but count alone cannot exclude expensive queries, lock waits,
+  or scheduling delays. Use query timings and plans to distinguish them.
 - `wallMs` stops when the handler and read-model hint verification return.
   It excludes the Worker's body admission queue, response body streaming, and
   `waitUntil` work after the response.
@@ -75,3 +78,7 @@ The [database round-trip probe](../../packages/performance/database-experiment.m
 separates connection acquisition, warm driver calls, and constant-query server
 execution using the same PostgreSQL transport and Hyperdrive binding. It runs
 in a temporary Worker whose persisted placement must match the live API.
+
+The [registration artifact batching experiment](registration-artifact-batch.md)
+records a staging baseline/candidate/restored-baseline comparison, including
+the measured statement reduction and limits on attributing latency changes.
