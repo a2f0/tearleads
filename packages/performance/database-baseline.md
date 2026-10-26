@@ -63,7 +63,9 @@ Staging started at 09:28:41 UTC and production at 09:30:10 UTC.
 Both API Workers and probes resolved the configured `aws:us-east-1` hint to
 `{"mode":"targeted","target":[1]}`. Compatibility date was `2026-08-17` with
 `nodejs_compat` and `enable_request_signal`. Query caching was disabled,
-coalesced writes enabled, pool maximum four, and request-scoped maximum uses one.
+coalesced writes enabled, and a request-scoped pool maximum of four.
+`POSTGRES_POOL_MAX_USES=1` was copied but is ignored for request-scoped pools,
+matching the API's connection reuse within a request.
 The `cf-placement` execution header was unavailable in all six responses;
 persisted placement matched, but actual execution datacenter was not observed.
 The report retains `null` and does not infer it from ingress ray IDs.
