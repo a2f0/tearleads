@@ -44,7 +44,6 @@ const baseConfig = {
       // scripts, so they must be declared explicitly; the Worker entry comes
       // from wrangler.jsonc.
       entry: [
-        "src/appTestRuntime.ts",
         "src/worker/loro/index.ts",
         "src/worker/stubs/*.ts",
         "src/**/*.test.ts",
@@ -289,7 +288,10 @@ const productionConfig = {
       ],
       project: productionProject,
     },
-    "packages/bob-and-alice": { project: productionProject },
+    // Test-only: its harness is scenario support, never shipped.
+    "packages/bob-and-alice": {
+      project: [...productionProject, "!src/harness/**"],
+    },
     "packages/client-sdk": {
       // The manifest points at dist; these are its runtime source facades.
       entry: ["src/index.ts!", "src/sqlite/index.ts!"],

@@ -4,6 +4,9 @@
   "private": true,
   "license": "UNLICENSED",
   "type": "module",
+  "exports": {
+    "./test-runtime": "./src/appTestRuntime.ts"
+  },
   "scripts": {
     "sentry:cli": "sentry-cli",
     "db:generate": "bun run --cwd ../api-shared db:generate",

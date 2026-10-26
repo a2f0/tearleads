@@ -8,6 +8,8 @@
     "test": "bun test src"
   },
   "devDependencies": {
+    "@tearleads/api": "workspace:*",
+    "@tearleads/client-sdk": "workspace:*",
     "@tearleads/crypto": "workspace:*",
     "@tearleads/test-utils": "workspace:*",
     "@types/bun": "catalog:"

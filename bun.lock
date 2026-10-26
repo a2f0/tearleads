@@ -214,6 +214,8 @@
       "name": "@tearleads/bob-and-alice",
       "version": "0.1.3",
       "devDependencies": {
+        "@tearleads/api": "workspace:*",
+        "@tearleads/client-sdk": "workspace:*",
         "@tearleads/crypto": "workspace:*",
         "@tearleads/test-utils": "workspace:*",
         "@types/bun": "catalog:",
