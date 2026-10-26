@@ -15,14 +15,52 @@ can only do and observe what a deployed client could.
   read and write each document, from parent pointers, grants, and group
   memberships alone.
 - `src/harness/world.ts` applies each operation to a device and, once the
-  device has settled, to the model.
+  device has settled, to the model. A member added to another user's
+  organization works inside it from then on, on every device, as a member
+  switching to that organization would.
 - `expectAccess` reads a document on every device of every user and compares
   the result with the model. A current reader must see the latest text. Anyone
-  else may see nothing written after they lost access. `expectNoSecurityIncidents`
-  requires an honest API to trip no device's trust-boundary checks.
+  else may see nothing written after they lost access, apart from their own
+  refused edit. `expectNoSecurityIncidents` requires an honest API to trip no
+  device's trust-boundary checks.
+- An edit the actor may make must settle with nothing left pending, so a write
+  that only ever landed locally fails the operation.
 
-Scenarios live in `src/scenarios`. Set `HARNESS_TRACE=1` to print each device's
-read and each scenario's key-epoch series.
+## Scenarios
+
+Scenarios live in `src/scenarios`. Set `HARNESS_TRACE=1` to print each
+operation, each device's read, and each scenario's key-epoch series.
+
+| Scenario | Establishes |
+| --- | --- |
+| `overlappingGrants` | A direct grant keeps access after an overlapping group grant goes. Read-only and revoked edits are refused. |
+| `rotationHistory` | A group shrink, a revoke, and a move each rotate the folder key, and each shrink rotates the content key. A fresh install makes the first write after a shrink. A newcomer reads through the folder keyring before any re-wrap. |
+| `nestedTree` | A revoke rotates exactly the folder and the level above a deeper direct grant. The grantee repairs its own subtree with its first write. A move takes a group's access away from the moved subtree. |
+| `multiLinkDocument` | A document linked into two folders follows each link's access through a write via either link, a group shrink, and an unlink. |
+| `groupPaths` | A member keeps access, and write access, while any of its groups still grants it. |
+
+`src/scenarios/knownIssues.test.ts` holds reproductions of open issues, each
+marked `test.failing`. They pass while the bug stands and fail once it is
+fixed; convert a test into an ordinary scenario then. The scenarios above route
+around these:
+
+- [#2646](https://github.com/a2f0/tearleads/issues/2646): removing a group
+  member fails when the policy commit must carry a descendant rekey.
+- [#2647](https://github.com/a2f0/tearleads/issues/2647): a share shortly
+  after a group share on an ancestor can race the SDK's own descendant
+  re-cite. It is intermittent, so it has no `test.failing` reproduction.
+- [#2648](https://github.com/a2f0/tearleads/issues/2648): a device that synced
+  a document before an ancestor revoke never repairs its path to write it.
+
+## Limits
+
+- The API runs without realtime hints, so devices learn about changes only
+  when they pull. A device removed from a group may keep accepting local edits
+  that never sync. The harness records those as the device's own refused edits.
+- Every device trusts identities on first use through the SDK's own pins; no
+  scenario models a malicious API.
+
+## Running
 
 ```sh
 bun run --filter='@tearleads/client-sdk' build

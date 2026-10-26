@@ -6,7 +6,7 @@ import type { SharedDocument, World } from "./world";
 /**
  * Reads `document` on every device of every user and compares each result
  * with the model: a current reader sees the latest text, and anyone else
- * sees nothing written after they lost access.
+ * sees nothing written after they lost access, beyond its own refused edit.
  */
 export async function expectAccess(
   world: World,
@@ -23,7 +23,7 @@ export async function expectAccess(
       ),
     ]);
     for (const device of user.devices) {
-      const text = await readText(device, document);
+      const text = await readText(device, world.documentRef(document));
       trace(`${device.label} canRead=${canRead} read=${text}`);
       if (canRead) {
         expect({ device: device.label, text }).toEqual({
@@ -31,7 +31,9 @@ export async function expectAccess(
           text: latest,
         });
       } else {
-        expect({ device: device.label, leaked: !allowed.has(text) }).toEqual({
+        const own = text !== null && world.refusedEditsOn(device).has(text);
+        const leaked = !allowed.has(text) && !own;
+        expect({ device: device.label, leaked }).toEqual({
           device: device.label,
           leaked: false,
         });

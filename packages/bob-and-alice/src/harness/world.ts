@@ -6,6 +6,7 @@ import {
 import { startApiServer } from "./apiServer";
 import { Device, type DeviceKeys } from "./device";
 import { readDocument } from "./documentReads";
+import { trace } from "./trace";
 
 export interface User {
   readonly name: string;
@@ -27,6 +28,7 @@ export interface Group {
 
 export interface SharedDocument {
   readonly documentId: string;
+  /** The folder it was created in; links add others in the model. */
   readonly containerId: string;
 }
 
@@ -34,6 +36,17 @@ export interface SharedDocument {
 async function settleOrganizationMutation(device: Device): Promise<void> {
   await device.idle();
   await device.sdk.organizations.loadDirectoryAndGroupsAfterMutation();
+}
+
+async function heldSummary(device: Device, document: SharedDocument) {
+  const localId = await device.sdk.documents.findLocalIdByDocumentId(
+    document.documentId,
+  );
+  const note = (await device.sdk.documents.list())?.rows.find(
+    (row) => row.id === localId,
+  );
+  if (!note) throw new Error(`${device.label} does not hold the document`);
+  return note;
 }
 
 function primary(user: User): Device {
@@ -51,6 +64,10 @@ function primary(user: User): Device {
 export class World {
   readonly model = new AccessModel();
   private readonly users: User[] = [];
+  /** The organization each joined member works in, by user id. */
+  private readonly workingOrganizations = new Map<string, string>();
+  /** Texts each device tried to write without write access. */
+  private readonly refusedEdits = new Map<Device, Set<string>>();
 
   private constructor(private readonly origin: string) {}
 
@@ -75,6 +92,8 @@ export class World {
   async newDevice(user: User): Promise<Device> {
     const label = `${user.name}-device-${user.devices.length + 1}`;
     const device = await Device.login(this.origin, label, user.keys);
+    const organizationId = this.workingOrganizations.get(user.userId);
+    if (organizationId) device.enterOrganization(organizationId);
     user.devices.push(device);
     return device;
   }
@@ -83,8 +102,12 @@ export class World {
     return { id: primary(user).rootContainerId, name: `${user.name} root` };
   }
 
-  /** Adds `member` to `owner`'s organization roster (its Members group). */
+  /**
+   * Adds `member` to `owner`'s organization roster (its Members group) and
+   * has every device of `member` work inside that organization from now on.
+   */
   async addToOrganization(owner: User, member: User): Promise<void> {
+    trace(`addToOrganization`);
     const directory =
       await primary(owner).sdk.organizations.loadDirectoryAndGroups();
     if (!directory) throw new Error(`${owner.name} has no directory`);
@@ -94,6 +117,10 @@ export class World {
       targetUserId: member.userId,
     });
     await settleOrganizationMutation(primary(owner));
+    const organizationId = primary(owner).organizationId;
+    this.workingOrganizations.set(member.userId, organizationId);
+    for (const device of member.devices)
+      device.enterOrganization(organizationId);
   }
 
   async createFolder(
@@ -101,6 +128,7 @@ export class World {
     parent: Folder,
     name: string,
   ): Promise<Folder> {
+    trace(`createFolder`);
     const device = primary(actor);
     const created = await (await device.tree()).createChild(parent.id, name);
     if (!created) throw device.failure(`could not create ${name}`);
@@ -110,6 +138,7 @@ export class World {
   }
 
   async moveFolder(actor: User, folder: Folder, parent: Folder): Promise<void> {
+    trace(`moveFolder`);
     const device = primary(actor);
     const moved = await (await device.tree()).moveContainer(
       folder.id,
@@ -125,6 +154,7 @@ export class World {
     folder: Folder,
     text: string,
   ): Promise<SharedDocument> {
+    trace(`createDocument`);
     const device = primary(actor);
     const store = device.sdk.documents.open({
       containerId: folder.id,
@@ -151,10 +181,14 @@ export class World {
     text: string,
     device: Device = primary(actor),
   ): Promise<void> {
-    const store = await readDocument(device, document);
+    trace(`editDocument`);
+    const store = await readDocument(device, this.documentRef(document));
     if (!store) throw device.failure("cannot open the document");
     await store.setText(text);
     if (!this.model.edit(document.documentId, actor.userId, text)) {
+      const refused = this.refusedEdits.get(device) ?? new Set();
+      refused.add(text);
+      this.refusedEdits.set(device, refused);
       await device.idle().catch(() => undefined);
       return;
     }
@@ -167,7 +201,50 @@ export class World {
     }
   }
 
+  /** The document with every container it is currently linked into. */
+  documentRef(document: SharedDocument) {
+    return {
+      documentId: document.documentId,
+      containerIds: this.model.documentContainers(document.documentId),
+    };
+  }
+
+  async linkDocument(actor: User, document: SharedDocument, folder: Folder) {
+    trace(`linkDocument`);
+    const device = primary(actor);
+    const note = await heldSummary(device, document);
+    const linked = await device.sdk.containerContents
+      .documentLinks()
+      .linkDocumentToContainer({
+        mergeDocumentSummary: () => undefined,
+        note,
+        setLinkedContainerIdsForDocument: () => undefined,
+        targetContainerId: folder.id,
+      });
+    if (!linked) throw device.failure(`could not link into ${folder.name}`);
+    await device.idle();
+    this.model.linkDocument(document.documentId, folder.id);
+  }
+
+  async unlinkDocument(actor: User, document: SharedDocument, folder: Folder) {
+    trace(`unlinkDocument`);
+    const device = primary(actor);
+    const note = await heldSummary(device, document);
+    const unlinked = await device.sdk.containerContents
+      .documentLinks()
+      .unlinkDocumentFromContainer({
+        mergeDocumentSummary: () => undefined,
+        note,
+        removedContainerId: folder.id,
+        setLinkedContainerIdsForDocument: () => undefined,
+      });
+    if (!unlinked) throw device.failure(`could not unlink ${folder.name}`);
+    await device.idle();
+    this.model.unlinkDocument(document.documentId, folder.id);
+  }
+
   async shareWithUser(actor: User, folder: Folder, recipient: User) {
+    trace(`shareWithUser`);
     const device = primary(actor);
     const shared = await (await device.tree()).shareWithUser(
       folder.id,
@@ -184,6 +261,7 @@ export class World {
   }
 
   async createGroup(actor: User, name: string): Promise<Group> {
+    trace(`createGroup`);
     const device = primary(actor);
     const group = await device.sdk.organizations.createGroup(name);
     await settleOrganizationMutation(device);
@@ -192,6 +270,7 @@ export class World {
   }
 
   async addToGroup(actor: User, group: Group, member: User): Promise<void> {
+    trace(`addToGroup`);
     const device = primary(actor);
     await device.sdk.organizations.addUserToGroup({
       expectedGroupName: group.name,
@@ -203,6 +282,7 @@ export class World {
   }
 
   async removeFromGroup(actor: User, group: Group, member: User) {
+    trace(`removeFromGroup`);
     const device = primary(actor);
     await device.sdk.organizations.removeUserFromGroup({
       expectedGroupName: group.name,
@@ -219,6 +299,7 @@ export class World {
     group: Group,
     level: AccessLevel,
   ): Promise<void> {
+    trace(`shareWithGroup`);
     const device = primary(actor);
     const shared = await (await device.tree()).shareWithGroup(
       folder.id,
@@ -232,6 +313,7 @@ export class World {
   }
 
   async revoke(actor: User, folder: Folder, subject: User | Group) {
+    trace(`revoke`);
     const device = primary(actor);
     const grant: GrantSubject =
       "userId" in subject
@@ -248,6 +330,7 @@ export class World {
 
   /** The container's current key epoch, as `actor` verifies it. */
   async keyEpoch(actor: User, folder: Folder): Promise<number> {
+    trace(`keyEpoch`);
     const info = await primary(actor).sdk.containerContents.loadContainerInfo({
       containerId: folder.id,
       remoteInfoMode: "always",
@@ -262,6 +345,7 @@ export class World {
     actor: User,
     document: SharedDocument,
   ): Promise<number> {
+    trace(`contentKeyEpoch`);
     const device = primary(actor);
     const localId = await device.sdk.documents.findLocalIdByDocumentId(
       document.documentId,
@@ -292,6 +376,14 @@ export class World {
     return projection.contentKeyBundle.targets.map(
       (target) => target.containerKeyEpoch,
     );
+  }
+
+  /**
+   * Texts `device` tried to write without write access. A device that lost
+   * access may still show its own refused edit; that discloses nothing.
+   */
+  refusedEditsOn(device: Device): ReadonlySet<string> {
+    return this.refusedEdits.get(device) ?? new Set();
   }
 
   get allUsers(): readonly User[] {

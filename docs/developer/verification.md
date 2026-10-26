@@ -64,6 +64,23 @@ and reports are local evidence rather than a replacement for CI. Avoid editing
 source or running concurrent builds/tests while a verification run is active:
 the SDK build replaces output that dependent tests consume.
 
+## Multi-party scenarios
+
+`packages/bob-and-alice` checks keying behavior end to end. Each device is a
+full `Tearleads` client with its own SQLite database, talking over HTTP to the
+API served in-process from `@tearleads/api/test-runtime`. A reference model of
+grants, parent pointers, group memberships, and document links decides who
+should read and write each document, and every scenario compares each device's
+reads with it.
+
+Add a scenario when a change can alter who reads or writes a document:
+sharing, group membership, revocation, moves, links, key rotation, or reading
+from a fresh install. Run them with
+`bun run check:package @tearleads/bob-and-alice`. The package's Turbo test task
+depends on `@tearleads/api#sources`, so an API change misses its cache.
+Reproductions of open bugs live in `knownIssues.test.ts` as `test.failing`. See
+the [package README](../../packages/bob-and-alice/README.md).
+
 ## Prerequisites
 
 Use a Git checkout with a known base (`origin/main` by default), not a source

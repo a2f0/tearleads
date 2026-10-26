@@ -96,6 +96,24 @@ export class AccessModel {
     this.recordVersion(documentId, text);
   }
 
+  linkDocument(documentId: string, containerId: string): void {
+    this.requireContainer(containerId);
+    this.requireDocument(documentId).containerIds.add(containerId);
+    this.observeCurrentAccess();
+  }
+
+  unlinkDocument(documentId: string, containerId: string): void {
+    const containerIds = this.requireDocument(documentId).containerIds;
+    if (containerIds.size === 1 && containerIds.has(containerId)) {
+      throw new Error("A document keeps at least one link");
+    }
+    containerIds.delete(containerId);
+  }
+
+  documentContainers(documentId: string): readonly string[] {
+    return [...this.requireDocument(documentId).containerIds];
+  }
+
   /** Applies an edit if the author may write; returns whether it applied. */
   edit(documentId: string, author: string, text: string): boolean {
     if (!this.canWrite(author, documentId)) {
