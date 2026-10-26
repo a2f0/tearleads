@@ -65,7 +65,15 @@ export async function resolveCurrentDocumentKekTargets(
   const containerTargetById = await resolveCurrentContainerKekTargetsMapped(
     linkedContainerIds,
     executor,
-    (message, status) => new DocumentKekTargetError(message, status),
+    // A stale epoch or parent edge clears once the writer refetches its
+    // projection and repairs the chain inline, so it must reach the client as
+    // the coded stale state; an uncoded 409 reads as terminal (#2648).
+    (message, status, stale) =>
+      new DocumentKekTargetError(
+        message,
+        status,
+        stale ? DOCUMENT_SYNC_ERROR_CODES.stateStale : undefined,
+      ),
     allowHistoricalParentEpochs,
   );
   const targets: DocumentContentKeyTarget[] = [];

@@ -32,6 +32,13 @@ import {
   resolveCurrentDocumentKekTargets,
 } from "./documentKekTargets";
 
+const staleLink = (link: string, id: string) =>
+  new DocumentKekTargetError(
+    `Container KEK ${link} is stale for container ${id}`,
+    409,
+    DOCUMENT_SYNC_ERROR_CODES.stateStale,
+  );
+
 async function hashOf(label: string): Promise<string> {
   return computeKeyingDomainHash("tearleads.keying.access-event-body", {
     label,
@@ -391,12 +398,7 @@ test("resolveCurrentDocumentKekTargets rejects key epochs bound outside current 
 
   await expect(
     resolveCurrentDocumentKekTargets(documentId, db),
-  ).rejects.toEqual(
-    new DocumentKekTargetError(
-      `Container KEK epoch is stale for container ${containerId}`,
-      409,
-    ),
-  );
+  ).rejects.toEqual(staleLink("epoch", containerId));
 });
 
 test("resolveCurrentDocumentKekTargets rejects linked containers with stale parent KEK edges", async () => {
@@ -473,12 +475,7 @@ test("resolveCurrentDocumentKekTargets rejects linked containers with stale pare
 
   await expect(
     resolveCurrentDocumentKekTargets(documentId, db),
-  ).rejects.toEqual(
-    new DocumentKekTargetError(
-      `Container KEK parent edge is stale for container ${childContainerId}`,
-      409,
-    ),
-  );
+  ).rejects.toEqual(staleLink("parent edge", childContainerId));
 
   const rotatedChildKeyEpochId = `${childContainerId}:key-epoch-2`;
   const rotatedChild = await createVerifiedContainerManifest({
@@ -564,11 +561,9 @@ test("assertDocumentKekTargetsCurrent rejects stale target hashes", async () => 
       },
       db,
     ),
-  ).rejects.toMatchObject(
-    new DocumentKekTargetError(
-      "Document KEK targets are stale",
-      409,
-      DOCUMENT_SYNC_ERROR_CODES.stateStale,
-    ),
-  );
+  ).rejects.toMatchObject({
+    message: "Document KEK targets are stale",
+    status: 409,
+    code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
+  });
 });
