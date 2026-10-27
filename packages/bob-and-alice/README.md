@@ -45,6 +45,9 @@ request the API refuses with its error body.
 | `multiLinkDocument` | A document linked into two folders follows each link's access through a write via either link, a group shrink, and an unlink. |
 | `groupPaths` | A member keeps access, and write access, while any of its groups still grants it. |
 | `groupShrinkCarry` | A group shrink above a deeper direct grant carries the level between in its policy commit. One group granted at two levels of a chain, in either order, re-signs both grants and shrinks in one commit, from fresh admin installs. |
+| `groupRevoke` | Unsharing a folder from a group carries the level above a deeper direct grant, whose grantee repairs from the device that held the path. Revoking either of one group's two grants on a chain leaves the member exactly what the other reaches. |
+| `heldPathRehydration` | Writers whose devices held a path from before a revoke, a group shrink, and a second revoke all write afterwards, each repairing what it may. |
+| `manyRotations` | Eight rounds of a group gaining and losing a member rotate the folder sixteen times; an idle direct grantee then writes, and a reader admitted last reads. An organization admin who is not one of the group's own admins mints a new group key on every add, and the API re-keys every container granted to a group whose key epoch advances. |
 
 Pin a reproducible open issue in `src/scenarios/knownIssues.test.ts` as a
 `test.failing` case. It passes while the bug stands and fails once it is
@@ -58,8 +61,9 @@ around these open issues:
 ## Limits
 
 - The API runs without realtime hints, so devices learn about changes only
-  when they pull. A device removed from a group may keep accepting local edits
-  that never sync. The harness records those as the device's own refused edits.
+  when they pull. A device that lost write access may keep accepting local
+  edits that never sync, and keeps showing them. The harness records those as
+  the device's own refused edits and accepts them on that device alone.
 - Every device trusts identities on first use through the SDK's own pins; no
   scenario models a malicious API.
 
