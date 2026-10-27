@@ -144,6 +144,7 @@ export class Device {
   /**
    * Reopens the same SQLite database, blobs, keys, and pins. Callers must first
    * settle in-flight work, or force offline and wait for held syncs to stop.
+   * A failed restart closes storage and is fatal to the scenario.
    */
   async restart(online = true): Promise<Device> {
     if (this.retired) throw new Error(`${this.label} is already retired`);

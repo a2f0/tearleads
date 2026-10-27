@@ -357,10 +357,7 @@ async function submitRevocation(
   });
 }
 
-async function planRevoke(
-  input: RevokeRemoteContainerInput,
-  retriesStalePath: boolean,
-) {
+async function planRevoke(input: RevokeRemoteContainerInput) {
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
   );
@@ -379,30 +376,21 @@ async function planRevoke(
     stillCurrent: input.stillCurrent,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
-  }).catch((error: unknown): typeof STALE_PATH => {
-    // Refresh a cached path behind our pin, still verifying the retry against
-    // that pin. A server that repeats the rollback remains a terminal failure.
-    if (
-      retriesStalePath &&
-      error instanceof KeyingVerificationError &&
-      error.code === "rollback"
-    )
-      return STALE_PATH;
-    throw error;
   });
-  if (materializedPlan === STALE_PATH) return STALE_PATH;
   return { previousProjection, materializedPlan };
 }
 
 async function revokeRemoteContainerOnce(
   input: RevokeRemoteContainerInput,
   retriesStalePath: boolean,
+  onAccepted: () => void,
 ): Promise<RevokedRemoteContainer | typeof STALE_PATH | null> {
-  const planned = await planRevoke(input, retriesStalePath);
-  if (!planned || planned === STALE_PATH) return planned;
+  const planned = await planRevoke(input);
+  if (!planned) return null;
   const { previousProjection, materializedPlan } = planned;
   let stalePath = false;
   const revoked = await submitAcknowledgedContainerMutation({
+    onAccepted,
     reportSecurityIncident: input.reportSecurityIncident,
     recitationPolicies: [],
     apiClient: input.apiClient,
@@ -455,16 +443,39 @@ async function revokeRemoteContainerOnce(
   return revoked ?? (stalePath ? STALE_PATH : null);
 }
 
+async function revokeRemoteContainerAttempt(
+  input: RevokeRemoteContainerInput,
+  retriesStalePath: boolean,
+): Promise<RevokedRemoteContainer | typeof STALE_PATH | null> {
+  let accepted = false;
+  try {
+    return await revokeRemoteContainerOnce(input, retriesStalePath, () => {
+      accepted = true;
+    });
+  } catch (error) {
+    // Our own or a carried descendant's cached projection may trail a pin.
+    // Refresh only a refused/unsubmitted attempt, never an accepted rotation.
+    if (
+      retriesStalePath &&
+      !accepted &&
+      error instanceof KeyingVerificationError &&
+      error.code === "rollback"
+    )
+      return STALE_PATH;
+    throw error;
+  }
+}
+
 /** A concurrent mutation can advance the path while a revoke is in flight. */
 export async function revokeRemoteContainer(
   input: RevokeRemoteContainerInput,
 ): Promise<RevokedRemoteContainer | null> {
   if (input.stillCurrent?.() === false) return null;
-  const first = await revokeRemoteContainerOnce(input, true);
+  const first = await revokeRemoteContainerAttempt(input, true);
   if (first !== STALE_PATH) return first;
   if (input.stillCurrent?.() === false) return null;
   input.apiClient.evictContainerWriterProjection?.(input.containerId);
   input.apiClient.evictWriterProjectionsCiting?.([input.containerId]);
-  const second = await revokeRemoteContainerOnce(input, false);
+  const second = await revokeRemoteContainerAttempt(input, false);
   return second === STALE_PATH ? null : second;
 }

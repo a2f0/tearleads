@@ -30,6 +30,7 @@ test.each(["share", "revoke"] as const)(
     if (!original || !removed) throw new Error("Expected original devices");
     const other = await world.newDevice(alice);
     await other.holdFolder(folder.id);
+    const beforeMutation = original.transport.history.length;
     const held = original.transport.hold(
       "before-request",
       (request) =>
@@ -62,6 +63,16 @@ test.each(["share", "revoke"] as const)(
     held.release();
     expect(await mutation).toEqual({ ok: true });
     expect((await held.wait()).status).toBe(409);
+    expect(
+      original.transport.history
+        .slice(beforeMutation)
+        .filter(
+          (request) =>
+            request.method === "POST" &&
+            request.path.endsWith(`/containers/${folder.id}/${operation}`),
+        )
+        .map(({ status }) => status),
+    ).toEqual([409, 200]);
     await world.editDocument(carol, document, "carol after raced share");
     await world.newDevice(bob);
     await world.newDevice(carol);
