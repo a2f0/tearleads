@@ -1,6 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads, UserSession } from "@tearleads/client-sdk";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import { WindowMenuProvider, WindowToolBar } from "@tearleads/windowing";
 import {
   act,
   fireEvent,
@@ -44,6 +45,15 @@ afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
 });
 
+function IdentityManagerWithToolbar() {
+  return (
+    <WindowMenuProvider>
+      <WindowToolBar />
+      <IdentityManager />
+    </WindowMenuProvider>
+  );
+}
+
 async function renderAuthenticatedIdentityManagerWithSessions(
   sessions: ReadonlyArray<UserSession>,
   section: "Active Sessions" | "General" = "Active Sessions",
@@ -58,7 +68,7 @@ async function renderAuthenticatedIdentityManagerWithSessions(
         tearleadsRef.current = sdk;
       }}
     >
-      <IdentityManager />
+      <IdentityManagerWithToolbar />
     </IdentityManagerTestRuntime>,
   );
 
@@ -96,7 +106,7 @@ async function renderAuthenticatedIdentityManagerWithSessions(
         tearleadsRef.current = sdk;
       }}
     >
-      <IdentityManager />
+      <IdentityManagerWithToolbar />
     </IdentityManagerTestRuntime>,
   );
 
@@ -300,7 +310,7 @@ test("session rows open details and expose context menu actions", async () => {
   }
 });
 
-test("current-session logout is reachable from the identity action toolbar", async () => {
+test("current-session logout sits beside Refresh in the window toolbar", async () => {
   const { restore, view } =
     await renderAuthenticatedIdentityManagerWithSessions(
       [ACTIVE_SESSION],
@@ -315,12 +325,14 @@ test("current-session logout is reachable from the identity action toolbar", asy
       throw new Error("Expected the identity section.");
     }
 
-    const toolbar = identitySection.querySelector(".mini-app-toolbar");
-    if (!(toolbar instanceof HTMLElement)) {
-      throw new Error("Expected the identity action toolbar.");
-    }
+    const toolbar = view.getByRole("toolbar", { name: "Toolbar" });
     expect(
-      within(identitySection).queryByRole("button", { name: "Log Out" }),
+      within(toolbar).getByRole("button", { name: "Refresh" }),
+    ).toBeTruthy();
+    expect(
+      within(identitySection).queryByRole("button", {
+        name: "Identity actions",
+      }),
     ).toBeNull();
 
     fireEvent.click(
@@ -345,24 +357,19 @@ test("current-session logout is reachable from the identity action toolbar", asy
 
 test("identity actions menu trigger toggles the menu shut when reclicked", async () => {
   const { restore, view } =
-    await renderAuthenticatedIdentityManagerWithSessions(
-      [ACTIVE_SESSION],
-      "General",
-    );
+    await renderAuthenticatedIdentityManagerWithSessions([ACTIVE_SESSION]);
 
   try {
-    const identitySection = view
-      .getByRole("heading", { name: "Identity" })
-      .closest("section");
-    if (!identitySection) {
-      throw new Error("Expected the identity section.");
-    }
-    const trigger = within(identitySection).getByRole("button", {
+    const trigger = within(
+      view.getByRole("toolbar", { name: "Toolbar" }),
+    ).getByRole("button", {
       name: "Identity actions",
     });
 
     fireEvent.click(trigger);
     expect(view.baseElement.querySelector(".menu")).not.toBeNull();
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
 
     // Re-clicking the trigger issues mousedown (which the Menu listens for to
     // close on outside clicks) then click. The menu must end up closed, not
@@ -370,6 +377,7 @@ test("identity actions menu trigger toggles the menu shut when reclicked", async
     fireEvent.mouseDown(trigger);
     fireEvent.click(trigger);
     expect(view.baseElement.querySelector(".menu")).toBeNull();
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
   } finally {
     restore();
   }
@@ -388,7 +396,7 @@ test("identity actions menu stays hidden while signed out", async () => {
           tearleadsRef.current = sdk;
         }}
       >
-        <IdentityManager />
+        <IdentityManagerWithToolbar />
       </IdentityManagerTestRuntime>,
     );
 
@@ -417,7 +425,7 @@ test("identity manager confirms before destroying a key package", async () => {
           tearleadsRef.current = sdk;
         }}
       >
-        <IdentityManager />
+        <IdentityManagerWithToolbar />
       </IdentityManagerTestRuntime>,
     );
 

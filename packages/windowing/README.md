@@ -120,11 +120,11 @@ useWindowTitleBarAction(
 );
 ```
 
-A window with an `appId` also offers Back through its own route history, so its
-row is reserved from the start. An app that never routes passes
-`historyBack={false}` to `Window`; its window then has no row until the app
-first registers toolbar actions. From then on the row stays, as in any window,
-so the body does not shift when actions come and go.
+Memoized `buttonProps` forwards `ref`, `aria-haspopup`, `aria-expanded`, and
+`onMouseDown` to popup triggers. Refresh appears in both toolbars and View.
+
+Windows with an `appId` reserve the toolbar and offer route-history Back.
+With `historyBack={false}`, the row appears when actions register, then stays.
 
 ## Icons
 

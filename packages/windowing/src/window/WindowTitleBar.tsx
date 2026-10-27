@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback } from "react";
+import { type ComponentProps, type ReactNode, useCallback } from "react";
 import { useWindowingIcons } from "../icons/WindowingIcons";
 import { Menu } from "../menu/Menu";
 import { MenuItem } from "../menu/MenuItem";
@@ -9,6 +9,11 @@ import { WindowMaximizeButton } from "./WindowMaximizeButton";
 import { WindowMinimizeButton } from "./WindowMinimizeButton";
 
 export interface WindowTitleBarAction {
+  /** Attributes for an anchored popup trigger in either toolbar layout. */
+  buttonProps?: Pick<
+    ComponentProps<"button">,
+    "aria-expanded" | "aria-haspopup" | "onMouseDown" | "ref"
+  >;
   disabled?: boolean;
   icon: ReactNode;
   id: string;

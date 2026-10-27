@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { WindowTitleBarAction } from "./WindowTitleBar";
 
 export interface WindowTitleBarActionInput {
+  buttonProps?: WindowTitleBarAction["buttonProps"];
   disabled?: boolean;
   icon: ReactNode;
   id: string;
@@ -30,6 +31,7 @@ export interface WindowBackActionInput {
 }
 
 export interface RegisteredWindowTitleBarAction {
+  buttonProps?: WindowTitleBarAction["buttonProps"];
   disabled: boolean;
   icon: ReactNode;
   id: string;
@@ -69,6 +71,7 @@ export function WindowTitleBarActionButtons({
     <>
       {actions.map((action) => (
         <button
+          {...action.buttonProps}
           aria-label={action.label}
           className={className}
           aria-pressed={action.pressed}
@@ -104,6 +107,7 @@ export function createTitleBarActions(
   }
 
   return ordered.map((item) => ({
+    ...(item.buttonProps ? { buttonProps: item.buttonProps } : {}),
     disabled: item.disabled,
     icon: item.icon,
     id: item.id,
@@ -120,6 +124,7 @@ export function createRegisteredTitleBarAction(
   onClick: () => unknown,
 ): RegisteredWindowTitleBarAction {
   return {
+    ...(item.buttonProps ? { buttonProps: item.buttonProps } : {}),
     disabled: item.disabled ?? false,
     icon: item.icon,
     id: item.id,

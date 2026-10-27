@@ -4,10 +4,12 @@ import "./WindowToolBar.css";
 import { WindowTitleBarActionButtons } from "./WindowChromeActions";
 import {
   useWindowBackActionValue,
+  useWindowRefreshMenuItemValue,
   useWindowTitleBarActions,
   useWindowToolbarReservationReleased,
   useWindowToolbarReserved,
 } from "./WindowMenuContext";
+import { WindowRefreshButton } from "./WindowRefreshButton";
 
 /**
  * The window's toolbar row, sitting below the File/View menu bar and above the
@@ -54,11 +56,15 @@ export function WindowToolBar({
   const { back: BackIcon } = useWindowingIcons();
   const backAction = useWindowBackActionValue();
   const actions = useWindowTitleBarActions();
+  const refreshItem = useWindowRefreshMenuItemValue();
   const reserved = useWindowToolbarReserved();
   const reservationReleased = useWindowToolbarReservationReleased();
   const showBack = backAction !== null || (showHistoryBack && canGoBack);
   const hasChrome =
-    backAction !== null || showHistoryBack || actions.length > 0;
+    backAction !== null ||
+    showHistoryBack ||
+    actions.length > 0 ||
+    refreshItem !== null;
   // Latch: this window's app has shown toolbar chrome at least once, so keep the
   // row reserved from here on rather than collapsing it on a transient empty.
   // Seed from the mount-time value so a window that already has chrome does not
@@ -98,12 +104,18 @@ export function WindowToolBar({
         )}
       </div>
       <div className="window-toolbar-spacer" />
-      {actions.length > 0 && (
+      {(actions.length > 0 || refreshItem !== null) && (
         <div className="window-toolbar-actions">
           <WindowTitleBarActionButtons
             actions={actions}
             className="window-toolbar-button"
           />
+          {refreshItem && (
+            <WindowRefreshButton
+              className="window-toolbar-button"
+              item={refreshItem}
+            />
+          )}
         </div>
       )}
     </div>
