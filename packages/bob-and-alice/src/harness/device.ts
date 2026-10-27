@@ -9,6 +9,7 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { DeviceTransport } from "./transport";
 import { until } from "./until";
 
 export type DeviceKeys = Parameters<Tearleads["identity"]["setKeyPairs"]>[0];
@@ -21,6 +22,15 @@ export interface LoggedError {
   readonly cause: unknown;
 }
 
+interface DeviceStorage {
+  readonly database: DeviceDatabase;
+  readonly databaseId: string;
+  readonly blobStore: ReturnType<typeof createMemoryBlobStore>;
+  readonly transport: DeviceTransport;
+  readonly errors: LoggedError[];
+  readonly incidents: unknown[];
+}
+
 /**
  * One installed client: its own SQLite database and a full `Tearleads`
  * runtime. Nothing here reaches past the SDK's public surface, so a device
@@ -28,15 +38,14 @@ export interface LoggedError {
  */
 export class Device {
   private treeStore: ContainerContentsStore | null = null;
+  private retired = false;
 
   private constructor(
     readonly label: string,
     readonly sdk: Tearleads,
-    private readonly database: DeviceDatabase,
-    /** `logError` reports; an honest run should leave this empty. */
-    readonly errors: readonly LoggedError[],
-    /** Trust-boundary failures; an honest API must never cause one. */
-    readonly incidents: readonly unknown[],
+    private readonly storage: DeviceStorage,
+    private readonly origin: string,
+    private readonly keys: DeviceKeys,
   ) {}
 
   static async register(origin: string, label: string) {
@@ -66,19 +75,31 @@ export class Device {
     return device;
   }
 
-  private static async open(origin: string, label: string, keys: DeviceKeys) {
-    const database = await createTestExecSql(`${label}-${crypto.randomUUID()}`);
-    const errors: LoggedError[] = [];
-    const incidents: unknown[] = [];
-    const sdk = new Tearleads({
-      apiBaseUrl: origin,
+  private static async open(
+    origin: string,
+    label: string,
+    keys: DeviceKeys,
+    existing?: DeviceStorage,
+    online = true,
+  ) {
+    const storage: DeviceStorage = existing ?? {
+      database: await createTestExecSql(`${label}-${crypto.randomUUID()}`),
+      databaseId: `${label}-${crypto.randomUUID()}`,
       blobStore: createMemoryBlobStore(),
+      transport: new DeviceTransport(origin),
+      errors: [],
+      incidents: [],
+    };
+    const sdk = new Tearleads({
+      apiBaseUrl: storage.transport.origin,
+      identityTrustDomain: origin,
+      blobStore: storage.blobStore,
       database: {
-        id: `${label}-${crypto.randomUUID()}`,
+        id: storage.databaseId,
         client: {
           async exec({ sql, bind, rowMode }) {
             return {
-              rows: await database.execSql(
+              rows: await storage.database.execSql(
                 sql,
                 bind,
                 rowMode ? { rowMode } : undefined,
@@ -89,15 +110,47 @@ export class Device {
       },
       logger: {
         log: () => undefined,
-        logError: (message, cause) => errors.push({ message, cause }),
+        logError: (message, cause) => storage.errors.push({ message, cause }),
       },
       onSecurityIncident: (incident) => {
-        incidents.push(incident);
+        storage.incidents.push(incident);
       },
-      online: true,
+      online,
     });
+    if (!online) sdk.network.setMode("offline");
     await sdk.identity.setKeyPairs(keys);
-    return new Device(label, sdk, database, errors, incidents);
+    return new Device(label, sdk, storage, origin, keys);
+  }
+
+  get transport(): DeviceTransport {
+    return this.storage.transport;
+  }
+  get errors(): readonly LoggedError[] {
+    return this.storage.errors;
+  }
+  get incidents(): readonly unknown[] {
+    return this.storage.incidents;
+  }
+
+  /** Reopens the runtime with the same SQLite database, blobs, keys, and pins. */
+  async restart(online = true): Promise<Device> {
+    if (this.retired) throw new Error(`${this.label} is already retired`);
+    const organizationId = this.organizationId;
+    this.sdk.dispose();
+    const next = await Device.open(
+      this.origin,
+      this.label,
+      this.keys,
+      this.storage,
+      online,
+    );
+    if (!(await next.sdk.session.login())) {
+      next.sdk.dispose();
+      throw new Error(`${this.label} could not log in after restart`);
+    }
+    next.enterOrganization(organizationId);
+    this.retired = true;
+    return next;
   }
 
   get userId(): string {
@@ -148,6 +201,12 @@ export class Device {
     );
   }
 
+  /** Simulates the host's network mode and updates its held tree runtime. */
+  setOnline(online: boolean): void {
+    this.sdk.network.setMode(online ? "online" : "offline");
+    this.treeStore?.updateRuntime(this.sdk.containerContents.workflowRuntime());
+  }
+
   /** Waits until every queued local write has settled with the API. */
   async idle(): Promise<void> {
     const coordinator = getOrCreateDomainSyncCoordinator(
@@ -170,7 +229,10 @@ export class Device {
   }
 
   dispose(): void {
+    if (this.retired) return;
+    this.retired = true;
     this.sdk.dispose();
-    this.database.close();
+    this.storage.transport.dispose();
+    this.storage.database.close();
   }
 }

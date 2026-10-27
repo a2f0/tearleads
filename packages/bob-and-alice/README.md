@@ -10,7 +10,12 @@ can only do and observe what a deployed client could.
   `@tearleads/api/test-runtime`.
 - `src/harness/device.ts` is one installed client: its own SQLite database and
   a full `Tearleads` runtime. `Device.login` is a fresh install of an existing
-  identity, with the same keys and an empty database.
+  identity, with the same keys and an empty database. `Device.restart` reopens
+  the runtime with the same database, blob store, identity, and trust pins.
+- `src/harness/transport.ts` puts a device-local HTTP proxy in front of the real
+  API. A scenario can hold a selected request before submission or its response
+  after commit, then release or drop it. Gates make races reproducible and
+  recorded HTTP statuses prove which transaction lost the race.
 - `src/harness/accessModel.ts` is a deliberately naive reference for who may
   read and write each document, from parent pointers, grants, and group
   memberships alone.
@@ -42,7 +47,7 @@ request the API refuses with its error body.
 | Scenario | Establishes |
 | --- | --- |
 | `overlappingGrants` | A direct grant keeps access after an overlapping group grant goes. The original read-only editor becomes writable after a direct grant; revoked edits are refused. |
-| `writeAccessRecovery` | Read/write group overlap, membership and grant downgrades, refused edits, restoration on the original device, later remote edits, and empty content. |
+| `writeAccessRecovery` | Read/write group overlap, membership and grant downgrades, refused edits, restoration observed in the original device's stored permissions, recovery from a cached projection with old policy evidence, later remote edits, and empty content. |
 | `rotationHistory` | A group shrink, a revoke, and a move each rotate the folder key, and each shrink rotates the content key. A fresh install makes the first write after a shrink. A newcomer reads through the folder keyring before any re-wrap. |
 | `nestedTree` | A revoke rotates exactly the folder and the level above a deeper direct grant. The grantee repairs its own subtree with its first write, from a device that held the path before the revoke. A move takes a group's access away from the moved subtree. |
 | `multiLinkDocument` | A document linked into two folders follows each link's access through a write via either link, a group shrink, and an unlink. |
@@ -51,6 +56,10 @@ request the API refuses with its error body.
 | `groupRevoke` | Unsharing a folder from a group carries the level above a deeper direct grant, whose grantee repairs from the device that held the path. Revoking either of one group's two grants on a chain leaves the member exactly what the other reaches. |
 | `heldPathRehydration` | Writers whose devices held a path from before a revoke, a group shrink, and a second revoke all write afterwards, each repairing what it may. |
 | `manyRotations` | Eight rounds of a group gaining and losing a member rotate the folder sixteen times, with a confidentiality check after every removal; an idle direct grantee then writes, and a reader admitted last reads. An organization admin who is not one of the group's own admins mints a new group key on every add, and the API re-keys every container granted to a group whose key epoch advances. |
+| `retryAfterRestart` | A committed edit whose response is lost survives a restart of the same database, replays its persisted update IDs, drains the outbox, and converges without duplicate content. |
+| `offlineRevocation` | An offline outbox survives restart without publishing a revoked writer's edit or disclosing later content; the original database writes again after a regrant. |
+| `concurrentFirstWriters` | Two writers race the first content-key repair after revocation. One gets a stale-write refusal, retries, and preserves both edits while the revoked reader stays excluded. |
+| `concurrentShareAndRevoke` | In both controlled orderings, a stale share or revoke retries once against the newer path, preserving the concurrent grant and the revocation. |
 | `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 
 Pin a reproducible open issue in `src/scenarios/knownIssues.test.ts` as a

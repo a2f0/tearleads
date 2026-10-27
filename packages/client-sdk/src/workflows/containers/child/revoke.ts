@@ -28,6 +28,7 @@ import {
   buildContainerCreateKeyEpoch,
   signContainerMutationEvent,
 } from "../../../data/containers/shared/events";
+import { isStaleParentContainerPathFailure } from "../../../data/containers/shared/mutationFailures";
 import {
   asContainerManifestBundle,
   uniqueSortedManifestHashes,
@@ -36,6 +37,7 @@ import type {
   ContainerMutationAuthor,
   ContainerRevokeApi,
   ContainerRevokePlan,
+  ContainerRotationResult,
   MaterializedContainerRevokePlan,
 } from "../../../data/containers/shared/types";
 import { readCanonicalRecord } from "../../../data/keying/canonicalJson";
@@ -304,7 +306,7 @@ export async function buildMaterializedContainerRevokePlan(input: {
   });
 }
 
-export async function revokeRemoteContainer(input: {
+interface RevokeRemoteContainerInput {
   reportSecurityIncident: SecurityIncidentReporter;
   apiClient: ContainerRevokeApi;
   author: ContainerMutationAuthor;
@@ -317,11 +319,47 @@ export async function revokeRemoteContainer(input: {
   stillCurrent?: (() => boolean) | undefined;
   targetSecretKey: Uint8Array;
   warmReferencedPrincipalPolicies?: ReferencedPrincipalPolicyWarmer | undefined;
-}): Promise<{
+}
+
+type RevokedRemoteContainer = {
   containerKey: Uint8Array;
   plan: ContainerRevokePlan;
   response: ContainerRotationResponse;
-} | null> {
+};
+
+const STALE_PATH = Symbol("stale-revoke-path");
+
+async function submitRevocation(
+  input: RevokeRemoteContainerInput,
+  plan: ContainerRevokePlan,
+  carried: readonly ContainerMutationRequest[],
+): Promise<ContainerRotationResult> {
+  const request = carried.length
+    ? { ...plan.request, containerRekeys: [...carried] }
+    : plan.request;
+  const options = {
+    expectedPaymentRequiredOrganizationId: input.author.organizationId,
+  };
+  const { revokeContainerResult } = input.apiClient;
+  return submitContainerRotation({
+    plain: () =>
+      input.apiClient.revokeContainer(input.containerId, request, options),
+    result: revokeContainerResult
+      ? () =>
+          revokeContainerResult.call(
+            input.apiClient,
+            input.containerId,
+            request,
+            { ...options, reportErrors: false },
+          )
+      : undefined,
+  });
+}
+
+async function revokeRemoteContainerOnce(
+  input: RevokeRemoteContainerInput,
+  retriesStalePath: boolean,
+): Promise<RevokedRemoteContainer | typeof STALE_PATH | null> {
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
   );
@@ -341,7 +379,8 @@ export async function revokeRemoteContainer(input: {
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
   });
-  return submitAcknowledgedContainerMutation({
+  let stalePath = false;
+  const revoked = await submitAcknowledgedContainerMutation({
     reportSecurityIncident: input.reportSecurityIncident,
     recitationPolicies: [],
     apiClient: input.apiClient,
@@ -372,27 +411,37 @@ export async function revokeRemoteContainer(input: {
     execSql: input.execSql,
     plan: materializedPlan.plan,
     stillCurrent: input.stillCurrent,
-    submit: (carried) => {
-      const request = carried.length
-        ? { ...materializedPlan.plan.request, containerRekeys: [...carried] }
-        : materializedPlan.plan.request;
-      const options = {
-        expectedPaymentRequiredOrganizationId: input.author.organizationId,
-      };
-      const { revokeContainerResult } = input.apiClient;
-      return submitContainerRotation({
-        plain: () =>
-          input.apiClient.revokeContainer(input.containerId, request, options),
-        result: revokeContainerResult
-          ? () =>
-              revokeContainerResult.call(
-                input.apiClient,
-                input.containerId,
-                request,
-                { ...options, reportErrors: false },
-              )
-          : undefined,
-      });
+    submit: async (carried) => {
+      const result = await submitRevocation(
+        input,
+        materializedPlan.plan,
+        carried,
+      );
+      if (
+        !result.ok &&
+        retriesStalePath &&
+        isStaleParentContainerPathFailure(result)
+      ) {
+        stalePath = true;
+        // The refused transaction rolled back. Replan it without reporting an
+        // error that the caller can repair; a second refusal is terminal.
+        return { ok: false, status: result.status, code: result.code };
+      }
+      return result;
     },
   });
+  return revoked ?? (stalePath ? STALE_PATH : null);
+}
+
+/** A concurrent mutation can advance the path while a revoke is in flight. */
+export async function revokeRemoteContainer(
+  input: RevokeRemoteContainerInput,
+): Promise<RevokedRemoteContainer | null> {
+  if (input.stillCurrent?.() === false) return null;
+  const first = await revokeRemoteContainerOnce(input, true);
+  if (first !== STALE_PATH) return first;
+  if (input.stillCurrent?.() === false) return null;
+  input.apiClient.evictContainerWriterProjection?.(input.containerId);
+  const second = await revokeRemoteContainerOnce(input, false);
+  return second === STALE_PATH ? null : second;
 }

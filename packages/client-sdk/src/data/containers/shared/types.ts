@@ -194,6 +194,7 @@ export interface ContainerMoveApi extends ContainerReciteApi {
 }
 
 export interface ContainerRevokeApi extends ContainerReciteApi {
+  evictContainerWriterProjection?(containerId: string): void;
   getContainerWriterProjection(
     containerId: string,
   ): Promise<ContainerWriterProjectionResponse | null>;

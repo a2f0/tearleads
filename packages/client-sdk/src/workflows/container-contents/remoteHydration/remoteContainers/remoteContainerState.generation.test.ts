@@ -113,7 +113,9 @@ test("stale existing-container persistence cannot publish after reset", async ()
   expect(existingState.record.accessStateHash).toBe("access-old");
   expect(existingState.container.parentId).toBe("root-1");
   expect(existingState.container.updatedAt).toBe("2026-01-01T00:00:00.000Z");
-  expect(existingState.containerWriterProjection).not.toBeNull();
+  // The changed listing safely evicts stale cache hints before persistence;
+  // the canceled write still leaves authoritative state above untouched.
+  expect(existingState.containerWriterProjection).toBeNull();
 });
 
 async function waitFor(condition: () => boolean): Promise<void> {

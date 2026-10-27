@@ -1,8 +1,10 @@
-import { afterEach, test } from "bun:test";
+import { afterEach, expect, test } from "bun:test";
+import type { Device } from "../harness/device";
 import {
   expectAccess,
   expectNoSecurityIncidents,
 } from "../harness/expectations";
+import { until } from "../harness/until";
 import { World } from "../harness/world";
 
 let world: World | null = null;
@@ -10,6 +12,32 @@ afterEach(() => {
   world?.dispose();
   world = null;
 });
+
+async function observeAccess(
+  device: Device,
+  folderId: string,
+  documentId: string,
+  level: "read" | "write",
+) {
+  const tree = await device.tree();
+  expect(await tree.refresh()).toBe(true);
+  expect(
+    tree.getSnapshot().nodes.find((node) => node.id === folderId),
+  ).toMatchObject({ effectiveAccessLevel: level });
+  // A concurrent tree update may invalidate the first listing generation.
+  await until(
+    async () =>
+      (await device.sdk.containerContents.discoverContainerDocuments(
+        folderId,
+      )) !== null,
+    `${device.label} document discovery after ${level} access`,
+  );
+  expect(
+    (await device.sdk.documents.list())?.rows.find(
+      (row) => row.documentId === documentId,
+    ),
+  ).toMatchObject({ effectiveAccessLevel: level });
+}
 
 test.each(["membership", "grant"] as const)(
   "the original writer recovers after a %s downgrade and a refused edit",
@@ -34,6 +62,9 @@ test.each(["membership", "grant"] as const)(
     }
     await world.editDocument(alice, document, "v3 after downgrade");
     await expectAccess(world, document);
+    const original = bob.devices[0];
+    if (!original) throw new Error("Expected Bob's original device");
+    await observeAccess(original, folder.id, document.documentId, "read");
     await world.editDocument(bob, document, "refused read-only edit");
     await world.newDevice(alice);
     await world.newDevice(bob);
@@ -44,6 +75,7 @@ test.each(["membership", "grant"] as const)(
     } else {
       await world.shareWithGroup(alice, folder, editors, "write");
     }
+    await observeAccess(original, folder.id, document.documentId, "write");
     // No fresh database, discarded state, or replacement editor on the actor.
     await world.editDocument(bob, document, "v4 restored writer");
     await expectAccess(world, document);
