@@ -37,11 +37,11 @@ test("grants at two levels of a deep tree survive a shrink and a subtree move", 
   const team = await world.createGroup(alice, "Team");
   await world.addToGroup(alice, team, bob);
   await world.addToGroup(alice, team, carol);
-  // Direct shares first: a share right after a group share races the SDK's
-  // background re-cite (#2647).
+  // The direct shares land while the group share's re-citation of the held
+  // levels below `a` is still running (#2647).
+  await world.shareWithGroup(alice, a, team, "write");
   await world.shareWithUser(alice, c, dave);
   await world.shareWithUser(alice, a, erin);
-  await world.shareWithGroup(alice, a, team, "write");
   await expectAccess(world, upper);
   await expectAccess(world, lower);
 
