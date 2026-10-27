@@ -16,22 +16,17 @@ launch the remaining queue just because time remains.
   slices by the baseline's statement totals, then the client slices. Run
   `api-indexes` and `client-indexes` last so they can collate the other
   slices' index findings. An explicit focus takes precedence.
-- At most one discovery auditor per batch, with no child agents and a
-  ceiling of 25 tool calls, reserving the last five for triage and saving
-  its report. A multi-command shell call must still use targeted reads.
-- `full` mode may run up to three auditors concurrently, each with the same
-  ceiling, because slices are read-only and independent. Verification stays
-  sequential, and concurrent auditors never share a scratch directory or a
-  scratch database.
-- The coordinator uses at most 20 tool calls per batch for baseline,
-  dispatch, verification, and reporting, reserving the last five for the
-  checkpoint. If setup consumes the budget, save a setup-only batch. A
-  resumed batch reuses baseline notes, captures, and the snapshot.
+- At most one discovery auditor per batch, with no child agents. A
+  multi-command shell call must still use targeted reads.
+- `full` mode may run up to three auditors concurrently, because slices are
+  read-only and independent. Verification stays sequential, and concurrent
+  auditors never share a scratch directory or a scratch database.
+- A resumed batch reuses baseline notes, captures, and the snapshot.
 - Independently verify at most two proposals per batch, with at most one
   new probe and one harness-repair attempt per proposal. An inconclusive
   measurement keeps its trace, command, failure, and next step and is not
-  Measured. Budget exhaustion never promotes a label.
-- Save discoveries as they arise and stop exploring at the limit. Record
+  Measured. Ending a batch early never promotes a label.
+- Save discoveries as they arise. When a work item stays partial, record
   unchecked paths and the next step; splitting a slice adds queue entries,
   not agents in this batch.
 - Finish the batch and return to the user. Do not sleep, self-invoke
