@@ -82,7 +82,9 @@ reset. A concise `checkpoint.md` indexes these files:
   counts/bounds, and any running process identifiers. Record unavailable or
   unrun checks explicitly; a passing suite is not completed model review.
 - Per-work-item directories: reports, small probes, and test logs. Workers
-  write only their own files; the coordinator maintains the shared index.
+  write only their own probes and logs, and return their report as their
+  final message; the coordinator saves it as `report.md` there and
+  maintains the shared index.
 
 Write the initial checkpoint before launching an auditor and update it after
 each report or verification. Keep it concise; link evidence instead of
@@ -131,9 +133,11 @@ inspects uncovered routes; it does not redo every domain's deep audit. Follow
 cross-slice dependencies only as needed to establish a candidate, recording
 other work for its owner. Review shared models once and cross-reference them.
 
-Workers save the full evidence report and return at most 200 words containing
-its path, candidate ids/severities, coverage status, and next step. The
-coordinator reads only the evidence needed for verification and consolidation.
+Workers return the full report, under 1,200 words, as their final message,
+opening with candidate ids/severities, coverage status, and next step. Claude
+Code refuses a subagent's report-file write, so the coordinator saves the
+message as `report.md` before verifying, then reads only the linked evidence
+needed for verification and consolidation.
 Log test/TLC output to files and inspect summaries or failures. A failed probe
 gets the bounded repair attempt above; do not turn harness debugging into an
 unlimited exploration loop.
