@@ -300,7 +300,7 @@ test("session rows open details and expose context menu actions", async () => {
   }
 });
 
-test("current-session logout is reachable from the identity actions menu", async () => {
+test("current-session logout is reachable from the identity action toolbar", async () => {
   const { restore, view } =
     await renderAuthenticatedIdentityManagerWithSessions(
       [ACTIVE_SESSION],
@@ -315,13 +315,16 @@ test("current-session logout is reachable from the identity actions menu", async
       throw new Error("Expected the identity section.");
     }
 
-    // The inline toolbar button is gone; logout now lives in the overflow menu.
+    const toolbar = identitySection.querySelector(".mini-app-toolbar");
+    if (!(toolbar instanceof HTMLElement)) {
+      throw new Error("Expected the identity action toolbar.");
+    }
     expect(
       within(identitySection).queryByRole("button", { name: "Log Out" }),
     ).toBeNull();
 
     fireEvent.click(
-      within(identitySection).getByRole("button", {
+      within(toolbar).getByRole("button", {
         name: "Identity actions",
       }),
     );
