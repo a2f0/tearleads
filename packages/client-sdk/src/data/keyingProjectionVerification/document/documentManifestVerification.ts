@@ -21,6 +21,7 @@ import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
+import { recordVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
 import { readAccessManifest, readDocumentAccessEventBody } from "../readers";
 import type {
   PrincipalPolicyCache,
@@ -144,6 +145,7 @@ export async function verifyDocumentManifestBundle(input: {
     label: `${input.label} state`,
   });
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
+  recordVerifiedBundleBytes(verified.value, input.bundle);
 
   return verified.value;
 }

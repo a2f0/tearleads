@@ -16,6 +16,7 @@ import {
   upsertDocumentHistoryCheckpointInTransaction,
   upsertDocumentRowInTransaction,
 } from "../documents/records/documentRowsInTransaction";
+import { hasDocumentPurgeCheckpointInTransaction } from "../keyingCheckpoints/documentPurgeCheckpointPersistence";
 import type {
   ContainerCreateIntentInput,
   ContainerMetadataRecord,
@@ -61,6 +62,16 @@ async function saveContainerMetadataRecord(input: {
   updatedAt: string;
 }) {
   const { containerId, record, tx, updatedAt } = input;
+  // The API refuses a container whose metadata id was permanently purged, so
+  // a served head naming one predates that rule or is dishonest. Keep the
+  // purged id's row from returning, but still store the container itself:
+  // its metadata is unavailable either way, and refusing would stall hydration.
+  if (
+    record.documentId !== null &&
+    (await hasDocumentPurgeCheckpointInTransaction(tx, record.documentId))
+  ) {
+    return;
+  }
   const snapshotEndVersion = deriveMetadataEndVersion(record.metadataUpdates);
   const nextRow = {
     appKind: CONTAINER_METADATA_APP_KIND,
