@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type {
   ListContainerParentLanesResponse,
   ListContainersResponse,
@@ -82,7 +82,7 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
       persistence: defaultContainerContentsPersistence,
       runtime: {
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
-        apiClient: {
+        apiClient: createMockApiClient({
           getContainerWriterProjection:
             signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
@@ -102,7 +102,7 @@ test("a failed page upsert does not checkpoint or skip trailing containers", asy
               },
             })),
           }),
-        },
+        }),
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
@@ -154,7 +154,7 @@ test("a fetched page cannot resurrect a container deleted before apply", async (
       persistence: defaultContainerContentsPersistence,
       runtime: {
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
-        apiClient: {
+        apiClient: createMockApiClient({
           getContainerWriterProjection:
             signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
@@ -178,7 +178,7 @@ test("a fetched page cannot resurrect a container deleted before apply", async (
               })),
             };
           },
-        },
+        }),
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
@@ -226,7 +226,7 @@ test("a fetched page cannot overwrite a container mutated in place during fetch"
       persistence: defaultContainerContentsPersistence,
       runtime: {
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
-        apiClient: {
+        apiClient: createMockApiClient({
           getContainerWriterProjection:
             signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
@@ -249,7 +249,7 @@ test("a fetched page cannot overwrite a container mutated in place during fetch"
               })),
             };
           },
-        },
+        }),
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
@@ -295,7 +295,7 @@ test("a stale page item does not starve an independent new container", async () 
       persistence: defaultContainerContentsPersistence,
       runtime: {
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
-        apiClient: {
+        apiClient: createMockApiClient({
           getContainerWriterProjection:
             signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
@@ -324,7 +324,7 @@ test("a stale page item does not starve an independent new container", async () 
               })),
             };
           },
-        },
+        }),
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
@@ -371,7 +371,7 @@ test("a stale tombstone cannot delete a container restored during fetch", async 
       persistence: defaultContainerContentsPersistence,
       runtime: {
         resolveTrustedUserIdentity: signedDirectory.resolveTrustedUserIdentity,
-        apiClient: {
+        apiClient: createMockApiClient({
           getContainerWriterProjection:
             signedDirectory.getContainerWriterProjection,
           getCurrentPrincipalPolicy: async () => null,
@@ -407,7 +407,7 @@ test("a stale tombstone cannot delete a container restored during fetch", async 
               })),
             };
           },
-        },
+        }),
         auth: { isAuthenticated: true },
         infra: { dbStatus: "ready", execSql },
         state: { domainScope: createDomainScope(), online: true },
