@@ -212,7 +212,7 @@
     },
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "devDependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
