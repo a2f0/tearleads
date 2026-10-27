@@ -78,7 +78,7 @@ sharing, group membership, revocation, moves, links, key rotation, or reading
 from a fresh install. Run them with
 `bun run check:package @tearleads/bob-and-alice`. The package's Turbo test task
 depends on `@tearleads/api#sources`, so an API change misses its cache.
-Reproductions of open bugs live in `knownIssues.test.ts` as `test.failing`. See
+Pin a reproducible open bug in `knownIssues.test.ts` as `test.failing`. See
 the [package README](../../packages/bob-and-alice/README.md).
 
 ## Prerequisites
