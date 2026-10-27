@@ -141,7 +141,10 @@ export class Device {
     return this.storage.incidents;
   }
 
-  /** Reopens the runtime with the same SQLite database, blobs, keys, and pins. */
+  /**
+   * Reopens the same SQLite database, blobs, keys, and pins. Callers must first
+   * settle in-flight work, or force offline and wait for held syncs to stop.
+   */
   async restart(online = true): Promise<Device> {
     if (this.retired) throw new Error(`${this.label} is already retired`);
     const organizationId = this.organizationId;

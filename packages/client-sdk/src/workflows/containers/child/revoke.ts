@@ -464,6 +464,7 @@ export async function revokeRemoteContainer(
   if (first !== STALE_PATH) return first;
   if (input.stillCurrent?.() === false) return null;
   input.apiClient.evictContainerWriterProjection?.(input.containerId);
+  input.apiClient.evictWriterProjectionsCiting?.([input.containerId]);
   const second = await revokeRemoteContainerOnce(input, false);
   return second === STALE_PATH ? null : second;
 }

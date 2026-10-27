@@ -90,6 +90,8 @@ export class DeviceTransport {
     this.history.push(exchange);
     const index = this.pending.findIndex((gate) => gate.matches(exchange));
     const gate = index < 0 ? undefined : this.pending.splice(index, 1)[0];
+    // A deliberate hold may outlast Bun's normal socket idle timeout.
+    if (gate) this.server.timeout(request, 0);
     if (
       gate?.phase === "before-request" &&
       (await gate.pause(exchange)) === "drop"
@@ -107,6 +109,7 @@ export class DeviceTransport {
       (await gate.pause(exchange)) === "drop"
     ) {
       // The server committed; the client never receives its acknowledgement.
+      await response.body?.cancel();
       return new Response("Response dropped by test proxy", { status: 503 });
     }
     return response;

@@ -1,4 +1,5 @@
 import { expect, test } from "bun:test";
+import { ApiClient } from "@tearleads/api-client";
 import {
   generateKemSeedAndKeyPair,
   generateSigningSeedAndKeyPair,
@@ -6,11 +7,15 @@ import {
 } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import type { ContainerRotationRequest } from "@tearleads/validators/request";
-import { CONTAINER_MUTATION_ERROR_CODES } from "@tearleads/validators/response";
+import {
+  CONTAINER_MUTATION_ERROR_CODES,
+  encodeContainerWriterProjection,
+} from "@tearleads/validators/response";
 import { createRotatedAncestorFixture } from "../../../../../test/helpers/ancestorRotationRecovery";
 import { createRecipientIdentityResolver } from "../../../../../test/helpers/containerFixtures";
 import { createContainerServer } from "../../../../../test/helpers/containerMutationServer";
 import { loadAccessManifestCheckpoint } from "../../../../data/persistence/keyingCheckpoints/keyingCheckpointPersistence";
+import { rekeyRemoteContainer } from "../rekey/rekeyRemote";
 import { revokeRemoteContainer } from "../revoke";
 import { shareRemoteContainer } from "../share";
 
@@ -105,25 +110,62 @@ test("a stale refusal after carrying descendants rebuilds and pins the entire re
   const { database, server, input } = await fixture(true);
   const submitted: ContainerRotationRequest[] = [];
   let evicted = 0;
+  let reported = 0;
+  let childFetches = 0;
+  const otherDatabase = await createTestExecSql("concurrent-child-rotation");
+  const http = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: (request) => {
+      const id = new URL(request.url).pathname.split("/")[2] ?? "";
+      if (id === "child") childFetches += 1;
+      const projection = server.project(id);
+      return projection
+        ? Response.json(encodeContainerWriterProjection(projection))
+        : new Response(null, { status: 404 });
+    },
+  });
+  const cached = new ApiClient(http.url.origin);
   try {
     const revoked = await revokeRemoteContainer({
       ...input,
       revokedSubject: { subjectType: "user", subjectId: "recipient" },
       apiClient: {
         ...server.apiClient,
-        evictContainerWriterProjection: () => {
+        getContainerWriterProjection: (id) =>
+          cached.getContainerWriterProjection(id),
+        evictContainerWriterProjection: (id) => {
           evicted += 1;
+          cached.evictContainerWriterProjection(id);
         },
+        evictWriterProjectionsCiting: (ids: readonly string[]) =>
+          cached.evictWriterProjectionsCiting(ids),
         revokeContainer: server.apiClient.rekeyContainer,
         revokeContainerResult: async (id, request) => {
           submitted.push(request);
-          if (submitted.length === 2)
+          if (submitted.length === 2) {
+            // Another device rotates the descendant after this client cached
+            // it and signed the carry, while the parent is still current.
+            const rotated = await rekeyRemoteContainer({
+              ...input,
+              execSql: otherDatabase.execSql,
+              apiClient: server.apiClient,
+              containerId: "child",
+            });
+            expect(rotated).not.toBeNull();
+          }
+          const carried = request.containerRekeys?.[0];
+          if (
+            carried &&
+            carried.previousManifestRef?.manifestHash !==
+              server.project("child")?.path.at(-1)?.manifestHash
+          )
             return {
               ok: false,
               status: 409,
               code: CONTAINER_MUTATION_ERROR_CODES.stateStale,
               report: () => {
-                throw new Error("Recoverable refusal must not be reported");
+                reported += 1;
               },
             };
           return server.apiClient.rekeyContainerResult(id, request);
@@ -132,6 +174,8 @@ test("a stale refusal after carrying descendants rebuilds and pins the entire re
     });
     expect(revoked).not.toBeNull();
     expect(evicted).toBe(1);
+    expect(reported).toBe(0);
+    expect(childFetches).toBe(2);
     expect(
       submitted.map((request) => request.containerRekeys?.length ?? 0),
     ).toEqual([0, 1, 0, 1]);
@@ -159,6 +203,8 @@ test("a stale refusal after carrying descendants rebuilds and pins the entire re
     );
     expect(pinned?.manifestHash).toBe(child?.path.at(-1)?.manifestHash);
   } finally {
+    await http.stop(true);
+    otherDatabase.close();
     database.close();
   }
 });
