@@ -39,10 +39,10 @@ test("a group shrink above a deeper direct grant carries the level between", asy
   const team = await world.createGroup(alice, "Team");
   await world.addToGroup(alice, team, carol);
   await world.addToGroup(alice, team, erin);
-  // Direct shares first: a share right after a group share races the SDK's
-  // background re-cite (#2647).
-  await world.shareWithUser(alice, c, dave);
+  // The direct share lands while the group share's re-citation of the held
+  // levels below `a` is still running (#2647).
   await world.shareWithGroup(alice, a, team, "write");
+  await world.shareWithUser(alice, c, dave);
   await world.editDocument(carol, upper, "upper v2 carol");
   await expectAccess(world, upper);
   await expectAccess(world, lower);

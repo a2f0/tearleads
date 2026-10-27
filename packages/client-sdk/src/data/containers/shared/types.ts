@@ -151,6 +151,13 @@ export interface ContainerShareApi extends ContainerReciteApi {
     input: ContainerMutationRequest,
     options?: ContainerMutationRequestOptions,
   ): Promise<ContainerMutationResponse | null>;
+  /** Tells a stale path, which a fresh projection clears, from a refusal. */
+  shareContainerResult?(
+    containerId: string,
+    input: ContainerMutationRequest,
+    options?: ContainerMutationRequestOptions,
+  ): Promise<ContainerMutationSubmitResult<ContainerMutationResponse>>;
+  evictContainerWriterProjection?(containerId: string): void;
 }
 
 /**

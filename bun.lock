@@ -67,7 +67,7 @@
     },
     "packages/api-client": {
       "name": "@tearleads/api-client",
-      "version": "0.1.32",
+      "version": "0.1.33",
       "dependencies": {
         "@noble/hashes": "2.4.0",
         "@tearleads/crypto": "workspace:*",
@@ -212,7 +212,7 @@
     },
     "packages/bob-and-alice": {
       "name": "@tearleads/bob-and-alice",
-      "version": "0.1.7",
+      "version": "0.1.8",
       "devDependencies": {
         "@tearleads/api": "workspace:*",
         "@tearleads/client-sdk": "workspace:*",
@@ -223,7 +223,7 @@
     },
     "packages/client-sdk": {
       "name": "@tearleads/client-sdk",
-      "version": "0.1.100",
+      "version": "0.1.101",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",
@@ -315,7 +315,7 @@
     },
     "packages/test-utils": {
       "name": "@tearleads/test-utils",
-      "version": "0.1.6",
+      "version": "0.1.7",
       "dependencies": {
         "@tearleads/api-client": "workspace:*",
         "@tearleads/crypto": "workspace:*",

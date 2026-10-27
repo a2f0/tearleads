@@ -48,15 +48,15 @@ request the API refuses with its error body.
 | `groupRevoke` | Unsharing a folder from a group carries the level above a deeper direct grant, whose grantee repairs from the device that held the path. Revoking either of one group's two grants on a chain leaves the member exactly what the other reaches. |
 | `heldPathRehydration` | Writers whose devices held a path from before a revoke, a group shrink, and a second revoke all write afterwards, each repairing what it may. |
 | `manyRotations` | Eight rounds of a group gaining and losing a member rotate the folder sixteen times; an idle direct grantee then writes, and a reader admitted last reads. An organization admin who is not one of the group's own admins mints a new group key on every add, and the API re-keys every container granted to a group whose key epoch advances. |
+| `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 
 Pin a reproducible open issue in `src/scenarios/knownIssues.test.ts` as a
 `test.failing` case. It passes while the bug stands and fails once it is
-fixed; convert it into an ordinary scenario then. The scenarios above route
-around these open issues:
-
-- [#2647](https://github.com/a2f0/tearleads/issues/2647): a share shortly
-  after a group share on an ancestor can race the SDK's own descendant
-  re-cite. It is intermittent, so it has no `test.failing` reproduction.
+fixed; convert it into an ordinary scenario then, as the scenarios above did
+for [#2646](https://github.com/a2f0/tearleads/issues/2646),
+[#2647](https://github.com/a2f0/tearleads/issues/2647),
+[#2648](https://github.com/a2f0/tearleads/issues/2648), and
+[#2651](https://github.com/a2f0/tearleads/issues/2651). No issue is pinned now.
 
 ## Limits
 

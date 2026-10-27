@@ -50,6 +50,7 @@ export interface ContainerManagedPrincipalShareApi
       ApiClient,
       "evictContainerWriterProjection" | "getContainerWriterProjectionResult"
     > {
+  evictContainerWriterProjection(containerId: string): void;
   readonly recoverPendingPrincipalMutation?:
     | ((organizationId: string) => Promise<void>)
     | undefined;
