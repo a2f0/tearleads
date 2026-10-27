@@ -4,6 +4,7 @@ import {
   expectAccess,
   expectNoSecurityIncidents,
 } from "../harness/expectations";
+import { documentWrite } from "../harness/transport";
 import { World } from "../harness/world";
 
 let world: World | null = null;
@@ -12,7 +13,7 @@ afterEach(() => {
   world = null;
 });
 
-test("an offline outbox survives restart, refuses revoked writes, and recovers after regrant", async () => {
+test("an offline outbox survives restart, blocks revoked writes, and recovers after regrant", async () => {
   world = await World.create();
   const alice = await world.register("alice");
   const bob = await world.register("bob");
@@ -45,9 +46,29 @@ test("an offline outbox survives restart, refuses revoked writes, and recovers a
         .listPendingWrites()
     ).some((row) => row.remoteId === document.documentId),
   ).toBe(true);
+  const beforeReconnect = restarted.transport.history.length;
   restarted.setOnline(true);
   await restarted.idle();
   const held = await readText(restarted, world.documentRef(document));
+  const attempts = restarted.transport.history.slice(beforeReconnect);
+  // The honest client is refused while preparing the write, before it can
+  // submit its persisted outbox. Absence of an outgoing request alone is weak.
+  expect(
+    attempts.some(
+      ({ method, path, status }) =>
+        method === "GET" &&
+        path === `/documents/${document.documentId}/writer-projection` &&
+        status === 403,
+    ),
+  ).toBe(true);
+  expect(attempts.filter(documentWrite(document.documentId))).toHaveLength(0);
+  expect(
+    (
+      await restarted.sdk.containerContents
+        .documentQueries()
+        .listPendingWrites()
+    ).some((row) => row.remoteId === document.documentId),
+  ).toBe(true);
   expect([null, "", "v1", "offline edit before revocation"]).toContain(held);
   const freshOwner = await world.newDevice(alice);
   expect(await readText(freshOwner, world.documentRef(document))).toBe(

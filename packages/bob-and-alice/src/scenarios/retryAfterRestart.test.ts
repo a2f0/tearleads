@@ -87,6 +87,7 @@ test("a committed edit with a lost response survives restarting the same databas
   expect(
     await restarted.sdk.documents.findLocalIdByDocumentId(document.documentId),
   ).toBe(localId);
+  // Opening the persisted editor drives the pending update's replay.
   await readDocument(restarted, world.documentRef(document));
   await restarted.idle();
   expect(

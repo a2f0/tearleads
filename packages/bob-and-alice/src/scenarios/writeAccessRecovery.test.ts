@@ -20,7 +20,7 @@ async function observeAccess(
   level: "read" | "write",
 ) {
   const tree = await device.tree();
-  expect(await tree.refresh()).toBe(true);
+  await until(() => tree.refresh(), `${device.label} ${level} tree refresh`);
   expect(
     tree.getSnapshot().nodes.find((node) => node.id === folderId),
   ).toMatchObject({ effectiveAccessLevel: level });

@@ -81,7 +81,10 @@ export class DeviceTransport {
       method: request.method,
       path: pathname,
       body: request.headers.get("content-type")?.includes("application/json")
-        ? await request.clone().json()
+        ? await request
+            .clone()
+            .json()
+            .catch(() => null)
         : null,
     };
     this.history.push(exchange);

@@ -13,6 +13,7 @@ import {
   computeContainerKekKeyringHash,
   computeContainerKekPredecessorBridgeHash,
   deriveContainerKekWrappingPublicKey,
+  KeyingVerificationError,
 } from "@tearleads/crypto";
 import type {
   AccessManifestBundleWire,
@@ -356,10 +357,10 @@ async function submitRevocation(
   });
 }
 
-async function revokeRemoteContainerOnce(
+async function planRevoke(
   input: RevokeRemoteContainerInput,
   retriesStalePath: boolean,
-): Promise<RevokedRemoteContainer | typeof STALE_PATH | null> {
+) {
   const previousProjection = await input.apiClient.getContainerWriterProjection(
     input.containerId,
   );
@@ -378,7 +379,28 @@ async function revokeRemoteContainerOnce(
     stillCurrent: input.stillCurrent,
     targetSecretKey: input.targetSecretKey,
     warmReferencedPrincipalPolicies: input.warmReferencedPrincipalPolicies,
+  }).catch((error: unknown): typeof STALE_PATH => {
+    // Refresh a cached path behind our pin, still verifying the retry against
+    // that pin. A server that repeats the rollback remains a terminal failure.
+    if (
+      retriesStalePath &&
+      error instanceof KeyingVerificationError &&
+      error.code === "rollback"
+    )
+      return STALE_PATH;
+    throw error;
   });
+  if (materializedPlan === STALE_PATH) return STALE_PATH;
+  return { previousProjection, materializedPlan };
+}
+
+async function revokeRemoteContainerOnce(
+  input: RevokeRemoteContainerInput,
+  retriesStalePath: boolean,
+): Promise<RevokedRemoteContainer | typeof STALE_PATH | null> {
+  const planned = await planRevoke(input, retriesStalePath);
+  if (!planned || planned === STALE_PATH) return planned;
+  const { previousProjection, materializedPlan } = planned;
   let stalePath = false;
   const revoked = await submitAcknowledgedContainerMutation({
     reportSecurityIncident: input.reportSecurityIncident,

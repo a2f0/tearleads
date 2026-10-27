@@ -118,7 +118,16 @@ export class Device {
       online,
     });
     if (!online) sdk.network.setMode("offline");
-    await sdk.identity.setKeyPairs(keys);
+    try {
+      await sdk.identity.setKeyPairs(keys);
+    } catch (error) {
+      sdk.dispose();
+      if (!existing) {
+        storage.transport.dispose();
+        storage.database.close();
+      }
+      throw error;
+    }
     return new Device(label, sdk, storage, origin, keys);
   }
 
@@ -137,20 +146,28 @@ export class Device {
     if (this.retired) throw new Error(`${this.label} is already retired`);
     const organizationId = this.organizationId;
     this.sdk.dispose();
-    const next = await Device.open(
-      this.origin,
-      this.label,
-      this.keys,
-      this.storage,
-      online,
-    );
-    if (!(await next.sdk.session.login())) {
-      next.sdk.dispose();
-      throw new Error(`${this.label} could not log in after restart`);
-    }
-    next.enterOrganization(organizationId);
     this.retired = true;
-    return next;
+    let next: Device | undefined;
+    try {
+      next = await Device.open(
+        this.origin,
+        this.label,
+        this.keys,
+        this.storage,
+        online,
+      );
+      if (!(await next.sdk.session.login())) {
+        throw new Error(`${this.label} could not log in after restart`);
+      }
+      next.enterOrganization(organizationId);
+      return next;
+    } catch (error) {
+      // Ownership transfers only after login; a failed restart closes storage.
+      next?.sdk.dispose();
+      this.storage.transport.dispose();
+      this.storage.database.close();
+      throw error;
+    }
   }
 
   get userId(): string {
