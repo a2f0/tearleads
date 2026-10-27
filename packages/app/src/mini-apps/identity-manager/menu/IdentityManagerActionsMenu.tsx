@@ -24,7 +24,6 @@ export function IdentityManagerActionsMenu({
   const buttonProps = useMemo(
     () => ({
       "aria-expanded": expanded,
-      "aria-haspopup": "menu" as const,
       // Avoid outside-click dismissal before the trigger's click toggles the
       // menu, which would otherwise close and immediately reopen it.
       onMouseDown: (event: MouseEvent<HTMLButtonElement>) =>

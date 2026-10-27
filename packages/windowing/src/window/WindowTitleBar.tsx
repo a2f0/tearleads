@@ -9,10 +9,13 @@ import { WindowMaximizeButton } from "./WindowMaximizeButton";
 import { WindowMinimizeButton } from "./WindowMinimizeButton";
 
 export interface WindowTitleBarAction {
-  /** Attributes for an anchored popup trigger in either toolbar layout. */
+  /**
+   * Memoized popup trigger attributes. Custom action hosts must spread these
+   * onto their button, including the ref used to anchor the popup.
+   */
   buttonProps?: Pick<
     ComponentProps<"button">,
-    "aria-expanded" | "aria-haspopup" | "onMouseDown" | "ref"
+    "aria-expanded" | "onMouseDown" | "ref"
   >;
   disabled?: boolean;
   icon: ReactNode;

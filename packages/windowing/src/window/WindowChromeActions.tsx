@@ -12,6 +12,7 @@ export interface WindowTitleBarActionInput {
    * Reserves the slot immediately left of the lowest-priority toolbar action.
    * If multiple actions request it, the highest-priority action wins, with the
    * action id providing a deterministic tie-break. A sole action stays sole.
+   * Refresh follows the registered actions and is not part of this ordering.
    */
   placement?: "penultimate";
   /**

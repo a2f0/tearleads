@@ -5,6 +5,7 @@ import { RoutedPaneAppBar } from "../routed/RoutedPaneAppBar";
 import { TEST_LAUNCHER } from "../routed/routedPane.testUtils";
 import {
   useWindowRefreshMenuItem,
+  useWindowToolbarReservation,
   WindowMenuProvider,
 } from "./WindowMenuContext";
 import { WindowStateProvider } from "./WindowStateProvider";
@@ -24,6 +25,39 @@ function RefreshRegistration({
   useWindowRefreshMenuItem({ disabled, onRefresh, refreshing });
   return null;
 }
+
+test("refresh alone reserves a window toolbar until explicitly released", () => {
+  function Reservation({ reserve }: { reserve: boolean }) {
+    useWindowToolbarReservation(reserve);
+    return null;
+  }
+  function Harness({ show, reserve }: { show: boolean; reserve: boolean }) {
+    return (
+      <WindowMenuProvider>
+        <Reservation reserve={reserve} />
+        {show && (
+          <RefreshRegistration
+            disabled={false}
+            refreshing={false}
+            onRefresh={() => undefined}
+          />
+        )}
+        <WindowToolBar showHistoryBack={false} />
+      </WindowMenuProvider>
+    );
+  }
+
+  const view = render(<Harness show={false} reserve={false} />);
+  expect(view.queryByRole("toolbar")).toBeNull();
+  view.rerender(<Harness show reserve={false} />);
+  expect(view.getByRole("button", { name: "Refresh" })).toBeTruthy();
+  view.rerender(<Harness show={false} reserve={false} />);
+  expect(view.queryByRole("button", { name: "Refresh" })).toBeNull();
+  expect(view.getByRole("toolbar")).toBeTruthy();
+  view.rerender(<Harness show={false} reserve />);
+  view.rerender(<Harness show={false} reserve={false} />);
+  expect(view.queryByRole("toolbar")).toBeNull();
+});
 
 for (const mode of ["windowed", "tablet"] as const) {
   test(`${mode} toolbar shares refresh callback and busy state`, () => {

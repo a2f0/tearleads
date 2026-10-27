@@ -369,7 +369,6 @@ test("identity actions menu trigger toggles the menu shut when reclicked", async
     fireEvent.click(trigger);
     expect(view.baseElement.querySelector(".menu")).not.toBeNull();
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
-    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
 
     // Re-clicking the trigger issues mousedown (which the Menu listens for to
     // close on outside clicks) then click. The menu must end up closed, not

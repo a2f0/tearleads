@@ -120,8 +120,8 @@ useWindowTitleBarAction(
 );
 ```
 
-Memoized `buttonProps` forwards `ref`, `aria-haspopup`, `aria-expanded`, and
-`onMouseDown` to popup triggers. Refresh appears in both toolbars and View.
+Memoized `buttonProps` forwards `ref`, `aria-expanded`, and `onMouseDown` to
+popup triggers. Both toolbars place Refresh last; it also remains in View.
 
 Windows with an `appId` reserve the toolbar and offer route-history Back.
 With `historyBack={false}`, the row appears when actions register, then stays.
