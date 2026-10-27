@@ -19,6 +19,7 @@ import {
   enforceAccessManifestCheckpoints,
   validateAccessManifestCheckpoints,
 } from "./accessManifestCheckpointEnforcement";
+import { matchesVerifiedBundleBytes } from "./verifiedBundleBytes";
 
 export interface ProjectionCheckpointContext {
   readonly heldContainerHeads: VerifiedContainerAccessManifest[];
@@ -85,7 +86,9 @@ export function observeVerifiedProjectionBundles(
 ): void {
   for (const [manifestHash, bundle] of bundlesByHash) {
     const verified = verifiedByHash.get(manifestHash);
-    if (verified)
+    // A cache hit verifies the hash, not these bytes: store only bytes that
+    // a fresh verification accepted, so a citation never replays others.
+    if (verified && matchesVerifiedBundleBytes(verified, bundle))
       context.verifiedBundles.push({ bundle, checkpoint: verified.checkpoint });
   }
 }

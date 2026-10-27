@@ -19,6 +19,7 @@ import {
   loadManifestCheckpointVerification,
   verifyCachedManifestCheckpoint,
 } from "../checkpoints/manifestCheckpointVerification";
+import { recordVerifiedBundleBytes } from "../checkpoints/verifiedBundleBytes";
 import { readKeyingVerificationShape } from "../error";
 import { collectReferencedPrincipalPolicies } from "../principalPolicy/principalPolicyVerification";
 import { readAccessManifest, readRecordNullableString } from "../readers";
@@ -206,6 +207,7 @@ async function verifyFreshContainerManifestBundle(
     label: `${input.label} state`,
   });
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);
+  recordVerifiedBundleBytes(verified.value, input.bundle);
 
   return verified.value;
 }
