@@ -19,13 +19,12 @@ type PauseGuardedDiscovery = Pick<
 /**
  * Binds a discovery lane's writes to its generation and its organization staying
  * unpaused. Access changes and pauses invalidate in-flight listings, so the
- * apply stops at its next check, and each write it has
- * already started re-checks under the SQLite mutation lock the pause cleanup
- * holds. A stale listing therefore never restores documents, links, or the
+ * apply stops at its next check. Each write already started rechecks under
+ * the SQLite mutation lock held by the reset or pause cleanup. A stale listing therefore never restores documents, links, or the
  * watermark the cleanup removed; a watermark saved after the cleanup would
  * otherwise make the listing after a resume skip every unchanged document.
  */
-export function guardDiscoveryAgainstPause(input: {
+export function guardDocumentDiscoveryWrites(input: {
   readonly execSql: ExecSql;
   readonly isPaused: () => boolean;
   readonly verifyDiscoveredDocuments: DiscoverContainerDocumentsOptions["verifyDiscoveredDocuments"];
@@ -33,10 +32,10 @@ export function guardDiscoveryAgainstPause(input: {
   const whileCurrent = <T>(
     skipped: T,
     write: (lockedExecSql: ExecSql) => Promise<T>,
-    stillCurrent?: () => Promise<boolean>,
+    stillCurrent: () => Promise<boolean>,
   ): Promise<T> =>
     runSerializedSqlMutation(input.execSql, async (lockedExecSql) =>
-      input.isPaused() || (stillCurrent && !(await stillCurrent()))
+      input.isPaused() || !(await stillCurrent())
         ? skipped
         : write(lockedExecSql),
     );

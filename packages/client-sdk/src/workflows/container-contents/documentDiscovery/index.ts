@@ -226,7 +226,7 @@ async function saveListedWatermarks(
             containerId,
             listedDocuments,
             saveContainerDocumentWatermark,
-            stillCurrent: stillCurrent,
+            stillCurrent,
           })
         : undefined,
     ),

@@ -11,7 +11,7 @@ import {
   applyListedContainerDocuments,
   type ContainerDocumentDiscoveryLane,
 } from "../documentDiscovery/documentDiscoveryApply";
-import { guardDiscoveryAgainstPause } from "./discoveryGuard";
+import { guardDocumentDiscoveryWrites } from "./discoveryGuard";
 
 const CONTAINER_ID = "paused-folder";
 const WATERMARK = { id: "doc-1", updatedAt: "2026-01-01T00:00:00.000Z" };
@@ -43,7 +43,7 @@ const verifiedListing = async () => ({
 test("a pause landing while a listing applies stores none of it", async () => {
   await withWatermarks(async (execSql) => {
     let paused = false;
-    const guarded = guardDiscoveryAgainstPause({
+    const guarded = guardDocumentDiscoveryWrites({
       execSql,
       isPaused: () => paused,
       verifyDiscoveredDocuments: async () => {
@@ -77,7 +77,7 @@ test("a pause landing while a listing applies stores none of it", async () => {
 test("a write queued behind the pause cleanup is skipped", async () => {
   await withWatermarks(async (execSql) => {
     let paused = false;
-    const guarded = guardDiscoveryAgainstPause({
+    const guarded = guardDocumentDiscoveryWrites({
       execSql,
       isPaused: () => paused,
       verifyDiscoveredDocuments: verifiedListing,
@@ -92,13 +92,19 @@ test("a write queued behind the pause cleanup is skipped", async () => {
       paused = true;
     });
     const writes = Promise.all([
-      guarded.upsertDiscoveredDocuments([
-        { documentId: "doc-1" } as DiscoveredDocumentInput,
-      ]),
-      guarded.replaceDocumentLinksBatch([
-        { accessEpoch: 1, containerIds: [CONTAINER_ID], documentId: "doc-1" },
-      ]),
-      guarded.saveContainerDocumentWatermark(CONTAINER_ID, WATERMARK),
+      guarded.upsertDiscoveredDocuments(
+        [{ documentId: "doc-1" } as DiscoveredDocumentInput],
+        async () => true,
+      ),
+      guarded.replaceDocumentLinksBatch(
+        [{ accessEpoch: 1, containerIds: [CONTAINER_ID], documentId: "doc-1" }],
+        async () => true,
+      ),
+      guarded.saveContainerDocumentWatermark(
+        CONTAINER_ID,
+        WATERMARK,
+        async () => true,
+      ),
     ]);
     release();
     await cleanup;

@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
-import { readText } from "../harness/documentReads";
 import {
   expectAccess,
+  expectNoLeak,
   expectNoSecurityIncidents,
 } from "../harness/expectations";
 import { trace } from "../harness/trace";
@@ -51,20 +51,7 @@ test("a writer idle across many rotations writes, and a late reader reads", asyn
     // Leave Carol idle so the final stale-writer check still spans every turn.
     const daveDevice = dave.devices[0];
     if (!daveDevice) throw new Error("Expected Dave's original device");
-    const daveText = await readText(daveDevice, world.documentRef(document));
-    const leaked =
-      daveText !== null &&
-      !world.model
-        .textsVisibleWithoutAccess(dave.userId, document.documentId)
-        .includes(daveText);
-    expect({ round, device: daveDevice.label, text: daveText, leaked }).toEqual(
-      {
-        round,
-        device: daveDevice.label,
-        text: daveText,
-        leaked: false,
-      },
-    );
+    await expectNoLeak(world, document, daveDevice);
   }
   const end = await world.keyEpoch(alice, folder);
   const endContent = await world.contentKeyEpoch(alice, document);

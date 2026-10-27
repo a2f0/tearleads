@@ -195,16 +195,16 @@ export interface DiscoverContainerDocumentsOptions
   /** Recheck stillCurrent under the mutation lock before persisting a listing. */
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
-    stillCurrent?: () => Promise<boolean>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<void>;
   saveContainerDocumentWatermark: (
     containerId: string,
     watermark: SyncWatermark,
-    stillCurrent?: () => Promise<boolean>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<void>;
   upsertDiscoveredDocuments: (
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
-    stillCurrent?: () => Promise<boolean>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
 }
 

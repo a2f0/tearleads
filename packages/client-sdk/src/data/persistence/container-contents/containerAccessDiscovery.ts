@@ -5,7 +5,11 @@ import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenc
 import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../documents/documentDiscoveryEvidencePersistence";
 import type { ContainerRecord } from "./containerPersistence";
 
-/** Permission changes do not advance the contained documents' edit clocks. */
+/**
+ * Held remote permissions change through the metadata CAS commit, which calls
+ * this in its transaction. Insert and local-authoring saves have no prior
+ * remote permission to invalidate. Documents' edit clocks do not track grants.
+ */
 export async function resetAccessDiscovery(
   tx: ClientSQLiteTransactionScope,
   current: ContainerRecord,

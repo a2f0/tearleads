@@ -172,8 +172,9 @@ export class World {
    * Edits from `device` (the actor's first device by default). An edit the
    * actor may make must apply locally and settle with nothing left pending.
    * A successful write clears prior refused edits for this document; reads on
-   * other devices verify the committed text. A refused edit may stay parked; the model ignores it, so one
-   * the system wrongly accepted shows up as a mismatch in `expectAccess`.
+   * other devices verify the committed text. A refused edit may stay parked;
+   * the model ignores it, so an accepted refused edit appears as a mismatch
+   * in `expectAccess`.
    */
   async editDocument(
     actor: User,
@@ -186,7 +187,8 @@ export class World {
     if (!store) throw device.failure("cannot open the document");
     await store.setText(text);
     if (!this.model.edit(document.documentId, actor.userId, text)) {
-      const documents = this.refusedEdits.get(device) ?? new Map();
+      const documents =
+        this.refusedEdits.get(device) ?? new Map<string, Set<string>>();
       const refused = documents.get(document.documentId) ?? new Set<string>();
       refused.add(text);
       documents.set(document.documentId, refused);

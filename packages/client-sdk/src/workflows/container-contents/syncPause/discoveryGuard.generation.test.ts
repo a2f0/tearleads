@@ -17,7 +17,7 @@ import {
   discoverAllContainerDocuments,
   discoverContainerDocuments,
 } from "../documentDiscovery/index";
-import { guardDiscoveryAgainstPause } from "./discoveryGuard";
+import { guardDocumentDiscoveryWrites } from "./discoveryGuard";
 
 test.each(["single", "all"] as const)(
   "%s discovery cannot restore a cursor after a permission change",
@@ -36,7 +36,7 @@ test.each(["single", "all"] as const)(
         icon: null,
         effectiveAccessLevel: "read" as const,
       };
-      const guarded = guardDiscoveryAgainstPause({
+      const guarded = guardDocumentDiscoveryWrites({
         execSql,
         isPaused: () => false,
         verifyDiscoveredDocuments: async (_inputs, _ids, generation) => ({
