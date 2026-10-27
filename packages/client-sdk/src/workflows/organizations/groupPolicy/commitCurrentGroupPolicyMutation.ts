@@ -83,6 +83,9 @@ export async function commitCurrentGroupPolicyMutation(
     // Refuse the whole transaction if a damaged-key repair needs extra rekeys;
     // ordinary adds preserve key epochs and need no descendant carry retry.
     carryDescendantRekeys: member ? undefined : prepared.carry,
+    refreshContainerMutations: member
+      ? undefined
+      : prepared.refreshAfterConflict,
     stillCurrent: context.stillCurrent,
   });
   if (!response) throw new Error("Group policy update failed");

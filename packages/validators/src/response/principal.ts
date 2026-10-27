@@ -3,6 +3,7 @@ import { arraySchema, loosePlainObject, nonEmptyStringSchema } from "../schema";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "../util";
 import { PRINCIPAL_POLICY_REPAIR_HEAD_LIMIT } from "../util/principalHistoryWire";
 import { ContainerMutationResponseSchema } from "./container";
+import { CONTAINER_MUTATION_STATE_STALE_ERROR_CODE } from "./containerMutationStateStaleError";
 import { CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE } from "./descendantRekeysRequiredError";
 import { BillingErrorResponseSchema } from "./organizationBilling";
 import { ReferencedPrincipalStateResponseSchema } from "./principalReference";
@@ -106,6 +107,10 @@ const PrincipalPolicyDescendantRekeysRequiredResponseSchema = loosePlainObject({
 export const CommitOrganizationGroupPolicyConflictResponseSchema = z.union([
   PrincipalPolicyErrorResponseSchema,
   PrincipalPolicyDescendantRekeysRequiredResponseSchema,
+  loosePlainObject({
+    code: z.literal(CONTAINER_MUTATION_STATE_STALE_ERROR_CODE),
+    error: z.string().min(1),
+  }),
 ]);
 
 export const PrincipalPolicyStaleErrorResponseSchema = loosePlainObject({

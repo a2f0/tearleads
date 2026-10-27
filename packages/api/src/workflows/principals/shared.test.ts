@@ -4,7 +4,15 @@ import {
   PrincipalPolicyValidationError,
   type PrincipalPolicyValidationErrorCode,
 } from "@tearleads/crypto";
-import { toPrincipalPolicyError } from "./shared";
+import {
+  ContainerMutationError,
+  descendantRekeysRequired,
+  mutationStateStale,
+} from "../containers/mutations/errors";
+import {
+  principalPolicyErrorFromContainerMutation,
+  toPrincipalPolicyError,
+} from "./shared";
 
 test("principal policy validation codes determine HTTP status independently of wording", () => {
   const cases: ReadonlyArray<{
@@ -64,4 +72,27 @@ test("plain errors are not classified by message", () => {
   expect(
     toPrincipalPolicyError(new Error("Principal state version conflict")),
   ).toBeNull();
+});
+
+test("policy wrapping preserves a stale container conflict without classifying plain conflicts", () => {
+  expect(
+    principalPolicyErrorFromContainerMutation(mutationStateStale("Moved")),
+  ).toMatchObject({
+    status: 409,
+    code: "container_mutation_state_stale",
+    message: "Moved",
+  });
+  expect(
+    principalPolicyErrorFromContainerMutation(
+      new ContainerMutationError("Moved", 409),
+    ).code,
+  ).toBeUndefined();
+  expect(
+    principalPolicyErrorFromContainerMutation(
+      descendantRekeysRequired(["descendant"]),
+    ),
+  ).toMatchObject({
+    status: 409,
+    requiredContainerIds: ["descendant"],
+  });
 });

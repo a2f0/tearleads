@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { arraySchema, nonEmptyStringSchema } from "../schema";
 import { MAX_ROTATION_CONTAINER_REKEYS } from "../util";
+import { CONTAINER_MUTATION_STATE_STALE_ERROR_CODE } from "./containerMutationStateStaleError";
 import { CONTAINER_UNAVAILABLE_ERROR_CODE } from "./containerUnavailableError";
 import { CONTAINER_DESCENDANT_REKEYS_REQUIRED_ERROR_CODE } from "./descendantRekeysRequiredError";
 import { DocumentMutationErrorCodeSchema } from "./documentMutationError";
@@ -26,7 +27,7 @@ export const CONTAINER_MUTATION_ERROR_CODES = {
   // request never succeeds: a queued move is abandoned, while a queued create
   // keeps its intent (a later local move can re-arm it).
   pathTooDeep: "container_path_too_deep",
-  stateStale: "container_mutation_state_stale",
+  stateStale: CONTAINER_MUTATION_STATE_STALE_ERROR_CODE,
 } as const;
 
 export const ContainerMutationBehaviorErrorCodeSchema = z.literal([

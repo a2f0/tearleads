@@ -7,9 +7,6 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { rememberVerifiedContainerHeads } from "../../../data/containers/shared/heldContainerHeads";
-import type { AuthoredContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
-import { acknowledgeContainerMutationBatch } from "../../../data/containers/shared/mutationAcknowledgement";
 import {
   getTargetContainerContext,
   readContainerState,
@@ -18,8 +15,8 @@ import {
   type PrincipalPolicyCache,
   verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
+import { assertProjectionVerificationCurrent } from "../../../data/keyingProjectionVerification/types";
 import { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
-import { scheduleHeldDescendantRecitations } from "../child/recite";
 import { buildMaterializedContainerRekeyPlan } from "../child/rekey";
 import { rebaseOnDeepestAncestor } from "../child/rekey/carriedDescendantRekeys";
 import {
@@ -30,6 +27,7 @@ import {
 import { buildMaterializedContainerRevokePlan } from "../child/revoke";
 import { selectReplacementPrincipalPolicyReferences } from "../child/rotation/replacementPrincipalPolicyReferences";
 import { buildMaterializedContainerSharePlan } from "../child/share/shareMaterialization";
+import { acknowledgePrincipalContainerRematerialization } from "./acknowledgePrincipalContainerRematerialization";
 import { withPrecedingRematerialization } from "./precedingPrincipalRematerialization";
 import {
   addPlan,
@@ -155,12 +153,10 @@ export interface PreparedPrincipalContainerRematerializationBatch {
   ) => Promise<readonly ContainerMutationRequest[]>;
   readonly plans: readonly MaterializedPrincipalContainerMutationPlan[];
   readonly requests: readonly ContainerMutationRequest[];
-}
-
-function authoredMutationHead(
-  planned: MaterializedPrincipalContainerMutationPlan,
-): AuthoredContainerMutationHead {
-  return planned.plan;
+  /** Rebuild a refused batch against fresh served container heads. */
+  readonly refreshAfterConflict?:
+    | (() => Promise<readonly ContainerMutationRequest[]>)
+    | undefined;
 }
 
 async function buildPrincipalContainerRematerializationPlan(input: {
@@ -422,6 +418,21 @@ export async function preparePrincipalContainerRematerializationBatch(
     get requests() {
       return requests();
     },
+    refreshAfterConflict: async () => {
+      assertProjectionVerificationCurrent(input.stillCurrent);
+      for (const containerId of new Set([
+        ...input.grants.map((grant) => grant.containerId),
+        ...entries.map((entry) => entry.planned.plan.containerId),
+      ])) {
+        input.apiClient.evictContainerWriterProjection?.(containerId);
+      }
+      const replanned =
+        await buildPrincipalContainerRematerializationPlans(input);
+      entries = replanned.entries;
+      retiredContainerIds = replanned.retiredContainerIds;
+      preceding = replanned.preceding;
+      return requests();
+    },
     carry: async (requiredContainerIds) => {
       // The refused attempt rolled back whole, so every served head still
       // stands; the batch is signed again from them with the named levels in.
@@ -435,48 +446,12 @@ export async function preparePrincipalContainerRematerializationBatch(
       preceding = replanned.preceding;
       return requests();
     },
-    acknowledge: async (responses, stillCurrent) => {
-      const isCurrent = () =>
-        input.stillCurrent?.() !== false && stillCurrent?.() !== false;
-      const heads = entries.map((entry) => authoredMutationHead(entry.planned));
-      const acknowledged = await acknowledgeContainerMutationBatch({
-        execSql: input.execSql,
-        plans: heads,
+    acknowledge: (responses, stillCurrent) =>
+      acknowledgePrincipalContainerRematerialization(
+        input,
+        entries,
         responses,
-        stillCurrent: isCurrent,
-      });
-      if (!acknowledged || !isCurrent()) return;
-      const plansByOrganization = new Map<
-        string,
-        AuthoredContainerMutationHead[]
-      >();
-      for (const head of heads) {
-        const organizationId = head.state.organizationId;
-        const group = plansByOrganization.get(organizationId) ?? [];
-        group.push(head);
-        plansByOrganization.set(organizationId, group);
-      }
-      for (const [organizationId, organizationPlans] of plansByOrganization) {
-        try {
-          rememberVerifiedContainerHeads({
-            organizationId,
-            execSql: input.execSql,
-            heads: [],
-            policies: [input.nextPolicy],
-          });
-        } catch {
-          // Cache failure must not invalidate the durably acknowledged batch.
-          continue;
-        }
-        scheduleHeldDescendantRecitations({
-          apiClient: input.apiClient,
-          author: { ...input.author, organizationId },
-          execSql: input.execSql,
-          plans: organizationPlans,
-          stillCurrent: input.recitationStillCurrent ?? isCurrent,
-          reportSecurityIncident: input.reportSecurityIncident,
-        });
-      }
-    },
+        stillCurrent,
+      ),
   };
 }
