@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { type ApiDatabase, db } from "@tearleads/api-shared/postgres";
 import { principalStatePayloads } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   type OrganizationPolicyHistoryResponse,
   OrganizationPolicyHistoryResponseSchema,

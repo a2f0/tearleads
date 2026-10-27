@@ -5,12 +5,12 @@ import {
   organizationRosterEntries,
   organizations,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   generateKemSeedAndKeyPair,
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   isCommitOrganizationGroupPolicyResponse,
   isContainerMutationResponse,

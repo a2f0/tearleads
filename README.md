@@ -7,7 +7,8 @@ a client SDK, and an API for synchronizing documents and shared containers.
 
 ## Getting Started
 
-1. Install `mise` with `brew install mise`, then run `mise install`.
+1. Install `mise` with `brew install mise`. Review this checkout's `.mise.toml`,
+   run `mise trust` in its root, then run `mise install` for the pinned tools.
 2. Run `bun install --frozen-lockfile`.
 3. Run `bundle install` from `packages/app-capacitor` for native release checks.
 4. Run `bun run build:packages` to build SQLite and the SDK and prepare the
@@ -16,6 +17,10 @@ a client SDK, and an API for synchronizing documents and shared containers.
    follow the [one-time hook migration](docs/developer/static-analysis.md#ci-and-the-push-gate).
 6. Run `bun run --filter=@tearleads/api dev` to start the API.
 7. Run `bun run --filter=app-web dev` to start the web app.
+
+Trust is specific to the checkout path; a new clone or evaluation workspace may
+need its own reviewed trust step. The [verification prerequisites](docs/developer/verification.md#prerequisites)
+distinguish focused package tests from the full repository gates.
 
 To invoke repository launchers and release shortcuts by name, source
 `scripts/dev/session.sh` from the checkout. For a persistent shell shortcut:
@@ -80,3 +85,9 @@ developer guide. Common starting points:
 - [Infrastructure and Deployment](./docs/developer/infrastructure.md)
 - [Client SDK](./docs/developer/client-sdk.md)
 - [Security Guarantees](./docs/security-guarantees.md)
+
+## Repository discoverability
+
+Use the [local Scope guide](docs/developer/scope.md) to run repeatable agent
+onboarding probes against committed Tearleads snapshots. The tracked suite
+measures setup discovery, architecture navigation, and public SDK usage.

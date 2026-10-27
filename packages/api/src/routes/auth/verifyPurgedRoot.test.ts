@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { requestChallenge, submitVerify } from "../../../test/helpers/api";
 import { registerUser } from "../../../test/helpers/registerUser";

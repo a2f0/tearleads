@@ -43582,6 +43582,24 @@
                         "requiredContainerIds"
                       ],
                       "additionalProperties": {}
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "const": "container_mutation_state_stale"
+                        },
+                        "error": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "error"
+                      ],
+                      "additionalProperties": {}
                     }
                   ]
                 }

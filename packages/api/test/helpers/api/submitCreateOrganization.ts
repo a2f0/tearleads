@@ -1,5 +1,5 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import { signOrganizationReplacementAuthorization } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { routeApp } from "../../../src/routeApp";
 import { createRegistrationRequestBody } from "./submitRegistration";

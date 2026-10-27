@@ -5,7 +5,7 @@ import {
   organizationBillingStripeSeats,
   revenuecatWebhookEvents,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import type { RevenueCatWebhookEvent } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import { registerAndAuthenticate } from "../../../test/helpers/revenuecatWebhook";

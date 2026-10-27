@@ -1,4 +1,3 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessEventBody,
   ContainerKekKeyringEntry,
@@ -23,6 +22,7 @@ import {
   verifyContainerKekState,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,

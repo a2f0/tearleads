@@ -803,10 +803,10 @@ meets such a level parks under an explicit
 `document_ancestor_repair_inaccessible` state until the dependent-path hint that
 follows its repair; [limits.md](./limits.md#limits-that-trade-write-liveness)
 records that trade. Group rematerialization is held to the same rule: a
-rekey or revoke among a policy's rematerialized containers carries the
-descendants it owes in the same batch, woven in parent-first beneath the
-rotation each rides, and a level the batch's own rotations strand between two
-of its containers is carried without being named.
+rekey or revoke among a policy's containers carries what it owes in its batch,
+parent-first under the rotation it rides; a level its rotations strand between
+two of its containers is carried unnamed; and each entry cites the heads
+earlier entries leave, grants included.
 The [inaccessible-intermediate repair model](../formal/container-keying/InaccessibleIntermediateRepair.md)
 covers the rule and the alternatives it rejects.
 

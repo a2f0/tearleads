@@ -24,13 +24,20 @@ const tearleads = new Tearleads();
 ```
 
 The minimal instance uses same-origin API routes, memory blob storage, default
-logging, and an idle database. Configure SQLite before using persistence, sync,
-or identity generation:
+logging, and an idle database. Initialize SQLite, then configure the SDK before
+using persistence, sync, or identity generation. Here `localKeys` comes from the
+host's [local keyring](https://github.com/a2f0/tearleads/blob/main/docs/developer/client-sdk.md#local-keyring):
 
 ```ts
 import { createSQLiteRuntime } from "@tearleads/client-sdk/sqlite";
 
 const sqliteRuntime = createSQLiteRuntime();
+await sqliteRuntime.client.init({
+  dbName: "/app-identity.db",
+  cipher: "chacha20",
+  key: localKeys.sqliteKey,
+  persistence: "opfs-sahpool",
+});
 tearleads.database.configure({
   client: sqliteRuntime.client,
   id: sqliteRuntime.id,
@@ -53,8 +60,10 @@ for (const file of ["worker.js", "sqlite3.wasm", "sqlite3-licenses.md"]) {
 }
 ```
 
-The worker keeps its databases in the origin private file system (OPFS), so
-the page must be served from a secure context.
+SQLite defaults to `persistence: "memory"`, which loses the database on worker
+restart or page reload. The example opts into `"opfs-sahpool"` to persist it in
+the origin private file system (OPFS); serve the page from a secure context.
+If OPFS is unavailable, initialization fails instead of falling back to memory.
 
 Typecheck with `skipLibCheck: true`: the declarations of drizzle-orm and
 loro-crdt, which the SDK's types reference, do not typecheck without it.
@@ -68,6 +77,8 @@ but cannot authorize replay of the old request.
 The [developer guide](https://github.com/a2f0/tearleads/blob/main/docs/developer/client-sdk.md)
 covers constructor options, the host contract, the local keyring, and every
 public entry point.
+For document editing and creation, start with the
+[document creation guide](https://github.com/a2f0/tearleads/blob/main/docs/developer/document-creation.md).
 
 ## Publishing
 

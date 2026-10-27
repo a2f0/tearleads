@@ -1,5 +1,5 @@
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { registerUser } from "../../src/services/auth/registration";
 import {
   createRegistrationRequest,

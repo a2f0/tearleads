@@ -1,5 +1,4 @@
 import { db } from "@tearleads/api-shared/postgres";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerKekKeyringEntry,
   VerifiedContainerKekState,
@@ -7,6 +6,7 @@ import type {
 } from "@tearleads/crypto";
 import { unwrapDek } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import type { TestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import invariant from "invariant";
 import { listCurrentPrincipalMemberEnvelopes } from "../../src/access/read/principalMemberEnvelopes";

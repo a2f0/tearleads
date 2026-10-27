@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationRosterEntries, users } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { isCreateOrganizationGroupResponse } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import type { MiddlewareHandler } from "hono";

@@ -5,7 +5,7 @@ import {
   revenuecatWebhookEvents,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
 import { createMiddleware } from "hono/factory";
 import invariant from "invariant";

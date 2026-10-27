@@ -1,5 +1,6 @@
 import { db } from "@tearleads/api-shared/postgres";
 
+export { initializeApiDatabase } from "@tearleads/api-shared/postgres";
 export { createMemoryBlobObjectStore } from "./adapters/blobObjectStore";
 export {
   createDestroySession,
@@ -10,5 +11,5 @@ export {
   createSessionTokenIssuer,
 } from "./middleware/session";
 export { createWebSocketTicketConsumer } from "./realtime/wsTicket";
-export { createRouteApp } from "./routeApp";
+export { createRouteApp, routeApp } from "./routeApp";
 export { db };

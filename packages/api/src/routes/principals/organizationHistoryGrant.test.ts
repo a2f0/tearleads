@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   addMemberGroupUser,
   removeMemberGroupUser,

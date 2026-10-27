@@ -1,6 +1,5 @@
 import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerKeyEpoch,
   ContainerKeyWrap,
@@ -15,6 +14,7 @@ import {
   wrapDekForRecipients,
 } from "@tearleads/crypto";
 import { base64ToBytes, bytesToBase64 } from "@tearleads/encoding";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,

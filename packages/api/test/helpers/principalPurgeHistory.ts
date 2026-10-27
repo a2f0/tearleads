@@ -1,8 +1,8 @@
 import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import { ContainerMutationResponseSchema } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { routeApp } from "../../src/routeApp";

@@ -19,6 +19,8 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 - [Access plane](access-plane.md): signed access events, manifests, and
   effective access.
 - [Client SDK](developer/client-sdk.md): the SDK's public API and runtime.
+- [SQLite setup for SDK hosts](developer/sqlite-setup.md).
+- [Choosing a document creation API](developer/document-creation.md).
 - [Client SDK seams](developer/client-sdk-seams.md): how SDK components meet.
 - [API persistence](developer/api-persistence.md): storage backends and
   signed-shape invariants.
@@ -102,5 +104,9 @@ and repository workflow. The [glossary](glossary.md) defines shared terms.
 - [Dependency maintenance](dependency-upgrades.md) and
   [dependency audit policy](developer/dependency-audit.md).
 - [Test optimization findings](developer/test-optimization.md).
+- [Multi-party keying scenarios](../packages/bob-and-alice/README.md): real
+  SDK clients against the real API, checked against a reference access model.
+- [Local Scope evaluations](developer/scope.md) and the
+  [discoverability pilot findings](developer/scope-baseline.md).
 - [Formal models](../formal/README.md) and the
   [script index](../scripts/README.md).

@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   buildMaterializedContainerRekeyPlan,
   createRemoteContainer,
   shareRemoteContainer,
 } from "@tearleads/client-sdk";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   createAncestorSdkContext,
   editColdDocumentAfterAncestorRotation,

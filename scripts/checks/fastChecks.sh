@@ -36,6 +36,7 @@ run_fast_checks() {
   step_timings_run formal-maps bun run lint:formal-maps
   step_timings_run protocol-conformance bun run test:protocol-conformance
   step_timings_run infrastructure-parity bun run lint:infrastructure-parity
+  step_timings_run scope-tools bun run test:scope
   step_timings_run static-analysis bun run test:static-analysis
   step_timings_run binary-files-worktree bun run lint:binary-files
   step_timings_run ruby bun run lint:ruby

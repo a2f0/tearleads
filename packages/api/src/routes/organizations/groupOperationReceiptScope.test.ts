@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { principalPolicyCommits } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import { createGroupRequest } from "../../../test/helpers/organizationGroup";

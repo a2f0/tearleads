@@ -22,8 +22,6 @@ export interface IdentityActionToolbarProps {
   readonly identityBusy: IdentityBusyState;
 }
 
-// The current-session logout intentionally lives in the Identity section's
-// overflow menu (see IdentityManagerActionsMenu), not here.
 export function IdentityActionToolbar({
   canAuthenticate,
   canGenerateKey,

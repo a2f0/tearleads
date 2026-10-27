@@ -5,8 +5,8 @@ import {
   organizations,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { authChallengeSigningBytes, sign } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   isCreateOrganizationResponse,
   isVerifyResponse,

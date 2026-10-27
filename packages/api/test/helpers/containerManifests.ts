@@ -1,6 +1,5 @@
 import { db } from "@tearleads/api-shared/postgres";
 import { containers } from "@tearleads/api-shared/schema";
-import type { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type AccessEvent,
   type ContainerAccessManifestState,
@@ -15,6 +14,7 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import type { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 

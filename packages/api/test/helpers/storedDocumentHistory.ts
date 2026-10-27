@@ -1,11 +1,11 @@
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import type { VerifiedDocumentLinkSetManifest } from "@tearleads/crypto";
 import {
   createContainerManifestFixture,
   createDocumentLinkSetManifestFixture,
   createVerifiedDocumentAccessEvent,
 } from "@tearleads/crypto/test-fixtures";
+import { createTestUser } from "@tearleads/test-utils";
 import { storeVerifiedAccessManifest } from "../../src/access/write/accessManifestStore";
 import { registerUser } from "./registerUser";
 

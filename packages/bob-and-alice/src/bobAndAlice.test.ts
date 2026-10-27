@@ -7,8 +7,8 @@ import {
   sign,
   verify,
 } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import invariant from "invariant";
-import { createTestUser } from "./createTestUser";
 
 test("bob can write a message to alice", async () => {
   const alice = createTestUser();

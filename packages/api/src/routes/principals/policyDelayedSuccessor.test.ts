@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { verifyPrincipalPolicyBundle } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   isCommitOrganizationGroupPolicyResponse,
   isPrincipalPolicyBundleResponse,

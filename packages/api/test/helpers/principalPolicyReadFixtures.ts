@@ -4,7 +4,7 @@ import {
   organizations,
   principalMembershipProjection,
 } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
+import type { TestUser } from "@tearleads/test-utils";
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "./authenticate";

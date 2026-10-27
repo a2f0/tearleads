@@ -4,8 +4,8 @@ import {
   principalHistoryIndexNodes,
   principalHistoryProgress,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { clearPrincipalPolicySignatureCaches } from "@tearleads/crypto/principal-policy-test-fixtures";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   bootstrapRoot,
   createDocument,

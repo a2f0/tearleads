@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { accessManifests, documentUpdates } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
@@ -17,6 +16,7 @@ import {
   getUpdateVersionVectors,
   mergeVersionVectors,
 } from "@tearleads/loro";
+import type { TestUser } from "@tearleads/test-utils";
 import type {
   DocumentLinkSetMutationRequest,
   DocumentOutgoingUpdate,

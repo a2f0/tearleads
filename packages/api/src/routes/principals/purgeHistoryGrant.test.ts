@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { DocumentPurgeProofResponseSchema } from "@tearleads/validators/response";
 import { postDocumentPurge } from "../../../test/helpers/documentPurge";
 import {

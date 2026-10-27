@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   type ContainerKekPredecessorBridge,
   computeContainerKekMaterialId,
   unwrapContainerKekPredecessorBridge,
 } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { AccessManifestBundleWire } from "@tearleads/validators/request";
 import {
   type ContainerKekLogResponse,

@@ -1,12 +1,12 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { users } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   authChallengeSigningBytes,
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import {
   createRegistrationRequest,

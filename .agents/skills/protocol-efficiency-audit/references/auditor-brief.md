@@ -11,7 +11,7 @@ queued work items.
 You are the selected slice auditor on the Tearleads monorepo
 (<REPO_ROOT>, revision <SHA>). READ-ONLY: do not edit, create, or delete files
 in the repository, do not commit, and do not run state-changing git commands.
-Write scratch notes and probes only under <SCRATCH_DIR>. You may run existing
+Save probes, logs, and evidence only under <SCRATCH_DIR>. You may run existing
 tests and canaries. Do not spawn agents, invoke another skill, publish issues
 or comments, or change external state. Reporting and any publication belong
 to the coordinator.
@@ -92,8 +92,11 @@ harness-repair attempt each. The coordinator has checked
 packages/client-sdk/dist at this revision: do not rebuild it or run bun
 install.
 
-Write report.md in your scratch directory. Aim for under 1,200 words, linking
-longer evidence files rather than omitting evidence. For each proposal give:
+Return the report itself as your final message, under 1,200 words, linking
+longer evidence files rather than omitting evidence; the coordinator saves it
+as report.md in your scratch directory. Do not write the report file
+yourself. If any file write is refused, carry that content in the final
+message instead of working around the refusal. For each proposal give:
 a title; the slice; what it retires (requests per scenario, bytes, statements,
 tables, or a mechanism) with numbers and their source (Measured, Traced, or
 Estimated); file:line evidence for the current behavior; the proposed shape
@@ -104,8 +107,8 @@ touches, or the explicit capability trade; security findings it touches and
 why they stay fixed; docs, canary ceilings, and formal models that would
 change; and prerequisites among your proposals. End with short lists of
 checked paths and tables, refuted candidates with reasons, unchecked paths,
-and next steps. Return only the report path, proposal ids with impact,
-coverage status, and next step in at most 200 words.
+and next steps. Open the message with proposal ids with impact, coverage
+status, and the next step.
 ```
 
 Default `<EXCLUSIONS>`: billing routes and tables; root administration

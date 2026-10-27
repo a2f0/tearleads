@@ -11,6 +11,8 @@
     "ignoreUnknown": true,
     "includes": [
       "packages/{api,app,client-sdk,crypto,diagnostics}/src/**",
+      // Type scanning must not discover nested roots inside benchmark evidence.
+      "!!.scope",
       "!**/*.test.{ts,tsx}",
       "!**/*.{testUtils,testFixtures}.{ts,tsx}",
       "!**/{testUtils,testFixtures}.{ts,tsx}",

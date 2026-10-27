@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { principalMembershipProjection } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { PrincipalPolicyPageResponseSchema } from "@tearleads/validators/response";
 import { and, eq } from "drizzle-orm";
 import { seedLongPrincipalHistory } from "../../../test/helpers/longPrincipalHistory";

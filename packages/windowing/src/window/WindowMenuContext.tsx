@@ -81,8 +81,8 @@ interface WindowMenuContextValue {
   viewMenuItems: WindowMenuItem[];
   /**
    * The winning refresh registration, also folded into `viewMenuItems` for the
-   * windowed menu bar. Exposed on its own because the routed shell has no menu
-   * bar and renders it as an app bar toolbar button instead.
+   * windowed menu bar. Exposed on its own for the Refresh button shared by the
+   * windowed toolbar and routed app bar.
    */
   refreshMenuItem: WindowMenuItem | null;
   titleBarActions: WindowTitleBarAction[];
@@ -290,10 +290,10 @@ export function useWindowViewMenuItem(
 }
 
 /**
- * Registers an action in the current window's title bar.
+ * Registers an action in the current window's toolbar.
  *
- * Keep `item` and its `icon` reference-stable, such as by memoizing them with
- * `useMemo`, so the window does not re-register the action on every render.
+ * Keep `icon` and `buttonProps` reference-stable (for example with `useMemo`)
+ * so context updates do not continuously re-register the action.
  */
 export function useWindowTitleBarAction(
   item: WindowTitleBarActionInput | null,

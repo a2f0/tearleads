@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { buildMaterializedContainerRekeyPlan } from "@tearleads/client-sdk";
+import { createTestUser } from "@tearleads/test-utils";
 import { ContainerWriterProjectionWireResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { createHeldManifestCitations } from "../../../test/helpers/heldManifestCitations";

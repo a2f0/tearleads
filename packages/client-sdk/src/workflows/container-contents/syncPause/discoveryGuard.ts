@@ -17,45 +17,56 @@ type PauseGuardedDiscovery = Pick<
 >;
 
 /**
- * Binds a discovery lane's writes to its container's organization staying
- * unpaused. A listing still in flight when the organization is paused stops
- * being current, so the apply stops at its next check, and each write it has
- * already started re-checks under the SQLite mutation lock the pause cleanup
- * holds. A stale listing therefore never restores documents, links, or the
+ * Binds a discovery lane's writes to its generation and its organization staying
+ * unpaused. Access changes and pauses invalidate in-flight listings, so the
+ * apply stops at its next check. Each write already started rechecks under
+ * the SQLite mutation lock held by the reset or pause cleanup. A stale listing therefore never restores documents, links, or the
  * watermark the cleanup removed; a watermark saved after the cleanup would
  * otherwise make the listing after a resume skip every unchanged document.
  */
-export function guardDiscoveryAgainstPause(input: {
+export function guardDocumentDiscoveryWrites(input: {
   readonly execSql: ExecSql;
   readonly isPaused: () => boolean;
   readonly verifyDiscoveredDocuments: DiscoverContainerDocumentsOptions["verifyDiscoveredDocuments"];
 }): PauseGuardedDiscovery {
-  const unlessPaused = <T>(
+  const whileCurrent = <T>(
     skipped: T,
     write: (lockedExecSql: ExecSql) => Promise<T>,
+    stillCurrent: () => Promise<boolean>,
   ): Promise<T> =>
     runSerializedSqlMutation(input.execSql, async (lockedExecSql) =>
-      input.isPaused() ? skipped : write(lockedExecSql),
+      input.isPaused() || !(await stillCurrent())
+        ? skipped
+        : write(lockedExecSql),
     );
   return {
-    replaceDocumentLinksBatch: (inputs) =>
-      unlessPaused(undefined, (lockedExecSql) =>
-        sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
-          lockedExecSql,
-          inputs,
-        ),
+    replaceDocumentLinksBatch: (inputs, stillCurrent) =>
+      whileCurrent(
+        undefined,
+        (lockedExecSql) =>
+          sqlDocumentContainerProjectionPersistence.replaceDocumentLinksBatch(
+            lockedExecSql,
+            inputs,
+          ),
+        stillCurrent,
       ),
-    saveContainerDocumentWatermark: (containerId, watermark) =>
-      unlessPaused(undefined, async (lockedExecSql) => {
-        await sqlContainerSyncWatermarkPersistence.saveWatermark(
-          lockedExecSql,
-          containerContentsSyncLane(containerId),
-          watermark,
-        );
-      }),
-    upsertDiscoveredDocuments: (inputs) =>
-      unlessPaused([], (lockedExecSql) =>
-        upsertDiscoveredDocuments(lockedExecSql, inputs),
+    saveContainerDocumentWatermark: (containerId, watermark, stillCurrent) =>
+      whileCurrent(
+        undefined,
+        async (lockedExecSql) => {
+          await sqlContainerSyncWatermarkPersistence.saveWatermark(
+            lockedExecSql,
+            containerContentsSyncLane(containerId),
+            watermark,
+          );
+        },
+        stillCurrent,
+      ),
+    upsertDiscoveredDocuments: (inputs, stillCurrent) =>
+      whileCurrent(
+        [],
+        (lockedExecSql) => upsertDiscoveredDocuments(lockedExecSql, inputs),
+        stillCurrent,
       ),
     async verifyDiscoveredDocuments(...args) {
       const verification = await input.verifyDiscoveredDocuments(...args);

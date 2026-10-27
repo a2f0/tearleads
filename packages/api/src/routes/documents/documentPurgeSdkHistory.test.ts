@@ -1,8 +1,7 @@
 import { expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { syncRemoteDocument } from "@tearleads/client-sdk";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import {
   isDocumentLinkSetMutationResponse,
   isDocumentPurgeProofResponse,

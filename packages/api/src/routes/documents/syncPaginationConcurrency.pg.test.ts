@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { documentUpdates } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { createSignedDocumentSyncRequest } from "../../../test/helpers/documentUpdateRequests";
 import {

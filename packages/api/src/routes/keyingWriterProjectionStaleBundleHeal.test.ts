@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   DOCUMENT_SYNC_ERROR_CODES,
   type DocumentWriterProjectionResponse,

@@ -5,8 +5,8 @@ import {
   organizations,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { signOrganizationLeaveRequest } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   isOrganizationMembershipResponse,
   isOrganizationReadModelResponse,

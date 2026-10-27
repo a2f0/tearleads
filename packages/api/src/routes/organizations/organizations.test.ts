@@ -6,9 +6,9 @@ import {
   organizations,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { toFingerprint } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   isCreateOrganizationGroupResponse,
   isDeleteOrganizationGroupResponse,

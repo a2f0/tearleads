@@ -1,6 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import type { Tearleads, UserSession } from "@tearleads/client-sdk";
 import { generateSigningSeedAndKeyPair } from "@tearleads/crypto";
+import { WindowMenuProvider, WindowToolBar } from "@tearleads/windowing";
 import {
   act,
   fireEvent,
@@ -44,6 +45,15 @@ afterEach(async () => {
   await cleanupIdentityManagerTestEnvironment();
 });
 
+function IdentityManagerWithToolbar() {
+  return (
+    <WindowMenuProvider>
+      <WindowToolBar />
+      <IdentityManager />
+    </WindowMenuProvider>
+  );
+}
+
 async function renderAuthenticatedIdentityManagerWithSessions(
   sessions: ReadonlyArray<UserSession>,
   section: "Active Sessions" | "General" = "Active Sessions",
@@ -58,7 +68,7 @@ async function renderAuthenticatedIdentityManagerWithSessions(
         tearleadsRef.current = sdk;
       }}
     >
-      <IdentityManager />
+      <IdentityManagerWithToolbar />
     </IdentityManagerTestRuntime>,
   );
 
@@ -96,7 +106,7 @@ async function renderAuthenticatedIdentityManagerWithSessions(
         tearleadsRef.current = sdk;
       }}
     >
-      <IdentityManager />
+      <IdentityManagerWithToolbar />
     </IdentityManagerTestRuntime>,
   );
 
@@ -300,7 +310,7 @@ test("session rows open details and expose context menu actions", async () => {
   }
 });
 
-test("current-session logout is reachable from the identity actions menu", async () => {
+test("current-session logout sits beside Refresh in the window toolbar", async () => {
   const { restore, view } =
     await renderAuthenticatedIdentityManagerWithSessions(
       [ACTIVE_SESSION],
@@ -315,21 +325,17 @@ test("current-session logout is reachable from the identity actions menu", async
       throw new Error("Expected the identity section.");
     }
 
-    // The inline toolbar button is gone; logout now lives in the overflow menu.
+    const toolbar = view.getByRole("toolbar", { name: "Toolbar" });
+    expect(
+      within(toolbar)
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Log Out", "Refresh"]);
     expect(
       within(identitySection).queryByRole("button", { name: "Log Out" }),
     ).toBeNull();
 
-    fireEvent.click(
-      within(identitySection).getByRole("button", {
-        name: "Identity actions",
-      }),
-    );
-    const menu = view.baseElement.querySelector(".menu");
-    if (!(menu instanceof HTMLElement)) {
-      throw new Error("Expected the identity actions menu to open.");
-    }
-    fireEvent.click(within(menu).getByRole("button", { name: "Log Out" }));
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Log Out" }));
 
     const dialog = view.getByRole("dialog");
     expect(
@@ -340,39 +346,7 @@ test("current-session logout is reachable from the identity actions menu", async
   }
 });
 
-test("identity actions menu trigger toggles the menu shut when reclicked", async () => {
-  const { restore, view } =
-    await renderAuthenticatedIdentityManagerWithSessions(
-      [ACTIVE_SESSION],
-      "General",
-    );
-
-  try {
-    const identitySection = view
-      .getByRole("heading", { name: "Identity" })
-      .closest("section");
-    if (!identitySection) {
-      throw new Error("Expected the identity section.");
-    }
-    const trigger = within(identitySection).getByRole("button", {
-      name: "Identity actions",
-    });
-
-    fireEvent.click(trigger);
-    expect(view.baseElement.querySelector(".menu")).not.toBeNull();
-
-    // Re-clicking the trigger issues mousedown (which the Menu listens for to
-    // close on outside clicks) then click. The menu must end up closed, not
-    // close-and-reopen.
-    fireEvent.mouseDown(trigger);
-    fireEvent.click(trigger);
-    expect(view.baseElement.querySelector(".menu")).toBeNull();
-  } finally {
-    restore();
-  }
-});
-
-test("identity actions menu stays hidden while signed out", async () => {
+test("toolbar logout stays hidden while signed out", async () => {
   const originalWebSocket = globalThis.WebSocket;
   const tearleadsRef: { current: Tearleads | null } = { current: null };
 
@@ -385,7 +359,7 @@ test("identity actions menu stays hidden while signed out", async () => {
           tearleadsRef.current = sdk;
         }}
       >
-        <IdentityManager />
+        <IdentityManagerWithToolbar />
       </IdentityManagerTestRuntime>,
     );
 
@@ -395,7 +369,7 @@ test("identity actions menu stays hidden while signed out", async () => {
       expect(view.getByRole("heading", { name: "Identity" })).toBeTruthy();
     });
 
-    expect(view.queryByRole("button", { name: "Identity actions" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Log Out" })).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
@@ -414,7 +388,7 @@ test("identity manager confirms before destroying a key package", async () => {
           tearleadsRef.current = sdk;
         }}
       >
-        <IdentityManager />
+        <IdentityManagerWithToolbar />
       </IdentityManagerTestRuntime>,
     );
 

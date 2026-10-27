@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   bindForTest,

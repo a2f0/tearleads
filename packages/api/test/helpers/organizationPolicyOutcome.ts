@@ -1,5 +1,5 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import { signPrincipalState } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import { getPolicy } from "./principalPolicyReadFixtures";
 

@@ -6,7 +6,6 @@ import {
   MiniAppStatus,
 } from "../../../components/mini-app/MiniAppLayout";
 import type { useIdentityManager } from "../IdentityManagerController";
-import { IdentityManagerActionsMenu } from "../menu/IdentityManagerActionsMenu";
 import { compactIdentifier } from "../sessions/IdentityManagerSessionDisplay";
 import {
   IdentityActionToolbar,
@@ -15,13 +14,6 @@ import {
 } from "../toolbar/IdentityManagerActionToolbar";
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
-
-// The toolbar's props plus the fields the section's overflow menu needs.
-interface IdentitySectionActions extends IdentityActionToolbarProps {
-  readonly handleLogoutCurrentSession: () => void;
-  readonly isAuthenticated: boolean;
-  readonly mutatingSessionId: string | null;
-}
 
 function IdentityDetail({
   action,
@@ -53,11 +45,8 @@ function getIdentitySectionActions({
   identity,
   identityMutations,
   localKeyringLocked,
-  logoutDialog,
   registration,
-  session,
-  sessionMutations,
-}: IdentityManagerModel): IdentitySectionActions {
+}: IdentityManagerModel): IdentityActionToolbarProps {
   return {
     canAuthenticate,
     canGenerateKey: !localKeyringLocked,
@@ -65,14 +54,11 @@ function getIdentitySectionActions({
     generateKey: identity.generateKey,
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
-    handleLogoutCurrentSession: logoutDialog.requestLogout,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
     hasSigningKeyPair: identity.signingKeyPair !== null,
     identityBusy: identity.identityTransitionInFlight
       ? "transition"
       : identityMutations.identityBusy,
-    isAuthenticated: session.isAuthenticated,
-    mutatingSessionId: sessionMutations.mutatingSessionId,
   };
 }
 
@@ -88,17 +74,7 @@ export function IdentityManagerGeneralSection({
     <MiniAppSection>
       <MiniAppSectionHeading>
         <h2>Identity</h2>
-        <div className="identity-manager-identity-heading-meta">
-          <MiniAppStatus as="span">{identityState}</MiniAppStatus>
-          <IdentityManagerActionsMenu
-            disabled={
-              actions.identityBusy !== null ||
-              actions.mutatingSessionId !== null
-            }
-            isAuthenticated={actions.isAuthenticated}
-            onLogout={actions.handleLogoutCurrentSession}
-          />
-        </div>
+        <MiniAppStatus as="span">{identityState}</MiniAppStatus>
       </MiniAppSectionHeading>
       {identityMutations.identityError && (
         <MiniAppStatus tone="error">

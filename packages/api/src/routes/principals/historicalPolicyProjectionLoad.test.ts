@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   buildMaterializedContainerRekeyPlan,
   cacheReferencedPrincipalPolicies,
 } from "@tearleads/client-sdk";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { bootstrapRoot } from "../../../test/helpers/keyingWriterProjectionKit";

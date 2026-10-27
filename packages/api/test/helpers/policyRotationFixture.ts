@@ -1,10 +1,10 @@
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
   makeVerifiedPrincipalPolicy,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "./authenticate";
 import { buildPrincipalGrantRefreshRequest } from "./containerGrantRefresh";
 import { buildRootContainerRekeyMutation } from "./containerRekey";

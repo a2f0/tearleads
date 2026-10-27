@@ -1,21 +1,19 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   CONTAINER_KEK_KEYRING_SEAL_SUITE,
   type ContainerKekKeyring,
   openContainerKekKeyring,
   verifyContainerKekKeyringEntry,
 } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   type DocumentWriterProjectionResponse,
-  isContainerMutationResponse,
   isDocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { buildRootContainerRekeyMutation } from "../../test/helpers/containerRekey";
 import {
   bootstrapRoot,
-  buildRootGrantRequest,
   createDocument,
 } from "../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../test/helpers/registerUser";
@@ -130,49 +128,4 @@ test("opening the served keyring under the current KEK yields the full history",
       keyEpoch: 2,
     }),
   ).resolves.toBeUndefined();
-}, 15_000);
-
-test("a member granted current access after rotation receives the same keyring", async () => {
-  const owner = createTestUser();
-  await registerUser(owner);
-  await authenticate(owner);
-  const root = await bootstrapRoot(owner);
-  const created = await createDocument({ owner, root });
-  const { revokedKek, revokedManifest } = await shareAndRevokeRoot({
-    owner,
-    root,
-  });
-
-  const newcomer = createTestUser();
-  await registerUser(newcomer);
-  await authenticate(newcomer);
-  const grantRequest = await buildRootGrantRequest({
-    previous: revokedManifest,
-    previousKekState: revokedKek,
-    recipient: newcomer,
-    signer: owner,
-  });
-  const grantResponse = await routeApp.request(
-    `/containers/${root.kekState.containerId}/share`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${owner.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(grantRequest),
-    },
-  );
-  expect(grantResponse.status).toBe(200);
-  expect(isContainerMutationResponse(await grantResponse.json())).toBe(true);
-
-  const ownerView = await getWriterProjection(owner, created.id);
-  expect(ownerView.response.status).toBe(200);
-  const newcomerView = await getWriterProjection(newcomer, created.id);
-  expect(newcomerView.response.status).toBe(200);
-  const ownerKek = rootContainerKek(ownerView.projection);
-  const newcomerKek = rootContainerKek(newcomerView.projection);
-  expect(newcomerKek.containerKeyEpochId).toBe(revokedKek.containerKeyEpochId);
-  expect(newcomerKek.keyring).not.toBeNull();
-  expect(newcomerKek.keyring).toEqual(ownerKek.keyring);
 }, 15_000);

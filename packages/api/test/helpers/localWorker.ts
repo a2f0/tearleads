@@ -2,12 +2,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir, userInfo } from "node:os";
 import { resolve } from "node:path";
 import { getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   authChallengeSigningBytes,
   sign,
   toFingerprint,
 } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 
 /**
  * Runs the deployed Worker entry in workerd through `wrangler dev`: the real

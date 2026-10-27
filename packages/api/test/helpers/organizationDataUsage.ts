@@ -7,11 +7,11 @@ import {
   documents,
   documentUpdates,
 } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   type WriteHeader,
 } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type { OrganizationDataUsageResponse } from "@tearleads/validators/response";
 
 function createUsageWriteHeader(input: {

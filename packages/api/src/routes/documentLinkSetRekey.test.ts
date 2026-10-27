@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import type { ContainerAccessManifestState } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import type { ContainerMutationResponse } from "@tearleads/validators/response";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";

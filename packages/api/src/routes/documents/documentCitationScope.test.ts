@@ -1,9 +1,9 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computeAccessManifestHash,
   deriveDocumentLinkSetManifest,
 } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { isDocumentLinkSetMutationResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {

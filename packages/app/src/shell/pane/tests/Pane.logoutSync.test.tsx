@@ -54,25 +54,11 @@ async function logoutFromIdentityManager(pane: HTMLElement): Promise<void> {
   fireEvent.click(
     within(identityManagerWindow).getByRole("button", { name: "General" }),
   );
-  const identityHeading = await within(identityManagerWindow).findByRole(
-    "heading",
-    { name: "Identity" },
-  );
-  const identitySection = identityHeading.closest("section");
-  if (!identitySection) {
-    throw new Error("Expected Identity Manager identity section.");
-  }
+  const toolbar = within(identityManagerWindow).getByRole("toolbar", {
+    name: "Toolbar",
+  });
 
-  fireEvent.click(
-    within(identitySection).getByRole("button", {
-      name: "Identity actions",
-    }),
-  );
-  const actionsMenu = document.body.querySelector<HTMLElement>(".menu");
-  if (!actionsMenu) {
-    throw new Error("Expected the identity actions menu to open.");
-  }
-  fireEvent.click(within(actionsMenu).getByRole("button", { name: "Log Out" }));
+  fireEvent.click(within(toolbar).getByRole("button", { name: "Log Out" }));
 
   const dialog = await within(pane).findByRole("dialog");
   fireEvent.click(within(dialog).getByRole("button", { name: "Log Out" }));

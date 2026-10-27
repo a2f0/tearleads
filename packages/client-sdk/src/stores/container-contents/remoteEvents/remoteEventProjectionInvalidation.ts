@@ -1,41 +1,10 @@
-import { invalidateContainerProjections } from "../../../workflows/container-contents/container-state/projectionCache";
+import { invalidateContainerProjectionCaches } from "../../../workflows/container-contents/container-state/projectionCache";
 import type { ContainerContentsStoreSyncState } from "../syncAgent/syncAgentTypes";
 
-/**
- * Drop every cached writer projection a hint invalidates, before hydration
- * lands, so the next share or move fetches a fresh one instead of submitting
- * against a stale manifest and conflicting. Descendants cite the same ancestor
- * manifests in their paths, so the locally known subtree under each invalidated
- * container is dropped too (an unhydrated subtree has nothing cached). Both
- * layers go: the in-memory copies on each container state, and the api-client's
- * cached writer projections that cite an invalidated container. Document
- * projections cite their paths too, so they are found by citation rather than
- * through the links, which live in SQLite; projections citing none of them stay
- * cached (#2395). Each open document store drops its own in-memory copy on the
- * same hint.
- */
+/** Store-facing adapter shared by realtime event handlers. */
 export function invalidateCachedProjections(
   state: Pick<ContainerContentsStoreSyncState, "containersById" | "runtime">,
   invalidated: readonly string[],
 ): void {
-  if (invalidated.length === 0) return;
-  const roots = new Set(invalidated);
-  const stale = new Set(invalidated);
-  for (const [id, containerState] of state.containersById) {
-    let parentId = containerState.container.parentId;
-    for (
-      let depth = 0;
-      parentId !== null &&
-      !roots.has(parentId) &&
-      depth < state.containersById.size;
-      depth++
-    )
-      parentId = state.containersById.get(parentId)?.container.parentId ?? null;
-    if (parentId !== null) stale.add(id);
-  }
-  for (const id of stale) {
-    const containerState = state.containersById.get(id);
-    if (containerState) invalidateContainerProjections(containerState);
-  }
-  state.runtime.apiClient.evictWriterProjectionsCiting(invalidated);
+  invalidateContainerProjectionCaches(state, invalidated);
 }

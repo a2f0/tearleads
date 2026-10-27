@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   createRemoteDocument,
   syncRemoteDocument,
@@ -16,6 +15,7 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
+import { createTestUser } from "@tearleads/test-utils";
 import { DocumentWriterProjectionWireResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import {

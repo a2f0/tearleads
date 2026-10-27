@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
   generateKemSeedAndKeyPair,
@@ -9,6 +8,7 @@ import {
   verifySignedPrincipalStateResult,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   signPrincipalStateBundle,
   storePrincipalState,

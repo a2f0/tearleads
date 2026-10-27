@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { computePrincipalStateHash } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { buildRootGrantRequest } from "../../../test/helpers/containerGrantMutation";
 import {

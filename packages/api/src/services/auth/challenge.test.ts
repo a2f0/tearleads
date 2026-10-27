@@ -1,5 +1,4 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   authChallengeSigningBytes,
   generateSigningSeedAndKeyPair,
@@ -8,6 +7,7 @@ import {
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   createRegistrationRequest,
   createServiceTestRuntime,

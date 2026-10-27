@@ -5,7 +5,6 @@ import {
   containerSyncTombstones,
   containers,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   type AccessEvent,
   type ContainerAccessManifestState,
@@ -20,6 +19,7 @@ import {
   type VerifiedContainerAccessManifest,
 } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {

@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback } from "react";
+import { type ComponentProps, type ReactNode, useCallback } from "react";
 import { useWindowingIcons } from "../icons/WindowingIcons";
 import { Menu } from "../menu/Menu";
 import { MenuItem } from "../menu/MenuItem";
@@ -9,6 +9,14 @@ import { WindowMaximizeButton } from "./WindowMaximizeButton";
 import { WindowMinimizeButton } from "./WindowMinimizeButton";
 
 export interface WindowTitleBarAction {
+  /**
+   * Memoized popup trigger attributes. Custom action hosts must spread these
+   * onto their button, including the ref used to anchor the popup.
+   */
+  buttonProps?: Pick<
+    ComponentProps<"button">,
+    "aria-expanded" | "onMouseDown" | "ref"
+  >;
   disabled?: boolean;
   icon: ReactNode;
   id: string;

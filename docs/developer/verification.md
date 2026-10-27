@@ -64,6 +64,52 @@ and reports are local evidence rather than a replacement for CI. Avoid editing
 source or running concurrent builds/tests while a verification run is active:
 the SDK build replaces output that dependent tests consume.
 
+## Multi-party scenarios
+
+`packages/bob-and-alice` checks keying behavior end to end. Each device is a
+full `Tearleads` client with its own SQLite database, talking over HTTP to the
+API served in-process from `@tearleads/api/test-runtime`. A reference model of
+grants, parent pointers, group memberships, and document links decides who
+should read and write each document, and every scenario compares each device's
+reads with it.
+
+Add a scenario when a change can alter who reads or writes a document:
+sharing, group membership, revocation, moves, links, key rotation, or reading
+from a fresh install. Run them with
+`bun run check:package @tearleads/bob-and-alice`. The package's Turbo test task
+depends on `@tearleads/api#sources`, so an API change misses its cache.
+Pin a reproducible open bug in `knownIssues.test.ts` as `test.failing`. See
+the [package README](../../packages/bob-and-alice/README.md).
+
+## Prerequisites
+
+Use a Git checkout with a known base (`origin/main` by default), not a source
+archive without `.git`. Verification uses Git to locate the repository, compare
+OpenAPI changes, and record source fingerprints. Fetch `origin/main` before
+base-sensitive checks, or set `OPENAPI_BASE_REF` to the intended comparison ref.
+
+Review `.mise.toml`, then run `mise trust` in this checkout before `mise install`.
+Trust is path-specific: a fresh clone or Scope workspace can require a separate
+review. Do not disable trust globally to work around a shell startup error.
+
+| Command | Prerequisites beyond the checkout |
+| --- | --- |
+| `check:package @tearleads/api` or `check:package @tearleads/client-sdk` | Pinned Bun, `bun install --frozen-lockfile`, and the `build:packages` prerequisites below. No protocol-model, OpenAPI-compatibility, or Ruby lint gate runs in package mode. |
+| `check:fast` | Installed dependencies and pinned mise tools, including Java/TLA+, oasdiff, ShellCheck and Ruby; run `bundle install` in `packages/app-capacitor` for Ruby lint dependencies. Prepares the Electrobun devkit and SDK declarations. |
+| `check`, `check:affected`, or pre-push | The static-gate prerequisites plus package builds, TypeScript, and the selected test suites; browser E2E also requires the Playwright browsers. |
+
+`build:packages` downloads the pinned SQLite WASM archive when uncached, builds
+the SDK, and prepares the Electrobun devkit. Have `curl`, `unzip`, a SHA-256
+utility, and network access for uncached downloads. See the
+[desktop setup guide](../../packages/app-electrobun/README.md) for supported
+platforms and devkit cache/offline behavior. SDK packaging tests also install a
+consumer's dependencies from npm. Other workspaces can add their own test
+prerequisites; check their README and `test` script.
+
+For a checkout whose mise configuration cannot be trusted, the protocol and
+OpenAPI checks accept the explicit pinned-tool paths documented in
+[AGENTS.md](../../AGENTS.md). This supplies tools without changing trust state.
+
 ## Before a push
 
 The push gate runs its checks in order and stops at the first failure, so a

@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { computeDocumentContentKeyTargetHash } from "@tearleads/crypto";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { DocumentCreateResponse } from "@tearleads/validators/response";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { routeApp } from "../../src/routeApp";

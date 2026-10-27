@@ -7,14 +7,19 @@ const strictConfigDefaults = {
 } as const;
 
 const rootToolingWorkspace = {
-  entry: [],
-  project: [],
+  entry: [
+    "scripts/dev/scope/browser-guard.ts",
+    "scripts/dev/scope/judge/server.ts",
+    "scripts/dev/scope/**/*.test.ts",
+  ],
+  project: ["scripts/dev/scope/**/*.ts"],
   // `markdownlint-cli2` is invoked as `bun --bun x markdownlint-cli2` so it runs
   // on Bun rather than an unpinned Node (its bin declares `engines.node >=22`,
   // and neither `.mise.toml` nor CI installs Node). Knip cannot resolve the
   // binary through `bun x`, so the dependency has to be declared used here.
   ignoreDependencies: ["@commitlint/cli", "lint-staged", "markdownlint-cli2"],
-  ignoreBinaries: ["du", "pwsh", "shellcheck", "tokei"],
+  // Codex is an operator-installed CLI, checked during Judge startup.
+  ignoreBinaries: ["codex", "du", "pwsh", "shellcheck", "tokei"],
 };
 
 const capacitorNativePluginDependencies = [
@@ -39,7 +44,6 @@ const baseConfig = {
       // scripts, so they must be declared explicitly; the Worker entry comes
       // from wrangler.jsonc.
       entry: [
-        "src/appTestRuntime.ts",
         "src/worker/loro/index.ts",
         "src/worker/stubs/*.ts",
         "src/**/*.test.ts",
@@ -284,7 +288,10 @@ const productionConfig = {
       ],
       project: productionProject,
     },
-    "packages/bob-and-alice": { project: productionProject },
+    // Test-only: its harness is scenario support, never shipped.
+    "packages/bob-and-alice": {
+      project: [...productionProject, "!src/harness/**"],
+    },
     "packages/client-sdk": {
       // The manifest points at dist; these are its runtime source facades.
       entry: ["src/index.ts!", "src/sqlite/index.ts!"],

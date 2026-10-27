@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { principalStatePayloads } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   buildMaterializedContainerRekeyPlan,
   revokeRemoteContainer,
 } from "@tearleads/client-sdk";
+import { createTestUser } from "@tearleads/test-utils";
 import {
   CONTAINER_PROJECTION_STATE_INVALID_ERROR_CODE,
   DOCUMENT_PROJECTION_ERROR_CODES,

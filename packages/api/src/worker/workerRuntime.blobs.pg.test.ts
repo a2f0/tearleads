@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHash } from "node:crypto";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { InitiateMultipartBlobStageResponseSchema } from "@tearleads/validators/response";
 import { authenticate } from "../../test/helpers/authenticate";
 import { buildBind } from "../../test/helpers/blobAttachmentKit";

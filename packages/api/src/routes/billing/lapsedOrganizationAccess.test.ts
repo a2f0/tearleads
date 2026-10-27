@@ -1,7 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { organizationBilling, users } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import {
   CONTENT_RECORD_ENCRYPTION_SUITE,
   computeContentRecordNonceDomainHash,
@@ -15,6 +14,7 @@ import {
   exportUpdatesSince,
   getUpdateVersionVectors,
 } from "@tearleads/loro";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
 import {
   type DocumentCreateResponse,

@@ -1,5 +1,4 @@
 import type { ApiClient } from "@tearleads/api-client";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   unwrapContainerKekPath,
   unwrapDocumentContentKeyTarget,
@@ -13,6 +12,7 @@ import {
   wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import type { TestUser } from "@tearleads/test-utils";
 import type { createAncestorSdkContext } from "./ancestorSdkRepair";
 import { createSignedAccessEvent } from "./keyingWriterProjectionKit";
 

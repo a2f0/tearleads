@@ -1,4 +1,3 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   buildMaterializedContainerRekeyPlan,
   cacheReferencedPrincipalPolicies,
@@ -17,6 +16,7 @@ import {
   getUpdateVersionVectors,
   importUpdates,
 } from "@tearleads/loro";
+import type { TestUser } from "@tearleads/test-utils";
 import { createMockApiClient, createTestExecSql } from "@tearleads/test-utils";
 import type {
   DocumentCreateRequest,

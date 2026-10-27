@@ -1,9 +1,8 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { createRemoteContainer } from "@tearleads/client-sdk";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import { PrincipalPolicyBundleResponseSchema } from "@tearleads/validators/response";
 import {
   documentAuthor,

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import { isContainerMutationResponse } from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";

@@ -8,6 +8,7 @@ import {
   heldContainerBinding,
   listingRepeatsHeldOrdinaryBinding,
 } from "../../../../data/persistence/container-contents/containerBinding";
+import { invalidateContainerProjectionCaches } from "../../container-state/projectionCache";
 import type { ContainerHydrationTombstone } from "../../containerPersistence";
 import { installContainerMetadataRecord } from "../../metadata/metadataPersistence";
 import { projectionGeneration } from "../../projectionGeneration";
@@ -276,6 +277,26 @@ interface UpsertRemoteContainerStateInput {
   state: RemoteContainerHydrationState;
 }
 
+/** A pull can observe the same manifest change as a missed realtime hint. */
+function invalidateListedProjectionCaches(
+  input: UpsertRemoteContainerStateInput,
+) {
+  const held = input.state.containersById.get(input.remoteContainer.id);
+  if (
+    held &&
+    (held.record.accessStateHash !==
+      input.remoteContainer.metadataAccessStateHash ||
+      (held.container.effectiveAccessLevel ?? "read") !==
+        input.remoteContainer.effectiveAccessLevel)
+  ) {
+    // Eviction admits no remote state. Drop citations before verification can
+    // advance local checkpoints past those cached container/document paths.
+    invalidateContainerProjectionCaches(input.state, [
+      input.remoteContainer.id,
+    ]);
+  }
+}
+
 export async function upsertRemoteContainerState(
   input: UpsertRemoteContainerStateInput,
 ): Promise<ContainerState | null> {
@@ -297,6 +318,7 @@ export async function upsertRemoteContainerState(
       { containerId: listed.id, organizationId: listed.organizationId },
     ));
   if (input.isCurrent?.() === false) return null;
+  invalidateListedProjectionCaches(input);
   const verified = await verifyRemoteContainerDestination({
     ...input,
     heldBinding,

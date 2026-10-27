@@ -6,12 +6,12 @@ import {
   principalMembershipProjection,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import type {
   ContainerAccessManifestState,
   KeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { authenticate } from "../../test/helpers/authenticate";
 import { createChildContainer } from "../../test/helpers/keyingWriterProjectionChild";

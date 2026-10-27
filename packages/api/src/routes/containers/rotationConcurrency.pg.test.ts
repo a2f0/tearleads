@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import { db, getDefaultApiDatabaseKind } from "@tearleads/api-shared/postgres";
 import { accessManifestHeads } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import type { ContainerMutationRequest } from "@tearleads/validators/request";
 import {
   CONTAINER_MUTATION_ERROR_CODES,

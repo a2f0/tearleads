@@ -6,13 +6,13 @@ import {
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
-import type { TestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
   type SignedPrincipalState,
   signPrincipalState,
   type UnsignedPrincipalState,
 } from "@tearleads/crypto";
+import type { TestUser } from "@tearleads/test-utils";
 import type { PrincipalPolicyBundleResponse } from "@tearleads/validators/response";
 import { replaceCurrentPrincipalMemberEnvelopesInTransaction } from "../../src/access/write/principalMemberEnvelopes";
 import { storeVerifiedPrincipalDirectoryBindings } from "../../src/workflows/principals/storeVerifiedPrincipalDirectoryBindings";

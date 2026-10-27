@@ -21,6 +21,7 @@ import type { IdentityManagerView } from "./routes";
 import { SessionDetailSection } from "./sessions/IdentityManagerSessionDetail";
 import { SessionsSection } from "./sessions/IdentityManagerSessions";
 import { IdentitySwitcher } from "./switcher/IdentitySwitcher";
+import { useIdentityManagerLogoutAction } from "./toolbar/useIdentityManagerLogoutAction";
 import { useIdentityManagerRoute } from "./useIdentityManagerRoute";
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
@@ -153,6 +154,14 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
   }, [canManageSessions, hasSelectedSession, selectedSessionId, view]);
 
   useIdentityManagerSidebarPanel({ setView: route.setView, view });
+  useIdentityManagerLogoutAction({
+    disabled:
+      model.identity.identityTransitionInFlight ||
+      identityMutations.identityBusy !== null ||
+      sessionMutations.mutatingSessionId !== null,
+    isAuthenticated: model.session.isAuthenticated,
+    onLogout: logoutDialog.requestLogout,
+  });
 
   return (
     <MiniAppRoot className="identity-manager">

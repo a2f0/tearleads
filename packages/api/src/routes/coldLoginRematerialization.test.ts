@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import { wrapDekForRecipients } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   isDocumentEditAttributionResponse,
   isDocumentWriterProjectionResponse,

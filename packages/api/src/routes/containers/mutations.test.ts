@@ -14,7 +14,6 @@ import {
   organizationBilling,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
 import type {
   AccessEvent,
   ContainerAccessEventBody,
@@ -52,6 +51,7 @@ import {
 } from "@tearleads/crypto";
 import { containerWrappingPublicKeyForTest } from "@tearleads/crypto/test-fixtures";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type {
   AccessManifestBundleWire,
   ContainerMutationRequest,

@@ -9,7 +9,7 @@ import {
   revenuecatWebhookEvents,
   users,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import { and, eq, isNull } from "drizzle-orm";
 import invariant from "invariant";
 import { registerUser } from "../../../test/helpers/registerUser";

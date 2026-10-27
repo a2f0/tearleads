@@ -1,5 +1,5 @@
-import type { TestUser } from "@tearleads/bob-and-alice";
 import { createMemoryBlobStore, Tearleads } from "@tearleads/client-sdk";
+import type { TestUser } from "@tearleads/test-utils";
 import { createTestExecSql } from "@tearleads/test-utils";
 
 /** A real member store; remote writes stay parked so its queued rename survives. */

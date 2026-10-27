@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { principalHistoryProgress } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import { clearPrincipalPolicySignatureCaches } from "@tearleads/crypto/principal-policy-test-fixtures";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
 import { prepareOrganizationPolicyAdvance } from "../../../test/helpers/organizationPolicyOutcome";

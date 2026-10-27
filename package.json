@@ -82,6 +82,8 @@
     "report:lines": "bun scripts/checks/countLines.ts",
     "screenshots": "bun run --filter=app-web screenshots",
     "screenshots:seed": "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk && bun packages/app/test/screenshot-seed/buildScreenshotSeed.ts",
+    "scope": "bun scripts/dev/scope.ts",
+    "scope:register": "bun scripts/dev/scope.ts register",
     "test:bun": "bun run build:packages && bun run --filter='*' --sequential test",
     "test:openapi:compatibility": "sh scripts/checks/testOpenApiCompatibility.sh",
     "test:postgres-concurrency": "sh scripts/checks/testPostgresConcurrency.sh",
@@ -91,6 +93,8 @@
     "test:turso-concurrency": "sh scripts/checks/testTursoConcurrency.sh",
     "test:protocol-conformance": "sh scripts/checks/testProtocolConformance.sh",
     "test:protocol-models": "sh scripts/checks/testProtocolModels.sh",
+    "test:scope": "bun test scripts/dev/scope/*.test.ts scripts/dev/scope/judge",
+    "test:scope:native": "bun test scripts/dev/scope/native-tests",
     "test:static-analysis": "bun scripts/testing/testStaticAnalysis.ts",
     "test:architecture": "bun scripts/testing/testArchitecture.ts",
     "test:step-timings": "cd scripts/lib && bun test stepTimings.test.ts",
@@ -137,6 +141,7 @@
   },
   "devDependencies": {
     "@a2f0/agent-tool": "0.1.21",
+    "@azure/storage-blob": "12.30.0",
     "@biomejs/biome": "2.5.15",
     "@commitlint/cli": "21.2.4",
     "@commitlint/config-conventional": "21.2.4",
@@ -149,13 +154,15 @@
     "knip": "6.42.1",
     "lint-staged": "17.6.0",
     "markdownlint-cli2": "0.24.0",
+    "tar": "7.5.22",
     "turbo": "2.11.10",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "zod": "catalog:"
   },
   "overrides": {
     "miniflare@5.20260811.1-alpha": {
       "sharp": "0.35.5",
-      "undici": "7.29.1"
+      "undici": "7.30.1"
     }
   },
   "patchedDependencies": {

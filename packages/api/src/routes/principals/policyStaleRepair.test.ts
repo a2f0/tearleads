@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import type { PrincipalPolicyRef } from "@tearleads/validators/request";
 import { isPrincipalPolicyStaleErrorResponse } from "@tearleads/validators/response";
 import invariant from "invariant";

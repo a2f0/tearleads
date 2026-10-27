@@ -1,0 +1,59 @@
+{
+  "id": "agent-friendliness-v1",
+  "description": "Three inspection-only discoverability probes. One trial per case is a pilot, not a clean bootstrap assessment or overall repository score.",
+  "criteria": [
+    {
+      "id": "readiness_v1_setup",
+      "prompt": "agent-readiness.md identifies the repository-pinned package manager and essential documented developer setup prerequisites, with real source citations. It distinguishes planned commands from commands actually executed; does not claim that a clean bootstrap was tested.",
+      "dependsOn": [],
+      "gates": ["select"]
+    },
+    {
+      "id": "readiness_v1_verification",
+      "prompt": "agent-readiness.md gives the supported focused API verification command and explains SDK built-dist resolution, rebuilding after source edits, and the API missing a stale-dist guard. It cites actual repository sources and explains which broader static checks a focused test does not replace.",
+      "dependsOn": [],
+      "gates": ["select"]
+    },
+    {
+      "id": "readiness_v1_api_layers",
+      "prompt": "agent-readiness.md traces an existing document-creation path through actual API route, service, workflow and access code with concrete function names and file citations. It correctly explains the direction routes to services to workflows to access, and distinguishes the API workflow layer from the SDK workflow facade. Verify the traced calls in source.",
+      "dependsOn": [],
+      "gates": ["select"]
+    },
+    {
+      "id": "readiness_v1_client_layers",
+      "prompt": "agent-readiness.md locates the corresponding SDK document facade and application entry path, names existing files/functions, and explains the app store/provider boundary and exported SDK surface. It does not propose application imports of persistence internals or private package paths. Verify cited code.",
+      "dependsOn": [],
+      "gates": ["select"]
+    },
+    {
+      "id": "readiness_v1_sdk_public",
+      "prompt": "agent-readiness.md provides a plausible TypeScript onboarding example using Tearleads from the public @tearleads/client-sdk export, configures an explicitly assumed SQLite runtime before identity generation, awaits the documented rootContainerId result, and uses no private package subpaths. Verify package exports and method signatures. Compilation is not required and must not be claimed unless evidenced.",
+      "dependsOn": [],
+      "gates": ["select"]
+    },
+    {
+      "id": "readiness_v1_sdk_setup",
+      "prompt": "agent-readiness.md explains the database/identity ordering and prerequisites for its example, cites actual SDK documentation and source, and states what still needs runtime validation. It records concrete documentation/search obstacles or explicitly says none were observed without inventing obstacles.",
+      "dependsOn": [],
+      "gates": ["select"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "setup",
+      "prompt": "You are onboarding to this repository to make an API change that also touches the client SDK. Discover the supported local setup and smallest trustworthy verification path, explain hidden prerequisites and what broader checks remain, and write agent-readiness.md. Work only by reading repository files and writing agent-readiness.md. Cite concrete file paths and symbols. Include a Friction section describing ambiguous or missing information and any failed searches. Distinguish inspection from execution. Do not install dependencies, run tests/builds, access external services, modify other files, or read scripts/dev/scope/benchmarks (the evaluator definitions).",
+      "criteria": ["readiness_v1_setup", "readiness_v1_verification"]
+    },
+    {
+      "id": "architecture",
+      "prompt": "You are planning a change to document creation. Trace one concrete document-creation path through the API and the corresponding client SDK and app. Explain which layer should own each kind of change, how the layers call one another, and how to stay within public boundaries. Write your findings to agent-readiness.md. Work only by reading repository files and writing agent-readiness.md. Cite concrete file paths and symbols. Include a Friction section describing ambiguous or missing information and any failed searches. Distinguish inspection from execution. Do not install dependencies, run tests/builds, access external services, modify other files, or read scripts/dev/scope/benchmarks (the evaluator definitions).",
+      "criteria": ["readiness_v1_api_layers", "readiness_v1_client_layers"]
+    },
+    {
+      "id": "sdk_onboarding",
+      "prompt": "Write agent-readiness.md for a developer embedding the headless client SDK. Include a minimal TypeScript example using an already supplied SQLite runtime to create an SDK instance and initialize a fresh identity with its root container. Discover and use the public API, explain ordering and assumptions, and identify what still needs runtime validation. Work only by reading repository files and writing agent-readiness.md. Cite concrete file paths and symbols. Include a Friction section describing ambiguous or missing information and any failed searches. Distinguish inspection from execution. Do not install dependencies, run tests/builds, access external services, modify other files, or read scripts/dev/scope/benchmarks (the evaluator definitions).",
+      "criteria": ["readiness_v1_sdk_public", "readiness_v1_sdk_setup"]
+    }
+  ]
+}

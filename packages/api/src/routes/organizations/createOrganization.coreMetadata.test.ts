@@ -4,7 +4,7 @@ import {
   containerMetadataDocuments,
   organizationBilling,
 } from "@tearleads/api-shared/schema";
-import { createTestUser, type TestUser } from "@tearleads/bob-and-alice";
+import { createTestUser, type TestUser } from "@tearleads/test-utils";
 import {
   type DocumentCreateRequest,
   type DocumentSyncRequest,

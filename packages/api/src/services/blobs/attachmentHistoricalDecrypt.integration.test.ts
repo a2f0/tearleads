@@ -1,6 +1,5 @@
 import { expect, spyOn, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   cacheReferencedPrincipalPolicies,
   createRemoteContainer,
@@ -13,7 +12,7 @@ import {
 import { createTestTrustedUserIdentityResolver } from "@tearleads/client-sdk/testing";
 import { BLOB_CONTENT_KEY_WRAP_SUITE, wrapContentKey } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
-import { createTestExecSql } from "@tearleads/test-utils";
+import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildDocumentLinkRequest } from "../../../test/helpers/documentLinkMutation";
 import {

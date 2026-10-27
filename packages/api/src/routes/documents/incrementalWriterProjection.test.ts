@@ -1,6 +1,5 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   createRemoteContainer,
   createRemoteDocument,
@@ -12,6 +11,7 @@ import {
   wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { createTestUser } from "@tearleads/test-utils";
 import { DocumentWriterProjectionWireResponseSchema } from "@tearleads/validators/response";
 import { createAncestorSdkContext } from "../../../test/helpers/ancestorSdkRepair";
 import { writerResolver } from "../../../test/helpers/coldSdkRematerialization";

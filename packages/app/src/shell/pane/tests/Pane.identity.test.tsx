@@ -311,29 +311,13 @@ test(
     ).toBeTruthy();
 
     const identityManagerWindow = await openIdentityManagerFromPane(view);
-    const identitySection = within(identityManagerWindow)
-      .getByRole("heading", { name: "Identity" })
-      .closest("section");
-    if (!identitySection) {
-      throw new Error("Expected Identity Manager identity section.");
-    }
-    // Logout now lives in the Identity section's overflow (kebab) menu rather
-    // than as an inline toolbar button, so open the menu before invoking it.
-    fireEvent.click(
-      within(identitySection).getByRole("button", {
-        name: "Identity actions",
-      }),
-    );
-    const actionsMenu = view.baseElement.querySelector(".menu");
-    if (!(actionsMenu instanceof HTMLElement)) {
-      throw new Error("Expected the identity actions menu to open.");
-    }
-    fireEvent.click(
-      within(actionsMenu).getByRole("button", { name: "Log Out" }),
-    );
+    const toolbar = within(identityManagerWindow).getByRole("toolbar", {
+      name: "Toolbar",
+    });
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Log Out" }));
 
     // findByRole, not getByRole: the dialog mounts on a state update that can
-    // land a tick after the menu click under suite load.
+    // land a tick after the toolbar click under suite load.
     const dialog = await view.findByRole("dialog");
     const checkbox = within(dialog).getByRole("checkbox") as HTMLInputElement;
     expect(checkbox.checked).toBe(true);

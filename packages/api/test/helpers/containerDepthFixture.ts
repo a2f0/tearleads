@@ -1,4 +1,4 @@
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "./authenticate";
 import { createChildContainer } from "./keyingWriterProjectionChild";
 import {

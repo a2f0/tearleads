@@ -1,7 +1,7 @@
 import { beforeAll, expect, test } from "bun:test";
 import { db } from "@tearleads/api-shared/postgres";
 import { revenuecatWebhookEvents } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { eq } from "drizzle-orm";
 import { setTestOrganizationBillingLocal } from "../../../test/helpers/organizationBilling";
 import {

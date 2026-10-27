@@ -5,7 +5,7 @@ import {
   principalStatePayloads,
   principalStates,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
+import { createTestUser } from "@tearleads/test-utils";
 import { PrincipalPolicyMutationResponseSchema } from "@tearleads/validators/response";
 import { eq } from "drizzle-orm";
 import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";

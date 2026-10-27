@@ -4,11 +4,11 @@ import {
   principalDirectoryBindings,
   principalStatePayloads,
 } from "@tearleads/api-shared/schema";
-import { createTestUser } from "@tearleads/bob-and-alice";
 import {
   computePrincipalStateHash,
   signPrincipalState,
 } from "@tearleads/crypto";
+import { createTestUser } from "@tearleads/test-utils";
 import { and, desc, eq } from "drizzle-orm";
 import {
   createGroupRequest,
