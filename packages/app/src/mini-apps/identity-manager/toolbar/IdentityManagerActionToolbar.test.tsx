@@ -16,9 +16,12 @@ test("the routine toolbar leaves destroying the key pair out", () => {
       generateKey={() => undefined}
       handleAuthenticate={async () => undefined}
       handleDestroyKeyPair={() => undefined}
+      handleLogoutCurrentSession={() => undefined}
       handleRegisterIdentity={async () => undefined}
       hasSigningKeyPair
       identityBusy={null}
+      isAuthenticated={false}
+      mutatingSessionId={null}
     />,
   );
 

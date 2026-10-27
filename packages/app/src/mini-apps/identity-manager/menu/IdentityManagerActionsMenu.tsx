@@ -4,10 +4,8 @@ import { type MouseEvent, useState } from "react";
 import { MiniAppRowActionsButton } from "../../../components/mini-app/MiniAppTable";
 
 /**
- * Overflow menu for the Identity section. Mirrors the kebab menu on the
- * explorer's item rows (a `DotsThreeVertical` button that opens a small menu),
- * keeping the current-session logout out of the action toolbar so the toolbar's
- * horizontal space stays available for the identity/key-package actions.
+ * Overflow menu in the Identity section's action toolbar. Mirrors the kebab
+ * menu on the explorer's item rows with the current-session logout action.
  *
  * Renders nothing while signed out — logout is the only entry, so an empty
  * trigger would be dead weight.
