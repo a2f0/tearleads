@@ -60,6 +60,7 @@ request the API refuses with its error body.
 | `offlineRevocation` | An offline outbox survives restart without publishing a revoked writer's edit or disclosing later content; the original database writes again after a regrant. |
 | `concurrentFirstWriters` | Two writers race the first content-key repair after revocation. One gets a stale-write refusal, retries, and preserves both edits while the revoked reader stays excluded. |
 | `concurrentShareAndRevoke` | In both controlled orderings, a stale share or revoke retries once against the newer path, preserving the concurrent grant and the revocation. |
+| `concurrentGroupShareAndRevoke` | A direct share racing a group revocation succeeds in both orderings. The stale group-policy commit rebuilds its container batch once, preserves the new grant, and excludes old and fresh revoked readers. |
 | `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 
 Pin a reproducible open issue in `src/scenarios/knownIssues.test.ts` as a

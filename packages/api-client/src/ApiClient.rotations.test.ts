@@ -140,3 +140,36 @@ testApiClient(
     ).toBeNull();
   },
 );
+
+testApiClient(
+  "a group commit exposes only a registered stale-container conflict",
+  async () => {
+    const client = new ApiClient(apiBaseUrl);
+    for (const code of ["container_mutation_state_stale", "unknown_conflict"]) {
+      server.use(
+        http.put(
+          `${apiBaseUrl}/organizations/:organizationId/groups/:groupId/policy-commit`,
+          () =>
+            HttpResponse.json(
+              { code, error: "Container head changed" },
+              { status: 409 },
+            ),
+        ),
+      );
+      const result = await client.commitOrganizationGroupPolicyResult(
+        ORGANIZATION_ID,
+        GROUP_ID,
+        {
+          groupPolicy: createPrincipalPolicyRequest(),
+          organizationPolicy: createPrincipalPolicyRequest(),
+        },
+        { reportErrors: false },
+      );
+      expect(result.ok).toBe(false);
+      if (result.ok) throw new Error("Expected conflict");
+      expect(result.code).toBe(
+        code === "container_mutation_state_stale" ? code : undefined,
+      );
+    }
+  },
+);

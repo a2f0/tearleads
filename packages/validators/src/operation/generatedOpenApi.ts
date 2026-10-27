@@ -21180,6 +21180,12 @@ export interface operations {
                         requiredContainerIds: string[];
                     } & {
                         [key: string]: unknown;
+                    }) | ({
+                        /** @constant */
+                        code: "container_mutation_state_stale";
+                        error: string;
+                    } & {
+                        [key: string]: unknown;
                     });
                 };
             };
