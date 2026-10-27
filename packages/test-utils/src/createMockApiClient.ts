@@ -178,6 +178,21 @@ export function createMockApiClient(
     };
   }
 
+  // A share prefers the status-bearing variant too, to tell a stale path from
+  // a refusal; derived from the mocked plain method for the same reason.
+  if (!overrides.shareContainerResult) {
+    apiClient.shareContainerResult = async (containerId, input, options) => {
+      const data = await apiClient.shareContainer(containerId, input, options);
+      return data
+        ? { data, ok: true }
+        : mockRequestFailure({
+            message: "Mock container share unavailable",
+            method: "POST",
+            path: `/containers/${containerId}/share`,
+          });
+    };
+  }
+
   // The SDK prefers a rotation's status-bearing variant whenever one exists,
   // so each is derived from its mocked plain method. Left as the real client's,
   // a test that mocks only `moveContainer` would have that mock skipped and a
