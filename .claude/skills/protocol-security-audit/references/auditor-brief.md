@@ -11,7 +11,7 @@ queued work items.
 You are the selected slice auditor on the Tearleads monorepo
 (<REPO_ROOT>, revision <SHA>). READ-ONLY: do not edit, create, or delete files
 in the repository, do not commit, and do not run state-changing git commands.
-Write scratch notes and probes only under <SCRATCH_DIR>. You may run existing
+Save probes, logs, and evidence only under <SCRATCH_DIR>. You may run existing
 tests. Do not spawn agents, invoke another audit skill, publish issues or
 comments, or change external state. Reporting and any authorized publication
 belong to the coordinator.
@@ -86,8 +86,11 @@ checked packages/client-sdk/dist at this revision: do not rebuild it or run
 bun install. Existing TLC results are in <FORMAL_LOG_DIR>; read relevant
 summaries, do not re-run the suite or paste passing logs into the report.
 
-Write report.md in your scratch directory. Aim for under 1,200 words, linking
-longer evidence files rather than omitting evidence. For each finding give:
+Return the report itself as your final message, under 1,200 words, linking
+longer evidence files rather than omitting evidence; the coordinator saves it
+as report.md in your scratch directory. Do not write the report file
+yourself. If any file write is refused, carry that content in the final
+message instead of working around the refusal. For each finding give:
 a title; direction (A, B, or Parity); severity (High, Medium, Low) and confidence
 (Probed, Confirmed-by-trace, Plausible); file:line evidence; attacker precondition;
 a concrete step-by-step scenario; the impact; a suggested fix with a no-brick
@@ -99,8 +102,8 @@ models even when no production bug is confirmed; distinguish model evidence
 from production evidence. Include the API/client verifier pairs and route
 bindings checked so later slices need not repeat them. End with short lists
 of checked paths, refuted candidates, unchecked paths/models, and next steps.
-Return only the report path, candidate ids/severities, coverage status, and
-next step in at most 200 words. Do not return the full report as well.
+Open the message with candidate ids/severities, coverage status, and the
+next step.
 ```
 
 Default `<EXCLUSIONS>`: equivocation and split view; cold-start rollback on a

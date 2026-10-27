@@ -83,7 +83,9 @@ usage reset. A concise `checkpoint.md` indexes these files:
   tables extracted from them, statement-count runs, census outputs, exit
   codes, and the revision and dist timestamp they were taken at.
 - Per-work-item directories: reports, small probes, and test logs. Workers
-  write only their own files; the coordinator maintains the shared index.
+  write only their own probes and logs, and return their report as their
+  final message; the coordinator saves it as `report.md` there and
+  maintains the shared index.
 
 Write the initial checkpoint before launching an auditor and update it after
 each report or verification. Keep it concise; link evidence instead of
@@ -121,6 +123,8 @@ locate entry points and bounded reads to follow actual call paths. Complete
 the call path before asserting that a request is avoidable; a read budget
 limits coverage, not the evidence required for a proposal.
 
-Workers save the full evidence report and return at most 200 words containing
-its path, proposal ids with impact, coverage status, and next step. The
-coordinator reads only the evidence needed for verification and ranking.
+Workers return the full report, under 1,200 words, as their final message,
+opening with proposal ids with impact, coverage status, and next step. Claude
+Code refuses a subagent's report-file write, so the coordinator saves the
+message as `report.md` before verifying, then reads only the linked evidence
+needed for verification and ranking.

@@ -133,10 +133,11 @@ and probes, and the shared formal-log directory separately.
 
 Do not launch all slices, spawn nested auditors, or repeat the auditor's
 searches. Use the Workflow tool only if the user opted into workflows; it does
-not expand the batch budget. The auditor writes evidence to disk and returns
-a short index. Verify candidates within the remaining batch budget (step 3),
-then checkpoint and stop. Only explicit `full` repeats batches automatically,
-still with one auditor at a time.
+not expand the batch budget. The auditor saves probes and logs to disk and
+returns its report as its final message; save that as `report.md` in its
+work-item directory before verifying. Verify candidates within the remaining
+batch budget (step 3), then checkpoint and stop. Only explicit `full` repeats
+batches automatically, still with one auditor at a time.
 
 ## 3. Verify every finding
 
