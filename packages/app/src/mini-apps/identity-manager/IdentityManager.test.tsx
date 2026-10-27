@@ -327,8 +327,10 @@ test("current-session logout sits beside Refresh in the window toolbar", async (
 
     const toolbar = view.getByRole("toolbar", { name: "Toolbar" });
     expect(
-      within(toolbar).getByRole("button", { name: "Refresh" }),
-    ).toBeTruthy();
+      within(toolbar)
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Identity actions", "Refresh"]);
     expect(
       within(identitySection).queryByRole("button", {
         name: "Identity actions",

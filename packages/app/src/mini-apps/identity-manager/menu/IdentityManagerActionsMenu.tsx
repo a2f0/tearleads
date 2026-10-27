@@ -23,6 +23,8 @@ export function IdentityManagerActionsMenu({
   const expanded = menuPosition !== null;
   const buttonProps = useMemo(
     () => ({
+      // Menu renders ordinary buttons, so announce expansion without claiming
+      // the ARIA menu/menuitem pattern via aria-haspopup.
       "aria-expanded": expanded,
       // Avoid outside-click dismissal before the trigger's click toggles the
       // menu, which would otherwise close and immediately reopen it.

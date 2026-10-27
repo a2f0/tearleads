@@ -15,7 +15,7 @@ import { WindowRefreshButton } from "./WindowRefreshButton";
  * The window's toolbar row, sitting below the File/View menu bar and above the
  * body. It renders the same actions the routed app bar shows — the registered
  * {@link useWindowBackAction} on the left and {@link useWindowTitleBarAction}
- * icon buttons on the right — so a mini-app hosted in a window gets the same
+ * icon buttons followed by Refresh on the right — so a window gets the same
  * toolbar chrome it gets in the routed shell.
  *
  * The left slot resolves exactly as `RoutedPaneAppBar` does: a registered back
