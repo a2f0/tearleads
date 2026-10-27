@@ -170,9 +170,9 @@ export class World {
 
   /**
    * Edits from `device` (the actor's first device by default). An edit the
-   * actor may make must settle with nothing left pending, so a write that
-   * only ever landed locally fails here rather than passing on optimistic
-   * local text. A refused edit may stay parked; the model ignores it, so one
+   * actor may make must apply locally and settle with nothing left pending.
+   * A successful write clears prior refused edits for this document; reads on
+   * other devices verify the committed text. A refused edit may stay parked; the model ignores it, so one
    * the system wrongly accepted shows up as a mismatch in `expectAccess`.
    */
   async editDocument(

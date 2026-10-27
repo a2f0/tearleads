@@ -48,7 +48,7 @@ export async function readDocument(
     : undefined;
   const found = localId
     ? {
-        containerId: held?.containerId ?? document.containerIds[0] ?? null,
+        containerId: held?.containerId ?? null,
         localId,
       }
     : await discover(device, document);

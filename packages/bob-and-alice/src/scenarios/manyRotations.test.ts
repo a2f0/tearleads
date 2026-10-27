@@ -52,12 +52,19 @@ test("a writer idle across many rotations writes, and a late reader reads", asyn
     const daveDevice = dave.devices[0];
     if (!daveDevice) throw new Error("Expected Dave's original device");
     const daveText = await readText(daveDevice, world.documentRef(document));
-    expect(
-      daveText === null ||
-        world.model
-          .textsVisibleWithoutAccess(dave.userId, document.documentId)
-          .includes(daveText),
-    ).toBe(true);
+    const leaked =
+      daveText !== null &&
+      !world.model
+        .textsVisibleWithoutAccess(dave.userId, document.documentId)
+        .includes(daveText);
+    expect({ round, device: daveDevice.label, text: daveText, leaked }).toEqual(
+      {
+        round,
+        device: daveDevice.label,
+        text: daveText,
+        leaked: false,
+      },
+    );
   }
   const end = await world.keyEpoch(alice, folder);
   const endContent = await world.contentKeyEpoch(alice, document);

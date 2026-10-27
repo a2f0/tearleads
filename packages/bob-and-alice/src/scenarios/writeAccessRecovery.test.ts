@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, test } from "bun:test";
 import {
   expectAccess,
   expectNoSecurityIncidents,
@@ -46,9 +46,6 @@ test.each(["membership", "grant"] as const)(
     }
     // No fresh database, discarded state, or replacement editor on the actor.
     await world.editDocument(bob, document, "v4 restored writer");
-    const original = bob.devices[0];
-    if (!original) throw new Error("Expected Bob's original device");
-    expect(world.refusedEditsOn(original, document.documentId).size).toBe(0);
     await expectAccess(world, document);
     await world.editDocument(alice, document, "v5 later remote update");
     await expectAccess(world, document);

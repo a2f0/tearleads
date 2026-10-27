@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
+import { normalizeEffectiveAccessLevel } from "../../keying/accessLevel";
 import { containerSyncWatermarks } from "../../sqlite/schema";
 import type { ClientSQLiteTransactionScope } from "../../sqlite/sqlitePersistenceRuntime";
-import { invalidateDocumentDiscoveryInTransaction } from "../documents/documentDiscoveryEvidencePersistence";
+import { clearDocumentDiscoveryEvidenceOnRemoteReset } from "../documents/documentDiscoveryEvidencePersistence";
 import type { ContainerRecord } from "./containerPersistence";
 
 /** Permission changes do not advance the contained documents' edit clocks. */
@@ -10,7 +11,11 @@ export async function resetAccessDiscovery(
   current: ContainerRecord,
   next: ContainerRecord,
 ): Promise<void> {
-  if (current.effectiveAccessLevel === next.effectiveAccessLevel) return;
+  if (
+    normalizeEffectiveAccessLevel(current.effectiveAccessLevel) ===
+    normalizeEffectiveAccessLevel(next.effectiveAccessLevel)
+  )
+    return;
   const containerId = next.id;
   await tx
     .delete(containerSyncWatermarks)
@@ -21,9 +26,11 @@ export async function resetAccessDiscovery(
       ),
     )
     .run();
-  // Also fence listings started under the old permission and discard pending
-  // candidates carrying it. The next discovery must relist unchanged documents.
-  await invalidateDocumentDiscoveryInTransaction(tx, {
+  // The discovery sequence is database-wide: this cancels all in-flight
+  // listings and evicts all cached heads, costing a retry/re-verification even
+  // in other organizations. Only this folder's pending candidates and cursor
+  // are removed; unrelated queues and cursors survive.
+  await clearDocumentDiscoveryEvidenceOnRemoteReset(tx, {
     containerIds: [containerId],
     documentIds: [],
   });

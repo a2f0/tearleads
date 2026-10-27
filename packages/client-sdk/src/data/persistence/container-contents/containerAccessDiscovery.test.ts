@@ -12,6 +12,8 @@ for (const [from, to, commit] of [
   ["read", "write", true],
   ["write", "read", true],
   ["read", "read", true],
+  ["read", undefined, true],
+  ["write", undefined, true],
   ["read", "write", false],
 ] as const) {
   test(`container discovery follows ${from} -> ${to}, committed=${commit}`, async () => {
@@ -79,10 +81,15 @@ for (const [from, to, commit] of [
         ],
         generation,
       );
+      const { effectiveAccessLevel: _previousLevel, ...withoutAccess } =
+        current.container;
       const result =
         await sqlContainerContentsPersistence.commitMetadataMutation(execSql, {
           acceptedPendingUpdateIds: [],
-          container: { ...current.container, effectiveAccessLevel: to },
+          container: {
+            ...withoutAccess,
+            ...(to === undefined ? {} : { effectiveAccessLevel: to }),
+          },
           expectedContainer: current.container,
           expectedRecord: current.record,
           record: current.record,
@@ -90,10 +97,12 @@ for (const [from, to, commit] of [
           stillCurrent: () => commit,
         });
       expect(result.committed).toBe(commit);
-      const reset = commit && from !== to;
+      const reset = commit && from !== (to ?? "read");
       expect(await watermarks.loadWatermark(execSql, lane)).toEqual(
         reset ? null : cursor,
       );
+      const [check] = await watermarks.loadCheckRecords(execSql, [lane]);
+      expect(check === null).toBe(reset);
       expect(await watermarks.loadWatermark(execSql, unrelated)).toEqual(
         cursor,
       );
