@@ -13,6 +13,7 @@ import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirma
 import "./IdentityManager.css";
 import { useIdentityManager } from "./IdentityManagerController";
 import { useIdentityManagerSidebarPanel } from "./IdentityManagerSidebar";
+import { IdentityManagerActionsMenu } from "./menu/IdentityManagerActionsMenu";
 import { IdentityManagerMenu } from "./menu/IdentityManagerMenu";
 import { IdentityManagerGeneralSection } from "./panels/IdentityManagerGeneralSection";
 import { IdentityManagerPinCodeSection } from "./panels/IdentityManagerPinCodeSection";
@@ -156,6 +157,16 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
 
   return (
     <MiniAppRoot className="identity-manager">
+      {model.session.isAuthenticated && (
+        <IdentityManagerActionsMenu
+          disabled={
+            model.identity.identityTransitionInFlight ||
+            identityMutations.identityBusy !== null ||
+            sessionMutations.mutatingSessionId !== null
+          }
+          onLogout={logoutDialog.requestLogout}
+        />
+      )}
       <IdentitySwitcher switcher={identitySwitcher} />
       <main className="identity-manager-main">
         {view === "active-sessions" && canManageSessions && selectedSession ? (

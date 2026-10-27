@@ -162,7 +162,7 @@ function WindowSidebarDefaultHarness({
   return <RenderedWindows />;
 }
 
-test("registered refresh action appears in the view menu", async () => {
+test("registered refresh action appears in the toolbar and view menu", async () => {
   let refreshCount = 0;
   const view = render(
     <WindowStateProvider>
@@ -178,13 +178,18 @@ test("registered refresh action appears in the view menu", async () => {
     expect(view.getByText("Refreshable content")).toBeTruthy();
   });
 
+  const refreshButton = view.getByRole("button", { name: "Refresh" });
+  expect(refreshButton.closest(".window-toolbar")).not.toBeNull();
+  fireEvent.click(refreshButton);
+  expect(refreshCount).toBe(1);
+
   fireEvent.click(view.getByText("View"));
   await waitFor(() => {
     expect(view.getByText("Refresh")).toBeTruthy();
   });
   fireEvent.click(view.getByText("Refresh"));
 
-  expect(refreshCount).toBe(1);
+  expect(refreshCount).toBe(2);
 });
 
 test("registered file action appears in the file menu", async () => {
