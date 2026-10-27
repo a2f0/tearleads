@@ -1,4 +1,0 @@
-# Issue #2654: group commits now expose the stale-container refusal already used
-# by container mutations. Old clients still fail the refused operation safely.
-# Remove this entry as soon as main contains the typed group-commit 409 contract.
-PUT /organizations/{organizationId}/groups/{groupId}/policy-commit added `subschema #3` to the response body `anyOf` list for the response status `409`
