@@ -2,10 +2,12 @@ import { expect, test } from "bun:test";
 import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { buildChildCreateRequest } from "../../../test/helpers/containerMutationArtifactKit";
+import { postDocumentPurge } from "../../../test/helpers/documentPurge";
 import { createChildContainer } from "../../../test/helpers/keyingWriterProjectionChild";
 import {
   asVerifiedContainerManifest,
   bootstrapRoot,
+  createDocument,
   createDocumentRequest,
   kekStateFromContainerResponse,
 } from "../../../test/helpers/keyingWriterProjectionKit";
@@ -71,5 +73,39 @@ test("a deleted container's metadata document ID cannot start a new document his
   expect(newContainer.status).toBe(409);
   expect(await newContainer.json()).toEqual({
     error: "Container metadata document already exists",
+  });
+});
+
+test("a purged document ID cannot become a new container's metadata document", async () => {
+  const owner = createTestUser();
+  await registerUser(owner);
+  await authenticate(owner);
+  const root = await bootstrapRoot(owner);
+  const created = await createDocument({ owner, root });
+  const purged = await postDocumentPurge({
+    documentId: created.id,
+    documentManifestHash: created.accessManifest.manifestHash,
+    owner,
+    root,
+  });
+  expect(purged.status, await purged.clone().text()).toBe(200);
+
+  const newContainer = await routeApp.request("/containers", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${owner.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      await buildChildCreateRequest({
+        root,
+        signer: owner,
+        metadataDocumentId: created.id,
+      }),
+    ),
+  });
+  expect(newContainer.status).toBe(409);
+  expect(await newContainer.json()).toEqual({
+    error: "Container metadata document was permanently purged",
   });
 });

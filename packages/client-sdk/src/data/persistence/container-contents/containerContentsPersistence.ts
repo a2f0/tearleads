@@ -3,6 +3,7 @@ import {
   containerHydrationTombstones,
   containers,
   documentContainerProjectionTables,
+  keyingCheckpointTables,
   localIntentTables,
 } from "../../sqlite/schema";
 import {
@@ -164,6 +165,8 @@ export const sqlContainerContentsPersistence: ContainerContentsPersistence = {
         await ensureContainerTables(lockedExecSql);
         await ensureDocumentTables(lockedExecSql);
         await ensureSqlTables(lockedExecSql, localIntentTables);
+        // Metadata rows consult document purge checkpoints before writing.
+        await ensureSqlTables(lockedExecSql, keyingCheckpointTables);
         await ensureSqlTables(lockedExecSql, documentContainerProjectionTables);
         await ensureDocumentProjectionTables(lockedExecSql);
         await sqlContainerSyncWatermarkPersistence.ensureSchema(lockedExecSql);
