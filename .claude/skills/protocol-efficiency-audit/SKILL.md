@@ -138,9 +138,10 @@ and the shared measurement directory separately.
 Do not launch all slices, spawn nested auditors, or repeat the auditor's
 searches. In `full` mode the coordinator may run up to three auditors
 concurrently because slices are independent and read-only; it still verifies
-candidates one at a time. The auditor writes evidence to disk and returns a
-short index. Verify candidates within the remaining batch budget (step 3),
-then checkpoint and stop.
+candidates one at a time. The auditor saves probes and logs to disk and
+returns its report as its final message; save that as `report.md` in its
+work-item directory before verifying. Verify candidates within the remaining
+batch budget (step 3), then checkpoint and stop.
 
 ## 3. Verify every proposal
 
