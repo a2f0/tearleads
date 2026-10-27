@@ -5,6 +5,7 @@ import {
   ML_KEM1024_CIPHERTEXT_BYTES,
   ML_KEM1024_SECRET_KEY_BYTES,
   type PrincipalProjectionMember,
+  type PrincipalStateExternalAuthority,
   toFingerprint,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -304,7 +305,14 @@ export async function createSuccessorPrincipalPolicyBundle(
   };
 }
 
-export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promise<{
+export async function createUnauthorizedSuccessorPrincipalPolicyBundle(
+  options: {
+    /** An Admins head the successor cites instead of direct authority. */
+    readonly successorExternalAuthority?: PrincipalStateExternalAuthority | null;
+    /** Keep the previous members, so only the signer's authority is at issue. */
+    readonly successorKeepsMembers?: boolean;
+  } = {},
+): Promise<{
   bundle: PrincipalPolicyBundleResponse;
   signerKeyResponses: Map<string, UserIdentityResponse>;
 }> {
@@ -356,12 +364,14 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
     },
     signingPrivateKey: adminSigningPrivateKey,
   });
-  const currentProjection = [
-    {
-      userId: outsiderUserId,
-      role: "admin" as const,
-    },
-  ];
+  const currentProjection = options.successorKeepsMembers
+    ? previousProjection
+    : [
+        {
+          userId: outsiderUserId,
+          role: "admin" as const,
+        },
+      ];
   const bundle = await signedPrincipalPolicyBundle({
     memberEnvelopes: await memberEnvelopesForProjection(currentProjection),
     payloadCiphertext: "ciphertext-2",
@@ -380,6 +390,7 @@ export async function createUnauthorizedSuccessorPrincipalPolicyBundle(): Promis
       signedAt: "2026-04-08T00:01:00.000Z",
       signerUserId: outsiderUserId,
       signerUserKeyFingerprint: outsiderSigningKeyFingerprint,
+      externalAuthority: options.successorExternalAuthority ?? null,
     },
     signingPrivateKey: outsiderSigningPrivateKey,
   });

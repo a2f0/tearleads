@@ -9,7 +9,10 @@ import type {
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
-import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../../data/principals/principalPolicyAdminSigners";
+import {
+  externalAuthorityCouldAuthorize,
+  verifyPrincipalPolicyBundleWithExternalOrganizationAdmins,
+} from "../../../data/principals/principalPolicyAdminSigners";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { VerifiedExternalAdminPolicy } from "../externalAdminPolicy";
 import {
@@ -210,16 +213,25 @@ export async function validatePrincipalPolicyBundleForCache(input: {
         usedExternalAdminPolicy = true;
         const authority = (await input.loadExternalAdminPolicy())
           ?.externalAuthority;
+        if (authority) return authority;
         // The loader returns null when the organization's Admins policy could
-        // not be fetched, and an honest server always serves it. Missing
-        // evidence is an availability gap, not a refused signer, so it must
-        // not surface as the unauthorized result that records an incident.
-        if (!authority) {
+        // not be fetched, and an honest server always serves it. When that
+        // evidence is all the chain lacks, the gap is availability, not a
+        // refused signer, so it must not surface as an incident. A chain no
+        // evidence could authorize keeps its unauthorized refusal.
+        if (
+          await externalAuthorityCouldAuthorize({
+            bundle: input.bundle,
+            expectedReference: input.reference,
+            localCheckpoint: input.localCheckpoint,
+            signerPublicKeys: signerPublicKeys.signerPublicKeys,
+          })
+        ) {
           throw new ProjectionDependencyUnavailableError(
             "Organization Admins evidence is unavailable",
           );
         }
-        return authority;
+        return null;
       },
       localCheckpoint: input.localCheckpoint,
       signerPublicKeys: signerPublicKeys.signerPublicKeys,

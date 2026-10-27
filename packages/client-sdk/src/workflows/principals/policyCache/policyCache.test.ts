@@ -305,7 +305,7 @@ test("principal policy sync rejects bundles whose projection does not match the 
   }
 });
 
-test("principal policy sync keeps a non-admin successor out without blaming missing Admins evidence", async () => {
+test("principal policy sync rejects successor bundles signed by non-admins", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
   );
@@ -314,10 +314,54 @@ test("principal policy sync keeps a non-admin successor out without blaming miss
     const { bundle, signerKeyResponses } =
       await createUnauthorizedSuccessorPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
+    // The successor cites no external authority, so no Admins evidence could
+    // authorize it: withholding the organization policy cannot hide the
+    // refusal or its incident.
+    await expect(
+      cacheReferencedPolicies({
+        organizationId: "org-1",
+        execSql,
+        getCurrentPrincipalPolicy: async (principalType) =>
+          principalType === "group" ? bundle : null,
+        getUserIdentity: async (userId) =>
+          signerKeyResponses.get(userId) ?? null,
+        references: [referencedPrincipalStateFromBundle(bundle)],
+      }),
+    ).rejects.toMatchObject({
+      code: "unauthorized",
+      name: "KeyingVerificationError",
+    });
+    await expect(
+      loadPrincipalPolicyBundle(execSql, "group", "group-1"),
+    ).resolves.toBeNull();
+  } finally {
+    close();
+  }
+});
+
+test("principal policy sync treats missing Admins evidence for a cited authority as unavailable", async () => {
+  const { close, execSql } = await createTestExecSql(
+    "principal-policy-sync-test",
+  );
+
+  try {
+    const { bundle, signerKeyResponses } =
+      await createUnauthorizedSuccessorPrincipalPolicyBundle({
+        successorExternalAuthority: {
+          principalType: "group",
+          principalId: "admins-1",
+          version: 1,
+          keyEpoch: 1,
+          stateHash: "a".repeat(64),
+          keyFingerprint: "b".repeat(64),
+        },
+        successorKeepsMembers: true,
+      });
+    await ensurePrincipalPolicyTables(execSql);
     const incidents: unknown[] = [];
-    // The organization policy is unavailable, so the successor's signer can
-    // be checked against neither direct nor Admins authority. That is an
-    // availability gap: nothing is cached and nothing is reported as tampering.
+    // The successor's signer is authorized only through the Admins head it
+    // cites, and the organization policy carrying that evidence is
+    // unavailable: nothing is cached and nothing is reported as tampering.
     await expect(
       cacheReferencedPolicies({
         organizationId: "org-1",
