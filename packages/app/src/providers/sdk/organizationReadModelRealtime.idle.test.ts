@@ -1,6 +1,7 @@
-import { expect, test } from "bun:test";
+import { beforeEach, expect, test } from "bun:test";
 import { waitForAppTestRuntimeToSettle } from "../../../test/helpers/appRuntimeIdle";
 import { observeOrganizationRuntime } from "../../../test/helpers/organizationRuntimeIdle";
+import { cleanupPaneTestEnvironment } from "../../../test/helpers/paneTestUtils";
 import {
   attachOrganizationReadModelSocket,
   ensureOrganizationReadModelReconciliation,
@@ -13,6 +14,10 @@ import {
   fakeOpenSocket,
   ORGANIZATION_A,
 } from "./test/organizationReadModelRealtimeHarness";
+
+// Idle observes global API activity too; drain previous real runtimes before
+// these fake-runtime assertions so unrelated requests cannot own their timeout.
+beforeEach(cleanupPaneTestEnvironment);
 
 test("runtime idle waits for organization interest acknowledgement", async () => {
   const runtime = createRuntimeHarness();

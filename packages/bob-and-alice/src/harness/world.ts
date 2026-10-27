@@ -98,6 +98,23 @@ export class World {
     return device;
   }
 
+  async restartDevice(
+    user: User,
+    device: Device = primary(user),
+    online = true,
+  ): Promise<Device> {
+    const index = user.devices.indexOf(device);
+    if (index < 0) throw new Error("Device does not belong to this user");
+    const restarted = await device.restart(online);
+    user.devices[index] = restarted;
+    const refused = this.refusedEdits.get(device);
+    if (refused) {
+      this.refusedEdits.set(restarted, refused);
+      this.refusedEdits.delete(device);
+    }
+    return restarted;
+  }
+
   root(user: User): Folder {
     return { id: primary(user).rootContainerId, name: `${user.name} root` };
   }
@@ -251,9 +268,13 @@ export class World {
     this.model.unlinkDocument(document.documentId, folder.id);
   }
 
-  async shareWithUser(actor: User, folder: Folder, recipient: User) {
+  async shareWithUser(
+    actor: User,
+    folder: Folder,
+    recipient: User,
+    device: Device = primary(actor),
+  ) {
     trace(`shareWithUser`);
-    const device = primary(actor);
     const shared = await (await device.tree()).shareWithUser(
       folder.id,
       recipient.userId,
@@ -325,9 +346,13 @@ export class World {
     this.model.grant(folder.id, { kind: "group", id: group.id }, level);
   }
 
-  async revoke(actor: User, folder: Folder, subject: User | Group) {
+  async revoke(
+    actor: User,
+    folder: Folder,
+    subject: User | Group,
+    device: Device = primary(actor),
+  ) {
     trace(`revoke`);
-    const device = primary(actor);
     const grant: GrantSubject =
       "userId" in subject
         ? { kind: "user", id: subject.userId }

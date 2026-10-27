@@ -25,7 +25,7 @@ import type {
   ContainerState,
   RemoteContainer as HydratedRemoteContainer,
   RemoteContainerHydrationHost,
-} from "../remoteHydration";
+} from "../remoteHydration/types";
 import type { ContainerContentsWorkflowRuntime } from "../runtime";
 
 export type ContainerWorkflowApi = Parameters<
