@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import {
   expectAccess,
+  expectNoLeak,
   expectNoSecurityIncidents,
 } from "../harness/expectations";
 import { trace } from "../harness/trace";
@@ -46,6 +47,11 @@ test("a writer idle across many rotations writes, and a late reader reads", asyn
     await world.editDocument(dave, document, `v${round} dave in the team`);
     await world.removeFromGroup(alice, team, dave);
     await world.editDocument(bob, document, `v${round} bob after dave left`);
+    // Check the removed device before the next admission grants it history.
+    // Leave Carol idle so the final stale-writer check still spans every turn.
+    const daveDevice = dave.devices[0];
+    if (!daveDevice) throw new Error("Expected Dave's original device");
+    await expectNoLeak(world, document, daveDevice);
   }
   const end = await world.keyEpoch(alice, folder);
   const endContent = await world.contentKeyEpoch(alice, document);

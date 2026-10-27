@@ -67,7 +67,7 @@ export class World {
   /** The organization each joined member works in, by user id. */
   private readonly workingOrganizations = new Map<string, string>();
   /** Texts each device tried to write without write access. */
-  private readonly refusedEdits = new Map<Device, Set<string>>();
+  private readonly refusedEdits = new Map<Device, Map<string, Set<string>>>();
 
   private constructor(private readonly origin: string) {}
 
@@ -170,10 +170,11 @@ export class World {
 
   /**
    * Edits from `device` (the actor's first device by default). An edit the
-   * actor may make must settle with nothing left pending, so a write that
-   * only ever landed locally fails here rather than passing on optimistic
-   * local text. A refused edit may stay parked; the model ignores it, so one
-   * the system wrongly accepted shows up as a mismatch in `expectAccess`.
+   * actor may make must apply locally and settle with nothing left pending.
+   * A successful write clears prior refused edits for this document; reads on
+   * other devices verify the committed text. A refused edit may stay parked;
+   * the model ignores it, so an accepted refused edit appears as a mismatch
+   * in `expectAccess`.
    */
   async editDocument(
     actor: User,
@@ -186,19 +187,26 @@ export class World {
     if (!store) throw device.failure("cannot open the document");
     await store.setText(text);
     if (!this.model.edit(document.documentId, actor.userId, text)) {
-      const refused = this.refusedEdits.get(device) ?? new Set();
+      const documents =
+        this.refusedEdits.get(device) ?? new Map<string, Set<string>>();
+      const refused = documents.get(document.documentId) ?? new Set<string>();
       refused.add(text);
-      this.refusedEdits.set(device, refused);
+      documents.set(document.documentId, refused);
+      this.refusedEdits.set(device, documents);
       await device.idle().catch(() => undefined);
       return;
     }
     await device.idle();
+    if (store.getSnapshot().text !== text) {
+      throw device.failure("edit was not applied locally");
+    }
     const pending = await device.sdk.containerContents
       .documentQueries()
       .listPendingWrites();
     if (pending.some((item) => item.remoteId === document.documentId)) {
       throw device.failure("edit did not reach the API");
     }
+    this.refusedEdits.get(device)?.delete(document.documentId);
   }
 
   /** The document with every container it is currently linked into. */
@@ -393,8 +401,8 @@ export class World {
    * Texts `device` tried to write without write access. A device that lost
    * access may still show its own refused edit; that discloses nothing.
    */
-  refusedEditsOn(device: Device): ReadonlySet<string> {
-    return this.refusedEdits.get(device) ?? new Set();
+  refusedEditsOn(device: Device, documentId: string): ReadonlySet<string> {
+    return this.refusedEdits.get(device)?.get(documentId) ?? new Set();
   }
 
   get allUsers(): readonly User[] {

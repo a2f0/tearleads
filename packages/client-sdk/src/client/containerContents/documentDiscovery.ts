@@ -22,7 +22,7 @@ import {
   type ContainerContentsWorkflowRuntime,
   createContainerContentsWorkflowRuntime,
 } from "../../workflows/container-contents/runtime";
-import { guardDiscoveryAgainstPause } from "../../workflows/container-contents/syncPause/discoveryGuard";
+import { guardDocumentDiscoveryWrites } from "../../workflows/container-contents/syncPause/discoveryGuard";
 import {
   createContainerDocumentTombstoneVerifier,
   createDocumentHeadLinkSetLoader,
@@ -86,7 +86,7 @@ function createDiscoveryLane(input: {
       loadHead,
       loadEpoch,
     ),
-    ...guardDiscoveryAgainstPause({
+    ...guardDocumentDiscoveryWrites({
       execSql,
       isPaused: input.isContainerPaused,
       verifyDiscoveredDocuments: createDiscoveredDocumentVerifier(

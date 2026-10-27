@@ -1,13 +1,58 @@
 import { expect } from "bun:test";
+import type { Device } from "./device";
 import { readText } from "./documentReads";
 import { trace } from "./trace";
 import type { SharedDocument, World } from "./world";
 
+function assertNoLeak(
+  world: World,
+  document: SharedDocument,
+  device: Device,
+  text: string | null,
+): void {
+  // An empty local shell contains no disclosed plaintext. Current readers
+  // still have to match the exact latest text, including intentional empties.
+  const allowed = new Set<string | null>([
+    null,
+    "",
+    ...world.model.textsVisibleWithoutAccess(
+      device.userId,
+      document.documentId,
+    ),
+  ]);
+  const own =
+    text !== null &&
+    world.refusedEditsOn(device, document.documentId).has(text);
+  expect({
+    device: device.label,
+    text,
+    leaked: !allowed.has(text) && !own,
+  }).toEqual({
+    device: device.label,
+    text,
+    leaked: false,
+  });
+}
+
+/** Checks one removed device without waking other intentionally idle devices. */
+export async function expectNoLeak(
+  world: World,
+  document: SharedDocument,
+  device: Device,
+): Promise<void> {
+  assertNoLeak(
+    world,
+    document,
+    device,
+    await readText(device, world.documentRef(document)),
+  );
+}
+
 /**
  * Reads `document` on every device of every user and compares each result
  * with the model: a current reader sees the latest text, and anyone else
- * sees nothing written after they lost access. Either may instead show an
- * edit of its own that the API refused, which only that device holds.
+ * sees nothing written after they lost access. A non-writer may instead show
+ * its own refused edit of this document. Restored writers must converge.
  */
 export async function expectAccess(
   world: World,
@@ -16,28 +61,22 @@ export async function expectAccess(
   const latest = world.model.latestText(document.documentId);
   for (const user of world.allUsers) {
     const canRead = world.model.canRead(user.userId, document.documentId);
-    const allowed = new Set<string | null>([
-      null,
-      ...world.model.textsVisibleWithoutAccess(
-        user.userId,
-        document.documentId,
-      ),
-    ]);
     for (const device of user.devices) {
       const text = await readText(device, world.documentRef(document));
       trace(`${device.label} canRead=${canRead} read=${text}`);
-      const own = text !== null && world.refusedEditsOn(device).has(text);
+      const own =
+        text !== null &&
+        world.refusedEditsOn(device, document.documentId).has(text);
       if (canRead) {
         expect({ device: device.label, text }).toEqual({
           device: device.label,
-          text: own ? text : latest,
+          text:
+            own && !world.model.canWrite(user.userId, document.documentId)
+              ? text
+              : latest,
         });
       } else {
-        const leaked = !allowed.has(text) && !own;
-        expect({ device: device.label, leaked }).toEqual({
-          device: device.label,
-          leaked: false,
-        });
+        assertNoLeak(world, document, device, text);
       }
     }
   }
