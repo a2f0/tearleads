@@ -2,7 +2,10 @@ import { expect, test } from "bun:test";
 import { signWriteHeader, type WriteHeader } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import type { DocumentSyncRequest } from "@tearleads/validators/request";
-import { isDocumentSyncResponse } from "@tearleads/validators/response";
+import {
+  DOCUMENT_SYNC_ERROR_CODES,
+  isDocumentSyncResponse,
+} from "@tearleads/validators/response";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
   bindForTest,
@@ -144,7 +147,9 @@ test("ancestor rotation keeps recovery projections and document reads available 
 
   const write = await postSync(pendingWrite.request);
   expect(write.status).toBe(409);
+  // Coded stale: the writer refetches its projection and repairs the chain.
   expect(await write.json()).toMatchObject({
+    code: DOCUMENT_SYNC_ERROR_CODES.stateStale,
     error: expect.stringContaining("parent edge is stale"),
   });
 });

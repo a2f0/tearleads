@@ -58,16 +58,10 @@ test("grants at two levels of a deep tree survive a shrink and a subtree move", 
     before.map((epoch, level) => (level < 2 ? epoch + 1 : epoch)),
   );
 
-  // The grantee repairs its own subtree without anyone else's help. A fresh
-  // install writes: a device that synced before the revoke never repairs
-  // (#2648; see knownIssues.test.ts).
-  const daveFresh = await world.newDevice(dave);
-  await world.editDocument(
-    dave,
-    lower,
-    "lower v2 dave after the revoke",
-    daveFresh,
-  );
+  // The grantee repairs its own subtree without anyone else's help, from the
+  // device that read `lower` before the revoke and still holds that path; the
+  // API's stale refusal sends it to refetch and repair inline (#2648).
+  await world.editDocument(dave, lower, "lower v2 dave after the revoke");
   const afterRepair = await epochs();
   trace(`a b c d epochs after the grantee's write ${afterRepair}`);
   expect(afterRepair).toEqual(
