@@ -17,13 +17,12 @@ finish. Do not touch PlanetScale, spawn agents, invoke another skill, or
 publish anything; the coordinator owns reporting.
 
 Your exact work item and remaining coverage: <WORK_ITEM>
-Budget: at most 25 tool calls; reserve the last five for triage and reporting.
 Use targeted searches and reads, not whole-directory dumps. Every search
 names its paths: a grep or rg without one reads stdin and never returns.
 Leave no background job running when you finish. Save candidate evidence as
-you go. At the limit, stop and report unchecked paths, unresolved
-candidates, and the next concrete step. A partial slice is a valid result;
-never call it complete.
+you go. If you cannot finish the work item, stop and report unchecked paths,
+unresolved candidates, and the next concrete step. A partial slice is a
+valid result; never call it complete.
 
 Mission: find ways for the API (Postgres in production via PlanetScale and
 Hyperdrive; PGlite, SQLite, and Turso in tests) and the client SDK (SQLite
