@@ -19,6 +19,7 @@ import {
   settleQueuedDocumentUpdatesInTransaction,
 } from "../documents/records/documentPendingUpdatePersistence";
 import { clearDocumentSyncFailureInTransaction } from "../documents/records/documentSyncFailurePersistence";
+import { resetAccessDiscovery } from "./containerAccessDiscovery";
 import {
   assertHeldContainerBinding,
   heldContainerBinding,
@@ -323,6 +324,33 @@ function assertMutationKeepsHeldBinding(
   });
 }
 
+async function settleMetadataStructuralIntents(
+  tx: ClientSQLiteTransactionScope,
+  input: CommitMetadataMutationInput,
+): Promise<void> {
+  if (
+    input.createIntentSettlement &&
+    (await settleContainerCreateIntentRevision({
+      ...input.createIntentSettlement,
+      tx,
+    })) === "superseded"
+  ) {
+    throw new ContainerCreateIntentSupersededError();
+  }
+  if (input.moveIntentSettlement) {
+    if (
+      !(await deleteContainerMoveIntentRevision({
+        ...input.moveIntentSettlement,
+        tx,
+      }))
+    ) {
+      throw new Error(
+        "Container move intent was superseded before local settlement",
+      );
+    }
+  }
+}
+
 export async function commitStoredMetadataMutation(
   execSql: Parameters<
     ContainerContentsPersistence["commitMetadataMutation"]
@@ -371,7 +399,7 @@ export async function commitStoredMetadataMutation(
             mutation: input,
             tx,
           });
-        const savedContainer = await saveContainerContentsContainerRows({
+        const saved = await saveContainerContentsContainerRows({
           container,
           createIntent: input.saveOptions?.createIntent,
           localUpdatedAt,
@@ -380,29 +408,10 @@ export async function commitStoredMetadataMutation(
           serverTimestamps: input.saveOptions?.serverTimestamps,
           tx,
         });
-        if (
-          input.createIntentSettlement &&
-          (await settleContainerCreateIntentRevision({
-            ...input.createIntentSettlement,
-            tx,
-          })) === "superseded"
-        ) {
-          throw new ContainerCreateIntentSupersededError();
-        }
-        if (input.moveIntentSettlement) {
-          if (
-            !(await deleteContainerMoveIntentRevision({
-              ...input.moveIntentSettlement,
-              tx,
-            }))
-          ) {
-            throw new Error(
-              "Container move intent was superseded before local settlement",
-            );
-          }
-        }
+        await resetAccessDiscovery(tx, currentState.container, saved);
+        await settleMetadataStructuralIntents(tx, input);
         return committedMetadataMutationResult({
-          container: savedContainer,
+          container: saved,
           createIntentSettled: input.createIntentSettlement !== undefined,
           moveIntentSettled: input.moveIntentSettlement !== undefined,
         });

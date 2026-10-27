@@ -26,6 +26,7 @@ import {
 import { isDocumentDiscoveryGenerationCurrent } from "./documentDiscoveryReset";
 
 export type { DiscoveredDocumentCandidate } from "./documentDiscoveryCandidate";
+export { clearDocumentDiscoveryEvidenceOnRemoteReset as invalidateDocumentDiscoveryInTransaction } from "./documentDiscoveryReset";
 export interface CachedDiscoveryHead {
   readonly organizationId: string | null;
   readonly accessEpoch: number;
