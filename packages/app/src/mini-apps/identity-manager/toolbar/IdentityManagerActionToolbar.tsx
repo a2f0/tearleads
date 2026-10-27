@@ -3,7 +3,6 @@ import {
   MiniAppStatus,
   MiniAppToolbar,
 } from "../../../components/mini-app/MiniAppLayout";
-import { IdentityManagerActionsMenu } from "../menu/IdentityManagerActionsMenu";
 
 export type IdentityBusyState =
   | "authenticate"
@@ -18,12 +17,9 @@ export interface IdentityActionToolbarProps {
   readonly generateKey: () => void;
   readonly handleAuthenticate: () => Promise<void>;
   readonly handleDestroyKeyPair: () => void;
-  readonly handleLogoutCurrentSession: () => void;
   readonly handleRegisterIdentity: () => Promise<void>;
   readonly hasSigningKeyPair: boolean;
   readonly identityBusy: IdentityBusyState;
-  readonly isAuthenticated: boolean;
-  readonly mutatingSessionId: string | null;
 }
 
 export function IdentityActionToolbar({
@@ -32,12 +28,9 @@ export function IdentityActionToolbar({
   canRegisterCurrentIdentity,
   generateKey,
   handleAuthenticate,
-  handleLogoutCurrentSession,
   handleRegisterIdentity,
   hasSigningKeyPair,
   identityBusy,
-  isAuthenticated,
-  mutatingSessionId,
 }: IdentityActionToolbarProps) {
   return (
     <MiniAppToolbar wrap>
@@ -62,11 +55,6 @@ export function IdentityActionToolbar({
           Login
         </MiniAppButton>
       )}
-      <IdentityManagerActionsMenu
-        disabled={identityBusy !== null || mutatingSessionId !== null}
-        isAuthenticated={isAuthenticated}
-        onLogout={handleLogoutCurrentSession}
-      />
     </MiniAppToolbar>
   );
 }

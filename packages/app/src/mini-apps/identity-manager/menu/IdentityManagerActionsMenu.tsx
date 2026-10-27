@@ -1,69 +1,71 @@
+import { DotsThreeVerticalIcon } from "@phosphor-icons/react/dist/csr/DotsThreeVertical";
 import { SignOutIcon } from "@phosphor-icons/react/dist/csr/SignOut";
-import { Menu, MenuItem, type MenuPosition } from "@tearleads/windowing";
-import { type MouseEvent, useState } from "react";
-import { MiniAppRowActionsButton } from "../../../components/mini-app/MiniAppTable";
+import {
+  Menu,
+  MenuItem,
+  type MenuPosition,
+  useWindowTitleBarAction,
+} from "@tearleads/windowing";
+import { type MouseEvent, useMemo, useRef, useState } from "react";
 
-/**
- * Overflow menu in the Identity section's action toolbar. Mirrors the kebab
- * menu on the explorer's item rows with the current-session logout action.
- *
- * Renders nothing while signed out — logout is the only entry, so an empty
- * trigger would be dead weight.
- */
+const ACTIONS_ICON = <DotsThreeVerticalIcon aria-hidden size={18} />;
+
+/** Registers the signed-in identity's menu beside Refresh in either host. */
 export function IdentityManagerActionsMenu({
   disabled,
-  isAuthenticated,
   onLogout,
 }: {
   disabled: boolean;
-  isAuthenticated: boolean;
   onLogout: () => void;
 }) {
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState<MenuPosition | null>(null);
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const toggleMenu = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    if (menuPosition !== null) {
-      setMenuPosition(null);
-      return;
-    }
-    // Anchor to the button's box (not the pointer) so keyboard activation, which
-    // reports 0,0 client coordinates, still opens the menu under the trigger.
-    const rect = event.currentTarget.getBoundingClientRect();
-    setMenuPosition({ x: rect.left, y: rect.bottom });
-  };
-  const closeMenu = () => setMenuPosition(null);
-
-  return (
-    <>
-      <MiniAppRowActionsButton
-        aria-expanded={menuPosition !== null}
-        aria-label="Identity actions"
-        onClick={toggleMenu}
-        // Keep the trigger's mousedown from reaching the Menu's document-level
-        // outside-click handler. Without this, re-clicking the trigger closes the
-        // menu on mousedown and the following click reopens it, so the button
-        // could never toggle the menu shut.
-        onMouseDown={(event) => event.stopPropagation()}
-        title="Identity actions"
-      />
-      {menuPosition ? (
-        <Menu direction="down" onClose={closeMenu} position={menuPosition}>
-          <MenuItem
-            disabled={disabled}
-            icon={SignOutIcon}
-            label="Log Out"
-            onClick={() => {
-              closeMenu();
-              onLogout();
-            }}
-          />
-        </Menu>
-      ) : null}
-    </>
+  const expanded = menuPosition !== null;
+  const buttonProps = useMemo(
+    () => ({
+      // Menu renders ordinary buttons, so announce expansion without claiming
+      // the ARIA menu/menuitem pattern via aria-haspopup.
+      "aria-expanded": expanded,
+      // Avoid outside-click dismissal before the trigger's click toggles the
+      // menu, which would otherwise close and immediately reopen it.
+      onMouseDown: (event: MouseEvent<HTMLButtonElement>) =>
+        event.stopPropagation(),
+      ref: buttonRef,
+    }),
+    [expanded],
   );
+
+  useWindowTitleBarAction({
+    buttonProps,
+    icon: ACTIONS_ICON,
+    id: "identity-manager-actions",
+    label: "Identity actions",
+    onClick: () => {
+      const button = buttonRef.current;
+      if (!button) return;
+      // Anchor keyboard activation to the button too, rather than to 0,0.
+      const rect = button.getBoundingClientRect();
+      setMenuPosition((position) =>
+        position ? null : { x: rect.left, y: rect.bottom },
+      );
+    },
+  });
+
+  return menuPosition ? (
+    <Menu
+      direction="down"
+      onClose={() => setMenuPosition(null)}
+      position={menuPosition}
+    >
+      <MenuItem
+        disabled={disabled}
+        icon={SignOutIcon}
+        label="Log Out"
+        onClick={() => {
+          setMenuPosition(null);
+          onLogout();
+        }}
+      />
+    </Menu>
+  ) : null;
 }

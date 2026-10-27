@@ -45,10 +45,7 @@ function getIdentitySectionActions({
   identity,
   identityMutations,
   localKeyringLocked,
-  logoutDialog,
   registration,
-  session,
-  sessionMutations,
 }: IdentityManagerModel): IdentityActionToolbarProps {
   return {
     canAuthenticate,
@@ -57,14 +54,11 @@ function getIdentitySectionActions({
     generateKey: identity.generateKey,
     handleAuthenticate: identityMutations.authenticate,
     handleDestroyKeyPair: identityMutations.requestDestroyKeyPackage,
-    handleLogoutCurrentSession: logoutDialog.requestLogout,
     handleRegisterIdentity: identityMutations.handleRegisterIdentity,
     hasSigningKeyPair: identity.signingKeyPair !== null,
     identityBusy: identity.identityTransitionInFlight
       ? "transition"
       : identityMutations.identityBusy,
-    isAuthenticated: session.isAuthenticated,
-    mutatingSessionId: sessionMutations.mutatingSessionId,
   };
 }
 

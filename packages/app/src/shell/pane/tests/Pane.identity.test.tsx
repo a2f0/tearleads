@@ -311,16 +311,11 @@ test(
     ).toBeTruthy();
 
     const identityManagerWindow = await openIdentityManagerFromPane(view);
-    const identitySection = within(identityManagerWindow)
-      .getByRole("heading", { name: "Identity" })
-      .closest("section");
-    if (!identitySection) {
-      throw new Error("Expected Identity Manager identity section.");
-    }
-    // Logout now lives in the Identity section's overflow (kebab) menu rather
-    // than as an inline toolbar button, so open the menu before invoking it.
+    const toolbar = within(identityManagerWindow).getByRole("toolbar", {
+      name: "Toolbar",
+    });
     fireEvent.click(
-      within(identitySection).getByRole("button", {
+      within(toolbar).getByRole("button", {
         name: "Identity actions",
       }),
     );
