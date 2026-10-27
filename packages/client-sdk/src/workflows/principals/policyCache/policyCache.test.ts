@@ -305,7 +305,7 @@ test("principal policy sync rejects bundles whose projection does not match the 
   }
 });
 
-test("principal policy sync rejects successor bundles signed by non-admins", async () => {
+test("principal policy sync keeps a non-admin successor out without blaming missing Admins evidence", async () => {
   const { close, execSql } = await createTestExecSql(
     "principal-policy-sync-test",
   );
@@ -314,6 +314,10 @@ test("principal policy sync rejects successor bundles signed by non-admins", asy
     const { bundle, signerKeyResponses } =
       await createUnauthorizedSuccessorPrincipalPolicyBundle();
     await ensurePrincipalPolicyTables(execSql);
+    const incidents: unknown[] = [];
+    // The organization policy is unavailable, so the successor's signer can
+    // be checked against neither direct nor Admins authority. That is an
+    // availability gap: nothing is cached and nothing is reported as tampering.
     await expect(
       cacheReferencedPolicies({
         organizationId: "org-1",
@@ -323,11 +327,12 @@ test("principal policy sync rejects successor bundles signed by non-admins", asy
         getUserIdentity: async (userId) =>
           signerKeyResponses.get(userId) ?? null,
         references: [referencedPrincipalStateFromBundle(bundle)],
+        reportSecurityIncident: async (error) => {
+          incidents.push(error);
+        },
       }),
-    ).rejects.toMatchObject({
-      code: "unauthorized",
-      name: "KeyingVerificationError",
-    });
+    ).resolves.toBeUndefined();
+    expect(incidents).toEqual([]);
     await expect(
       loadPrincipalPolicyBundle(execSql, "group", "group-1"),
     ).resolves.toBeNull();

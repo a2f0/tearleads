@@ -8,6 +8,7 @@ import type {
   PrincipalPolicyBundleResponse,
   ReferencedPrincipalStateResponse,
 } from "@tearleads/validators/response";
+import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { verifyPrincipalPolicyBundleWithExternalOrganizationAdmins } from "../../../data/principals/principalPolicyAdminSigners";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import type { VerifiedExternalAdminPolicy } from "../externalAdminPolicy";
@@ -207,9 +208,18 @@ export async function validatePrincipalPolicyBundleForCache(input: {
       expectedReference: input.reference,
       loadExternalAuthority: async () => {
         usedExternalAdminPolicy = true;
-        return (
-          (await input.loadExternalAdminPolicy())?.externalAuthority ?? null
-        );
+        const authority = (await input.loadExternalAdminPolicy())
+          ?.externalAuthority;
+        // The loader returns null when the organization's Admins policy could
+        // not be fetched, and an honest server always serves it. Missing
+        // evidence is an availability gap, not a refused signer, so it must
+        // not surface as the unauthorized result that records an incident.
+        if (!authority) {
+          throw new ProjectionDependencyUnavailableError(
+            "Organization Admins evidence is unavailable",
+          );
+        }
+        return authority;
       },
       localCheckpoint: input.localCheckpoint,
       signerPublicKeys: signerPublicKeys.signerPublicKeys,
