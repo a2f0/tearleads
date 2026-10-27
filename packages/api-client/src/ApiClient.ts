@@ -242,6 +242,9 @@ interface InFlightWriterProjectionResult<T> {
 }
 
 /** The rotations that may carry descendant rekeys, each with its operation. */
+const dataOrNull = <T>(result: RequestResult<T>): T | null =>
+  result.ok ? result.data : null;
+
 const CONTAINER_ROTATIONS = {
   move: { operation: moveContainerOperation, route: containerMove },
   rekey: { operation: rekeyContainerOperation, route: containerRekey },
@@ -1465,16 +1468,29 @@ export class ApiClient {
     input: ContainerMutationRequest,
     options: RequestResultOptions = {},
   ) {
-    return this.request(
-      containerShare.path(containerId),
-      containerShare.isResponse,
-      containerShare.method,
-      JSON.stringify(input),
-      options,
-      shareContainerOperation,
-    ).finally(() => {
+    return this.shareContainerResult(containerId, input, options).then(
+      dataOrNull,
+    );
+  }
+
+  /** Status-bearing share: a stale path is retryable, a refusal is not. */
+  async shareContainerResult(
+    containerId: string,
+    input: ContainerMutationRequest,
+    options: RequestResultOptions = {},
+  ): Promise<RequestResult<ContainerMutationResponse>> {
+    try {
+      return await this.requestResult(
+        containerShare.path(containerId),
+        containerShare.isResponse,
+        containerShare.method,
+        JSON.stringify(input),
+        options,
+        shareContainerOperation,
+      );
+    } finally {
       this.clearWriterProjectionCaches();
-    });
+    }
   }
 
   revokeContainer(
@@ -1482,16 +1498,9 @@ export class ApiClient {
     input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
-    return this.request(
-      containerRevoke.path(containerId),
-      containerRevoke.isResponse,
-      containerRevoke.method,
-      JSON.stringify(input),
-      options,
-      revokeContainerOperation,
-    ).finally(() => {
-      this.clearWriterProjectionCaches();
-    });
+    return this.rotationResult("revoke", containerId, input, options).then(
+      dataOrNull,
+    );
   }
 
   rekeyContainer(
@@ -1499,16 +1508,9 @@ export class ApiClient {
     input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
-    return this.request(
-      containerRekey.path(containerId),
-      containerRekey.isResponse,
-      containerRekey.method,
-      JSON.stringify(input),
-      options,
-      rekeyContainerOperation,
-    ).finally(() => {
-      this.clearWriterProjectionCaches();
-    });
+    return this.rotationResult("rekey", containerId, input, options).then(
+      dataOrNull,
+    );
   }
 
   /**
@@ -1583,16 +1585,9 @@ export class ApiClient {
     input: ContainerRotationRequest,
     options: RequestResultOptions = {},
   ) {
-    return this.request(
-      containerMove.path(containerId),
-      containerMove.isResponse,
-      containerMove.method,
-      JSON.stringify(input),
-      options,
-      moveContainerOperation,
-    ).finally(() => {
-      this.clearWriterProjectionCaches();
-    });
+    return this.rotationResult("move", containerId, input, options).then(
+      dataOrNull,
+    );
   }
 
   async deleteContainer(

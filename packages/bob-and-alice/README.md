@@ -38,6 +38,7 @@ operation, each device's read, and each scenario's key-epoch series.
 | `nestedTree` | A revoke rotates exactly the folder and the level above a deeper direct grant. The grantee repairs its own subtree with its first write. A move takes a group's access away from the moved subtree. |
 | `multiLinkDocument` | A document linked into two folders follows each link's access through a write via either link, a group shrink, and an unlink. |
 | `groupPaths` | A member keeps access, and write access, while any of its groups still grants it. |
+| `shareAfterGroupShare` | A user share right after a group share above it lands, though this device's own background re-citation advances the shared folder's head meanwhile. |
 
 `src/scenarios/knownIssues.test.ts` holds reproductions of open issues, each
 marked `test.failing`. They pass while the bug stands and fail once it is
@@ -46,9 +47,6 @@ around these:
 
 - [#2646](https://github.com/a2f0/tearleads/issues/2646): removing a group
   member fails when the policy commit must carry a descendant rekey.
-- [#2647](https://github.com/a2f0/tearleads/issues/2647): a share shortly
-  after a group share on an ancestor can race the SDK's own descendant
-  re-cite. It is intermittent, so it has no `test.failing` reproduction.
 - [#2648](https://github.com/a2f0/tearleads/issues/2648): a device that synced
   a document before an ancestor revoke never repairs its path to write it.
 

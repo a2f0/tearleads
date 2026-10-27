@@ -62,7 +62,7 @@ export function isContainerPathTooDeepFailure(
 }
 
 export function isStaleParentContainerPathFailure(
-  failure: ContainerMutationSubmitFailure,
+  failure: Pick<ContainerMutationSubmitFailure, "code" | "status">,
 ): boolean {
   return (
     failure.status === 409 &&
