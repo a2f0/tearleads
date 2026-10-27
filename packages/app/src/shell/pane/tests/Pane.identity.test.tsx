@@ -314,21 +314,10 @@ test(
     const toolbar = within(identityManagerWindow).getByRole("toolbar", {
       name: "Toolbar",
     });
-    fireEvent.click(
-      within(toolbar).getByRole("button", {
-        name: "Identity actions",
-      }),
-    );
-    const actionsMenu = view.baseElement.querySelector(".menu");
-    if (!(actionsMenu instanceof HTMLElement)) {
-      throw new Error("Expected the identity actions menu to open.");
-    }
-    fireEvent.click(
-      within(actionsMenu).getByRole("button", { name: "Log Out" }),
-    );
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Log Out" }));
 
     // findByRole, not getByRole: the dialog mounts on a state update that can
-    // land a tick after the menu click under suite load.
+    // land a tick after the toolbar click under suite load.
     const dialog = await view.findByRole("dialog");
     const checkbox = within(dialog).getByRole("checkbox") as HTMLInputElement;
     expect(checkbox.checked).toBe(true);
