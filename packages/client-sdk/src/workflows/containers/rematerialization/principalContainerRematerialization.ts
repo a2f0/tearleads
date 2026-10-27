@@ -7,7 +7,6 @@ import type {
   ContainerMutationResponse,
   ContainerWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import { rememberVerifiedContainerHeads } from "../../../data/containers/shared/heldContainerHeads";
 import type { AuthoredContainerMutationHead } from "../../../data/containers/shared/mutationAcknowledgement";
 import { acknowledgeContainerMutationBatch } from "../../../data/containers/shared/mutationAcknowledgement";
@@ -34,10 +33,12 @@ import { buildMaterializedContainerSharePlan } from "../child/share/shareMateria
 import { withPrecedingRematerialization } from "./precedingPrincipalRematerialization";
 import {
   addPlan,
+  assertNamedContainersRotated,
   type BatchPlanning,
   carryLevel,
   type PrincipalContainerRematerializationInput,
   type PrincipalRematerializationPredecessor,
+  planOnceMoreAfterRollback,
   rerootOnAuthoredPaths,
   staleLevelsAbove,
 } from "./principalContainerRematerializationPlanning";
@@ -332,9 +333,20 @@ async function planRematerializationTarget(
  * rotation it rides, and a named container the batch rematerializes anyway is
  * re-planned there rather than rotated twice.
  */
-async function buildPrincipalContainerRematerializationPlans(
+function buildPrincipalContainerRematerializationPlans(
   input: PrincipalContainerRematerializationInput,
   carriedContainerIds: readonly string[] = [],
+) {
+  return planOnceMoreAfterRollback(
+    input.apiClient,
+    [...input.grants.map((grant) => grant.containerId), ...carriedContainerIds],
+    () => planRematerializationBatch(input, carriedContainerIds),
+  );
+}
+
+async function planRematerializationBatch(
+  input: PrincipalContainerRematerializationInput,
+  carriedContainerIds: readonly string[],
 ): Promise<{
   entries: PlannedRematerialization[];
   retiredContainerIds: readonly string[];
@@ -389,32 +401,6 @@ async function buildPrincipalContainerRematerializationPlans(
       knownContainerKeks: batch.knownContainerKeks,
     },
   };
-}
-
-/**
- * The server names a level it found pinned to a retired epoch. A batch answers
- * with a rotation of it: a carried rekey, or its own rematerialization when
- * that is a rekey or revoke. A rematerialized grant rotates nothing, so a
- * batch that both grants a container and must re-key it cannot be signed;
- * no policy change the SDK builds combines the two.
- */
-function assertNamedContainersRotated(
-  plans: readonly PlannedRematerialization[],
-  requiredContainerIds: readonly string[],
-): void {
-  const rotatedIds = new Set(
-    plans.flatMap((entry) =>
-      entry.rotated ? [entry.planned.plan.containerId] : [],
-    ),
-  );
-  const unrotated = requiredContainerIds
-    .slice(0, MAX_ROTATION_CONTAINER_REKEYS)
-    .find((containerId) => !rotatedIds.has(containerId));
-  if (unrotated !== undefined) {
-    throw new Error(
-      `Container ${unrotated} needs a rekey this policy change only grants`,
-    );
-  }
 }
 
 export async function preparePrincipalContainerRematerializationBatch(

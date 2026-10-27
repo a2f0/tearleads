@@ -663,7 +663,8 @@ or `moveContainerResult`, and `getContainerWriterProjection`.
 A user share whose path advanced in flight, most often under this device's own
 held-descendant re-citation, is planned once more from a fresh projection that
 is held to the same pins. Adapters opt in with `shareContainerResult`; without
-it a stale share fails as any other refusal does.
+it a stale share fails as any other refusal does. A group policy batch whose
+served heads the re-citation pins past is likewise planned once more.
 
 Principal-policy writes acknowledge the exact submitted state and current
 artifacts without retransmitting `previousStates`. The SDK verifies that receipt
