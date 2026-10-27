@@ -13,7 +13,6 @@ import { LogoutConfirmationDialog } from "../../components/shared/LogoutConfirma
 import "./IdentityManager.css";
 import { useIdentityManager } from "./IdentityManagerController";
 import { useIdentityManagerSidebarPanel } from "./IdentityManagerSidebar";
-import { IdentityManagerActionsMenu } from "./menu/IdentityManagerActionsMenu";
 import { IdentityManagerMenu } from "./menu/IdentityManagerMenu";
 import { IdentityManagerGeneralSection } from "./panels/IdentityManagerGeneralSection";
 import { IdentityManagerPinCodeSection } from "./panels/IdentityManagerPinCodeSection";
@@ -22,6 +21,7 @@ import type { IdentityManagerView } from "./routes";
 import { SessionDetailSection } from "./sessions/IdentityManagerSessionDetail";
 import { SessionsSection } from "./sessions/IdentityManagerSessions";
 import { IdentitySwitcher } from "./switcher/IdentitySwitcher";
+import { useIdentityManagerLogoutAction } from "./toolbar/useIdentityManagerLogoutAction";
 import { useIdentityManagerRoute } from "./useIdentityManagerRoute";
 
 type IdentityManagerModel = ReturnType<typeof useIdentityManager>;
@@ -154,19 +154,17 @@ function IdentityManagerLayout(model: IdentityManagerModel) {
   }, [canManageSessions, hasSelectedSession, selectedSessionId, view]);
 
   useIdentityManagerSidebarPanel({ setView: route.setView, view });
+  useIdentityManagerLogoutAction({
+    disabled:
+      model.identity.identityTransitionInFlight ||
+      identityMutations.identityBusy !== null ||
+      sessionMutations.mutatingSessionId !== null,
+    isAuthenticated: model.session.isAuthenticated,
+    onLogout: logoutDialog.requestLogout,
+  });
 
   return (
     <MiniAppRoot className="identity-manager">
-      {model.session.isAuthenticated && (
-        <IdentityManagerActionsMenu
-          disabled={
-            model.identity.identityTransitionInFlight ||
-            identityMutations.identityBusy !== null ||
-            sessionMutations.mutatingSessionId !== null
-          }
-          onLogout={logoutDialog.requestLogout}
-        />
-      )}
       <IdentitySwitcher switcher={identitySwitcher} />
       <main className="identity-manager-main">
         {view === "active-sessions" && canManageSessions && selectedSession ? (

@@ -330,23 +330,12 @@ test("current-session logout sits beside Refresh in the window toolbar", async (
       within(toolbar)
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Identity actions", "Refresh"]);
+    ).toEqual(["Log Out", "Refresh"]);
     expect(
-      within(identitySection).queryByRole("button", {
-        name: "Identity actions",
-      }),
+      within(identitySection).queryByRole("button", { name: "Log Out" }),
     ).toBeNull();
 
-    fireEvent.click(
-      within(toolbar).getByRole("button", {
-        name: "Identity actions",
-      }),
-    );
-    const menu = view.baseElement.querySelector(".menu");
-    if (!(menu instanceof HTMLElement)) {
-      throw new Error("Expected the identity actions menu to open.");
-    }
-    fireEvent.click(within(menu).getByRole("button", { name: "Log Out" }));
+    fireEvent.click(within(toolbar).getByRole("button", { name: "Log Out" }));
 
     const dialog = view.getByRole("dialog");
     expect(
@@ -357,34 +346,7 @@ test("current-session logout sits beside Refresh in the window toolbar", async (
   }
 });
 
-test("identity actions menu trigger toggles the menu shut when reclicked", async () => {
-  const { restore, view } =
-    await renderAuthenticatedIdentityManagerWithSessions([ACTIVE_SESSION]);
-
-  try {
-    const trigger = within(
-      view.getByRole("toolbar", { name: "Toolbar" }),
-    ).getByRole("button", {
-      name: "Identity actions",
-    });
-
-    fireEvent.click(trigger);
-    expect(view.baseElement.querySelector(".menu")).not.toBeNull();
-    expect(trigger.getAttribute("aria-expanded")).toBe("true");
-
-    // Re-clicking the trigger issues mousedown (which the Menu listens for to
-    // close on outside clicks) then click. The menu must end up closed, not
-    // close-and-reopen.
-    fireEvent.mouseDown(trigger);
-    fireEvent.click(trigger);
-    expect(view.baseElement.querySelector(".menu")).toBeNull();
-    expect(trigger.getAttribute("aria-expanded")).toBe("false");
-  } finally {
-    restore();
-  }
-});
-
-test("identity actions menu stays hidden while signed out", async () => {
+test("toolbar logout stays hidden while signed out", async () => {
   const originalWebSocket = globalThis.WebSocket;
   const tearleadsRef: { current: Tearleads | null } = { current: null };
 
@@ -407,7 +369,7 @@ test("identity actions menu stays hidden while signed out", async () => {
       expect(view.getByRole("heading", { name: "Identity" })).toBeTruthy();
     });
 
-    expect(view.queryByRole("button", { name: "Identity actions" })).toBeNull();
+    expect(view.queryByRole("button", { name: "Log Out" })).toBeNull();
   } finally {
     Reflect.set(globalThis, "WebSocket", originalWebSocket);
   }
