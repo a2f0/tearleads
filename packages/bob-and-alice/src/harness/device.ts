@@ -134,6 +134,20 @@ export class Device {
     return this.treeStore;
   }
 
+  /**
+   * Waits until this install's tree holds `folderId`, as a user must see a
+   * folder before acting on it; a fresh install pulls it from the API.
+   */
+  async holdFolder(folderId: string): Promise<void> {
+    const tree = await this.tree();
+    const held = () =>
+      tree.getSnapshot().nodes.some((node) => node.id === folderId);
+    await until(
+      async () => held() || ((await tree.refresh()) && held()),
+      `${this.label} folder ${folderId}`,
+    );
+  }
+
   /** Waits until every queued local write has settled with the API. */
   async idle(): Promise<void> {
     const coordinator = getOrCreateDomainSyncCoordinator(
