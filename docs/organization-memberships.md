@@ -128,7 +128,11 @@ the removal. Organizations offers to ask on every listed membership except the
 personal one, and to withdraw once asked.
 
 The request is stored on the member's roster row and reaches administrators in
-the organization read model's `directory` lane, which the filing stamps. Each
+the organization read model's `directory` lane, which the filing stamps. Only
+administrators and the member themselves are served it; other members see the
+roster entry without it. Because the lane's content depends on the viewer's
+role, a change to `Admins` stamps the `directory` lane too, so a newly promoted
+administrator's next delta carries pending requests. Each
 administrator's client stores the request only if it names the organization
 and member, and shows it only if it verifies against the member's trusted,
 pinned identity, never the signing key served beside it, so a server cannot

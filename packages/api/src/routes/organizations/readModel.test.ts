@@ -309,7 +309,9 @@ test("Members and Admins policy changes invalidate exact membership rows", async
     "expected Admins membership delta",
   );
   expect(delta.currentUser.isOrgAdmin).toBe(true);
-  expect(delta.lanes.directory).toBeUndefined();
+  // Pending leave requests are served by role, so an Admins change re-stamps
+  // the directory a promoted administrator must reload.
+  expect(delta.lanes.directory).toBeDefined();
   expect(delta.lanes.groups).toBeDefined();
   expect(delta.lanes.groupMemberships?.deletedGroupIds).toEqual([]);
   expect(delta.lanes.groupMemberships?.groups).toHaveLength(1);
