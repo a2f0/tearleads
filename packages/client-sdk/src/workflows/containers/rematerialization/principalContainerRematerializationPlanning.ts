@@ -4,9 +4,10 @@ import type { ContainerWriterProjectionResponse } from "@tearleads/validators/re
 import { MAX_ROTATION_CONTAINER_REKEYS } from "@tearleads/validators/util";
 import type { ContainerReciteApi } from "../../../data/containers/shared/reciteApi";
 import type { ContainerMutationAuthor } from "../../../data/containers/shared/types";
-import type {
-  PrincipalPolicyCache,
-  ReferencedPrincipalPolicyWarmer,
+import {
+  type PrincipalPolicyCache,
+  type ReferencedPrincipalPolicyWarmer,
+  verifyContainerWriterProjection,
 } from "../../../data/keyingProjectionVerification";
 import type { ResolvedPrincipalPolicyEvidence } from "../../../data/keyingProjectionVerification/types";
 import type { createProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification/userKeyResolver";
@@ -17,8 +18,10 @@ import type { ExecSql } from "../../../data/sqlite/sqlSchema";
 import type { TrustedUserIdentityResolver } from "../../../data/trustedUserIdentity";
 import {
   planCarriedDescendantRekey,
+  rebaseOnDeepestAncestor,
   type SpeculativePath,
 } from "../child/rekey/carriedDescendantRekeys";
+import { isSpeculativeContainerWriterProjection } from "../child/rekey/rekeyProjection";
 import type { PlannedRematerialization } from "./principalContainerRematerializationTargets";
 
 export interface RematerializationApi
@@ -75,6 +78,8 @@ export interface BatchPlanning {
     typeof createProjectionUserKeyResolver
   >;
   readonly rotatedAbove: SpeculativePath[];
+  /** Every path the batch authored, a grant's included, in signing order. */
+  readonly authoredAbove: SpeculativePath[];
 }
 
 /** How many rekeys the batch carries beyond its rematerializations. */
@@ -128,11 +133,45 @@ export async function carryLevel(
   });
 }
 
+/**
+ * Re-root a granted target on the deepest path the batch authored above it, a
+ * grant's included: the server applies the batch in order, so the target
+ * cites every head an earlier entry advances. Its served head is pinned first,
+ * as a carried rekey's is. The batch is acknowledged against the latest
+ * durable pin, and a re-rooted path pins nothing, so a device that never
+ * pinned this container would refuse its own batch once the server took it.
+ * Only what the API served is pinned: in a compound transaction the target
+ * may already sit on the preceding batch's heads, which a refused commit
+ * never makes real.
+ */
+export async function rerootOnAuthoredPaths(
+  batch: BatchPlanning,
+  served: ContainerWriterProjectionResponse,
+): Promise<ContainerWriterProjectionResponse> {
+  const rebased = rebaseOnDeepestAncestor(served, batch.authoredAbove);
+  if (!rebased) return served;
+  if (isSpeculativeContainerWriterProjection(served)) {
+    return rebased.projection;
+  }
+  const { rematerialization } = batch;
+  await verifyContainerWriterProjection({
+    execSql: rematerialization.execSql,
+    principalPolicyCache: batch.principalPolicyCache,
+    projection: served,
+    resolveUserKey: batch.resolveProjectionUserKey,
+    stillCurrent: rematerialization.stillCurrent,
+    warmReferencedPrincipalPolicies:
+      rematerialization.warmReferencedPrincipalPolicies,
+  });
+  return rebased.projection;
+}
+
 export function addPlan(
   batch: BatchPlanning,
   entry: PlannedRematerialization,
 ): void {
   batch.plans.push(entry);
+  if (entry.nextProjection) batch.authoredAbove.push(entry.nextProjection);
   if (!entry.rotated) return;
   batch.rotatedAbove.push(entry.rotated);
   const minted = entry.rotated.containerKeks.at(-1)?.containerKeyEpochId;

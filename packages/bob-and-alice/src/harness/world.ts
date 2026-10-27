@@ -281,9 +281,13 @@ export class World {
     this.model.addGroupMember(group.id, member.userId);
   }
 
-  async removeFromGroup(actor: User, group: Group, member: User) {
+  async removeFromGroup(
+    actor: User,
+    group: Group,
+    member: User,
+    device: Device = primary(actor),
+  ) {
     trace(`removeFromGroup`);
-    const device = primary(actor);
     await device.sdk.organizations.removeUserFromGroup({
       expectedGroupName: group.name,
       groupId: group.id,
@@ -298,9 +302,10 @@ export class World {
     folder: Folder,
     group: Group,
     level: AccessLevel,
+    device: Device = primary(actor),
   ): Promise<void> {
     trace(`shareWithGroup`);
-    const device = primary(actor);
+    await device.holdFolder(folder.id);
     const shared = await (await device.tree()).shareWithGroup(
       folder.id,
       group.id,
@@ -331,7 +336,13 @@ export class World {
   /** The container's current key epoch, as `actor` verifies it. */
   async keyEpoch(actor: User, folder: Folder): Promise<number> {
     trace(`keyEpoch`);
-    const info = await primary(actor).sdk.containerContents.loadContainerInfo({
+    const { containerContents } = primary(actor).sdk;
+    // Read what the API holds now: without realtime hints, nothing evicts a
+    // projection this device cached before another device rotated the folder.
+    containerContents
+      .workflowRuntime()
+      .apiClient.evictContainerWriterProjection(folder.id);
+    const info = await containerContents.loadContainerInfo({
       containerId: folder.id,
       remoteInfoMode: "always",
     });

@@ -73,11 +73,11 @@ export async function commitCurrentShareGrant(input: {
         signingFingerprint: share.author.signerKeyFingerprint,
         signingKeyPair,
         resolveTrustedUserIdentity: share.resolveTrustedUserIdentity,
-        prepareContainerMutations: async (nextPolicy) => {
+        prepareContainerMutations: async (nextPolicy, preceding) => {
           prepared.batch = await prepareCurrentShareGrantBatch(
             share,
             context,
-            nextPolicy,
+            { nextPolicy, preceding },
             input.recitationStillCurrent,
           );
           return prepared.batch;
@@ -132,13 +132,18 @@ async function assertCurrentShareGrantName(
 function prepareCurrentShareGrantBatch(
   share: Parameters<typeof shareRemoteContainerWithGroup>[0],
   context: RuntimeCurrentGroupMutationContext,
-  nextPolicy: Parameters<
-    typeof preparePrincipalContainerRematerializationBatch
-  >[0]["nextPolicy"],
+  {
+    nextPolicy,
+    preceding,
+  }: Pick<
+    Parameters<typeof preparePrincipalContainerRematerializationBatch>[0],
+    "nextPolicy" | "preceding"
+  >,
   recitationStillCurrent?: () => boolean,
 ) {
   return preparePrincipalContainerRematerializationBatch({
     ...share,
+    preceding,
     grants: [
       ...new Map(
         [...context.currentPolicy.currentGrants, ...nextPolicy.grants].map(
