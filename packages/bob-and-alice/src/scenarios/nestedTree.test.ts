@@ -15,8 +15,7 @@ afterEach(() => {
 // root -> a -> b -> c -> d, with a group and a user on `a` and a direct grant
 // on `c`. A revoke on `a` must carry `b`'s rekey and leave `c`'s grantee able
 // to write below it, and a later move of `c` out from under `a` must take the
-// group's access with it. (A group shrink on `a` here hits #2646; see
-// knownIssues.test.ts.)
+// group's access with it. `groupShrinkCarry` shrinks a group on this shape.
 test("grants at two levels of a deep tree survive a shrink and a subtree move", async () => {
   world = await World.create();
   const alice = await world.register("alice");
