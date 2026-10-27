@@ -32,6 +32,13 @@ test("a direct grant keeps access after the overlapping group grant goes", async
   await world.newDevice(alice);
   await expectAccess(world, document);
   await world.shareWithUser(alice, folder, bob);
+  // With no realtime hints, refresh the folder's contents to learn the grant
+  // before the original read-only editor can become writable.
+  const bobDevice = bob.devices[0];
+  if (!bobDevice) throw new Error("Expected Bob's original device");
+  await (await bobDevice.tree()).refresh();
+  await bobDevice.sdk.containerContents.discoverContainerDocuments(folder.id);
+  await world.editDocument(bob, document, "bob recovered write access");
   await expectAccess(world, document);
 
   const epochBefore = await world.keyEpoch(alice, folder);

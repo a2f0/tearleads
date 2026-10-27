@@ -192,15 +192,19 @@ export interface DiscoverContainerDocumentsOptions
     containerId: string,
   ) => Promise<SyncWatermark | null>;
   listContainerDocumentLanes: ContainerDocumentLaneLister;
+  /** Recheck stillCurrent under the mutation lock before persisting a listing. */
   replaceDocumentLinksBatch: (
     inputs: ReadonlyArray<DocumentLinkInput>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<void>;
   saveContainerDocumentWatermark: (
     containerId: string,
     watermark: SyncWatermark,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<void>;
   upsertDiscoveredDocuments: (
     inputs: ReadonlyArray<DiscoveredDocumentInput>,
+    stillCurrent: () => Promise<boolean>,
   ) => Promise<ReadonlyArray<DocumentSummary>>;
 }
 

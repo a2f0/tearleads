@@ -20,6 +20,7 @@ export async function saveAppliedContainerDocumentWatermark(input: {
   containerId: string;
   listedDocuments: ListedContainerDocuments;
   saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"];
+  stillCurrent: () => Promise<boolean>;
 }) {
   const { containerId, listedDocuments, saveContainerDocumentWatermark } =
     input;
@@ -30,6 +31,7 @@ export async function saveAppliedContainerDocumentWatermark(input: {
   await saveContainerDocumentWatermark(
     containerId,
     listedDocuments.nextWatermark,
+    input.stillCurrent,
   );
 }
 
@@ -70,7 +72,7 @@ export async function applyListedContainerDocuments(
   if (!(await verification.isCurrent())) return null;
   const verifiedInputs = verification.inputs;
   const discoveredDocuments = verifiedInputs.length
-    ? await upsertDiscoveredDocuments(verifiedInputs)
+    ? await upsertDiscoveredDocuments(verifiedInputs, verification.isCurrent)
     : [];
 
   if (verifiedInputs.length)
@@ -83,6 +85,7 @@ export async function applyListedContainerDocuments(
         })),
         discoveredDocuments,
       ),
+      verification.isCurrent,
     );
 
   const tombstoneDocumentSummaries = await settleContainerDocumentTombstones({
@@ -97,7 +100,9 @@ export async function applyListedContainerDocuments(
     containerId,
     listedDocuments,
     saveContainerDocumentWatermark: options.saveContainerDocumentWatermark,
+    stillCurrent: verification.isCurrent,
   });
+  if (!(await verification.isCurrent())) return null;
 
   if (listedDocuments.isFullListing) {
     // Initial probes consume ids as discovery hints and verify their own heads.

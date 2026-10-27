@@ -214,6 +214,25 @@ async function listDiscoveryLanes(
   }));
 }
 
+async function saveListedWatermarks(
+  lanes: readonly ListedContainerDocumentsLane[],
+  saveContainerDocumentWatermark: DiscoverContainerDocumentsOptions["saveContainerDocumentWatermark"],
+  stillCurrent: () => Promise<boolean>,
+): Promise<void> {
+  await Promise.all(
+    lanes.map(({ containerId, listedDocuments }) =>
+      listedDocuments
+        ? saveAppliedContainerDocumentWatermark({
+            containerId,
+            listedDocuments,
+            saveContainerDocumentWatermark,
+            stillCurrent,
+          })
+        : undefined,
+    ),
+  );
+}
+
 export async function discoverAllContainerDocuments(
   options: DiscoverAllContainerDocumentsOptions,
 ): Promise<ReadonlyArray<DocumentSummary> | null> {
@@ -257,7 +276,10 @@ export async function discoverAllContainerDocuments(
   const discoveredDocuments =
     discoveredDocumentInputs.length === 0
       ? []
-      : await upsertDiscoveredDocuments(discoveredDocumentInputs);
+      : await upsertDiscoveredDocuments(
+          discoveredDocumentInputs,
+          verification.isCurrent,
+        );
 
   if (discoveredDocumentInputs.length > 0) {
     await replaceDocumentLinksBatch(
@@ -269,6 +291,7 @@ export async function discoverAllContainerDocuments(
         })),
         discoveredDocuments,
       ),
+      verification.isCurrent,
     );
   }
 
@@ -284,17 +307,12 @@ export async function discoverAllContainerDocuments(
   const complete = await verification.commit();
   if (!(await verification.isCurrent())) return null;
 
-  await Promise.all(
-    listedDocumentsByContainer.map(({ containerId, listedDocuments }) =>
-      listedDocuments
-        ? saveAppliedContainerDocumentWatermark({
-            containerId,
-            listedDocuments,
-            saveContainerDocumentWatermark,
-          })
-        : undefined,
-    ),
+  await saveListedWatermarks(
+    listedDocumentsByContainer,
+    saveContainerDocumentWatermark,
+    verification.isCurrent,
   );
+  if (!(await verification.isCurrent())) return null;
 
   return !complete &&
     discoveredDocuments.length === 0 &&

@@ -13,7 +13,10 @@ async function discover(
 ): Promise<{ containerId: string; localId: string } | null> {
   const tree = await device.tree();
   await tree.refresh().catch(() => false);
-  for (const containerId of document.containerIds) {
+  // Start from folders this device discovered, never a folder id supplied by
+  // the reference model. Otherwise a broken shared tree can pass cold reads.
+  for (const { id: containerId } of tree.getSnapshot().nodes) {
+    if (!document.containerIds.includes(containerId)) continue;
     const discovered = await device.sdk.containerContents
       .discoverContainerDocuments(containerId)
       .catch(() => null);
@@ -45,7 +48,7 @@ export async function readDocument(
     : undefined;
   const found = localId
     ? {
-        containerId: held?.containerId ?? document.containerIds[0] ?? null,
+        containerId: held?.containerId ?? null,
         localId,
       }
     : await discover(device, document);
@@ -70,6 +73,5 @@ export async function readText(
   document: DocumentRef,
 ): Promise<string | null> {
   const store = await readDocument(device, document);
-  const text = store?.getSnapshot().text ?? "";
-  return text === "" ? null : text;
+  return store?.getSnapshot().text ?? null;
 }
