@@ -107,6 +107,9 @@ test("unbooted pane context menu can generate a key pair", async () => {
   });
 
   expect(view.getByText("Generate Key Pair")).toBeTruthy();
+  expect(view.getByRole("button", { name: "System Monitor" })).toBeTruthy();
+  expect(view.queryByRole("button", { name: "Explorer" })).toBeNull();
+  expect(view.queryByRole("button", { name: "Lock" })).toBeNull();
   expect(view.queryByRole("button", { name: "Notes" })).toBeNull();
 
   await act(async () => {

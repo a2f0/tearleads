@@ -110,7 +110,7 @@ test("home pane hides the monitor inline and keeps it out of the tray", () => {
   view.unmount();
 });
 
-test("launcher opens a window with Logs and Status tabs", async () => {
+test("Start menu opens a window with Logs and Status tabs", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
   openSystemMonitor(view);
@@ -270,7 +270,8 @@ test("pin to desktop closes the window, renders inline, and persists the choice"
 
   openSystemMonitor(view);
   await view.findByRole("tab", { name: "Logs" });
-  expect(view.container.querySelector(".window")).not.toBeNull();
+  openSystemMonitor(view);
+  expect(view.container.querySelectorAll(".window")).toHaveLength(1);
   expect(view.container.querySelector(".system-monitor-toolbar")).toBeNull();
   expect(
     view.container.querySelectorAll(".window-titlebar-buttons > button"),
@@ -340,7 +341,7 @@ for (const tier of ["tablet", "mobile"] as const) {
   });
 }
 
-test("closing the window via its X button leaves the launcher to reopen it", async () => {
+test("closing the window via its X button leaves the Start menu to reopen it", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
   openSystemMonitor(view);
@@ -379,7 +380,7 @@ test("a pinned monitor renders inline (status + log) on load", () => {
   view.unmount();
 });
 
-test("clicking the launcher while pinned pops back out to a window", async () => {
+test("clicking the Start menu entry while pinned pops back out to a window", async () => {
   const view = renderPane({ pinSystemMonitor: true });
 
   expect(view.container.querySelector(".pane-content")).not.toBeNull();
