@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createTestExecSql } from "@tearleads/test-utils";
 import { quietLogger } from "../test/helpers/clientTestSupport";
+import { createMemoryBlobStore } from "./data/blobs/memoryBlobStore";
 import { loadContainers } from "./data/persistence/container-contents/containerPersistence";
 import { Tearleads } from "./Tearleads";
 
@@ -79,6 +80,7 @@ describe("Tearleads constructor", () => {
     );
     try {
       const sdk = new Tearleads({
+        blobStoreFactory: () => createMemoryBlobStore(),
         identityProvisioning: "auto",
         logger: quietLogger,
       });
