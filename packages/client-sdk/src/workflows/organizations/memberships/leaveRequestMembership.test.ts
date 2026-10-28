@@ -17,6 +17,7 @@ function entry(
   version: number,
   keyEpoch: number,
   userIds: readonly string[],
+  keyFingerprint = `members-key-${keyEpoch}`,
 ): PrincipalPolicyStateChainEntryResponse {
   return {
     grants: [],
@@ -28,7 +29,7 @@ function entry(
       grantCount: 0,
       grantRoot: "grants",
       keyEpoch,
-      keyFingerprint: `members-key-${keyEpoch}`,
+      keyFingerprint,
       memberCount: userIds.length,
       memberEnvelopesRoot: "envelopes",
       membershipMode: "projection",
@@ -58,8 +59,11 @@ const HISTORY = [
   entry(5, 3, [ADMIN, MEMBER]),
 ];
 
-function headAt(version: number): ReferencedPrincipalHead {
-  const state = HISTORY[version - 1]?.state;
+function headAt(
+  version: number,
+  history: readonly PrincipalPolicyStateChainEntryResponse[] = HISTORY,
+): ReferencedPrincipalHead {
+  const state = history[version - 1]?.state;
   if (!state) throw new Error("No such Members state");
   return {
     keyEpoch: state.keyEpoch,
@@ -71,8 +75,14 @@ function headAt(version: number): ReferencedPrincipalHead {
   };
 }
 
-function requestCiting(version: number): OrganizationLeaveRequest {
-  const { principalType: _principalType, ...membersHead } = headAt(version);
+function requestCiting(
+  version: number,
+  history: readonly PrincipalPolicyStateChainEntryResponse[] = HISTORY,
+): OrganizationLeaveRequest {
+  const { principalType: _principalType, ...membersHead } = headAt(
+    version,
+    history,
+  );
   return {
     membersHead,
     organizationId: "6a1f3c2e-8d4b-4f6a-9c1e-2b3d4e5f6a7b",
@@ -198,4 +208,25 @@ test("history that skips a version or ends elsewhere proves nothing", async () =
   expect(await checkAt(3, historyPages(otherHead, 4))(requestCiting(1))).toBe(
     false,
   );
+});
+
+test("a request from another fork of Members history is refused", async () => {
+  // Two signed successors of version 1 both rotate to epoch 2, with different
+  // keys. The member asked on the fork that removed the colleague; this
+  // device follows the fork that removed and re-added the member.
+  const asked = [
+    entry(1, 1, [ADMIN, MEMBER, COLLEAGUE]),
+    entry(2, 2, [ADMIN, MEMBER], "fork-a"),
+  ];
+  const followed = [
+    entry(1, 1, [ADMIN, MEMBER, COLLEAGUE]),
+    entry(2, 2, [ADMIN, COLLEAGUE], "fork-b"),
+    entry(3, 2, [ADMIN, MEMBER, COLLEAGUE], "fork-b"),
+  ];
+  const check = createLeaveRequestMembershipCheck({
+    loadHistoryPage: historyPages(followed, 4),
+    loadMembersHead: async () => headAt(3, followed),
+  });
+  expect(await check(requestCiting(2, asked))).toBe(false);
+  expect(await check(requestCiting(3, followed))).toBe(true);
 });

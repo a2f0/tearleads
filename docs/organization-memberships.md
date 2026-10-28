@@ -144,17 +144,19 @@ present a request the member never made.
 
 The client also shows a request only while it belongs to the member's current
 membership, judged against the Members head in the client's own verified
-organization policy. Removing anyone from Members rotates its key epoch, so a
-request citing that head's epoch has seen no removal since. A request citing an
-earlier epoch is shown only if verified Members history, read through the
-private paged verifier, lists the member in every state from the cited one on,
-with the cited state matching exactly. A server that serves a request again
-from a membership the member left, after the member rejoins, therefore cannot
-make it look current: the member's removal is in that history. A request the
-client cannot place, for instance offline with an earlier epoch, is shown as
-no request. Directory users a roster update returns pass the same checks, and
-a pinned identity and a current-epoch request verify offline. Org Manager shows
-the member as having asked to leave and offers to approve the request.
+organization policy. Removing anyone from Members rotates its key epoch and
+key, so a request citing that head's epoch and key has seen no removal since;
+one citing the same epoch with another key can only come from a fork and is
+refused. A request citing an earlier epoch is shown only if verified Members
+history, read through the private paged verifier, lists the member in every
+state from the cited one on, with the cited state matching exactly. A server
+that serves a request again from a membership the member left, after the member
+rejoins, therefore cannot make it look current: the member's removal is in that
+history. A request the client cannot place, for instance offline with an
+earlier epoch, is shown as no request. Directory users a roster update returns
+pass the same checks, and a pinned identity and a current-epoch request verify
+offline. Org Manager shows the member as having asked to leave and offers to
+approve the request.
 
 Approving is the ordinary removal: the administrator signs the member out of
 each group and then out of `Members`, rotating keys as any removal does.

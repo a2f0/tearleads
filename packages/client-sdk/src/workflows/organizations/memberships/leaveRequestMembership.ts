@@ -76,8 +76,8 @@ async function memberStayedSinceCitedState(
 
 /**
  * Checks each leave request against this device's verified Members head.
- * Removing anyone from Members rotates its key epoch, so a request citing the
- * head's own epoch has seen no removal since. One citing an earlier epoch
+ * Removing anyone from Members rotates its key epoch and key, so a request
+ * citing the head's own epoch and key has seen no removal since. One citing an earlier epoch
  * stands only if verified history shows its member in every Members state
  * from the cited one on; a request from a membership a removal ended never
  * does, whatever the server serves beside it. Display only: a request this
@@ -97,7 +97,10 @@ export function createLeaveRequestMembershipCheck(
       cited.keyEpoch > head.keyEpoch
     )
       return false;
-    if (cited.keyEpoch === head.keyEpoch) return true;
+    // One signed chain holds one key per epoch, so a matching epoch with a
+    // different key can only come from a fork, never from this history.
+    if (cited.keyEpoch === head.keyEpoch)
+      return cited.keyFingerprint === head.keyFingerprint;
     if (!evidence.loadHistoryPage || cited.version >= head.version)
       return false;
     return memberStayedSinceCitedState(
