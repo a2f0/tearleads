@@ -14,7 +14,6 @@ import {
 } from "../../../mini-apps/bus";
 import { useRegisterMiniAppLauncher } from "../../../mini-apps/miniAppLauncher";
 import { MINI_APP_LAUNCHER } from "../../../mini-apps/registry";
-import { SystemMonitorLauncherButton } from "../../../mini-apps/system-monitor/SystemMonitorLauncherButton";
 import { SystemMonitorPinned } from "../../../mini-apps/system-monitor/SystemMonitorPinned";
 import { SystemMonitorProvider } from "../../../mini-apps/system-monitor/SystemMonitorProvider";
 import { AppNavigationProvider } from "../../../navigation/AppNavigationProvider";
@@ -77,7 +76,6 @@ function PaneInner({
             <>
               <ThemeToggleButton />
               <NavigationModeSwitch mode="windowed" />
-              <SystemMonitorLauncherButton />
               <SyncStatusIndicator />
             </>
           }

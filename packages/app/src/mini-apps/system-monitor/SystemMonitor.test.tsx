@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, render, waitFor } from "@testing-library/react";
+import { openSystemMonitor } from "../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
@@ -99,14 +100,12 @@ function forceRoutedTier(tier: "mobile" | "tablet"): () => void {
   };
 }
 
-test("home pane hides the monitor inline and exposes a launcher by default", () => {
+test("home pane hides the monitor inline and keeps it out of the tray", () => {
   const view = renderPane({ pinSystemMonitor: false });
 
-  // Windowed mode (the production default): nothing inline, no window, just the
-  // launcher affordance.
   expect(view.container.querySelector(".pane-content")).toBeNull();
   expect(view.container.querySelector(".window")).toBeNull();
-  expect(view.getByRole("button", { name: "System Monitor" })).toBeTruthy();
+  expect(view.queryByRole("button", { name: "System Monitor" })).toBeNull();
 
   view.unmount();
 });
@@ -114,7 +113,7 @@ test("home pane hides the monitor inline and exposes a launcher by default", () 
 test("launcher opens a window with Logs and Status tabs", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
 
   const logsTab = await view.findByRole("tab", { name: "Logs" });
   expect(logsTab.getAttribute("aria-selected")).toBe("true");
@@ -141,24 +140,20 @@ test("launcher opens a window with Logs and Status tabs", async () => {
 test("right-clicking the system monitor controls network mode", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
-  fireEvent.contextMenu(view.getByRole("button", { name: "System Monitor" }), {
-    clientX: 20,
-    clientY: 20,
-  });
-  fireEvent.click(await view.findByRole("button", { name: "Force Offline" }));
-
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   fireEvent.click(await view.findByRole("tab", { name: "Status" }));
-
-  await waitFor(() => {
-    expect(getPaneStatusText(view)).toMatch(/network:\s*offline \(manual\)/);
-  });
 
   const systemMonitor =
     view.container.querySelector<HTMLElement>(".system-monitor");
   if (!systemMonitor) {
     throw new Error("Expected System Monitor app root.");
   }
+
+  fireEvent.contextMenu(systemMonitor, { clientX: 20, clientY: 20 });
+  fireEvent.click(await view.findByRole("button", { name: "Force Offline" }));
+  await waitFor(() => {
+    expect(getPaneStatusText(view)).toMatch(/network:\s*offline \(manual\)/);
+  });
 
   fireEvent.contextMenu(systemMonitor, { clientX: 30, clientY: 30 });
   fireEvent.click(await view.findByRole("button", { name: "Force Online" }));
@@ -174,7 +169,7 @@ test("right-clicking selected system monitor text keeps the browser menu", async
   const view = renderPane({ pinSystemMonitor: false });
   const originalGetSelection = window.getSelection;
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   await view.findByRole("tab", { name: "Logs" });
 
   const systemMonitor =
@@ -208,7 +203,7 @@ test("right-clicking selected system monitor text keeps the browser menu", async
 test("tabs follow the roving-tabindex pattern and arrow keys switch tabs", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   const logsTab = await view.findByRole("tab", { name: "Logs" });
   const statusTab = view.getByRole("tab", { name: "Status" });
 
@@ -273,7 +268,7 @@ test("routed system monitor launches from nav and tabs update the path", async (
 test("pin to desktop closes the window, renders inline, and persists the choice", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   await view.findByRole("tab", { name: "Logs" });
   expect(view.container.querySelector(".window")).not.toBeNull();
   expect(view.container.querySelector(".system-monitor-toolbar")).toBeNull();
@@ -348,7 +343,7 @@ for (const tier of ["tablet", "mobile"] as const) {
 test("closing the window via its X button leaves the launcher to reopen it", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   await view.findByRole("tab", { name: "Logs" });
 
   const closeButton =
@@ -366,7 +361,7 @@ test("closing the window via its X button leaves the launcher to reopen it", asy
   expect(view.container.querySelector(".pane-content")).toBeNull();
   expect(globalThis.localStorage.getItem(MODE_KEY)).toBe("windowed");
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   expect(await view.findByRole("tab", { name: "Logs" })).toBeTruthy();
   expect(view.container.querySelector(".window")).not.toBeNull();
 
@@ -389,7 +384,7 @@ test("clicking the launcher while pinned pops back out to a window", async () =>
 
   expect(view.container.querySelector(".pane-content")).not.toBeNull();
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
 
   await waitFor(
     () => {
