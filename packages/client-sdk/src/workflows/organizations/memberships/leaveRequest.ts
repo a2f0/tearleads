@@ -4,7 +4,10 @@ import {
   signOrganizationLeaveRequest,
 } from "@tearleads/crypto";
 import type { OrganizationMembershipResponse } from "@tearleads/validators/response";
-import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
+import type {
+  OrganizationLeaveRequest,
+  OrganizationLeaveRequestMembersHead,
+} from "@tearleads/validators/util";
 import type { OrganizationMembership } from "./organizationMemberships";
 
 export interface OrganizationLeaveRequestApi {
@@ -25,10 +28,14 @@ export type OrganizationLeaveRequestResult =
 /**
  * Files or withdraws the user's request to leave one organization. Filing
  * signs the request with the user's identity key, so administrators can tell
- * the member made it; it removes nothing until an administrator approves it.
+ * the member made it, and binds it to the organization's Members head as this
+ * device verified it, so it cannot outlive this membership. It removes nothing
+ * until an administrator approves it.
  */
 export async function setOrganizationLeaveRequested(input: {
   readonly apiClient: OrganizationLeaveRequestApi;
+  /** The organization's current Members head, freshly verified. */
+  readonly loadMembersHead: () => Promise<OrganizationLeaveRequestMembersHead>;
   readonly organizationId: string;
   readonly requested: boolean;
   readonly signer: {
@@ -37,16 +44,28 @@ export async function setOrganizationLeaveRequested(input: {
   };
   readonly now?: () => Date;
 }): Promise<OrganizationLeaveRequestResult> {
-  const request = input.requested
-    ? signOrganizationLeaveRequest(
-        {
-          organizationId: input.organizationId,
-          requestedAt: (input.now?.() ?? new Date()).toISOString(),
-          userId: input.signer.userId,
-        },
-        input.signer.signingKeyPair,
-      )
-    : null;
+  let request: OrganizationLeaveRequest | null = null;
+  if (input.requested) {
+    let membersHead: OrganizationLeaveRequestMembersHead;
+    try {
+      membersHead = await input.loadMembersHead();
+    } catch {
+      return {
+        httpStatus: null,
+        message: "Could not confirm your current membership. Try again.",
+        status: "failed",
+      };
+    }
+    request = signOrganizationLeaveRequest(
+      {
+        membersHead,
+        organizationId: input.organizationId,
+        requestedAt: (input.now?.() ?? new Date()).toISOString(),
+        userId: input.signer.userId,
+      },
+      input.signer.signingKeyPair,
+    );
+  }
   const result = await input.apiClient.setOrganizationLeaveRequest(
     input.organizationId,
     request,

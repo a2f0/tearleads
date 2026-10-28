@@ -13876,6 +13876,13 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    membersHead: {
+                        keyEpoch: number;
+                        keyFingerprint: string;
+                        principalId: string;
+                        stateHash: string;
+                        version: number;
+                    };
                     organizationId: string;
                     requestedAt: string;
                     signature: string;
@@ -21600,6 +21607,13 @@ export interface operations {
                                     isSelf: boolean;
                                     joinedAt: string;
                                     leaveRequest: {
+                                        membersHead: {
+                                            keyEpoch: number;
+                                            keyFingerprint: string;
+                                            principalId: string;
+                                            stateHash: string;
+                                            version: number;
+                                        };
                                         organizationId: string;
                                         requestedAt: string;
                                         signature: string;
@@ -21703,6 +21717,13 @@ export interface operations {
                                     isSelf: boolean;
                                     joinedAt: string;
                                     leaveRequest: {
+                                        membersHead: {
+                                            keyEpoch: number;
+                                            keyFingerprint: string;
+                                            principalId: string;
+                                            stateHash: string;
+                                            version: number;
+                                        };
                                         organizationId: string;
                                         requestedAt: string;
                                         signature: string;
@@ -21913,6 +21934,13 @@ export interface operations {
                         isSelf: boolean;
                         joinedAt: string;
                         leaveRequest: {
+                            membersHead: {
+                                keyEpoch: number;
+                                keyFingerprint: string;
+                                principalId: string;
+                                stateHash: string;
+                                version: number;
+                            };
                             organizationId: string;
                             requestedAt: string;
                             signature: string;

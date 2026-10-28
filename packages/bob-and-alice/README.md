@@ -15,7 +15,9 @@ can only do and observe what a deployed client could.
 - `src/harness/transport.ts` puts a device-local HTTP proxy in front of the real
   API. A scenario can hold a selected request before submission or its response
   after commit, then release or drop it. Gates make races reproducible and
-  recorded HTTP statuses prove which transaction lost the race.
+  recorded HTTP statuses prove which transaction lost the race. A scenario can
+  also rewrite matching JSON responses to play a dishonest server at the
+  network boundary, while the API itself stays honest.
 - `src/harness/accessModel.ts` is a deliberately naive reference for who may
   read and write each document, from parent pointers, grants, and group
   memberships alone.
@@ -57,6 +59,7 @@ request the API refuses with its error body.
 | `heldPathRehydration` | Writers whose devices held a path from before a revoke, a group shrink, and a second revoke all write afterwards, each repairing what it may. |
 | `manyRotations` | Eight rounds of a group gaining and losing a member rotate the folder sixteen times, with a confidentiality check after every removal; an idle direct grantee then writes, and a reader admitted last reads. An organization admin who is not one of the group's own admins mints a new group key on every add, and the API re-keys every container granted to a group whose key epoch advances. |
 | `retryAfterRestart` | A committed edit whose response is lost survives a restart of the same database, replays its persisted update IDs, drains the outbox, and converges without duplicate content. |
+| `leaveRequestMembership` | A leave request survives another member's removal, which Alice's device confirms by walking verified Members history to the head the request cites. A dishonest server that serves the request again after its member was removed and added back cannot make Alice's device show it. |
 | `offlineRevocation` | An offline outbox survives restart without publishing a revoked writer's edit or disclosing later content; the original database writes again after a regrant. |
 | `concurrentFirstWriters` | Two writers race the first content-key repair after revocation. One gets a stale-write refusal, retries, and preserves both edits while the revoked reader stays excluded. |
 | `concurrentShareAndRevoke` | In both controlled orderings, a stale share or revoke retries once against the newer path, preserving the concurrent grant and the revocation. |
