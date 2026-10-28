@@ -3,6 +3,7 @@ import {
   CONTAINER,
   fixture,
   OTHER,
+  virtualClock,
 } from "../../test/helpers/realtimeContainerAuthorization";
 import * as sentry from "../diagnostics/sentry";
 
@@ -252,9 +253,16 @@ test("repeated periodic timeouts evict a socket's subscriptions instead of keepi
   const capture = spyOn(sentry, "captureApiError").mockImplementation(
     () => undefined,
   );
+  const clock = virtualClock();
   let calls = 0;
   const f = fixture({
-    revalidation: { intervalMs: 4, random: () => 0, maxProofAgeMs: 20 },
+    revalidation: {
+      intervalMs: 4,
+      random: () => 0,
+      maxProofAgeMs: 20,
+      now: clock.now,
+      schedule: clock.schedule,
+    },
     authorize: async (_user, ids) => {
       if (++calls > 1) throw new Error("Container authorization timed out");
       return ids;
@@ -263,14 +271,19 @@ test("repeated periodic timeouts evict a socket's subscriptions instead of keepi
   try {
     f.gateway.websocket.open(f.socket);
     await f.declare("known_containers", [CONTAINER, OTHER]);
-    const deadline = Date.now() + 2_000;
-    while (resyncFrames(f.sent).length === 0 && Date.now() < deadline)
-      await new Promise((resolve) => setTimeout(resolve, 2));
+    // Drive both retry ticks and proof age: host load must not let expiry
+    // overtake the repeated failures this test needs to exercise.
+    await clock.advance(19);
     expect(calls).toBeGreaterThan(2);
+    expect(resyncFrames(f.sent)).toEqual([]);
+    expect(f.router.interestedSocketCount(CONTAINER)).toBe(1);
+    expect(f.router.interestedSocketCount(OTHER)).toBe(1);
+    await clock.advance(1);
     expect(resyncFrames(f.sent)).toEqual([
       { type: "resync_required", containerIds: [CONTAINER, OTHER] },
     ]);
     expect(f.router.interestedSocketCount(CONTAINER)).toBe(0);
+    expect(f.router.interestedSocketCount(OTHER)).toBe(0);
     expect(f.closed).toEqual([]);
   } finally {
     capture.mockRestore();
