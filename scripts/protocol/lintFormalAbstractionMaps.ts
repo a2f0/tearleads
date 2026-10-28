@@ -41,6 +41,7 @@ const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/container-keying/PrincipalHistoryResume.md": 1,
   "formal/container-keying/PrincipalRecoveryReuse.md": 1,
   "formal/container-keying/GroupGrantRevocation.md": 1,
+  "formal/container-keying/KeyringReachability.md": 1,
   "formal/container-keying/InaccessibleIntermediateRepair.md": 1,
   "formal/container-keying/PrincipalReferenceProgress.md": 1,
   "formal/document-sync/AttachmentContentIdentity.md": 1,

@@ -72,7 +72,7 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     config: "formal/container-keying/KeyringReachability.cfg",
     constants: { AnchorToSignedLineage: "FALSE" },
     expect: { kind: "invariant", name: "RotationsSealOnlySignedLineage" },
-    why: "Anchoring sealed entries only to the KEK's own served history lets a server relocate the real epoch's manifest under another KEK, so an honest rotation seals a forged id (#2365 finding 32).",
+    why: "Checking sealed entries only against the KEK's own served history lets a server serve the lineage under the parent's KEK instead, so an honest rotation seals a forged id (#2365 finding 32).",
   },
   {
     id: "own-edge-currency-writes-under-revoked-reach",
