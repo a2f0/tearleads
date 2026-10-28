@@ -34,18 +34,22 @@ where
     | fuel + 1, power => if power * 2 < size then go fuel (power * 2) else power
 
 /-- The root of the `size` leaves starting at `lo`, as
-`computeTransparencyMerkleRoot(leaves.slice(lo, lo + size))` computes it. -/
-def rangeRootAux (values : Nat → Nat) : Nat → Nat → Nat → Digest
+`computeTransparencyMerkleRoot(leaves.slice(lo, lo + size))` computes it,
+over any leaf digests. -/
+def rangeRootAux (leaf : Nat → Digest) : Nat → Nat → Nat → Digest
   | _, _, 0 => .empty
-  | _, lo, 1 => .leaf (values lo)
+  | _, lo, 1 => leaf lo
   | 0, _, _ => .empty
   | fuel + 1, lo, size =>
     let split := splitPoint size
-    .node (rangeRootAux values fuel lo split)
-      (rangeRootAux values fuel (lo + split) (size - split))
+    .node (rangeRootAux leaf fuel lo split)
+      (rangeRootAux leaf fuel (lo + split) (size - split))
+
+/-- Leaf `index` commits to `values index`. -/
+def leafDigest (values : Nat → Nat) (index : Nat) : Digest := .leaf (values index)
 
 def rangeRoot (values : Nat → Nat) (lo size : Nat) : Digest :=
-  rangeRootAux values size lo size
+  rangeRootAux (leafDigest values) size lo size
 
 /-- The root of the first `size` leaves. -/
 def root (values : Nat → Nat) (size : Nat) : Digest :=
