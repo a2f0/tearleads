@@ -92,7 +92,7 @@ invocation may only establish the baseline; `resume` continues the queue.
 Run noisy builds, checks, canaries, and probes through
 `agent-tool run -- <command>` from the checkout's `node_modules/.bin`. Copy
 retained raw logs into the durable audit directory before checkpointing, and
-inspect bounded excerpts with `agent-tool logs <path>`.
+inspect bounded excerpts with `bun run agent:logs <path>`.
 
 1. Create or load the checkpoint as described in `references/batching.md`.
    Record `git rev-parse HEAD` and dirty paths. Audit committed code only: when
