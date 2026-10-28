@@ -55,6 +55,19 @@ function openNotes(view: ReturnType<typeof renderFooter>) {
   return view.getByRole("button", { name: "Activate Notes window" });
 }
 
+test("shows the pane label in the taskbar only when given", () => {
+  const unlabeled = renderFooter();
+  expect(unlabeled.container.querySelector(".pane-footer-label")).toBeNull();
+  unlabeled.unmount();
+
+  const view = render(
+    <WindowStateProvider>
+      <PaneFooter label="Peer 1" />
+    </WindowStateProvider>,
+  );
+  expect(view.getByText("Peer 1").closest(".pane-footer-end")).not.toBeNull();
+});
+
 test("shows visible open mini-apps in the taskbar", () => {
   const view = renderFooter();
 
