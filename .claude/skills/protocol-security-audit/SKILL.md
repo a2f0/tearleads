@@ -81,7 +81,7 @@ Run noisy builds, checks, and probes through `agent-tool run -- <command>`.
 Use the checkout's `node_modules/.bin/agent-tool`; from a package directory,
 invoke that binary by its absolute path to preserve the probe's working
 directory. Copy retained raw logs into the durable audit directory before
-checkpointing, and inspect bounded excerpts with `agent-tool logs <path>`
+checkpointing, and inspect bounded excerpts with `bun run agent:logs <path>`
 instead of loading successful logs.
 
 1. Create or load the checkpoint as described in `references/batching.md`.
