@@ -61,7 +61,10 @@ lineage under the parent. See the
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a
 group key outlive a revoked grant, so a revocation must rotate the group key
-before an additive join hands that key out. See the
+before an additive join hands that key out. Each group change commits with a
+container batch the API refuses if it skips a granted container; a batch
+planned before another device's direct share is refused and replanned once,
+and a requested change commits without another device acting. See the
 [mapping and boundaries](./container-keying/GroupGrantRevocation.md).
 
 ### Container Tombstone Recovery
@@ -229,7 +232,9 @@ one slot's row keeps a hydrated copy another slot still holds.
 ### Historical Write Authority
 
 [ContentWriteAuthority](./document-sync/ContentWriteAuthority.md) checks delayed
-reads across ancestor grants, group removal, and leaf advancement.
+reads across ancestor grants, group removal, and leaf advancement, including a
+reader on another link of the document after the writer's container is
+unlinked and deleted.
 
 ## Local Trust
 

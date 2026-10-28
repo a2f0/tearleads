@@ -7,8 +7,10 @@ import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegat
 import { CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS } from "./protocolContainerGrantScopeNegativeControls";
 import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInterestNegativeControls";
 import { CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS } from "./protocolContainerMoveReplayNegativeControls";
+import { CONTENT_WRITE_NEGATIVE_CONTROLS } from "./protocolContentWriteNegativeControls";
 import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
+import { GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS } from "./protocolGroupGrantRevocationNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
@@ -55,9 +57,11 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
   ...CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS,
+  ...GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS,
   ...CONTAINER_INTEREST_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
+  ...CONTENT_WRITE_NEGATIVE_CONTROLS,
   ...BASELINE_DOMINANCE_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
@@ -116,14 +120,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Settling a seed may answer only the signal its pass consumed before submission; a later peer hint must still lead to a pull (#2585).",
   },
   {
-    id: "content-write-unrefreshed-citations",
-    module: "formal/document-sync/ContentWriteAuthority.tla",
-    config: "formal/document-sync/ContentWriteAuthority.cfg",
-    constants: { RefreshMissingCitations: "FALSE" },
-    expect: { kind: "invariant", name: "HonestWritesRemainReadable" },
-    why: "A write may cite a head committed after the reader fetched its projection; verify one fresh projection before refusing the frozen response.",
-  },
-  {
     id: "host-restore-binds-a-switched-identity",
     module: "formal/local-trust/UnacknowledgedInput.tla",
     config: "formal/local-trust/UnacknowledgedInput.cfg",
@@ -147,38 +143,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { CheckMetadataScope: "FALSE" },
     expect: { kind: "invariant", name: "MetadataStaysWithOwner" },
     why: "A live reserved metadata ID must not be created under an unrelated container whose content would disappear on metadata teardown (#2266).",
-  },
-  {
-    id: "content-write-pinned-parent",
-    module: "formal/document-sync/ContentWriteAuthority.tla",
-    config: "formal/document-sync/ContentWriteAuthority.cfg",
-    constants: { ReadPinnedParent: "TRUE" },
-    expect: { kind: "invariant", name: "HonestWritesRemainReadable" },
-    why: "Rebuilding from the original parent pin loses a later grant after the leaf advances (#2266).",
-  },
-  {
-    id: "content-write-current-membership",
-    module: "formal/document-sync/ContentWriteAuthority.tla",
-    config: "formal/document-sync/ContentWriteAuthority.cfg",
-    constants: { ReadCurrentMembership: "TRUE" },
-    expect: { kind: "invariant", name: "HonestWritesRemainReadable" },
-    why: "Current membership rejects a delayed write committed before the signer was removed (#2266).",
-  },
-  {
-    id: "content-write-stale-submission",
-    module: "formal/document-sync/ContentWriteAuthority.tla",
-    config: "formal/document-sync/ContentWriteAuthority.cfg",
-    constants: { RequireCurrentCitations: "FALSE" },
-    expect: { kind: "invariant", name: "NewWritesUseCurrentAuthority" },
-    why: "Without current path equality a removed writer submits a stale signed authorization (#2266).",
-  },
-  {
-    id: "content-write-unauthorized-citation",
-    module: "formal/document-sync/ContentWriteAuthority.tla",
-    config: "formal/document-sync/ContentWriteAuthority.cfg",
-    constants: { CheckWriteAuthority: "FALSE" },
-    expect: { kind: "invariant", name: "CommittedWritesAreAuthorized" },
-    why: "A write whose cited path no longer grants its signer write access must be refused at commit.",
   },
   {
     id: "directory-scope",
@@ -301,14 +265,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { EnforceProgress: "FALSE" },
     expect: { kind: "action", name: "HeldReferencesNeverRegress" },
     why: "A dishonest server can serve a signed successor that reintroduces an older group reference (#2266).",
-  },
-  {
-    id: "group-grant-shrink-keeps-key",
-    module: "formal/container-keying/GroupGrantRevocation.tla",
-    config: "formal/container-keying/GroupGrantRevocation.cfg",
-    constants: { RotateGroupOnGrantRemoval: "FALSE" },
-    expect: { kind: "invariant", name: "RevokedGrantUnreadableByLaterMembers" },
-    why: "A group that drops a container grant without rotating its key hands a later joiner the key its retained container wraps are sealed to (#2365 finding 20).",
   },
   {
     id: "empty-frontier-unlink-unlocked",
