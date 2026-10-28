@@ -63,7 +63,10 @@ skip the walk.
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a
 group key outlive a revoked grant, so a revocation must rotate the group key
-before an additive join hands that key out. See the
+before an additive join hands that key out. Each group change commits with a
+container batch the API refuses if it skips a granted container; a batch
+planned before another device's direct share is refused and replanned once,
+and a requested change commits without another device acting. See the
 [mapping and boundaries](./container-keying/GroupGrantRevocation.md).
 
 ### Container Tombstone Recovery
