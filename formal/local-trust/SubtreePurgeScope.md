@@ -59,4 +59,7 @@ restore check, document or folder transaction placement comparison, immutable
 scope capture, or settled-root placement. Each must violate scope containment
 or pending-work preservation. A quiescent in-scope candidate must delete
 successfully, and every candidate terminates under weak fairness
-of verification, preparation, and commit.
+of verification, preparation, and commit. A tenth control makes the rules
+over-strict instead: `RefuseUnsettledLocal = TRUE`, which has no production
+seam, refuses every local purge and violates `HonestQuiescentPurgeSucceeds`, so
+that property is not satisfied by refusing everything.

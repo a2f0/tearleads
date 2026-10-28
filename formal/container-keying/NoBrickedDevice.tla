@@ -39,7 +39,8 @@ CONSTANTS ServeDeletedAuthority,
           RefuseSignerRevokedAtCurrent,  \* withdrawn #2266 rule: signer still belongs now
           RefuseSignerRevokedAtCitation, \* a signer without membership at the cited head
           RefuseStaleHeadCitation,       \* withdrawn #2174 rule: a new head must cite the served authority
-          RefuseStaleChainCitation       \* #2173 rule: every new chain entry must cite the served authority
+          RefuseStaleChainCitation,      \* #2173 rule: every new chain entry must cite the served authority
+          WriteRequiresFreshDependent    \* a writer waits for the dependent to cite the current authority
 
 ASSUME /\ Devices # {}
        /\ IsFiniteSet(Devices)
@@ -49,7 +50,7 @@ ASSUME /\ Devices # {}
            RefuseServedAuthorityRollback, RefuseSignerRevokedAtCitation,
            RefuseSignerRevokedAtCurrent, RefuseStaleHeadCitation,
            RefuseStaleChainCitation, ServeDeletedAuthority,
-           ServeHistoryOnlyAuthority} \subseteq BOOLEAN
+           ServeHistoryOnlyAuthority, WriteRequiresFreshDependent} \subseteq BOOLEAN
 
 AuthorityVersions == 1..MaxAuthorityVersion
 DependentVersions == 1..MaxDependentVersion
@@ -68,12 +69,13 @@ VARIABLES authorityDeleted,
           heldSignedByLate,     \* device -> held head signed by the late signer
           authorityCheckpoint,  \* device -> authority version held
           outcome,              \* device -> last verification outcome
+          wrote,                \* device -> a write of its own committed
           honestRefused         \* some device refused the honest projection
 
 serverVars == << authorityVersion, revokedAt, dependentVersion, cites, signedByLate,
                  authorityDeleted, authorityCurrentReference >>
 deviceVars == << checkpoint, heldHonestPrefix, heldCitation, heldSignedByLate,
-                 authorityCheckpoint, outcome >>
+                 authorityCheckpoint, outcome, wrote >>
 vars == << serverVars, deviceVars, honestRefused >>
 
 Min(a, b) == IF a <= b THEN a ELSE b
@@ -92,6 +94,7 @@ TypeOK ==
   /\ heldSignedByLate \in [Devices -> BOOLEAN]
   /\ authorityCheckpoint \in [Devices -> 0..MaxAuthorityVersion]
   /\ outcome \in [Devices -> Outcomes]
+  /\ wrote \in [Devices -> BOOLEAN]
   /\ honestRefused \in BOOLEAN
 
 (* The dependent exists at version 1 citing authority version 1. A device    *)
@@ -110,6 +113,7 @@ Init ==
   /\ heldSignedByLate = [d \in Devices |-> FALSE]
   /\ authorityCheckpoint = checkpoint
   /\ outcome = [d \in Devices |-> "none"]
+  /\ wrote = [d \in Devices |-> FALSE]
   /\ honestRefused = FALSE
 
 (* Membership at an authority head: the late signer is a member below the  *)
@@ -258,7 +262,7 @@ Verify(d, p) ==
        ELSE /\ outcome' = [outcome EXCEPT ![d] = "refused"]
             /\ UNCHANGED << checkpoint, heldHonestPrefix, heldCitation,
                             heldSignedByLate, authorityCheckpoint >>
-  /\ UNCHANGED serverVars
+  /\ UNCHANGED << serverVars, wrote >>
 
 HonestSync(d) ==
   /\ Verify(d, HonestProjection)
@@ -279,7 +283,21 @@ SyncAuthority(d) ==
   /\ authorityCheckpoint[d] < authorityVersion
   /\ authorityCheckpoint' = [authorityCheckpoint EXCEPT ![d] = authorityVersion]
   /\ UNCHANGED << serverVars, checkpoint, heldHonestPrefix, heldCitation,
-                  heldSignedByLate, outcome, honestRefused >>
+                  heldSignedByLate, outcome, wrote, honestRefused >>
+
+(* A content write from the device. The honest API accepts it only at the  *)
+(* current heads, so the device must first hold them, which its own syncs  *)
+(* reach. A writer that also waits for the dependent's head to cite the    *)
+(* current authority depends on another device re-signing it first.        *)
+DeviceWrite(d) ==
+  /\ HoldsHonestChain(d)
+  /\ authorityCurrentReference
+  /\ checkpoint[d] = dependentVersion
+  /\ authorityCheckpoint[d] = authorityVersion
+  /\ WriteRequiresFreshDependent => cites[dependentVersion] = authorityVersion
+  /\ wrote' = [wrote EXCEPT ![d] = TRUE]
+  /\ UNCHANGED << serverVars, checkpoint, heldHonestPrefix, heldCitation,
+                  heldSignedByLate, authorityCheckpoint, outcome, honestRefused >>
 
 Next ==
   \/ DropAuthorityReference
@@ -287,15 +305,17 @@ Next ==
   \/ AdvanceAuthority
   \/ RevokeLateSigner
   \/ \E late \in BOOLEAN : CommitDependent(late)
-  \/ \E d \in Devices : HonestSync(d) \/ DishonestSync(d) \/ SyncAuthority(d)
+  \/ \E d \in Devices :
+       HonestSync(d) \/ DishonestSync(d) \/ SyncAuthority(d) \/ DeviceWrite(d)
   \/ UNCHANGED vars
 
-(* Only the honest server's delivery is fair. Writes are not: the          *)
-(* invariant must hold on behaviors where no other device ever writes.     *)
+(* Only the honest server's delivery and each device's own write are fair. *)
+(* Server-side writes are not: the invariant must hold on behaviors where  *)
+(* no other device ever writes.                                             *)
 Spec ==
   /\ Init
   /\ [][Next]_vars
-  /\ \A d \in Devices : WF_vars(HonestSync(d))
+  /\ \A d \in Devices : WF_vars(HonestSync(d)) /\ WF_vars(DeviceWrite(d))
 
 CheckpointsAreMonotone ==
   [][\A d \in Devices :
@@ -323,5 +343,10 @@ DeviceEventuallyCurrent ==
   \A d \in Devices :
     <>[](/\ checkpoint[d] = dependentVersion
          /\ authorityCheckpoint[d] = authorityVersion)
+
+(* The write half: every device whose grant stays current eventually       *)
+(* commits a write of its own, again with no other device writing.         *)
+DeviceEventuallyWrites ==
+  \A d \in Devices : <>(wrote[d] \/ ~authorityCurrentReference)
 
 =============================================================================

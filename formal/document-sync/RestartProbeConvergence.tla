@@ -4,10 +4,15 @@ EXTENDS Naturals
 (* Recovery for one opened, already-persisted remote document.             *)
 (* A queued bit plus an in-flight token model coalesced HTTP pull requests. *)
 
-CONSTANTS MaxVersion, MaxDisconnects
+CONSTANTS MaxVersion, MaxDisconnects,
+          KeepQueuedRequestAcrossFlight, \* a finished probe keeps a request queued meanwhile
+          DeclareFromReadyTree,          \* the declaration waits for the local container tree
+          ArmProbeOnAck                  \* the matching acknowledgement queues a probe
 
 ASSUME MaxVersion \in Nat \ {0}
 ASSUME MaxDisconnects \in Nat \ {0}
+ASSUME {KeepQueuedRequestAcrossFlight, DeclareFromReadyTree, ArmProbeOnAck}
+         \subseteq BOOLEAN
 
 VARIABLES remoteBodyVersion, remoteSlotVersion,
           localBodyVersion, localSlotVersion,
@@ -196,9 +201,9 @@ MarkContainerTreeReady ==
 DeclareKnownContainers ==
   /\ process = "running"
   /\ interestState = "socketOpen"
-  /\ containerTreeReady
+  /\ DeclareFromReadyTree => containerTreeReady
   /\ interestState' = "awaitingAck"
-  /\ declarationCoversDocument' = TRUE
+  /\ declarationCoversDocument' = containerTreeReady
   /\ UNCHANGED << versionVars, process,
                   containerTreeReady, serverCoversDocument,
                   probeVars, recoveryVars, restartUsed, disconnectsUsed >>
@@ -212,9 +217,9 @@ AcknowledgeKnownContainers ==
   /\ interestState' = "ready"
   /\ declarationCoversDocument' = FALSE
   /\ serverCoversDocument' = TRUE
-  /\ probeRequested' = TRUE
+  /\ probeRequested' = (ArmProbeOnAck \/ probeRequested)
   /\ newerRequestDuringFlight' =
-       IF probeInFlight THEN TRUE ELSE newerRequestDuringFlight
+       IF probeInFlight /\ ArmProbeOnAck THEN TRUE ELSE newerRequestDuringFlight
   /\ requestObligationPending' = TRUE
   /\ requestTargetBodyVersion' = remoteBodyVersion
   /\ requestTargetSlotVersion' = remoteSlotVersion
@@ -291,7 +296,7 @@ FinishProbe ==
   /\ localBodyVersion' = capturedBodyVersion
   /\ localSlotVersion' = capturedSlotVersion
   /\ probeInFlight' = FALSE
-  /\ probeRequested' = probeRequested
+  /\ probeRequested' = (KeepQueuedRequestAcrossFlight /\ probeRequested)
   /\ newerRequestDuringFlight' = FALSE
   /\ requestObligationPending' =
        IF capturedBodyVersion >= requestTargetBodyVersion

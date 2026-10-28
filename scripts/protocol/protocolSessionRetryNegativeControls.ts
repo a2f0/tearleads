@@ -33,4 +33,12 @@ export const SESSION_RETRY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "RetryKeepsActor" },
     why: "An expired request must not execute under a replacement identity (#2485 finding 3).",
   },
+  {
+    id: "session-retry-renewal-for-other-user",
+    module: "formal/local-trust/SessionRetryIdentity.tla",
+    config: "formal/local-trust/SessionRetryIdentity.cfg",
+    constants: { CheckRenewedUser: "FALSE" },
+    expect: { kind: "invariant", name: "RetryKeepsActor" },
+    why: "A renewal that installs another user's session must not count, or the expired request replays as that user.",
+  },
 ];

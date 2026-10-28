@@ -31,6 +31,14 @@ export const NO_BRICK_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "The same rule, caught as a safety violation: the refused projection is the honest server's.",
   },
   {
+    id: "no-brick-writer-waits-for-fresh-dependent",
+    module: NO_BRICK_MODULE,
+    config: NO_BRICK_HONEST,
+    constants: { WriteRequiresFreshDependent: "TRUE" },
+    expect: { kind: "liveness", name: "DeviceEventuallyWrites" },
+    why: "A writer that waits for the dependent head to cite the current authority after the authority advances can only write once another device re-signs the dependent.",
+  },
+  {
     id: "no-brick-stale-chain-citation",
     module: NO_BRICK_MODULE,
     config: NO_BRICK_HONEST,

@@ -9,7 +9,10 @@ that reaching a verification budget never prevents revocation.
 | `Read` / `Readable` | `verifyStoredContainerManifest` and `verifyStoredDocumentManifest` authenticate retained history |
 | `IterativeVerification` | `verifyStoredManifestGraph` walks dependencies with an explicit stack rather than rejecting a lifetime history depth |
 | `Restart` / `warm` | `accessManifests.verificationMac` markers only accelerate reads; cleared markers, a rotated secret or new verifier version must preserve acceptance |
-| `Commit` / `Revoke` | `verifyStoredContainerManifest` verifies the previous manifest before mutation authorization; history length adds no new mutation refusal |
+| `Commit` / `Revoke` | `verifyStoredContainerManifest` verifies the previous manifest before mutation authorization; lifetime history length adds no mutation refusal |
+| `TargetsResolvable` | `resolveCurrentContainerKekTargets` refuses to resolve a container as a KEK target past `MAX_SAME_EPOCH_MANIFEST_HISTORY` (1,024) manifests under one key, with "rekey required" |
+| `Rekey` / `RotationAllowed` | a rekey or revoke starts a new key; its own minting resolves only its parent's targets through `assertParentKekStateCurrent`, so its own overflow never refuses it |
+| `Recite` | `deriveUnrotatedContainerManifestState` refuses a recite at or past `MAX_CONTAINER_RECITATION_EPOCH` (512), an absolute epoch ceiling a rekey does not reset |
 | `held` / `Evict` | `writeVerifiedManifestBundlesInTransaction` stores bundles in the transaction that finalizes their projection's checkpoints, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
 | `Citable` / `CiteHeldBytes` | `heldManifestCitations` copies the exact stored bytes a request cites, at most `KNOWN_MANIFEST_HINT_LIMIT` hashes |
 | `Omitted` / `OmitOnlyCited` | `encodeContainerWriterProjection` and `encodeDocumentWriterProjection` omit only hashes the request cited, after the ordinary build, authorization and stored-evidence verification |
@@ -19,9 +22,9 @@ The model abstracts one valid object history, with complete retained evidence
 and an authorized actor. A device's durable verified-bundle table is the set
 `held` of versions whose bytes it stores; `known` models the rejected design of
 a hash-only table whose bytes may be gone. It does not model signatures,
-missing dependencies, cycles, hierarchy depth, storage corruption, or key-epoch
-bounds. Runtime regressions exercise the real signature verifier and histories
-longer than 4,096 entries. The history counter saturates only to keep the model
+missing dependencies, cycles, hierarchy depth, or storage corruption. Runtime
+regressions exercise the real signature verifier and histories longer than
+4,096 entries. The history counter saturates only to keep the model
 finite; revocation still has an enabled transition at the model boundary.
 
 The positive configuration makes `Readable` unconditional: it specifies the
@@ -33,7 +36,21 @@ read limit preserves reads but violates `RevocationAvailable`. These are
 enabled-action safety checks, not claims of eventual network or scheduler
 progress.
 
-Production has no history-depth refusal. Each mutation runs
+Production has no lifetime history-depth refusal, but it has two key-scoped
+budgets, both in the model at small bounds. Same-key mutations never check the
+first, so a container's history can grow past 1,024 manifests under one key.
+Past that, resolving the container as a KEK target, which a child minting a
+secret or a write beneath it needs, is refused with "rekey required". A rekey
+or revoke rotates the key and resolves only its parent's targets, so the
+overflow never refuses it (`RekeyAvailable`, `RevocationAvailable`), and it
+clears the overflow; with `RotationBypassesBudget = FALSE` an overflowed
+container is stranded and TLC reports both. The runtime regression
+`containerKekHistoryBounds.test.ts` accepts the bound, refuses the overflow,
+and resumes after a rekey. A recite is refused at an absolute manifest epoch of
+512, which reserves half of the same-key budget for ordinary mutations and does
+not reset on rekey; the other mutations stay available past it.
+
+Each mutation runs
 the stored-history verifier over the manifest it stores and marks it, and a
 projection read writes back the markers it earned after committing. A marker is
 a MAC under a key derived from a server-held secret over the manifest hash, a

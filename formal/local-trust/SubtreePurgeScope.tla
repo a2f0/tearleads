@@ -3,11 +3,12 @@ EXTENDS Naturals
 
 CONSTANTS CheckCandidatePath, CheckRequestPath, CheckServerPath, CheckPendingMove,
           CheckRootPendingMove, CheckLocalPlacement, CheckLocalContainerPlacement,
-          CaptureLocalScope, CheckSettledRootPlacement
+          CaptureLocalScope, CheckSettledRootPlacement,
+          RefuseUnsettledLocal \* over-strict, no production seam: refuse every local purge
 ASSUME {CheckCandidatePath, CheckRequestPath, CheckServerPath,
         CheckPendingMove, CheckRootPendingMove, CheckLocalPlacement,
         CheckLocalContainerPlacement, CaptureLocalScope,
-        CheckSettledRootPlacement} \subseteq BOOLEAN
+        CheckSettledRootPlacement, RefuseUnsettledLocal} \subseteq BOOLEAN
 
 VARIABLES kind, inside, initiallyInside, listed, moved, rootMoved, pending, phase,
           requestInside, version, requestVersion, deleted, escaped, lostMove
@@ -67,6 +68,7 @@ LocalPlacementCurrent ==
   (IF CaptureLocalScope THEN requestVersion ELSE version) = version
 
 CanCommit ==
+  /\ ~RefuseUnsettledLocal \/ kind \notin {"local", "local-container"}
   /\ ~CheckSettledRootPlacement \/ ~rootMoved
   /\ ~CheckPendingMove \/ pending # "candidate"
   /\ ~CheckRootPendingMove \/ pending # "root"

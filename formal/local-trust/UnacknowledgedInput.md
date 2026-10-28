@@ -11,7 +11,7 @@ identity.
 | `DeferLinkDiscovery` / `linkedScope` | `withoutDeferredDocumentLinks` preserves pending link projections in single and batched discovery |
 | `VerifyCreate` | `adoptExistingRemoteDocument` checks `assertExpectedAdoptionScope` and verifies the projection |
 | `SwitchIdentity` | `IdentityService.setKeyPairs` changes the active signing identity |
-| `BeginLogin` / `FinishLogin` | `SessionService.login` captures and rechecks the identity snapshot |
+| `BeginLogin` / `FinishLogin` / `CheckLoginIdentity` | `SessionService.login` captures and rechecks the identity snapshot, dropping a login that finishes under another identity |
 | `EnforceLoginBinding` | `SessionIdentityAcknowledgments.assertMatches` runs before pinning login's user ID |
 | `HostRestore` / `CheckRestoreIdentity` | `useRestorePersistedSession` compares the live signing fingerprint before applying persisted context |
 | `acknowledged` | `SessionIdentityAcknowledgments.remember` records successful auth and host-restored context |
@@ -21,9 +21,12 @@ It begins with one restored identity acknowledgment; the other identity may
 establish its first binding. TLC explores repeated login attempts, switching
 identities while login is pending, unsigned discovery, and verified adoption.
 Failed create verification is modeled as taking no adoption step.
-It checks that adoption preserves the verified intended scope and that no
-existing acknowledgment changes. The four vulnerable rules have registered
-negative controls. A pending container create has its own model,
+It checks that adoption preserves the verified intended scope, that no
+existing acknowledgment changes, and that a login finishing after an identity
+switch never acknowledges its user for the new identity
+(`LoginsKeepIdentity`). The five vulnerable rules have registered negative
+controls; `CheckLoginIdentity = FALSE` binds the first login's user to an
+identity that never authenticated. A pending container create has its own model,
 [`ContainerCreateAdoption.tla`](./ContainerCreateAdoption.tla), since its
 adoption and owed move share no state with these rules.
 

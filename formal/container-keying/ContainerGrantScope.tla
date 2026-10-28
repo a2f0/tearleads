@@ -6,9 +6,15 @@ EXTENDS FiniteSets
 (* deliberately absent from the container grant domain. A direct user may *)
 (* be granted only while active in the owning organization's roster, and  *)
 (* roster removal is refused until that user's direct grants are revoked.  *)
+(* A grant request may name any principal: a client chooses what it signs, *)
+(* so each refusal is a parameter the negative controls switch off.         *)
 
 CONSTANTS Users, Groups, OrganizationPrincipals,
-          ContainerUsers, ContainerGroups, InitialActiveUsers
+          ContainerUsers, ContainerGroups, InitialActiveUsers,
+          CheckGrantSubjectType,   \* the grammar admits only users and groups
+          CheckGrantOrganization,  \* the subject belongs to the container's organization
+          CheckActiveRoster,       \* a direct user is active in that roster
+          BlockDisableWithGrant    \* roster removal waits for direct grants to go
 
 Principals == Users \cup Groups \cup OrganizationPrincipals
 
@@ -22,6 +28,8 @@ ASSUME /\ Users # {}
        /\ ContainerUsers \subseteq Users
        /\ ContainerGroups \subseteq Groups
        /\ InitialActiveUsers \subseteq ContainerUsers
+       /\ {CheckGrantSubjectType, CheckGrantOrganization, CheckActiveRoster,
+           BlockDisableWithGrant} \subseteq BOOLEAN
 
 VARIABLES grants, activeUsers
 
@@ -32,9 +40,9 @@ TypeOK ==
   /\ activeUsers \subseteq Users
 
 Grantable(p) ==
-  /\ \/ p \in ContainerGroups
-     \/ /\ p \in ContainerUsers
-        /\ p \in activeUsers
+  /\ CheckGrantSubjectType => p \in Users \cup Groups
+  /\ CheckGrantOrganization => p \in ContainerUsers \cup ContainerGroups \cup OrganizationPrincipals
+  /\ CheckActiveRoster => (p \in Users => p \in activeUsers)
 
 Init ==
   /\ grants = {}
@@ -60,7 +68,7 @@ DisableUser(u) ==
   /\ u \in activeUsers
   (* The backend rejects the Members transition while a current direct     *)
   (* container grant still names u. Revocation/rekey must commit first.    *)
-  /\ u \notin grants
+  /\ BlockDisableWithGrant => u \notin grants
   /\ activeUsers' = activeUsers \ {u}
   /\ UNCHANGED grants
 

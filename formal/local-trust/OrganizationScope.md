@@ -14,10 +14,14 @@ recovering its group key.
 | `DirectoryBindsChain` | `directoryBindsGroupReference`, `principalHeadMatchesReference` |
 | `HasScopeProof` | `createPolicyDirectoryLoader`, `verifyOrganizationAdminPolicy` |
 | `ChooseParent` | `requireContainerPathCurrentParent` |
+| `AdvanceDirectory` | `runCommitOrganizationGroupPolicyWorkflow` commits a group successor and the directory that binds it in one transaction |
 | `ParentEdgesStayInOrganization` | `verifyContainerAccessManifest` |
 
-The bounds include two organizations, two group versions, a verified two-state
-chain, a historical or current reference, and either organization as a parent.
+The bounds include two organizations, a verified two-state chain that may
+advance to a third version before the cache attempt, a historical or current
+reference, and either organization as a parent. After the advance, a reference
+to the old head is history the new directory still covers, so it must stay
+cacheable.
 The expected organization, served directory organization, and signed group
 chain branch vary independently, including a valid foreign directory, a
 foreign group under the right directory, and a directory naming the wrong

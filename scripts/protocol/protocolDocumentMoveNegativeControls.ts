@@ -73,4 +73,20 @@ export const DOCUMENT_MOVE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "StablePlacement" },
     why: "An unverified listing tombstone must not delete a local link row whose container the signed link set still contains.",
   },
+  {
+    id: "discovery-applies-unsigned-page",
+    module: "formal/local-trust/DocumentMovePlacement.tla",
+    config: "formal/local-trust/DocumentMovePlacement.cfg",
+    constants: { CheckPageSignature: "FALSE" },
+    expect: { kind: "invariant", name: "StablePlacement" },
+    why: "A discovery page whose head no signer committed must not replace the local placement.",
+  },
+  {
+    id: "listing-tombstone-cites-older-head",
+    module: "formal/local-trust/DocumentMovePlacement.tla",
+    config: "formal/local-trust/DocumentMovePlacement.cfg",
+    constants: { CheckTombstoneEvidenceEpoch: "FALSE" },
+    expect: { kind: "invariant", name: "StablePlacement" },
+    why: "A signed head older than the device's own must not remove a link a later move restored.",
+  },
 ];

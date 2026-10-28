@@ -148,7 +148,8 @@ require that:
 - ignoring a response that was stale before its guarded start cannot mutate
   snapshot, markers, or queue, while stale preparation may retain/add coverage;
 - an incoming response that fails isolated validation cannot append history,
-  settle queued rows, advance markers, or mutate the live snapshot;
+  settle queued rows, advance markers, or mutate the live snapshot, including a
+  malformed deletion response, which the server may send like any other;
 - a stale deletion captured for A cannot remove a relinked live B store;
 - user-discarded local state has no queued or retained work, while an accepted
   authoritative remote deletion is tracked separately as a terminal state.
@@ -163,7 +164,11 @@ deletion publication guard violates `AllPublicationsMatchContext`, letting an
 unvalidated response start a durable operation violates
 `DurableStartRequiresLiveContext`, and letting a stale deletion remove the live
 store violates `StaleDeletionCannotRemoveLiveDocument`. These checks are
-independent from the tail-accounting invariants.
+independent from the tail-accounting invariants. The response generator emits
+malformed deletions as well as malformed updates, so validation is not honest
+by construction for deletions; `ValidateDeletions = FALSE` lets a malformed
+deletion through and violates `InvalidResponseCannotAdvance`, a registered
+negative control.
 
 The local update log stores each queued update as its local history tail row,
 so a checkpoint can cover an operation that is still queued. Settlement clears

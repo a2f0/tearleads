@@ -1,7 +1,10 @@
 import { ACKNOWLEDGEMENT_NEGATIVE_CONTROLS } from "./protocolAcknowledgementNegativeControls";
+import { ANCESTOR_RECOVERY_NEGATIVE_CONTROLS } from "./protocolAncestorRecoveryNegativeControls";
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
+import { BASELINE_DOMINANCE_NEGATIVE_CONTROLS } from "./protocolBaselineDominanceNegativeControls";
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
+import { CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS } from "./protocolContainerGrantScopeNegativeControls";
 import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInterestNegativeControls";
 import { CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS } from "./protocolContainerMoveReplayNegativeControls";
 import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
@@ -12,9 +15,11 @@ import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
 import { PURGE_SCOPE_NEGATIVE_CONTROLS } from "./protocolPurgeScopeNegativeControls";
 import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNegativeControls";
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
+import { RESTART_PROBE_NEGATIVE_CONTROLS } from "./protocolRestartProbeNegativeControls";
 import { SESSION_RETRY_NEGATIVE_CONTROLS } from "./protocolSessionRetryNegativeControls";
 import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
+import { TERMINAL_ANCHOR_NEGATIVE_CONTROLS } from "./protocolTerminalAnchorNegativeControls";
 import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls";
 
 /**
@@ -42,19 +47,23 @@ export interface NegativeControl {
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ACKNOWLEDGEMENT_NEGATIVE_CONTROLS,
+  ...ANCESTOR_RECOVERY_NEGATIVE_CONTROLS,
   ...PURGE_SCOPE_NEGATIVE_CONTROLS,
   ...SESSION_RETRY_NEGATIVE_CONTROLS,
   ...SYNC_LANE_NEGATIVE_CONTROLS,
   ...HISTORY_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
+  ...CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS,
   ...CONTAINER_INTEREST_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
+  ...BASELINE_DOMINANCE_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
   ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
+  ...RESTART_PROBE_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,
   ...CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS,
   ...READ_MODEL_STAMP_NEGATIVE_CONTROLS,
@@ -164,6 +173,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Without current path equality a removed writer submits a stale signed authorization (#2266).",
   },
   {
+    id: "content-write-unauthorized-citation",
+    module: "formal/document-sync/ContentWriteAuthority.tla",
+    config: "formal/document-sync/ContentWriteAuthority.cfg",
+    constants: { CheckWriteAuthority: "FALSE" },
+    expect: { kind: "invariant", name: "CommittedWritesAreAuthorized" },
+    why: "A write whose cited path no longer grants its signer write access must be refused at commit.",
+  },
+  {
     id: "directory-scope",
     module: "formal/local-trust/OrganizationScope.tla",
     config: "formal/local-trust/OrganizationScope.cfg",
@@ -196,38 +213,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A writable parent in another organization cannot authorize container creation or movement (#2266).",
   },
   ...SYSTEM_DESTINATION_NEGATIVE_CONTROLS,
-  {
-    id: "restore-drops-terminal-anchors",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { PreserveAnchors: "FALSE" },
-    expect: { kind: "action", name: "PurgePinsNeverChange" },
-    why: "Replacing security tables with an older backup erases a verified purge decision (#2266).",
-  },
-  {
-    id: "restore-drops-incident-evidence",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { PreserveAnchors: "FALSE" },
-    expect: { kind: "action", name: "IncidentEvidenceNeverLost" },
-    why: "Replacing security tables with an older backup erases recorded incident evidence (#2266).",
-  },
-  {
-    id: "restore-stale-preflight",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { RecheckAtCommit: "FALSE" },
-    expect: { kind: "action", name: "PurgePinsNeverChange" },
-    why: "Reusing a preflight merge loses a purge observed before the database write transaction.",
-  },
-  {
-    id: "restore-stale-incident-preflight",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { RecheckAtCommit: "FALSE" },
-    expect: { kind: "action", name: "IncidentEvidenceNeverLost" },
-    why: "Reusing a preflight merge loses incident evidence observed before the database write transaction.",
-  },
+  ...TERMINAL_ANCHOR_NEGATIVE_CONTROLS,
   {
     id: "container-delete-without-live-row-check",
     module: "formal/container-keying/ContainerDeletion.tla",
@@ -275,6 +261,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { CheckReverseBinding: "FALSE" },
     expect: { kind: "invariant", name: "SigningFingerprintsHaveOneUser" },
     why: "A fresh session accepts a second user for an already pinned signing fingerprint after losing volatile acknowledgments (#2329).",
+  },
+  {
+    id: "login-replaces-pinned-identity",
+    module: "formal/local-trust/DurableIdentityBinding.tla",
+    config: "formal/local-trust/DurableIdentityBinding.cfg",
+    constants: { CheckPinCompare: "FALSE" },
+    expect: { kind: "action", name: "PinsNeverChange" },
+    why: "A login presenting another signing key for a pinned user must not replace the pin.",
+  },
+  {
+    id: "login-finishes-under-switched-identity",
+    module: "formal/local-trust/UnacknowledgedInput.tla",
+    config: "formal/local-trust/UnacknowledgedInput.cfg",
+    constants: { CheckLoginIdentity: "FALSE" },
+    expect: { kind: "invariant", name: "LoginsKeepIdentity" },
+    why: "A login that finishes after the device switched identity must not acknowledge its user for the new identity.",
   },
   {
     id: "deleted-container-grant-blocks-policy",
@@ -331,6 +333,22 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { FrontierCheck: '"uncovered"' },
     expect: { kind: "invariant", name: "NoDataLoss" },
     why: "A rotation baseline is itself a committed update sealed to its own epoch, so a later advance that checks only the uncovered frontier strands it.",
+  },
+  {
+    id: "empty-frontier-short-baseline",
+    module: "formal/document-sync/EmptyFrontierUnlink.tla",
+    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
+    constants: { CheckBaselineCoversFrontier: "FALSE" },
+    expect: { kind: "invariant", name: "NoDataLoss" },
+    why: "An unlink whose rotation baseline falls short of the committed frontier strands every update the baseline does not cover.",
+  },
+  {
+    id: "empty-frontier-baseline-skips-earlier-baseline",
+    module: "formal/document-sync/EmptyFrontierUnlink.tla",
+    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
+    constants: { BaselineFrontier: '"uncovered"' },
+    expect: { kind: "invariant", name: "NoDataLoss" },
+    why: "A baseline compared only with updates since the latest baseline lets the next rotation drop that earlier baseline's history.",
   },
 ];
 

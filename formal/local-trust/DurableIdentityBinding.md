@@ -6,7 +6,7 @@ another user in the same trust domain.
 
 | Model action or predicate | Production seam |
 | --- | --- |
-| `Login` | `compareOrInsertTrustedUserIdentityPin` compares or inserts the pin in one immediate transaction |
+| `Login` / `CheckPinCompare` | `compareOrInsertTrustedUserIdentityPin` compares or inserts the pin in one immediate transaction |
 | `CheckReverseBinding` | `compareOrInsertTrustedUserIdentityPin` refuses a signing key already bound to another user; `trustedUserIdentityPins` backs it with a unique index |
 | `Reboot` | `SessionIdentityAcknowledgments` holds only in-memory acknowledgments, while `trustedUserIdentityPins` persist |
 | `SigningFingerprintsHaveOneUser` | `loadTrustedUserIdForSigningKey` finds at most one user per signing key |
@@ -22,7 +22,10 @@ The bounded configuration explores two domains, users, and fingerprints. It
 checks immutable pins, an injective fingerprint mapping within each domain,
 and that published sessions match durable pins. Disabling the reverse check
 reproduces a login, reboot, and second login that assigns one fingerprint to
-two users. Different trust domains remain independent.
+two users. Disabling the compare (`CheckPinCompare = FALSE`) lets a login
+presenting another key replace a user's pin, violating `PinsNeverChange`, so
+that property no longer holds by construction. Different trust domains remain
+independent.
 
 This models transactional persistence as atomic. It does not prove SQL locking,
 cryptographic fingerprint validation, first-contact identity authenticity, or

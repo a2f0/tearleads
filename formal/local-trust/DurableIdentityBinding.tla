@@ -1,10 +1,10 @@
 -------------------- MODULE DurableIdentityBinding --------------------
 EXTENDS FiniteSets
 
-CONSTANTS Domains, Users, Fingerprints, None, CheckReverseBinding
+CONSTANTS Domains, Users, Fingerprints, None, CheckReverseBinding, CheckPinCompare
 ASSUME /\ IsFiniteSet(Domains) /\ IsFiniteSet(Users) /\ IsFiniteSet(Fingerprints)
        /\ None \notin Users \cup Fingerprints
-       /\ CheckReverseBinding \in BOOLEAN
+       /\ {CheckReverseBinding, CheckPinCompare} \subseteq BOOLEAN
 
 VARIABLES pins, acknowledged
 vars == <<pins, acknowledged>>
@@ -14,9 +14,10 @@ Init ==
   /\ acknowledged = [d \in Domains |-> [f \in Fingerprints |-> None]]
 
 (* One atomic durable compare-or-insert, followed by session publication. *)
+(* Without the compare, a login presenting another key replaces the pin.  *)
 Login(d, u, f) ==
   /\ acknowledged[d][f] \in {None, u}
-  /\ pins[d][u] \in {None, f}
+  /\ CheckPinCompare => pins[d][u] \in {None, f}
   /\ ~CheckReverseBinding \/ (\A other \in Users : pins[d][other] = f => other = u)
   /\ pins' = [pins EXCEPT ![d][u] = f]
   /\ acknowledged' = [acknowledged EXCEPT ![d][f] = u]

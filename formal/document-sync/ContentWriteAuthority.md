@@ -22,17 +22,22 @@ attachment hydration or key-rewrap run shares one refresh across its decryptions
 | Model action or predicate | Production seam |
 | --- | --- |
 | `CommitWrite` | `assertWriteHeaderPathCitations`, `resolveCurrentContainerManifestRefs` |
+| `CheckWriteAuthority` / `CommittedWritesAreAuthorized` | `requireWriteAccessThroughCommittedDocumentTarget` and `requireWriteAccessThroughCommittedBlobTarget` refuse a write the cited path does not authorize |
 | `ReadWrite` | `documentWriteAuthorizationForHeader`, `resolveEventContainerPaths`, `resolveSubmittedDocumentSyncResult`, `createAttachmentProofReader` |
 | `ReadCurrentMembership` | `resolveHistoricalContainerPathUserAccessLevel` |
 | `HonestWritesRemainReadable` | `verifyWriteHeader`, `verifyAttachmentBindingEvent` |
 | `NewWritesUseCurrentAuthority` | `assertCurrentContainerPath` |
 
-Four negative controls read through the original parent pin, authorize
-historical writes with current membership, disable the API's current-path
-requirement, or refuse a response using stale cached evidence without refreshing
-it. Each must violate its named invariant. Hashes, signatures, exact sorted
-citation sets, document/blob target coverage, and lineage validation are
-abstracted as verified inputs here; runtime tests cover their concrete checks.
+A write may cite any head, including one that does not authorize the writer,
+as a revoked writer can still submit; the API commits only an authorized one
+(`CommittedWritesAreAuthorized`). Five negative controls read through the
+original parent pin, authorize historical writes with current membership,
+disable the API's current-path requirement, commit a write its cited path does
+not authorize, or refuse a response using stale cached evidence without
+refreshing it. Each must violate its named invariant. Hashes, signatures,
+exact sorted citation sets, document/blob target coverage, and lineage
+validation are abstracted as verified inputs here; runtime tests cover their
+concrete checks.
 This model does not prove semantic currency against a dishonest server or
 prevent a removed signer and server from supplying a previously valid historical
 authorization.

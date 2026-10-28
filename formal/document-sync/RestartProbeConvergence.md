@@ -48,6 +48,16 @@ body-plus-slot snapshot, and finish preserves newer work. Every accepted
 request eventually covers its recorded target, and restart/reconnect recovery
 covers the versions observed at its acknowledgement barrier.
 
+Three guards are parameters with registered negative controls, so each
+carries a property rather than holding by construction:
+
+- `KeepQueuedRequestAcrossFlight = FALSE` lets a finishing probe clear a
+  request queued while it was in flight, violating `RequestEventuallyApplied`.
+- `DeclareFromReadyTree = FALSE` sends a declaration before the container tree
+  holds the document, violating `OutstandingDeclarationCoversDocument`.
+- `ArmProbeOnAck = FALSE` lets the acknowledgement record a recovery target
+  without queuing a probe, violating `InterestRecoveryEventuallyCoversBaseline`.
+
 The bounded configuration uses versions zero and one, at most one restart, and
 at most one retained-process disconnect. TLC explores 6,757 generated states,
 1,912 distinct states, and depth 15. The document is assumed to remain opened,

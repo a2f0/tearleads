@@ -32,11 +32,9 @@ grant subject. It also models roster removal as a guarded transition: a user
 must first be unshared from every directly granted container, whose revoke is a
 container KEK rotation in the runtime and in the keyring model below.
 
-The production seams are the container grant grammar, the locked group/user
-reference checks in `groupReferences.ts`, and the direct-grant blocker in
-`roster.ts`. The bounded configuration includes same- and foreign-organization
-users, groups, and organization principals so TLC explores every accepted
-grant/revoke and roster transition over those categories.
+A grant request may name any principal, and each API refusal is a parameter
+with a registered negative control. See the
+[mapping and controls](./container-keying/ContainerGrantScope.md).
 
 ### Container Keyring Reachability
 
@@ -95,19 +93,28 @@ and [page verification](./container-keying/PrincipalHistoryPages.md), including
 [`container-keying/AncestorRecovery.tla`](./container-keying/AncestorRecovery.tla)
 checks the distinct read and write currency rules for a three-level container
 path. Rotating a parent preserves descendant reads; repairing a child can make
-its grandchild stale without making it unreadable. Setting
-`StrictReadParentPin = TRUE`, which accepts only the parent's current epoch for
-reads, makes the first root rotation violate `HonestReadsAvailable`; that switch
-has no registered negative control.
+its grandchild stale without making it unreadable. A dishonest server may serve
+the child pinned to any root epoch, including one it invented: reads accept a
+pin only when the parent's retained signed history contains it
+(`UnknownEpochRefused`), and an honest path is never refused
+(`HonestReadsAvailable`). Writes go through a guarded device step that requires
+current pins along the whole path (`StaleWritesRefused`), and with only the
+writer's own repairs and write fair, the writer always reaches a current path
+and writes (`WriterEventuallyWrites`). Four controls flip one rule each:
+`StrictReadParentPin` refuses honest reads after the first root rotation,
+dropping `CheckSignedLineage` accepts an invented epoch, dropping
+`CheckWriteCurrency` commits over a stale pin, and denying `WriterRepairs`
+leaves the writer unable to write.
 
 The production seams are `resolveContainerKekParentBinding` (signed historical
 epoch membership) and `assertContainerKekParentEdgesCurrent` (current epochs
 required for writes). The API and SDK `ancestorRotationRecovery.test.ts` tests
 exercise those seams with signed manifests; the SDK test also uses actual
-encrypted keys. The model assumes honest retained history and abstracts
-cryptography and authorization; the signed-history tampering tests cover that
-boundary in the implementation. Independent repair by a child-only writer is
-not established by this model.
+encrypted keys. The model abstracts cryptography and authorization; the
+signed-history tampering tests cover that boundary in the implementation.
+Independent repair by a child-only writer is
+[`InaccessibleIntermediateRepair`](./container-keying/InaccessibleIntermediateRepair.md)'s
+subject.
 
 [`container-keying/InaccessibleIntermediateRepair.tla`](./container-keying/InaccessibleIntermediateRepair.tla)
 adds the actors that model leaves out. A writer granted only on the leaf can
@@ -124,7 +131,9 @@ because another device holds a cache or must issue a write first. A dependent
 (descendant container, or group policy) cites an authority (ancestor, or
 Admins policy); every client refusal rule is a parameter, and negative controls
 show that requiring stale heads or chain entries to cite the current authority
-bricks a device. See the
+bricks a device's reads. Its own write, which the API accepts only at the
+current heads, must also eventually commit; a writer that waits for the
+dependent to be re-signed first violates that. See the
 [mapping, configurations, and boundary](./container-keying/NoBrickedDevice.md).
 
 ### Principal Reference Progress
@@ -149,9 +158,12 @@ backoff. See the [mapping](./document-sync/SyncLaneConcurrency.md).
 models the no-data-loss gate for document sync baseline redirection: a
 normal-mode read may omit an older-epoch update only when a readable
 current-epoch baseline provably dominates it, and raw mode always serves the
-complete retained missing frontier. Because the invariants share the
-`Dominated`/`Older` operators with the serve action, TLC alone cannot check the
-dominance definition itself; the registered
+complete retained missing frontier. `NoDataLoss` is stated against what the
+baseline actually carries, and four controls show that the vector coverage
+check, the authenticated-baseline rule, raw-mode completeness, and keeping
+current-epoch updates each carry an invariant. Because the other invariants
+share the `Dominated`/`Older` operators with the serve action, TLC alone cannot
+check the dominance definition itself; the registered
 [`BaselineDominanceTraceExport.tla`](./document-sync/BaselineDominanceTraceExport.tla)
 closes that blind spot by exporting every served behavior into the committed
 fixture
@@ -191,7 +203,8 @@ for the action seams, fairness assumptions, and excluded blob-hydration layer.
 models the acceptance gates for the two content-key epoch advances that carry no
 rotation baseline: a document unlink submitted without one, and a link that
 advances the epoch. Both require a committed frontier proved empty under the
-document manifest-head write lock. See the
+document manifest-head write lock, and a covering unlink's baseline is refused
+when it falls short of the committed frontier. See the
 [mapping, negative controls, and bounds](./document-sync/EmptyFrontierUnlink.md).
 
 ### Attachment Key Reachability
@@ -283,7 +296,8 @@ access from local signing authority and models an untrusted server echoing a pla
 [`local-trust/PurgeRecovery.tla`](./local-trust/PurgeRecovery.tla) checks that
 recovery adopts a replacement organization or root that an untrusted API
 returns, or re-homes the local corpus there, only with this identity's explicit
-signed replacement intent. See the
+signed replacement intent. Recovery starts from the API's unsigned purged
+status only for the user's own personal organization. See the
 [mapping and boundaries](./local-trust/PurgeRecovery.md).
 
 [`local-trust/SubtreePurgeScope.tla`](./local-trust/SubtreePurgeScope.tla)
@@ -325,7 +339,9 @@ its deadline. See the
 [`realtime/OrganizationReadModelStamps.tla`](./realtime/OrganizationReadModelStamps.tla)
 checks that each source mutation stamps every lane or group it changed with the
 organization's new cursor, so a delta from any cursor reloads every changed
-entity and never skips a change. See the
+entity and never skips a change. A change to Admins also stamps the directory,
+whose pending leave requests depend on the reader's role, so a new
+administrator's next delta carries them. See the
 [mapping and negative controls](./realtime/OrganizationReadModelStamps.md).
 
 ## Blob Attachments
@@ -353,6 +369,9 @@ Models under [`backup-restore/`](./backup-restore).
 ### Backup Restore Terminal Anchors
 
 [`backup-restore/TerminalAnchors.tla`](./backup-restore/TerminalAnchors.tla)
-models preservation of verified purge decisions and incident evidence across
-full database restores, including observations made after restore preflight.
-See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
+models preservation of the three kinds of local trust anchor across full
+database restores: immutable purge decisions, append-only incident evidence,
+and monotone verification checkpoints, including observations made after
+restore preflight. Its mapping lists every production anchor table by kind and
+the tables deliberately left out. See the
+[mapping and boundaries](./backup-restore/TerminalAnchors.md).

@@ -8,6 +8,8 @@ local corpus.
 
 | Model action or predicate | Production seam |
 | --- | --- |
+| `ServerReportsPurged` | the unsigned billing status `recoverPurgedSessionOrganization` reads before starting |
+| `StartRecovery` / `RequirePersonalOrganization` | `resolveAutomaticRecoverySignal` starts recovery only where `usePurgedOrganizationRecovery` is enabled: for an administrator of the user's own personal organization |
 | `Authenticate` / `VerifyReplacement` | `verifyOrganizationReplacementResponse` verifies the identity signature and binds the old organization, user, returned organization, root, metadata document, and root genesis hash |
 | `Provision` / `VerifyProvisioning` | `validateOrganizationReplacementAuthorization` checks the same authorization against the submitted genesis before creation, winner replay, and finalization |
 | `freshPrivateGenesis` | `assertPersonalGenesis` restricts signing to fresh sole-founder policies and a private non-system root |
@@ -36,7 +38,19 @@ replay, SQLite atomicity, same-epoch conflict rejection, and finalization
 response checks are runtime test obligations rather than modeled transaction
 internals.
 
-Five negative controls independently remove client authentication, server
-validation, checkpoint retention, discovery scope, and seeding the winning
-genesis before adoption. The adversarial runtime regressions fail when the
-corresponding implementation guards are removed.
+Recovery starts from an active organization. The API's purged status is
+unsigned, and a dishonest API may report it for an organization it never
+purged. An administrator's device starts recovery on that status only for the
+user's own personal organization (`RecoveryOnlyForPersonalOrganization`), so a
+shared organization's members are never re-homed on the server's word.
+Adoption still needs this identity's signed replacement intent, and
+checkpoints survive the reset. The remaining effect of a false status on a
+personal organization is that the device re-homes its own corpus into a fresh
+personal organization it signed for: the server could equally withhold the
+old one, so this is an availability residual, not a trust decision.
+
+Six negative controls independently remove client authentication, server
+validation, checkpoint retention, discovery scope, seeding the winning genesis
+before adoption, and the personal-organization trigger guard. The adversarial
+runtime regressions fail when the corresponding implementation guards are
+removed.

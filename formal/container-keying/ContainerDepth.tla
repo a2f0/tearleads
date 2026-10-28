@@ -1,18 +1,26 @@
 --------------------------- MODULE ContainerDepth ---------------------------
 EXTENDS Integers, FiniteSets
 
-CONSTANTS Nodes, Root, MaxPathLength, GuardCreateDepth,
-          GuardMoveDepth, GuardSubtreeDepth
+(* Writers commit paths up to CommitMax containers; each reader walks a   *)
+(* path up to its own bound. Production shares one constant between them; *)
+(* the model keeps them apart so a reader bound below the commit bound is  *)
+(* an expressible fault (#2365 H1).                                        *)
+CONSTANTS Nodes, Root, CommitMax, ApiReadMax, ClientReadMax,
+          GuardCreateDepth, GuardMoveDepth, GuardSubtreeDepth, GuardMoveCycle
 ASSUME /\ Root \in Nodes
-       /\ MaxPathLength > 0
-       /\ {GuardCreateDepth, GuardMoveDepth, GuardSubtreeDepth} \subseteq BOOLEAN
+       /\ {CommitMax, ApiReadMax, ClientReadMax} \subseteq Nat \ {0}
+       /\ {GuardCreateDepth, GuardMoveDepth, GuardSubtreeDepth, GuardMoveCycle}
+            \subseteq BOOLEAN
 
 VARIABLES live, parent, depth
 vars == <<live, parent, depth>>
 
-RECURSIVE Ancestors(_, _)
-Ancestors(parents, node) ==
-  IF node = Root THEN {} ELSE {parents[node]} \cup Ancestors(parents, parents[node])
+(* Bounded by the node count, so a parent cycle terminates the walk. *)
+RECURSIVE AncestorsWithin(_, _, _)
+AncestorsWithin(parents, node, steps) ==
+  IF node = Root \/ steps = 0 THEN {}
+  ELSE {parents[node]} \cup AncestorsWithin(parents, parents[node], steps - 1)
+Ancestors(parents, node) == AncestorsWithin(parents, node, Cardinality(Nodes))
 
 Subtree(node) == {child \in live : child = node \/ node \in Ancestors(parent, child)}
 
@@ -24,19 +32,20 @@ Init ==
 Create(node, destination) ==
   /\ node \in Nodes \ live
   /\ destination \in live
-  /\ ~GuardCreateDepth \/ depth[destination] + 1 < MaxPathLength
+  /\ ~GuardCreateDepth \/ depth[destination] + 1 < CommitMax
   /\ live' = live \cup {node}
   /\ parent' = [parent EXCEPT ![node] = destination]
   /\ depth' = [depth EXCEPT ![node] = depth[destination] + 1]
 
 Move(node, destination) ==
   /\ node \in live \ {Root}
-  /\ destination \in live \ Subtree(node)
+  /\ destination \in live
+  /\ GuardMoveCycle => destination \notin Subtree(node)
   /\ LET delta == depth[destination] + 1 - depth[node]
          moved == Subtree(node)
-     IN /\ ~GuardMoveDepth \/ depth[destination] + 1 < MaxPathLength
+     IN /\ ~GuardMoveDepth \/ depth[destination] + 1 < CommitMax
         /\ ~GuardSubtreeDepth \/
-             \A child \in moved \ {node} : depth[child] + delta < MaxPathLength
+             \A child \in moved \ {node} : depth[child] + delta < CommitMax
         /\ depth' = [child \in Nodes |->
              IF child \in moved THEN depth[child] + delta ELSE depth[child]]
   /\ parent' = [parent EXCEPT ![node] = destination]
@@ -49,5 +58,9 @@ TypeOK == /\ live \subseteq Nodes /\ Root \in live
           /\ parent \in [Nodes -> Nodes]
           /\ depth \in [Nodes -> Nat]
 DepthMatchesParents == \A node \in live : depth[node] = Cardinality(Ancestors(parent, node))
-HonestReadsAvailable == \A node \in live : depth[node] < MaxPathLength
+(* Every container a writer committed stays readable by every reader. *)
+HonestReadsAvailable ==
+  \A node \in live : depth[node] < CommitMax /\ depth[node] < ApiReadMax /\ depth[node] < ClientReadMax
+(* Every live container reaches the root. *)
+PathsReachRoot == \A node \in live \ {Root} : node \notin Ancestors(parent, node)
 =============================================================================

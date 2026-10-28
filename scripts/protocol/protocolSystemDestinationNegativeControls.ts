@@ -27,6 +27,14 @@ export const SYSTEM_DESTINATION_NEGATIVE_CONTROLS: readonly NegativeControl[] =
       why: "A document pass deferred before root acknowledgment must be scheduled again even if no further edit occurs.",
     },
     {
+      id: "root-priming-counts-failed-acknowledgement",
+      module: "formal/local-trust/RootDocumentPriming.tla",
+      config: "formal/local-trust/RootDocumentPriming.cfg",
+      constants: { AcknowledgeOnlyOnSuccess: "FALSE" },
+      expect: { kind: "invariant", name: "RemoteRootIsAcknowledged" },
+      why: "A failed root acknowledgement must not release pending document creates into a root the server does not hold.",
+    },
+    {
       id: "system-slot-created-in-wrong-topology",
       module: "formal/local-trust/SystemDestination.tla",
       config: "formal/local-trust/SystemDestination.cfg",

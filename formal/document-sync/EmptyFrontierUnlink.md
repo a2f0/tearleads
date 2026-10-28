@@ -16,8 +16,9 @@ The abstraction maps to production at these seams:
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `BeginBaselinelessUnlink` / `CommitBaselinelessUnlink` | `assertBaselinelessUnlinkHasEmptyCommittedFrontier` inside `mutateDocumentLinkSetWithExecutor` |
-| `CheckCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
-| `LinkAdvancesEpoch` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
+| `CheckCoveringUnlink` / `RejectCoveringUnlink` / `CommitCoveringUnlink` | `assertAtomicRotationBaselineCoversCommittedFrontier` + `appendAtomicRotationBaseline` |
+| `BaselineAccepted` | the frontier comparison in `assertAtomicRotationBaselineCoversCommittedFrontier` |
+| `BeginLinkAdvance` / `LinkAdvancesEpoch` / `RejectLinkAdvance` | `assertLinkKeepsCommittedContentKeyEpoch` inside `advanceDocumentLinkSet` |
 | `FrontierEmpty` | `hasCommittedDocumentUpdate`, the emptiness proof both gates share |
 | `WriterMayCommit` | the exclusive manifest-head locks in `lockDocumentLinkSetMutationFrontier` and `lockSyncDocumentWriteFrontier` |
 | the client never sending an empty baseline (boundary assumption) | `buildDocumentRotationBaseline` returning null for a zero-span snapshot |
@@ -39,9 +40,25 @@ server that checked only the uncovered frontier; after a covering unlink TLC
 finds a link advance that strands the baseline, and the negative control
 `empty-frontier-check-ignores-baselines` asserts it.
 `CoveringUnlinkCoversFrontier` requires that, under the lock, the frontier a
-covering baseline was checked against is still the frontier at its commit. The
-link check and commit are one step because both run inside one locked
-transaction. The bounds stay small (`MaxUpdates = 3`); the run explores 61
-distinct states because the model tracks only the uncovered-update count,
-whether any update is committed, the covered frontier, and the unlink
-transaction phase.
+covering baseline was checked against is still the frontier at its commit.
+
+A client's baseline covers the frontier it held, which may fall short of the
+committed one. `total` counts every committed update, earlier rotation
+baselines included, since those are sealed to the epoch the next rotation
+retires. `CheckCoveringUnlink` chooses any covered frontier up to `total`, and
+the server refuses a short one (`RejectCoveringUnlink`), so the baseline is not
+honest by construction. `CheckBaselineCoversFrontier = FALSE` accepts a short
+baseline, and the rotation strands the updates it does not cover: the negative
+control `empty-frontier-short-baseline` asserts the `NoDataLoss` violation.
+`BaselineFrontier = "uncovered"` is a server that compared the baseline only
+with the frontier since the latest baseline. Right after one rotation it
+accepts an empty baseline for the next, which strands the first baseline: the
+control `empty-frontier-baseline-skips-earlier-baseline` asserts it across two
+consecutive rotations.
+
+A link's emptiness check and its commit are separate steps under the same
+manifest-head lock as an unlink, so `LockedUnlink = FALSE` also lets a writer
+commit between them. The bounds stay small (`MaxUpdates = 3` committed
+updates, baselines included); the run explores 52 distinct states because the
+model tracks only update counts, whether any update is committed, the covered
+frontier, and the transaction phase.

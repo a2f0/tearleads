@@ -7,7 +7,8 @@
 (* replay suite drives through the real dominance and redirect kernels.    *)
 (* A mutation that weakens Dominated, Older, or the raw-mode serve rule    *)
 (* changes these exported behaviors and therefore fails either the trace   *)
-(* fixture drift check or the kernel replay.                               *)
+(* fixture drift check or the kernel replay. The exported baseline flag is *)
+(* the readable, authenticated baseline the kernels receive as coverage.   *)
 EXTENDS BaselineDominance, TLC
 
 ASSUME Peers = {"a", "b"}
@@ -17,7 +18,7 @@ ExportServedBehavior ==
   \/ phase # "served"
   \/ PrintT(<<"BDTRACE",
               currentEpoch,
-              hasBaseline,
+              ReadableBaseline,
               historyMode,
               coverage["a"], coverage["b"],
               updates[1].epoch,
