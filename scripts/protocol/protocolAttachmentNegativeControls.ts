@@ -185,4 +185,12 @@ export const ATTACHMENT_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "BoundBytesHaveSourceAuthority" },
     why: "Destination write authority alone cannot authorize reuse of a private existing blob (#2266).",
   },
+  {
+    id: "blob-bind-without-destination-write",
+    module: "formal/blob-attachments/BlobSourceAuthority.tla",
+    config: "formal/blob-attachments/BlobSourceAuthority.cfg",
+    constants: { CheckDestinationWrite: "FALSE" },
+    expect: { kind: "invariant", name: "DestinationWriteIsRequired" },
+    why: "Binding a blob into a document needs write authority on that destination, whatever the source authority.",
+  },
 ];

@@ -1,7 +1,7 @@
 ---------------------- MODULE BlobSourceAuthority ----------------------
 EXTENDS Naturals
-CONSTANT CheckSourceAuthority
-ASSUME CheckSourceAuthority \in BOOLEAN
+CONSTANTS CheckSourceAuthority, CheckDestinationWrite
+ASSUME {CheckSourceAuthority, CheckDestinationWrite} \subseteq BOOLEAN
 VARIABLES sourceReadable, ciphertextAuthor, destinationWritable, bound
 vars == <<sourceReadable, ciphertextAuthor, destinationWritable, bound>>
 Init ==
@@ -9,8 +9,9 @@ Init ==
   /\ ciphertextAuthor \in BOOLEAN
   /\ destinationWritable \in BOOLEAN
   /\ bound = FALSE
+(* A bind request may come from any reader; the API checks both ends. *)
 Bind ==
-  /\ destinationWritable
+  /\ CheckDestinationWrite => destinationWritable
   /\ ~CheckSourceAuthority \/ sourceReadable \/ ciphertextAuthor
   /\ bound' = TRUE
   /\ UNCHANGED <<sourceReadable, ciphertextAuthor, destinationWritable>>
