@@ -1,6 +1,9 @@
 import { expect, test } from "bun:test";
 import type { ApiClient } from "@tearleads/api-client";
-import { setGeneratedIdentity } from "../../../test/helpers/clientTestSupport";
+import {
+  noIdentityChange,
+  setGeneratedIdentity,
+} from "../../../test/helpers/clientTestSupport";
 import { createIdentity } from "../identity";
 import { Database } from "../runtime/database";
 import { createSession } from "./index";
@@ -18,11 +21,7 @@ test("remote logout does not clear a session for a changed identity", async () =
       authToken = value;
     },
   } as ApiClient;
-  const identity = createIdentity(
-    {},
-    () => undefined,
-    () => undefined,
-  );
+  const identity = createIdentity({}, noIdentityChange, () => undefined);
   const session = createSession({
     api,
     database: new Database(),

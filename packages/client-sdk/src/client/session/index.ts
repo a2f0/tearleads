@@ -101,12 +101,11 @@ class SessionService implements Session {
     );
   }
 
-  async bootstrapLocalRootContainer(): Promise<{
-    containerId: string;
-    created: boolean;
-  }> {
-    // Recovery can request local bootstrap after login. Preserve the root
-    // acknowledged by that session instead of replacing it with a local id.
+  async bootstrapLocalRootContainer(
+    isCurrent: () => boolean = () => true,
+  ): ReturnType<typeof bootstrapRootContainer> {
+    if (!isCurrent()) throw new Error("Identity change was superseded.");
+    // Preserve a logged-in session's acknowledged root during local recovery.
     const acknowledgedRoot = acknowledgedSessionRoot(
       this,
       this.dependencies.identity.snapshot.signingFingerprint,
@@ -117,6 +116,7 @@ class SessionService implements Session {
     const result = await bootstrapRootContainer(
       this.dependencies.database.requireExecSql("bootstrapLocalRootContainer"),
     );
+    if (!isCurrent()) throw new Error("Identity change was superseded.");
     this.setContainerId(result.containerId);
     if (result.created) {
       this.dependencies.log("Root container created");

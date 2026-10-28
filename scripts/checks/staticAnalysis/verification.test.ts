@@ -15,7 +15,10 @@ test("package verification replaces stale SDK output before API, app, and SDK te
         "a pattern with spaces",
       ]);
       expect(result.code, result.output).toBe(0);
-      expect(result.commands[0]).toEqual(["run", "build:packages"]);
+      expect(result.commands[0]).toEqual([
+        "run",
+        name === "app" ? "build:packages" : "build:runtime",
+      ]);
       expect(result.commands[1]?.slice(-2)).toEqual([
         "--test-name-pattern",
         "a pattern with spaces",
@@ -33,6 +36,23 @@ test("package verification replaces stale SDK output before API, app, and SDK te
         "passed",
       ]);
       expect(report?.finishedAt).not.toBeNull();
+    } finally {
+      repo.cleanup();
+    }
+  }
+});
+
+test("a failed focused runtime build prevents API and SDK tests", () => {
+  for (const name of ["@tearleads/api", "@tearleads/client-sdk"]) {
+    const repo = verificationFixture("build");
+    try {
+      const result = repo.run(["package", name]);
+      expect(result.code, result.output).toBe(23);
+      expect(result.commands).toEqual([["run", "build:runtime"]]);
+      expect(result.reports[0]?.steps.map((step) => step.status)).toEqual([
+        "failed",
+        "skipped",
+      ]);
     } finally {
       repo.cleanup();
     }
@@ -193,5 +213,11 @@ test("root check commands use the verification runner", () => {
   );
   expect(manifest.scripts["check:package"]).toBe(
     "bun scripts/testing/runVerification.ts package",
+  );
+  expect(manifest.scripts["build:runtime"]).toBe(
+    "turbo run build --filter=@tearleads/sqlite-instance --filter=@tearleads/client-sdk",
+  );
+  expect(manifest.scripts["build:packages"]).toBe(
+    "bun run build:runtime && bun run --cwd packages/app-electrobun prepare:devkit",
   );
 });

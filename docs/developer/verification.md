@@ -43,12 +43,21 @@ bun run check:package app --test-name-pattern 'folder recovery'
 bun run check:package @tearleads/client-sdk
 ```
 
-This command runs `build:packages`, then the selected workspace's `test` script.
+For `@tearleads/api` and `@tearleads/client-sdk`, this command runs
+`build:runtime` (SQLite and the SDK), then the selected workspace's `test`
+script. Other selections run `build:packages`, which also prepares the
+Electrobun devkit. The focused API and SDK suites need no desktop toolchain.
 Additional arguments go to that script as separate arguments, including patterns
 with spaces. The API script tests both database backends (`memory` and
 `sqlite`). Package mode does not run TypeScript, static checks, or browser E2E
 tests; use `check:affected` or `check` for a handoff. Dependencies must already
 be installed; the runner does not install tools or change the lockfile.
+
+CI runs the same API and SDK tests through `runVerifiedTurbo.ts test` with a
+workspace filter; Turbo builds their dependencies first. Prefer `check:package`
+locally for its source-fingerprinted report and forwarded test arguments. To
+narrow API tests, use `--test-name-pattern`; its runner always selects `src`
+and runs both backends, regardless of an outer `API_DATABASE` value.
 
 Each run prints the path to a JSON report under the checkout's Git directory:
 `git rev-parse --git-path verification` locates the report directory, including
@@ -94,16 +103,19 @@ review. Do not disable trust globally to work around a shell startup error.
 
 | Command | Prerequisites beyond the checkout |
 | --- | --- |
-| `check:package @tearleads/api` or `check:package @tearleads/client-sdk` | Pinned Bun, `bun install --frozen-lockfile`, and the `build:packages` prerequisites below. No protocol-model, OpenAPI-compatibility, or Ruby lint gate runs in package mode. |
+| `check:package @tearleads/api` or `check:package @tearleads/client-sdk` | Pinned Bun, `bun install --frozen-lockfile`, and the SQLite download tools below. No Electrobun devkit, protocol-model, OpenAPI-compatibility, or Ruby lint gate runs in these focused checks. |
 | `check:fast` | Installed dependencies and pinned mise tools, including Java/TLA+, oasdiff, ShellCheck and Ruby; run `bundle install` in `packages/app-capacitor` for Ruby lint dependencies. Prepares the Electrobun devkit and SDK declarations. |
 | `check`, `check:affected`, or pre-push | The static-gate prerequisites plus package builds, TypeScript, and the selected test suites; browser E2E also requires the Playwright browsers. |
 
-`build:packages` downloads the pinned SQLite WASM archive when uncached, builds
-the SDK, and prepares the Electrobun devkit. Have `curl`, `unzip`, a SHA-256
-utility, and network access for uncached downloads. See the
+`build:runtime` downloads the pinned SQLite WASM archive when uncached and
+builds the SDK. Have `curl`, `unzip`, a SHA-256 utility, and network access for
+uncached downloads. `build:packages` also prepares the Electrobun devkit; see the
 [desktop setup guide](../../packages/app-electrobun/README.md) for supported
-platforms and devkit cache/offline behavior. SDK packaging tests also install a
-consumer's dependencies from npm. Other workspaces can add their own test
+platforms and devkit cache/offline behavior. The separate SDK `package:smoke`
+command installs a consumer's dependencies from npm. The SDK test suite's
+packaging tests build and inspect local output without that install; with
+dependencies and SQLite artifacts cached, focused SDK tests need no npm access.
+Other workspaces can add their own test
 prerequisites; check their README and `test` script.
 
 For a checkout whose mise configuration cannot be trusted, the protocol and

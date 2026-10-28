@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
   createSqlClient,
+  noIdentityChange,
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
@@ -78,12 +79,7 @@ function createHarness(input: {
     setAuthToken: () => undefined,
   } as unknown as ApiClient;
   const identity =
-    input.identity ??
-    createIdentity(
-      {},
-      () => undefined,
-      () => undefined,
-    );
+    input.identity ?? createIdentity({}, noIdentityChange, () => undefined);
   const session = createSession({
     api,
     database: new Database({

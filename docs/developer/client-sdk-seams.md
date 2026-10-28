@@ -30,6 +30,7 @@ reference it follows.
 | Principal policy process state | `getOrCreatePrincipalPolicyCoordinator(execSql)` | One coordinator per database | None |
 | Acknowledged principal currents | `PrincipalAcknowledgementChecks`, the host for `recordAcknowledgedPrincipalCurrents` | The organization mutation checks bound by `retainAcknowledgedPrincipalCurrents` | None |
 | Domain sync lanes | `getOrCreateDomainSyncCoordinator(domainScope)` | One coordinator per domain scope | None |
+| Identity change preparation | `IdentityChangePreparation` | `Blobs` prepares a store and returns a commit that only assigns state | No-op preparation in identity/session tests |
 
 ## Where code goes
 

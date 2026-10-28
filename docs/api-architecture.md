@@ -166,6 +166,12 @@ For service-backed routes, this layer:
 - loads auth/session context
 - calls a service
 - converts service results and errors into HTTP responses
+- publishes best-effort realtime hints after successful document mutations
+
+Document routes own that last step: `respondWithDocumentCreate` in
+`routes/documents/mutations.ts` calls `publishDocumentUpdateCreatedEvent` after
+the service returns. A publication failure does not roll back a committed
+mutation; realtime hints prompt clients to fetch verified state.
 
 Routes do not import workflows or access modules. Route-local logic is limited
 to thin adapters and simple endpoints that need no service orchestration.

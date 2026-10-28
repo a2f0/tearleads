@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import invariant from "invariant";
 import {
   createSqlClient,
+  noIdentityChange,
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
@@ -82,11 +83,7 @@ test("recovery reuses its durable replacement after a local reset failure", asyn
     getAuthToken: () => null,
     setAuthToken: () => undefined,
   } as unknown as ApiClient;
-  const identity = createIdentity(
-    {},
-    () => undefined,
-    () => undefined,
-  );
+  const identity = createIdentity({}, noIdentityChange, () => undefined);
   const session = createSession({
     api,
     database: new ResetFailingDatabase(createSqlClient(execSql), execSql),
@@ -198,11 +195,7 @@ test("recovery retries server finalization after the local reset commits", async
     getAuthToken: () => null,
     setAuthToken: () => undefined,
   } as unknown as ApiClient;
-  const identity = createIdentity(
-    {},
-    () => undefined,
-    () => undefined,
-  );
+  const identity = createIdentity({}, noIdentityChange, () => undefined);
   const session = createSession({
     api,
     database: new Database({ client: createSqlClient(execSql) }),

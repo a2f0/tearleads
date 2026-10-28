@@ -46,7 +46,7 @@ export function verificationFixture(failingStep = "") {
 import { appendFileSync, copyFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 const args = process.argv.slice(2);
 appendFileSync(".git/commands.ndjson", JSON.stringify(args) + "\\n");
-const step = args.includes("build:packages") ? "build"
+const step = args.includes("build:packages") || args.includes("build:runtime") ? "build"
   : args.includes("tsc") ? "typescript"
   : args.includes("check:fast") ? "static" : "tests";
 if (step === process.env.FAILING_STEP) process.exit(23);
