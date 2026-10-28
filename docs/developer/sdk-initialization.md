@@ -95,14 +95,17 @@ factory should return a usable store or throw; preparing it must not depend on
 the new identity already being published.
 
 Starting another identity mutation (including clearing keys or `destroy()`)
-supersedes pending generation/import/key-setting calls. Superseded calls reject
+supersedes pending generation/import/key-setting calls, even if the newer import
+later fails validation. Superseded calls reject
 instead of restoring old keys; a superseded fingerprint refresh returns the
 current fingerprint. An explicit blob namespace change during root bootstrap
 also cancels generation. Fingerprint refresh observes the current identity and
 does not cancel a pending import or generation. A generation call rejected
 because SQLite is not ready does not cancel a pending import.
-A cancelled bootstrap may have persisted a reusable
-local root, but it does not select that root in the session or publish keys.
+A cancelled bootstrap may have persisted a reusable local root. Cancellation
+before root selection prevents selecting it; cancellation after selection
+leaves that database-local root selected, but does not publish the generated
+keys. Destroying an identity does not clear its database's local root.
 Direct callers of `session.bootstrapLocalRootContainer(isCurrent?)` can supply
 the same currency predicate to prevent a superseded call selecting its root.
 
@@ -124,6 +127,11 @@ an existing signing key, block the constructor, or provision again after a
 successful automatic provisioning.
 Choose either automatic provisioning or an explicitly awaited `generate()`;
 do not start both for the same instance.
+An import or `destroy()` can supersede automatic provisioning. The automatic
+task reports that rejection through `logError("Automatic identity provisioning
+failed")`; it retries only after another database change, provided no signing
+key exists. Hosts intentionally cancelling setup can handle that log outcome
+and explicitly generate when ready.
 
 ## Blob storage and non-browser hosts
 

@@ -44,7 +44,7 @@ export class Blobs {
     prepared.commit();
   }
 
-  /** Prepare fallible storage before an identity change; commit only assigns state. */
+  /** @internal Prepare storage for the identity service; hosts use namespace methods. */
   prepareIdentityChange(
     signingFingerprint: string | null,
   ): PreparedIdentityChange {
