@@ -27,30 +27,13 @@ import { measureWorkflowRequests } from "../../../../test/helpers/workflowReques
 afterEach(cleanupPaneTestEnvironment);
 
 async function setNetworkMode(pane: HTMLElement, label: string) {
-  await interact(() =>
-    fireEvent.click(within(pane).getByRole("button", { name: "Menu" })),
-  );
-  await interact(() =>
-    fireEvent.click(
-      within(document.body).getByRole("button", { name: "System Monitor" }),
-    ),
-  );
-  const monitor = await within(pane).findByRole("region", {
-    name: "System Monitor",
-  });
+  const status = within(pane).getByRole("region", { name: "System status" });
   await interact(() => {
-    const content = monitor.querySelector<HTMLElement>(".system-monitor");
-    invariant(content, "Expected System Monitor content.");
-    fireEvent.contextMenu(content, { clientX: 30, clientY: 30 });
+    fireEvent.contextMenu(status, { clientX: 30, clientY: 30 });
   });
   await interact(() => {
     fireEvent.click(within(document.body).getByRole("button", { name: label }));
   });
-  await interact(() =>
-    fireEvent.click(
-      within(monitor).getByRole("button", { name: "Close window" }),
-    ),
-  );
 }
 
 test("offline folder creation, cached note edits and Trash use zero requests and resume after reconnect", async () => {
