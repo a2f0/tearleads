@@ -67,9 +67,9 @@ forty each with trees up to 192 leaves. These randomized runs shrink failures
 and report replay seeds. They are bounded tests, not exhaustive coverage of all
 keying histories. The independent root oracle shares the production
 domain-hash primitive, and the TypeScript generators produce the proofs. The
-only machine-checked results are the [Lean](./lean/README.md) theorems for
-Merkle completeness through size 32, which are about the model. The unbounded
-completeness and soundness theorems are stated but unproved. The grant algebra,
+[Lean](./lean/README.md) theorems prove Merkle inclusion and consistency
+completeness and soundness for every tree size. They are about the model, which
+the vector replay binds to production on sampled sizes. The grant algebra,
 revocation and re-grant, and checkpoint monotonicity are covered by these tests
 and the bounded models, not by theorems.
 
