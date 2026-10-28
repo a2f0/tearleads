@@ -35772,6 +35772,41 @@
                     "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                     "type": "string"
                   },
+                  "membersHead": {
+                    "type": "object",
+                    "properties": {
+                      "principalId": {
+                        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                        "type": "string"
+                      },
+                      "version": {
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "keyEpoch": {
+                        "maximum": 9007199254740991,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "stateHash": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "keyFingerprint": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "principalId",
+                      "version",
+                      "keyEpoch",
+                      "stateHash",
+                      "keyFingerprint"
+                    ],
+                    "additionalProperties": false
+                  },
                   "signature": {
                     "type": "string",
                     "minLength": 1
@@ -35781,6 +35816,7 @@
                   "organizationId",
                   "userId",
                   "requestedAt",
+                  "membersHead",
                   "signature"
                 ],
                 "additionalProperties": false
@@ -48117,6 +48153,41 @@
                                                 "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                                                 "type": "string"
                                               },
+                                              "membersHead": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "principalId": {
+                                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                                    "type": "string"
+                                                  },
+                                                  "version": {
+                                                    "maximum": 9007199254740991,
+                                                    "minimum": 1,
+                                                    "type": "integer"
+                                                  },
+                                                  "keyEpoch": {
+                                                    "maximum": 9007199254740991,
+                                                    "minimum": 1,
+                                                    "type": "integer"
+                                                  },
+                                                  "stateHash": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                  },
+                                                  "keyFingerprint": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                  }
+                                                },
+                                                "required": [
+                                                  "principalId",
+                                                  "version",
+                                                  "keyEpoch",
+                                                  "stateHash",
+                                                  "keyFingerprint"
+                                                ],
+                                                "additionalProperties": false
+                                              },
                                               "signature": {
                                                 "type": "string",
                                                 "minLength": 1
@@ -48126,6 +48197,7 @@
                                               "organizationId",
                                               "userId",
                                               "requestedAt",
+                                              "membersHead",
                                               "signature"
                                             ],
                                             "additionalProperties": false
@@ -48655,6 +48727,41 @@
                                                 "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                                                 "type": "string"
                                               },
+                                              "membersHead": {
+                                                "type": "object",
+                                                "properties": {
+                                                  "principalId": {
+                                                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                                    "type": "string"
+                                                  },
+                                                  "version": {
+                                                    "maximum": 9007199254740991,
+                                                    "minimum": 1,
+                                                    "type": "integer"
+                                                  },
+                                                  "keyEpoch": {
+                                                    "maximum": 9007199254740991,
+                                                    "minimum": 1,
+                                                    "type": "integer"
+                                                  },
+                                                  "stateHash": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                  },
+                                                  "keyFingerprint": {
+                                                    "type": "string",
+                                                    "minLength": 1
+                                                  }
+                                                },
+                                                "required": [
+                                                  "principalId",
+                                                  "version",
+                                                  "keyEpoch",
+                                                  "stateHash",
+                                                  "keyFingerprint"
+                                                ],
+                                                "additionalProperties": false
+                                              },
                                               "signature": {
                                                 "type": "string",
                                                 "minLength": 1
@@ -48664,6 +48771,7 @@
                                               "organizationId",
                                               "userId",
                                               "requestedAt",
+                                              "membersHead",
                                               "signature"
                                             ],
                                             "additionalProperties": false
@@ -49363,6 +49471,41 @@
                               "pattern": "^(?:19[7-9]\\d|[2-9]\\d{3})-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$",
                               "type": "string"
                             },
+                            "membersHead": {
+                              "type": "object",
+                              "properties": {
+                                "principalId": {
+                                  "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+                                  "type": "string"
+                                },
+                                "version": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "keyEpoch": {
+                                  "maximum": 9007199254740991,
+                                  "minimum": 1,
+                                  "type": "integer"
+                                },
+                                "stateHash": {
+                                  "type": "string",
+                                  "minLength": 1
+                                },
+                                "keyFingerprint": {
+                                  "type": "string",
+                                  "minLength": 1
+                                }
+                              },
+                              "required": [
+                                "principalId",
+                                "version",
+                                "keyEpoch",
+                                "stateHash",
+                                "keyFingerprint"
+                              ],
+                              "additionalProperties": false
+                            },
                             "signature": {
                               "type": "string",
                               "minLength": 1
@@ -49372,6 +49515,7 @@
                             "organizationId",
                             "userId",
                             "requestedAt",
+                            "membersHead",
                             "signature"
                           ],
                           "additionalProperties": false

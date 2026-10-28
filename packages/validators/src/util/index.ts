@@ -68,6 +68,7 @@ export {
 export {
   isOrganizationLeaveRequest,
   type OrganizationLeaveRequest,
+  type OrganizationLeaveRequestMembersHead,
   OrganizationLeaveRequestSchema,
 } from "./organizationLeaveRequest";
 export {

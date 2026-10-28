@@ -16,13 +16,17 @@ import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
 import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
 import {
+  addMemberGroupUser,
+  removeMemberGroupUser,
+} from "../../../test/helpers/organizationMember";
+import {
   addOrganizationMember,
   getDefaultOrganizationId,
 } from "../../../test/helpers/organizationMembership";
+import { loadVerifiedPrincipalPolicy } from "../../../test/helpers/principalPolicy";
 import { registerUser } from "../../../test/helpers/registerUser";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { createRouteApp } from "../../routeApp";
-import { syncOrganizationRosterFromMemberReachability } from "../../workflows/organizations/roster";
 
 async function registeredUser(): Promise<TestUser> {
   const user = createTestUser();
@@ -31,30 +35,57 @@ async function registeredUser(): Promise<TestUser> {
   return user;
 }
 
-/** A founder's organization with a second user on its roster. */
+/** A founder's organization with a second user enrolled in Members. */
 async function organizationWithMember() {
   const founder = await registeredUser();
   const member = await registeredUser();
   const organizationId = await getDefaultOrganizationId(founder.userId);
-  // Roster rows are product state that Members commits write; inserting one
-  // stands in for an enrollment the leave request only reads.
-  await db
-    .insert(organizationRosterEntries)
-    .values({ organizationId, status: "active", userId: member.userId });
+  await addOrganizationMember({ actor: founder, member, organizationId });
   return { founder, member, organizationId };
 }
 
-function signedRequest(
+/** The organization's current Members head, as a member's client cites it. */
+async function currentMembersHead(organizationId: string) {
+  const [organization] = await db
+    .select({ memberGroupId: organizations.memberGroupId })
+    .from(organizations)
+    .where(eq(organizations.id, organizationId));
+  invariant(organization, "expected the organization row");
+  const { state } = await loadVerifiedPrincipalPolicy(
+    db,
+    "group",
+    organization.memberGroupId,
+  );
+  return {
+    keyEpoch: state.keyEpoch,
+    keyFingerprint: state.keyFingerprint,
+    principalId: state.principalId,
+    stateHash: state.stateHash,
+    version: state.version,
+  };
+}
+
+type MembersHead = Awaited<ReturnType<typeof currentMembersHead>>;
+
+async function signedRequest(
   signer: TestUser,
-  input: { organizationId: string; requestedAt?: string; userId?: string },
+  input: {
+    membersHead?: MembersHead;
+    organizationId: string;
+    requestedAt?: string;
+    signing?: TestUser["signing"];
+    userId?: string;
+  },
 ) {
   return signOrganizationLeaveRequest(
     {
+      membersHead:
+        input.membersHead ?? (await currentMembersHead(input.organizationId)),
       organizationId: input.organizationId,
       requestedAt: input.requestedAt ?? new Date().toISOString(),
       userId: input.userId ?? signer.userId,
     },
-    signer.signing,
+    input.signing ?? signer.signing,
   );
 }
 
@@ -110,7 +141,7 @@ test("a member files a signed leave request that administrators can read", async
   const published: PublishedRealtimeEvent[] = [];
   const app = createApp(published);
   const { founder, member, organizationId } = await organizationWithMember();
-  const request = signedRequest(member, { organizationId });
+  const request = await signedRequest(member, { organizationId });
 
   const response = await putLeaveRequest(app, member, organizationId, request);
 
@@ -141,27 +172,35 @@ test("a leave request must be the member's own, current, and correctly signed", 
   const app = createApp();
   const { founder, member, organizationId } = await organizationWithMember();
 
-  const signedByAnother = signOrganizationLeaveRequest(
-    {
-      organizationId,
-      requestedAt: new Date().toISOString(),
-      userId: member.userId,
-    },
-    founder.signing,
-  );
-  const stale = signedRequest(member, {
+  const membersHead = await currentMembersHead(organizationId);
+  const signedByAnother = await signedRequest(member, {
+    organizationId,
+    signing: founder.signing,
+  });
+  const stale = await signedRequest(member, {
     organizationId,
     requestedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
   });
-  const otherOrganization = signedRequest(member, {
+  const otherOrganization = await signedRequest(member, {
+    membersHead,
     organizationId: crypto.randomUUID(),
   });
-  const otherMember = signedRequest(member, {
+  const otherMember = await signedRequest(member, {
     organizationId,
     userId: founder.userId,
   });
+  const otherGroup = await signedRequest(member, {
+    membersHead: { ...membersHead, principalId: crypto.randomUUID() },
+    organizationId,
+  });
 
-  for (const body of [signedByAnother, stale, otherOrganization, otherMember]) {
+  for (const body of [
+    signedByAnother,
+    stale,
+    otherOrganization,
+    otherMember,
+    otherGroup,
+  ]) {
     expect(
       (await putLeaveRequest(app, member, organizationId, body)).status,
     ).toBe(400);
@@ -182,7 +221,7 @@ test("a personal organization or a sole administrator cannot ask to leave", asyn
         app,
         founder,
         organizationId,
-        signedRequest(founder, { organizationId }),
+        await signedRequest(founder, { organizationId }),
       )
     ).status,
   ).toBe(409);
@@ -199,41 +238,31 @@ test("a personal organization or a sole administrator cannot ask to leave", asyn
         app,
         founder,
         organizationId,
-        signedRequest(founder, { organizationId }),
+        await signedRequest(founder, { organizationId }),
       )
     ).status,
   ).toBe(409);
 });
 
-test("deactivating the member clears their leave request", async () => {
+test("removing the member clears their leave request", async () => {
   const app = createApp();
-  const { member, organizationId } = await organizationWithMember();
+  const { founder, member, organizationId } = await organizationWithMember();
   expect(
     (
       await putLeaveRequest(
         app,
         member,
         organizationId,
-        signedRequest(member, { organizationId }),
+        await signedRequest(member, { organizationId }),
       )
     ).status,
   ).toBe(200);
-  const [organization] = await db
-    .select({ memberGroupId: organizations.memberGroupId })
-    .from(organizations)
-    .where(eq(organizations.id, organizationId));
-  invariant(organization, "expected the organization row");
 
-  // The member is not reachable from Members, so this roster pass is the
-  // removal an administrator's signed Members commit performs.
-  await db.transaction((tx) =>
-    syncOrganizationRosterFromMemberReachability({
-      disabledByUserId: null,
-      executor: tx,
-      memberGroupId: organization.memberGroupId,
-      organizationId,
-    }),
-  );
+  await removeMemberGroupUser({
+    actor: founder,
+    memberUserId: member.userId,
+    organizationId,
+  });
 
   const [entry] = await db
     .select({
@@ -288,7 +317,7 @@ test("only administrators and the member see a pending leave request", async () 
   const app = createApp();
   const { colleague, founder, member, organizationId } =
     await organizationWithMembers();
-  const request = signedRequest(member, { organizationId });
+  const request = await signedRequest(member, { organizationId });
   expect(
     (await putLeaveRequest(app, member, organizationId, request)).status,
   ).toBe(200);
@@ -308,7 +337,7 @@ test("a new administrator's next directory delta carries pending leave requests"
   const app = createApp();
   const { colleague, founder, member, organizationId } =
     await organizationWithMembers();
-  const request = signedRequest(member, { organizationId });
+  const request = await signedRequest(member, { organizationId });
   expect(
     (await putLeaveRequest(app, member, organizationId, request)).status,
   ).toBe(200);
@@ -335,5 +364,73 @@ test("a new administrator's next directory delta carries pending leave requests"
   expect(
     delta.lanes.directory?.users.find((user) => user.userId === member.userId)
       ?.leaveRequest,
+  ).toEqual(request);
+});
+
+test("a leave request cannot cite a Members head from before the member's removal", async () => {
+  const app = createApp();
+  const { founder, member, organizationId } = await organizationWithMember();
+  const earlierMembership = await currentMembersHead(organizationId);
+
+  await removeMemberGroupUser({
+    actor: founder,
+    memberUserId: member.userId,
+    organizationId,
+  });
+  await addMemberGroupUser({
+    actor: founder,
+    memberUserId: member.userId,
+    organizationId,
+  });
+
+  const replayed = await signedRequest(member, {
+    membersHead: earlierMembership,
+    organizationId,
+  });
+  expect(
+    (await putLeaveRequest(app, member, organizationId, replayed)).status,
+  ).toBe(409);
+  const unknown = await signedRequest(member, {
+    membersHead: {
+      ...(await currentMembersHead(organizationId)),
+      stateHash: "not-a-members-state",
+    },
+    organizationId,
+  });
+  expect(
+    (await putLeaveRequest(app, member, organizationId, unknown)).status,
+  ).toBe(409);
+  expect(
+    (
+      await putLeaveRequest(
+        app,
+        member,
+        organizationId,
+        await signedRequest(member, { organizationId }),
+      )
+    ).status,
+  ).toBe(200);
+});
+
+test("a leave request may cite an earlier head of the member's current membership", async () => {
+  const app = createApp();
+  const { founder, member, organizationId } = await organizationWithMember();
+  const seen = await currentMembersHead(organizationId);
+  const colleague = await registeredUser();
+  await addMemberGroupUser({
+    actor: founder,
+    memberUserId: colleague.userId,
+    organizationId,
+  });
+
+  const request = await signedRequest(member, {
+    membersHead: seen,
+    organizationId,
+  });
+  expect(
+    (await putLeaveRequest(app, member, organizationId, request)).status,
+  ).toBe(200);
+  expect(
+    await directoryLeaveRequest(app, founder, organizationId, member.userId),
   ).toEqual(request);
 });

@@ -31,7 +31,7 @@ import {
 } from "./organizationMemberships";
 import {
   createOrganizationReadModelCoordinator,
-  leaveRequestSignerResolver,
+  leaveRequestVerifier,
   type OrganizationReadModelCoordinator,
 } from "./organizationReadModels";
 import type { Organizations } from "./organizationsTypes";
@@ -408,7 +408,10 @@ class OrganizationsService implements Organizations {
       withVerifiedDirectoryUser(
         organizationId,
         user,
-        leaveRequestSignerResolver(this.runtimeService, runtime),
+        leaveRequestVerifier(this.runtimeService, runtime, {
+          organizationId,
+          userId: runtime.auth.userId ?? "",
+        }),
       )
     );
   }

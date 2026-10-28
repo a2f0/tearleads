@@ -5,12 +5,14 @@ import {
   signOrganizationLeaveRequest,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
+import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../../test/helpers/leaveRequestFixtures";
 import {
   organizationReadModelDirectory as directory,
   organizationReadModelDirectoryUser as directoryUser,
 } from "../../../../test/helpers/organizationReadModelPersistenceFixtures";
 import { createTestTrustedUserIdentityResolver } from "../../../data/trustedUserIdentity/testFixtures";
 import type { OrganizationDirectoryAndGroups } from "../readModel";
+import type { LeaveRequestMembershipCheck } from "./leaveRequestMembership";
 import { withVerifiedLeaveRequests } from "./leaveRequestVerification";
 
 const ORGANIZATION_ID = "6a1f3c2e-8d4b-4f6a-9c1e-2b3d4e5f6a7b";
@@ -19,6 +21,7 @@ const MEMBER_ID = "1b2c3d4e-5f6a-4b7c-8d9e-0f1a2b3c4d5e";
 function leaveRequest(keys: SigningKeyPair) {
   return signOrganizationLeaveRequest(
     {
+      membersHead: TEST_LEAVE_REQUEST_MEMBERS_HEAD,
       organizationId: ORGANIZATION_ID,
       requestedAt: "2026-10-22T12:00:00.000Z",
       userId: MEMBER_ID,
@@ -58,10 +61,15 @@ const trustedMember = createTestTrustedUserIdentityResolver({
 
 async function shownRequest(
   result: OrganizationDirectoryAndGroups,
-  resolve = trustedMember,
+  resolveTrustedUserIdentity = trustedMember,
+  membershipIsCurrent: LeaveRequestMembershipCheck = async () => true,
 ) {
-  return (await withVerifiedLeaveRequests(result, resolve))?.directory.users[0]
-    ?.leaveRequest;
+  return (
+    await withVerifiedLeaveRequests(result, {
+      membershipIsCurrent,
+      resolveTrustedUserIdentity,
+    })
+  )?.directory.users[0]?.leaveRequest;
 }
 
 test("a request the member signed is shown", async () => {
@@ -83,6 +91,17 @@ test("a request whose member cannot be trusted yet is not shown", async () => {
     await shownRequest(
       directoryWith(leaveRequest(member), member),
       async () => null,
+    ),
+  ).toBeNull();
+});
+
+test("a signed request from a membership that has since ended is not shown", async () => {
+  const genuine = leaveRequest(member);
+  expect(
+    await shownRequest(
+      directoryWith(genuine, member),
+      trustedMember,
+      async (request) => request !== genuine,
     ),
   ).toBeNull();
 });

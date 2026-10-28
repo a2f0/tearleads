@@ -6,6 +6,7 @@ import {
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql } from "@tearleads/test-utils";
+import { TEST_LEAVE_REQUEST_MEMBERS_HEAD } from "../../../../test/helpers/leaveRequestFixtures";
 import {
   organizationReadModelDirectory as directory,
   organizationReadModelDirectoryUser as directoryUser,
@@ -24,6 +25,7 @@ const MISADDRESSED_ID = "3d4e5f6a-7b8c-4d9e-8f0a-1b2c3d4e5f6a";
 function leaveRequest(userId: string, keys: SigningKeyPair) {
   return signOrganizationLeaveRequest(
     {
+      membersHead: TEST_LEAVE_REQUEST_MEMBERS_HEAD,
       organizationId: ORGANIZATION_ID,
       requestedAt: "2026-10-22T12:00:00.000Z",
       userId,

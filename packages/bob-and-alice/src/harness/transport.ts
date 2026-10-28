@@ -45,11 +45,17 @@ export class NetworkGate {
   }
 }
 
+interface ResponseRewrite {
+  readonly matches: (request: ObservedRequest) => boolean;
+  readonly rewrite: (body: unknown) => unknown;
+}
+
 /** Device-local HTTP proxy; requests still run through the real API. */
 export class DeviceTransport {
   readonly history: Exchange[] = [];
   private readonly pending: NetworkGate[] = [];
   private readonly gates: NetworkGate[] = [];
+  private readonly rewrites: ResponseRewrite[] = [];
   private readonly server: ReturnType<typeof Bun.serve>;
 
   constructor(private readonly upstream: string) {
@@ -73,6 +79,28 @@ export class DeviceTransport {
     this.pending.push(gate);
     this.gates.push(gate);
     return gate;
+  }
+
+  /**
+   * Replaces the JSON body of every matching successful response from now on,
+   * as a dishonest server would serve it. The API itself stays honest.
+   */
+  rewriteResponses(
+    matches: ResponseRewrite["matches"],
+    rewrite: ResponseRewrite["rewrite"],
+  ): void {
+    this.rewrites.push({ matches, rewrite });
+  }
+
+  private async rewritten(
+    exchange: Exchange,
+    response: Response,
+  ): Promise<Response> {
+    const rewrites = this.rewrites.filter((entry) => entry.matches(exchange));
+    if (rewrites.length === 0 || !response.ok) return response;
+    let body: unknown = await response.json();
+    for (const entry of rewrites) body = entry.rewrite(body);
+    return Response.json(body, { status: response.status });
   }
 
   private async forward(request: Request): Promise<Response> {
@@ -112,7 +140,7 @@ export class DeviceTransport {
       await response.body?.cancel();
       return new Response("Response dropped by test proxy", { status: 503 });
     }
-    return response;
+    return this.rewritten(exchange, response);
   }
 
   dispose(): void {
