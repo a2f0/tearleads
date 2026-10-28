@@ -334,6 +334,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "NoDataLoss" },
     why: "An unlink whose rotation baseline falls short of the committed frontier strands every update the baseline does not cover.",
   },
+  {
+    id: "empty-frontier-baseline-skips-earlier-baseline",
+    module: "formal/document-sync/EmptyFrontierUnlink.tla",
+    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
+    constants: { BaselineFrontier: '"uncovered"' },
+    expect: { kind: "invariant", name: "NoDataLoss" },
+    why: "A baseline compared only with updates since the latest baseline lets the next rotation drop that earlier baseline's history.",
+  },
 ];
 
 export type { ParsedConfig } from "./protocolNegativeControlConfig";

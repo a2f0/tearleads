@@ -43,16 +43,22 @@ finds a link advance that strands the baseline, and the negative control
 covering baseline was checked against is still the frontier at its commit.
 
 A client's baseline covers the frontier it held, which may fall short of the
-committed one. `CheckCoveringUnlink` chooses any covered frontier up to the
-committed one, and the server refuses a short one (`RejectCoveringUnlink`), so
-the baseline is not honest by construction. `CheckBaselineCoversFrontier =
-FALSE` accepts a short baseline, and the rotation strands the updates it does
-not cover: the negative control `empty-frontier-short-baseline` asserts the
-`NoDataLoss` violation.
+committed one. `total` counts every committed update, earlier rotation
+baselines included, since those are sealed to the epoch the next rotation
+retires. `CheckCoveringUnlink` chooses any covered frontier up to `total`, and
+the server refuses a short one (`RejectCoveringUnlink`), so the baseline is not
+honest by construction. `CheckBaselineCoversFrontier = FALSE` accepts a short
+baseline, and the rotation strands the updates it does not cover: the negative
+control `empty-frontier-short-baseline` asserts the `NoDataLoss` violation.
+`BaselineFrontier = "uncovered"` is a server that compared the baseline only
+with the frontier since the latest baseline. Right after one rotation it
+accepts an empty baseline for the next, which strands the first baseline: the
+control `empty-frontier-baseline-skips-earlier-baseline` asserts it across two
+consecutive rotations.
 
 A link's emptiness check and its commit are separate steps under the same
 manifest-head lock as an unlink, so `LockedUnlink = FALSE` also lets a writer
-commit between them. The bounds stay small (`MaxUpdates = 3`); the run
-explores 78 distinct states because the model tracks only the uncovered-update
-count, whether any update is committed, the covered frontier, and the
-transaction phase.
+commit between them. The bounds stay small (`MaxUpdates = 3` committed
+updates, baselines included); the run explores 52 distinct states because the
+model tracks only update counts, whether any update is committed, the covered
+frontier, and the transaction phase.

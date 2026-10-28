@@ -45,23 +45,27 @@ EXTENDS Naturals
 (***************************************************************************)
 
 CONSTANTS MaxUpdates, LockedUnlink, RequireEmptyFrontierOnLinkAdvance,
-          FrontierCheck, CheckBaselineCoversFrontier
+          FrontierCheck, CheckBaselineCoversFrontier, BaselineFrontier
 
 ASSUME /\ MaxUpdates \in Nat \ {0}
        /\ LockedUnlink \in BOOLEAN
        /\ RequireEmptyFrontierOnLinkAdvance \in BOOLEAN
        /\ FrontierCheck \in {"committed", "uncovered"}
        /\ CheckBaselineCoversFrontier \in BOOLEAN
+       /\ BaselineFrontier \in {"committed", "uncovered"}
 
 (* `uncovered` counts committed updates not covered by any accepted        *)
 (* rotation baseline. `lost` records that a rotation orphaned at least one *)
 (* such update.                                                            *)
 (* `covered` is the frontier a covering unlink's baseline was checked      *)
 (* against. `committed` records that the document has any committed        *)
-(* update, rotation baselines included.                                    *)
-VARIABLES uncovered, committed, unlinkPhase, observedEmpty, covered, lost
+(* update, rotation baselines included; `total` counts them. A covering    *)
+(* baseline is a full-history snapshot covering the first `covered` of     *)
+(* them, so it must cover `total`, earlier baselines included: those are   *)
+(* sealed to an older epoch the rotation retires.                          *)
+VARIABLES uncovered, committed, unlinkPhase, observedEmpty, covered, lost, total
 
-vars == << uncovered, committed, unlinkPhase, observedEmpty, covered, lost >>
+vars == << uncovered, committed, unlinkPhase, observedEmpty, covered, lost, total >>
 
 TypeOK ==
   /\ uncovered \in 0..MaxUpdates
@@ -70,6 +74,7 @@ TypeOK ==
   /\ observedEmpty \in BOOLEAN
   /\ covered \in 0..MaxUpdates
   /\ lost \in BOOLEAN
+  /\ total \in 0..(MaxUpdates + 1)
 
 Init ==
   /\ uncovered = 0
@@ -78,6 +83,7 @@ Init ==
   /\ observedEmpty = FALSE
   /\ covered = 0
   /\ lost = FALSE
+  /\ total = 0
 
 (* The emptiness proof both gates share. Production asks whether any       *)
 (* update is committed.                                                    *)
@@ -91,8 +97,9 @@ WriterMayCommit == unlinkPhase = "idle" \/ ~LockedUnlink
 
 Write ==
   /\ WriterMayCommit
-  /\ uncovered < MaxUpdates
+  /\ total < MaxUpdates
   /\ uncovered' = uncovered + 1
+  /\ total' = total + 1
   /\ committed' = TRUE
   /\ UNCHANGED << unlinkPhase, observedEmpty, covered, lost >>
 
@@ -100,7 +107,7 @@ BeginBaselinelessUnlink ==
   /\ unlinkPhase = "idle"
   /\ unlinkPhase' = "checking"
   /\ observedEmpty' = FrontierEmpty
-  /\ UNCHANGED << uncovered, committed, covered, lost >>
+  /\ UNCHANGED << uncovered, committed, covered, lost, total >>
 
 (* The emptiness proof passed: rotate without a baseline. Any committed    *)
 (* update, covered under an older epoch or not, is orphaned by the         *)
@@ -110,7 +117,7 @@ CommitBaselinelessUnlink ==
   /\ observedEmpty
   /\ unlinkPhase' = "idle"
   /\ lost' = (lost \/ committed)
-  /\ UNCHANGED << uncovered, committed, observedEmpty, covered >>
+  /\ UNCHANGED << uncovered, committed, observedEmpty, covered, total >>
 
 (* The emptiness proof failed: the mutation is rejected as a conflict and  *)
 (* the client must retry with a covering baseline.                         *)
@@ -118,28 +125,34 @@ RejectBaselinelessUnlink ==
   /\ unlinkPhase = "checking"
   /\ ~observedEmpty
   /\ unlinkPhase' = "idle"
-  /\ UNCHANGED << uncovered, committed, observedEmpty, covered, lost >>
+  /\ UNCHANGED << uncovered, committed, observedEmpty, covered, lost, total >>
 
 (* A baseline-carrying unlink under the same lock. The client's baseline   *)
 (* covers whatever frontier it held, possibly short of the committed one.  *)
 (* The server checks that it covers the committed frontier               *)
 (* (assertAtomicRotationBaselineCoversCommittedFrontier) and refuses one    *)
 (* that falls short. The rotation then covers what the baseline covers.   *)
-BaselineAccepted(b) == ~CheckBaselineCoversFrontier \/ b = uncovered
+(* A server that compared only the frontier since the latest baseline would *)
+(* accept an empty one right after a rotation (BaselineFrontier).          *)
+BaselineAccepted(b) ==
+  \/ ~CheckBaselineCoversFrontier
+  \/ b = total
+  \/ BaselineFrontier = "uncovered" /\ uncovered = 0
 
 CheckCoveringUnlink ==
   /\ unlinkPhase = "idle"
-  /\ \E b \in 0..uncovered :
+  /\ total < MaxUpdates
+  /\ \E b \in 0..total :
        /\ BaselineAccepted(b)
        /\ unlinkPhase' = "covering"
        /\ covered' = b
-  /\ UNCHANGED << uncovered, committed, observedEmpty, lost >>
+  /\ UNCHANGED << uncovered, committed, observedEmpty, lost, total >>
 
 (* The refusal branch: a short baseline is a conflict and the client       *)
 (* retries with a fresh one. Nothing is committed.                         *)
 RejectCoveringUnlink ==
   /\ unlinkPhase = "idle"
-  /\ \E b \in 0..uncovered : ~BaselineAccepted(b)
+  /\ \E b \in 0..total : ~BaselineAccepted(b)
   /\ UNCHANGED vars
 
 (* Any update committed after the check is orphaned by the rotation. The   *)
@@ -148,8 +161,9 @@ RejectCoveringUnlink ==
 CommitCoveringUnlink ==
   /\ unlinkPhase = "covering"
   /\ unlinkPhase' = "idle"
-  /\ lost' = (lost \/ uncovered > covered)
+  /\ lost' = (lost \/ total > covered)
   /\ uncovered' = 0
+  /\ total' = total + 1
   /\ committed' = TRUE
   /\ UNCHANGED << observedEmpty, covered >>
 
@@ -161,21 +175,21 @@ BeginLinkAdvance ==
   /\ unlinkPhase = "idle"
   /\ unlinkPhase' = "linking"
   /\ observedEmpty' = FrontierEmpty
-  /\ UNCHANGED << uncovered, committed, covered, lost >>
+  /\ UNCHANGED << uncovered, committed, covered, lost, total >>
 
 LinkAdvancesEpoch ==
   /\ unlinkPhase = "linking"
   /\ ~RequireEmptyFrontierOnLinkAdvance \/ observedEmpty
   /\ unlinkPhase' = "idle"
   /\ lost' = (lost \/ committed)
-  /\ UNCHANGED << uncovered, committed, observedEmpty, covered >>
+  /\ UNCHANGED << uncovered, committed, observedEmpty, covered, total >>
 
 (* The emptiness proof failed: the link keeps the current epoch. *)
 RejectLinkAdvance ==
   /\ unlinkPhase = "linking"
   /\ RequireEmptyFrontierOnLinkAdvance /\ ~observedEmpty
   /\ unlinkPhase' = "idle"
-  /\ UNCHANGED << uncovered, committed, observedEmpty, covered, lost >>
+  /\ UNCHANGED << uncovered, committed, observedEmpty, covered, lost, total >>
 
 Next ==
   \/ Write
@@ -202,7 +216,8 @@ BaselinelessUnlinkRequiresEmptyFrontier ==
 (* With the lock held, the frontier a covering baseline was checked        *)
 (* against is still the committed frontier at commit.                      *)
 CoveringUnlinkCoversFrontier ==
-  (unlinkPhase = "covering" /\ LockedUnlink /\ CheckBaselineCoversFrontier)
-    => uncovered = covered
+  (unlinkPhase = "covering" /\ LockedUnlink /\ CheckBaselineCoversFrontier
+     /\ BaselineFrontier = "committed")
+    => total = covered
 
 =============================================================================
