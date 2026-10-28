@@ -140,7 +140,7 @@
     "*.md": "bun --bun x markdownlint-cli2 --fix"
   },
   "devDependencies": {
-    "@a2f0/agent-tool": "0.1.20",
+    "@a2f0/agent-tool": "0.1.21",
     "@azure/storage-blob": "12.30.0",
     "@biomejs/biome": "2.5.15",
     "@commitlint/cli": "21.2.4",
