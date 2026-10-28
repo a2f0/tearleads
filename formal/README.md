@@ -69,7 +69,9 @@ registered configuration and requires TLC to report exactly the named violation.
 A control shows that removing one rule produces a failing path. It does not show
 that every other property in the model is meaningful, that every action is
 reachable, or that the intended successful path stays reachable with every
-production rule on. Every registered model has at least one control.
+production rule on. Every registered model has at least one control, apart
+from `BaselineDominanceTraceExport`, which only exports `BaselineDominance`'s
+behaviors.
 
 ## Limits of the suite
 
