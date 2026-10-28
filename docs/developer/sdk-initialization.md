@@ -98,7 +98,10 @@ Starting another identity mutation (including clearing keys or `destroy()`)
 supersedes pending generation/import/key-setting calls. Superseded calls reject
 instead of restoring old keys; a superseded fingerprint refresh returns the
 current fingerprint. An explicit blob namespace change during root bootstrap
-also cancels generation. A cancelled bootstrap may have persisted a reusable
+also cancels generation. Fingerprint refresh observes the current identity and
+does not cancel a pending import or generation. A generation call rejected
+because SQLite is not ready does not cancel a pending import.
+A cancelled bootstrap may have persisted a reusable
 local root, but it does not select that root in the session or publish keys.
 Direct callers of `session.bootstrapLocalRootContainer(isCurrent?)` can supply
 the same currency predicate to prevent a superseded call selecting its root.
@@ -131,7 +134,7 @@ pass a fixed `blobStore`, or `blobStoreFactory` for identity-scoped stores, at
 construction. The default and factory-backed stores still switch namespaces
 automatically with identity (and via
 `useEphemeralStore`/`useIdentityNamespace`); a fixed `blobStore` is used as
-given, and the store cannot be replaced after construction.
+given until the host explicitly switches namespaces.
 
 `blobs.updateIdentityNamespace(fingerprint)` follows identity storage policy:
 it preserves a fixed host store, selects an identity-scoped store otherwise,

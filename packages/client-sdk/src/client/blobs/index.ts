@@ -10,6 +10,7 @@ export class Blobs {
   private identityScoped = false;
   private readonly createIdentityStore: BlobStoreFactory;
   private storeValue: BlobStore;
+  // Only explicit host switches invalidate prepared identity storage.
   private revision = 0;
 
   constructor(
@@ -38,7 +39,9 @@ export class Blobs {
   }
 
   updateIdentityNamespace(signingFingerprint: string | null): void {
-    this.prepareIdentityChange(signingFingerprint).commit();
+    const prepared = this.prepareIdentityChange(signingFingerprint);
+    this.revision += 1;
+    prepared.commit();
   }
 
   /** Prepare fallible storage before an identity change; commit only assigns state. */
@@ -56,7 +59,6 @@ export class Blobs {
     return {
       isCurrent,
       commit: () => {
-        this.revision += 1;
         this.identityScoped = signingFingerprint !== null;
         this.storeValue = store;
       },

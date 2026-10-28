@@ -155,8 +155,8 @@ class IdentityService implements Identity {
   }
 
   async generate(): Promise<IdentityGenerationResult> {
-    const revision = ++this.changeRevision;
     this.runtimeHooks.assertReadyForGeneration?.();
+    const revision = ++this.changeRevision;
     const seedPhrase = createIdentitySeedPhrase();
     const { encapsulationKeyPair, signingKeyPair } =
       generateIdentityKeyPairsFromSeedPhrase(seedPhrase);
@@ -220,12 +220,14 @@ class IdentityService implements Identity {
   }
 
   async refreshSigningFingerprint(): Promise<string | null> {
-    const revision = ++this.changeRevision;
+    const revision = this.changeRevision;
     const snapshot = this.snapshot;
     const signingFingerprint = snapshot.signingKeyPair
       ? await toFingerprint(snapshot.signingKeyPair.signingPublicKey)
       : null;
-    if (this.changeRevision !== revision) return this.signingFingerprint;
+    if (this.changeRevision !== revision || this.snapshot !== snapshot) {
+      return this.signingFingerprint;
+    }
     this.publishSnapshot({ ...snapshot, signingFingerprint }, revision);
     return signingFingerprint;
   }

@@ -7,8 +7,8 @@ UI. Private leases stay hidden; authority loaders take exact heads. See
 
 ## Host Contract
 
-See [SDK initialization](../../../../docs/developer/sdk-initialization.md) for
-SQLite, blob factories, and cancellable identity setup. `deviceFirst.open()`
+Hosts implement interfaces directly; the SDK does not adapt host or wire shapes.
+See [initialization](../../../../docs/developer/sdk-initialization.md). `deviceFirst.open()`
 returns the tree handle. Container creation commits
 the container and its metadata document in one compound API request. Create,
 document link/unlink, writer-projection, and sync adapters provide the
