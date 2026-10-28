@@ -2,15 +2,13 @@ import Tearleads.Transparency.Generate
 import Tearleads.Transparency.Verify
 
 /-!
-# Gate F3 obligations and bounded results
+# Gate F3 theorems
 
 The `Prop` definitions below state the #2192 Gate F3 theorems for every tree
-size. They are stated, not yet proved: each becomes a `theorem` of the same
-name once its proof lands, and `formal/lean/README.md` tracks which are open.
-
-The bounded theorems after them are proved now, by kernel evaluation of the
-model. They are not the F3 theorems: they cover sizes through 32, the range
-the TypeScript mutation matrices already exhaust.
+size. The modules under `Proof/` prove them: `inclusion_complete` and
+`inclusion_sound` in `Proof/Inclusion.lean`, `consistency_complete` in
+`Proof/Consistency.lean`, and `consistency_sound` in
+`Proof/ConsistencySound.lean`.
 -/
 
 namespace Tearleads.Transparency
@@ -54,27 +52,5 @@ def ConsistencySound : Prop :=
     (nodes : List Digest),
     verifyConsistency previous previousRoot size (root values size) nodes = .accepted →
       previousRoot = root values previous
-
-theorem consistency_complete_five_six :
-    honestConsistency vectorLeaf 5 6 = .accepted := by
-  decide +kernel
-
-theorem inclusion_complete_through_32 :
-    ∀ size < 33, ∀ index < size,
-      honestInclusion vectorLeaf size index = .accepted := by
-  decide +kernel
-
-theorem consistency_complete_through_32 :
-    ∀ size < 33, ∀ previous ≤ size,
-      honestConsistency vectorLeaf previous size = .accepted := by
-  decide +kernel
-
-/-- info: 'Tearleads.Transparency.consistency_complete_through_32' does not depend on any axioms -/
-#guard_msgs in
-#print axioms consistency_complete_through_32
-
-/-- info: 'Tearleads.Transparency.inclusion_complete_through_32' does not depend on any axioms -/
-#guard_msgs in
-#print axioms inclusion_complete_through_32
 
 end Tearleads.Transparency

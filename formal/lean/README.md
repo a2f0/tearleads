@@ -12,48 +12,70 @@ through a committed vector fixture that the TypeScript verifiers replay.
 | `Tearleads/Transparency/Tree.lean` | `computeTransparencyMerkleRoot`, `largestPowerOfTwoLessThan`, and the empty and node hashes in `transparencyTree.ts` |
 | `Tearleads/Transparency/Generate.lean` | `createTransparencyInclusionProof` and `createTransparencyConsistencyProof` |
 | `Tearleads/Transparency/Verify.lean` | `assertTransparencyInclusion` and `assertTransparencyConsistency` in `transparencyProofs.ts`, check for check, with the same refusal codes |
-| `Tearleads/Transparency/Theorems.lean` | The F3 obligations and the bounded theorems proved so far |
+| `Tearleads/Transparency/Theorems.lean` | The F3 theorem statements |
+| `Tearleads/Transparency/Proof/*.lean` | Their proofs |
 | `Tearleads/Transparency/Vectors.lean` | The cases in `vectors/transparency.json` |
 
-Every recursive definition takes explicit fuel and recurses structurally on it,
-so the kernel can evaluate the model. The public wrappers pass the tree size,
-which always bounds the depth.
+Every recursive definition takes explicit fuel and recurses structurally on it.
+The public wrappers pass the tree size, which always bounds the depth, and
+`Proof/Fuel.lean` shows the fuel stops mattering once it covers the size.
 
 ## What is proved
 
-`Theorems.lean` proves, by kernel evaluation with `decide +kernel`:
+`Theorems.lean` states the four F3 theorems for every tree size, and the
+modules under `Proof/` prove them:
 
-- `inclusion_complete_through_32`: every honest inclusion proof for every leaf
-  of every tree up to 32 leaves is accepted.
-- `consistency_complete_through_32`: every honest consistency proof for every
-  `previous <= size <= 32` is accepted.
-- `consistency_complete_five_six`: the 5 → 6 proof #2186 refused is accepted.
+| Theorem | Statement | Proof |
+| --- | --- | --- |
+| `InclusionComplete` | For every tree size and leaf index, the honest audit path is accepted | `inclusion_complete` in `Proof/Inclusion.lean` |
+| `InclusionSound` | Against an honest root, only the committed leaf is accepted at an index, whatever the audit path | `inclusion_sound` in `Proof/Inclusion.lean` |
+| `ConsistencyComplete` | For every `previous <= size`, the honest consistency proof is accepted | `consistency_complete` in `Proof/Consistency.lean` |
+| `ConsistencySound` | Against an honest current root, an accepted proof pins the previous root to the root of the current tree's prefix | `consistency_sound` in `Proof/ConsistencySound.lean` |
 
-`#guard_msgs` pins that the two bounded theorems depend on no axioms, so a
-proof that silently picks up `sorryAx` or a native-code axiom fails the build.
-Restoring the #2186 fold (dropping the `first = second` branch of `walkStep`)
-makes all three fail.
+`consistency_complete_five_six`, the 5 → 6 proof #2186 refused, is one
+instance of `consistency_complete`.
 
-These results are about the model at bounded sizes. They are not the F3
-theorems.
+`#guard_msgs` pins each theorem's axioms to Lean's standard `propext`,
+`Classical.choice`, and `Quot.sound`, so a proof that silently picks up
+`sorryAx` or a native-code axiom fails the build. Each was checked against a
+weakened model:
 
-## Open obligations
+- Restoring the #2186 fold (dropping the `first = second` branch of
+  `walkStep`) breaks `consistency_complete`.
+- Accepting an inclusion proof without comparing roots breaks
+  `inclusion_sound`.
+- Skipping the previous-root comparison or the same-size equivocation check
+  breaks `consistency_sound`.
 
-`Theorems.lean` states the F3 theorems as `Prop` definitions, so they
-type-check but claim nothing. Each becomes a `theorem` of the same name when
-its proof lands:
+The soundness theorems rely on the symbolic digest: `Digest.node` is
+injective, so an accepted proof's nodes must be the honest ones. With a real
+hash they read "or a collision exists".
 
-| Obligation | Statement |
-| --- | --- |
-| `InclusionComplete` | For every tree size and leaf index, the honest audit path is accepted |
-| `ConsistencyComplete` | For every `previous <= size`, the honest consistency proof is accepted |
-| `InclusionSound` | Against an honest root, only the committed leaf is accepted at an index, whatever the audit path |
-| `ConsistencySound` | Against an honest current root, an accepted proof pins the previous root to the root of the current tree's prefix |
+## How the proofs go
 
-The soundness statements rely on the symbolic digest: with a real hash they
-read "or a collision exists". Proofs should stay within Lean core, which
-includes `omega`, `simp`, and `grind`; the package has no Lake dependencies,
-so its build needs no network access.
+The inclusion generator and verifier recurse on the same splits, so both
+inclusion theorems are inductions on that shared recursion. The consistency
+verifier is the RFC 9162 walk, which climbs the tree by halving indices while
+the generator splits from the top. The consistency proofs never reason about
+powers of two directly; they climb one level at a time:
+
+- `Proof/Split.lean`: for 3 or more leaves the split point is twice the split
+  point of half the size, rounded up.
+- `Proof/Pairing.lean`: from that, a tree is the tree over its pair hashes, an
+  odd last leaf carried up. Inclusion paths and subproofs split the same way,
+  and for an odd previous size the subproof is the previous tree's last leaf
+  followed by that leaf's inclusion path.
+- `Proof/Walk.lean`: the walk over such an inclusion path reaches both roots,
+  by strong induction on the current tree's size.
+- `Proof/Consistency.lean`: an even previous size verifies as its half does
+  one level up, which reduces every case to the odd one.
+- `Proof/ConsistencySound.lean`: the same induction over arbitrary nodes. The
+  previous tree's last leaf is unknown until the walk pins it down, so it is
+  carried as a pointwise update of the leaf function.
+
+`omega` handles all the arithmetic, because it only ever halves. Proofs stay
+within Lean core; the package has no Lake dependencies, so its build needs no
+network access.
 
 ## Vectors
 
@@ -109,7 +131,7 @@ on every change.
 - Input normalization, log-id equality, and the proof-size versus
   checkpoint-size checks are outside the model. A proof's sizes are the
   checkpoint sizes.
-- The vectors sample sizes through 32 leaves. A production divergence that
-  only shows on larger trees, or on inputs outside the mutation set, is not
-  caught by the replay. Once proved, the unbounded theorems hold for the
-  model, not for the TypeScript.
+- The theorems hold for the model at every size, not for the TypeScript. The
+  vectors bind the two only on sizes through 32 leaves and the mutation set:
+  a production divergence that shows only on larger trees or other inputs is
+  not caught by the replay.

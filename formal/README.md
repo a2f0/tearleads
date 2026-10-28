@@ -62,9 +62,9 @@ of the real container-path and principal-policy verifiers through
 
 [`lean/`](./lean/README.md) is a Lean 4 package for the transparency log's
 Merkle verifier (#2192 Gate F3). It models the TypeScript generator and
-verifiers, proves bounded completeness by kernel evaluation, states the
-unbounded completeness and soundness theorems, and exports a vector fixture
-that `test:protocol-conformance` replays through production. The toolchain is
+verifiers, proves inclusion and consistency completeness and soundness for
+every tree size, and exports a vector fixture that `test:protocol-conformance`
+replays through production. The toolchain is
 large, so `bun run check:protocol-proofs` runs in its own CI job, not in
 `check:fast`.
 
