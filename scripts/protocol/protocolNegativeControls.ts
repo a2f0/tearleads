@@ -19,6 +19,7 @@ import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNega
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
 import { RESTART_PROBE_NEGATIVE_CONTROLS } from "./protocolRestartProbeNegativeControls";
 import { SESSION_RETRY_NEGATIVE_CONTROLS } from "./protocolSessionRetryNegativeControls";
+import { STAGE_PROMOTION_NEGATIVE_CONTROLS } from "./protocolStagePromotionNegativeControls";
 import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
 import { TERMINAL_ANCHOR_NEGATIVE_CONTROLS } from "./protocolTerminalAnchorNegativeControls";
@@ -52,6 +53,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ANCESTOR_RECOVERY_NEGATIVE_CONTROLS,
   ...PURGE_SCOPE_NEGATIVE_CONTROLS,
   ...SESSION_RETRY_NEGATIVE_CONTROLS,
+  ...STAGE_PROMOTION_NEGATIVE_CONTROLS,
   ...SYNC_LANE_NEGATIVE_CONTROLS,
   ...HISTORY_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
