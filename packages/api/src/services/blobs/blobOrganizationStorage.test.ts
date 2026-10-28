@@ -281,7 +281,8 @@ test("expiry cleanup aborts and deletes namespaced stages while retaining unexpi
     failedStages: 0,
   });
   expect(aborted).toEqual([pending.key]);
-  expect(deleted).toEqual([completed.key]);
+  // The aborted stage's key is deleted too, in case a bind had assembled it.
+  expect([...deleted].sort()).toEqual([completed.key, pending.key].sort());
   expect(await readBlobObjectBytes(store, retained.key)).toEqual(bytes);
 });
 

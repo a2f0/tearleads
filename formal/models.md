@@ -61,10 +61,8 @@ lineage under the parent. See the
 [`container-keying/GroupGrantRevocation.tla`](./container-keying/GroupGrantRevocation.tla)
 adds the group key as its own epoch dimension: container wraps sealed to a
 group key outlive a revoked grant, so a revocation must rotate the group key
-before an additive join hands that key out. Each group change commits with a
-container batch the API refuses if it skips a granted container; a batch
-planned before another device's direct share is refused and replanned once,
-and a requested change commits without another device acting. See the
+before an additive join hands that key out. It also checks batch completeness,
+stale replans and that a requested change commits. See the
 [mapping and boundaries](./container-keying/GroupGrantRevocation.md).
 
 ### Container Tombstone Recovery
@@ -364,6 +362,11 @@ models a bind that commits before its response reaches the client or local
 settlement finishes: removing the slot must preserve a detached row that the
 current store's detach pass sees, before and after a restart. See the
 [mapping and boundaries](./blob-attachments/PendingAttachmentDetach.md).
+
+### Stage Promotion and Server Reclamation
+
+[StagePromotion](./blob-attachments/StagePromotion.md) models staging,
+promotion, the sweep and stage cleanup across the database and object store.
 
 ## Backup and Restore
 

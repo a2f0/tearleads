@@ -138,6 +138,10 @@ export async function cleanupExpiredBlobStages(
           uploadId: stage.uploadId,
         });
         abortedMultipartUploads += 1;
+        // A bind may have assembled the object before its row flip, so the
+        // abort finds no upload. A claimed stage can no longer be promoted,
+        // so nothing else owns its key.
+        await runtime.blobObjectStore.deleteObject(stage.storageKey);
       } else {
         await runtime.blobObjectStore.deleteObject(stage.storageKey);
         deletedMultipartObjects += 1;
