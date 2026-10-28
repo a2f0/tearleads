@@ -1,7 +1,7 @@
 import type { PaneSide } from "./types";
 
 // The two demo panes read as "Peer 1" (left) and "Peer 2" (right). These
-// labels are the single source of truth for the desktop pane label, the seeded
+// labels are the single source of truth for the taskbar pane label, the seeded
 // self-contact nickname, the imported peer-contact nickname, and the personal
 // org name, so those surfaces never drift. Demo-only: the regular app is
 // single-pane and never renders a peer label.

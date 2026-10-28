@@ -152,8 +152,13 @@ test("demo App starts split without global header controls", () => {
   const frame = view.container.querySelector(".tearleads-frame.layout");
   expect(frame?.classList.contains("layout--split")).toBe(true);
   expect(frame?.classList.contains("layout--demo-peer-split")).toBe(true);
-  expect(view.getByText("Peer 1")).toBeTruthy();
-  expect(view.getByText("Peer 2")).toBeTruthy();
+  // Each peer label rides in its own pane's taskbar, never under the windows.
+  expect(
+    view.getByText("Peer 1").closest(".pane-left .pane-footer"),
+  ).not.toBeNull();
+  expect(
+    view.getByText("Peer 2").closest(".pane-right .pane-footer"),
+  ).not.toBeNull();
   expect(view.container.querySelectorAll(".pane-left .window")).toHaveLength(1);
   expect(view.container.querySelectorAll(".pane-right .window")).toHaveLength(
     1,
