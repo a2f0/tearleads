@@ -51,7 +51,7 @@ export function PaneContextMenuItems({
           onClick={openUnlockWindow}
         />
       )}
-      {canLockPane && (
+      {!needsIdentity && canLockPane && (
         <MenuItem icon={LockIcon} label="Lock" onClick={lockPane} />
       )}
       {visibleMenuItems
