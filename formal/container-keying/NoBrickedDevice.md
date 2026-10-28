@@ -79,7 +79,8 @@ current eventually commits a write of its own. TLC also checks that
 checkpoints and held citations are monotone, that a held chain never
 contradicts a checkpoint the device already held, that the held authority
 covers the held citation, that the held signer had membership at its
-citation, and that the honest server is never refused. The run explores 792,769 generated and 140,028 distinct states.
+citation, and that the honest server is never refused. The run explores
+792,769 generated and 140,028 distinct states.
 
 [`NoBrickedDeviceAdversary.cfg`](./NoBrickedDeviceAdversary.cfg) sets
 `ServerHonest = FALSE`: a served projection may carry any genuine authority
