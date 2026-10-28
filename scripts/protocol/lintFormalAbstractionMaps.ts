@@ -20,6 +20,7 @@ const TLA_LINK_PATTERN = /\(([^()\s]+\.tla)\)/g;
 /** Every document that carries abstraction-map tables, with its exact count. */
 const EXPECTED_TABLES: Readonly<Record<string, number>> = {
   "formal/blob-attachments/PendingAttachmentDetach.md": 1,
+  "formal/container-keying/ContainerGrantScope.md": 1,
   "formal/document-sync/EmptyFrontierUnlink.md": 1,
   "formal/local-trust/PurgeRecovery.md": 1,
   "formal/local-trust/SubtreePurgeScope.md": 1,

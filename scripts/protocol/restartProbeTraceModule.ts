@@ -151,6 +151,9 @@ TSpec == TInit /\\ [][TNext]_<< vars, idx >>
 CONSTANTS
   MaxVersion = ${maxVersion}
   MaxDisconnects = ${maxDisconnects}
+  KeepQueuedRequestAcrossFlight = TRUE
+  DeclareFromReadyTree = TRUE
+  ArmProbeOnAck = TRUE
 
 INVARIANT TypeOK
 `;

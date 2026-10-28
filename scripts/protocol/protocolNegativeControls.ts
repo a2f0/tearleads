@@ -4,6 +4,7 @@ import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeContro
 import { BASELINE_DOMINANCE_NEGATIVE_CONTROLS } from "./protocolBaselineDominanceNegativeControls";
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
+import { CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS } from "./protocolContainerGrantScopeNegativeControls";
 import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInterestNegativeControls";
 import { CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS } from "./protocolContainerMoveReplayNegativeControls";
 import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
@@ -14,6 +15,7 @@ import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
 import { PURGE_SCOPE_NEGATIVE_CONTROLS } from "./protocolPurgeScopeNegativeControls";
 import { READ_MODEL_STAMP_NEGATIVE_CONTROLS } from "./protocolReadModelStampNegativeControls";
 import { RECOVERY_NEGATIVE_CONTROLS } from "./protocolRecoveryNegativeControls";
+import { RESTART_PROBE_NEGATIVE_CONTROLS } from "./protocolRestartProbeNegativeControls";
 import { SESSION_RETRY_NEGATIVE_CONTROLS } from "./protocolSessionRetryNegativeControls";
 import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
@@ -51,6 +53,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...HISTORY_NEGATIVE_CONTROLS,
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
+  ...CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS,
   ...CONTAINER_INTEREST_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
@@ -59,6 +62,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
   ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
   ...RECOVERY_NEGATIVE_CONTROLS,
+  ...RESTART_PROBE_NEGATIVE_CONTROLS,
   ...CONTAINER_ADOPTION_NEGATIVE_CONTROLS,
   ...CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS,
   ...READ_MODEL_STAMP_NEGATIVE_CONTROLS,

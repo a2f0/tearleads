@@ -37,9 +37,9 @@ model token is declared in the module the table documents and every backticked
 production seam occurs in production package source code, so a rename or
 removal on either side fails the check instead of leaving the map prose-only.
 The check proves that names exist, not that an action and its implementation
-are semantically equivalent. `AncestorRecovery`, `ContainerGrantScope`, and
-`KeyringReachability` document their seams in prose in the
-[model index](./models.md) and carry no map tables.
+are semantically equivalent. `AncestorRecovery` and `KeyringReachability`
+document their seams in prose in the [model index](./models.md) and carry no
+map tables.
 
 ## Trace bridges
 
@@ -69,8 +69,7 @@ registered configuration and requires TLC to report exactly the named violation.
 A control shows that removing one rule produces a failing path. It does not show
 that every other property in the model is meaningful, that every action is
 reachable, or that the intended successful path stays reachable with every
-production rule on. `ContainerGrantScope` and `RestartProbeConvergence` have
-no registered controls.
+production rule on. Every registered model has at least one control.
 
 ## Limits of the suite
 
@@ -86,7 +85,7 @@ properties are safety properties.
 Model-specific gaps:
 
 - `ContainerGrantScope` treats grant preparation and roster removal as atomic
-  transitions, with no concurrent transaction model.
+  transitions, with no concurrent transaction model or group membership.
 - `KeyringReachability` assumes every current member already holds the current
   KEK, and its properties share `Closure` with the recovery they check. It does
   not model what a revoked member already knows, so excluding revoked members

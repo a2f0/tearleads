@@ -32,11 +32,9 @@ grant subject. It also models roster removal as a guarded transition: a user
 must first be unshared from every directly granted container, whose revoke is a
 container KEK rotation in the runtime and in the keyring model below.
 
-The production seams are the container grant grammar, the locked group/user
-reference checks in `groupReferences.ts`, and the direct-grant blocker in
-`roster.ts`. The bounded configuration includes same- and foreign-organization
-users, groups, and organization principals so TLC explores every accepted
-grant/revoke and roster transition over those categories.
+A grant request may name any principal, and each API refusal is a parameter
+with a registered negative control. See the
+[mapping and controls](./container-keying/ContainerGrantScope.md).
 
 ### Container Keyring Reachability
 
