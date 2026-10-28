@@ -69,9 +69,8 @@ registered configuration and requires TLC to report exactly the named violation.
 A control shows that removing one rule produces a failing path. It does not show
 that every other property in the model is meaningful, that every action is
 reachable, or that the intended successful path stays reachable with every
-production rule on. `AncestorRecovery`, `BaselineDominance`,
-`ContainerGrantScope`, and `RestartProbeConvergence` have no registered
-controls.
+production rule on. `BaselineDominance`, `ContainerGrantScope`, and
+`RestartProbeConvergence` have no registered controls.
 
 ## Limits of the suite
 

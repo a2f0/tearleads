@@ -29,6 +29,7 @@ The abstraction maps to production at these seams:
 | `DropAuthorityReference` / `DeleteAuthority` | a group grant becomes history-only; `deleteOrganizationGroupRows` removes encrypted group payloads and key envelopes while retaining signed public policy states |
 | `AuthorityEvidenceServed` | `loadProjectionPolicyEvidence` adds public policy and directory history after projection access is authorized; `verifyProjectionPolicyEvidence` checks signatures, directory commitments and historical group scope |
 | `SyncAuthority` | the ancestor's own projection fetched by `ApiClient.getContainerWriterProjection` |
+| `DeviceWrite` | a content write citing the heads `verifyContainerWriterProjection` verified, which the API commits only against the current path through `assertCurrentContainerPath` |
 | `RollbackOk` / `ForkOk` | `verifyAccessManifestLocalCheckpoint` (rollback, equivocation, and a chain that does not extend the checkpoint); `verifyPrincipalPolicyCheckpoint` |
 | `CitationOk` | `assertCitedAncestorsDoNotRegress`; `verifyPrincipalPolicyExternalAuthorityProgress` |
 | `ServedAuthorityOk` | `assertServedAncestorsDescendFromCitations` on a checkpoint-enforced current path |
@@ -68,22 +69,25 @@ would cost.
 
 [`NoBrickedDevice.cfg`](./NoBrickedDevice.cfg) sets `ServerHonest = TRUE`
 with the production rule set, two devices, and three versions of each object.
-Only the honest server's delivery to each device is fair; writes are not, so
-the liveness property `DeviceEventuallyCurrent` must hold on behaviors where
-no other device ever writes again. TLC also checks that checkpoints and held
-citations are monotone, that a held chain never contradicts a checkpoint the
-device already held, that the held authority covers the held citation, that
-the held signer had membership at its citation, and that the honest server is
-never refused. The run explores 271,744 generated and 48,048 distinct states at
-depth 11.
+Only the honest server's delivery to each device and each device's own write
+are fair; server-side writes are not, so the liveness properties must hold on
+behaviors where no other device ever writes again. `DeviceEventuallyCurrent`
+is the read half: every device eventually holds the current heads.
+`DeviceEventuallyWrites` is the write half: `DeviceWrite` commits only at the
+current heads, as the honest API requires, and every device whose grant stays
+current eventually commits a write of its own. TLC also checks that
+checkpoints and held citations are monotone, that a held chain never
+contradicts a checkpoint the device already held, that the held authority
+covers the held citation, that the held signer had membership at its
+citation, and that the honest server is never refused. The run explores 792,769 generated and 140,028 distinct states.
 
 [`NoBrickedDeviceAdversary.cfg`](./NoBrickedDeviceAdversary.cfg) sets
 `ServerHonest = FALSE`: a served projection may carry any genuine authority
 head and any dependent head the late signer could have forged, agreeing with
 the honest chain through any prefix. The safety properties are per device, so
 this configuration uses one device; liveness is not checked, since a
-dishonest server can simply withhold. The run explores 413,744 generated and
-14,028 distinct states at depth 9.
+dishonest server can simply withhold. The run explores 687,018 generated and
+21,927 distinct states.
 
 ## Negative controls
 
@@ -104,6 +108,10 @@ a single rule, and requires TLC to report exactly the named violation:
 - `RefuseStaleChainCitation = TRUE` violates `DeviceEventuallyCurrent`: the
   refused entry stays in the chain, so even a later honest successor citing
   the current authority cannot heal the device.
+- `WriteRequiresFreshDependent = TRUE` violates `DeviceEventuallyWrites`: a
+  writer that waits for the dependent head to cite the current authority after
+  the authority advances can only write once another device re-signs the
+  dependent.
 - Turning off `RefuseFork`, `RefuseRollback`, `RefuseCitationRegression`,
   `RefuseServedAuthorityRollback`, or `RefuseSignerRevokedAtCitation` under
   the adversary violates, respectively, `HeldChainNeverContradictsCheckpoint`,

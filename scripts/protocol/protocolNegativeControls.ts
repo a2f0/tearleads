@@ -1,4 +1,5 @@
 import { ACKNOWLEDGEMENT_NEGATIVE_CONTROLS } from "./protocolAcknowledgementNegativeControls";
+import { ANCESTOR_RECOVERY_NEGATIVE_CONTROLS } from "./protocolAncestorRecoveryNegativeControls";
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
@@ -42,6 +43,7 @@ export interface NegativeControl {
 
 export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...ACKNOWLEDGEMENT_NEGATIVE_CONTROLS,
+  ...ANCESTOR_RECOVERY_NEGATIVE_CONTROLS,
   ...PURGE_SCOPE_NEGATIVE_CONTROLS,
   ...SESSION_RETRY_NEGATIVE_CONTROLS,
   ...SYNC_LANE_NEGATIVE_CONTROLS,

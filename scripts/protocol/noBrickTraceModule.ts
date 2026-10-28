@@ -345,6 +345,7 @@ CONSTANTS
   RefuseSignerRevokedAtCurrent = FALSE
   RefuseStaleHeadCitation = FALSE
   RefuseStaleChainCitation = FALSE
+  WriteRequiresFreshDependent = FALSE
 
 INVARIANT TypeOK
 INVARIANT HonestServerNeverRefused

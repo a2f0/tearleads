@@ -95,19 +95,28 @@ and [page verification](./container-keying/PrincipalHistoryPages.md), including
 [`container-keying/AncestorRecovery.tla`](./container-keying/AncestorRecovery.tla)
 checks the distinct read and write currency rules for a three-level container
 path. Rotating a parent preserves descendant reads; repairing a child can make
-its grandchild stale without making it unreadable. Setting
-`StrictReadParentPin = TRUE`, which accepts only the parent's current epoch for
-reads, makes the first root rotation violate `HonestReadsAvailable`; that switch
-has no registered negative control.
+its grandchild stale without making it unreadable. A dishonest server may serve
+the child pinned to any root epoch, including one it invented: reads accept a
+pin only when the parent's retained signed history contains it
+(`UnknownEpochRefused`), and an honest path is never refused
+(`HonestReadsAvailable`). Writes go through a guarded device step that requires
+current pins along the whole path (`StaleWritesRefused`), and with only the
+writer's own repairs and write fair, the writer always reaches a current path
+and writes (`WriterEventuallyWrites`). Four controls flip one rule each:
+`StrictReadParentPin` refuses honest reads after the first root rotation,
+dropping `CheckSignedLineage` accepts an invented epoch, dropping
+`CheckWriteCurrency` commits over a stale pin, and denying `WriterRepairs`
+leaves the writer unable to write.
 
 The production seams are `resolveContainerKekParentBinding` (signed historical
 epoch membership) and `assertContainerKekParentEdgesCurrent` (current epochs
 required for writes). The API and SDK `ancestorRotationRecovery.test.ts` tests
 exercise those seams with signed manifests; the SDK test also uses actual
-encrypted keys. The model assumes honest retained history and abstracts
-cryptography and authorization; the signed-history tampering tests cover that
-boundary in the implementation. Independent repair by a child-only writer is
-not established by this model.
+encrypted keys. The model abstracts cryptography and authorization; the
+signed-history tampering tests cover that boundary in the implementation.
+Independent repair by a child-only writer is
+[`InaccessibleIntermediateRepair`](./container-keying/InaccessibleIntermediateRepair.md)'s
+subject.
 
 [`container-keying/InaccessibleIntermediateRepair.tla`](./container-keying/InaccessibleIntermediateRepair.tla)
 adds the actors that model leaves out. A writer granted only on the leaf can
@@ -124,7 +133,9 @@ because another device holds a cache or must issue a write first. A dependent
 (descendant container, or group policy) cites an authority (ancestor, or
 Admins policy); every client refusal rule is a parameter, and negative controls
 show that requiring stale heads or chain entries to cite the current authority
-bricks a device. See the
+bricks a device's reads. Its own write, which the API accepts only at the
+current heads, must also eventually commit; a writer that waits for the
+dependent to be re-signed first violates that. See the
 [mapping, configurations, and boundary](./container-keying/NoBrickedDevice.md).
 
 ### Principal Reference Progress
