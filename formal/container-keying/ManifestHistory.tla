@@ -25,7 +25,7 @@ MutationAllowed == Readable /\ (~CapMutations \/ history < ReadBound)
 \* document or blob write beneath it) is refused past it ("rekey required").
 \* A rotation starts a new key and resolves only its parent's targets, so the
 \* overflow must not refuse it. Recites stop at an absolute epoch ceiling.
-TargetsResolvable == sameKek < SameKekBudget
+TargetsResolvable == sameKek <= SameKekBudget
 RotationAllowed == MutationAllowed /\ (RotationBypassesBudget \/ TargetsResolvable)
 \* A request cites at most MaxCitations versions: from the bytes it holds, or
 \* (faulty) from hashes whose bytes may have been evicted.

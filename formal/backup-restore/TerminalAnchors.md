@@ -63,8 +63,10 @@ of merging them. `RecheckAtCommit = FALSE` uses a stale preflight merge and
 loses a decision observed before the write transaction. Registered negative
 controls exercise both the purge-pin and incident-evidence properties, as well
 as the stale-preflight race. `MergeCheckpointsByMax = FALSE` restores a
-backup's older checkpoint, and `RefuseCheckpointConflict = FALSE` accepts a
-different hash at the same position; both violate `CheckpointsNeverRegress`.
+backup's older checkpoint and violates `CheckpointsNeverRegress`. A backup
+signing a different hash at the local checkpoint's position is forked evidence
+and refuses the whole restore; the merge itself never replaces a local row at
+an equal position.
 
 The model abstracts incident counts and timestamps; implementation tests check
 their idempotent maximum-count and enclosing-time-window merge. Deliberate

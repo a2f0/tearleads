@@ -9,16 +9,14 @@ EXTENDS Naturals, FiniteSets
 (* verified purge, incident, or checkpoint advance before restore.          *)
 CONSTANTS Documents, PinValues, Incidents, None,
           MaxPosition, CheckpointHashes,
-          PreserveAnchors, RecheckAtCommit,
-          MergeCheckpointsByMax, RefuseCheckpointConflict
+          PreserveAnchors, RecheckAtCommit, MergeCheckpointsByMax
 ASSUME /\ Documents # {} /\ IsFiniteSet(Documents)
        /\ PinValues # {} /\ IsFiniteSet(PinValues)
        /\ Incidents # {} /\ IsFiniteSet(Incidents)
        /\ None \notin PinValues
        /\ MaxPosition \in Nat \ {0}
        /\ CheckpointHashes # {} /\ None \notin CheckpointHashes
-       /\ {PreserveAnchors, RecheckAtCommit, MergeCheckpointsByMax,
-           RefuseCheckpointConflict} \subseteq BOOLEAN
+       /\ {PreserveAnchors, RecheckAtCommit, MergeCheckpointsByMax} \subseteq BOOLEAN
 
 Pins == [Documents -> PinValues \cup {None}]
 EmptyPins == [d \in Documents |-> None]
@@ -36,17 +34,16 @@ vars == <<pins, incidents, checkpoint,
 
 PinsCompatible(a, b) ==
   \A d \in Documents : a[d] = None \/ b[d] = None \/ a[d] = b[d]
-(* Two checkpoints conflict when they sign different hashes at one position. *)
-CheckpointsCompatible(a, b) ==
-  ~RefuseCheckpointConflict \/ a.position # b.position \/ a.hash = b.hash
+(* Two checkpoints conflict when they sign different hashes at one position; *)
+(* the restore is refused as forked evidence.                               *)
+CheckpointsCompatible(a, b) == a.position # b.position \/ a.hash = b.hash
 Compatible ==
   /\ PinsCompatible(pins, backupPins)
   /\ CheckpointsCompatible(checkpoint, backupCheckpoint)
 MergePins(a, b) == [d \in Documents |-> IF a[d] = None THEN b[d] ELSE a[d]]
+(* The higher position wins; at an equal position the local row stays. *)
 MergeCheckpoint(a, b) ==
-  IF ~MergeCheckpointsByMax \/ b.position > a.position \/
-       (b.position = a.position /\ ~RefuseCheckpointConflict)
-    THEN b ELSE a
+  IF ~MergeCheckpointsByMax \/ b.position > a.position THEN b ELSE a
 RestoredPins(a, b) == IF PreserveAnchors THEN MergePins(a, b) ELSE b
 RestoredIncidents(a, b) == IF PreserveAnchors THEN a \cup b ELSE b
 RestoredCheckpoint(a, b) == IF PreserveAnchors THEN MergeCheckpoint(a, b) ELSE b

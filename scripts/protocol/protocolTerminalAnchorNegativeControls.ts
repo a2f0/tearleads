@@ -44,12 +44,4 @@ export const TERMINAL_ANCHOR_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "action", name: "CheckpointsNeverRegress" },
     why: "A restore must keep the higher of the local and backup checkpoint positions, or an older backup rolls verification back.",
   },
-  {
-    id: "terminal-anchor-swaps-checkpoint-hash",
-    module: MODULE,
-    config: CONFIG,
-    constants: { RefuseCheckpointConflict: "FALSE" },
-    expect: { kind: "action", name: "CheckpointsNeverRegress" },
-    why: "A backup that signs a different hash at the local checkpoint's position is a fork and must be refused, not adopted.",
-  },
 ];
