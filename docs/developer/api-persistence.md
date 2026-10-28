@@ -203,7 +203,9 @@ S3 env vars:
 
 Blob keys are `organizations/<organizationId>/blob-stages/<stageId>`. Promotion
 retains the stage key; GC aborts uploads and deletes objects using that stored
-key. The optional S3 key prefix wraps it as
+key. Expiry cleanup deletes the key even after aborting a pending stage's
+upload, since a bind may have assembled the object before marking the stage
+complete. The optional S3 key prefix wraps it as
 `<prefix>/organizations/<organizationId>/blob-stages/<stageId>`. The API and GC
 must use the same bucket and prefix configuration.
 
