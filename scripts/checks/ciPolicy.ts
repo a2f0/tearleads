@@ -25,6 +25,13 @@ export function ciScopes(paths: readonly string[]) {
           path === "scripts/lib/buildBrandImages.sh" ||
           path === "scripts/checks/testNativePurchaseBridge.sh",
       ),
+    proofs:
+      common ||
+      paths.some((path) =>
+        /^(formal\/lean\/|scripts\/protocol\/(generateTransparencyVectors|leanTools)\.ts$)/.test(
+          path,
+        ),
+      ),
     terraform:
       common ||
       paths.some((path) =>

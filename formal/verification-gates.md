@@ -47,6 +47,7 @@ verifiers. `bun run test:protocol-conformance` runs every suite below.
 | Stale manifest and inherited path authority | [keyingPathProperties.test.ts](../packages/crypto/src/keying/keyingPathProperties.test.ts): old signed manifest under a requested newer hash, removal of the authorizing root or cited parent, and splicing an unrelated authorizing root |
 | Exhaustive Merkle prefix and inclusion matrix | [transparencyProofs.test.ts](../packages/crypto/src/keying/transparencyProofs.test.ts): all 2,145 pairs `0 <= m <= n <= 64`, all 2,080 leaf positions through size 64, independent iterative root oracle, and explicit 5-to-6 proof shape |
 | Merkle mutation negatives | [transparencyProofMutations.test.ts](../packages/crypto/src/keying/transparencyProofMutations.test.ts): every node position of every nontrivial prefix and every inclusion proof through size 32; deletion, replacement, adjacent swaps, extra nodes, wrong leaves/positions, and decoy checkpoints |
+| Lean model parity | [transparencyLeanVectors.test.ts](../packages/crypto/src/keying/transparencyLeanVectors.test.ts): the [Lean model's](./lean/README.md) honest proofs through size 32 and its mutations through size 16, each reproduced by the production generator and reaching the model's outcome and refusal code |
 
 Each forged case has an accepted honest twin, and the mutation matrix checks
 its own honest proofs before mutating them, even when run alone. The path
@@ -66,9 +67,11 @@ forty each with trees up to 192 leaves. These randomized runs shrink failures
 and report replay seeds. They are bounded tests, not exhaustive coverage of all
 keying histories. The independent root oracle shares the production
 domain-hash primitive, and the TypeScript generators produce the proofs. The
-repository has no machine-checked proofs: the Merkle tree shape, the grant
-algebra, revocation and re-grant, and checkpoint monotonicity are covered by
-these tests and the bounded models, not by theorems.
+[Lean](./lean/README.md) theorems prove Merkle inclusion and consistency
+completeness and soundness for every tree size. They are about the model, which
+the vector replay binds to production on sampled sizes. The grant algebra,
+revocation and re-grant, and checkpoint monotonicity are covered by these tests
+and the bounded models, not by theorems.
 
 ## Reproduce the gates
 
@@ -80,4 +83,11 @@ bun run check:protocol-negative-controls
 bun run check:no-brick-projection
 bun run lint:formal-maps
 bun run test:protocol-conformance
+```
+
+The Lean proofs need their own toolchain (about 2.8 GB):
+
+```sh
+mise install github:leanprover/lean4
+bun run check:protocol-proofs
 ```

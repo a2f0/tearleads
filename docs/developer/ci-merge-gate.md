@@ -9,7 +9,8 @@ configuration; editing a workflow alone does not make a check required.
 `CI gate` runs on every pull request and main-branch push. It requires lint,
 workspace builds, TypeScript, package tests, the web build, and Postgres
 concurrency and Windows CEF persistence to pass on every PR. It also waits for
-native purchase bridge compiles and Terraform checks whenever their paths change.
+native purchase bridge compiles, Lean proofs, and Terraform checks whenever
+their paths change.
 The platform workflows are reusable and keep their standalone manual dispatch
 entry points. `Lint` passes pull-request names to
 `agent-tool branch check --pre-push` as stdin ref tuples, so the policy also

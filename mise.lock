@@ -101,6 +101,35 @@ url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-linux-x64
 checksum = "sha256:80afd4c069b46a6fa8f3ec520bebc750a7843e4a8d5b9583d29ad436c00a3403"
 url = "https://github.com/oven-sh/bun/releases/download/bun-v1.4.3/bun-darwin-aarch64.zip"
 
+[[tools."github:leanprover/lean4"]]
+version = "4.35.0"
+backend = "github:leanprover/lean4"
+
+[tools."github:leanprover/lean4"."platforms.linux-x64"]
+checksum = "sha256:7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
+url = "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst"
+url_api = "https://api.github.com/repos/leanprover/lean4/releases/assets/634574462"
+
+[tools."github:leanprover/lean4"."platforms.linux-x64-baseline"]
+checksum = "sha256:7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
+url = "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst"
+url_api = "https://api.github.com/repos/leanprover/lean4/releases/assets/634574462"
+
+[tools."github:leanprover/lean4"."platforms.linux-x64-musl"]
+checksum = "sha256:7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
+url = "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst"
+url_api = "https://api.github.com/repos/leanprover/lean4/releases/assets/634574462"
+
+[tools."github:leanprover/lean4"."platforms.linux-x64-musl-baseline"]
+checksum = "sha256:7289597a44543246c9227b8cae501767e095ce17f6d448b95fc4a8dc97268f6d"
+url = "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-linux.tar.zst"
+url_api = "https://api.github.com/repos/leanprover/lean4/releases/assets/634574462"
+
+[tools."github:leanprover/lean4"."platforms.macos-arm64"]
+checksum = "sha256:c0c6f34f35ba1dcc5c4a5fd106fefab9eb5e8469712624dd2c868d51b63177c2"
+url = "https://github.com/leanprover/lean4/releases/download/v4.35.0/lean-4.35.0-darwin_aarch64.tar.zst"
+url_api = "https://api.github.com/repos/leanprover/lean4/releases/assets/634574458"
+
 [[tools."github:oasdiff/oasdiff"]]
 version = "1.34.1"
 backend = "github:oasdiff/oasdiff"

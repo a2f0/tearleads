@@ -28,6 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       native: ${{ steps.scopes.outputs.native }}
+      proofs: ${{ steps.scopes.outputs.proofs }}
       terraform: ${{ steps.scopes.outputs.terraform }}
     steps:
       - name: Checkout
@@ -62,7 +63,7 @@ jobs:
   gate:
     name: CI gate
     if: always()
-    needs: [changes, lint, build, test, postgres-concurrency, windows, native, terraform]
+    needs: [changes, lint, build, test, postgres-concurrency, windows, native, proofs, terraform]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -292,6 +293,29 @@ jobs:
           CI_POSTGRES_IMAGE: postgres:18.6
           DATABASE_URL: postgres://tearleads:tearleads@localhost:5432/tearleads_concurrency_test
         run: bun scripts/testing/runVerifiedTurbo.ts test:postgres-concurrency
+
+  # The Lean toolchain is a multi-gigabyte install, so the proofs build only
+  # when the Lean package or its tooling changes. The committed vectors are
+  # replayed through the TypeScript verifiers by check:fast on every change.
+  proofs:
+    name: Lean proofs
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.proofs == 'true'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Lean tooling
+        uses: jdx/mise-action@8418fedb1110381a0d3ba51a7a415d7c1b884550 # v5.2.2
+        with:
+          version: 2026.10.17
+          install_args: bun github:leanprover/lean4
+          cache: true
+
+      - name: Build the proofs and check the vector fixture
+        run: bun run check:protocol-proofs
 
   terraform:
     name: Terraform lint
