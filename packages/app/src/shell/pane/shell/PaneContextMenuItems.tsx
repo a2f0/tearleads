@@ -32,19 +32,18 @@ export function PaneContextMenuItems({
   const { canLockPane, lockPane } = usePaneLockMenuAction(onClose);
   const visibleMenuItems = useVisibleMiniAppItems(MINI_APP_MENU_ITEMS);
 
-  if (!hasSigningKeyPair && !paneLocked) {
-    return (
-      <MenuItem
-        disabled={identityTransitionInFlight}
-        icon={KeyIcon}
-        label="Generate Key Pair"
-        onClick={onGenerateKeyPair}
-      />
-    );
-  }
+  const needsIdentity = !hasSigningKeyPair && !paneLocked;
 
   return (
     <>
+      {needsIdentity && (
+        <MenuItem
+          disabled={identityTransitionInFlight}
+          icon={KeyIcon}
+          label="Generate Key Pair"
+          onClick={onGenerateKeyPair}
+        />
+      )}
       {paneLocked && (
         <MenuItem
           icon={LockOpenIcon}
@@ -52,17 +51,19 @@ export function PaneContextMenuItems({
           onClick={openUnlockWindow}
         />
       )}
-      {canLockPane && (
+      {!needsIdentity && canLockPane && (
         <MenuItem icon={LockIcon} label="Lock" onClick={lockPane} />
       )}
-      {visibleMenuItems.map(({ appId, icon, label }) => (
-        <MenuItem
-          key={appId}
-          icon={icon}
-          label={label}
-          onClick={() => openMiniApp(appId)}
-        />
-      ))}
+      {visibleMenuItems
+        .filter(({ appId }) => !needsIdentity || appId === "system-monitor")
+        .map(({ appId, icon, label }) => (
+          <MenuItem
+            key={appId}
+            icon={icon}
+            label={label}
+            onClick={() => openMiniApp(appId)}
+          />
+        ))}
     </>
   );
 }

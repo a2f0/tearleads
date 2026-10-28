@@ -27,9 +27,9 @@ import { measureWorkflowRequests } from "../../../../test/helpers/workflowReques
 afterEach(cleanupPaneTestEnvironment);
 
 async function setNetworkMode(pane: HTMLElement, label: string) {
-  const monitor = within(pane).getByRole("button", { name: "System Monitor" });
+  const status = within(pane).getByRole("region", { name: "System status" });
   await interact(() => {
-    fireEvent.contextMenu(monitor, { clientX: 30, clientY: 30 });
+    fireEvent.contextMenu(status, { clientX: 30, clientY: 30 });
   });
   await interact(() => {
     fireEvent.click(within(document.body).getByRole("button", { name: label }));

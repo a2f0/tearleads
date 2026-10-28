@@ -32,9 +32,14 @@ export function usePaneWindowMenuActions({
 
   const openMiniApp = useCallback(
     (appId: MiniAppId) => {
+      const isMonitor = appId === "system-monitor";
       const openWindow = () =>
-        openMiniAppRoute({ appId, position, reuseExisting: false });
-      if (appId === "system-monitor") {
+        openMiniAppRoute({
+          appId,
+          position,
+          reuseExisting: isMonitor,
+        });
+      if (isMonitor) {
         launchSystemMonitorWindow({
           isPinned,
           openWindow,

@@ -9,6 +9,7 @@ import { useVisibleMiniAppItems } from "../../../mini-apps/useVisibleMiniAppItem
 import { NavigationModeSwitch } from "../../../navigation/NavigationModeSwitch";
 import { useCryptoSession } from "../../../providers/crypto/CryptoSessionProvider";
 import { useAppHostConfig } from "../../../providers/host/AppHostConfigProvider";
+import { ThemeToggleButton } from "../../../theme/ThemeToggleButton";
 import { useRegisterUserId } from "../../pane/dual-pane";
 import { SyncStatusIndicator } from "../../pane/footer/sync-status/SyncStatusIndicator";
 import { TestSystemBanner } from "../TestSystemBanner";
@@ -26,7 +27,7 @@ function renderTestSystemBanner({
 
 /**
  * The windowing package's routed shell with the app's chrome: the Tearleads
- * logo as its menu button, the windowed/routed switch and sync status in the
+ * logo as its menu button, theme and layout switches and sync status in the
  * taskbar's tray, the pinned System Monitor above the active app, and the
  * test-system warning above the taskbar. The launcher offers only the
  * mini-apps the session may see.
@@ -52,6 +53,7 @@ export function AppRoutedPane() {
       subscribeKeyboardVisibility={subscribeKeyboardVisibility}
       taskbarTray={
         <>
+          <ThemeToggleButton />
           <NavigationModeSwitch
             allowWindowed={navigationMode === "windowed"}
             mode="routed"

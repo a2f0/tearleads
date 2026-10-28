@@ -71,8 +71,7 @@ export const MINI_APP_MENU_ITEMS: ReadonlyArray<MiniAppMenuItem> =
   }));
 
 // Keep a named routed-navigation seam even though it currently shares the Start
-// menu's app ordering. System Monitor remains directly reachable from the
-// windowed footer tray too.
+// menu's app ordering.
 export const ROUTED_MINI_APP_NAV_ITEMS: ReadonlyArray<MiniAppMenuItem> = [
   ...MINI_APP_MENU_ITEMS,
 ];

@@ -92,7 +92,12 @@ async function showSystemMonitorTab(
   tabName: "Environment" | "Logs" | "Status",
 ): Promise<void> {
   if ((await pane.getByRole("tab", { name: "Logs" }).count()) === 0) {
-    await pane.getByRole("button", { name: "System Monitor" }).click();
+    await pane.getByRole("button", { name: "Menu", exact: true }).click();
+    await pane
+      .page()
+      .locator(".menu")
+      .getByRole("button", { name: "System Monitor" })
+      .click();
   }
 
   const tab = pane.getByRole("tab", { name: tabName });

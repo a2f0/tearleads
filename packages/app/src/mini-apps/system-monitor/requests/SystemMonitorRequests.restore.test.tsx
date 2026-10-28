@@ -5,6 +5,7 @@ import {
   listProxiedApiRequests,
   useTestApiAppHandlers,
 } from "../../../../test/helpers/mswServer";
+import { openSystemMonitor } from "../../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
@@ -71,7 +72,7 @@ test(
     });
     expect(snapshot.total).toBeGreaterThanOrEqual(beforeRestore);
     expect(snapshot.total + anonymousTotal).toBe(proxiedTotal);
-    fireEvent.click(restored.getByRole("button", { name: "System Monitor" }));
+    openSystemMonitor(restored);
     fireEvent.click(await restored.findByRole("tab", { name: "API Requests" }));
     const requests = within(
       restored.getByRole("region", { name: "API request counts" }),

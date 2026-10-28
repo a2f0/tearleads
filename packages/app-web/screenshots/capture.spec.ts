@@ -87,9 +87,7 @@ interface WindowedApp {
   menuLabel: string;
 }
 
-// Most windowed apps are opened from the footer Start menu. System Monitor is
-// also available there, but its capture uses the persistent tray shortcut below
-// so the screenshot suite covers both launcher surfaces.
+// Windowed apps are opened from the footer Start menu.
 const WINDOWED_MENU_APPS: readonly WindowedApp[] = [
   { name: "explorer", menuLabel: "Explorer" },
   { name: "contacts", menuLabel: "Contacts" },
@@ -97,6 +95,7 @@ const WINDOWED_MENU_APPS: readonly WindowedApp[] = [
   { name: "notes", menuLabel: "Notes" },
   { name: "identity-manager", menuLabel: "Identity Manager" },
   { name: "backup-restore", menuLabel: "Backup / Restore" },
+  { name: "system-monitor", menuLabel: "System Monitor" },
 ];
 
 // Opens the backup-restore mini-app for whichever shell is rendered.
@@ -238,13 +237,6 @@ async function captureWindowed(page: Page, outputDir: string): Promise<void> {
       }
     });
   }
-
-  // Exercise the persistent System Monitor tray shortcut; the Start-menu entry
-  // uses the same unpin-then-open behavior.
-  await visiblePane(page)
-    .getByRole("button", { name: "System Monitor" })
-    .click();
-  await captureOpenWindow(page, outputDir, "system-monitor");
 }
 
 async function captureWindowedOrgManagerSections(
