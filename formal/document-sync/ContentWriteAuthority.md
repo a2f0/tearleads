@@ -19,6 +19,14 @@ missing dependency after the one runtime refresh still fails verification.
 This applies to submitted document responses and attachment ciphertext. An
 attachment hydration or key-rewrap run shares one refresh across its decryptions.
 
+The document is also linked into a second container. A second reader opens it
+only through that link and starts with none of the leaf's history, so it must
+be served the leaf path that every write through the leaf cites. The document
+may later be unlinked from the leaf, after which the empty leaf may be
+deleted; readers on the other link must still verify the writes made through
+it. `CitedHeadsReachEveryReader` states that every reader who can open the
+document is served every committed write's cited head.
+
 | Model action or predicate | Production seam |
 | --- | --- |
 | `CommitWrite` | `assertWriteHeaderPathCitations`, `resolveCurrentContainerManifestRefs` |
@@ -27,17 +35,23 @@ attachment hydration or key-rewrap run shares one refresh across its decryptions
 | `ReadCurrentMembership` | `resolveHistoricalContainerPathUserAccessLevel` |
 | `HonestWritesRemainReadable` | `verifyWriteHeader`, `verifyAttachmentBindingEvent` |
 | `NewWritesUseCurrentAuthority` | `assertCurrentContainerPath` |
+| `Served` / `ServeEveryWriteDependency` / `CitedHeadsReachEveryReader` | `loadDocumentWriterProjectionVerificationMaterial` adds every hash `listDocumentContentWriteDependencyHashes` reads from the document's and its attachments' write headers, with no filter by the requester's own links, and loads each path with its predecessors and citations; `verifyDocumentWriterProjection` verifies those paths at their referenced membership |
+| `Unlink` | `mutateDocumentLinkSet` removes the leaf from the document's link set |
+| `DeleteLeaf` / `RetainManifestsOnDelete` | `deleteLeafContainerRow` refuses a container with a linked user document; `deleteContainer` removes the container row and its metadata document but keeps the container's `accessManifests` rows, which only an organization purge (`deleteOrganizationRemoteRows`) deletes |
 
 A write may cite any head, including one that does not authorize the writer,
 as a revoked writer can still submit; the API commits only an authorized one
-(`CommittedWritesAreAuthorized`). Five negative controls read through the
+(`CommittedWritesAreAuthorized`). Seven negative controls read through the
 original parent pin, authorize historical writes with current membership,
 disable the API's current-path requirement, commit a write its cited path does
-not authorize, or refuse a response using stale cached evidence without
-refreshing it. Each must violate its named invariant. Hashes, signatures,
-exact sorted citation sets, document/blob target coverage, and lineage
-validation are abstracted as verified inputs here; runtime tests cover their
-concrete checks.
+not authorize, refuse a response using stale cached evidence without
+refreshing it, filter the projection to the reader's own links, or delete a
+container's manifests with it. Each must violate its named invariant; either
+of the last two also makes the reader on the other link refuse an honest
+write. The registered run explores 726 generated and 174 distinct states.
+Hashes, signatures, exact sorted citation sets, document/blob target coverage,
+and lineage validation are abstracted as verified inputs here; runtime tests
+cover their concrete checks.
 This model does not prove semantic currency against a dishonest server or
 prevent a removed signer and server from supplying a previously valid historical
 authorization.
