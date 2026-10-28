@@ -11,6 +11,7 @@
     "//#check:protocol-models": {
       "inputs": [
         "formal/**",
+        "!formal/lean/**",
         "scripts/checks/checkProtocolModels.sh",
         "scripts/checks/tlaToolsPin.sh",
         "scripts/checks/runCachedProtocolCheck.ts",
@@ -29,6 +30,7 @@
     "//#check:protocol-negative-controls": {
       "inputs": [
         "formal/**",
+        "!formal/lean/**",
         "scripts/protocol/**",
         "scripts/checks/tlaToolsPin.sh",
         "scripts/checks/runCachedProtocolCheck.ts",
@@ -37,6 +39,18 @@
       ],
       "env": ["TLC_JAVA_RUNTIME", "PROTOCOL_TLC_PARALLELISM"],
       "passThroughEnv": ["JAVA_BIN", "TLA_TOOLS_ROOT"],
+      "outputs": []
+    },
+    "//#check:protocol-proofs": {
+      "inputs": [
+        "formal/lean/**",
+        "!formal/lean/.lake/**",
+        "scripts/protocol/generateTransparencyVectors.ts",
+        "scripts/protocol/leanTools.ts",
+        ".mise.toml",
+        "mise.lock"
+      ],
+      "passThroughEnv": ["LEAN_TOOLCHAIN_ROOT"],
       "outputs": []
     },
     "//#test:architecture": {

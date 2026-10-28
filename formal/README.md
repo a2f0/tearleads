@@ -58,6 +58,16 @@ of the real container-path and principal-policy verifiers through
 `NoBrickedDevice` the same way; see its
 [trace projection section](./container-keying/NoBrickedDevice.md#implementation-trace-projection).
 
+## Lean proofs
+
+[`lean/`](./lean/README.md) is a Lean 4 package for the transparency log's
+Merkle verifier (#2192 Gate F3). It models the TypeScript generator and
+verifiers, proves bounded completeness by kernel evaluation, states the
+unbounded completeness and soundness theorems, and exports a vector fixture
+that `test:protocol-conformance` replays through production. The toolchain is
+large, so `bun run check:protocol-proofs` runs in its own CI job, not in
+`check:fast`.
+
 ## Negative controls
 
 `bun run check:protocol-negative-controls` (part of `check:fast`) checks selected

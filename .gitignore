@@ -55,3 +55,6 @@ packages/api/wrangler.deploy.*.jsonc
 # Workers Static Assets staging directories for the app and demo bundles
 packages/app-web/dist-app/
 packages/app-web/dist-demo/
+
+# Lake build output for the Lean proof package
+formal/lean/.lake/

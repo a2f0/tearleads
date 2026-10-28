@@ -8,7 +8,7 @@ const {
   GITHUB_OUTPUT: output,
 } = process.env;
 if (!output) throw new Error("GITHUB_OUTPUT is required.");
-let scopes = { native: true, terraform: true };
+let scopes = { native: true, proofs: true, terraform: true };
 const range = ciDiffRange(base, head);
 if (range) {
   const paths = execFileSync(
