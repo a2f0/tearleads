@@ -160,9 +160,12 @@ backoff. See the [mapping](./document-sync/SyncLaneConcurrency.md).
 models the no-data-loss gate for document sync baseline redirection: a
 normal-mode read may omit an older-epoch update only when a readable
 current-epoch baseline provably dominates it, and raw mode always serves the
-complete retained missing frontier. Because the invariants share the
-`Dominated`/`Older` operators with the serve action, TLC alone cannot check the
-dominance definition itself; the registered
+complete retained missing frontier. `NoDataLoss` is stated against what the
+baseline actually carries, and four controls show that the vector coverage
+check, the authenticated-baseline rule, raw-mode completeness, and keeping
+current-epoch updates each carry an invariant. Because the other invariants
+share the `Dominated`/`Older` operators with the serve action, TLC alone cannot
+check the dominance definition itself; the registered
 [`BaselineDominanceTraceExport.tla`](./document-sync/BaselineDominanceTraceExport.tla)
 closes that blind spot by exporting every served behavior into the committed
 fixture
@@ -202,7 +205,8 @@ for the action seams, fairness assumptions, and excluded blob-hydration layer.
 models the acceptance gates for the two content-key epoch advances that carry no
 rotation baseline: a document unlink submitted without one, and a link that
 advances the epoch. Both require a committed frontier proved empty under the
-document manifest-head write lock. See the
+document manifest-head write lock, and a covering unlink's baseline is refused
+when it falls short of the committed frontier. See the
 [mapping, negative controls, and bounds](./document-sync/EmptyFrontierUnlink.md).
 
 ### Attachment Key Reachability

@@ -1,6 +1,7 @@
 import { ACKNOWLEDGEMENT_NEGATIVE_CONTROLS } from "./protocolAcknowledgementNegativeControls";
 import { ANCESTOR_RECOVERY_NEGATIVE_CONTROLS } from "./protocolAncestorRecoveryNegativeControls";
 import { ATTACHMENT_NEGATIVE_CONTROLS } from "./protocolAttachmentNegativeControls";
+import { BASELINE_DOMINANCE_NEGATIVE_CONTROLS } from "./protocolBaselineDominanceNegativeControls";
 import { CONTAINER_ADOPTION_NEGATIVE_CONTROLS } from "./protocolContainerAdoptionNegativeControls";
 import { CONTAINER_DEPTH_NEGATIVE_CONTROLS } from "./protocolContainerDepthNegativeControls";
 import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInterestNegativeControls";
@@ -53,6 +54,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...CONTAINER_INTEREST_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
+  ...BASELINE_DOMINANCE_NEGATIVE_CONTROLS,
   ...TOMBSTONE_NEGATIVE_CONTROLS,
   ...DOCUMENT_MOVE_NEGATIVE_CONTROLS,
   ...DEFERRED_TAIL_NEGATIVE_CONTROLS,
@@ -333,6 +335,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { FrontierCheck: '"uncovered"' },
     expect: { kind: "invariant", name: "NoDataLoss" },
     why: "A rotation baseline is itself a committed update sealed to its own epoch, so a later advance that checks only the uncovered frontier strands it.",
+  },
+  {
+    id: "empty-frontier-short-baseline",
+    module: "formal/document-sync/EmptyFrontierUnlink.tla",
+    config: "formal/document-sync/EmptyFrontierUnlink.cfg",
+    constants: { CheckBaselineCoversFrontier: "FALSE" },
+    expect: { kind: "invariant", name: "NoDataLoss" },
+    why: "An unlink whose rotation baseline falls short of the committed frontier strands every update the baseline does not cover.",
   },
 ];
 

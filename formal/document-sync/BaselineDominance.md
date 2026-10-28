@@ -13,15 +13,37 @@ The one-readable-baseline abstraction maps to production at these seams:
 | Model action or predicate | Production implementation |
 | --- | --- |
 | `Dominated` | `isDocumentUpdateDominatedByBaseline` |
-| `Serve` | `listMissingSyncUpdatesForResponse` |
+| `ReadableBaseline` | `loadLatestReadableBaselineCoverage`, which keeps only a baseline `isAuthenticatedReplayableBaseline` accepts |
+| `Serve` / `RedirectServed` | `listMissingSyncUpdatesForResponse` through `selectServedSyncUpdates` |
 
 TLC explores the sync serve decision. The checked invariants require that:
 
 - only dominated older updates are omitted from the response;
 - every uncovered update is served;
 - current-or-newer-epoch updates are served;
-- every unserved update is carried by the readable baseline, while raw mode
-  serves the complete retained missing frontier.
+- every unserved update is carried by the baseline the reader is redirected to,
+  while raw mode serves the complete retained missing frontier.
+
+`NoDataLoss` is stated against `baselineContains`, what the baseline's snapshot
+actually carries, not against the `Dominated` predicate that guards the
+redirect. A baseline whose signed metadata binds a full-history span to its
+declared source vector carries exactly the updates that vector covers; any
+other baseline's contents are unconstrained, and only an authenticated one is
+readable for a redirect.
+
+## Negative controls
+
+Four controls each flip one production rule and require TLC to report the
+named invariant:
+
+- `CheckVectorCovers = FALSE` omits an older update the baseline vector does
+  not cover, violating `NoDataLoss`.
+- `RequireAuthenticatedBaseline = FALSE` redirects through a baseline whose
+  declared vector nothing binds to its contents, violating `NoDataLoss`.
+- `RawModeServesAll = FALSE` redirects a raw-history read, violating
+  `RawModeServesCompleteFrontier`.
+- `RedirectKeepsCurrentEpoch = FALSE` drops every covered update rather than
+  only older-epoch ones, violating `CurrentOrNewerUpdateIsServed`.
 
 ## Trace bridge
 
@@ -79,10 +101,12 @@ normal-mode read is redirected through the readable current-epoch baseline only
 when that baseline dominates every omitted older-epoch update, and raw mode
 always serves the complete retained missing frontier. Baseline contents are
 end-to-end encrypted, so the server cannot verify what a baseline carries;
-`hasBaseline` abstracts an authenticated baseline record that passed
-replayability checks (`isAuthenticatedReplayableBaseline`), whose declared
-coverage vector the model takes at face value, exactly as production does. The
-model also assumes well-formed persisted version vectors and continued
-availability of that current-epoch baseline. Cryptographic authenticity,
+`ReadableBaseline` is an authenticated baseline record that passed
+replayability checks (`isAuthenticatedReplayableBaseline`). The model trusts
+that an honest writer's full-history snapshot carries what its signed vector
+declares, exactly as production does; a writer that signs a vector its
+snapshot does not match is outside the boundary. The model also assumes
+well-formed persisted version vectors and continued availability of that
+current-epoch baseline. Cryptographic authenticity,
 database transactions, SQL ordering, and Loro's own CRDT correctness remain
 outside the abstraction.

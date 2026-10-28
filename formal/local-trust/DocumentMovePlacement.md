@@ -13,17 +13,28 @@ trashed item reappear in its source folder.
 | `Settle`, `CheckRevision` | `settleDocumentMoveIntent` checks the exact intent revision and replaces links in the relink transaction; partial replay also checks ownership |
 | `LoseResponse`, `CaptureSettledEpoch` | `containerDocumentAlreadyMovedResult` verifies the writer projection and persists its epoch and key state before clearing the intent |
 | `ApplyTombstone`, `ProtectPendingTombstones` | `applyContainerDocumentTombstonesWithExec` uses `filterWritableDocumentPlacements` inside the deletion transaction |
-| `ApplyListingTombstone`, `TombstonesRequireSignedEvidence` | `settleContainerDocumentTombstones` applies a listing tombstone only with a `verified` verdict from `createContainerDocumentTombstoneVerifier`, whose head link set omits the container and whose epoch is not below the local document epoch. The model states only that evidence condition; the visible `refuted` retry and the hidden `unverified` retry by `holdContainerDocumentTombstones` are production behaviour outside the model. `createDiscoveredDocumentVerifier` also verifies listing-item placements before `replaceDocumentLinksBatch` |
+| `ApplyListingTombstone`, `TombstonesRequireSignedEvidence`, `CheckTombstoneEvidenceEpoch` | `settleContainerDocumentTombstones` applies a listing tombstone only with a `verified` verdict from `createContainerDocumentTombstoneVerifier`, whose head link set omits the container and whose epoch is not below the local document epoch. The model states only that evidence condition; the visible `refuted` retry and the hidden `unverified` retry by `holdContainerDocumentTombstones` are production behaviour outside the model. `createDiscoveredDocumentVerifier` also verifies listing-item placements before `replaceDocumentLinksBatch` |
 | `PeerPurge` | A different authorized client purges the document; `createDocumentHeadLinkSetLoader` accepts its terminal signed proof through `loadDocumentPurgeCheckpoint`, permitting the later listing tombstone |
 | `MergeCurrentPage`, `KeepNewestPageLinks` | `mergeDiscoveredDocumentInputs` selects links from the newest access epoch across discovery lanes |
-| `CapturePage`, `ApplyPage`, `CheckEpoch` | `applyListedContainerDocuments` (single and batched-lane discovery, which captures every lane's page in one request and applies each later) and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `resolveDiscoveredDocumentPlacement` preserves newer placement and access state |
+| `CapturePage`, `CheckPageSignature` | `createDiscoveredDocumentVerifier` verifies each discovered head's signed link set before discovery uses its placement |
+| `ApplyPage`, `CheckEpoch` | `applyListedContainerDocuments` (single and batched-lane discovery, which captures every lane's page in one request and applies each later) and `discoverAllContainerDocuments` carry the access epoch into `filterWritableDocumentPlacements`; `resolveDiscoveredDocumentPlacement` preserves newer placement and access state |
 | `StartRead`, `FinishRead`, `CheckReadPlacement` | `saveDocumentRecord` publishes `placementChanged`; `refreshPersistedDocument` discards pending reads for structural writes before publication |
 | `RefreshReadSummary`, `CheckReadMembership` | `listContainerContentsDocumentsForContainers` filters stale link IDs against the returned summaries and final link map |
 | `StablePlacement`, `StableView` | `listContainerContentsDocumentsForContainers` and `loadContainerSummaries` expose the chosen local placement throughout replay |
 
-The bounded model checks safety, with nine negative controls disabling
-ownership, epoch, revision, read, discovery-merge, response-recovery, and
-tombstone-evidence guards independently. Regression tests cover a refresh
+Served evidence is not honest by construction. `signed` holds every link-set
+head the document's signers committed. `CapturePage` may serve any head,
+current, older, or made up, and the device keeps it only when its signature
+verifies. A listing tombstone carries a head as evidence instead of reading the
+server's live state: the gate requires a signed head that no longer links the
+container and is no older than the device's own head.
+
+The bounded model checks safety, with eleven negative controls disabling
+ownership, epoch, revision, read, discovery-merge, response-recovery,
+page-signature, and tombstone-evidence guards independently.
+`CheckPageSignature = FALSE` applies a made-up page, and
+`CheckTombstoneEvidenceEpoch = FALSE` lets an older signed head remove a link a
+later move restored; both violate `StablePlacement`. Regression tests cover a refresh
 between real signed link/unlink operations, sequential trash moves during
 single and all-container discovery, superseded replay rollback,
 first-hydration reads, and a listing tombstone that the verified head still
