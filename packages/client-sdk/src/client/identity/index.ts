@@ -64,59 +64,72 @@ interface IdentityGenerationContext {
 }
 
 interface IdentityRuntimeHooks {
+  assertReadyForGeneration?: (() => void) | undefined;
   bootstrapLocalRootContainer?:
-    | (() => Promise<{ containerId: string; created: boolean }>)
+    | ((
+        isCurrent: () => boolean,
+      ) => Promise<{ containerId: string; created: boolean }>)
     | undefined;
   getUserId?: (() => string | null) | undefined;
 }
 
+export interface PreparedIdentityChange {
+  isCurrent(): boolean;
+  commit(): void;
+}
+
+/** Blobs prepares a store; tests use a no-op. Commit only assigns prepared state. */
+interface IdentityChangePreparation {
+  prepareIdentityChange(
+    signingFingerprint: string | null,
+  ): PreparedIdentityChange;
+}
+
 export function createIdentity(
   options: IdentityOptions = {},
-  onIdentityChanged: (signingFingerprint: string | null) => void,
+  identityChanges: IdentityChangePreparation,
   log: (message: string) => void,
   runtimeHooks: IdentityRuntimeHooks = {},
 ): Identity {
-  return new IdentityService(options, onIdentityChanged, log, runtimeHooks);
+  return new IdentityService(options, identityChanges, log, runtimeHooks);
 }
 
 class IdentityService implements Identity {
-  private encapsulationKeyPairValue: EncapsulationKeyPair | null;
   private readonly listeners = createListenerSet();
-  private seedPhraseValue: string | null;
-  private signingFingerprintValue: string | null;
-  private signingKeyPairValue: SigningKeyPair | null;
   private snapshotValue: IdentitySnapshot;
+  private changeRevision = 0;
 
   constructor(
     options: IdentityOptions = {},
-    private readonly onIdentityChanged: (
-      signingFingerprint: string | null,
-    ) => void,
+    private readonly identityChanges: IdentityChangePreparation,
     private readonly log: (message: string) => void,
     private readonly runtimeHooks: IdentityRuntimeHooks,
   ) {
-    this.encapsulationKeyPairValue = options.encapsulationKeyPair ?? null;
-    this.seedPhraseValue = options.seedPhrase ?? null;
-    this.signingFingerprintValue = options.signingFingerprint ?? null;
-    this.signingKeyPairValue = options.signingKeyPair ?? null;
-    this.snapshotValue = this.createSnapshot();
-    this.onIdentityChanged(this.signingFingerprintValue);
+    this.snapshotValue = {
+      encapsulationKeyPair: options.encapsulationKeyPair ?? null,
+      seedPhrase: options.seedPhrase ?? null,
+      signingFingerprint: options.signingFingerprint ?? null,
+      signingKeyPair: options.signingKeyPair ?? null,
+    };
+    this.identityChanges
+      .prepareIdentityChange(this.signingFingerprint)
+      .commit();
   }
 
   get encapsulationKeyPair(): EncapsulationKeyPair | null {
-    return this.encapsulationKeyPairValue;
+    return this.snapshotValue.encapsulationKeyPair;
   }
 
   get seedPhrase(): string | null {
-    return this.seedPhraseValue;
+    return this.snapshotValue.seedPhrase;
   }
 
   get signingFingerprint(): string | null {
-    return this.signingFingerprintValue;
+    return this.snapshotValue.signingFingerprint;
   }
 
   get signingKeyPair(): SigningKeyPair | null {
-    return this.signingKeyPairValue;
+    return this.snapshotValue.signingKeyPair;
   }
 
   get snapshot(): IdentitySnapshot {
@@ -124,11 +137,16 @@ class IdentityService implements Identity {
   }
 
   destroy(): void {
-    this.encapsulationKeyPairValue = null;
-    this.seedPhraseValue = null;
-    this.signingFingerprintValue = null;
-    this.signingKeyPairValue = null;
-    this.publishSnapshot();
+    const revision = ++this.changeRevision;
+    this.publishSnapshot(
+      {
+        encapsulationKeyPair: null,
+        seedPhrase: null,
+        signingFingerprint: null,
+        signingKeyPair: null,
+      },
+      revision,
+    );
     this.log("Key pair destroyed");
   }
 
@@ -137,19 +155,28 @@ class IdentityService implements Identity {
   }
 
   async generate(): Promise<IdentityGenerationResult> {
+    this.runtimeHooks.assertReadyForGeneration?.();
+    const revision = ++this.changeRevision;
     const seedPhrase = createIdentitySeedPhrase();
     const { encapsulationKeyPair, signingKeyPair } =
       generateIdentityKeyPairsFromSeedPhrase(seedPhrase);
     const signingFingerprint = await toFingerprint(
       signingKeyPair.signingPublicKey,
     );
-    const generationContext = await this.createGenerationContext();
-
-    this.signingKeyPairValue = signingKeyPair;
-    this.encapsulationKeyPairValue = encapsulationKeyPair;
-    this.seedPhraseValue = seedPhrase;
-    this.signingFingerprintValue = signingFingerprint;
-    this.publishSnapshot();
+    // Factory failures must happen before persisting or selecting a local root.
+    // Root failures leave the prepared store inactive and the identity unchanged.
+    this.assertCurrent(revision);
+    const prepared =
+      this.identityChanges.prepareIdentityChange(signingFingerprint);
+    this.assertCurrent(revision, prepared);
+    const generationContext = await this.createGenerationContext(
+      () => this.changeRevision === revision && prepared.isCurrent(),
+    );
+    this.publishSnapshot(
+      { signingKeyPair, encapsulationKeyPair, seedPhrase, signingFingerprint },
+      revision,
+      prepared,
+    );
     this.log("Key pair generated");
     return {
       ...this.snapshot,
@@ -158,49 +185,51 @@ class IdentityService implements Identity {
   }
 
   async importKeyPackage(keyPackage: unknown): Promise<IdentitySnapshot> {
+    const revision = ++this.changeRevision;
     const parsed = await parseIdentityKeyPackage(keyPackage);
-    this.encapsulationKeyPairValue = parsed.encapsulationKeyPair;
-    this.seedPhraseValue = parsed.package.seedPhrase ?? null;
-    this.signingKeyPairValue = parsed.signingKeyPair;
-    this.signingFingerprintValue = parsed.package.signingFingerprint;
-    this.publishSnapshot();
+    this.publishSnapshot(
+      {
+        encapsulationKeyPair: parsed.encapsulationKeyPair,
+        seedPhrase: parsed.package.seedPhrase ?? null,
+        signingKeyPair: parsed.signingKeyPair,
+        signingFingerprint: parsed.package.signingFingerprint,
+      },
+      revision,
+    );
     this.log("Key package imported");
     return this.snapshot;
   }
 
   async importSeedPhrase(seedPhrase: string): Promise<IdentitySnapshot> {
+    const revision = ++this.changeRevision;
     const derived = generateIdentityKeyPairsFromSeedPhrase(seedPhrase);
-    this.encapsulationKeyPairValue = derived.encapsulationKeyPair;
-    this.seedPhraseValue = derived.seedPhrase;
-    this.signingKeyPairValue = derived.signingKeyPair;
-    this.signingFingerprintValue = await toFingerprint(
+    const signingFingerprint = await toFingerprint(
       derived.signingKeyPair.signingPublicKey,
     );
-    this.publishSnapshot();
+    this.publishSnapshot({ ...derived, signingFingerprint }, revision);
     this.log("Seed phrase imported");
     return this.snapshot;
   }
 
   requireSigningKeyPair(operation = "This operation"): SigningKeyPair {
-    if (!this.signingKeyPairValue) {
+    if (!this.signingKeyPair) {
       throw new Error(`${operation} requires a signing key pair.`);
     }
 
-    return this.signingKeyPairValue;
+    return this.signingKeyPair;
   }
 
   async refreshSigningFingerprint(): Promise<string | null> {
-    if (!this.signingKeyPairValue) {
-      this.signingFingerprintValue = null;
-      this.publishSnapshot();
-      return null;
+    const revision = this.changeRevision;
+    const snapshot = this.snapshot;
+    const signingFingerprint = snapshot.signingKeyPair
+      ? await toFingerprint(snapshot.signingKeyPair.signingPublicKey)
+      : null;
+    if (this.changeRevision !== revision || this.snapshot !== snapshot) {
+      return this.signingFingerprint;
     }
-
-    this.signingFingerprintValue = await toFingerprint(
-      this.signingKeyPairValue.signingPublicKey,
-    );
-    this.publishSnapshot();
-    return this.signingFingerprintValue;
+    this.publishSnapshot({ ...snapshot, signingFingerprint }, revision);
+    return signingFingerprint;
   }
 
   async setKeyPairs(options: {
@@ -209,16 +238,21 @@ class IdentityService implements Identity {
     signingFingerprint?: string | null | undefined;
     signingKeyPair: SigningKeyPair | null;
   }): Promise<IdentitySnapshot> {
-    this.encapsulationKeyPairValue = options.encapsulationKeyPair;
-    this.seedPhraseValue = options.seedPhrase ?? null;
-    this.signingKeyPairValue = options.signingKeyPair;
-    this.signingFingerprintValue = options.signingFingerprint ?? null;
-
-    if (!this.signingFingerprintValue) {
-      await this.refreshSigningFingerprint();
-    } else {
-      this.publishSnapshot();
-    }
+    const revision = ++this.changeRevision;
+    const signingFingerprint =
+      options.signingFingerprint ||
+      (options.signingKeyPair
+        ? await toFingerprint(options.signingKeyPair.signingPublicKey)
+        : null);
+    this.publishSnapshot(
+      {
+        encapsulationKeyPair: options.encapsulationKeyPair,
+        seedPhrase: options.seedPhrase ?? null,
+        signingKeyPair: options.signingKeyPair,
+        signingFingerprint,
+      },
+      revision,
+    );
 
     return this.snapshot;
   }
@@ -226,16 +260,9 @@ class IdentityService implements Identity {
   subscribe = (listener: IdentityListener): (() => void) =>
     this.listeners.subscribe(listener);
 
-  private createSnapshot(): IdentitySnapshot {
-    return {
-      encapsulationKeyPair: this.encapsulationKeyPairValue,
-      seedPhrase: this.seedPhraseValue,
-      signingFingerprint: this.signingFingerprintValue,
-      signingKeyPair: this.signingKeyPairValue,
-    };
-  }
-
-  private async createGenerationContext(): Promise<IdentityGenerationContext> {
+  private async createGenerationContext(
+    isCurrent: () => boolean,
+  ): Promise<IdentityGenerationContext> {
     try {
       const bootstrapLocalRootContainer =
         this.runtimeHooks.bootstrapLocalRootContainer;
@@ -245,7 +272,7 @@ class IdentityService implements Identity {
         );
       }
 
-      const rootContainer = await bootstrapLocalRootContainer();
+      const rootContainer = await bootstrapLocalRootContainer(isCurrent);
 
       return {
         rootContainerCreated: rootContainer.created,
@@ -259,8 +286,12 @@ class IdentityService implements Identity {
     }
   }
 
-  private publishSnapshot(): void {
-    const nextSnapshot = this.createSnapshot();
+  private publishSnapshot(
+    nextSnapshot: IdentitySnapshot,
+    revision: number,
+    prepared?: PreparedIdentityChange,
+  ): void {
+    this.assertCurrent(revision, prepared);
     const previousSnapshot = this.snapshotValue;
     if (
       previousSnapshot.encapsulationKeyPair ===
@@ -272,8 +303,23 @@ class IdentityService implements Identity {
       return;
     }
 
+    const change =
+      prepared ??
+      this.identityChanges.prepareIdentityChange(
+        nextSnapshot.signingFingerprint,
+      );
+    this.assertCurrent(revision, change);
+    change.commit();
     this.snapshotValue = nextSnapshot;
-    this.onIdentityChanged(nextSnapshot.signingFingerprint);
     this.listeners.notify();
+  }
+
+  private assertCurrent(
+    revision: number,
+    prepared?: PreparedIdentityChange,
+  ): void {
+    if (this.changeRevision !== revision || prepared?.isCurrent() === false) {
+      throw new Error("Identity change was superseded.");
+    }
   }
 }

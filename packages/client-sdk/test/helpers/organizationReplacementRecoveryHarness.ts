@@ -18,7 +18,11 @@ import {
 } from "../../src/data/sqlite/schema";
 import { getClientSQLitePersistenceRuntime } from "../../src/data/sqlite/sqlitePersistenceRuntime";
 import { ensureSqlTables } from "../../src/data/sqlite/sqlTableSchema";
-import { createSqlClient, setGeneratedIdentity } from "./clientTestSupport";
+import {
+  createSqlClient,
+  noIdentityChange,
+  setGeneratedIdentity,
+} from "./clientTestSupport";
 import { respondToOrganizationProvisioning } from "./organizationProvisioningResponder";
 
 function billing(
@@ -57,11 +61,7 @@ export async function createOrganizationReplacementRecoveryHarness(
   const oldOrganizationId = crypto.randomUUID();
   const userId = crypto.randomUUID();
   const rootId = crypto.randomUUID();
-  const identity = createIdentity(
-    {},
-    () => {},
-    () => {},
-  );
+  const identity = createIdentity({}, noIdentityChange, () => {});
   await setGeneratedIdentity(identity);
   const signingKeyPair = identity.snapshot.signingKeyPair;
   if (!signingKeyPair) throw new Error("Expected signing identity");

@@ -17,6 +17,17 @@ export const verificationUsage = [
   "       bun run check:package <workspace-name> [test arguments...]",
 ].join("\n");
 
+function packageBuildStep(packageName: string): VerificationStep {
+  // API/SDK tests consume runtime artifacts; other suites retain desktop preparation.
+  const runtimeOnly = ["@tearleads/api", "@tearleads/client-sdk"].includes(
+    packageName,
+  );
+  return {
+    name: "build",
+    command: ["bun", "run", runtimeOnly ? "build:runtime" : "build:packages"],
+  };
+}
+
 export function verificationPlan(
   root: string,
   args: readonly string[],
@@ -39,7 +50,7 @@ export function verificationPlan(
         mode,
         packageName,
         steps: [
-          build,
+          packageBuildStep(workspace.name),
           {
             name: "tests",
             command: [

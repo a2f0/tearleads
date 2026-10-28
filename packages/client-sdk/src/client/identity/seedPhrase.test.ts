@@ -1,20 +1,16 @@
 import { expect, test } from "bun:test";
 import { createIdentitySeedPhraseFromEntropy } from "@tearleads/crypto";
+import { noIdentityChange } from "../../../test/helpers/clientTestSupport";
 import { createIdentity } from "./index";
 
 function createTestIdentity() {
-  return createIdentity(
-    {},
-    () => undefined,
-    () => undefined,
-    {
-      bootstrapLocalRootContainer: async () => ({
-        containerId: "root-container-id",
-        created: true,
-      }),
-      getUserId: () => null,
-    },
-  );
+  return createIdentity({}, noIdentityChange, () => undefined, {
+    bootstrapLocalRootContainer: async () => ({
+      containerId: "root-container-id",
+      created: true,
+    }),
+    getUserId: () => null,
+  });
 }
 
 test("identity generation creates a seed-backed key package", async () => {
