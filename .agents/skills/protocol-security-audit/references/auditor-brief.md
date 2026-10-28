@@ -58,7 +58,8 @@ items separately.
 Probes: import repository modules by absolute path and run
 `<REPO_ROOT>/node_modules/.bin/agent-tool run -- bun test <absolute path>`
 from the owning package directory. Save receipt log paths with probe results;
-use `agent-tool logs <path>` for bounded excerpts of failed probes. API probes use
+use `bun run --cwd <REPO_ROOT> agent:logs <path>` for bounded excerpts of
+failed probes. API probes use
 `API_DATABASE=memory` (PGlite, Postgres semantics); the sqlite backend hides
 uuid lowercasing and text-column normalization. The strongest parity evidence
 is a differential probe run from packages/api that commits through real routes

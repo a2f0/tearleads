@@ -1,12 +1,25 @@
 # Multi-Agent Workflow Guide
 
+## Output capture
+
+Run finite, noisy commands, such as installs, builds, tests, linters, and Git
+commands that run hooks, through
+`bun run agent:run --label <name> -- <command> [args...]`. It keeps complete
+output in a private log, preserves the exit status, and prints a compact
+receipt, with a bounded excerpt of the log on failure. Read more with
+`bun run agent:logs <log-path>`, raising `--tail-lines` or `--max-bytes` as
+needed, or with a targeted search of the log. A zero exit does not rule out
+warnings: inspect required warnings, timings, and artifacts before accepting a
+check. Run reviews, version preparation, audits, infrastructure previews, and
+run-group checks directly so their results stay visible, and run interactive
+tools and servers directly too. Never narrow a suite or silence warnings to
+reduce output.
+
+Keep verification evidence visible: a receipt does not replace the per-run
+reports in the [verification guide](docs/developer/verification.md).
+
 ## Preflight Commands
 
-Capture noisy setup, checks, builds, and hook-running Git commands with
-`bun run agent:run --label <check> -- <command>`. Inspect bounded excerpts with
-`bun run agent:logs <log-path> --tail-lines 40 --max-bytes 4096`; keep review
-verdicts and verification evidence visible. See the
-[verification guide](docs/developer/verification.md) for receipts and reports.
 Before pushing, run `bun tsc --build --pretty false`; after import changes, run
 `bun run lint:architecture`. See the
 [cheap-check guidance](docs/developer/verification.md#before-a-push).
@@ -330,8 +343,8 @@ Shipping rules on top of the shared skills:
   unchanged; re-pin the reviewed SHA to the rewritten head.
 - **Branches**: create from the current base with
   `bun run agent-tool branch create <name> --base main --remote origin`. Push
-  with `branch push <reviewed-sha> --remote origin` through the output harness;
-  normal hooks remain mandatory.
+  with `branch push <reviewed-sha> --remote origin` through
+  [output capture](#output-capture); normal hooks remain mandatory.
 - **Merge**: run
   `node_modules/.bin/agent-tool pr merge '' "$REVIEWED_SHA" "$BASE_REF"`
   directly, because `bun run` drops empty arguments. It requires the core

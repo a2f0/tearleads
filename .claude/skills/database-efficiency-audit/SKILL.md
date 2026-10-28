@@ -95,7 +95,7 @@ Hyperdrive tuning beyond what a statement count implies; and anything
 
 Run noisy builds, tests, and probes through `agent-tool run -- <command>`
 from the checkout's `node_modules/.bin`, keep logs in the audit directory,
-and inspect bounded excerpts with `agent-tool logs <path>`.
+and inspect bounded excerpts with `bun run agent:logs <path>`.
 
 1. Create or load the checkpoint as described in `references/batching.md`.
    Record `git rev-parse HEAD` and dirty paths. Audit committed code only:
