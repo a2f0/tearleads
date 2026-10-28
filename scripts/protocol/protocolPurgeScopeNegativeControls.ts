@@ -73,4 +73,12 @@ export const PURGE_SCOPE_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "DeletionStaysInScope" },
     why: "A restore hydrated from another device has no local pending intent but still cancels the captured destructive scope (#2485 finding 1).",
   },
+  {
+    id: "subtree-purge-over-strict-local",
+    module: "formal/local-trust/SubtreePurgeScope.tla",
+    config: "formal/local-trust/SubtreePurgeScope.cfg",
+    constants: { RefuseUnsettledLocal: "TRUE" },
+    expect: { kind: "invariant", name: "HonestQuiescentPurgeSucceeds" },
+    why: "A rule that refuses every local purge keeps scope safe only by failing honest users; the success invariant must catch it.",
+  },
 ];
