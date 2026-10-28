@@ -62,6 +62,11 @@ test("desktop App defaults to the tablet shell and can switch to windows", () =>
   );
 
   expect(view.container.querySelector(".layout--routed")).toBeTruthy();
+  expect(
+    view
+      .getByRole("button", { name: /^Switch to .* theme$/ })
+      .closest(".routed-pane-taskbar"),
+  ).not.toBeNull();
   expect(view.container.querySelector(".window")).toBeNull();
   fireEvent.click(
     view.getByRole("button", { name: "Switch to windowed layout" }),

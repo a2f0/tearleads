@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent, waitFor } from "@testing-library/react";
+import { openSystemMonitor } from "../../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,
   renderPane,
@@ -35,7 +36,7 @@ async function clickWindowViewMenuItem(
 test("feature flags tab is developer-only and toggles app flags", async () => {
   const view = renderPane({ pinSystemMonitor: false });
 
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   await view.findByRole("tab", { name: "Logs" });
   expect(view.queryByRole("tab", { name: "Feature Flags" })).toBeNull();
   expect(

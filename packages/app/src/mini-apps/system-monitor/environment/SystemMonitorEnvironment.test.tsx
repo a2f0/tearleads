@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { fireEvent } from "@testing-library/react";
+import { openSystemMonitor } from "../../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
@@ -33,7 +34,7 @@ function openMonitor() {
     }),
     pinSystemMonitor: false,
   });
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   return view;
 }
 
@@ -86,7 +87,7 @@ test("environment tab reports the native build number from the host config reade
     }),
     pinSystemMonitor: false,
   });
-  fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+  openSystemMonitor(view);
   fireEvent.click(await view.findByRole("tab", { name: "Environment" }));
 
   expect(view.getByText(ENVIRONMENT_LABELS.buildNumber)).toBeTruthy();

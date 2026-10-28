@@ -1,6 +1,7 @@
 import { afterEach, expect, spyOn, test } from "bun:test";
 import { listSessionsOperation } from "@tearleads/validators/operation";
 import { act, fireEvent, within } from "@testing-library/react";
+import { openSystemMonitor } from "../../../../test/helpers/openSystemMonitor";
 import {
   cleanupPaneTestEnvironment,
   createTestHostConfig,
@@ -22,7 +23,7 @@ test("API Requests shows earlier traffic, updates live, survives reopening and r
   metrics.reset(null);
   metrics.begin(null, listSessionsOperation)("succeeded");
   const open = async (view: ReturnType<typeof renderPane>) => {
-    fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+    openSystemMonitor(view);
     fireEvent.click(await view.findByRole("tab", { name: "API Requests" }));
     return within(view.getByRole("table", { name: "Requests by endpoint" }));
   };
@@ -85,7 +86,7 @@ test("copy reports read current counts without subscribing the Logs tab to reque
   });
   try {
     const view = renderPane({ hostConfig, pinSystemMonitor: false });
-    fireEvent.click(view.getByRole("button", { name: "System Monitor" }));
+    openSystemMonitor(view);
     await view.findByRole("tab", { name: "Logs" });
     const before = status.mock.calls.length;
     act(() => {

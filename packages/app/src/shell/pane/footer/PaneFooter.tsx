@@ -10,10 +10,8 @@ import { PaneMenu } from "../shell/PaneMenu";
 import "./PaneFooter.css";
 import { PaneFooterWindowButton } from "./PaneFooterWindowButton";
 
-// `tray` is the footer's system tray — persistent launchers that stay reachable
-// regardless of which windows are open (currently the System Monitor; more
-// affordances will dock here over time). It sits in the right-aligned cluster
-// alongside the workspace switcher.
+// `tray` holds persistent theme, layout, and sync controls in the right-aligned
+// cluster alongside the workspace switcher.
 export function PaneFooter({ tray }: { tray?: ReactNode }) {
   const { windows } = useWindowStateData();
   const activeWindow = findTopWindow(windows, (entry) => !entry.minimized);

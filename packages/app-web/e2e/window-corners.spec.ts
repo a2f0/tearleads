@@ -32,7 +32,12 @@ test("a window's body clips its content inside the rounded bottom corners", asyn
   await openWindowedDesktop(page);
 
   const pane = page.locator(".pane:not(.pane-hidden)").first();
-  await pane.getByRole("button", { name: "System Monitor" }).click();
+  await pane.getByRole("button", { name: "Menu", exact: true }).click();
+  await pane
+    .page()
+    .locator(".menu")
+    .getByRole("button", { name: "System Monitor" })
+    .click();
   const window = pane.locator(".window").first();
   await expect(window).toBeVisible();
 

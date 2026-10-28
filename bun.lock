@@ -97,7 +97,7 @@
     },
     "packages/app": {
       "name": "app",
-      "version": "0.1.76",
+      "version": "0.1.77",
       "dependencies": {
         "@phosphor-icons/react": "2.1.10",
         "@tearleads/client-sdk": "workspace:*",
@@ -168,7 +168,7 @@
     },
     "packages/app-electrobun": {
       "name": "app-electrobun",
-      "version": "0.0.12",
+      "version": "0.0.13",
       "dependencies": {
         "@tearleads/client-sdk": "workspace:*",
         "@tearleads/diagnostics": "workspace:*",
@@ -189,7 +189,7 @@
     },
     "packages/app-web": {
       "name": "app-web",
-      "version": "0.1.19",
+      "version": "0.1.20",
       "dependencies": {
         "@a2f0/ct-client": "0.1.5",
         "@stripe/stripe-js": "10.1.0",
