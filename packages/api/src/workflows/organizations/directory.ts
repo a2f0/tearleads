@@ -87,16 +87,21 @@ export async function loadOrganizationDirectoryInTransaction(input: {
           return [];
         }
 
+        const directoryUser = toOrganizationDirectoryUser({
+          rosterEntry:
+            rosterEntry.profileDocumentId &&
+            !validProfileDocumentIds.has(rosterEntry.profileDocumentId)
+              ? { ...rosterEntry, profileDocumentId: null }
+              : rosterEntry,
+          sessionUserId: input.sessionUserId,
+          user,
+        });
+        // A pending leave request is for administrators to act on. Other
+        // members see only their own.
         return [
-          toOrganizationDirectoryUser({
-            rosterEntry:
-              rosterEntry.profileDocumentId &&
-              !validProfileDocumentIds.has(rosterEntry.profileDocumentId)
-                ? { ...rosterEntry, profileDocumentId: null }
-                : rosterEntry,
-            sessionUserId: input.sessionUserId,
-            user,
-          }),
+          input.isOrgAdmin || directoryUser.isSelf
+            ? directoryUser
+            : { ...directoryUser, leaveRequest: null },
         ];
       })
       .sort(compareOrganizationDirectoryUsers),

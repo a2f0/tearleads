@@ -121,3 +121,62 @@ export async function verifyPrincipalPolicyBundleWithExternalOrganizationAdmins(
 
   return verifiedWithExternalAdmins;
 }
+
+/**
+ * Whether served Admins evidence could make this bundle verify. It re-runs
+ * the verifier with an optimistic authority in which every Admins head the
+ * chain cites lists its citing signer as an admin. A bundle that still fails
+ * cannot be authorized by any evidence (for example a non-admin signer with
+ * no external citation), so its refusal is a real verification failure
+ * rather than missing evidence. The optimistic authority is never trusted
+ * for anything else: the caller caches nothing either way.
+ */
+export async function externalAuthorityCouldAuthorize(input: {
+  readonly bundle: PrincipalPolicyBundleResponse;
+  readonly expectedReference: ReferencedPrincipalHead;
+  readonly localCheckpoint?: PrincipalPolicyCheckpoint | null | undefined;
+  readonly signerPublicKeys: readonly PrincipalPolicySignerPublicKey[];
+}): Promise<boolean> {
+  const states = [
+    input.bundle.currentState,
+    ...input.bundle.previousStates.map((entry) => entry.state),
+  ];
+  const optimistic = new Map<
+    string,
+    PrincipalPolicyExternalAuthority["states"][number]
+  >();
+  for (const state of states) {
+    const head = state.externalAuthority;
+    if (!head) continue;
+    const key = JSON.stringify([
+      head.principalType,
+      head.principalId,
+      head.version,
+      head.keyEpoch,
+      head.stateHash,
+      head.keyFingerprint,
+    ]);
+    const projection = optimistic.get(key)?.projection ?? [];
+    optimistic.set(key, {
+      head,
+      projection: projection.some(
+        (member) => member.userId === state.signerUserId,
+      )
+        ? projection
+        : [...projection, { userId: state.signerUserId, role: "admin" }],
+    });
+  }
+  const [first] = optimistic.values();
+  if (!first) return false;
+  const verified = await verifyPrincipalPolicyBundle({
+    bundle: input.bundle,
+    expectedReference: input.expectedReference,
+    externalAuthority: {
+      currentHead: first.head,
+      states: [...optimistic.values()],
+    },
+    localCheckpoint: input.localCheckpoint ?? null,
+    signerPublicKeys: input.signerPublicKeys,
+  });
+  return verified.ok;
+}

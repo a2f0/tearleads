@@ -14,7 +14,11 @@ import {
 import { and, eq } from "drizzle-orm";
 import invariant from "invariant";
 import { authenticate } from "../../../test/helpers/authenticate";
-import { getDefaultOrganizationId } from "../../../test/helpers/organizationMembership";
+import { addUserToAdminGroup } from "../../../test/helpers/organizationAdmin";
+import {
+  addOrganizationMember,
+  getDefaultOrganizationId,
+} from "../../../test/helpers/organizationMembership";
 import { registerUser } from "../../../test/helpers/registerUser";
 import type { PublishedRealtimeEvent } from "../../realtime/publishedRealtimeEvents";
 import { createRouteApp } from "../../routeApp";
@@ -244,4 +248,92 @@ test("deactivating the member clears their leave request", async () => {
       ),
     );
   expect(entry).toEqual({ leaveRequest: null, status: "disabled" });
+});
+
+/** A founder's organization with two non-admin Members. */
+async function organizationWithMembers() {
+  const founder = await registeredUser();
+  const member = await registeredUser();
+  const colleague = await registeredUser();
+  const organizationId = await getDefaultOrganizationId(founder.userId);
+  await addOrganizationMember({ actor: founder, member, organizationId });
+  await addOrganizationMember({
+    actor: founder,
+    member: colleague,
+    organizationId,
+  });
+  return { colleague, founder, member, organizationId };
+}
+
+async function readModel(
+  app: ReturnType<typeof createApp>,
+  viewer: TestUser,
+  organizationId: string,
+  cursor?: string,
+) {
+  const response = await app.request(
+    `/organizations/${organizationId}/read-model${cursor ? `?cursor=${cursor}` : ""}`,
+    { headers: { Authorization: `Bearer ${viewer.token}` } },
+  );
+  expect(response.status).toBe(200);
+  const body: unknown = await response.json();
+  invariant(
+    isOrganizationReadModelResponse(body),
+    "expected organization read model",
+  );
+  return body;
+}
+
+test("only administrators and the member see a pending leave request", async () => {
+  const app = createApp();
+  const { colleague, founder, member, organizationId } =
+    await organizationWithMembers();
+  const request = signedRequest(member, { organizationId });
+  expect(
+    (await putLeaveRequest(app, member, organizationId, request)).status,
+  ).toBe(200);
+
+  expect(
+    await directoryLeaveRequest(app, founder, organizationId, member.userId),
+  ).toEqual(request);
+  expect(
+    await directoryLeaveRequest(app, member, organizationId, member.userId),
+  ).toEqual(request);
+  expect(
+    await directoryLeaveRequest(app, colleague, organizationId, member.userId),
+  ).toBeNull();
+});
+
+test("a new administrator's next directory delta carries pending leave requests", async () => {
+  const app = createApp();
+  const { colleague, founder, member, organizationId } =
+    await organizationWithMembers();
+  const request = signedRequest(member, { organizationId });
+  expect(
+    (await putLeaveRequest(app, member, organizationId, request)).status,
+  ).toBe(200);
+  const before = await readModel(app, colleague, organizationId);
+  invariant(before.mode === "snapshot", "expected a snapshot");
+  expect(
+    before.lanes.directory.users.find((user) => user.userId === member.userId)
+      ?.leaveRequest,
+  ).toBeNull();
+
+  await addUserToAdminGroup({
+    actor: founder,
+    member: colleague,
+    organizationId,
+  });
+
+  const delta = await readModel(
+    app,
+    colleague,
+    organizationId,
+    before.nextCursor,
+  );
+  invariant(delta.mode === "delta", "expected a delta");
+  expect(
+    delta.lanes.directory?.users.find((user) => user.userId === member.userId)
+      ?.leaveRequest,
+  ).toEqual(request);
 });

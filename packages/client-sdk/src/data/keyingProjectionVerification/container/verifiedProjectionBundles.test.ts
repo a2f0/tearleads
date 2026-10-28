@@ -73,3 +73,35 @@ test("a refused projection leaves nothing to cite", async () => {
     database.close();
   }
 });
+
+test("a cached hash never stores a later projection's different bytes", async () => {
+  const fixture = await createVerificationFixture();
+  const first = await createTestExecSql("verified-bundles-cache-first");
+  const second = await createTestExecSql("verified-bundles-cache-second");
+  const [leaf] = fixture.projection.path;
+  if (!leaf) throw new Error("fixture path missing");
+  const verifiedByHash = new Map();
+  try {
+    await verifyContainerWriterProjection({
+      execSql: first.execSql,
+      projection: fixture.projection,
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    });
+    // Same manifest hash, different bytes: the shared cache recognizes the
+    // hash, but these bytes were never verified.
+    const tampered = { ...leaf, state: { ...leaf.state, epoch: 99 } };
+    await verifyContainerWriterProjection({
+      execSql: second.execSql,
+      projection: { ...fixture.projection, path: [tampered] },
+      resolveUserKey: fixture.resolveUserKey,
+      verifiedByHash,
+    }).catch(() => undefined);
+    expect(
+      await loadVerifiedManifestCitations(second.execSql, target),
+    ).not.toContainEqual(tampered);
+  } finally {
+    first.close();
+    second.close();
+  }
+});

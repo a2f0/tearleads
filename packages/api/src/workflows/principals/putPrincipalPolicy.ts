@@ -29,6 +29,7 @@ import {
   assertManagedPrincipalRosterMembership,
   assertOrganizationGroupsRosterMembership,
 } from "./managedPrincipalRosterMembership";
+import { isOrganizationAdminsGroup } from "./organizationAdminsGroup";
 import { assertPrincipalOrganizationIsSyncEntitled } from "./organizationSync";
 import { applyPrincipalContainerRematerializations } from "./principalContainerRematerialization";
 import { runPrincipalHistoryTransaction } from "./principalHistoryTransaction";
@@ -125,6 +126,19 @@ async function appendPolicyReadModelChanges(input: {
     expectedPrincipalId !== input.rosterSync.memberGroupId
   ) {
     lanes.push("groups");
+  }
+  // Pending leave requests are served only to administrators, so a change
+  // to Admins changes who sees them: re-stamp the directory lane.
+  if (
+    isOrganizationGroupChange &&
+    !lanes.includes("directory") &&
+    (await isOrganizationAdminsGroup(
+      input.tx,
+      input.rosterSync.organizationId,
+      expectedPrincipalId,
+    ))
+  ) {
+    lanes.push("directory");
   }
   await appendOrganizationReadModelChangeInTransaction(input.tx, {
     lanes,
