@@ -94,6 +94,15 @@ are not notified. Correct the unavailable prerequisite and retry. A custom
 factory should return a usable store or throw; preparing it must not depend on
 the new identity already being published.
 
+Starting another identity mutation (including clearing keys or `destroy()`)
+supersedes pending generation/import/key-setting calls. Superseded calls reject
+instead of restoring old keys; a superseded fingerprint refresh returns the
+current fingerprint. An explicit blob namespace change during root bootstrap
+also cancels generation. A cancelled bootstrap may have persisted a reusable
+local root, but it does not select that root in the session or publish keys.
+Direct callers of `session.bootstrapLocalRootContainer(isCurrent?)` can supply
+the same currency predicate to prevent a superseded call selecting its root.
+
 The `Tearleads` constructor stays synchronous, so constructor-provided identity
 key pairs are available through
 `tearleads.identity.snapshot`, but callers should use
@@ -123,6 +132,13 @@ construction. The default and factory-backed stores still switch namespaces
 automatically with identity (and via
 `useEphemeralStore`/`useIdentityNamespace`); a fixed `blobStore` is used as
 given, and the store cannot be replaced after construction.
+
+`blobs.updateIdentityNamespace(fingerprint)` follows identity storage policy:
+it preserves a fixed host store, selects an identity-scoped store otherwise,
+and returns to ephemeral storage for `null`. `useIdentityNamespace` explicitly
+opts into an identity namespace even when a fixed store was supplied;
+`useEphemeralStore` explicitly selects anonymous storage. Finish or cancel
+pending identity setup before making these explicit host switches.
 
 For browser and Electron hosts, prefer an encrypted local blob store factory:
 

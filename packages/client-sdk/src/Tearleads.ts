@@ -122,12 +122,12 @@ export class Tearleads {
           );
         }
       },
-      bootstrapLocalRootContainer: async () => {
+      bootstrapLocalRootContainer: async (isCurrent) => {
         if (!session) {
           throw new Error("identity.generate requires an initialized session.");
         }
 
-        return session.bootstrapLocalRootContainer();
+        return session.bootstrapLocalRootContainer(isCurrent);
       },
       getUserId: () => session?.userId ?? null,
     });

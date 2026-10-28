@@ -5,6 +5,7 @@ import type { CreateOrganizationRequest } from "@tearleads/validators/request";
 import { eq } from "drizzle-orm";
 import {
   createSqlClient,
+  noIdentityChange,
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { respondToOrganizationProvisioning } from "../../../test/helpers/organizationProvisioningResponder";
@@ -85,11 +86,7 @@ test("an identity switch during recovery rolls back reset and preserves the new 
     getAuthToken: () => null,
     setAuthToken: () => undefined,
   } as unknown as ApiClient;
-  const identity = createIdentity(
-    {},
-    { prepareIdentityChange: () => () => undefined },
-    () => undefined,
-  );
+  const identity = createIdentity({}, noIdentityChange, () => undefined);
   let switchAccount = () => undefined;
   const session = createSession({
     api,

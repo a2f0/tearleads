@@ -66,14 +66,23 @@ interface IdentityGenerationContext {
 interface IdentityRuntimeHooks {
   assertReadyForGeneration?: (() => void) | undefined;
   bootstrapLocalRootContainer?:
-    | (() => Promise<{ containerId: string; created: boolean }>)
+    | ((
+        isCurrent: () => boolean,
+      ) => Promise<{ containerId: string; created: boolean }>)
     | undefined;
   getUserId?: (() => string | null) | undefined;
 }
 
+export interface PreparedIdentityChange {
+  isCurrent(): boolean;
+  commit(): void;
+}
+
 /** Blobs prepares a store; tests use a no-op. Commit only assigns prepared state. */
 interface IdentityChangePreparation {
-  prepareIdentityChange(signingFingerprint: string | null): () => void;
+  prepareIdentityChange(
+    signingFingerprint: string | null,
+  ): PreparedIdentityChange;
 }
 
 export function createIdentity(
@@ -88,6 +97,7 @@ export function createIdentity(
 class IdentityService implements Identity {
   private readonly listeners = createListenerSet();
   private snapshotValue: IdentitySnapshot;
+  private changeRevision = 0;
 
   constructor(
     options: IdentityOptions = {},
@@ -101,7 +111,9 @@ class IdentityService implements Identity {
       signingFingerprint: options.signingFingerprint ?? null,
       signingKeyPair: options.signingKeyPair ?? null,
     };
-    this.identityChanges.prepareIdentityChange(this.signingFingerprint)();
+    this.identityChanges
+      .prepareIdentityChange(this.signingFingerprint)
+      .commit();
   }
 
   get encapsulationKeyPair(): EncapsulationKeyPair | null {
@@ -125,12 +137,16 @@ class IdentityService implements Identity {
   }
 
   destroy(): void {
-    this.publishSnapshot({
-      encapsulationKeyPair: null,
-      seedPhrase: null,
-      signingFingerprint: null,
-      signingKeyPair: null,
-    });
+    const revision = ++this.changeRevision;
+    this.publishSnapshot(
+      {
+        encapsulationKeyPair: null,
+        seedPhrase: null,
+        signingFingerprint: null,
+        signingKeyPair: null,
+      },
+      revision,
+    );
     this.log("Key pair destroyed");
   }
 
@@ -139,6 +155,7 @@ class IdentityService implements Identity {
   }
 
   async generate(): Promise<IdentityGenerationResult> {
+    const revision = ++this.changeRevision;
     this.runtimeHooks.assertReadyForGeneration?.();
     const seedPhrase = createIdentitySeedPhrase();
     const { encapsulationKeyPair, signingKeyPair } =
@@ -148,12 +165,17 @@ class IdentityService implements Identity {
     );
     // Factory failures must happen before persisting or selecting a local root.
     // Root failures leave the prepared store inactive and the identity unchanged.
-    const commit =
+    this.assertCurrent(revision);
+    const prepared =
       this.identityChanges.prepareIdentityChange(signingFingerprint);
-    const generationContext = await this.createGenerationContext();
+    this.assertCurrent(revision, prepared);
+    const generationContext = await this.createGenerationContext(
+      () => this.changeRevision === revision && prepared.isCurrent(),
+    );
     this.publishSnapshot(
       { signingKeyPair, encapsulationKeyPair, seedPhrase, signingFingerprint },
-      commit,
+      revision,
+      prepared,
     );
     this.log("Key pair generated");
     return {
@@ -163,23 +185,28 @@ class IdentityService implements Identity {
   }
 
   async importKeyPackage(keyPackage: unknown): Promise<IdentitySnapshot> {
+    const revision = ++this.changeRevision;
     const parsed = await parseIdentityKeyPackage(keyPackage);
-    this.publishSnapshot({
-      encapsulationKeyPair: parsed.encapsulationKeyPair,
-      seedPhrase: parsed.package.seedPhrase ?? null,
-      signingKeyPair: parsed.signingKeyPair,
-      signingFingerprint: parsed.package.signingFingerprint,
-    });
+    this.publishSnapshot(
+      {
+        encapsulationKeyPair: parsed.encapsulationKeyPair,
+        seedPhrase: parsed.package.seedPhrase ?? null,
+        signingKeyPair: parsed.signingKeyPair,
+        signingFingerprint: parsed.package.signingFingerprint,
+      },
+      revision,
+    );
     this.log("Key package imported");
     return this.snapshot;
   }
 
   async importSeedPhrase(seedPhrase: string): Promise<IdentitySnapshot> {
+    const revision = ++this.changeRevision;
     const derived = generateIdentityKeyPairsFromSeedPhrase(seedPhrase);
     const signingFingerprint = await toFingerprint(
       derived.signingKeyPair.signingPublicKey,
     );
-    this.publishSnapshot({ ...derived, signingFingerprint });
+    this.publishSnapshot({ ...derived, signingFingerprint }, revision);
     this.log("Seed phrase imported");
     return this.snapshot;
   }
@@ -193,12 +220,13 @@ class IdentityService implements Identity {
   }
 
   async refreshSigningFingerprint(): Promise<string | null> {
+    const revision = ++this.changeRevision;
     const snapshot = this.snapshot;
     const signingFingerprint = snapshot.signingKeyPair
       ? await toFingerprint(snapshot.signingKeyPair.signingPublicKey)
       : null;
-    if (this.snapshot !== snapshot) return this.signingFingerprint;
-    this.publishSnapshot({ ...snapshot, signingFingerprint });
+    if (this.changeRevision !== revision) return this.signingFingerprint;
+    this.publishSnapshot({ ...snapshot, signingFingerprint }, revision);
     return signingFingerprint;
   }
 
@@ -208,17 +236,21 @@ class IdentityService implements Identity {
     signingFingerprint?: string | null | undefined;
     signingKeyPair: SigningKeyPair | null;
   }): Promise<IdentitySnapshot> {
+    const revision = ++this.changeRevision;
     const signingFingerprint =
       options.signingFingerprint ||
       (options.signingKeyPair
         ? await toFingerprint(options.signingKeyPair.signingPublicKey)
         : null);
-    this.publishSnapshot({
-      encapsulationKeyPair: options.encapsulationKeyPair,
-      seedPhrase: options.seedPhrase ?? null,
-      signingKeyPair: options.signingKeyPair,
-      signingFingerprint,
-    });
+    this.publishSnapshot(
+      {
+        encapsulationKeyPair: options.encapsulationKeyPair,
+        seedPhrase: options.seedPhrase ?? null,
+        signingKeyPair: options.signingKeyPair,
+        signingFingerprint,
+      },
+      revision,
+    );
 
     return this.snapshot;
   }
@@ -226,7 +258,9 @@ class IdentityService implements Identity {
   subscribe = (listener: IdentityListener): (() => void) =>
     this.listeners.subscribe(listener);
 
-  private async createGenerationContext(): Promise<IdentityGenerationContext> {
+  private async createGenerationContext(
+    isCurrent: () => boolean,
+  ): Promise<IdentityGenerationContext> {
     try {
       const bootstrapLocalRootContainer =
         this.runtimeHooks.bootstrapLocalRootContainer;
@@ -236,7 +270,7 @@ class IdentityService implements Identity {
         );
       }
 
-      const rootContainer = await bootstrapLocalRootContainer();
+      const rootContainer = await bootstrapLocalRootContainer(isCurrent);
 
       return {
         rootContainerCreated: rootContainer.created,
@@ -252,8 +286,10 @@ class IdentityService implements Identity {
 
   private publishSnapshot(
     nextSnapshot: IdentitySnapshot,
-    commit?: () => void,
+    revision: number,
+    prepared?: PreparedIdentityChange,
   ): void {
+    this.assertCurrent(revision, prepared);
     const previousSnapshot = this.snapshotValue;
     if (
       previousSnapshot.encapsulationKeyPair ===
@@ -265,13 +301,23 @@ class IdentityService implements Identity {
       return;
     }
 
-    const commitIdentityChange =
-      commit ??
+    const change =
+      prepared ??
       this.identityChanges.prepareIdentityChange(
         nextSnapshot.signingFingerprint,
       );
-    commitIdentityChange();
+    this.assertCurrent(revision, change);
+    change.commit();
     this.snapshotValue = nextSnapshot;
     this.listeners.notify();
+  }
+
+  private assertCurrent(
+    revision: number,
+    prepared?: PreparedIdentityChange,
+  ): void {
+    if (this.changeRevision !== revision || prepared?.isCurrent() === false) {
+      throw new Error("Identity change was superseded.");
+    }
   }
 }

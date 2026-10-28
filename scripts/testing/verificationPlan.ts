@@ -18,6 +18,7 @@ export const verificationUsage = [
 ].join("\n");
 
 function packageBuildStep(packageName: string): VerificationStep {
+  // API/SDK tests consume runtime artifacts; other suites retain desktop preparation.
   const runtimeOnly = ["@tearleads/api", "@tearleads/client-sdk"].includes(
     packageName,
   );

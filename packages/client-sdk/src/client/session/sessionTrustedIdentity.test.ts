@@ -4,6 +4,7 @@ import { KeyingVerificationError } from "@tearleads/crypto";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createSqlClient,
+  noIdentityChange,
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { respondToRegistration } from "../../../test/helpers/organizationProvisioningResponder";
@@ -27,11 +28,7 @@ async function createLoginHarness(
     token: "token-1",
     userId: USER_ID,
   });
-  const identity = createIdentity(
-    {},
-    { prepareIdentityChange: () => () => undefined },
-    () => undefined,
-  );
+  const identity = createIdentity({}, noIdentityChange, () => undefined);
   await setGeneratedIdentity(identity);
   const session = createSession({
     api,
@@ -191,11 +188,7 @@ test("registration does not publish server context before local identity trust",
   );
   const api = new ApiClient("");
   api.registerUser = async (...args) => respondToRegistration(args);
-  const identity = createIdentity(
-    {},
-    { prepareIdentityChange: () => () => undefined },
-    () => undefined,
-  );
+  const identity = createIdentity({}, noIdentityChange, () => undefined);
   await setGeneratedIdentity(identity);
   const mismatch = new KeyingVerificationError(
     "equivocation",

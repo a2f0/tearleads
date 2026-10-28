@@ -1,5 +1,8 @@
 import type { ApiClient } from "@tearleads/api-client";
-import { quietLogger } from "../../../test/helpers/clientTestSupport";
+import {
+  noIdentityChange,
+  quietLogger,
+} from "../../../test/helpers/clientTestSupport";
 import type { SecurityIncidentReporter } from "../../data/shared/securityIncidents";
 import type { Logger } from "../host/logger";
 import { createIdentity, type Identity } from "../identity";
@@ -61,12 +64,7 @@ export function createSessionHarness(
   const api = options.api ?? createApi();
   const database = options.database ?? new Database();
   const identity =
-    options.identity ??
-    createIdentity(
-      {},
-      { prepareIdentityChange: () => () => undefined },
-      logger.log,
-    );
+    options.identity ?? createIdentity({}, noIdentityChange, logger.log);
 
   return {
     api,

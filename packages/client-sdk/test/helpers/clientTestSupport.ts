@@ -3,7 +3,10 @@ import {
   generateSigningSeedAndKeyPair,
 } from "@tearleads/crypto";
 import type { Logger } from "../../src/client/host/logger";
-import type { Identity } from "../../src/client/identity";
+import type {
+  Identity,
+  PreparedIdentityChange,
+} from "../../src/client/identity";
 import type { ExecSql, ExecSqlClientLike } from "../../src/sqlite";
 
 export const quietLogger: {
@@ -12,6 +15,13 @@ export const quietLogger: {
 } = {
   log: () => undefined,
   logError: () => undefined,
+};
+
+export const noIdentityChange = {
+  prepareIdentityChange: (): PreparedIdentityChange => ({
+    isCurrent: () => true,
+    commit: () => undefined,
+  }),
 };
 
 export function createSqlClient(

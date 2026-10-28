@@ -66,44 +66,57 @@ test("a failed blob factory leaves identity, root, and subscriptions unchanged a
   }
 });
 
-test("a failed identity import preserves the previous keys and blob store", async () => {
-  let fail = false;
-  const sdk = new Tearleads({
-    blobStoreFactory: () => {
-      if (fail) throw new Error("blob backend unavailable");
-      return createMemoryBlobStore();
-    },
-    logger: quietLogger,
-  });
-  try {
-    await sdk.identity.importSeedPhrase(
-      createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(1)),
-    );
-    const before = sdk.identity.snapshot;
-    const store = sdk.blobs.store;
-    let notifications = 0;
-    sdk.identity.subscribe(() => {
-      notifications += 1;
+test.each(["seed", "keys", "package"] as const)(
+  "a failed identity import via %s preserves the previous keys and blob store",
+  async (method) => {
+    let fail = false;
+    const sdk = new Tearleads({
+      blobStoreFactory: () => {
+        if (fail) throw new Error("blob backend unavailable");
+        return createMemoryBlobStore();
+      },
+      logger: quietLogger,
     });
-    fail = true;
+    try {
+      const nextPhrase = createIdentitySeedPhraseFromEntropy(
+        new Uint8Array(32).fill(2),
+      );
+      const nextKeys = await sdk.identity.importSeedPhrase(nextPhrase);
+      const nextPackage = await sdk.identity.exportKeyPackage();
+      await sdk.identity.importSeedPhrase(
+        createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(1)),
+      );
+      const before = sdk.identity.snapshot;
+      const store = sdk.blobs.store;
+      let notifications = 0;
+      sdk.identity.subscribe(() => {
+        notifications += 1;
+      });
+      fail = true;
 
-    await expect(
-      sdk.identity.importSeedPhrase(
-        createIdentitySeedPhraseFromEntropy(new Uint8Array(32).fill(2)),
-      ),
-    ).rejects.toThrow("blob backend unavailable");
+      const pending =
+        method === "seed"
+          ? sdk.identity.importSeedPhrase(nextPhrase)
+          : method === "keys"
+            ? sdk.identity.setKeyPairs({
+                encapsulationKeyPair: nextKeys.encapsulationKeyPair,
+                signingKeyPair: nextKeys.signingKeyPair,
+              })
+            : sdk.identity.importKeyPackage(nextPackage);
+      await expect(pending).rejects.toThrow("blob backend unavailable");
 
-    expect(sdk.identity.snapshot === before).toBe(true);
-    expect(sdk.identity.signingKeyPair === before.signingKeyPair).toBe(true);
-    expect(
-      sdk.identity.encapsulationKeyPair === before.encapsulationKeyPair,
-    ).toBe(true);
-    expect(sdk.blobs.store).toBe(store);
-    expect(notifications).toBe(0);
-  } finally {
-    sdk.dispose();
-  }
-});
+      expect(sdk.identity.snapshot === before).toBe(true);
+      expect(sdk.identity.signingKeyPair === before.signingKeyPair).toBe(true);
+      expect(
+        sdk.identity.encapsulationKeyPair === before.encapsulationKeyPair,
+      ).toBe(true);
+      expect(sdk.blobs.store).toBe(store);
+      expect(notifications).toBe(0);
+    } finally {
+      sdk.dispose();
+    }
+  },
+);
 
 test("a failed explicit namespace switch preserves a fixed blob backend", async () => {
   const store = createMemoryBlobStore();

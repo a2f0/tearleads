@@ -7,9 +7,9 @@ UI. Private leases stay hidden; authority loaders take exact heads. See
 
 ## Host Contract
 
-Hosts implement these interfaces directly; the SDK does not adapt other host or
-wire shapes. `new Tearleads(options)` takes `TearleadsOptions`, and
-`deviceFirst.open()` returns the single tree handle. Container creation commits
+See [SDK initialization](../../../../docs/developer/sdk-initialization.md) for
+SQLite, blob factories, and cancellable identity setup. `deviceFirst.open()`
+returns the tree handle. Container creation commits
 the container and its metadata document in one compound API request. Create,
 document link/unlink, writer-projection, and sync adapters provide the
 structured `Result` methods, including complete transport failures; nullable

@@ -151,7 +151,7 @@ export interface Session {
    * it as this identity's account.
    */
   readonly userIdAcknowledged: boolean;
-  bootstrapLocalRootContainer(): Promise<{
+  bootstrapLocalRootContainer(isCurrent?: () => boolean): Promise<{
     containerId: string;
     created: boolean;
   }>;

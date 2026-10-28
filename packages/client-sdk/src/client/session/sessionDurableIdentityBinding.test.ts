@@ -3,6 +3,7 @@ import { ApiClient } from "@tearleads/api-client";
 import { createTestExecSql } from "@tearleads/test-utils";
 import {
   createSqlClient,
+  noIdentityChange,
   setGeneratedIdentity,
 } from "../../../test/helpers/clientTestSupport";
 import { loadTrustedUserIdentityPin } from "../../data/persistence/trustedUserIdentityPinPersistence";
@@ -15,11 +16,7 @@ test("a fresh session refuses login rebinding a durably pinned signing fingerpri
   const { close, execSql } = await createTestExecSql(
     "session-durable-inverse-binding",
   );
-  const identity = createIdentity(
-    {},
-    { prepareIdentityChange: () => () => undefined },
-    () => undefined,
-  );
+  const identity = createIdentity({}, noIdentityChange, () => undefined);
   await setGeneratedIdentity(identity);
   const identityTrustDomain = "https://identity.example.test";
   const incidents: unknown[] = [];
@@ -93,11 +90,7 @@ test("registration declines a key already bound to a user, before contacting the
   const { close, execSql } = await createTestExecSql(
     "session-registration-bound-key",
   );
-  const identity = createIdentity(
-    {},
-    { prepareIdentityChange: () => () => undefined },
-    () => undefined,
-  );
+  const identity = createIdentity({}, noIdentityChange, () => undefined);
   await setGeneratedIdentity(identity);
   const identityTrustDomain = "https://identity.example.test";
   const trust = createTrustedUserIdentityService({
