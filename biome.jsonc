@@ -121,7 +121,9 @@
     {
       "includes": [
         "docs/openapi.json",
-        "formal/document-sync/BaselineDominanceTraces.json"
+        "formal/document-sync/BaselineDominanceTraces.json",
+        "formal/lean/lake-manifest.json",
+        "formal/lean/vectors/transparency.json"
       ],
       "formatter": { "enabled": false },
       "linter": { "enabled": false }

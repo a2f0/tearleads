@@ -14,6 +14,11 @@
       "output": "native"
     },
     {
+      "job": "proofs",
+      "source": "changes",
+      "output": "proofs"
+    },
+    {
       "job": "terraform",
       "source": "changes",
       "output": "terraform"

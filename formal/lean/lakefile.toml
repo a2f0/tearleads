@@ -1,0 +1,14 @@
+name = "tearleads-proofs"
+version = "0.1.0"
+defaultTargets = ["Tearleads", "transparency-vectors"]
+
+[leanOptions]
+autoImplicit = false
+relaxedAutoImplicit = false
+
+[[lean_lib]]
+name = "Tearleads"
+
+[[lean_exe]]
+name = "transparency-vectors"
+root = "TransparencyVectors"

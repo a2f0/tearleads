@@ -31,7 +31,7 @@ function assertCiSuccess(needs: unknown) {
 const successful = () => ({
   changes: {
     result: "success",
-    outputs: { native: "false", terraform: "false" },
+    outputs: { native: "false", proofs: "false", terraform: "false" },
   },
   lint: { result: "success" },
   build: { result: "success" },
@@ -39,11 +39,12 @@ const successful = () => ({
   "postgres-concurrency": { result: "success" },
   windows: { result: "success" },
   native: { result: "skipped" },
+  proofs: { result: "skipped" },
   terraform: { result: "skipped" },
 });
 
-test("required native and Terraform jobs must succeed, never skip", () => {
-  for (const job of ["native", "terraform"]) {
+test("required native, Lean proof, and Terraform jobs must succeed, never skip", () => {
+  for (const job of ["native", "proofs", "terraform"]) {
     const needs = successful();
     needs.changes.outputs = { ...needs.changes.outputs, [job]: "true" };
     expect(() => assertCiSuccess(needs)).toThrow(
@@ -109,9 +110,10 @@ test("requires every applicable check and permits only explicitly irrelevant ski
   ).toThrow();
 });
 
-test("selects native and infrastructure checks without skipping their dependencies", () => {
+test("selects native, proof, and infrastructure checks without skipping their dependencies", () => {
   expect(ciScopes(["docs/example.md"])).toEqual({
     native: false,
+    proofs: false,
     terraform: false,
   });
   expect(ciScopes(["packages/app-capacitor/ios/App/App.swift"]).native).toBe(
@@ -125,6 +127,22 @@ test("selects native and infrastructure checks without skipping their dependenci
     "scripts/lib/buildBrandImages.sh",
   ]) {
     expect(ciScopes([path]).native).toBe(true);
+  }
+  for (const path of [
+    "formal/lean/Tearleads/Transparency/Verify.lean",
+    "formal/lean/vectors/transparency.json",
+    "scripts/protocol/generateTransparencyVectors.ts",
+    "scripts/protocol/leanTools.ts",
+  ]) {
+    expect(ciScopes([path]).proofs).toBe(true);
+  }
+  // The replay suite in Lint covers production changes against the committed
+  // vectors, so neither the TypeScript verifier nor the TLA+ models need Lean.
+  for (const path of [
+    "packages/crypto/src/keying/transparencyProofs.ts",
+    "formal/document-sync/BaselineDominance.tla",
+  ]) {
+    expect(ciScopes([path]).proofs).toBe(false);
   }
   expect(ciScopes(["terraform/main.tf"]).terraform).toBe(true);
   for (const path of [
@@ -146,6 +164,7 @@ test("selects native and infrastructure checks without skipping their dependenci
   ]) {
     expect(ciScopes([path])).toEqual({
       native: true,
+      proofs: true,
       terraform: true,
     });
   }
