@@ -19,6 +19,7 @@ import { RESTART_PROBE_NEGATIVE_CONTROLS } from "./protocolRestartProbeNegativeC
 import { SESSION_RETRY_NEGATIVE_CONTROLS } from "./protocolSessionRetryNegativeControls";
 import { SYNC_LANE_NEGATIVE_CONTROLS } from "./protocolSyncLaneNegativeControls";
 import { SYSTEM_DESTINATION_NEGATIVE_CONTROLS } from "./protocolSystemDestinationNegativeControls";
+import { TERMINAL_ANCHOR_NEGATIVE_CONTROLS } from "./protocolTerminalAnchorNegativeControls";
 import { TOMBSTONE_NEGATIVE_CONTROLS } from "./protocolTombstoneNegativeControls";
 
 /**
@@ -204,54 +205,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "A writable parent in another organization cannot authorize container creation or movement (#2266).",
   },
   ...SYSTEM_DESTINATION_NEGATIVE_CONTROLS,
-  {
-    id: "restore-drops-terminal-anchors",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { PreserveAnchors: "FALSE" },
-    expect: { kind: "action", name: "PurgePinsNeverChange" },
-    why: "Replacing security tables with an older backup erases a verified purge decision (#2266).",
-  },
-  {
-    id: "restore-drops-incident-evidence",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { PreserveAnchors: "FALSE" },
-    expect: { kind: "action", name: "IncidentEvidenceNeverLost" },
-    why: "Replacing security tables with an older backup erases recorded incident evidence (#2266).",
-  },
-  {
-    id: "restore-stale-preflight",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { RecheckAtCommit: "FALSE" },
-    expect: { kind: "action", name: "PurgePinsNeverChange" },
-    why: "Reusing a preflight merge loses a purge observed before the database write transaction.",
-  },
-  {
-    id: "restore-stale-incident-preflight",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { RecheckAtCommit: "FALSE" },
-    expect: { kind: "action", name: "IncidentEvidenceNeverLost" },
-    why: "Reusing a preflight merge loses incident evidence observed before the database write transaction.",
-  },
-  {
-    id: "terminal-anchor-restores-older-checkpoint",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { MergeCheckpointsByMax: "FALSE" },
-    expect: { kind: "action", name: "CheckpointsNeverRegress" },
-    why: "A restore must keep the higher of the local and backup checkpoint positions, or an older backup rolls verification back.",
-  },
-  {
-    id: "terminal-anchor-swaps-checkpoint-hash",
-    module: "formal/backup-restore/TerminalAnchors.tla",
-    config: "formal/backup-restore/TerminalAnchors.cfg",
-    constants: { RefuseCheckpointConflict: "FALSE" },
-    expect: { kind: "action", name: "CheckpointsNeverRegress" },
-    why: "A backup that signs a different hash at the local checkpoint's position is a fork and must be refused, not adopted.",
-  },
+  ...TERMINAL_ANCHOR_NEGATIVE_CONTROLS,
   {
     id: "container-delete-without-live-row-check",
     module: "formal/container-keying/ContainerDeletion.tla",
