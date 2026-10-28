@@ -173,6 +173,14 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Without current path equality a removed writer submits a stale signed authorization (#2266).",
   },
   {
+    id: "content-write-unauthorized-citation",
+    module: "formal/document-sync/ContentWriteAuthority.tla",
+    config: "formal/document-sync/ContentWriteAuthority.cfg",
+    constants: { CheckWriteAuthority: "FALSE" },
+    expect: { kind: "invariant", name: "CommittedWritesAreAuthorized" },
+    why: "A write whose cited path no longer grants its signer write access must be refused at commit.",
+  },
+  {
     id: "directory-scope",
     module: "formal/local-trust/OrganizationScope.tla",
     config: "formal/local-trust/OrganizationScope.cfg",

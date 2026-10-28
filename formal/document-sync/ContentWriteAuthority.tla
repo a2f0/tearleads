@@ -5,7 +5,8 @@ EXTENDS Naturals
 (* the writer and rematerializes that grant. Writes cite the current path. *)
 (* The leaf may advance before a delayed document/blob write is read.      *)
 CONSTANTS RequireCurrentCitations, ReadPinnedParent, ReadCurrentMembership,
-          RefreshMissingCitations
+          RefreshMissingCitations,
+          CheckWriteAuthority \* the API refuses a write its cited path does not authorize
 VARIABLES parent, leaf, writes, refused, readerHeads
 vars == <<parent, leaf, writes, refused, readerHeads>>
 
@@ -35,10 +36,12 @@ AdvanceLeaf ==
   /\ leaf' = 1
   /\ UNCHANGED <<parent, writes, refused, readerHeads>>
 
+(* A write may cite any head, authorized or not: a revoked writer can still *)
+(* submit one. The API commits it only when the cited path authorizes it.  *)
 CommitWrite(citation) ==
   /\ citation \in 0..parent
   /\ (~RequireCurrentCitations \/ citation = parent)
-  /\ Authorized(citation, citation)
+  /\ CheckWriteAuthority => Authorized(citation, citation)
   /\ writes' = writes \cup {<<citation, leaf, parent>>}
   /\ UNCHANGED <<parent, leaf, refused, readerHeads>>
 
@@ -69,4 +72,5 @@ TypeOK == /\ parent \in 0..2
           /\ readerHeads \subseteq 0..parent
 HonestWritesRemainReadable == ~refused
 NewWritesUseCurrentAuthority == \A write \in writes : write[1] = write[3]
+CommittedWritesAreAuthorized == \A write \in writes : Authorized(write[1], write[1])
 ========================================================================
