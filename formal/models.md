@@ -231,7 +231,9 @@ one slot's row keeps a hydrated copy another slot still holds.
 ### Historical Write Authority
 
 [ContentWriteAuthority](./document-sync/ContentWriteAuthority.md) checks delayed
-reads across ancestor grants, group removal, and leaf advancement.
+reads across ancestor grants, group removal, and leaf advancement, including a
+reader on another link of the document after the writer's container is
+unlinked and deleted.
 
 ## Local Trust
 
