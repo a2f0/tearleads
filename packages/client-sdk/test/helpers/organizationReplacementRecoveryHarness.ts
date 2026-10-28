@@ -59,7 +59,7 @@ export async function createOrganizationReplacementRecoveryHarness(
   const rootId = crypto.randomUUID();
   const identity = createIdentity(
     {},
-    () => {},
+    { prepareIdentityChange: () => () => undefined },
     () => {},
   );
   await setGeneratedIdentity(identity);

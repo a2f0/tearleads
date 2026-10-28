@@ -26,10 +26,10 @@ Run the smallest command that matches the handoff risk:
   (both also inside `check:fast`; both need the mise-pinned Java/TLA+ tools).
 - `bun run check:affected`: `check:fast`, TypeScript, and affected Turbo tests.
 - `bun run check`: `check:fast`, TypeScript, and the full Turbo test suite.
-- `bun run check:package <workspace-name> [test arguments...]`: build SQLite,
-  the SDK, and the Electrobun devkit before running one workspace's test script.
-  For example, use `@tearleads/api`, `app`, or `@tearleads/client-sdk`.
-  This focused test command does not replace the static or TypeScript gates.
+- `bun run check:package <workspace-name> [test arguments...]`: build SQLite and
+  the SDK, then run workspace tests. Also prepares Electrobun except for API/SDK.
+  Use `@tearleads/api`, `app`, or `@tearleads/client-sdk`.
+  Focused tests do not replace static or TypeScript gates.
 - `bun run lint:biome:promises`: builds the SDK's public declarations, then
   checks production promises in API, SDK, app, crypto, and diagnostics. In
   `lint:biome`, `check:fast`, and pre-push; its separate `biome.promises.jsonc`

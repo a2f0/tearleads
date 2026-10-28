@@ -321,9 +321,9 @@ const tearleads = new Tearleads({
 });
 ```
 
-Every option is optional; defaults are local and host-neutral: same-origin API
-paths, memory blob storage, ignored `log` messages, `console.error` errors, and
-an idle database.
+Every option is optional: defaults are same-origin API paths, anonymous memory
+blob storage (OPFS after identity setup), manual identity provisioning, ignored
+`log` messages, `console.error` errors, and an idle database.
 
 `documentProjectors` takes a prebuilt `DocumentProjectorRegistry` or a readonly
 array of `DocumentProjectorDefinition` values; prefer definitions for an
@@ -356,110 +356,8 @@ trust domain are kept, and no error text or content is stored. `list()` is
 `null` while the database is unavailable; startup detections wait in a bounded,
 redacted buffer. Transport errors add none.
 
-`new Tearleads(...)` does not initialize SQLite or call `client.init(...)`. The
-constructor only captures the database `client`, `execSql`, and `id` and
-derives the status from them; `TearleadsDatabaseOptions` takes no `status`. If
-the worker is already initialized, pass the runtime in; the SDK infers
-`status: "ready"`:
-
-```ts
-new Tearleads({
-  database: { client: runtime.client, id: runtime.id },
-});
-```
-
-If the host boots SQLite after constructing the SDK, create `new Tearleads(...)`
-without a ready database, call `runtime.client.init(...)`, then publish the
-initialized runtime with `tearleads.database.configure({ client, id })`.
-
-Pass `status` to `tearleads.database.configure(...)` only for lifecycle states
-the SDK cannot infer from the presence of a client, such as a worker that
-exists but is still initializing (`"idle"`) or a failed initialization
-(`"error"`). Publish a destroyed runtime with
-`tearleads.database.clear("terminated")`.
-
-Browser and Electron hosts create worker-backed SQLite runtimes with
-`createSQLiteRuntime()` from `@tearleads/client-sdk/sqlite`.
-`SQLiteRuntime` is the host lifecycle object with `{ id, client,
-destroy() }`. The runtime starts its worker from `/worker.js` unless `workerUrl`
-names another URL. The host serves the SDK's `sqlite/worker.js` there, with
-`sqlite/sqlite3.wasm` beside it (the worker loads it from its own URL), and
-ships `sqlite/sqlite3-licenses.md` with both. Every Tearleads host copies these
-exports, so npm consumers run the same worker the apps do.
-
-The SQLite facade exposes lower-level database runtime capabilities through SDK
-SQLite vocabulary:
-
-| SDK export | Use for |
-| --- | --- |
-| `createSQLiteRuntime(options?)` | Creating the default module-worker runtime, optionally with `workerUrl` or a custom `workerConstructor` |
-| `createSQLiteRuntimeFromWorker(worker)` | Wrapping a host-created terminable worker-like object |
-| `SQLiteRuntime` | The `{ id, client, destroy() }` lifecycle contract returned by both runtime factories |
-| `SQLiteWorkerClient` | The worker client contract accepted by `database.client` through `ExecSqlClientLike` |
-| `CreateSQLiteRuntimeOptions`, `SQLiteModuleWorkerConstructor`, `SQLiteModuleWorkerLike` | Host adapter types for custom module-worker construction |
-| `getSQLitePersistenceRuntime(execSql)` | Building typed Drizzle queries against the active SDK SQLite executor |
-| `defineSqlTableSchema(table)` | Rendering app-owned Drizzle SQLite table definitions for `ensureSqlTables` |
-| `ExecSql`, `SqlTableSchema`, `ensureSqlTables`, `runSerializedSqlMutation` | Explicit executor, schema, and mutation helpers for host-owned persistence edges |
-| `resetConnectionSchemaMemo(execSql)` | Forgetting the connection's completed schema-ensure memo after a host operation rebuilds tables out from under the runtime (local backup restore) |
-
-Host runtime code should use this facade instead of importing
-`createDatabaseRuntime`, `createModuleDatabaseRuntime`, `DatabaseRuntime`, or
-`DatabaseWorkerClient` from `@tearleads/sqlite-worker` directly. Low-level
-SQLite tests import the underlying worker package to exercise the
-worker itself.
-
-Identity setup is asynchronous because the signing fingerprint is derived from
-the public key and local root setup requires SQLite. `generate()` requires a
-ready SQLite database, creates or reuses the local root container, and stores it
-on `tearleads.session.containerId` before resolving with `rootContainerId`,
-`rootContainerCreated`, `seedPhrase`, and `userId`.
-
-If SQLite is not ready or local root bootstrap fails when `generate()` runs, the
-promise rejects and the previous identity snapshot is left in place. Configure
-the database and then call `generate()` again. The `Tearleads` constructor stays
-synchronous, so constructor-provided identity key pairs are available through
-`tearleads.identity.snapshot`, but callers should use
-`refreshSigningFingerprint()` or `setKeyPairs(...)` when they need the derived
-fingerprint asynchronously.
-
-Generated identities are seed-backed: `generate()` creates a 24-word BIP39
-English phrase on the result/snapshot. `importSeedPhrase(...)` regenerates the
-key pairs; session/container recovery is host-owned.
-
-Set `identityProvisioning: "auto"` to provision a single-identity SDK instance
-once SQLite is available. It schedules `identity.generate()` when the database
-is ready and no signing key pair exists, and does not initialize SQLite, replace
-an existing signing key, block the constructor, or provision again after a
-successful automatic provisioning.
-
-When an identity fingerprint is available, the default blob store switches from
-an ephemeral memory store to the identity-scoped store returned by
-`createBlobStore(signingFingerprint)`. Hosts that need a custom blob backend
-pass a fixed `blobStore`, or `blobStoreFactory` for identity-scoped stores, at
-construction. The default and factory-backed stores still switch namespaces
-automatically with identity (and via
-`useEphemeralStore`/`useIdentityNamespace`); a fixed `blobStore` is used as
-given, and the store cannot be replaced after construction.
-
-For browser and Electron hosts, prefer an encrypted local blob store factory:
-
-```ts
-new Tearleads({
-  blobStoreFactory: (namespace) =>
-    createEncryptedBlobStore(namespace, { key: localKeys.blobStoreKey }),
-});
-```
-
-The example uses a `LocalKeyringSession`-derived key; hosts can pass any
-supported key type directly, or use
-`createLazyEncryptedBlobStore(namespace, keyProvider)` to defer async keyring
-loading and retry transient load failures.
-
-`createEncryptedBlobStore(namespace, options)` requires OPFS and stores
-authenticated 5 MiB chunks. String keys use PBKDF2-SHA256; raw 32-byte and
-AES-GCM keys are supported. Ranged methods provide bounded-memory I/O. Store
-factories throw without OPFS; tests and hosts can explicitly opt into ephemeral
-`createMemoryBlobStore()` storage.
+For SQLite initialization, runtime lifecycle methods, identity generation, and
+blob storage selection, see [SDK initialization](sdk-initialization.md).
 
 ## Local Keyring
 

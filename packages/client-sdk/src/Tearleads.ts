@@ -114,29 +114,23 @@ export class Tearleads {
     this.network = new Network(options.online);
     this.syncBillingGate = new SyncBillingGate();
     let session: Session | null = null;
-    this.identity = createIdentity(
-      options.identity,
-      (signingFingerprint) =>
-        this.blobs.updateIdentityNamespace(signingFingerprint),
-      this.log,
-      {
-        bootstrapLocalRootContainer: async () => {
-          if (this.database.status !== "ready") {
-            throw new Error(
-              "identity.generate requires a ready SQLite database.",
-            );
-          }
-          if (!session) {
-            throw new Error(
-              "identity.generate requires an initialized session.",
-            );
-          }
-
-          return session.bootstrapLocalRootContainer();
-        },
-        getUserId: () => session?.userId ?? null,
+    this.identity = createIdentity(options.identity, this.blobs, this.log, {
+      assertReadyForGeneration: () => {
+        if (this.database.status !== "ready") {
+          throw new Error(
+            "identity.generate requires a ready SQLite database.",
+          );
+        }
       },
-    );
+      bootstrapLocalRootContainer: async () => {
+        if (!session) {
+          throw new Error("identity.generate requires an initialized session.");
+        }
+
+        return session.bootstrapLocalRootContainer();
+      },
+      getUserId: () => session?.userId ?? null,
+    });
     session = this.createClientSession(options, security.report);
     this.session = session;
     const runtime = this.createWorkflowRuntime(

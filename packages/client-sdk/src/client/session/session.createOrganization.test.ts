@@ -81,7 +81,7 @@ function createHarness(input: {
     input.identity ??
     createIdentity(
       {},
-      () => undefined,
+      { prepareIdentityChange: () => () => undefined },
       () => undefined,
     );
   const session = createSession({

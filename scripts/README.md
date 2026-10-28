@@ -92,6 +92,8 @@ Use `bun run check`, `bun run check:affected`, or `bun run check:package` for
 repository verification. The
 [verification guide](../docs/developer/verification.md) describes build
 prerequisites, Turbo task evidence, command capture, and checkout-bound reports.
+`build:runtime` builds SQLite and the SDK for focused API/SDK checks;
+`build:packages` adds the desktop devkit for broader repository checks.
 
 ## Adding a script
 

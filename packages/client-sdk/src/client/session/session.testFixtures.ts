@@ -61,7 +61,12 @@ export function createSessionHarness(
   const api = options.api ?? createApi();
   const database = options.database ?? new Database();
   const identity =
-    options.identity ?? createIdentity({}, () => undefined, logger.log);
+    options.identity ??
+    createIdentity(
+      {},
+      { prepareIdentityChange: () => () => undefined },
+      logger.log,
+    );
 
   return {
     api,

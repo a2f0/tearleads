@@ -84,7 +84,7 @@ test("recovery reuses its durable replacement after a local reset failure", asyn
   } as unknown as ApiClient;
   const identity = createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
   );
   const session = createSession({
@@ -200,7 +200,7 @@ test("recovery retries server finalization after the local reset commits", async
   } as unknown as ApiClient;
   const identity = createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
   );
   const session = createSession({

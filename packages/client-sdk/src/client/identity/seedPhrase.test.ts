@@ -5,7 +5,7 @@ import { createIdentity } from "./index";
 function createTestIdentity() {
   return createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
     {
       bootstrapLocalRootContainer: async () => ({

@@ -28,18 +28,26 @@ export class Blobs {
   }
 
   useIdentityNamespace(signingFingerprint: string): void {
+    const store = this.createIdentityStore(signingFingerprint);
     this.identityScoped = true;
-    this.storeValue = this.createIdentityStore(signingFingerprint);
+    this.storeValue = store;
   }
 
   updateIdentityNamespace(signingFingerprint: string | null): void {
-    if (this.identityScoped || this.storeValue === this.ephemeralStore) {
-      if (signingFingerprint) {
-        this.useIdentityNamespace(signingFingerprint);
-        return;
-      }
+    this.prepareIdentityChange(signingFingerprint)();
+  }
 
-      this.useEphemeralStore();
+  /** Prepare fallible storage before an identity change; commit only assigns state. */
+  prepareIdentityChange(signingFingerprint: string | null): () => void {
+    if (!this.identityScoped && this.storeValue !== this.ephemeralStore) {
+      return () => undefined;
     }
+    const store = signingFingerprint
+      ? this.createIdentityStore(signingFingerprint)
+      : this.ephemeralStore;
+    return () => {
+      this.identityScoped = signingFingerprint !== null;
+      this.storeValue = store;
+    };
   }
 }

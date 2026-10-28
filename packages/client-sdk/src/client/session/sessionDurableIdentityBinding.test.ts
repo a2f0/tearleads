@@ -17,7 +17,7 @@ test("a fresh session refuses login rebinding a durably pinned signing fingerpri
   );
   const identity = createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
   );
   await setGeneratedIdentity(identity);
@@ -95,7 +95,7 @@ test("registration declines a key already bound to a user, before contacting the
   );
   const identity = createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
   );
   await setGeneratedIdentity(identity);

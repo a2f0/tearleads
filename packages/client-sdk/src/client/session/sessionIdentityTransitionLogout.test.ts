@@ -20,7 +20,7 @@ test("remote logout does not clear a session for a changed identity", async () =
   } as ApiClient;
   const identity = createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
   );
   const session = createSession({

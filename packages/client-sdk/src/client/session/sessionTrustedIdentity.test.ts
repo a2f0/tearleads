@@ -29,7 +29,7 @@ async function createLoginHarness(
   });
   const identity = createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
   );
   await setGeneratedIdentity(identity);
@@ -193,7 +193,7 @@ test("registration does not publish server context before local identity trust",
   api.registerUser = async (...args) => respondToRegistration(args);
   const identity = createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
   );
   await setGeneratedIdentity(identity);

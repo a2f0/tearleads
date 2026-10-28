@@ -87,7 +87,7 @@ test("an identity switch during recovery rolls back reset and preserves the new 
   } as unknown as ApiClient;
   const identity = createIdentity(
     {},
-    () => undefined,
+    { prepareIdentityChange: () => () => undefined },
     () => undefined,
   );
   let switchAccount = () => undefined;

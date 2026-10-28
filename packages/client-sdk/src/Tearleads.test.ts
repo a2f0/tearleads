@@ -379,26 +379,6 @@ describe("Tearleads", () => {
     }
   });
 
-  test("rejects identity generation when automatic root bootstrap fails", async () => {
-    const messages: string[] = [];
-    const execSql: ExecSql = async () => {
-      throw new Error("locked database");
-    };
-    const sdk = new Tearleads({
-      database: { execSql, id: "client-db" },
-      logger: {
-        ...quietLogger,
-        log: (message) => messages.push(message),
-      },
-    });
-
-    await expect(sdk.identity.generate()).rejects.toThrow("locked database");
-
-    expect(sdk.identity.snapshot).toEqual(EMPTY_IDENTITY_SNAPSHOT);
-    expect(sdk.session.containerId).toBeNull();
-    expect(messages.join()).toContain("locked database");
-  });
-
   test("uses a blob store factory for identity namespaces", async () => {
     const namespaces: string[] = [];
     const stores = [createMemoryBlobStore()];
