@@ -9,6 +9,7 @@ import { CONTAINER_INTEREST_NEGATIVE_CONTROLS } from "./protocolContainerInteres
 import { CONTAINER_MOVE_REPLAY_NEGATIVE_CONTROLS } from "./protocolContainerMoveReplayNegativeControls";
 import { DEFERRED_TAIL_NEGATIVE_CONTROLS } from "./protocolDeferredTailNegativeControls";
 import { DOCUMENT_MOVE_NEGATIVE_CONTROLS } from "./protocolDocumentMoveNegativeControls";
+import { GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS } from "./protocolGroupGrantRevocationNegativeControls";
 import { HISTORICAL_POLICY_NEGATIVE_CONTROLS } from "./protocolHistoricalPolicyNegativeControls";
 import { HISTORY_NEGATIVE_CONTROLS } from "./protocolHistoryNegativeControls";
 import { NO_BRICK_NEGATIVE_CONTROLS } from "./protocolNoBrickNegativeControls";
@@ -55,6 +56,7 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
   ...NO_BRICK_NEGATIVE_CONTROLS,
   ...CONTAINER_DEPTH_NEGATIVE_CONTROLS,
   ...CONTAINER_GRANT_SCOPE_NEGATIVE_CONTROLS,
+  ...GROUP_GRANT_REVOCATION_NEGATIVE_CONTROLS,
   ...CONTAINER_INTEREST_NEGATIVE_CONTROLS,
   ...HISTORICAL_POLICY_NEGATIVE_CONTROLS,
   ...ATTACHMENT_NEGATIVE_CONTROLS,
@@ -301,14 +303,6 @@ export const NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     constants: { EnforceProgress: "FALSE" },
     expect: { kind: "action", name: "HeldReferencesNeverRegress" },
     why: "A dishonest server can serve a signed successor that reintroduces an older group reference (#2266).",
-  },
-  {
-    id: "group-grant-shrink-keeps-key",
-    module: "formal/container-keying/GroupGrantRevocation.tla",
-    config: "formal/container-keying/GroupGrantRevocation.cfg",
-    constants: { RotateGroupOnGrantRemoval: "FALSE" },
-    expect: { kind: "invariant", name: "RevokedGrantUnreadableByLaterMembers" },
-    why: "A group that drops a container grant without rotating its key hands a later joiner the key its retained container wraps are sealed to (#2365 finding 20).",
   },
   {
     id: "empty-frontier-unlink-unlocked",
