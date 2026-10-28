@@ -94,6 +94,10 @@
       "lines": 597,
       "bytes": 24668
     },
+    "formal/lean/vectors/transparency.json": {
+      "lines": 3720,
+      "bytes": 550577
+    },
     "packages/api-client/src/ApiClient.ts": {
       "lines": 2094,
       "bytes": 67136
