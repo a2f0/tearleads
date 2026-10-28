@@ -35,7 +35,11 @@ EXTENDS FiniteSets, Naturals
 (* the real id's manifest under another KEK. AnchorToSignedLineage checks  *)
 (* entries against the verified lineage wherever it was served (#2365      *)
 (* finding 32); without it they are checked only against the KEK's own     *)
-(* served history, which a relocation empties.                             *)
+(* served history, which a relocation empties. Each projection the        *)
+(* rotator verifies is the server's to arrange: it serves the lineage      *)
+(* under the container's own KEK, as an honest projection does, or under   *)
+(* its parent's, which leaves the own-history check nothing to compare a   *)
+(* forged entry against.                                                   *)
 
 CONSTANTS MaxEpoch, Members, Descendants, StrictParentEpochPin,
           AnchorToSignedLineage
@@ -148,23 +152,35 @@ Rotate(honestBridge, honestKeyring) ==
   /\ RotateSealing(honestBridge, honestKeyring)
   /\ UNCHANGED sealedForgery
 
-(* An honest rotation whose sealed entries include a forged one while the  *)
-(* server serves the real id's manifest under another KEK. Served under    *)
-(* this KEK instead, both rules refuse the forgery and the step is         *)
+(* The epoch ids a keyring check requires the sealed entries to cover,     *)
+(* given which KEK's served history carries the lineage. The anchored walk *)
+(* follows the verified lineage from the head wherever it was served; the  *)
+(* own-history check sees only this KEK's bucket, empty once the server    *)
+(* moves the lineage under the parent.                                     *)
+RequiredEpochIds(servedUnder) ==
+  IF AnchorToSignedLineage \/ servedUnder = "own"
+    THEN 1..(epoch - 1)
+    ELSE {}
+
+(* An honest rotation offered a forged entry: an invented id over          *)
+(* server-chosen material standing in for the real id at some position,    *)
+(* in a projection whose lineage the server placed. The check refuses it   *)
+(* exactly when that real id is required, and the step is then            *)
 (* Rotate(hb, TRUE). A sealed forgery leaves a keyring readers reject;     *)
 (* refusing it leaves an honest seal of the full history the rotator       *)
 (* recovers.                                                               *)
-SealWithRelocatedForgery(honestBridge) ==
-  LET sealsForgery == ~AnchorToSignedLineage
-  IN /\ epoch > 1
-     /\ \E rotator \in currentMembers :
-          sealsForgery \/ PersonalRecoverable(rotator) = FullHistory
-     /\ RotateSealing(honestBridge, ~sealsForgery)
-     /\ sealedForgery' = (sealedForgery \/ sealsForgery)
+SealWithServedForgery(honestBridge, servedUnder) ==
+  \E displaced \in 1..(epoch - 1) :
+    LET sealsForgery == displaced \notin RequiredEpochIds(servedUnder)
+    IN /\ \E rotator \in currentMembers :
+            sealsForgery \/ PersonalRecoverable(rotator) = FullHistory
+       /\ RotateSealing(honestBridge, ~sealsForgery)
+       /\ sealedForgery' = (sealedForgery \/ sealsForgery)
 
 Next ==
   \/ \E hb \in BOOLEAN, hk \in BOOLEAN : Rotate(hb, hk)
-  \/ \E hb \in BOOLEAN : SealWithRelocatedForgery(hb)
+  \/ \E hb \in BOOLEAN, where \in {"own", "parent"} :
+       SealWithServedForgery(hb, where)
   \/ \E child \in Descendants : PinChild(child)
   \/ UNCHANGED vars
 

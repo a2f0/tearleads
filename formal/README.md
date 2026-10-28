@@ -37,9 +37,8 @@ model token is declared in the module the table documents and every backticked
 production seam occurs in production package source code, so a rename or
 removal on either side fails the check instead of leaving the map prose-only.
 The check proves that names exist, not that an action and its implementation
-are semantically equivalent. `AncestorRecovery` and `KeyringReachability`
-document their seams in prose in the [model index](./models.md) and carry no
-map tables.
+are semantically equivalent. `AncestorRecovery` documents its seams in prose
+in the [model index](./models.md) and carries no map table.
 
 ## Trace bridges
 
