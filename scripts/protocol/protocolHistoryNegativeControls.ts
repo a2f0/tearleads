@@ -185,4 +185,12 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "HonestCitedReadsAccepted" },
     why: "The API may omit only manifests the request cited, never what it believes the device holds (#2522).",
   },
+  {
+    id: "manifest-rotation-counts-against-same-key-budget",
+    module: "formal/container-keying/ManifestHistory.tla",
+    config: "formal/container-keying/ManifestHistory.cfg",
+    constants: { RotationBypassesBudget: "FALSE" },
+    expect: { kind: "invariant", name: "RekeyAvailable" },
+    why: "A rekey refused by the same-key manifest budget leaves a full container with no mutation that can start a new key.",
+  },
 ];

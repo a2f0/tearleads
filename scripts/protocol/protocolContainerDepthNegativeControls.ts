@@ -28,4 +28,20 @@ export const CONTAINER_DEPTH_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "HonestReadsAvailable" },
     why: "A moved root can fit while a descendant becomes unreadable (#2365).",
   },
+  {
+    id: "container-reader-bound-below-commit-bound",
+    module: MODULE,
+    config: CONFIG,
+    constants: { ClientReadMax: "2" },
+    expect: { kind: "invariant", name: "HonestReadsAvailable" },
+    why: "A reader that walks fewer containers than writers may commit cannot read the deepest honest path (#2365 H1).",
+  },
+  {
+    id: "container-move-under-own-descendant",
+    module: MODULE,
+    config: CONFIG,
+    constants: { GuardMoveCycle: "FALSE" },
+    expect: { kind: "invariant", name: "PathsReachRoot" },
+    why: "Moving a container under its own descendant detaches the cycle from the root.",
+  },
 ];
