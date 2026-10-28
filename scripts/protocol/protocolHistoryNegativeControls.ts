@@ -122,6 +122,22 @@ export const HISTORY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     why: "Restarting must preserve external-authority continuity.",
   },
   {
+    id: "principal-history-page-citation-regression",
+    module: "formal/container-keying/PrincipalHistoryPages.tla",
+    config: "formal/container-keying/PrincipalHistoryPages.cfg",
+    constants: { RefuseCitationRegression: "FALSE" },
+    expect: { kind: "invariant", name: "AuthorityProgress" },
+    why: "A page citing an authority head below the one already observed would roll the authority back.",
+  },
+  {
+    id: "principal-history-page-over-strict-citation",
+    module: "formal/container-keying/PrincipalHistoryPages.tla",
+    config: "formal/container-keying/PrincipalHistoryPages.cfg",
+    constants: { RequireUnchangedAuthority: "TRUE" },
+    expect: { kind: "invariant", name: "HonestPagesAccepted" },
+    why: "Refusing a page because it cites a newer authority would strand an honest device's history.",
+  },
+  {
     id: "principal-page-publishes-unchecked-progress",
     module: "formal/container-keying/PrincipalHistoryPages.tla",
     config: "formal/container-keying/PrincipalHistoryPages.cfg",
