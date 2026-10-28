@@ -9,11 +9,16 @@ first durable remote acknowledgement must schedule another document pass.
 | --- | --- |
 | `Prime` / `DocumentsWaitForRemoteRoot` | `isContainerAwaitingRemoteCreate` defers document creation while the container lacks a server timestamp |
 | `AcknowledgeRoot` / `ReprimeAfterRemoteAcknowledgment` | `installUpdatedRemoteContainerState` requests document priming after the first durable remote acknowledgement |
+| `FailAcknowledgement` / `AcknowledgeOnlyOnSuccess` / `RemoteRootIsAcknowledged` | a failed or refused acknowledgement leaves `isContainerAwaitingRemoteCreate` true, so the root stays local until a retry succeeds |
 | `DeferredDocumentsAreScheduled` / `DocumentEventuallySyncs` | `primeStoreDocuments` reopens pending document stores and requests their sync |
 
-The model assumes a valid root proof eventually arrives and the scheduled
-document pass runs fairly. It abstracts network failures, document contents,
-and subsequent container mutations. The negative control removes the priming
+An acknowledgement attempt may fail or be refused any number of times; only a
+successful one marks the root remote (`RemoteRootIsAcknowledged`), and with the
+retry fair the document still syncs. `AcknowledgeOnlyOnSuccess = FALSE` treats
+a failed attempt as the acknowledgement, and the device releases documents into
+a root the server does not hold. The model assumes a valid root proof
+eventually arrives and the scheduled document pass runs fairly. It abstracts
+document contents and subsequent container mutations. The negative control removes the priming
 notification and strands a document whose first pass ran before acknowledgement.
 Separate automated controls require both `DeferredDocumentsAreScheduled` and
 `DocumentEventuallySyncs` to fail, so the safety check cannot mask a vacuous
