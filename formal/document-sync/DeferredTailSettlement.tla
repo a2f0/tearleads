@@ -5,8 +5,7 @@ EXTENDS FiniteSets, Naturals
 (* effect; stale completion cannot publish into a replacement or remove B. *)
 
 CONSTANTS Ops, Identities, MaxGeneration, RequireDurablePublication,
-          CompactionSparesQueued,
-          ValidateDeletions \* a deletion response passes the same validation
+          CompactionSparesQueued, ValidateDeletions
 
 (* Each identity is one abstract token for the local/remote identifiers,   *)
 (* container, access epoch/hash/level, and content-keying context.         *)
@@ -222,7 +221,6 @@ BeginSyncResponse(incoming, accepted, deletes, wellFormed) ==
   /\ deletes \in BOOLEAN
   /\ wellFormed \in BOOLEAN
   /\ (deletes => (incoming = {} /\ accepted = {}))
-  (* A dishonest or broken server may send a malformed deletion too. *)
   /\ responseIdentity' = liveIdentity
   /\ responseGeneration' = liveGeneration
   /\ responseIncoming' = incoming
