@@ -15,7 +15,14 @@ export function organizationLeaveRequestSigningBytes(
 ): Uint8Array {
   return new TextEncoder().encode(
     serializeKeyingCanonicalJson({
-      domain: "tearleads.organization-leave-request.v1",
+      domain: "tearleads.organization-leave-request.v2",
+      membersHead: {
+        keyEpoch: payload.membersHead.keyEpoch,
+        keyFingerprint: payload.membersHead.keyFingerprint,
+        principalId: payload.membersHead.principalId,
+        stateHash: payload.membersHead.stateHash,
+        version: payload.membersHead.version,
+      },
       organizationId: payload.organizationId,
       requestedAt: payload.requestedAt,
       userId: payload.userId,
@@ -42,7 +49,7 @@ export function signOrganizationLeaveRequest(
 /**
  * Whether `value` is a well-formed leave request signed by the holder of
  * `publicKey`. Callers still check that it names the organization and member
- * they expect.
+ * they expect, and that the member has stayed in Members since the cited head.
  */
 export function isValidOrganizationLeaveRequest(
   value: unknown,

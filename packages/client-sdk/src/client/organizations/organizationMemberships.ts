@@ -7,6 +7,7 @@ import {
   setOrganizationLeaveRequested,
   setOrganizationSyncPaused,
 } from "../../workflows/organizations";
+import { loadCurrentMembersHead } from "../../workflows/organizations/memberships/leaveRequestMembersEvidence";
 import {
   type DomainScope,
   getOrCreateOrganizationSyncPauses,
@@ -180,6 +181,37 @@ function canReachServer(runtime: InternalWorkflowRuntimeInput): boolean {
   );
 }
 
+function setLeaveRequestedFor(
+  runtimeService: InternalRuntime,
+  organizationId: string,
+  requested: boolean,
+): Promise<OrganizationLeaveRequestResult> {
+  const runtime = runtimeService.workflowInput();
+  const { userId } = runtime.auth;
+  const { signingKeyPair } = runtime.crypto;
+  if (!canReachServer(runtime) || !userId || !signingKeyPair) {
+    return Promise.resolve({
+      httpStatus: null,
+      message: "Connect to ask to leave an organization.",
+      status: "failed",
+    });
+  }
+  const { domainScope } = runtime.state;
+  return setOrganizationLeaveRequested({
+    apiClient: runtime.apiClient,
+    loadMembersHead: () =>
+      loadCurrentMembersHead({
+        organizationId,
+        runtime,
+        stillCurrent: () =>
+          runtimeService.workflowInput().state.domainScope === domainScope,
+      }),
+    organizationId,
+    requested,
+    signer: { signingKeyPair, userId },
+  });
+}
+
 export function createOrganizationMemberships(
   runtimeService: InternalRuntime,
   containerContents: ContainerContents,
@@ -232,24 +264,8 @@ export function createOrganizationMemberships(
         paused,
       });
     },
-    async setLeaveRequested(organizationId, requested) {
-      const runtime = runtimeService.workflowInput();
-      const { userId } = runtime.auth;
-      const { signingKeyPair } = runtime.crypto;
-      if (!canReachServer(runtime) || !userId || !signingKeyPair) {
-        return {
-          httpStatus: null,
-          message: "Connect to ask to leave an organization.",
-          status: "failed",
-        };
-      }
-      return setOrganizationLeaveRequested({
-        apiClient: runtime.apiClient,
-        organizationId,
-        requested,
-        signer: { signingKeyPair, userId },
-      });
-    },
+    setLeaveRequested: (organizationId, requested) =>
+      setLeaveRequestedFor(runtimeService, organizationId, requested),
     async loadPausedOrganizationIds() {
       const runtime = runtimeService.workflowInput();
       if (runtime.infra.dbStatus !== "ready") return new Set<string>();

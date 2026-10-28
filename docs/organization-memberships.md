@@ -115,14 +115,18 @@ data.
 ## Asking to leave
 
 A member cannot remove themselves, so leaving is a request an administrator
-acts on. The member signs `{organizationId, userId, requestedAt}` under the
-`tearleads.organization-leave-request.v1` domain with their identity signing
-key and files it with `PUT
+acts on. The member's device first discovers and verifies the organization's
+current policy, then signs `{organizationId, userId, requestedAt, membersHead}`
+under the `tearleads.organization-leave-request.v2` domain with the member's
+identity signing key. `membersHead` is the exact head of the reserved Members
+group in that policy. The member files it with `PUT
 /organization-memberships/{organizationId}/leave-request`; `DELETE` withdraws
 it. The API checks that the request names the caller and the path's
 organization, was signed within ten minutes, and verifies against the caller's
 registered signing key; the window bounds how long a captured signature could
-re-file a withdrawn request. It refuses a personal organization and a member
+re-file a withdrawn request. It also checks that `membersHead` is a stored
+state of the organization's Members group and that the member is in every
+Members state from that one on. It refuses a personal organization and a member
 who is the organization's only administrator, since no one else could approve
 the removal. Organizations offers to ask on every listed membership except the
 personal one, and to withdraw once asked.
@@ -136,10 +140,21 @@ administrator's next delta carries pending requests. Each
 administrator's client stores the request only if it names the organization
 and member, and shows it only if it verifies against the member's trusted,
 pinned identity, never the signing key served beside it, so a server cannot
-present a request the member never made. Directory users a roster update
-returns pass the same check, and a pinned identity verifies offline. Org
-Manager shows the member as having asked to leave and offers to approve the
-request.
+present a request the member never made.
+
+The client also shows a request only while it belongs to the member's current
+membership, judged against the Members head in the client's own verified
+organization policy. Removing anyone from Members rotates its key epoch, so a
+request citing that head's epoch has seen no removal since. A request citing an
+earlier epoch is shown only if verified Members history, read through the
+private paged verifier, lists the member in every state from the cited one on,
+with the cited state matching exactly. A server that serves a request again
+from a membership the member left, after the member rejoins, therefore cannot
+make it look current: the member's removal is in that history. A request the
+client cannot place, for instance offline with an earlier epoch, is shown as
+no request. Directory users a roster update returns pass the same checks, and
+a pinned identity and a current-epoch request verify offline. Org Manager shows
+the member as having asked to leave and offers to approve the request.
 
 Approving is the ordinary removal: the administrator signs the member out of
 each group and then out of `Members`, rotating keys as any removal does.

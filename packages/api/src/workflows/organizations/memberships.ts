@@ -18,6 +18,7 @@ import type { OrganizationLeaveRequest } from "@tearleads/validators/util";
 import { and, asc, eq } from "drizzle-orm";
 import { OrganizationManagerError } from "./errors";
 import { readStoredLeaveRequest } from "./leaveRequest";
+import { assertLeaveRequestMembershipCurrent } from "./leaveRequestMembership";
 import { listUsersReachableFromCurrentGroup } from "./principalReachability";
 import {
   appendOrganizationReadModelChangeInTransaction,
@@ -230,7 +231,8 @@ async function assertAnotherAdministrator(
 
 /**
  * Files the session user's signed request to leave. The request authorizes
- * nothing: an administrator who verifies its signature acts on it by signing
+ * nothing: an administrator who verifies its signature and the member's
+ * unbroken Members membership since the head it cites acts on it by signing
  * the member's removal, which clears it. It reaches administrators through the
  * organization read model's directory lane.
  */
@@ -257,6 +259,11 @@ export async function runRequestOrganizationLeaveWorkflow(
     });
     await lockOrganizationHead(tx, input.organizationId);
     await assertAnotherAdministrator(tx, input.organizationId, input.userId);
+    await assertLeaveRequestMembershipCurrent(tx, {
+      membersHead: input.request.membersHead,
+      organizationId: input.organizationId,
+      userId: input.userId,
+    });
     const row = await updateActiveMembership(tx, {
       organizationId: input.organizationId,
       userId: input.userId,
