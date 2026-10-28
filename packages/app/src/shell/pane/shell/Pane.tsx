@@ -31,10 +31,10 @@ import { PaneMenu } from "./PaneMenu";
 
 function PaneInner({
   className,
-  desktopLabel,
+  label,
 }: {
   className: string;
-  desktopLabel?: string | undefined;
+  label?: string | undefined;
 }) {
   const { userId } = useCryptoSession();
   useRegisterUserId(userId);
@@ -56,11 +56,6 @@ function PaneInner({
     >
       <SystemMonitorProvider>
         <div className="pane-main">
-          {desktopLabel && (
-            <div aria-hidden="true" className="pane-desktop-label">
-              {desktopLabel}
-            </div>
-          )}
           <SystemMonitorPinned />
           {windows.map((w) => (
             <MiniAppWindow
@@ -72,6 +67,7 @@ function PaneInner({
         </div>
         <TestSystemBanner />
         <PaneFooter
+          label={label}
           tray={
             <>
               <ThemeToggleButton />
@@ -102,14 +98,14 @@ function PaneMiniAppLauncherBridge({ active }: { active: boolean }) {
 export function Pane({
   active = false,
   className,
-  desktopLabel,
+  label,
   navigationMode = "windowed",
   routedVisible = false,
   windowedVisible = true,
 }: {
   active?: boolean | undefined;
   className: string;
-  desktopLabel?: string | undefined;
+  label?: string | undefined;
   navigationMode?: NavigationMode | undefined;
   // In routed mode only the single active pane shows the routed shell; the
   // other (always-mounted, runtime-bearing) panes render no surface.
@@ -119,9 +115,7 @@ export function Pane({
 }) {
   // Swap only the leaf surface by mode; the provider stack above stays mounted
   // so the pane's runtime is never torn down when the layout toggles.
-  let surface: ReactNode = (
-    <PaneInner className={className} desktopLabel={desktopLabel} />
-  );
+  let surface: ReactNode = <PaneInner className={className} label={label} />;
   if (navigationMode === "routed") {
     surface = routedVisible ? (
       <SystemMonitorProvider>

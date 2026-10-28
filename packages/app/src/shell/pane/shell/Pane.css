@@ -26,22 +26,6 @@
   opacity: var(--opacity-muted);
 }
 
-.pane-desktop-label {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  display: grid;
-  place-items: center;
-  color: var(--color-hairline);
-  font-size: 3.25rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1;
-  pointer-events: none;
-  text-align: center;
-  user-select: none;
-}
-
 .pane-left {
   grid-area: left;
 }

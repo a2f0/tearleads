@@ -87,6 +87,12 @@
   gap: var(--space-sm);
 }
 
+/* Pane name (the demo's peer label), leading the trailing cluster. */
+.pane-footer-label {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* System tray, mirroring the conventional desktop tray placement. */
 .pane-footer-tray {
   display: flex;
