@@ -139,4 +139,12 @@ export const RECOVERY_NEGATIVE_CONTROLS: readonly NegativeControl[] = [
     expect: { kind: "invariant", name: "RetainWinningGenesis" },
     why: "Adopting a replacement must first durably seed its authenticated genesis (#2365).",
   },
+  {
+    id: "purge-recovery-starts-for-shared-organization",
+    module: "formal/local-trust/PurgeRecovery.tla",
+    config: "formal/local-trust/PurgeRecovery.cfg",
+    constants: { RequirePersonalOrganization: "FALSE" },
+    expect: { kind: "invariant", name: "RecoveryOnlyForPersonalOrganization" },
+    why: "An unsigned purged status must not start re-homing a shared organization's members.",
+  },
 ];

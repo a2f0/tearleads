@@ -298,7 +298,8 @@ access from local signing authority and models an untrusted server echoing a pla
 [`local-trust/PurgeRecovery.tla`](./local-trust/PurgeRecovery.tla) checks that
 recovery adopts a replacement organization or root that an untrusted API
 returns, or re-homes the local corpus there, only with this identity's explicit
-signed replacement intent. See the
+signed replacement intent. Recovery starts from the API's unsigned purged
+status only for the user's own personal organization. See the
 [mapping and boundaries](./local-trust/PurgeRecovery.md).
 
 [`local-trust/SubtreePurgeScope.tla`](./local-trust/SubtreePurgeScope.tla)
@@ -368,6 +369,9 @@ Models under [`backup-restore/`](./backup-restore).
 ### Backup Restore Terminal Anchors
 
 [`backup-restore/TerminalAnchors.tla`](./backup-restore/TerminalAnchors.tla)
-models preservation of verified purge decisions and incident evidence across
-full database restores, including observations made after restore preflight.
-See the [mapping and boundaries](./backup-restore/TerminalAnchors.md).
+models preservation of the three kinds of local trust anchor across full
+database restores: immutable purge decisions, append-only incident evidence,
+and monotone verification checkpoints, including observations made after
+restore preflight. Its mapping lists every production anchor table by kind and
+the tables deliberately left out. See the
+[mapping and boundaries](./backup-restore/TerminalAnchors.md).
