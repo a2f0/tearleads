@@ -20,11 +20,13 @@ Lineage == 1..history
 \* controls exercise the two faulty budgets; runtime tests cover traversal.
 Readable == IterativeVerification \/ warm \/ history <= ReadBound
 MutationAllowed == Readable /\ (~CapMutations \/ history < ReadBound)
-\* Production refuses a same-key mutation past the budget ("rekey
-\* required") and a recite at or past an absolute epoch ceiling. A rotation
-\* starts a new key, so it must not itself be refused by the same-key budget.
-WithinSameKekBudget == sameKek < SameKekBudget
-RotationAllowed == MutationAllowed /\ (RotationBypassesBudget \/ WithinSameKekBudget)
+\* Same-key mutations never check the budget, so history can overflow it.
+\* Resolving this container as a KEK target (a child minting a secret, a
+\* document or blob write beneath it) is refused past it ("rekey required").
+\* A rotation starts a new key and resolves only its parent's targets, so the
+\* overflow must not refuse it. Recites stop at an absolute epoch ceiling.
+TargetsResolvable == sameKek < SameKekBudget
+RotationAllowed == MutationAllowed /\ (RotationBypassesBudget \/ TargetsResolvable)
 \* A request cites at most MaxCitations versions: from the bytes it holds, or
 \* (faulty) from hashes whose bytes may have been evicted.
 Citable == IF CiteHeldBytes THEN held ELSE known
@@ -36,11 +38,11 @@ Rebuilds(cited) == Omitted(cited) \subseteq (cited \cap held)
 Init == /\ history = 1 /\ warm = FALSE /\ revoked = FALSE
         /\ held = {} /\ known = {} /\ honestRefused = FALSE /\ sameKek = 1
 \* A share or grant change under the current key.
-Commit == /\ history < MaxHistory /\ MutationAllowed /\ WithinSameKekBudget
+Commit == /\ history < MaxHistory /\ MutationAllowed
           /\ history' = history + 1 /\ warm' = TRUE /\ sameKek' = sameKek + 1
           /\ UNCHANGED <<revoked, held, known, honestRefused>>
 \* A re-citation under the current key, refused at the epoch ceiling.
-Recite == /\ history < MaxHistory /\ MutationAllowed /\ WithinSameKekBudget
+Recite == /\ history < MaxHistory /\ MutationAllowed
           /\ history < ReciteCeiling
           /\ history' = history + 1 /\ warm' = TRUE /\ sameKek' = sameKek + 1
           /\ UNCHANGED <<revoked, held, known, honestRefused>>
@@ -77,7 +79,8 @@ TypeOK == /\ history \in Versions /\ warm \in BOOLEAN /\ revoked \in BOOLEAN
 HonestReadsAvailable == ENABLED Read
 RevocationAvailable == ~revoked => ENABLED Revoke
 \* Neither the same-key budget nor the recite ceiling strands a container:
-\* a rekey stays available, and after it a share is again.
+\* a rekey stays available, including once the history has overflowed the
+\* budget and target resolution is refused, and it clears that overflow.
 RekeyAvailable == history < MaxHistory => ENABLED Rekey
 \* No honest projection is ever refused, whatever the device evicted.
 HonestCitedReadsAccepted == ~honestRefused

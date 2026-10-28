@@ -10,7 +10,8 @@ that reaching a verification budget never prevents revocation.
 | `IterativeVerification` | `verifyStoredManifestGraph` walks dependencies with an explicit stack rather than rejecting a lifetime history depth |
 | `Restart` / `warm` | `accessManifests.verificationMac` markers only accelerate reads; cleared markers, a rotated secret or new verifier version must preserve acceptance |
 | `Commit` / `Revoke` | `verifyStoredContainerManifest` verifies the previous manifest before mutation authorization; lifetime history length adds no mutation refusal |
-| `WithinSameKekBudget` / `Rekey` / `RotationAllowed` | `MAX_SAME_EPOCH_MANIFEST_HISTORY` refuses a mutation past 1,024 manifests under one container key with "rekey required"; a rekey or revoke starts a new key |
+| `TargetsResolvable` | `resolveCurrentContainerKekTargets` refuses to resolve a container as a KEK target past `MAX_SAME_EPOCH_MANIFEST_HISTORY` (1,024) manifests under one key, with "rekey required" |
+| `Rekey` / `RotationAllowed` | a rekey or revoke starts a new key; its own minting resolves only its parent's targets through `assertParentKekStateCurrent`, so its own overflow never refuses it |
 | `Recite` | `deriveUnrotatedContainerManifestState` refuses a recite at or past `MAX_CONTAINER_RECITATION_EPOCH` (512), an absolute epoch ceiling a rekey does not reset |
 | `held` / `Evict` | `writeVerifiedManifestBundlesInTransaction` stores bundles in the transaction that finalizes their projection's checkpoints, bounded and pruned oldest first; damaged rows are dropped by `loadVerifiedManifestCitations` |
 | `Citable` / `CiteHeldBytes` | `heldManifestCitations` copies the exact stored bytes a request cites, at most `KNOWN_MANIFEST_HINT_LIMIT` hashes |
@@ -36,14 +37,18 @@ enabled-action safety checks, not claims of eventual network or scheduler
 progress.
 
 Production has no lifetime history-depth refusal, but it has two key-scoped
-budgets, both in the model at small bounds. A container key carries at most
-1,024 manifests: past that the API refuses a same-key mutation with "rekey
-required". A rekey or revoke rotates the key, so it is never refused by that
-budget (`RekeyAvailable`, `RevocationAvailable`); with
-`RotationBypassesBudget = FALSE` the full budget strands the container and TLC
-reports both. A recite is refused at an absolute manifest epoch of 512, which
-reserves half of the same-key budget for ordinary mutations and does not reset
-on rekey; the other mutations stay available past it.
+budgets, both in the model at small bounds. Same-key mutations never check the
+first, so a container's history can grow past 1,024 manifests under one key.
+Past that, resolving the container as a KEK target, which a child minting a
+secret or a write beneath it needs, is refused with "rekey required". A rekey
+or revoke rotates the key and resolves only its parent's targets, so the
+overflow never refuses it (`RekeyAvailable`, `RevocationAvailable`), and it
+clears the overflow; with `RotationBypassesBudget = FALSE` an overflowed
+container is stranded and TLC reports both. The runtime regression
+`containerKekHistoryBounds.test.ts` accepts the bound, refuses the overflow,
+and resumes after a rekey. A recite is refused at an absolute manifest epoch of
+512, which reserves half of the same-key budget for ordinary mutations and does
+not reset on rekey; the other mutations stay available past it.
 
 Each mutation runs
 the stored-history verifier over the manifest it stores and marks it, and a
