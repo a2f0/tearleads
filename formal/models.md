@@ -339,7 +339,9 @@ its deadline. See the
 [`realtime/OrganizationReadModelStamps.tla`](./realtime/OrganizationReadModelStamps.tla)
 checks that each source mutation stamps every lane or group it changed with the
 organization's new cursor, so a delta from any cursor reloads every changed
-entity and never skips a change. See the
+entity and never skips a change. A change to Admins also stamps the directory,
+whose pending leave requests depend on the reader's role, so a new
+administrator's next delta carries them. See the
 [mapping and negative controls](./realtime/OrganizationReadModelStamps.md).
 
 ## Blob Attachments
