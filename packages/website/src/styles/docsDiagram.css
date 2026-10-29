@@ -29,11 +29,12 @@
   outline-offset: 2px;
 }
 
-/* 60rem keeps the smallest labels near 9px; narrower viewports scroll. */
+/* The source is 1500 units wide with 10.5-11px labels. A 75rem (1200px)
+   floor keeps them at 8.4px or more; narrower columns scroll sideways. */
 .docs-diagram-svg {
   display: block;
   width: 100%;
-  min-width: 60rem;
+  min-width: 75rem;
   height: auto;
   font-family: var(--docs-diagram-font-sans);
 }
