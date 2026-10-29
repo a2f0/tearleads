@@ -2,6 +2,7 @@ import { expect, test } from "bun:test";
 import {
   computeDocumentContentKeyTargetHash,
   normalizeDocumentAccessEventBody,
+  readKeyingCanonicalJson,
   unwrapContentKey,
 } from "@tearleads/crypto";
 import { base64ToBytes } from "@tearleads/encoding";
@@ -17,7 +18,6 @@ import {
   deriveDocumentTargetFromProjection,
   unwrapContainerKekPath,
 } from "../../../data/documents/shared/projection";
-import { readCanonicalJson } from "../../../data/keying/canonicalJson";
 import { relinkRemoteDocument } from "./linkSetRemote";
 
 for (const steer of [false, true]) {
@@ -100,7 +100,7 @@ for (const steer of [false, true]) {
             linkDocument: async (documentId, request) => {
               submissions += 1;
               const body = normalizeDocumentAccessEventBody(
-                readCanonicalJson(request.body, "link body"),
+                readKeyingCanonicalJson(request.body, "link body"),
               );
               const rewrap = body.blobRewraps[0];
               const target = rewrap?.targets.find(

@@ -3,6 +3,7 @@ import {
   computeContainerKeyEpochHash,
   deriveContainerKekWrappingPublicKey,
   normalizeContainerAccessEventBody,
+  readKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import { deriveOrganizationMetadataContainerSystemSlot } from "@tearleads/validators/containerSystemSlot";
 import {
@@ -13,7 +14,6 @@ import {
   signContainerCreateEvent,
 } from "../../src/data/containers/shared/events";
 import {
-  readCanonicalJson,
   readCanonicalRecord,
   readCanonicalRecords,
 } from "../../src/data/keying/canonicalJson";
@@ -59,7 +59,7 @@ export async function createTestGroupMetadataProjection(
         : ("read" as const),
   }));
   const signedBody = normalizeContainerAccessEventBody(
-    readCanonicalJson({ ...body, directGrants: grants }, "Creation body"),
+    readKeyingCanonicalJson({ ...body, directGrants: grants }, "Creation body"),
   );
   if (signedBody.eventType !== "container.create")
     throw new Error("Expected creation body");

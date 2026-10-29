@@ -9,6 +9,7 @@ import type {
   VerifiedDocumentLinkSetManifest,
 } from "@tearleads/crypto";
 import {
+  readKeyingCanonicalJson,
   verifyDocumentLinkSetManifest,
   verifySignedAccessEvent,
 } from "@tearleads/crypto";
@@ -26,7 +27,6 @@ import {
   readProjectionAccessEvent,
   readProjectionAccessManifest,
 } from "../../../../keyingProjectionRecords";
-import { readKeyingCanonicalJson } from "../../../../utils/canonicalJson";
 import { createContainerWriterProjectionContext } from "../../../containers/writerProjection/context";
 import { toManifestBundleResponse } from "../../../containers/writerProjection/records";
 import { loadPrincipalPoliciesForContainerPaths } from "../../../principals/principalPolicyProjection";

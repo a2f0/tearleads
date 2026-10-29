@@ -9,11 +9,13 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
-import { makeVerifiedAccessEvent } from "@tearleads/crypto";
+import {
+  isKeyingCanonicalJson,
+  makeVerifiedAccessEvent,
+} from "@tearleads/crypto";
 import { isPlainObject } from "@tearleads/validators/isPlainObject";
 import type { AccessEventBundleWireResponse } from "@tearleads/validators/util";
 import { projectionReferencedPrincipalHeadRecord } from "./keyingProjectionManifestRecords";
-import { isKeyingCanonicalJson } from "./utils/canonicalJson";
 
 export {
   accessManifestCheckpoint,

@@ -2,6 +2,7 @@ import {
   BLOB_CONTENT_KEY_WRAP_SUITE,
   type DocumentContentKeyTarget,
   type DocumentLinkAccessEventBody,
+  readKeyingCanonicalJson,
   wrapContentKey,
 } from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
@@ -23,7 +24,6 @@ import type {
   ProjectionVerificationOptions,
 } from "../../../data/documents/shared/types";
 import { projectionVerificationOptions } from "../../../data/documents/shared/types";
-import { readCanonicalJson } from "../../../data/keying/canonicalJson";
 import { requireProjectionUserKeyResolver } from "../../../data/keyingProjectionVerification";
 import { ProjectionDependencyUnavailableError } from "../../../data/keyingProjectionVerification/dependencyUnavailable";
 import { documentContainerProjections } from "../../../data/keyingProjectionVerification/document/documentContainerProjections";
@@ -99,7 +99,7 @@ export async function prepareDocumentLinkBlobRewraps(
           return {
             ...previous,
             ...target,
-            wrappingMetadata: readCanonicalJson(
+            wrappingMetadata: readKeyingCanonicalJson(
               previous.wrappingMetadata,
               "Attachment wrap metadata",
             ),

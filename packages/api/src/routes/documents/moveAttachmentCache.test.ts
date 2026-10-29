@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 import { ApiClient } from "@tearleads/api-client";
+import { readKeyingCanonicalJson } from "@tearleads/crypto";
 import { createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
 import {
@@ -20,7 +21,6 @@ import {
 } from "../../../test/helpers/keyingWriterProjectionKit";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 
 test("a warm client moves an uploaded attachment on its first attempt", async () => {
   const owner = createTestUser();

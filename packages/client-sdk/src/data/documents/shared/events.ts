@@ -6,15 +6,13 @@ import {
   type DocumentLinkAccessEventBody,
   type DocumentLinkSetManifestState,
   deriveDocumentLinkSetManifest,
+  readKeyingCanonicalJson,
   signAccessEvent,
   type UnsignedAccessEvent,
 } from "@tearleads/crypto";
 import type { ContainerManifestRef } from "@tearleads/validators/request";
 import type { DocumentWriterProjectionResponse } from "@tearleads/validators/response";
-import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../../keying/canonicalJson";
+import { readCanonicalRecord } from "../../keying/canonicalJson";
 import {
   authorizingContainerPathRefsForLinkSet,
   containerPathRefs,
@@ -64,7 +62,7 @@ export async function buildDocumentCreatePlan({
     containerManifestHash: targetContainerManifestHash,
   };
   const bodyHash = await computeAccessEventBodyHash(
-    readCanonicalJson(body, "Document create body"),
+    readKeyingCanonicalJson(body, "Document create body"),
   );
   const unsignedEvent: UnsignedAccessEvent = {
     version: 1,
@@ -147,7 +145,7 @@ export async function buildDocumentLinkSetEventPlan(input: {
     containerManifestHash: input.targetState.target.containerManifestHash,
   };
   const bodyHash = await computeAccessEventBodyHash(
-    readCanonicalJson(body, "Document link-set body"),
+    readKeyingCanonicalJson(body, "Document link-set body"),
   );
   const authorizingContainerPathRefs = authorizingContainerPathRefsForLinkSet({
     operation: input.operation,

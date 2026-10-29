@@ -1,4 +1,7 @@
-import { normalizeDocumentAccessEventBody } from "@tearleads/crypto";
+import {
+  normalizeDocumentAccessEventBody,
+  readKeyingCanonicalJson,
+} from "@tearleads/crypto";
 
 export {
   readRecordNullableString,
@@ -15,10 +18,7 @@ import type {
   DocumentLinkAccessEventBody,
   DocumentUnlinkAccessEventBody,
 } from "@tearleads/crypto";
-import {
-  readCanonicalJson,
-  readCanonicalRecord,
-} from "../keying/canonicalJson";
+import { readCanonicalRecord } from "../keying/canonicalJson";
 import {
   readRecordNullableString,
   readRecordPositiveInteger,
@@ -299,6 +299,6 @@ export function readDocumentAccessEventBody(
   label: string,
 ): DocumentLinkAccessEventBody | DocumentUnlinkAccessEventBody {
   return readKeyingVerificationShape(() =>
-    normalizeDocumentAccessEventBody(readCanonicalJson(value, label)),
+    normalizeDocumentAccessEventBody(readKeyingCanonicalJson(value, label)),
   );
 }

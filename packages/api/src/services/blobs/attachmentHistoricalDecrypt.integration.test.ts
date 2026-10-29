@@ -10,7 +10,11 @@ import {
   uploadDocumentAttachment,
 } from "@tearleads/client-sdk";
 import { createTestTrustedUserIdentityResolver } from "@tearleads/client-sdk/testing";
-import { BLOB_CONTENT_KEY_WRAP_SUITE, wrapContentKey } from "@tearleads/crypto";
+import {
+  BLOB_CONTENT_KEY_WRAP_SUITE,
+  readKeyingCanonicalJson,
+  wrapContentKey,
+} from "@tearleads/crypto";
 import { bytesToBase64 } from "@tearleads/encoding";
 import { createTestExecSql, createTestUser } from "@tearleads/test-utils";
 import { authenticate } from "../../../test/helpers/authenticate";
@@ -24,7 +28,6 @@ import { addOrganizationMember } from "../../../test/helpers/organizationMembers
 import { withProjectionHistoryRecovery } from "../../../test/helpers/projectionHistoryRecovery";
 import { registerUser } from "../../../test/helpers/registerUser";
 import { routeApp } from "../../routeApp";
-import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
 
 test("SDK decrypts a historical binding after ancestor head changes and document relinking", async () => {
   const owner = createTestUser();

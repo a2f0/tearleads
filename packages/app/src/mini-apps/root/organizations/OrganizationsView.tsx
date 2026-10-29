@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import {
   MiniAppButton,
-  MiniAppInput,
   MiniAppSection,
   MiniAppSectionHeading,
   MiniAppStatus,
@@ -18,6 +17,7 @@ import {
 } from "../../../components/mini-app/MiniAppTable";
 import { useTearleads } from "../../../providers/sdk/TearleadsProvider";
 import { formatRootTimestamp } from "../identities/rootDisplay";
+import { OrganizationSearchForm } from "../reports/OrganizationSearchForm";
 import { useRootPage } from "./useRootPage";
 
 const COLUMNS = [
@@ -31,7 +31,6 @@ export function OrganizationsView({
   onSelectOrganization: (organizationId: string) => void;
 }) {
   const tearleads = useTearleads();
-  const [draft, setDraft] = useState("");
   const [search, setSearch] = useState("");
   const request = useCallback(
     async (cursor: string | null) => {
@@ -58,30 +57,12 @@ export function OrganizationsView({
       <MiniAppSectionHeading>
         <h2>Organizations</h2>
       </MiniAppSectionHeading>
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (search === draft.trim()) refresh();
-          else setSearch(draft.trim());
-        }}
-      >
-        <MiniAppToolbar wrap>
-          <MiniAppInput
-            aria-label="Search organizations"
-            placeholder="Organization ID"
-            value={draft}
-            maxLength={200}
-            onChange={(event) => setDraft(event.target.value)}
-            className="root-console-filter"
-          />
-          <MiniAppButton type="submit" disabled={loading}>
-            Search
-          </MiniAppButton>
-          <MiniAppButton disabled={loading} onClick={refresh}>
-            {loading ? "Loading..." : "Refresh"}
-          </MiniAppButton>
-        </MiniAppToolbar>
-      </form>
+      <OrganizationSearchForm
+        search={search}
+        loading={loading}
+        onSearch={setSearch}
+        onRefresh={refresh}
+      />
       {error && <MiniAppStatus tone="error">{error}</MiniAppStatus>}
       <MiniAppTableFrame>
         <MiniAppTable aria-label="Organizations" columns={COLUMNS}>

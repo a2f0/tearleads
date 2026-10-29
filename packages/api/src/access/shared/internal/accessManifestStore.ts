@@ -18,12 +18,10 @@ import type {
   ReferencedPrincipalHead,
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
+import { readKeyingCanonicalJson } from "@tearleads/crypto";
 import { and, asc, eq, inArray, lt } from "drizzle-orm";
 import { uniqueSortedStrings as unique } from "../../../utils/array";
-import {
-  canonicalJsonEquals,
-  readKeyingCanonicalJson,
-} from "../../../utils/canonicalJson";
+import { canonicalJsonEquals } from "../../../utils/canonicalJson";
 import { isSqliteApiDatabase } from "../../../utils/sqlDialect";
 import { toStoredAccessEvent } from "./accessEventLookup";
 import { insertAccessEvent } from "./accessEventStore";

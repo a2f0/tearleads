@@ -1,6 +1,7 @@
 import type { PrincipalPolicyAuthorization } from "@tearleads/crypto";
 import {
   KeyingVerificationError,
+  readKeyingCanonicalJson,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
   type VerifiedDocumentLinkSetSnapshot,
@@ -10,7 +11,6 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentWriterProjectionResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../../keying/canonicalJson";
 import {
   addBundleByHash,
   assertCanonicalEqual,
@@ -141,7 +141,10 @@ export async function verifyDocumentManifestBundle(input: {
   });
   assertCanonicalEqual({
     actual: input.bundle.state,
-    expected: readCanonicalJson(verified.value.state, `${input.label} state`),
+    expected: readKeyingCanonicalJson(
+      verified.value.state,
+      `${input.label} state`,
+    ),
     label: `${input.label} state`,
   });
   input.verifiedByHash.set(input.bundle.manifestHash, verified.value);

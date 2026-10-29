@@ -6,6 +6,7 @@ import {
   computeAccessEventBodyHash,
   computeContentRecordNonceDomainHash,
   computeWriteHeaderHash,
+  readKeyingCanonicalJson,
   signAccessEvent,
   signWriteHeader,
   type UnsignedAccessEvent,
@@ -14,7 +15,6 @@ import {
 import type { ContainerManifestRef } from "@tearleads/validators/request";
 import { uniqueSortedStrings } from "../../documents/shared/readers";
 import type { DocumentCreateAuthor } from "../../documents/shared/types";
-import { readCanonicalJson } from "../../keying/canonicalJson";
 import type { BlobEncryptionPlan, DocumentManifestIdentity } from "./types";
 
 async function signBlobAttachmentBodyEvent<
@@ -49,7 +49,7 @@ async function signBlobAttachmentBodyEvent<
       ),
     ]),
     bodyHash: await computeAccessEventBodyHash(
-      readCanonicalJson(body, bodyLabel),
+      readKeyingCanonicalJson(body, bodyLabel),
     ),
     signerUserId: input.author.signerUserId,
     signerDeviceId: input.author.signerDeviceId,

@@ -1,6 +1,7 @@
 import {
   KeyingVerificationError,
   type PrincipalPolicyAuthorization,
+  readKeyingCanonicalJson,
   type VerifiedAccessManifestSnapshot,
   type VerifiedContainerAccessManifest,
   type VerifiedDocumentLinkSetManifest,
@@ -11,7 +12,6 @@ import type {
   AccessManifestBundleWireResponse,
   DocumentPurgeProofResponse,
 } from "@tearleads/validators/response";
-import { readCanonicalJson } from "../../keying/canonicalJson";
 import {
   addBundleByHash,
   assertCanonicalEqual,
@@ -65,7 +65,7 @@ async function verifyPinnedChainEndpoint(input: {
   if (!verified.ok) throw verified.error;
   assertCanonicalEqual({
     actual: input.bundle.state,
-    expected: readCanonicalJson(
+    expected: readKeyingCanonicalJson(
       verified.value.state,
       "Document purge predecessor endpoint state",
     ),

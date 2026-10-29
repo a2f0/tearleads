@@ -8,6 +8,7 @@ import {
 import type { DatabaseSession } from "@tearleads/api-shared/postgres";
 import {
   ACCESS_MANIFEST_VERIFICATION_REVISION,
+  isKeyingCanonicalJson,
   serializeKeyingCanonicalJson,
 } from "@tearleads/crypto";
 import type { AccessManifestBundleWireResponse } from "@tearleads/validators/response";
@@ -15,7 +16,6 @@ import { selectAccessManifestVerificationMac } from "../../../access/read/access
 import { updateAccessManifestVerificationMacs } from "../../../access/write/accessManifestStore";
 import { reportBackgroundFailure } from "../../../diagnostics/reportBackgroundFailure";
 import { ByteBudgetCache } from "../../../utils/byteBudgetCache";
-import { isKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import { readConfiguredDocumentSyncCursorHmacKey } from "../../../utils/serverSecrets";
 import { sha256Hex } from "../../../utils/sha256";
 

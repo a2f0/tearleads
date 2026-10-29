@@ -5,9 +5,11 @@ import type {
   AccessObjectKind,
   VerifiedAccessEvent,
 } from "@tearleads/crypto";
-import { makeVerifiedAccessEvent } from "@tearleads/crypto";
+import {
+  makeVerifiedAccessEvent,
+  readKeyingCanonicalJson,
+} from "@tearleads/crypto";
 import { and, eq, inArray } from "drizzle-orm";
-import { readKeyingCanonicalJson } from "../../../utils/canonicalJson";
 import {
   isString,
   readAccessVersion,

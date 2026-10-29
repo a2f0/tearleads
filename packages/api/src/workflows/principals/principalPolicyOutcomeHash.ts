@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import { serializeKeyingCanonicalJson } from "@tearleads/crypto";
-import { readKeyingCanonicalJson } from "../../utils/canonicalJson";
+import {
+  readKeyingCanonicalJson,
+  serializeKeyingCanonicalJson,
+} from "@tearleads/crypto";
 import { PrincipalPolicyError } from "./shared";
 
 export function principalPolicyOutcomeHash(value: unknown): string {
