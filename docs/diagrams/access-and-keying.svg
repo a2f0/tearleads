@@ -184,7 +184,7 @@
   <!-- Principals -->
   <rect x="1040" y="116" width="410" height="48" rx="4" class="kbox"/>
   <text x="1052" y="135" class="name">User key</text>
-  <text x="1052" y="153" class="meta">ML-KEM encapsulation key, per user identity epoch</text>
+  <text x="1052" y="153" class="meta">ML-KEM key pair; the private decapsulation key opens wraps</text>
 
   <rect x="1040" y="200" width="410" height="48" rx="4" class="kbox"/>
   <text x="1052" y="219" class="name">Group epoch key</text>
