@@ -21,6 +21,7 @@ prefix_rule(pattern=["bun", "run", "agent-tool", "dependencies", ["check-terrafo
 prefix_rule(pattern=["bun", "run", "agent-tool", "skills", ["list", "check", "install"]], decision="allow", match=["bun run agent-tool skills list"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "hooks", ["check", "install"]], decision="allow", match=["bun run agent-tool hooks check"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "images", "list"], decision="allow", match=["bun run agent-tool images list"])
+prefix_rule(pattern=["bun", "run", "agent-tool", "graph", "check"], decision="allow", match=["bun run agent-tool graph check"])
 prefix_rule(pattern=["bun", "run", "agent-tool", "permissions", ["show", "check"]], decision="allow", match=["bun run agent-tool permissions show"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", ["--help", "--version", "logs", "doctor", "checkVersions"]], decision="allow", match=["node_modules/.bin/agent-tool --help"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "runs", "list"], decision="allow", match=["node_modules/.bin/agent-tool runs list"])
@@ -40,6 +41,7 @@ prefix_rule(pattern=["node_modules/.bin/agent-tool", "dependencies", ["check-ter
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "skills", ["list", "check", "install"]], decision="allow", match=["node_modules/.bin/agent-tool skills list"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "hooks", ["check", "install"]], decision="allow", match=["node_modules/.bin/agent-tool hooks check"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "images", "list"], decision="allow", match=["node_modules/.bin/agent-tool images list"])
+prefix_rule(pattern=["node_modules/.bin/agent-tool", "graph", "check"], decision="allow", match=["node_modules/.bin/agent-tool graph check"])
 prefix_rule(pattern=["node_modules/.bin/agent-tool", "permissions", ["show", "check"]], decision="allow", match=["node_modules/.bin/agent-tool permissions show"])
 prefix_rule(pattern=["agent-tool", ["--help", "--version", "logs", "doctor", "checkVersions"]], decision="allow", match=["agent-tool --help"])
 prefix_rule(pattern=["agent-tool", "runs", "list"], decision="allow", match=["agent-tool runs list"])
@@ -59,6 +61,7 @@ prefix_rule(pattern=["agent-tool", "dependencies", ["check-terraform-plan", "dif
 prefix_rule(pattern=["agent-tool", "skills", ["list", "check", "install"]], decision="allow", match=["agent-tool skills list"])
 prefix_rule(pattern=["agent-tool", "hooks", ["check", "install"]], decision="allow", match=["agent-tool hooks check"])
 prefix_rule(pattern=["agent-tool", "images", "list"], decision="allow", match=["agent-tool images list"])
+prefix_rule(pattern=["agent-tool", "graph", "check"], decision="allow", match=["agent-tool graph check"])
 prefix_rule(pattern=["agent-tool", "permissions", ["show", "check"]], decision="allow", match=["agent-tool permissions show"])
 
 # local: Changes only this checkout: files, local branches, lockfile installs, and versions of declared dependencies.
