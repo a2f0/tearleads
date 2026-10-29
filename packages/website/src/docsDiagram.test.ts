@@ -40,7 +40,7 @@ describe("inlineDocsDiagram", () => {
     expect(markup).not.toContain("<style");
     expect(markup).not.toMatch(/#[0-9a-f]{3,6}\b/i);
     const root = markup.match(/<svg\b[^>]*>/)?.[0] ?? "";
-    expect(root).toContain('viewBox="0 0 1000 1340"');
+    expect(root).toContain('viewBox="0 0 1000 1256"');
     expect(root).toContain('class="docs-diagram-svg"');
     expect(root).toContain('role="img"');
     expect(root).not.toMatch(/\s(?:width|height|font-family)=/);
