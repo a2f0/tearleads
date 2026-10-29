@@ -18,6 +18,12 @@ Container manifests carry direct grants and parent links. Document manifests
 carry linked container ids. Blob access is derived from active signed attachment
 bindings and the linked document manifests.
 
+![Access lookup and keying across principals, containers, documents, Loro
+updates, and blobs](./diagrams/access-and-keying.svg)
+
+The diagram traces one read decision up from a blob to the principals that
+authorize it, and the key chain down from a user key to the content it opens.
+
 ## Authority
 
 The authority chain is:
