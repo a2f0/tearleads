@@ -288,6 +288,7 @@ function verifiedPinReaders(
   const resolveVerified = async (userId: string) => {
     const { execSql, identityTrustDomain } = requireTrustStore(dependencies);
     const pin = await loadPin({ execSql, identityTrustDomain, userId });
+    if (dependencies.getExecSql() !== execSql) throw admissionScopeChanged();
     return pin && pin.provenance !== "observed" ? pin.identity : null;
   };
   return {

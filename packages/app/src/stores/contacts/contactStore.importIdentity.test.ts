@@ -3,6 +3,18 @@ import { defaultDocumentsPersistence } from "@tearleads/client-sdk";
 import { createRecoveryContactsRuntime } from "../../../test/helpers/contactStoreRecovery";
 import { createContactsStore } from "./contactStore";
 
+// A database the store never initialized has no documents table yet.
+async function countDocuments(
+  execSql: (sql: string) => Promise<Array<Record<string, unknown>>>,
+): Promise<number> {
+  const tables = await execSql(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'documents'",
+  );
+  if (tables.length === 0) return 0;
+  const [row] = await execSql("SELECT COUNT(*) AS count FROM documents");
+  return Number(row?.count ?? 0);
+}
+
 test("contact imports retain identity across fresh devices and isolate address books", async () => {
   const runtimes = await Promise.all(
     ["address-book-a", "address-book-a", "address-book-b"].map(
@@ -78,5 +90,46 @@ test("a user whose identity no link verified is not imported", async () => {
     ).toEqual([{ count: 0 }]);
   } finally {
     runtime.close();
+  }
+});
+
+test("an import verified while the store's database changes is not written", async () => {
+  const [runtime, replacement] = await Promise.all(
+    ["contact-import-switch-a", "contact-import-switch-b"].map((runtimeKey) =>
+      createRecoveryContactsRuntime({
+        containerId: "address-book-a",
+        runtimeKey,
+        signingFingerprint: "owner-signing-key",
+        userId: "owner-user",
+      }),
+    ),
+  );
+  if (!runtime || !replacement) throw new Error("Missing test runtime");
+  try {
+    const scopes: unknown[] = [];
+    const store = createContactsStore(runtime, {
+      // The lookup finishes after the store moved to another database.
+      resolveVerified: async (userId, scope) => {
+        scopes.push(scope);
+        store.updateRuntime(replacement);
+        return {
+          userId,
+          encapsulationPublicKey: "peer-key",
+          encapsulationKeyFingerprint: "peer-kem-fingerprint",
+          signingPublicKey: "peer-signing-key",
+          signingKeyFingerprint: "peer-signing-fingerprint",
+        };
+      },
+      logError: () => {},
+    });
+    store.updateRuntime(runtime);
+    expect(await store.importVerifiedUser("peer-user")).toBeNull();
+    expect(scopes).toEqual([runtime.documents.state.domainScope]);
+    for (const candidate of [runtime, replacement]) {
+      expect(await countDocuments(candidate.documents.infra.execSql)).toBe(0);
+    }
+  } finally {
+    runtime?.close();
+    replacement?.close();
   }
 });

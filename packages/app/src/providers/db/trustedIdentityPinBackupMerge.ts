@@ -42,7 +42,7 @@ function requireProvenance(row: BackupSqlRow): string {
     "provenance",
     "Trusted identity pin",
   );
-  if (provenanceRank[provenance] === undefined) {
+  if (!Object.hasOwn(provenanceRank, provenance)) {
     throw new Error(
       "Trusted identity pin backup has an unsupported provenance value",
     );

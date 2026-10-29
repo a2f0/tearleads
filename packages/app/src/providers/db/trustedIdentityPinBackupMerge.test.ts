@@ -180,4 +180,13 @@ test("backup restore rejects pins without provenance or with an unknown one", ()
       restored: table([row({ provenance: "trusted" })]),
     }),
   ).toThrow("unsupported provenance");
+  // Inherited object properties are not provenance values.
+  for (const provenance of ["constructor", "toString", "__proto__"]) {
+    expect(() =>
+      mergeTrustedIdentityPinBackupTables({
+        current: null,
+        restored: table([row({ provenance })]),
+      }),
+    ).toThrow("unsupported provenance");
+  }
 });

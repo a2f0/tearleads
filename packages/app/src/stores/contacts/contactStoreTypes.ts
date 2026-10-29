@@ -3,6 +3,7 @@ import type {
   DocumentStore,
   DocumentSummary,
   DocumentsRuntime,
+  DomainScope,
   OpenDocumentInput,
   ResolvedUserIdentity,
 } from "@tearleads/client-sdk";
@@ -63,8 +64,15 @@ export interface ContactsStore {
 }
 
 export interface ContactsStoreDependencies {
-  /** `userIdentities.resolveVerified`: never trusts an observed pin. */
-  resolveVerified: (userId: string) => Promise<ResolvedUserIdentity | null>;
+  /**
+   * `userIdentities.resolveVerified`, never trusting an observed pin, read in
+   * the trust store of `scope`: the store's own database and identity. It
+   * answers null when that scope is not active for the whole lookup.
+   */
+  resolveVerified: (
+    userId: string,
+    scope: DomainScope,
+  ) => Promise<ResolvedUserIdentity | null>;
   getLocalUserIdentity?:
     | ((userId: string) => Promise<ResolvedUserIdentity | null>)
     | undefined;

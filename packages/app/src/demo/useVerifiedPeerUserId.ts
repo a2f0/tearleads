@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useCryptoSession } from "../providers/crypto/CryptoSessionProvider";
 import { useIdentityLinks } from "../providers/identity-links/useIdentityLinks";
 import { useLog } from "../providers/logging/LogProvider";
+import { useTearleadsRuntime } from "../providers/sdk/TearleadsProvider";
 import { usePeerIdentityLink, usePeerUserId } from "../shell/pane/dual-pane";
 
 // The peer pane publishes its link as soon as its keys exist, which can be
@@ -20,7 +21,11 @@ export function useVerifiedPeerUserId(enabled: boolean): string | null {
   const { isAuthenticated } = useCryptoSession();
   const { verifyLink } = useIdentityLinks();
   const { logError } = useLog();
+  // A verification counts only in the trust store (database and identity) it
+  // ran in; switching either needs a new one.
+  const domainScope = useTearleadsRuntime().state.domainScope;
   const [verified, setVerified] = useState<{
+    readonly domainScope: unknown;
     readonly link: string;
     readonly userId: string;
   } | null>(null);
@@ -36,7 +41,11 @@ export function useVerifiedPeerUserId(enabled: boolean): string | null {
       verifyLink(peerLink).then(
         (identity) => {
           if (active && identity.userId === peerUserId) {
-            setVerified({ link: peerLink, userId: identity.userId });
+            setVerified({
+              domainScope,
+              link: peerLink,
+              userId: identity.userId,
+            });
           }
         },
         (error: unknown) => {
@@ -55,9 +64,19 @@ export function useVerifiedPeerUserId(enabled: boolean): string | null {
       active = false;
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [enabled, isAuthenticated, logError, peerLink, peerUserId, verifyLink]);
+  }, [
+    domainScope,
+    enabled,
+    isAuthenticated,
+    logError,
+    peerLink,
+    peerUserId,
+    verifyLink,
+  ]);
 
-  return verified?.link === peerLink && verified.userId === peerUserId
+  return verified?.domainScope === domainScope &&
+    verified.link === peerLink &&
+    verified.userId === peerUserId
     ? verified.userId
     : null;
 }
