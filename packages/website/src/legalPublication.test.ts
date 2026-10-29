@@ -96,6 +96,7 @@ for (const environment of ["production", "staging", undefined]) {
         "threat-model",
         "device-boundary",
         "verified-sharing",
+        "access-keying",
         "cryptography",
         "local-storage",
         "trust-boundaries",
