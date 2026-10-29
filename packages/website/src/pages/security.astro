@@ -177,27 +177,23 @@ const documents = [
         </div>
       </div>
     </section>
-  </div>
 
-  <section class="site-section security-section security-section--bleed" id="access-keying" aria-labelledby="access-keying-title">
-    <div class="site-page">
+    <section class="site-section security-section" id="access-keying" aria-labelledby="access-keying-title">
       <SectionHeader
         index="04"
         titleId="access-keying-title"
         title="Access lookup and keying"
         lede="One read decision, traced both ways: lookup runs up from a file to the people who may read it, and keys unwrap down from a user key to the content they open."
       />
-    </div>
-    <DocsDiagram svg={accessKeyingSvg} label="Access lookup and keying diagram" captionId="access-keying-caption">
-      <span class="security-figure-label">Fig. 3</span> Bob can read Blob B because it is
-      bound to Doc D, which links Inbox (C3), where Bob holds a direct write grant.
-      Solid lines are signed lookup relationships; dashed lines are key unwraps.
-      The <a class="site-link" href={`${docsBaseUrl}/docs/access-plane.md`}>access plane document</a>
-      describes each rule.
-    </DocsDiagram>
-  </section>
+      <DocsDiagram svg={accessKeyingSvg} label="Access lookup and keying diagram" captionId="access-keying-caption">
+        <span class="security-figure-label">Fig. 3</span> Bob can read Blob B because it is
+        bound to Doc D, which links Inbox (C3), where Bob holds a direct write grant.
+        Solid lines are signed lookup relationships; dashed lines are key unwraps.
+        The <a class="site-link" href={`${docsBaseUrl}/docs/access-plane.md`}>access plane document</a>
+        describes each rule.
+      </DocsDiagram>
+    </section>
 
-  <div class="site-page">
     <SecurityCryptography />
 
     <SecurityLimits />
