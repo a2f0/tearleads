@@ -147,6 +147,14 @@ test("linking is idempotent", () => {
   expect(linkCodeReferences(repo, "docs/x.md", once)).toBe(once);
 });
 
+test("reference-style links already link their code spans", () => {
+  const repo = repositoryFiles("/", ["src/a.ts"]);
+  const source =
+    "Read [`src/a.ts`][source] and [`src/a.ts`][].\n\n[source]: ../src/a.ts\n[`src/a.ts`]: ../src/a.ts\n";
+  expect(codeReferenceIssues(repo, "docs/x.md", source)).toEqual([]);
+  expect(linkCodeReferences(repo, "docs/x.md", source)).toBe(source);
+});
+
 test("external probes fail only on proven dead links", async () => {
   const live = Bun.serve({
     port: 0,

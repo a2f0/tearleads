@@ -99,12 +99,13 @@ function findCodeSpans(text: string): CodeSpan[] {
 }
 
 /**
- * The bracketed text ranges of inline links (`[text](target)`) on a masked
- * line, as [open, close] indexes of the brackets.
+ * The bracketed text ranges of inline and reference links (`[text](target)`,
+ * `[text][label]`, `[text][]`) on a masked line, as [open, close] indexes of
+ * the brackets.
  */
 export function linkTextRanges(masked: string): [number, number][] {
   const ranges: [number, number][] = [];
-  for (const match of masked.matchAll(/\]\(/g)) {
+  for (const match of masked.matchAll(/\][([]/g)) {
     const close = match.index;
     let depth = 0;
     for (let open = close - 1; open >= 0; open -= 1) {

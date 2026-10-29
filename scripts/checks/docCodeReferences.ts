@@ -32,6 +32,8 @@ export function findCodeReferences(
 ): CodeReference[] {
   const references: CodeReference[] = [];
   for (const line of proseLines(source)) {
+    // A reference definition's label (`[label]: target`) is not prose.
+    if (/^ {0,3}\[[^\]]+\]:/.test(line.masked)) continue;
     const linked = linkTextRanges(line.masked);
     for (const span of line.codeSpans) {
       if (
