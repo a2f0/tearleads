@@ -4,8 +4,10 @@
  * recorded trace into a TLC module whose next-state relation conjoins the
  * model's own action (plus the recorded verification outcome) per step. The
  * orchestration — running the scenario tests, invoking TLC, negative controls
- * — lives in scripts/protocol/checkNoBrickProjection.ts.
+ * — lives in scripts/protocol/checkNoBrickProjection.ts and
+ * scripts/protocol/traceProjectionRunner.ts.
  */
+import { ProjectionError, projectionFail } from "./traceProjectionRunner";
 
 export const NO_BRICK_MODEL_PATH =
   "formal/container-keying/NoBrickedDevice.tla";
@@ -67,11 +69,8 @@ export interface RecordedNoBrickTrace {
   readonly steps: readonly NoBrickTraceStep[];
 }
 
-export class ProjectionError extends Error {}
-
-export function projectionFail(message: string): never {
-  throw new ProjectionError(message);
-}
+// Re-exported so the trace tests keep importing them from this module.
+export { ProjectionError, projectionFail };
 
 function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null && !Array.isArray(value);
