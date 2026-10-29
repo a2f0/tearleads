@@ -21,13 +21,26 @@ function usedClasses(svg: string): Set<string> {
   return classes;
 }
 
+/** Font size per class from rules whose selectors list the classes. */
+function fontSizes(source: string, rule: RegExp): Record<string, number> {
+  const sizes: Record<string, number> = {};
+  for (const [, selector = "", body = ""] of source.matchAll(rule)) {
+    const size = body.match(/font-size: ([\d.]+)px/)?.[1];
+    if (size === undefined) continue;
+    for (const [, name = ""] of selector.matchAll(/\.([a-z-]+)/g)) {
+      if (name !== "docs-diagram") sizes[name] = Number(size);
+    }
+  }
+  return sizes;
+}
+
 describe("inlineDocsDiagram", () => {
   test("strips the standalone style and size from the access diagram", async () => {
     const markup = inlineDocsDiagram(await Bun.file(accessKeyingPath).text());
     expect(markup).not.toContain("<style");
     expect(markup).not.toMatch(/#[0-9a-f]{3,6}\b/i);
     const root = markup.match(/<svg\b[^>]*>/)?.[0] ?? "";
-    expect(root).toContain('viewBox="0 0 1500 1080"');
+    expect(root).toContain('viewBox="0 0 1000 1340"');
     expect(root).toContain('class="docs-diagram-svg"');
     expect(root).toContain('role="img"');
     expect(root).not.toMatch(/\s(?:width|height|font-family)=/);
@@ -71,6 +84,34 @@ describe("docsDiagram.css", () => {
         !new RegExp(`\\.docs-diagram \\.${name}\\b(?!-)`).test(css),
     );
     expect(unstyled).toEqual([]);
+  });
+
+  test("matches the diagram's own font sizes, which position its text", async () => {
+    const svg = await Bun.file(accessKeyingPath).text();
+    const css = await Bun.file(stylesheetPath).text();
+    const sourceSizes = fontSizes(svg, /(\.[a-z-]+) \{([^}]*)\}/g);
+    const siteSizes = fontSizes(
+      css,
+      /((?:\.docs-diagram \.[a-z-]+,?\s*)+)\{([^}]*)\}/g,
+    );
+    expect(Object.keys(sourceSizes).length).toBeGreaterThan(10);
+    expect(siteSizes).toEqual(sourceSizes);
+  });
+
+  test("keeps the smallest label at the site's 13px text floor", async () => {
+    const svg = await Bun.file(accessKeyingPath).text();
+    const css = await Bun.file(stylesheetPath).text();
+    const viewBoxWidth = Number(svg.match(/viewBox="0 0 (\d+)/)?.[1]);
+    const minWidthRem = Number(
+      css.match(/\.docs-diagram-svg \{[^}]*min-width: ([\d.]+)rem/)?.[1],
+    );
+    const smallest = Math.min(
+      ...Object.values(fontSizes(svg, /(\.[a-z-]+) \{([^}]*)\}/g)),
+    );
+    expect(Number.isFinite(smallest * minWidthRem * viewBoxWidth)).toBe(true);
+    expect((smallest * minWidthRem * 16) / viewBoxWidth).toBeGreaterThanOrEqual(
+      13,
+    );
   });
 
   test("reads only the properties the theme sets", async () => {

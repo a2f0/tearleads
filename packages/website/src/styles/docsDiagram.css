@@ -15,8 +15,6 @@
   margin: 0;
 }
 
-/* Place the figure directly in .website-main, outside .site-page: 100% is
-   then the viewport less the page gutters. */
 .docs-diagram-scroll {
   overflow-x: auto;
   border: 1px solid var(--site-line);
@@ -29,12 +27,13 @@
   outline-offset: 2px;
 }
 
-/* The source is 1500 units wide with 10.5-11px labels. A 75rem (1200px)
-   floor keeps them at 8.4px or more; narrower columns scroll sideways. */
+/* The figure fills the page column (up to 75rem). The source is 1000 units
+   wide with labels of 12 units or more, so a 68rem (1088px) floor keeps every
+   label at or above the site's 13px text floor; narrower columns scroll. */
 .docs-diagram-svg {
   display: block;
   width: 100%;
-  min-width: 75rem;
+  min-width: 68rem;
   height: auto;
   font-family: var(--docs-diagram-font-sans);
 }
@@ -51,8 +50,7 @@
 }
 
 .docs-diagram figcaption {
-  width: min(100%, var(--site-max));
-  margin: var(--site-space-3) auto 0;
+  margin-top: var(--site-space-3);
 }
 
 .docs-diagram-caption {
@@ -125,13 +123,13 @@
 
 .docs-diagram .title {
   fill: var(--docs-diagram-ink);
-  font-size: 20px;
+  font-size: 22px;
   font-weight: 600;
 }
 
 .docs-diagram .sub {
   fill: var(--docs-diagram-ink-muted);
-  font-size: 13px;
+  font-size: 13.5px;
 }
 
 .docs-diagram .colhead {
@@ -144,30 +142,30 @@
 
 .docs-diagram .lane {
   fill: var(--docs-diagram-ink);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
 .docs-diagram .lanesub {
   fill: var(--docs-diagram-ink-subtle);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .docs-diagram .name {
   fill: var(--docs-diagram-ink);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .docs-diagram .meta {
   fill: var(--docs-diagram-ink-muted);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .docs-diagram .mono,
 .docs-diagram .keymono {
   font-family: var(--docs-diagram-font-mono);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .docs-diagram .mono {
@@ -176,7 +174,7 @@
 
 .docs-diagram .key {
   fill: var(--docs-diagram-key-ink);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 600;
 }
 
@@ -186,29 +184,29 @@
 
 .docs-diagram .elabel {
   fill: var(--docs-diagram-ink-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .docs-diagram .klabel {
   fill: var(--docs-diagram-ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-style: italic;
 }
 
 .docs-diagram .stepnum {
   fill: var(--docs-diagram-step-ink);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
   text-anchor: middle;
 }
 
 .docs-diagram .foot {
   fill: var(--docs-diagram-ink-muted);
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .docs-diagram .foothead {
   fill: var(--docs-diagram-ink);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
