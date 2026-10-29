@@ -36,7 +36,7 @@ export interface DocLinkReport {
 
 export interface RepositoryFiles {
   readonly root: string;
-  /** Repository-relative POSIX paths of tracked (and untracked, unignored) files. */
+  /** Repository-relative POSIX paths of tracked files. */
   readonly files: ReadonlySet<string>;
   /** Every ancestor directory of `files`, without a trailing slash. */
   readonly directories: ReadonlySet<string>;
@@ -57,12 +57,16 @@ export function repositoryFiles(
   return { root, files: new Set(files), directories };
 }
 
-/** Tracked files plus untracked files that are not ignored. */
+/**
+ * Tracked files only, as CI sees them: an untracked target is missing from
+ * every other checkout, and untracked scratch Markdown is not checked.
+ */
 export function listRepositoryFiles(root: string): string[] {
-  const result = Bun.spawnSync(
-    ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-    { cwd: root, stdout: "pipe", stderr: "pipe" },
-  );
+  const result = Bun.spawnSync(["git", "ls-files", "-z", "--cached"], {
+    cwd: root,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   if (result.exitCode !== 0) {
     throw new Error(`git ls-files failed: ${result.stderr.toString()}`);
   }
@@ -193,7 +197,7 @@ function checkRepositoryPath(
   }
   if (!repo.files.has(path)) {
     return existsSync(join(repo.root, path))
-      ? "target is ignored by Git, so it is missing from other checkouts"
+      ? "target is not tracked by Git, so other checkouts lack it"
       : "target does not exist";
   }
   if (fragment === undefined || fragment === "") return null;

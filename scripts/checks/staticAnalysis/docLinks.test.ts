@@ -26,6 +26,7 @@ function fixture(files: Record<string, string>) {
     writeFileSync(join(cwd, path), source);
   }
   Bun.spawnSync(["git", "init", "-q"], { cwd });
+  Bun.spawnSync(["git", "add", "-A"], { cwd });
   const lint = (...args: string[]) => {
     const result = Bun.spawnSync([process.execPath, linter, ...args], {
       cwd,
@@ -119,6 +120,19 @@ test("broken files, fragments, lines, and repository URLs fail", () => {
   expect(result.output).toContain("docs/gone.md: target does not exist");
   expect(result.output).not.toContain("second-part:");
   expect(result.output).toContain("10 documentation link problem(s)");
+});
+
+test("untracked targets fail, and untracked documents are not read", () => {
+  const { cwd, lint } = fixture({
+    "docs/guide.md": "# Guide\n\n[draft](./draft.md)\n",
+  });
+  writeFileSync(join(cwd, "docs/draft.md"), "[broken](./nope.md)\n");
+  const result = lint();
+  expect(result.code).toBe(1);
+  expect(result.output).toContain(
+    "./draft.md: target is not tracked by Git, so other checkouts lack it",
+  );
+  expect(result.output).not.toContain("nope.md");
 });
 
 test("code references in published docs must be links, and --fix links them", () => {

@@ -97,8 +97,8 @@ not classified, so `bun run` and `agent:run` keep the harness default.
 `bun run lint:doc-links` (in `check:fast` and pre-push) reads every tracked
 Markdown file except the managed skill copies and fails on:
 
-- a relative link or image whose target is not a tracked file or directory,
-  including targets Git ignores, which other checkouts lack;
+- a relative link or image whose target is not a tracked file or directory
+  (other checkouts lack an untracked one, so `git add` a new target first);
 - a fragment naming no heading or explicit anchor in its Markdown target
   (GitHub's slug rules), or a `#L<n>` line past the end of its target;
 - a link to `https://github.com/a2f0/tearleads/{blob,tree}/main/...` whose

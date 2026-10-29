@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -8,13 +7,12 @@ import { docPath, technicalDocs } from "./technicalDocs";
 /**
  * Builds the site once and checks the published technical documents as
  * rendered: links rewritten off the repository, fragments that resolve, and
- * tables in their scroll regions.
+ * tables in their scroll regions. Whether a GitHub target exists is checked
+ * on the source Markdown by `bun run lint:doc-links`, which reads the whole
+ * repository and so stays out of this package's cached test task.
  */
 
 const website = resolve(import.meta.dir, "..");
-const repositoryRoot = resolve(website, "../..");
-const githubPrefix =
-  /^https:\/\/github\.com\/a2f0\/tearleads\/(?:blob|tree)\/main\/([^#?]+)/;
 let output = "";
 const pages = new Map<string, string>();
 
@@ -97,19 +95,6 @@ test("links between published documents reach a rendered anchor", () => {
       const targetHtml = pages.get(target);
       if (targetHtml === undefined || !ids(targetHtml).has(match[2] ?? "")) {
         misses.push(`${path} -> ${href}`);
-      }
-    }
-  }
-  expect(misses).toEqual([]);
-});
-
-test("links to GitHub name files in the repository", () => {
-  const misses: string[] = [];
-  for (const doc of technicalDocs) {
-    for (const href of hrefs(pages.get(docPath(doc)) ?? "")) {
-      const path = githubPrefix.exec(href)?.[1];
-      if (path !== undefined && !existsSync(resolve(repositoryRoot, path))) {
-        misses.push(`${doc.slug} -> ${href}`);
       }
     }
   }
