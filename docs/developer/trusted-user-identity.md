@@ -94,12 +94,17 @@ unchanged. The Add by Identity Link actions finish verification before changing
 Contacts or Roster. Links do not override pin conflicts.
 
 `userIdentities.resolvePinned(userId)` reads an existing durable pin without a
-network lookup or first-use trust. Roster selections and Import Into Contacts
-reuse any existing pin, regardless of how or when it was established. Explorer
-sharing, ordinary SDK `resolve`, and signer lookups establish TOFU pins. A pin
-created by one of these flows can therefore be reused for a roster selection or
-contact import without exchanging a link. This preserves continuity with the
-earlier accepted key; it does not establish out-of-band authentication.
+network lookup or first-use trust. Import Into Contacts (which sends a roster
+user's ID to Contacts) and adding a roster user to a group reuse any existing
+pin, regardless of how or when it was established, and ask for an identity
+link when none exists.
+`userIdentities.resolve` establishes TOFU pins, and Explorer sharing, signer
+lookups, and Org Manager's roster profiles use it: when an admin opens a roster
+user that has no profile document, Org Manager resolves that user to create
+one. A pin created by one of these flows can therefore be reused for a contact
+import or group membership without exchanging a link. This preserves
+continuity with the earlier accepted key; it does not establish out-of-band
+authentication.
 
 Pin provenance is not stored, so `resolvePinned` cannot assert that a link was
 ever verified. Hosts that require an authenticated exchange for every admission
@@ -123,11 +128,15 @@ is the canonical API base URL, including its base path. The web destination is
 only a launch location: verification uses the configured API and never switches
 servers based on a link. Algorithm changes require a new link format.
 
-Contacts and Roster accept identity links for manual onboarding. The Contacts
-route retains the token through unlock, registration, and sign-in; importing
-requires an explicit Verify and Add action. Both mini-apps expose Share my
-identity link. Native hosts use the corresponding production or staging web
-app; custom deployments may configure `AppHostConfig.identityLinkWebUrl`.
+Contacts and Roster accept identity links for manual onboarding (Add by
+Identity Link), and a group's add-member field accepts a pasted link for a user
+who is not in the roster. The Contacts route retains the token through unlock,
+registration, and sign-in; importing requires an explicit Verify and Add
+action. Contacts (on your own entry and the compact list) and Org Manager
+expose Share my identity link. Native hosts use the corresponding production or
+staging web app; custom deployments may configure
+`AppHostConfig.identityLinkWebUrl`, which sharing requires on a native host
+with another API. Opening a received link works without it.
 
 A link authenticates the exact identity bundle provided by its owner. Rotation
 requires a new authenticated exchange. This format does not prove currentness,
