@@ -2,9 +2,10 @@
 
 ## Output capture
 
-Run finite, noisy commands, such as installs, builds, tests, linters, and Git
-commands that run hooks, through
-`bun run agent:run --label <name> -- <command> [args...]`. It keeps complete
+Run Bun tests through `bun run agent-tool bun test --log [-- args...]`, and
+other finite, noisy commands, such as installs, builds, linters, package
+scripts, and Git commands that run hooks, through
+`bun run agent:run --label <name> -- <command> [args...]`. Each keeps complete
 output in a private log, preserves the exit status, and prints a compact
 receipt, with a bounded excerpt of the log on failure. Read more with
 `bun run agent:logs <log-path>`, raising `--tail-lines` or `--max-bytes` as
@@ -308,13 +309,14 @@ hook, title, required-check, base-freshness, and version policy is in
 `agent-tool.json`. The shared `cross-agent-review`, `open-pr`, `squash-merge`,
 `ship-pr`, `reset`, and `update-dependencies` skills are managed copies in
 `.agents/skills` and `.claude/skills`, tracked by `.agent-tool-skills.json`. Do
-not edit them; change the shared skill upstream instead. After changing the
-pin, run `bun run agents:sync` and commit the lockfile, skills, and manifest
-together. The Markdown linter skips the exact managed skill paths, preserving
-their upstream formatting; project skills follow local rules.
-`bun run agents:check`, part of `check:fast`, fails on missing, outdated, or
-edited managed skills. Project skills keep a Claude copy in `.claude/skills`
-and a Codex copy in `.agents/skills`.
+not edit them; change the shared skill upstream instead. After changing the pin
+or `agent-tool.json`, run `bun run agents:sync`, which also writes the [harness
+permissions](docs/developer/static-analysis.md#harness-permissions), and commit
+the lockfile, skills, rules, and manifests together. The Markdown linter skips
+the exact managed skill paths, preserving their upstream formatting; project
+skills follow local rules. `bun run agents:check`, part of `check:fast`, fails
+on missing, outdated, or edited managed skills or rules. Project skills keep a
+Claude copy in `.claude/skills` and a Codex copy in `.agents/skills`.
 
 Shipping rules on top of the shared skills:
 
@@ -331,7 +333,7 @@ Shipping rules on top of the shared skills:
   live base.
 - **Titles**: PR titles and squash subjects follow `commitlint.config.mts`. The
   helper checks type and length only, so also run
-  `printf '%s\n' "$TITLE" | bunx --no-install commitlint --config commitlint.config.mts`.
+  `printf '%s\n' "$TITLE" | bun run agent-tool bun x commitlint -- --config commitlint.config.mts`.
   Check a new branch name with `bun run lint:branch-name <name>`. Pre-push
   lints each branch a push creates or updates, and CI's `Lint` job lints every
   pull request's branch. If a session starts on a nonconforming branch, move

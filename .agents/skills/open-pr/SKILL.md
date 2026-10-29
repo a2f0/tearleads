@@ -17,11 +17,15 @@ a changed result needs another review. Respect existing push authorization.
 If the user only requested a draft description, prepare it without publishing.
 
 Write a title that satisfies the data-only `agent-tool.json` subject policy.
-Describe the concrete resulting behavior and relevant validation. Put multiline
-body text in a temporary file, then run:
+Describe the concrete resulting behavior and relevant validation. When the
+branch changes package manifests, run
+`agent-tool dependencies diff --base <base-oid>` and name every `newPackages`
+entry in the body with its manifest and version, so a reviewer sees new
+third-party code however it was added. Put multiline body text in a temporary
+file, then run:
 
 ```sh
-agent-tool pr open 'feat: describe the change' < /path/to/pr-body.txt
+agent-tool pr open 'feat: describe the change' --body-file /path/to/pr-body.txt
 ```
 
 Omitting the title uses the latest commit subject. The tool refuses duplicate

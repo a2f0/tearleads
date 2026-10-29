@@ -218,7 +218,12 @@ Capture relevant baseline checks and warnings first, after screening their side
 effects. Update one compatibility group at a time. Read the upstream instructions
 for every breaking step; implement required source/config/schema migrations and
 removed API replacements. Use the manager that owns each lockfile, on the selected
-runtime, and inspect the resulting diff. Refresh transitive dependencies through
+runtime, and inspect the resulting diff. For Bun lockfiles, change declared
+versions with `agent-tool bun update <name[@version]>` and drop packages with
+`agent-tool bun remove <name>`; both use the pinned Bun and refuse to add a
+package. A new dependency goes through `agent-tool bun add <name@version>`, which
+asks for approval; never introduce one by editing `package.json` and
+reinstalling. Refresh transitive dependencies through
 their owning direct dependency; do not hand-edit integrity hashes or lock entries.
 Review intentional patches, overrides, and pins before removal; retain them until
 upstream fixes and regression checks demonstrate they are unnecessary.

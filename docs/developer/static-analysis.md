@@ -55,6 +55,39 @@ new contract. Remove their entries from
 exception is active) at that point; an unused exception deliberately fails both
 gates.
 
+## Harness permissions
+
+`bun run agents:sync` installs the managed skills and then runs
+`agent-tool permissions install --apply`, which writes Claude Code rules to
+`.claude/settings.json` and Codex rules to `.codex/rules/agent-tool.rules` and
+records what it owns in `.agent-tool-permissions.json`. The rules allow routine
+agent-tool commands and ask before merges, cleanup, dependency additions,
+publishing, and permission changes; the agent-tool
+[permissions guide](https://github.com/a2f0/agent-tool/blob/ca698ad954ed489dbeba618e20887448f1e2a5cd/docs/permissions.md)
+lists every class. The files are generated: do not edit or reformat them, and
+rerun `agents:sync` after changing the agent-tool pin or `agent-tool.json`.
+`bun run agents:check` runs `permissions check` after `skills check`, so
+`check:fast`, CI's `Lint` job, and pre-push fail when the rules are missing,
+edited, or stale.
+
+`permissions.executables` in `agent-tool.json` classifies the installed CLIs
+this repository's guidance runs directly. Agents run them as
+`bun run agent-tool bun x <name> [--cwd <package>] -- [args...]`, which runs the
+checkout's own `node_modules/.bin/<name>` with the pinned Bun. Use it in place
+of a `bunx <name>` spelling in a guide: direct `bunx` and `bun x` ask, since
+they can download a package.
+
+| Executable | Class | Installed in | Guidance |
+| --- | --- | --- | --- |
+| `tsc` | `local`: allowed | root | `AGENTS.md` and [client SDK seams](client-sdk-seams.md) type checks |
+| `commitlint` | `local`: allowed | root | `AGENTS.md` PR title check |
+| `cap` | `local`: allowed | `packages/app-capacitor` | [Maestro](../../packages/app-capacitor/maestro/README.md) native syncs |
+| `wrangler` | `release`: asks | `packages/api`, `packages/app-web`, `packages/website` | [Worker deletion](greenfield-reset.md) and [log tails](api-request-cost.md); it can also deploy |
+
+Classify a whole executable by its riskiest subcommand, and add a CLI here and
+in `agent-tool.json` before guidance tells agents to run it. Package scripts are
+not classified, so `bun run` and `agent:run` keep the harness default.
+
 ## Source shape
 
 `bun run lint:source-shape` checks tracked working files. `--staged` checks the
