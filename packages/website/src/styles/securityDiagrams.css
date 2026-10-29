@@ -1,6 +1,6 @@
 /*
- * /security figures. Fig. 1 (SecurityArchitectureDiagram.astro) draws the
- * client and service boundaries as app windows; Fig. 2
+ * /security figures. Fig. 2 (SecurityArchitectureDiagram.astro) draws the
+ * client and service boundaries as app windows; Fig. 3
  * (SecuritySharingDiagram.astro) is a strip of square cells. In both, a solid
  * frame is the device and a dashed frame is the service, and each caption says
  * so in words. Colors come from tokens.css only.
@@ -27,7 +27,7 @@
   white-space: nowrap;
 }
 
-/* --- Fig. 1: boundaries --- */
+/* --- Fig. 2: boundaries --- */
 
 .security-boundaries {
   display: grid;
@@ -200,7 +200,7 @@
   }
 }
 
-/* --- Fig. 2: sharing flow --- */
+/* --- Fig. 3: sharing flow --- */
 
 /* Cells overlap by 1px so neighbors share one border; the padding makes room
    for the overlap on the outer edge. */
