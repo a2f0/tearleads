@@ -38,6 +38,17 @@
   font-family: var(--docs-diagram-font-sans);
 }
 
+/* Paper cannot scroll: fit the whole diagram to the page width. */
+@media print {
+  .docs-diagram-scroll {
+    overflow: visible;
+  }
+
+  .docs-diagram-svg {
+    min-width: 0;
+  }
+}
+
 .docs-diagram figcaption {
   width: min(100%, var(--site-max));
   margin: var(--site-space-3) auto 0;
