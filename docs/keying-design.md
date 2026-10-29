@@ -88,10 +88,14 @@ Second, user identity keys need an authority outside mutable API rows, such as:
 - an append-only identity transparency log with client checkpoint pinning;
 - a combination of the above.
 
-Production clients rely on a durable trust-on-first-use pin
-([trusted-user-identity.md](./developer/trusted-user-identity.md)), so
-first-contact key substitution remains possible. No object keying algorithm can
-fully fix that by itself.
+Production clients implement the first option as
+[identity links](./developer/trusted-user-identity.md#identity-links): a link
+binds the user ID, trust domain, algorithms, and both public keys, and the
+client checks it before the first pin when adding a contact, roster user, or
+group member. Other lookups, such as signer resolution and Explorer sharing,
+rely on a durable trust-on-first-use pin, so first-contact key substitution
+remains possible for an identity no link has verified. No object keying
+algorithm can fully fix that by itself.
 
 Organization administration uses reserved groups: `Admins` authorizes admins,
 and `Members` drives the roster. `Admins` is not nested into `Members`; instead
@@ -1156,8 +1160,8 @@ Deployment boundaries:
  accepts authoritative manifests and KEK targets.
 3. Transparency log inclusion and consistency proofs are optional hardening
  around the core signed-state protocol.
-4. First-contact identity trust depends on invitations, out-of-band
- verification, key transparency, or another external trust root.
+4. First-contact identity trust depends on identity links exchanged out of
+ band, invitations, key transparency, or another external trust root.
 
 ## Required Invariants
 
