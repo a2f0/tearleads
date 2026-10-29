@@ -1,0 +1,214 @@
+/*
+ * Inline docs/diagrams SVGs (DocsDiagram.astro). The diagram's own <style>
+ * block is stripped, so these rules restate its class vocabulary with colors
+ * from the --docs-diagram-* theme properties the component sets. Font sizes
+ * are SVG user units and must match the source, which positions text by them.
+ *
+ * Class vocabulary: canvas band rule title sub colhead lane lanesub box kbox
+ * name meta mono key keymono edge kedge elabel klabel step stepnum foot
+ * foothead arrowhead arrowhead-key. docsDiagram.test.ts fails when a diagram
+ * uses a class this file does not style.
+ */
+
+.docs-diagram {
+  min-width: 0;
+  margin: 0;
+}
+
+/* Place the figure directly in .website-main, outside .site-page: 100% is
+   then the viewport less the page gutters. */
+.docs-diagram-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--site-line);
+  background: var(--docs-diagram-canvas);
+  overscroll-behavior-x: contain;
+}
+
+.docs-diagram-scroll:focus-visible {
+  outline: 2px solid var(--site-focus);
+  outline-offset: 2px;
+}
+
+/* The source is 1500 units wide with 10.5-11px labels. A 75rem (1200px)
+   floor keeps them at 8.4px or more; narrower columns scroll sideways. */
+.docs-diagram-svg {
+  display: block;
+  width: 100%;
+  min-width: 75rem;
+  height: auto;
+  font-family: var(--docs-diagram-font-sans);
+}
+
+/* Paper cannot scroll: fit the whole diagram to the page width. */
+@media print {
+  .docs-diagram-scroll {
+    overflow: visible;
+  }
+
+  .docs-diagram-svg {
+    min-width: 0;
+  }
+}
+
+.docs-diagram figcaption {
+  width: min(100%, var(--site-max));
+  margin: var(--site-space-3) auto 0;
+}
+
+.docs-diagram-caption {
+  max-width: var(--site-measure);
+  color: var(--site-ink-2);
+  font-size: var(--site-text-small);
+  line-height: 1.55;
+}
+
+/* --- Surfaces --- */
+
+.docs-diagram .canvas {
+  fill: var(--docs-diagram-canvas);
+}
+
+.docs-diagram .band {
+  fill: var(--docs-diagram-band);
+}
+
+.docs-diagram .rule {
+  stroke: var(--docs-diagram-rule);
+  stroke-width: 1;
+}
+
+.docs-diagram .box,
+.docs-diagram .kbox {
+  fill: var(--docs-diagram-surface);
+  stroke-width: 1.25;
+}
+
+.docs-diagram .box {
+  stroke: var(--docs-diagram-edge);
+}
+
+.docs-diagram .kbox {
+  stroke: var(--docs-diagram-key-edge);
+  stroke-dasharray: 5 3;
+}
+
+/* --- Edges --- */
+
+.docs-diagram .edge,
+.docs-diagram .kedge {
+  fill: none;
+  stroke-width: 1.25;
+}
+
+.docs-diagram .edge {
+  stroke: var(--docs-diagram-edge);
+}
+
+.docs-diagram .kedge {
+  stroke: var(--docs-diagram-key-edge);
+  stroke-dasharray: 5 3;
+}
+
+.docs-diagram .arrowhead {
+  fill: var(--docs-diagram-edge);
+}
+
+.docs-diagram .arrowhead-key {
+  fill: var(--docs-diagram-key-edge);
+}
+
+.docs-diagram .step {
+  fill: var(--docs-diagram-step);
+}
+
+/* --- Text --- */
+
+.docs-diagram .title {
+  fill: var(--docs-diagram-ink);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.docs-diagram .sub {
+  fill: var(--docs-diagram-ink-muted);
+  font-size: 13px;
+}
+
+.docs-diagram .colhead {
+  fill: var(--docs-diagram-ink);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.docs-diagram .lane {
+  fill: var(--docs-diagram-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.docs-diagram .lanesub {
+  fill: var(--docs-diagram-ink-subtle);
+  font-size: 11.5px;
+}
+
+.docs-diagram .name {
+  fill: var(--docs-diagram-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.docs-diagram .meta {
+  fill: var(--docs-diagram-ink-muted);
+  font-size: 11.5px;
+}
+
+.docs-diagram .mono,
+.docs-diagram .keymono {
+  font-family: var(--docs-diagram-font-mono);
+  font-size: 11px;
+}
+
+.docs-diagram .mono {
+  fill: var(--docs-diagram-ink-muted);
+}
+
+.docs-diagram .key {
+  fill: var(--docs-diagram-key-ink);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.docs-diagram .keymono {
+  fill: var(--docs-diagram-key-ink);
+}
+
+.docs-diagram .elabel {
+  fill: var(--docs-diagram-ink-muted);
+  font-size: 11px;
+}
+
+.docs-diagram .klabel {
+  fill: var(--docs-diagram-ink-muted);
+  font-size: 11px;
+  font-style: italic;
+}
+
+.docs-diagram .stepnum {
+  fill: var(--docs-diagram-step-ink);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.docs-diagram .foot {
+  fill: var(--docs-diagram-ink-muted);
+  font-size: 12px;
+}
+
+.docs-diagram .foothead {
+  fill: var(--docs-diagram-ink);
+  font-size: 12px;
+  font-weight: 600;
+}

@@ -7,6 +7,7 @@
       "inputs": [
         "$TURBO_EXTENDS$",
         "$TURBO_ROOT$/assets/brand/**",
+        "$TURBO_ROOT$/docs/diagrams/**",
         "$TURBO_ROOT$/agent-tool.json"
       ]
     },
@@ -15,6 +16,7 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.screenshots/**",
         "$TURBO_ROOT$/assets/brand/**",
+        "$TURBO_ROOT$/docs/diagrams/**",
         "$TURBO_ROOT$/agent-tool.json"
       ]
     }
