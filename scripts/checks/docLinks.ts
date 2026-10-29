@@ -224,7 +224,9 @@ function checkFragment(
     const lines = readFileSync(join(repo.root, file), "utf8").split("\n");
     // A final newline ends the last line rather than starting another.
     const lineCount = lines.at(-1) === "" ? lines.length - 1 : lines.length;
+    const first = Number(lineRange[1]);
     const last = Number(lineRange[2] ?? lineRange[1]);
+    if (first < 1 || last < first) return `#${fragment} is not a line range`;
     return last <= lineCount
       ? null
       : `line ${last} is past the end of ${file} (${lineCount} lines)`;
