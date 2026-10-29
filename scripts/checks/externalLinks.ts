@@ -96,11 +96,9 @@ async function probe(
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      if (
-        /ENOTFOUND|getaddrinfo|Unable to connect|ConnectionRefused/i.test(
-          message,
-        )
-      ) {
+      // Only an unknown host proves a link dead; refused or reset connections
+      // and timeouts can be a temporary outage.
+      if (/ENOTFOUND|getaddrinfo/i.test(message)) {
         return { status: "broken", detail: message };
       }
       if (method === "GET") return { status: "unverified", detail: message };

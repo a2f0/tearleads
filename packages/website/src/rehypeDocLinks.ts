@@ -1,5 +1,7 @@
+import { rmSync } from "node:fs";
 import { relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { AstroIntegration } from "astro";
 import { resolveDocHref } from "./technicalDocs";
 
 /**
@@ -27,6 +29,22 @@ const repositoryRoot = resolve(
   fileURLToPath(new URL("../../..", import.meta.url)),
 );
 const websiteRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+
+/**
+ * Astro caches rendered content entries by source digest, so a change to this
+ * plugin or to `technicalDocs` (which decides where links point) would leave
+ * stale HTML. The collection is a few documents; drop the cache every build.
+ */
+export function freshDocsCache(): AstroIntegration {
+  return {
+    name: "fresh-docs-cache",
+    hooks: {
+      "astro:config:setup": ({ config }) => {
+        rmSync(new URL("data-store.json", config.cacheDir), { force: true });
+      },
+    },
+  };
+}
 
 export function rehypeDocLinks() {
   return (tree: HastNode, file: HastFile) => {

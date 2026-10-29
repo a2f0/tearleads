@@ -175,12 +175,20 @@ function dedupeTargets(targets: MarkdownTarget[]): MarkdownTarget[] {
  */
 export function headingAnchors(source: string): Set<string> {
   const anchors = new Set<string>();
-  const counts = new Map<string, number>();
+  // github-slugger: a repeat takes the next free -n suffix, skipping slugs
+  // that earlier headings produced literally (`A`, `A-1`, `A` -> a-2).
+  const occurrences = new Map<string, number>();
+  const slugs = new Set<string>();
   const addSlug = (text: string) => {
     const base = slugify(text);
-    const count = counts.get(base) ?? 0;
-    counts.set(base, count + 1);
-    anchors.add(count === 0 ? base : `${base}-${count}`);
+    let slug = base;
+    while (slugs.has(slug)) {
+      const count = (occurrences.get(base) ?? 0) + 1;
+      occurrences.set(base, count);
+      slug = `${base}-${count}`;
+    }
+    slugs.add(slug);
+    anchors.add(slug);
   };
   const lines = proseLines(source);
   for (const [index, line] of lines.entries()) {

@@ -64,6 +64,12 @@ test("slugs follow GitHub's heading anchors", () => {
   expect([...anchors].sort()).toEqual(
     ["pinned", "repeat", "repeat-1", "setext", "title"].sort(),
   );
+  // A literal "A-1" heading takes that slug, so the second "A" skips to a-2.
+  expect([...headingAnchors("# A\n\n# A-1\n\n# A\n")]).toEqual([
+    "a",
+    "a-1",
+    "a-2",
+  ]);
 });
 
 test("links inside code are ignored", () => {
@@ -169,6 +175,8 @@ test("external probes fail only on proven dead links", async () => {
         link(`${live.url}gone`),
         link(`${live.url}private`),
         link(`${walled.url}page`),
+        // Nothing listens on port 1: a refused connection is not proof.
+        link("http://127.0.0.1:1/refused"),
         link("https://example.com/never-probed"),
       ],
       { skipHosts: /^example\.com$/ },
@@ -184,6 +192,7 @@ test("external probes fail only on proven dead links", async () => {
       "/gone": "broken",
       "/private": "unverified",
       "/page": "unverified",
+      "/refused": "unverified",
     });
   } finally {
     live.stop(true);

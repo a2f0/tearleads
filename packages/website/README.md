@@ -84,11 +84,11 @@ drops each document's h1 (the page header renders the listed title) and wraps
 tables in a scrollable region. Code blocks render unhighlighted to suit the
 grayscale theme. To publish another document, add it to `technicalDocs` and,
 if it lives outside `docs/*.md` and `formal/*.md`, to the `build` and `test`
-inputs in `turbo.json`. Astro caches rendered entries in
-`node_modules/.astro/data-store.json` and does not notice edits to the plugin's
-source; delete that file after changing `rehypeDocLinks.ts`.
-`bun run lint:doc-links` validates the links in the source Markdown; see
-[documentation links](../../docs/developer/static-analysis.md#documentation-links).
+inputs in `turbo.json`. Astro caches rendered entries by source digest and
+would not notice a plugin or registry change, so `freshDocsCache` drops that
+cache at the start of every build. `bun run lint:doc-links` validates the
+links in the source Markdown; see [documentation
+links](../../docs/developer/static-analysis.md#documentation-links).
 
 ## Search and link previews
 
