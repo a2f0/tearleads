@@ -9,11 +9,11 @@ and which approaches did not pay off. Re-measure before acting on any of it.
 ## Where the time goes
 
 CI runs the API, app, and client SDK suites in their own `Test (...)` jobs; see
-[CI and merge requirements](ci-merge-gate.md). The app suite is usually the
-longest, so API and SDK savings alone rarely shorten CI. It runs its files in
-two workers, each running one test at a time (`--max-concurrency=1`), so its
-case sums approximate twice its elapsed time. The API
-suite runs its PGlite (`API_DATABASE=memory`) and SQLite backends concurrently;
+[CI and merge requirements](ci-merge-gate.md). The app and API suites are the
+longest, so SDK savings alone rarely shorten CI. The app suite runs its files
+in two workers, each running one test at a time (`--max-concurrency=1`), so its
+case sums approximate twice its elapsed time. The API suite runs its PGlite
+(`API_DATABASE=memory`) and SQLite backends concurrently, each in two workers;
 adding their durations does not predict CI time saved.
 
 Bun's case sums omit hooks and any case without a parsed duration, so they
@@ -84,20 +84,24 @@ Some of that cost is deliberate:
   multi-file run, because suite setup can mask a missing scope when a file runs
   alone.
 
-- **Run the client SDK and app files in two workers.** `bun test` otherwise
-  runs a package's files one after another in a single process. Both suites
-  pass `--parallel=2 --no-isolate`: each worker keeps one global across the
-  files it runs, as the serial run did, so CPU time stays the same while wall
-  time halves (SDK 528 s to 257 s locally, 3,996 tests either way; app 890 s
-  to 402 s back to back on a shared host, 2,838 tests either way). Plain
-  `--parallel` implies `--isolate` and cost about 2.4 times the CPU for the SDK
-  and 1.5 times for the app.
+- **Run the client SDK, app, and API files in two workers.** `bun test`
+  otherwise runs a package's files one after another in a single process. All
+  three suites pass `--parallel=2 --no-isolate` (the API passes it to each
+  backend in `packages/api/scripts/testAllDatabases.ts`): each worker keeps one
+  global across the files it runs, as the serial run did, so CPU time stays the
+  same while wall time halves (SDK 528 s to 257 s locally, 3,996 tests either
+  way; app 890 s to 402 s back to back on a shared host, 2,838 tests either
+  way; API 996 s to 510 s, 2,191 tests per backend either way). Plain
+  `--parallel` implies `--isolate` and cost about 2.4 times the CPU for the
+  SDK, 1.5 times for the app, and 2 times for the API (880 s wall). CI's
+  4-vCPU runner fits the API's two backends times two workers.
 - **Keep worker-safe preload hooks.** In a `--parallel` run Bun calls a
   preload's `afterAll` after every file, not once per run, while
-  `--no-isolate` keeps module state for the worker's next file. The app
-  preload therefore closes the API test adapters only in a serial run
+  `--no-isolate` keeps module state for the worker's next file. The app and
+  API preloads therefore close the API test adapters only in a serial run
   (`BUN_TEST_WORKER_ID` is unset); closing them per file left later files a
-  closed PGlite, which is why the app suite first failed in parallel.
+  closed PGlite (`PGlite is closed`), which is why both suites first failed in
+  parallel.
 - **Scope a process-wide swap to the calls that need it.** Which file runs
   first in a worker decides which one pays for process-wide setup.
   `runWithBunFetchLock` in `@tearleads/sqlite-worker` used to point
@@ -127,10 +131,17 @@ bug the test correctly detected.
   that same snapshot. The runtime settle point tracks proxied traffic and quiet
   time, while the client counts a request until its response resolves, so
   Explorer queries could still be in flight right after settling.
-- An unexplained failure mode remains in the same-identity file:
-  `Primary session did not materialize the new organization profile name`.
-  It has not reproduced locally, and its CI DOM dumps are truncated before the
-  organization selector.
+- An unexplained failure mode in the same-identity file,
+  `Primary session did not materialize the new organization profile name`,
+  failed CI twice, both on `main` on 2026-10-14, and in no failed or retried
+  CI attempt among the roughly 370 runs since. Neither log shows
+  `ECONNREFUSED`, the signature of the SQLite fetch swap above, and the flake
+  stopped two weeks before that fix, so the swap does not explain it. The
+  file's own log section holds only the timeout, React's act-environment
+  warnings, and a DOM dump truncated before the organization selector. On
+  current `main` the file passed 50 of 50 local runs (20 alone, 30 in six
+  concurrent loops). If it returns, capture the selector's options and the
+  organization runtime state at the timeout.
 
 ## Approaches that did not pay off
 
